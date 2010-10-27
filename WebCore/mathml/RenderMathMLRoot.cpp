@@ -151,7 +151,7 @@ void RenderMathMLRoot::paint(PaintInfo& info, int tx, int ty)
     
     info.context->setStrokeThickness(gRadicalLineThickness * style()->fontSize());
     info.context->setStrokeStyle(SolidStroke);
-    info.context->setStrokeColor(style()->visitedDependentColor(CSSPropertyColor), DeviceColorSpace);
+    info.context->setStrokeColor(style()->visitedDependentColor(CSSPropertyColor), ColorSpaceDeviceRGB);
     info.context->setLineJoin(MiterJoin);
     info.context->setMiterLimit(style()->fontSize());
     
@@ -190,9 +190,9 @@ void RenderMathMLRoot::paint(PaintInfo& info, int tx, int ty)
     info.context->setLineCap(SquareCap);
     
     Path line;
-    
-    line = line.createLine(bottomLeft, topLeft);
-    
+    line.moveTo(bottomLeft);
+    line.addLineTo(topLeft);
+
     info.context->beginPath();
     info.context->addPath(line);
     info.context->strokePath();

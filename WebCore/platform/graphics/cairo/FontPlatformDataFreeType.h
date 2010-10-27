@@ -57,6 +57,7 @@ public:
     FontPlatformData(cairo_font_face_t* fontFace, float size, bool bold, bool italic);
     FontPlatformData(float size, bool bold, bool italic);
     FontPlatformData(const FontPlatformData&);
+    FontPlatformData(const FontPlatformData&, float size);
 
     ~FontPlatformData();
 
@@ -89,7 +90,11 @@ public:
     float m_size;
     bool m_syntheticBold;
     bool m_syntheticOblique;
+    bool m_fixedWidth;
     PlatformRefPtr<cairo_scaled_font_t> m_scaledFont;
+
+private:
+    void initializeWithFontFace(cairo_font_face_t*);
 };
 
 }

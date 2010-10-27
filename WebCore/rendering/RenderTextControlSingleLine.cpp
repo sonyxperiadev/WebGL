@@ -372,7 +372,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
     if (event->type() == eventNames().blurEvent) {
         if (innerTextRenderer) {
             if (RenderLayer* innerLayer = innerTextRenderer->layer())
-                innerLayer->scrollToOffset(style()->direction() == RTL ? innerLayer->scrollWidth() : 0, 0);
+                innerLayer->scrollToOffset(!style()->isLeftToRightDirection() ? innerLayer->scrollWidth() : 0, 0);
         }
 
         capsLockStateMayHaveChanged();
@@ -687,11 +687,18 @@ void RenderTextControlSingleLine::updateFromElement()
     } else {
         if (!inputElement()->suggestedValue().isNull())
             setInnerTextValue(inputElement()->suggestedValue());
-        else if (!node()->isHTMLElement() || !static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer())
-            // For HTMLInputElement, update the renderer value only if the
-            // formControlValueMatchesRenderer() flag is false. It protects an
-            // unacceptable renderer value from being overwritten with the DOM value.
-            setInnerTextValue(inputElement()->value());
+        else {
+            bool shouldUpdateValue = true;
+            if (node()->isHTMLElement()) {
+                // For HTMLInputElement, update the renderer value if the element
+                // supports placeholder or the formControlValueMatchesRenderer()
+                // flag is false. It protects an unacceptable renderer value from
+                // being overwritten with the DOM value.
+                shouldUpdateValue = static_cast<HTMLTextFormControlElement*>(node())->supportsPlaceholder() || !static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer();
+            }
+            if (shouldUpdateValue)
+                setInnerTextValue(inputElement()->value());
+        }
     }
 
     if (m_searchPopupIsVisible)
@@ -723,7 +730,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
     textBlockStyle->setOverflowY(OHIDDEN);
 
     // Do not allow line-height to be smaller than our default.
-    if (textBlockStyle->font().lineSpacing() > lineHeight(true, true))
+    if (textBlockStyle->font().lineSpacing() > lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes))
         textBlockStyle->setLineHeight(Length(-100.0f, Percent));
 
     WebCore::EDisplay display = (m_innerBlock || inputElement()->hasSpinButton() ? INLINE_BLOCK : BLOCK);

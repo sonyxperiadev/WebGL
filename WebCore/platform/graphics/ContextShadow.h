@@ -31,6 +31,7 @@
 
 #include "Color.h"
 #include "FloatRect.h"
+#include "GraphicsContext.h"
 #include "IntRect.h"
 #include "RefCounted.h"
 
@@ -65,7 +66,7 @@ public:
     } m_type;
 
     Color m_color;
-    int m_blurRadius;
+    int m_blurDistance;
     FloatSize m_offset;
 
     ContextShadow();
@@ -98,6 +99,9 @@ public:
     PlatformContext beginShadowLayer(PlatformContext, const FloatRect& layerArea);
     void endShadowLayer(PlatformContext);
     static void purgeScratchBuffer();
+#if PLATFORM(CAIRO)
+    void drawRectShadow(GraphicsContext* context, const IntRect& rect, const IntSize& topLeftRadius = IntSize(), const IntSize& topRightRadius = IntSize(), const IntSize& bottomLeftRadius = IntSize(), const IntSize& bottomRightRadius = IntSize());
+#endif
 
 #if PLATFORM(QT)
     QPointF offset() { return QPointF(m_offset.width(), m_offset.height()); }
@@ -111,6 +115,9 @@ private:
 
     void blurLayerImage(unsigned char*, const IntSize& imageSize, int stride);
     void calculateLayerBoundingRect(const FloatRect& layerArea, const IntRect& clipRect);
+#if PLATFORM(CAIRO)
+    void drawRectShadowWithoutTiling(PlatformContext context, const IntRect& shadowRect, const IntSize& topLeftRadius, const IntSize& topRightRadius, const IntSize& bottomLeftRadius, const IntSize& bottomRightRadius, float alpha);
+#endif
 };
 
 } // namespace WebCore

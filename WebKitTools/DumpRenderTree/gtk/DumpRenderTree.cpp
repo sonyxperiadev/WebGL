@@ -131,9 +131,29 @@ static void appendString(gchar*& target, gchar* string)
     g_free(oldString);
 }
 
-static void initializeFonts()
+static void initializeGtkFontSettings(const char* testURL)
+{
+    GtkSettings* settings = gtk_settings_get_default();
+    if (!settings)
+        return;
+    g_object_set(settings, "gtk-xft-antialias", 1, NULL);
+    g_object_set(settings, "gtk-xft-hinting", 1, NULL);
+    g_object_set(settings, "gtk-xft-hintstyle", "hintfull", NULL);
+    g_object_set(settings, "gtk-font-name", "Liberation Sans 16", NULL);
+
+    // One test needs subpixel anti-aliasing turned on, but generally we
+    // want all text in other tests to use to grayscale anti-aliasing.
+    if (testURL && strstr(testURL, "xsettings_antialias_settings.html"))
+        g_object_set(settings, "gtk-xft-rgba", "rgb", NULL);
+    else
+        g_object_set(settings, "gtk-xft-rgba", "none", NULL);
+}
+
+static void initializeFonts(const char* testURL = 0)
 {
 #if PLATFORM(X11)
+    initializeGtkFontSettings(testURL);
+
     FcInit();
 
     // If a test resulted a font being added or removed via the @font-face rule, then
@@ -177,6 +197,8 @@ static void initializeFonts()
           "/usr/share/fonts/liberation/LiberationSerif-Regular.ttf", },
         { "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf",
           "/usr/share/fonts/dejavu/DejaVuSans.ttf", },
+        { "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSerif.ttf",
+          "/usr/share/fonts/dejavu/DejaVuSerif.ttf", },
     };
 
     // TODO: Some tests use Lucida. We should load these as well, once it becomes
@@ -363,6 +385,7 @@ static void resetDefaultsToConsistentValues()
                  "enable-html5-local-storage", TRUE,
                  "enable-xss-auditor", FALSE,
                  "enable-spatial-navigation", FALSE,
+                 "enable-frame-flattening", FALSE,
                  "javascript-can-access-clipboard", TRUE,
                  "javascript-can-open-windows-automatically", TRUE,
                  "enable-offline-web-application-cache", TRUE,
@@ -373,6 +396,8 @@ static void resetDefaultsToConsistentValues()
                  "monospace-font-family", "Courier",
                  "serif-font-family", "Times",
                  "sans-serif-font-family", "Helvetica",
+                 "cursive-font-family", "cursive",
+                 "fantasy-font-family", "fantasy",
                  "default-font-size", 16,
                  "default-monospace-font-size", 13,
                  "minimum-font-size", 1,
@@ -393,6 +418,9 @@ static void resetDefaultsToConsistentValues()
     webkit_web_view_set_zoom_level(webView, 1.0);
 
     webkit_reset_origin_access_white_lists();
+
+    WebKitWebBackForwardList* list = webkit_web_view_get_back_forward_list(webView);
+    webkit_web_back_forward_list_clear(list);
 
 #ifdef HAVE_LIBSOUP_2_29_90
     SoupSession* session = webkit_get_default_session();
@@ -610,7 +638,7 @@ static void runTest(const string& testPathOrURL)
     if (prevTestBFItem)
         g_object_ref(prevTestBFItem);
 
-    initializeFonts();
+    initializeFonts(testURL.c_str());
 
     // Focus the web view before loading the test to avoid focusing problems
     gtk_widget_grab_focus(GTK_WIDGET(webView));

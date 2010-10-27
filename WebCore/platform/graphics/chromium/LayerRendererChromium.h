@@ -59,9 +59,8 @@ class GraphicsContext3D;
 // Class that handles drawing of composited render layers using GL.
 class LayerRendererChromium : public RefCounted<LayerRendererChromium> {
 public:
-    static PassRefPtr<LayerRendererChromium> create(PassOwnPtr<GraphicsContext3D> graphicsContext3D);
+    static PassRefPtr<LayerRendererChromium> create(PassRefPtr<GraphicsContext3D> graphicsContext3D);
 
-    LayerRendererChromium(PassOwnPtr<GraphicsContext3D> graphicsContext3D);
     ~LayerRendererChromium();
 
     GraphicsContext3D* context();
@@ -93,6 +92,8 @@ public:
     unsigned createLayerTexture();
     void deleteLayerTexture(unsigned);
 
+    IntRect currentScissorRect() const { return m_currentScissorRect; }
+
     static void debugGLCall(GraphicsContext3D*, const char* command, const char* file, int line);
 
     const TransformationMatrix& projectionMatrix() const { return m_projectionMatrix; }
@@ -109,12 +110,15 @@ public:
     void resizeOnscreenContent(const IntSize&);
 
     IntSize rootLayerTextureSize() const { return IntSize(m_rootLayerTextureWidth, m_rootLayerTextureHeight); }
+    IntRect rootLayerContentRect() const { return m_rootContentRect; }
     void getFramebufferPixels(void *pixels, const IntRect& rect);
 
 private:
+    explicit LayerRendererChromium(PassRefPtr<GraphicsContext3D> graphicsContext3D);
+
     void updateLayersRecursive(LayerChromium* layer, const TransformationMatrix& parentMatrix, float opacity);
 
-    void drawLayersRecursive(LayerChromium*, const FloatRect& scissorRect);
+    void drawLayersRecursive(LayerChromium*);
 
     void drawLayer(LayerChromium*);
 
@@ -122,7 +126,7 @@ private:
 
     void drawLayerIntoStencilBuffer(LayerChromium*, bool decrement);
 
-    void scissorToRect(const FloatRect&);
+    void scissorToRect(const IntRect&);
 
     bool makeContextCurrent();
 
@@ -160,6 +164,8 @@ private:
     IntSize m_rootLayerCanvasSize;
 
     IntRect m_rootVisibleRect;
+    IntRect m_rootContentRect;
+    IntRect m_currentScissorRect;
 
     int m_maxTextureSize;
 
@@ -174,7 +180,7 @@ private:
     OwnPtr<CanvasLayerChromium::SharedValues> m_canvasLayerSharedValues;
     OwnPtr<VideoLayerChromium::SharedValues> m_videoLayerSharedValues;
 
-    OwnPtr<GraphicsContext3D> m_context;
+    RefPtr<GraphicsContext3D> m_context;
 };
 
 // Setting DEBUG_GL_CALLS to 1 will call glGetError() after almost every GL

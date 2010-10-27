@@ -36,7 +36,6 @@
         'features.gypi',
     ],
     'variables': {
-        'webkit_target_type': 'static_library',
         'conditions': [
             # Location of the chromium src directory and target type is different
             # if webkit is built inside chromium or as standalone project.
@@ -44,6 +43,7 @@
                 # Webkit is being built outside of the full chromium project.
                 # e.g. via build-webkit --chromium
                 'chromium_src_dir': '../../WebKit/chromium',
+                'webkit_target_type': 'static_library',
 
                 # List of DevTools source files, ordered by dependencies. It is used both
                 # for copying them to resource dir, and for generating 'devtools.html' file.
@@ -54,6 +54,7 @@
             },{
                 # WebKit is checked out in src/chromium/third_party/WebKit
                 'chromium_src_dir': '../../../..',
+                'webkit_target_type': '<(library)',
 
                 'devtools_files': [
                     '<@(devtools_css_files)',
@@ -95,6 +96,7 @@
                 'public/linux/WebFontRendering.h',
                 'public/linux/WebFontRenderStyle.h',
                 'public/linux/WebRenderTheme.h',
+                'public/linux/WebThemeEngine.h',
                 'public/x11/WebScreenInfoFactory.h',
                 'public/mac/WebInputEventFactory.h',
                 'public/mac/WebSandboxSupport.h',
@@ -110,7 +112,6 @@
                 'public/WebBindings.h',
                 'public/WebBlobData.h',
                 'public/WebBlobRegistry.h',
-                'public/WebBlobStorageData.h',
                 'public/WebCache.h',
                 'public/WebCanvas.h',
                 'public/WebClipboard.h',
@@ -148,6 +149,7 @@
                 'public/WebDragData.h',
                 'public/WebEditingAction.h',
                 'public/WebElement.h',
+                'public/WebExceptionCode.h',
                 'public/WebFileChooserCompletion.h',
                 'public/WebFileChooserParams.h',
                 'public/WebFileError.h',
@@ -231,6 +233,7 @@
                 'public/WebRange.h',
                 'public/WebRect.h',
                 'public/WebRegularExpression.h',
+                'public/WebResourceRawHeaders.h',
                 'public/WebRuntimeFeatures.h',
                 'public/WebScrollbar.h',
                 'public/WebScrollbarClient.h',
@@ -261,7 +264,7 @@
                 'public/WebTextDirection.h',
                 'public/WebTextInputType.h',
                 'public/WebTextRun.h',
-                'public/WebThemeEngine.h',
+                'public/WebThreadSafeData.h',
                 'public/WebURL.h',
                 'public/WebURLError.h',
                 'public/WebURLLoader.h',
@@ -279,6 +282,7 @@
                 'public/win/WebInputEventFactory.h',
                 'public/win/WebSandboxSupport.h',
                 'public/win/WebScreenInfoFactory.h',
+                'public/win/WebThemeEngine.h',
                 'src/ApplicationCacheHost.cpp',
                 'src/ApplicationCacheHostInternal.h',
                 'src/AssertMatchingEnums.cpp',
@@ -324,7 +328,7 @@
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/FrameNetworkingContextImpl.h',
-                'src/GraphicsContext3D.cpp',
+                'src/GraphicsContext3DChromium.cpp',
                 'src/GraphicsContext3DInternal.h',
                 'src/gtk/WebFontInfo.cpp',
                 'src/gtk/WebFontInfo.h',
@@ -386,7 +390,6 @@
                 'src/WebAttribute.cpp',
                 'src/WebBindings.cpp',
                 'src/WebBlobData.cpp',
-                'src/WebBlobStorageData.cpp',
                 'src/WebCache.cpp',
                 'src/WebColor.cpp',
                 'src/WebCommon.cpp',
@@ -495,6 +498,7 @@
                 'src/WebPopupMenuImpl.h',
                 'src/WebRange.cpp',
                 'src/WebRegularExpression.cpp',
+                'src/WebResourceRawHeaders.cpp',
                 'src/WebRuntimeFeatures.cpp',
                 'src/WebScriptController.cpp',
                 'src/WebScrollbarImpl.cpp',
@@ -518,6 +522,7 @@
                 'src/WebStorageNamespaceImpl.h',
                 'src/WebString.cpp',
                 'src/WebTextRun.cpp',
+                'src/WebThreadSafeData.cpp',
                 'src/WebURL.cpp',
                 'src/WebURLLoadTiming.cpp',
                 'src/WebURLRequest.cpp',
@@ -533,6 +538,8 @@
                 'src/WebWorkerClientImpl.h',
                 'src/WebWorkerImpl.cpp',
                 'src/WebWorkerImpl.h',
+                'src/WorkerAsyncFileSystemChromium.cpp',
+                'src/WorkerAsyncFileSystemChromium.h',
                 'src/WorkerFileSystemCallbacksBridge.cpp',
                 'src/WorkerFileSystemCallbacksBridge.h',
                 'src/WrappedResourceRequest.h',
@@ -551,7 +558,9 @@
                             ],
                             'dependencies': [
                                 '../../WebCore/WebCore.gyp/WebCore.gyp:webcore_bindings',
+                                '<(chromium_src_dir)/base/base.gyp:test_support_base',
                                 '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
+                                '<(chromium_src_dir)/testing/gtest.gyp:gtest',
                                 '<(chromium_src_dir)/third_party/icu/icu.gyp:*',
                                 '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
                                 '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
@@ -572,6 +581,13 @@
                                 '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
                                 '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
                             ],
+                            'sources': [
+                                '<@(webkit_unittest_files)',
+                                'tests/PopupMenuTest.cpp',
+                                'tests/TransparencyWinTest.cpp',
+                                'tests/UniscribeHelperTest.cpp',
+                                'tests/WebUnitTests.cpp'
+                            ]
                         }],
                     ],
                 }, {
@@ -602,11 +618,6 @@
                     'sources/': [
                         ['exclude', 'Skia\\.cpp$'],
                     ],
-                    'variables': {
-                        # FIXME: Turn on warnings on other platforms and for
-                        # other targets.
-                        'chromium_code': 1,
-                    }
                 }, { # else: OS!="mac"
                     'sources/': [
                         ['exclude', '/mac/'],
@@ -619,6 +630,10 @@
                     ],
                 }, { # else: OS!="win"
                     'sources/': [['exclude', '/win/']],
+                    'variables': {
+                        # FIXME: Turn on warnings on Windows.
+                        'chromium_code': 1,
+                    }
                 }],
                 ['"ENABLE_3D_CANVAS=1" in feature_defines', {
                     'conditions': [
@@ -631,6 +646,12 @@
                         }],
                     ],
                 }],
+                ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
+                    'sources/': [
+                        ['exclude', 'WebGeolocationService.*$'],
+                        ['include', 'WebGeolocationServiceMock.*'],
+                    ],
+                }]
             ],
         },
 
@@ -717,40 +738,32 @@
 
         {
             'target_name': 'webkit_unit_tests',
+            'type': 'executable',
+            'msvs_guid': '7CEFE800-8403-418A-AD6A-2D52C6FC3EAD',
+            'dependencies': [
+                'webkit',
+                '../../WebCore/WebCore.gyp/WebCore.gyp:webcore',
+                '<(chromium_src_dir)/testing/gtest.gyp:gtest',
+                '<(chromium_src_dir)/base/base.gyp:base',
+                '<(chromium_src_dir)/base/base.gyp:base_i18n',
+                '<(chromium_src_dir)/base/base.gyp:test_support_base',
+                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
+            ],
+            'sources': [
+                'tests/RunAllTests.cpp',
+            ],
+            'include_dirs': [
+                'public',
+                'src',
+            ],
             'conditions': [
-                # FIXME: make webkit unit tests working for multi dll build.
                 ['inside_chromium_build==1 and OS=="win" and component=="shared_library"', {
-                    'type': 'none',
+                    'defines': [
+                        'WEBKIT_DLL_UNITTEST',
+                    ],
                 }, {
-                    'type': 'executable',
-                    'msvs_guid': '7CEFE800-8403-418A-AD6A-2D52C6FC3EAD',
-                    'dependencies': [
-                        'webkit',
-                        '../../WebCore/WebCore.gyp/WebCore.gyp:webcore',
-                        '<(chromium_src_dir)/testing/gtest.gyp:gtest',
-                        '<(chromium_src_dir)/base/base.gyp:base',
-                        '<(chromium_src_dir)/base/base.gyp:base_i18n',
-                        '<(chromium_src_dir)/base/base.gyp:test_support_base',
-                        '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
-                    ],
-                    'include_dirs': [
-                        'public',
-                        'src',
-                    ],
                     'sources': [
-                        'tests/ArenaTestHelpers.h',
-                        'tests/DragImageTest.cpp',
-                        'tests/IDBBindingUtilitiesTest.cpp',
-                        'tests/IDBKeyPathTest.cpp',
-                        'tests/KeyboardTest.cpp',
-                        'tests/KURLTest.cpp',
-                        'tests/PODArenaTest.cpp',
-                        'tests/PODIntervalTreeTest.cpp',
-                        'tests/PODRedBlackTreeTest.cpp',
-                        'tests/RunAllTests.cpp',
-                        'tests/TilingDataTest.cpp',
-                        'tests/TreeTestHelpers.cpp',
-                        'tests/TreeTestHelpers.h',
+                        '<@(webkit_unittest_files)',
                     ],
                     'conditions': [
                         ['OS=="win"', {
@@ -775,6 +788,10 @@
                             'include_dirs': [
                                 'public/gtk',
                             ],
+                            'variables': {
+                              # FIXME: Enable warnings on other platforms.
+                              'chromium_code': 1,
+                            },
                         }],
                     ],
                 }],
@@ -808,11 +825,11 @@
                 '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
                 '<(chromium_src_dir)/third_party/mesa/mesa.gyp:osmesa',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
-                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
             ],
             'include_dirs': [
-                '.',
+                '<(chromium_src_dir)',
+                'public',
                 '../../JavaScriptCore',
                 '../../JavaScriptCore/wtf', # wtf/text/*.h refers headers in wtf/ without wtf/.
                 '<(DEPTH)',
@@ -882,8 +899,11 @@
                     ], # actions
                 }],
                 ['OS=="mac"', {
-                    'dependencies': ['LayoutTestHelper'],
-
+                    'dependencies': [
+                        'copy_mesa',
+                        'LayoutTestHelper',
+                        'TestNetscapePlugIn',
+                    ],
                     'mac_bundle_resources': [
                         '<(ahem_path)',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher100.ttf',
@@ -899,14 +919,18 @@
                     ],
                     # Workaround for http://code.google.com/p/gyp/issues/detail?id=160
                     'copies': [{
-                        'destination': '<(PRODUCT_DIR)/DumpRenderTree.app/Contents/PlugIns/',
-                        'files': ['<(PRODUCT_DIR)/TestNetscapePlugIn.plugin/'],
+                        'destination': '<(PRODUCT_DIR)/plugins/',
+                        'files': ['<(PRODUCT_DIR)/WebKitTestNetscapePlugIn.plugin/'],
                     }],
                 },{ # OS!="mac"
                     'sources/': [
                         # .mm is already excluded by common.gypi
                         ['exclude', 'Mac\\.cpp$'],
-                    ]
+                    ],
+                    'dependencies': [
+                        # FIXME: Switch to webkit.org's plugin.
+                        '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
+                    ],
                 }],
                 ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
                     'dependencies': [
@@ -924,6 +948,10 @@
                             '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
                         ]
                     }],
+                    'variables': {
+                      # FIXME: Enable warnings on other platforms.
+                      'chromium_code': 1,
+                    },
                 },{ # OS!="linux" and OS!="freebsd" and OS!="openbsd" and OS!="solaris"
                     'sources/': [
                         ['exclude', '(Gtk|Linux)\\.cpp$']
@@ -952,6 +980,51 @@
                         ],
                     },
                 },
+                {
+                    'target_name': 'copy_mesa',
+                    'type': 'none',
+                    'dependencies': ['<(chromium_src_dir)/third_party/mesa/mesa.gyp:osmesa'],
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)/DumpRenderTree.app/Contents/MacOS/',
+                        'files': ['<(PRODUCT_DIR)/osmesa.so'],
+                    }],
+                },
+                {
+                    'target_name': 'TestNetscapePlugIn',
+                    'type': 'loadable_module',
+                    'sources': [ '<@(test_plugin_files)' ],
+                    'dependencies': [
+                        '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
+                    ],
+                    'include_dirs': [
+                        '<(chromium_src_dir)',
+                        '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn',
+                        '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders',
+                    ],
+
+                    # Mac specific stuff.
+                    'mac_bundle': 1,
+                    # It would be nice to name this TestNetscapePlugIn, but
+                    # that name is already used by the fork of this plugin in
+                    # Chromium.
+                    'product_name': 'WebKitTestNetscapePlugIn',
+                    'product_extension': 'plugin',
+                    'link_settings': {
+                        'libraries': [
+                            '$(SDKROOT)/System/Library/Frameworks/Carbon.framework',
+                            '$(SDKROOT)/System/Library/Frameworks/Cocoa.framework',
+                            '$(SDKROOT)/System/Library/Frameworks/QuartzCore.framework',
+                        ]
+                    },
+                    'xcode_settings': {
+                        'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
+                        # This is a temporary fork of
+                        # DRT/TestNetscapePlugIn/mac/Info.plist.  Once we get
+                        # rid of our forked plugin in the chromium repo, we
+                        # can share the same Info.plist.
+                        'INFOPLIST_FILE': '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/Info.plist',
+                    },
+                }
             ],
         }],
     ], # conditions

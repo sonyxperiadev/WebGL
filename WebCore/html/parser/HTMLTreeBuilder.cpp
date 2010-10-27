@@ -1422,7 +1422,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             || token.name() == keygenTag
             || token.name() == textareaTag) {
             parseError(token);
-            if (!m_tree.openElements()->inTableScope(selectTag)) {
+            if (!m_tree.openElements()->inSelectScope(selectTag)) {
                 ASSERT(isParsingFragment());
                 return;
             }
@@ -1849,7 +1849,7 @@ void HTMLTreeBuilder::processEndTagForInCell(AtomicHTMLToken& token)
         || token.name() == trTag
         || isTableBodyContextTag(token.name())) {
         if (!m_tree.openElements()->inTableScope(token.name())) {
-            ASSERT(isParsingFragment());
+            ASSERT(isTableBodyContextTag(token.name()) || isParsingFragment());
             parseError(token);
             return;
         }
@@ -2279,7 +2279,7 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
             return;
         }
         if (token.name() == selectTag) {
-            if (!m_tree.openElements()->inTableScope(token.name())) {
+            if (!m_tree.openElements()->inSelectScope(token.name())) {
                 ASSERT(isParsingFragment());
                 parseError(token);
                 return;

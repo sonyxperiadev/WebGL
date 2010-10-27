@@ -72,7 +72,7 @@ static void            gtk_xtbin_class_init (GtkXtBinClass *klass);
 static void            gtk_xtbin_init       (GtkXtBin      *xtbin);
 static void            gtk_xtbin_realize    (GtkWidget      *widget);
 static void            gtk_xtbin_unrealize    (GtkWidget      *widget);
-static void            gtk_xtbin_destroy    (GtkObject      *object);
+static void            gtk_xtbin_dispose    (GObject      *object);
 
 /* Xt aware XEmbed */
 static void       xt_client_init      (XtClient * xtclient, 
@@ -244,7 +244,7 @@ static void
 gtk_xtbin_class_init (GtkXtBinClass *klass)
 {
   GtkWidgetClass *widget_class;
-  GtkObjectClass *object_class;
+  GObjectClass   *object_class;
 
   parent_class = g_type_class_peek_parent (klass);
 
@@ -252,8 +252,8 @@ gtk_xtbin_class_init (GtkXtBinClass *klass)
   widget_class->realize = gtk_xtbin_realize;
   widget_class->unrealize = gtk_xtbin_unrealize;
 
-  object_class = GTK_OBJECT_CLASS (klass);
-  object_class->destroy = gtk_xtbin_destroy;
+  object_class = G_OBJECT_CLASS (klass);
+  object_class->dispose = gtk_xtbin_dispose;
 }
 
 static void
@@ -326,8 +326,9 @@ gtk_xtbin_new (GdkWindow *parent_window, String * f)
 {
   GtkXtBin *xtbin;
   gpointer user_data;
+  GdkScreen *screen;
   GdkVisual* visual;
-  GdkColormap* colormap;
+  Colormap colormap;
 
   assert(parent_window != NULL);
   xtbin = g_object_new (GTK_TYPE_XTBIN, NULL);
@@ -341,12 +342,15 @@ gtk_xtbin_new (GdkWindow *parent_window, String * f)
   /* Initialize the Xt toolkit */
   xtbin->parent_window = parent_window;
 
-  visual = gtk_widget_get_default_visual();
-  colormap = gtk_widget_get_default_colormap();
+  screen = gtk_widget_get_screen(GTK_WIDGET(parent_window));
+  visual = gdk_screen_get_system_visual(screen);
+  colormap = XCreateColormap(GDK_DISPLAY_XDISPLAY(gdk_screen_get_display(screen)),
+                             GDK_WINDOW_XWINDOW(gdk_screen_get_root_window(screen)),
+                             GDK_VISUAL_XVISUAL(visual), AllocNone);
 
   xt_client_init(&(xtbin->xtclient), 
                  GDK_VISUAL_XVISUAL(visual),
-                 GDK_COLORMAP_XCOLORMAP(colormap),
+                 colormap,
                  gdk_visual_get_depth(visual));
 
   if (!xtbin->xtclient.xtdisplay) {
@@ -480,7 +484,7 @@ gtk_xtbin_unrealize (GtkWidget *object)
 }
 
 static void
-gtk_xtbin_destroy (GtkObject *object)
+gtk_xtbin_dispose (GObject *object)
 {
   GtkXtBin *xtbin;
 
@@ -514,7 +518,7 @@ gtk_xtbin_destroy (GtkObject *object)
     }
   }
 
-  GTK_OBJECT_CLASS(parent_class)->destroy(object);
+  G_OBJECT_CLASS(parent_class)->dispose(object);
 }
 
 /*

@@ -33,9 +33,12 @@ namespace WebCore {
 
 class DoubleBufferedTexture {
 public:
+#ifdef DEBUG_COUNT
+    static int count();
+#endif
     // consumer thread functions
     DoubleBufferedTexture(EGLContext sharedContext);
-    virtual ~DoubleBufferedTexture() { }
+    virtual ~DoubleBufferedTexture();
 
     // provider thread functions
     virtual TextureInfo* producerLock();

@@ -59,7 +59,7 @@ void WebCache::doClear()
     if (m_isClearInProgress)
         return;
     m_isClearInProgress = true;
-    URLRequestContext* context = WebRequestContext::GetContext(false /* isPrivateBrowsing */);
+    URLRequestContext* context = WebRequestContext::get(false /* isPrivateBrowsing */);
     net::HttpTransactionFactory* factory = context->http_transaction_factory();
     int code = factory->GetCache()->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
     // Code ERR_IO_PENDING indicates that the operation is still in progress and

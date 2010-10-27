@@ -35,25 +35,25 @@
 #include "TestNavigationController.h"
 #include "TestShell.h"
 #include "TestWebWorker.h"
-#include "public/WebCString.h"
-#include "public/WebConsoleMessage.h"
-#include "public/WebContextMenuData.h"
-#include "public/WebDataSource.h"
-#include "public/WebDragData.h"
-#include "public/WebElement.h"
-#include "public/WebFrame.h"
-#include "public/WebGeolocationServiceMock.h"
-#include "public/WebHistoryItem.h"
-#include "public/WebNode.h"
-#include "public/WebRange.h"
-#include "public/WebRect.h"
-#include "public/WebScreenInfo.h"
-#include "public/WebSize.h"
-#include "public/WebStorageNamespace.h"
-#include "public/WebURLRequest.h"
-#include "public/WebURLResponse.h"
-#include "public/WebView.h"
-#include "public/WebWindowFeatures.h"
+#include "WebCString.h"
+#include "WebConsoleMessage.h"
+#include "WebContextMenuData.h"
+#include "WebDataSource.h"
+#include "WebDragData.h"
+#include "WebElement.h"
+#include "WebFrame.h"
+#include "WebGeolocationServiceMock.h"
+#include "WebHistoryItem.h"
+#include "WebNode.h"
+#include "WebRange.h"
+#include "WebRect.h"
+#include "WebScreenInfo.h"
+#include "WebSize.h"
+#include "WebStorageNamespace.h"
+#include "WebURLRequest.h"
+#include "WebURLResponse.h"
+#include "WebView.h"
+#include "WebWindowFeatures.h"
 #include "skia/ext/platform_canvas.h"
 #include "webkit/support/webkit_support.h"
 #include <wtf/Assertions.h>
@@ -124,7 +124,7 @@ static string descriptionSuitableForTestResult(const string& url)
 // dragging a file.
 static void addDRTFakeFileToDataObject(WebDragData* dragData)
 {
-    dragData->appendToFileNames(WebString::fromUTF8("DRTFakeFile"));
+    dragData->appendToFilenames(WebString::fromUTF8("DRTFakeFile"));
 }
 
 // Get a debugging string from a WebNavigationType.
@@ -485,13 +485,11 @@ int WebViewHost::historyForwardListCount()
     return navigationController()->entryCount() - currentIndex - 1;
 }
 
-void WebViewHost::focusAccessibilityObject(const WebAccessibilityObject& object)
-{
-    m_shell->accessibilityController()->setFocusedElement(object);
-}
-
 void WebViewHost::postAccessibilityNotification(const WebAccessibilityObject& obj, WebAccessibilityNotification notification)
 {
+    if (notification == WebAccessibilityNotificationFocusedUIElementChanged)
+        m_shell->accessibilityController()->setFocusedElement(obj);
+
     if (m_shell->accessibilityController()->shouldDumpAccessibilityNotifications()) {
         printf("AccessibilityNotification - ");
 
@@ -541,6 +539,8 @@ void WebViewHost::postAccessibilityNotification(const WebAccessibilityObject& ob
         case WebAccessibilityNotificationRowExpanded:
             printf("RowExpanded");
             break;
+        default:
+            break;
         }
 
         WebKit::WebNode node = obj.node();
@@ -559,12 +559,14 @@ WebNotificationPresenter* WebViewHost::notificationPresenter()
     return m_shell->notificationPresenter();
 }
 
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
 WebKit::WebGeolocationService* WebViewHost::geolocationService()
 {
     if (!m_geolocationServiceMock.get())
         m_geolocationServiceMock.set(WebGeolocationServiceMock::createWebGeolocationServiceMock());
     return m_geolocationServiceMock.get();
 }
+#endif
 
 WebSpeechInputController* WebViewHost::speechInputController(WebKit::WebSpeechInputListener* listener)
 {
@@ -590,6 +592,13 @@ void WebViewHost::didScrollRect(int, int, const WebRect& clipRect)
     // This is used for optimizing painting when the renderer is scrolled. We're
     // currently not doing any optimizations so just invalidate the region.
     didInvalidateRect(clipRect);
+}
+
+void WebViewHost::scheduleComposite()
+{
+    WebSize widgetSize = webWidget()->size();
+    WebRect clientRect(0, 0, widgetSize.width, widgetSize.height);
+    didInvalidateRect(clientRect);
 }
 
 void WebViewHost::didFocus()
@@ -628,6 +637,10 @@ void WebViewHost::closeWidgetSoon()
 {
     m_hasWindow = false;
     m_shell->closeWindow(this);
+    if (m_inModalLoop) {
+      m_inModalLoop = false;
+      webkit_support::QuitMessageLoop();
+    }
 }
 
 void WebViewHost::didChangeCursor(const WebCursorInfo& cursorInfo)
@@ -670,7 +683,11 @@ WebRect WebViewHost::windowResizerRect()
 
 void WebViewHost::runModal()
 {
-    // FIXME: Should we implement this in DRT?
+    bool oldState = webkit_support::MessageLoopNestableTasksAllowed();
+    webkit_support::MessageLoopSetNestableTasksAllowed(true);
+    m_inModalLoop = true;
+    webkit_support::RunMessageLoop();
+    webkit_support::MessageLoopSetNestableTasksAllowed(oldState);
 }
 
 // WebFrameClient ------------------------------------------------------------
@@ -1041,10 +1058,12 @@ WebViewHost::WebViewHost(TestShell* shell)
     , m_policyDelegateIsPermissive(false)
     , m_policyDelegateShouldNotifyDone(false)
     , m_shell(shell)
+    , m_webWidget(0)
     , m_topLoadingFrame(0)
-    , m_hasWindow(false)
     , m_pageId(-1)
     , m_lastPageIdUpdated(-1)
+    , m_hasWindow(false)
+    , m_inModalLoop(false)
     , m_smartInsertDeleteEnabled(true)
 #if OS(WINDOWS)
     , m_selectTrailingWhitespaceEnabled(true)
@@ -1054,7 +1073,6 @@ WebViewHost::WebViewHost(TestShell* shell)
     , m_blocksRedirects(false)
     , m_requestReturnNull(false)
     , m_isPainting(false)
-    , m_webWidget(0)
 {
     m_navigationController.set(new TestNavigationController(this));
 }

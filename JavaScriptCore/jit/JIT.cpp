@@ -186,7 +186,7 @@ void JIT::privateCompileMainPass()
             sampleInstruction(currentInstruction);
 #endif
 
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE64)
         if (m_labels[m_bytecodeOffset].isUsed())
             killLastResultRegister();
 #endif
@@ -195,9 +195,6 @@ void JIT::privateCompileMainPass()
 
         switch (m_interpreter->getOpcodeID(currentInstruction->u.opcode)) {
         DEFINE_BINARY_OP(op_del_by_val)
-#if USE(JSVALUE32)
-        DEFINE_BINARY_OP(op_div)
-#endif
         DEFINE_BINARY_OP(op_in)
         DEFINE_BINARY_OP(op_less)
         DEFINE_BINARY_OP(op_lesseq)
@@ -207,7 +204,7 @@ void JIT::privateCompileMainPass()
         DEFINE_UNARY_OP(op_is_object)
         DEFINE_UNARY_OP(op_is_string)
         DEFINE_UNARY_OP(op_is_undefined)
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE64)
         DEFINE_UNARY_OP(op_negate)
 #endif
         DEFINE_UNARY_OP(op_typeof)
@@ -225,16 +222,15 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_get_callee)
         DEFINE_OP(op_create_this)
         DEFINE_OP(op_convert_this)
+        DEFINE_OP(op_convert_this_strict)
         DEFINE_OP(op_init_lazy_reg)
         DEFINE_OP(op_create_arguments)
         DEFINE_OP(op_debug)
         DEFINE_OP(op_del_by_id)
-#if !USE(JSVALUE32)
         DEFINE_OP(op_div)
-#endif
         DEFINE_OP(op_end)
         DEFINE_OP(op_enter)
-        DEFINE_OP(op_enter_with_activation)
+        DEFINE_OP(op_create_activation)
         DEFINE_OP(op_eq)
         DEFINE_OP(op_eq_null)
         DEFINE_OP(op_get_by_id)
@@ -301,6 +297,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_put_setter)
         DEFINE_OP(op_resolve)
         DEFINE_OP(op_resolve_base)
+        DEFINE_OP(op_ensure_property_exists)
         DEFINE_OP(op_resolve_global)
         DEFINE_OP(op_resolve_global_dynamic)
         DEFINE_OP(op_resolve_skip)
@@ -375,7 +372,7 @@ void JIT::privateCompileSlowCases()
     m_callLinkInfoIndex = 0;
 
     for (Vector<SlowCaseEntry>::iterator iter = m_slowCases.begin(); iter != m_slowCases.end();) {
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE64)
         killLastResultRegister();
 #endif
 
@@ -396,9 +393,8 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_call_varargs)
         DEFINE_SLOWCASE_OP(op_construct)
         DEFINE_SLOWCASE_OP(op_convert_this)
-#if !USE(JSVALUE32)
+        DEFINE_SLOWCASE_OP(op_convert_this_strict)
         DEFINE_SLOWCASE_OP(op_div)
-#endif
         DEFINE_SLOWCASE_OP(op_eq)
         DEFINE_SLOWCASE_OP(op_get_by_id)
         DEFINE_SLOWCASE_OP(op_get_arguments_length)
@@ -596,7 +592,7 @@ JITCode JIT::privateCompile(CodePtr* functionEntryArityCheck)
     return patchBuffer.finalizeCode();
 }
 
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE64)
 void JIT::emitGetVariableObjectRegister(RegisterID variableObject, int index, RegisterID dst)
 {
     loadPtr(Address(variableObject, OBJECT_OFFSETOF(JSVariableObject, d)), dst);

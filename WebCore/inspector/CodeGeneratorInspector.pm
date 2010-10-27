@@ -28,6 +28,11 @@ $typeTransform{"Debug"} = {
     "header" => "InspectorDebuggerAgent.h",
     "domainAccessor" => "m_inspectorController->debuggerAgent()",
 };
+$typeTransform{"Resource"} = {
+    "forward" => "InspectorResourceAgent",
+    "header" => "InspectorResourceAgent.h",
+    "domainAccessor" => "m_inspectorController->m_resourceAgent",
+};
 $typeTransform{"DOM"} = {
     "forward" => "InspectorDOMAgent",
     "header" => "InspectorDOMAgent.h",
@@ -110,6 +115,14 @@ $typeTransform{"unsigned int"} = {
     "param" => "unsigned int",
     "variable" => "unsigned int",
     "defaultValue" => "0u",
+    "forward" => "",
+    "header" => "",
+    "JSONType" => "Number"
+};
+$typeTransform{"double"} = {
+    "param" => "double",
+    "variable" => "double",
+    "defaultValue" => "0.0",
     "forward" => "",
     "header" => "",
     "JSONType" => "Number"
@@ -306,7 +319,7 @@ sub generateBackendFunction
     my $domainAccessor = $typeTransform{$domain}->{"domainAccessor"};
     $backendTypes{$domain} = 1;
     push(@function, "    if (!$domainAccessor)");
-    push(@function, "        protocolErrors->pushString(String::format(\"Protocol Error: %s handler is not available.\", \"$domain\"));");
+    push(@function, "        protocolErrors->pushString(\"Protocol Error: $domain handler is not available.\");");
     push(@function, "");
 
     if (scalar(@inArgs)) {
@@ -316,7 +329,7 @@ sub generateBackendFunction
         push(@function, "");
         push(@function, "    RefPtr<InspectorObject> argumentsContainer;");
         push(@function, "    if (!(argumentsContainer = requestMessageObject->getObject(\"arguments\"))) {");
-        push(@function, "        protocolErrors->pushString(String::format(\"Protocol Error: 'arguments' property with type 'object' was not found.\"));");
+        push(@function, "        protocolErrors->pushString(\"Protocol Error: 'arguments' property with type 'object' was not found.\");");
         push(@function, "    } else {");
         push(@function, "        InspectorObject::const_iterator argumentsEndIterator = argumentsContainer->end();");
 
@@ -329,10 +342,10 @@ sub generateBackendFunction
             push(@function, "");
             push(@function, "        InspectorObject::const_iterator ${name}ValueIterator = argumentsContainer->find(\"$name\");");
             push(@function, "        if (${name}ValueIterator == argumentsEndIterator) {");
-            push(@function, "            protocolErrors->pushString(String::format(\"Protocol Error: Argument '%s' with type '%s' was not found.\", \"$name\", \"$JSONType\"));");
+            push(@function, "            protocolErrors->pushString(\"Protocol Error: Argument '$name' with type '$JSONType' was not found.\");");
             push(@function, "        } else {");
             push(@function, "            if (!${name}ValueIterator->second->as$JSONType(&$name)) {");
-            push(@function, "                protocolErrors->pushString(String::format(\"Protocol Error: Argument '%s' has wrong type. It should be '%s'.\", \"$name\", \"$JSONType\"));");
+            push(@function, "                protocolErrors->pushString(\"Protocol Error: Argument '$name' has wrong type. It should be '$JSONType'.\");");
             push(@function, "            }");
             push(@function, "        }");
         }
@@ -446,7 +459,7 @@ $mapEntries
 
     HashMap<String, CallHandler>::iterator it = dispatchMap.find(command);
     if (it == dispatchMap.end()) {
-        reportProtocolError(callId, String::format("Protocol Error: Invalid command was received. '%s' wasn't found.", command.utf8().data()));
+        reportProtocolError(callId, makeString("Protocol Error: Invalid command was received. '", command, "' wasn't found."));
         return;
     }
 
@@ -606,7 +619,7 @@ sub generateSource
     my @sourceContent = split("\r", $licenseTemplate);
     push(@sourceContent, "\n#include \"config.h\"");
     push(@sourceContent, "#include \"$className.h\"");
-    push(@sourceContent, "#include <wtf/text/CString.h>");
+    push(@sourceContent, "#include <wtf/text/StringConcatenate.h>");
     push(@sourceContent, "");
     push(@sourceContent, "#if ENABLE(INSPECTOR)");
     push(@sourceContent, "");

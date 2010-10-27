@@ -51,7 +51,7 @@
 #include "ScriptValue.h"
 #include "TextResourceDecoder.h"
 #include "TreeDepthLimit.h"
-#include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
@@ -151,11 +151,11 @@ void XMLDocumentParser::handleError(ErrorType type, const char* m, int lineNumbe
     if (type == fatal || (m_errorCount < maxErrors && m_lastErrorLine != lineNumber && m_lastErrorColumn != columnNumber)) {
         switch (type) {
             case warning:
-                m_errorMessages += String::format("warning on line %d at column %d: %s", lineNumber, columnNumber, m);
+                m_errorMessages += makeString("warning on line ", String::number(lineNumber), " at column ", String::number(columnNumber), ": ", m);
                 break;
             case fatal:
             case nonFatal:
-                m_errorMessages += String::format("error on line %d at column %d: %s", lineNumber, columnNumber, m);
+                m_errorMessages += makeString("error on line ", String::number(lineNumber), " at column ", String::number(columnNumber), ": ", m);
         }
 
         m_lastErrorLine = lineNumber;
@@ -293,47 +293,47 @@ void XMLDocumentParser::insertErrorMessageBlock()
 
     // Create elements for display
     ExceptionCode ec = 0;
-    Document* doc = document();
-    Node* documentElement = doc->documentElement();
+    Document* document = this->document();
+    Element* documentElement = document->documentElement();
     if (!documentElement) {
-        RefPtr<Node> rootElement = doc->createElement(htmlTag, false);
-        doc->appendChild(rootElement, ec);
-        RefPtr<Node> body = doc->createElement(bodyTag, false);
+        RefPtr<Element> rootElement = document->createElement(htmlTag, false);
+        document->appendChild(rootElement, ec);
+        RefPtr<Element> body = document->createElement(bodyTag, false);
         rootElement->appendChild(body, ec);
         documentElement = body.get();
     }
 #if ENABLE(SVG)
     else if (documentElement->namespaceURI() == SVGNames::svgNamespaceURI) {
-        RefPtr<Node> rootElement = doc->createElement(htmlTag, false);
-        RefPtr<Node> body = doc->createElement(bodyTag, false);
+        RefPtr<Element> rootElement = document->createElement(htmlTag, false);
+        RefPtr<Element> body = document->createElement(bodyTag, false);
         rootElement->appendChild(body, ec);
         body->appendChild(documentElement, ec);
-        doc->appendChild(rootElement.get(), ec);
+        document->appendChild(rootElement.get(), ec);
         documentElement = body.get();
     }
 #endif
 #if ENABLE(WML)
     else if (isWMLDocument()) {
-        RefPtr<Node> rootElement = doc->createElement(htmlTag, false);
-        RefPtr<Node> body = doc->createElement(bodyTag, false);
+        RefPtr<Element> rootElement = document->createElement(htmlTag, false);
+        RefPtr<Element> body = document->createElement(bodyTag, false);
         rootElement->appendChild(body, ec);
         body->appendChild(documentElement, ec);
-        doc->appendChild(rootElement.get(), ec);
+        document->appendChild(rootElement.get(), ec);
         documentElement = body.get();
     }
 #endif
 
-    RefPtr<Element> reportElement = createXHTMLParserErrorHeader(doc, m_errorMessages);
+    RefPtr<Element> reportElement = createXHTMLParserErrorHeader(document, m_errorMessages);
     documentElement->insertBefore(reportElement, documentElement->firstChild(), ec);
 #if ENABLE(XSLT)
-    if (doc->transformSourceDocument()) {
-        RefPtr<Element> par = doc->createElement(pTag, false);
-        reportElement->appendChild(par, ec);
-        par->setAttribute(styleAttr, "white-space: normal");
-        par->appendChild(doc->createTextNode("This document was created as the result of an XSL transformation. The line and column numbers given are from the transformed result."), ec);
+    if (document->transformSourceDocument()) {
+        RefPtr<Element> paragraph = document->createElement(pTag, false);
+        paragraph->setAttribute(styleAttr, "white-space: normal");
+        paragraph->appendChild(document->createTextNode("This document was created as the result of an XSL transformation. The line and column numbers given are from the transformed result."), ec);
+        reportElement->appendChild(paragraph.release(), ec);
     }
 #endif
-    doc->updateStyleIfNeeded();
+    document->updateStyleIfNeeded();
 }
 
 void XMLDocumentParser::notifyFinished(CachedResource* unusedResource)

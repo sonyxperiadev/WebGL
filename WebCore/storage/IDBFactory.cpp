@@ -37,6 +37,7 @@
 #include "Frame.h"
 #include "GroupSettings.h"
 #include "IDBDatabase.h"
+#include "IDBDatabaseException.h"
 #include "IDBFactoryBackendInterface.h"
 #include "IDBKeyRange.h"
 #include "IDBRequest.h"
@@ -56,7 +57,7 @@ IDBFactory::~IDBFactory()
 {
 }
 
-PassRefPtr<IDBRequest> IDBFactory::open(ScriptExecutionContext* context, const String& name, const String& description)
+PassRefPtr<IDBRequest> IDBFactory::open(ScriptExecutionContext* context, const String& name, const String& description, ExceptionCode& ec)
 {
     if (!context->isDocument()) {
         // FIXME: make this work with workers.
@@ -67,8 +68,17 @@ PassRefPtr<IDBRequest> IDBFactory::open(ScriptExecutionContext* context, const S
     if (!document->frame() || !document->page())
         return 0;
 
-    RefPtr<IDBRequest> request = IDBRequest::create(document, IDBAny::create(this));
-    m_factoryBackend->open(name, description, request, document->securityOrigin(), document->frame(), document->page()->group().groupSettings()->indexedDBDatabasePath());
+
+    // FIXME: Raise a NON_TRANSIENT_ERR if the name is invalid.
+
+    if (description.isNull()) {
+        ec = IDBDatabaseException::NON_TRANSIENT_ERR;
+        return 0;
+    }
+
+    RefPtr<IDBRequest> request = IDBRequest::create(document, IDBAny::create(this), 0);
+    GroupSettings* groupSettings = document->page()->group().groupSettings();
+    m_factoryBackend->open(name, description, request, document->securityOrigin(), document->frame(), groupSettings->indexedDBDatabasePath(), groupSettings->indexedDBQuotaBytes());
     return request;
 }
 

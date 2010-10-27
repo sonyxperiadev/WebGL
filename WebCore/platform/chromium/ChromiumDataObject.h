@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2010, Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,85 +31,58 @@
 #ifndef ChromiumDataObject_h
 #define ChromiumDataObject_h
 
-#include "KURL.h"
-#include "PlatformString.h"
-#include "SharedBuffer.h"
+#include "ChromiumDataObjectLegacy.h"
+#include "ReadableDataObject.h"
+#include "WritableDataObject.h"
 #include <wtf/RefPtr.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
-    // A data object for holding data that would be in a clipboard or moved
-    // during a drag-n-drop operation.  This is the data that WebCore is aware
-    // of and is not specific to a platform.
-    class ChromiumDataObject : public RefCounted<ChromiumDataObject> {
-    public:
-        static PassRefPtr<ChromiumDataObject> create()
-        {
-            return adoptRef(new ChromiumDataObject);
-        }
+class ChromiumDataObject : public RefCounted<ChromiumDataObject> {
+public:
+    static PassRefPtr<ChromiumDataObject> create(PassRefPtr<ChromiumDataObjectLegacy> data);
+    static PassRefPtr<ChromiumDataObject> createReadable(Clipboard::ClipboardType);
+    static PassRefPtr<ChromiumDataObject> createWritable(Clipboard::ClipboardType);
 
-        PassRefPtr<ChromiumDataObject> copy() const
-        {
-            return adoptRef(new ChromiumDataObject(*this));
-        }
+    void clearData(const String& type);
+    void clearAll();
+    void clearAllExceptFiles();
 
-        void clear();
-        void clearAllExceptFiles();
-        bool hasData() const;
+    bool hasData() const;
 
-        void clearURL()
-        {
-            url = KURL();
-            uriList.clear();
-            urlTitle = "";
-        }
+    HashSet<String> types() const;
+    String getData(const String& type, bool& success);
+    bool setData(const String& type, const String& data);
 
-        bool hasValidURL() const
-        {
-            return url.isValid();
-        }
+    // Special handlers for URL/HTML metadata.
+    String urlTitle() const;
+    void setUrlTitle(const String& urlTitle);
+    KURL htmlBaseUrl() const;
+    void setHtmlBaseUrl(const KURL& url);
 
-        KURL getURL() const
-        {
-            return url;
-        }
+    // Used to handle files being dragged in.
+    bool containsFilenames() const;
+    Vector<String> filenames() const;
+    void setFilenames(const Vector<String>& filenames);
 
-        void setURL(const KURL& newURL)
-        {
-            url = newURL;
-            uriList.clear();
-            if (newURL.isEmpty())
-                return;
-            uriList.append(newURL.string());
-        }
+    // Used to handle files (images) being dragged out.
+    String fileExtension() const;
+    void setFileExtension(const String& fileExtension);
+    String fileContentFilename() const;
+    void setFileContentFilename(const String& fileContentFilename);
+    PassRefPtr<SharedBuffer> fileContent() const;
+    void setFileContent(PassRefPtr<SharedBuffer> fileContent);
 
-        String urlTitle;
+private:
+    ChromiumDataObject(PassRefPtr<ChromiumDataObjectLegacy>);
+    ChromiumDataObject(PassRefPtr<ReadableDataObject>);
+    ChromiumDataObject(PassRefPtr<WritableDataObject>);
 
-        String downloadMetadata;
+    RefPtr<ChromiumDataObjectLegacy> m_legacyData;
+    RefPtr<ReadableDataObject> m_readableData;
+    RefPtr<WritableDataObject> m_writableData;
+};
 
-        String fileExtension;
-        Vector<String> filenames;
-
-        String plainText;
-
-        String textHtml;
-        KURL htmlBaseUrl;
-
-        String fileContentFilename;
-        RefPtr<SharedBuffer> fileContent;
-
-    private:
-        // URL and uri-list are linked, so they should not be accessed individually.
-        KURL url;
-        Vector<String> uriList;
-
-        ChromiumDataObject() {}
-        ChromiumDataObject(const ChromiumDataObject&);
-
-        friend class ClipboardChromium;
-    };
-
-} // namespace WebCore
+}
 
 #endif

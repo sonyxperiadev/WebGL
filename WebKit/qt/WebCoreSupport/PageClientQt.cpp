@@ -105,6 +105,7 @@ QRectF PageClientQWidget::windowRect() const
 
 PageClientQGraphicsWidget::~PageClientQGraphicsWidget()
 {
+    delete overlay;
 #if USE(ACCELERATED_COMPOSITING)
     if (!rootGraphicsLayer)
         return;
@@ -117,10 +118,6 @@ PageClientQGraphicsWidget::~PageClientQGraphicsWidget()
 void PageClientQGraphicsWidget::scroll(int dx, int dy, const QRect& rectToScroll)
 {
     view->scroll(qreal(dx), qreal(dy), rectToScroll);
-
-#if USE(ACCELERATED_COMPOSITING)
-    updateCompositingScrollPosition();
-#endif
 }
 
 void PageClientQGraphicsWidget::update(const QRect& dirtyRect)
@@ -132,8 +129,6 @@ void PageClientQGraphicsWidget::update(const QRect& dirtyRect)
         overlay->update(QRectF(dirtyRect));
 #if USE(ACCELERATED_COMPOSITING)
     syncLayers();
-    // This might be a slow-scroll. We ensure that the compositing layers are in the right position.
-    updateCompositingScrollPosition();
 #endif
 }
 
@@ -150,11 +145,15 @@ void PageClientQGraphicsWidget::createOrDeleteOverlay()
     }
     if (useOverlay == !!overlay)
         return;
+
     if (useOverlay) {
-        overlay = QSharedPointer<QGraphicsItemOverlay>(new QGraphicsItemOverlay(view, page));
+        overlay = new QGraphicsItemOverlay(view, page);
         overlay->setZValue(OverlayZValue);
-    } else
-        overlay.clear();
+    } else {
+        // Changing the overlay might be done inside paint events.
+        overlay->deleteLater();
+        overlay = 0;
+    }
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -180,7 +179,6 @@ void PageClientQGraphicsWidget::setRootGraphicsLayer(QGraphicsItem* layer)
         layer->setFlag(QGraphicsItem::ItemClipsChildrenToShape, true);
         layer->setParentItem(view);
         layer->setZValue(RootGraphicsLayerZValue);
-        updateCompositingScrollPosition();
     }
     createOrDeleteOverlay();
 }
@@ -192,13 +190,6 @@ void PageClientQGraphicsWidget::markForSync(bool scheduleSync)
         syncMetaMethod.invoke(view, Qt::QueuedConnection);
 }
 
-void PageClientQGraphicsWidget::updateCompositingScrollPosition()
-{
-    if (rootGraphicsLayer && page && page->mainFrame()) {
-        const QPoint scrollPosition = page->mainFrame()->scrollPosition();
-        rootGraphicsLayer.data()->setPos(-scrollPosition);
-    }
-}
 #endif
 
 #if ENABLE(TILED_BACKING_STORE)

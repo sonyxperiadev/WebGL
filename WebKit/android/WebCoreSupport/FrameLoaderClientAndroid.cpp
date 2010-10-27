@@ -1065,7 +1065,7 @@ public:
         ctx->save();
         ctx->clip(frameRect());
 
-        ctx->setFillColor(Color::white, DeviceColorSpace);
+        ctx->setFillColor(Color::white, ColorSpaceDeviceRGB);
         ctx->fillRect(frameRect());
         if (frameRect().contains(imageRect)) {
             // Leave a 2 pixel padding.
@@ -1073,12 +1073,12 @@ public:
             IntRect innerRect = frameRect();
             innerRect.inflate(-pixelWidth);
             // Draw a 2 pixel light gray border.
-            ctx->setStrokeColor(Color::lightGray, DeviceColorSpace);
+            ctx->setStrokeColor(Color::lightGray, ColorSpaceDeviceRGB);
             ctx->strokeRect(innerRect, pixelWidth);
         }
 
         // Draw the image in the center
-        ctx->drawImage(image.get(), DeviceColorSpace, imageRect.location());
+        ctx->drawImage(image.get(), ColorSpaceDeviceRGB, imageRect.location());
         ctx->restore();
     }
 

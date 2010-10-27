@@ -52,7 +52,7 @@ IDBFactoryBackendImpl::~IDBFactoryBackendImpl()
 {
 }
 
-static PassOwnPtr<SQLiteDatabase> openSQLiteDatabase(SecurityOrigin* securityOrigin, String name, const String& pathBase)
+static PassOwnPtr<SQLiteDatabase> openSQLiteDatabase(SecurityOrigin* securityOrigin, String name, const String& pathBase, int64_t maximumSize)
 {
     String path = ":memory:";
     if (!pathBase.isEmpty()) {
@@ -72,6 +72,7 @@ static PassOwnPtr<SQLiteDatabase> openSQLiteDatabase(SecurityOrigin* securityOri
         return 0;
     }
 
+    sqliteDatabase->setMaximumSize(maximumSize);
     return sqliteDatabase.release();
 }
 
@@ -98,7 +99,7 @@ static bool createTables(SQLiteDatabase* sqliteDatabase)
         "CREATE UNIQUE INDEX IF NOT EXISTS ObjectStoreData_composit ON ObjectStoreData(keyString, keyDate, keyNumber, objectStoreId)",
 
         "DROP TABLE IF EXISTS IndexData",
-        "CREATE TABLE IF NOT EXISTS IndexData (id INTEGER PRIMARY KEY, indexId INTEGER NOT NULL REFERENCES Indexes(id), keyString TEXT, keyDate INTEGER, keyNumber INTEGER, objectStoreDataId INTEGER NOT NULL UNIQUE REFERENCES ObjectStoreData(id))",
+        "CREATE TABLE IF NOT EXISTS IndexData (id INTEGER PRIMARY KEY, indexId INTEGER NOT NULL REFERENCES Indexes(id), keyString TEXT, keyDate INTEGER, keyNumber INTEGER, objectStoreDataId INTEGER NOT NULL REFERENCES ObjectStoreData(id))",
         "DROP INDEX IF EXISTS IndexData_composit",
         "CREATE INDEX IF NOT EXISTS IndexData_composit ON IndexData(keyString, keyDate, keyNumber, indexId)",
         "DROP INDEX IF EXISTS IndexData_objectStoreDataId",
@@ -117,7 +118,7 @@ static bool createTables(SQLiteDatabase* sqliteDatabase)
     return true;
 }
 
-void IDBFactoryBackendImpl::open(const String& name, const String& description, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<SecurityOrigin> securityOrigin, Frame*, const String& dataDir)
+void IDBFactoryBackendImpl::open(const String& name, const String& description, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<SecurityOrigin> securityOrigin, Frame*, const String& dataDir, int64_t maximumSize)
 {
     IDBDatabaseBackendMap::iterator it = m_databaseBackendMap.find(name);
     if (it != m_databaseBackendMap.end()) {
@@ -129,7 +130,7 @@ void IDBFactoryBackendImpl::open(const String& name, const String& description, 
 
     // FIXME: Everything from now on should be done on another thread.
 
-    OwnPtr<SQLiteDatabase> sqliteDatabase = openSQLiteDatabase(securityOrigin.get(), name, dataDir);
+    OwnPtr<SQLiteDatabase> sqliteDatabase = openSQLiteDatabase(securityOrigin.get(), name, dataDir, maximumSize);
     if (!sqliteDatabase || !createTables(sqliteDatabase.get())) {
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Internal error."));
         return;

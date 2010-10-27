@@ -54,21 +54,21 @@ public:
     static void setGeolocationEnabled(bool isEnabled) { isGeolocationEnabled = isEnabled; }
     static bool geolocationEnabled() { return isGeolocationEnabled; }
 
-    static void setIndexedDBEnabled(bool isEnabled) { isIndexedDBEnabled = isEnabled; }
-    static bool indexedDBEnabled() { return isIndexedDBEnabled; }
-    static bool iDBCursorEnabled() { return isIndexedDBEnabled; }
-    static bool iDBDatabaseEnabled() { return isIndexedDBEnabled; }
-    static bool iDBDatabaseErrorEnabled() { return isIndexedDBEnabled; }
-    static bool iDBDatabaseExceptionEnabled() { return isIndexedDBEnabled; }
-    static bool iDBErrorEventEnabled() { return isIndexedDBEnabled; }
-    static bool iDBEventEnabled() { return isIndexedDBEnabled; }
-    static bool iDBFactoryEnabled() { return isIndexedDBEnabled; }
-    static bool iDBIndexEnabled() { return isIndexedDBEnabled; }
-    static bool iDBKeyRangeEnabled() { return isIndexedDBEnabled; }
-    static bool iDBObjectStoreEnabled() { return isIndexedDBEnabled; }
-    static bool iDBRequestEnabled() { return isIndexedDBEnabled; }
-    static bool iDBSuccessEventEnabled() { return isIndexedDBEnabled; }
-    static bool iDBTransactionEnabled() { return isIndexedDBEnabled; }
+    static void setWebkitIndexedDBEnabled(bool isEnabled) { isIndexedDBEnabled = isEnabled; }
+    static bool webkitIndexedDBEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBCursorEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseErrorEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseExceptionEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBErrorEventEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBEventEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBFactoryEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBIndexEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBKeyRangeEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBObjectStoreEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBRequestEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBSuccessEventEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBTransactionEnabled() { return isIndexedDBEnabled; }
 
 #if ENABLE(VIDEO)
     static bool audioEnabled();
@@ -92,7 +92,7 @@ public:
     static bool openDatabaseSyncEnabled();
 #endif
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
     static void setWebGLEnabled(bool isEnabled) { isWebGLEnabled = isEnabled; }
     static bool arrayBufferEnabled() { return isWebGLEnabled; }
     static bool int8ArrayEnabled() { return isWebGLEnabled; }
@@ -138,7 +138,7 @@ public:
 
     static void setSpeechInputEnabled(bool isEnabled) { isSpeechInputEnabled = isEnabled; }
     static bool speechInputEnabled() { return isSpeechInputEnabled; }
-    static bool webkitspeechEnabled() { return isSpeechInputEnabled; }
+    static bool webkitSpeechEnabled() { return isSpeechInputEnabled; }
 
 #if ENABLE(XHR_RESPONSE_BLOB)
     static bool xhrResponseBlobEnabled() { return isXHRResponseBlobEnabled; }
@@ -150,7 +150,6 @@ public:
 #if ENABLE(FILE_SYSTEM)
     static bool fileSystemEnabled();
     static void setFileSystemEnabled(bool isEnabled) { isFileSystemEnabled = isEnabled; }
-    static bool requestFileSystemEnabled() { return isFileSystemEnabled; }
 #endif
 
 private:

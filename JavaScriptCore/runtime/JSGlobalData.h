@@ -145,6 +145,7 @@ namespace JSC {
         RefPtr<Structure> interruptedExecutionErrorStructure;
         RefPtr<Structure> terminatedExecutionErrorStructure;
         RefPtr<Structure> staticScopeStructure;
+        RefPtr<Structure> strictEvalActivationStructure;
         RefPtr<Structure> stringStructure;
         RefPtr<Structure> notAnObjectErrorStubStructure;
         RefPtr<Structure> notAnObjectStructure;
@@ -152,10 +153,6 @@ namespace JSC {
         RefPtr<Structure> getterSetterStructure;
         RefPtr<Structure> apiWrapperStructure;
         RefPtr<Structure> dummyMarkableCellStructure;
-
-#if USE(JSVALUE32)
-        RefPtr<Structure> numberStructure;
-#endif
 
         static void storeVPtrs();
         static JS_EXPORTDATA void* jsArrayVPtr;

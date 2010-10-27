@@ -123,9 +123,9 @@ Position VisiblePosition::leftVisuallyDistinctCandidate() const
 
         while (true) {
             if ((renderer->isReplaced() || renderer->isBR()) && offset == box->caretRightmostOffset())
-                return box->direction() == LTR ? previousVisuallyDistinctCandidate(m_deepPosition) : nextVisuallyDistinctCandidate(m_deepPosition);
+                return box->isLeftToRightDirection() ? previousVisuallyDistinctCandidate(m_deepPosition) : nextVisuallyDistinctCandidate(m_deepPosition);
 
-            offset = box->direction() == LTR ? renderer->previousOffset(offset) : renderer->nextOffset(offset);
+            offset = box->isLeftToRightDirection() ? renderer->previousOffset(offset) : renderer->nextOffset(offset);
 
             int caretMinOffset = box->caretMinOffset();
             int caretMaxOffset = box->caretMaxOffset();
@@ -133,7 +133,7 @@ Position VisiblePosition::leftVisuallyDistinctCandidate() const
             if (offset > caretMinOffset && offset < caretMaxOffset)
                 break;
 
-            if (box->direction() == LTR ? offset < caretMinOffset : offset > caretMaxOffset) {
+            if (box->isLeftToRightDirection() ? offset < caretMinOffset : offset > caretMaxOffset) {
                 // Overshot to the left.
                 InlineBox* prevBox = box->prevLeafChild();
                 if (!prevBox)
@@ -259,9 +259,9 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
 
         while (true) {
             if ((renderer->isReplaced() || renderer->isBR()) && offset == box->caretLeftmostOffset())
-                return box->direction() == LTR ? nextVisuallyDistinctCandidate(m_deepPosition) : previousVisuallyDistinctCandidate(m_deepPosition);
+                return box->isLeftToRightDirection() ? nextVisuallyDistinctCandidate(m_deepPosition) : previousVisuallyDistinctCandidate(m_deepPosition);
 
-            offset = box->direction() == LTR ? renderer->nextOffset(offset) : renderer->previousOffset(offset);
+            offset = box->isLeftToRightDirection() ? renderer->nextOffset(offset) : renderer->previousOffset(offset);
 
             int caretMinOffset = box->caretMinOffset();
             int caretMaxOffset = box->caretMaxOffset();
@@ -269,7 +269,7 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
             if (offset > caretMinOffset && offset < caretMaxOffset)
                 break;
 
-            if (box->direction() == LTR ? offset > caretMaxOffset : offset < caretMinOffset) {
+            if (box->isLeftToRightDirection() ? offset > caretMaxOffset : offset < caretMinOffset) {
                 // Overshot to the right.
                 InlineBox* nextBox = box->nextLeafChild();
                 if (!nextBox)
@@ -439,8 +439,13 @@ static Position canonicalizeCandidate(const Position& candidate)
     return candidate;
 }
 
-Position VisiblePosition::canonicalPosition(const Position& position)
+Position VisiblePosition::canonicalPosition(const Position& passedPosition)
 {
+    // The updateLayout call below can do so much that even the position passed
+    // in to us might get changed as a side effect. Specifically, there are code
+    // paths that pass selection endpoints, and updateLayout can change the selection.
+    Position position = passedPosition;
+
     // FIXME (9535):  Canonicalizing to the leftmost candidate means that if we're at a line wrap, we will 
     // ask renderers to paint downstream carets for other renderers.
     // To fix this, we need to either a) add code to all paintCarets to pass the responsibility off to
@@ -629,7 +634,7 @@ bool setEnd(Range *r, const VisiblePosition &visiblePosition)
     return code == 0;
 }
 
-Node *enclosingBlockFlowElement(const VisiblePosition &visiblePosition)
+Element* enclosingBlockFlowElement(const VisiblePosition &visiblePosition)
 {
     if (visiblePosition.isNull())
         return NULL;

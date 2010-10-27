@@ -34,6 +34,7 @@
 #if ENABLE(FILE_SYSTEM)
 
 #include "DOMFileSystem.h"
+#include "DirectoryReaderBase.h"
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -41,25 +42,25 @@
 namespace WebCore {
 
 class EntriesCallback;
+class EntriesCallbacks;
 class ErrorCallback;
 
-class DirectoryReader : public RefCounted<DirectoryReader> {
+class DirectoryReader : public DirectoryReaderBase {
 public:
-    static PassRefPtr<DirectoryReader> create(PassRefPtr<DOMFileSystem> fileSystem, const String& path)
+    static PassRefPtr<DirectoryReader> create(DOMFileSystemBase* fileSystem, const String& fullPath)
     {
-        return adoptRef(new DirectoryReader(fileSystem, path));
+        return adoptRef(new DirectoryReader(fileSystem, fullPath));
     }
 
-    void readEntries(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback = 0);
+    void readEntries(PassRefPtr<EntriesCallback>, PassRefPtr<ErrorCallback> = 0);
+
+    DOMFileSystem* filesystem() const { return static_cast<DOMFileSystem*>(m_fileSystem); }
 
 private:
-    DirectoryReader(PassRefPtr<DOMFileSystem> fileSystem, const String& path);
-
-    RefPtr<DOMFileSystem> m_fileSystem;
-    String m_fullPath;
+    DirectoryReader(DOMFileSystemBase*, const String& fullPath);
 };
 
-} // namespace
+}
 
 #endif // ENABLE(FILE_SYSTEM)
 

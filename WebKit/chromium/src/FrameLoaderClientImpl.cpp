@@ -1072,7 +1072,11 @@ void FrameLoaderClientImpl::committedLoad(DocumentLoader* loader, const char* da
             m_pluginWidget->didReceiveResponse(
                 m_webFrame->frame()->loader()->activeDocumentLoader()->response());
         }
-        m_pluginWidget->didReceiveData(data, length);
+
+        // It's possible that the above call removed the pointer to the plugin, so
+        // check before calling it.
+        if (m_pluginWidget.get())
+            m_pluginWidget->didReceiveData(data, length);
     }
 }
 
@@ -1411,14 +1415,6 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     if (!webPlugin->initialize(container.get()))
         return 0;
 
-    bool zoomTextOnly = m_webFrame->viewImpl()->zoomTextOnly();
-    float zoomFactor = zoomTextOnly ? m_webFrame->frame()->textZoomFactor() : m_webFrame->frame()->pageZoomFactor();
-    if (zoomFactor != 1) {
-        // There's a saved zoom level, so tell the plugin about it since
-        // WebViewImpl::setZoomLevel was called before the plugin was created.
-        webPlugin->setZoomFactor(zoomFactor, zoomTextOnly);
-    }
-
     // The element might have been removed during plugin initialization!
     if (!element->renderer())
         return 0;
@@ -1430,7 +1426,8 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
 // (e.g., acrobat reader).
 void FrameLoaderClientImpl::redirectDataToPlugin(Widget* pluginWidget)
 {
-    m_pluginWidget = static_cast<WebPluginContainerImpl*>(pluginWidget);
+    if (pluginWidget->isPluginContainer())
+        m_pluginWidget = static_cast<WebPluginContainerImpl*>(pluginWidget);
     ASSERT(m_pluginWidget.get());
 }
 

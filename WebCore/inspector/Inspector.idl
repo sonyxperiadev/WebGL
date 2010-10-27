@@ -32,7 +32,6 @@
 
 module core {
     interface [Conditional=INSPECTOR] Inspector {
-        [notify] void addConsoleMessage(out Object messageObj);
         [notify] void addRecordToTimeline(out Object record);
         [notify] void addNodesToSearchResult(out Array nodeIds);
         [notify] void attributesUpdated(out long id, out Array attributes);
@@ -41,11 +40,12 @@ module core {
         [notify] void childNodeCountUpdated(out long id, out int newValue);
         [notify] void childNodeInserted(out long parentId, out long prevId, out Object node);
         [notify] void childNodeRemoved(out long parentId, out long id);
-        [notify] void consoleMessagesCleared();
         [notify] void didCommitLoad();
         [notify] void evaluateForTestInFrontend(out long testCallId, out String script);
         [notify] void disconnectFromBackend();
+        [notify] void domContentEventFired(out double time);
         [notify] void inspectedURLChanged(out String url);
+        [notify] void loadEventFired(out double time);
         [notify] void removeResource(out unsigned long identifier);
         [notify] void reset();
         [notify] void resetProfilesPanel();
@@ -55,8 +55,6 @@ module core {
         [notify] void showPanel(out String panel);
         [notify] void timelineProfilerWasStarted();
         [notify] void timelineProfilerWasStopped();
-        [notify] void updateConsoleMessageExpiredCount(out unsigned long count);
-        [notify] void updateConsoleMessageRepeatCount(out unsigned long count);
         [notify] void updateFocusedNode(out long nodeId);
         [notify] void updateResource(out Value resource);
 
@@ -108,11 +106,30 @@ module core {
         [handler=Controller] void setMonitoringXHREnabled(in boolean enable, out boolean newState);
 
         [handler=Controller] void setResourceTrackingEnabled(in boolean enabled, in boolean always, out boolean newState);
-        [handler=Controller] void getResourceContent(in unsigned long identifier, out String content);
+        [handler=Controller] void getResourceContent(in unsigned long identifier, in boolean encode, out String content);
         [handler=Controller] void reloadPage();
 
         [handler=Controller] void startTimelineProfiler();
         [handler=Controller] void stopTimelineProfiler();
+
+        [handler=Resource] void cachedResources(out Array resources);
+        [handler=Resource] void resourceContent(in unsigned long frameID, in String url, out String content);
+        [notify] void identifierForInitialRequest(out long identifier, out String url, out unsigned long frameID, out boolean isMainResource);
+        [notify] void willSendRequest(out long identifier, out double time, out Object request, out Object redirectResponse);
+        [notify] void markResourceAsCached(out long identifier);
+        [notify] void didReceiveResponse(out long identifier, out double time, out String resourceType, out Object response);
+        [notify] void didReceiveContentLength(out long identifier, out double time, out long lengthReceived);
+        [notify] void didFinishLoading(out long identifier, out double finishTime);
+        [notify] void didFailLoading(out long identifier, out double time, out String localizedDescription);
+        [notify] void didLoadResourceFromMemoryCache(out double time, out unsigned long frameID, out Object resource);
+        [notify] void setOverrideContent(out long identifier, out String sourceString, out String type);
+        [notify] void didCommitLoad(out unsigned long frameID);
+        [notify] void frameDetachedFromParent(out unsigned long frameID);
+
+        [notify] void didCreateWebSocket(out unsigned long identifier, out String requestURL);
+        [notify] void willSendWebSocketHandshakeRequest(out unsigned long identifier, out double time, out Object request);
+        [notify] void didReceiveWebSocketHandshakeResponse(out unsigned long identifier, out double time, out Object response);
+        [notify] void didCloseWebSocket(out unsigned long identifier, out double time);
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         [handler=Backend] void enableDebugger(in boolean always);
@@ -135,8 +152,8 @@ module core {
         [handler=Debug] void editScriptSource(in String sourceID, in String newContent, out boolean success, out String result, out Value newCallFrames);
         [handler=Debug] void getScriptSource(in String sourceID, out String scriptSource);
 
-        [handler=Controller] void setNativeBreakpoint(in Object breakpoint, out unsigned int breakpointId);
-        [handler=Controller] void removeNativeBreakpoint(in unsigned int breakpointId);
+        [handler=Controller] void setNativeBreakpoint(in Object breakpoint, out String breakpointId);
+        [handler=Controller] void removeNativeBreakpoint(in String breakpointId);
 
         [handler=Controller] void enableProfiler(in boolean always);
         [handler=Controller] void disableProfiler(in boolean always);
@@ -171,10 +188,15 @@ module core {
         [handler=DOM] void performSearch(in String query, in boolean runSynchronously);
         [handler=DOM] void searchCanceled();
         [handler=DOM] void pushNodeByPathToFrontend(in String path, out long nodeId);
-        [handler=DOM] void setDOMBreakpoint(in long nodeId, in long type);
-        [handler=DOM] void removeDOMBreakpoint(in long nodeId, in long type);
+
+        [handler=Controller] void setConsoleMessagesEnabled(in boolean enabled, out boolean newState);
+        [notify] void addConsoleMessage(out Object messageObj);
+        [notify] void updateConsoleMessageExpiredCount(out unsigned long count);
+        [notify] void updateConsoleMessageRepeatCount(out unsigned long count);
 
         [handler=Controller] void clearConsoleMessages();
+        [notify] void consoleMessagesCleared();
+
         [handler=Controller] void highlightDOMNode(in long nodeId);
         [handler=Controller] void hideDOMNodeHighlight();
         [handler=Controller] void openInInspectedWindow(in String url);
@@ -185,7 +207,7 @@ module core {
         [handler=DOM] void getComputedStyle(in long nodeId, out Value style);
         [handler=DOM] void getStyleSheet(in long styleSheetId, out Object styleSheet);
         [handler=DOM] void getStyleSourceData(in long styleSheetId, out Object styleSourceData);
-        [handler=DOM] void applyStyleText(in long styleId, in String styleText, in String propertyName, out boolean success, out Value style, out Array changedProperties);
+        [handler=DOM] void applyStyleText(in long styleId, in String styleText, in String propertyName, out boolean success, out Value style);
         [handler=DOM] void setStyleText(in long styleId, in String styleText, out boolean success);
         [handler=DOM] void setStyleProperty(in long styleId, in String name, in String value, out boolean success);
         [handler=DOM] void toggleStyleEnabled(in long styleId, in String propertyName, in boolean disabled, out Value style);

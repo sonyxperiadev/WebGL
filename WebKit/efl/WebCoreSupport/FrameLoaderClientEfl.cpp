@@ -54,6 +54,7 @@
 #include "ViewportArguments.h"
 #include "ewk_private.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 #if PLATFORM(UNIX)
 #include <sys/utsname.h>
@@ -72,7 +73,6 @@ FrameLoaderClientEfl::FrameLoaderClientEfl(Evas_Object *view)
     , m_customUserAgent("")
     , m_pluginView(0)
     , m_hasSentResponseToPlugin(false)
-    , m_initLayoutCompleted(false)
 {
 }
 
@@ -93,7 +93,7 @@ static String agentOS()
 #elif PLATFORM(UNIX)
     struct utsname name;
     if (uname(&name) != -1)
-        return String::format("%s %s", name.sysname, name.machine);
+        return makeString(name.sysname, ' ', name.machine);
 
     return "Unknown";
 #elif PLATFORM(WIN_OS)
@@ -615,8 +615,6 @@ void FrameLoaderClientEfl::dispatchDidChangeIcons()
 
 void FrameLoaderClientEfl::dispatchDidCommitLoad()
 {
-    m_initLayoutCompleted = false;
-
     ewk_frame_uri_changed(m_frame);
     if (ewk_view_frame_main_get(m_view) != m_frame)
         return;
@@ -624,7 +622,7 @@ void FrameLoaderClientEfl::dispatchDidCommitLoad()
     ewk_view_uri_changed(m_view);
 
     ViewportArguments arguments;
-    ewk_view_viewport_set(m_view, arguments.width, arguments.height, arguments.initialScale, arguments.minimumScale, arguments.maximumScale, arguments.userScalable);
+    ewk_view_viewport_attributes_set(m_view, arguments);
 }
 
 void FrameLoaderClientEfl::dispatchDidFinishDocumentLoad()
@@ -634,7 +632,6 @@ void FrameLoaderClientEfl::dispatchDidFinishDocumentLoad()
 
 void FrameLoaderClientEfl::dispatchDidFirstLayout()
 {
-    m_initLayoutCompleted = true;
     ewk_frame_load_firstlayout_finished(m_frame);
 }
 
@@ -763,7 +760,7 @@ bool FrameLoaderClientEfl::dispatchDidLoadResourceFromMemoryCache(DocumentLoader
     return false;
 }
 
-void FrameLoaderClientEfl::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
+void FrameLoaderClientEfl::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const String&)
 {
     notImplemented();
 }

@@ -38,7 +38,9 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLEntityParser.h"
+#include "HTMLHtmlElement.h"
 #include "HTMLLinkElement.h"
+#include "HTMLNames.h"
 #include "HTMLStyleElement.h"
 #include "ProcessingInstruction.h"
 #include "ResourceError.h"
@@ -596,7 +598,7 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parent
     while (parentElement) {
         elemStack.append(parentElement);
 
-        Node* n = parentElement->parentNode();
+        ContainerNode* n = parentElement->parentNode();
         if (!n || !n->isElementNode())
             break;
         parentElement = static_cast<Element*>(n);
@@ -824,6 +826,11 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
     pushCurrentNode(newElement.get());
     if (m_view && !newElement->attached())
         newElement->attach();
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    if (newElement->hasTagName(HTMLNames::htmlTag))
+        static_cast<HTMLHtmlElement*>(newElement.get())->insertedByParser();
+#endif
 
     if (!m_parsingFragment && isFirstElement && document()->frame())
         document()->frame()->loader()->dispatchDocumentElementAvailable();

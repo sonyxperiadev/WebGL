@@ -51,6 +51,9 @@ typedef HashMap<TileKey, BaseTile*> TileMap;
  */
 class TiledPage {
 public:
+#ifdef DEBUG_COUNT
+    static int count();
+#endif
     TiledPage(int id, GLWebViewState* state);
     ~TiledPage();
 
@@ -65,7 +68,7 @@ public:
     void draw(float transparency, SkRect& viewport, int firstTileX, int firstTileY);
 
     // used by individual tiles to generate the bitmap for their tile
-    bool paintBaseLayerContent(SkCanvas*);
+    void paintBaseLayerContent(SkCanvas*);
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
 

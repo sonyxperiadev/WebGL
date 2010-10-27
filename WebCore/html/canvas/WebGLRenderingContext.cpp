@@ -88,15 +88,15 @@ PassOwnPtr<WebGLRenderingContext> WebGLRenderingContext::create(HTMLCanvasElemen
 {
     HostWindow* hostWindow = canvas->document()->view()->root()->hostWindow();
     GraphicsContext3D::Attributes emptyAttributes;
-    OwnPtr<GraphicsContext3D> context(GraphicsContext3D::create(attrs ? attrs->attributes() : emptyAttributes, hostWindow));
+    RefPtr<GraphicsContext3D> context(GraphicsContext3D::create(attrs ? attrs->attributes() : emptyAttributes, hostWindow));
 
     if (!context)
         return 0;
         
-    return new WebGLRenderingContext(canvas, context.release());
+    return new WebGLRenderingContext(canvas, context);
 }
 
-WebGLRenderingContext::WebGLRenderingContext(HTMLCanvasElement* passedCanvas, PassOwnPtr<GraphicsContext3D> context)
+WebGLRenderingContext::WebGLRenderingContext(HTMLCanvasElement* passedCanvas, PassRefPtr<GraphicsContext3D> context)
     : CanvasRenderingContext(passedCanvas)
     , m_context(context)
     , m_needsUpdate(true)
@@ -1484,10 +1484,7 @@ WebGLGetInfo WebGLRenderingContext::getProgramParameter(WebGLProgram* program, u
         m_context->getProgramiv(objectOrZero(program), pname, &value);
         return WebGLGetInfo(static_cast<bool>(value));
     case GraphicsContext3D::LINK_STATUS:
-        if (program->isLinkFailureFlagSet())
-            return WebGLGetInfo(false);
-        m_context->getProgramiv(objectOrZero(program), pname, &value);
-        return WebGLGetInfo(static_cast<bool>(value));
+        return WebGLGetInfo(program->getLinkStatus());
     case GraphicsContext3D::INFO_LOG_LENGTH:
     case GraphicsContext3D::ATTACHED_SHADERS:
     case GraphicsContext3D::ACTIVE_ATTRIBUTES:
@@ -1897,14 +1894,17 @@ void WebGLRenderingContext::linkProgram(WebGLProgram* program, ExceptionCode& ec
         return;
     if (!isGLES2Compliant()) {
         if (!program->getAttachedShader(GraphicsContext3D::VERTEX_SHADER) || !program->getAttachedShader(GraphicsContext3D::FRAGMENT_SHADER)) {
-            program->setLinkFailureFlag(true);
+            program->setLinkStatus(false);
             return;
         }
-        program->setLinkFailureFlag(false);
     }
 
     m_context->linkProgram(objectOrZero(program));
     program->cacheActiveAttribLocations();
+    // cache link status
+    int value = 0;
+    m_context->getProgramiv(objectOrZero(program), GraphicsContext3D::LINK_STATUS, &value);
+    program->setLinkStatus(static_cast<bool>(value));
     cleanupAfterGraphicsCall(false);
 }
 
@@ -2714,11 +2714,12 @@ void WebGLRenderingContext::uniformMatrix4fv(const WebGLUniformLocation* locatio
 
 void WebGLRenderingContext::useProgram(WebGLProgram* program, ExceptionCode& ec)
 {
+    UNUSED_PARAM(ec);
     if (program && program->context() != this) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }
-    if (program && program->object() && !getProgramParameter(program, GraphicsContext3D::LINK_STATUS, ec).getBool()) {
+    if (program && program->object() && !program->getLinkStatus()) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         cleanupAfterGraphicsCall(false);
         return;

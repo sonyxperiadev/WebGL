@@ -32,7 +32,17 @@ G_BEGIN_DECLS
 // Macros to avoid deprecation checking churn
 #ifndef GTK_API_VERSION_2
 #define GDK_DISPLAY() (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()))
+#else
+GdkPixbuf* gdk_pixbuf_get_from_surface(cairo_surface_t* surface, int srcX, int srcY,
+                                       int width, int height);
 #endif
+
+#if !GTK_CHECK_VERSION(2, 24, 0)
+#define gdk_window_get_display(window) gdk_drawable_get_display(window)
+#ifdef GDK_DISABLE_DEPRECATED
+#define gdk_window_get_visual gdk_drawable_get_visual
+#endif
+#endif // GTK_CHECK_VERSION(2, 24, 0)
 
 #if !GTK_CHECK_VERSION(2, 21, 2)
 #define gdk_visual_get_depth(visual) (visual)->depth

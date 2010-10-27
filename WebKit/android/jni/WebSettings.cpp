@@ -363,9 +363,9 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mUserAgent);
         WebFrame::getWebFrame(pFrame)->setUserAgent(jstringToWtfString(env, str));
 #if USE(CHROME_NETWORK_STACK)
-        WebRequestContext::SetUserAgent(jstringToWtfString(env, str));
+        WebRequestContext::setUserAgent(jstringToWtfString(env, str));
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
-        WebRequestContext::SetAcceptLanguage(jstringToWtfString(env, str));
+        WebRequestContext::setAcceptLanguage(jstringToWtfString(env, str));
 #endif
 
         jint size = env->GetIntField(obj, gFieldIds->mMinimumFontSize);

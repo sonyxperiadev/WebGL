@@ -30,6 +30,7 @@
 #include "ButtonInputType.h"
 #include "CheckboxInputType.h"
 #include "ColorInputType.h"
+#include "DateComponents.h"
 #include "DateInputType.h"
 #include "DateTimeInputType.h"
 #include "DateTimeLocalInputType.h"
@@ -53,10 +54,14 @@
 #include "TimeInputType.h"
 #include "URLInputType.h"
 #include "WeekInputType.h"
+#include <limits>
+#include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
+
+using namespace std;
 
 typedef HashMap<String, PassOwnPtr<InputType> (*)(HTMLInputElement*), CaseFoldingHash> InputTypeFactoryMap;
 static PassOwnPtr<InputTypeFactoryMap> createInputTypeFactoryMap()
@@ -117,10 +122,129 @@ bool InputType::isTextType() const
     return false;
 }
 
+double InputType::valueAsDate() const
+{
+    return DateComponents::invalidMilliseconds();
+}
+
+void InputType::setValueAsDate(double, ExceptionCode& ec) const
+{
+    ec = INVALID_STATE_ERR;
+}
+
+double InputType::valueAsNumber() const
+{
+    return numeric_limits<double>::quiet_NaN();
+}
+
+void InputType::setValueAsNumber(double, ExceptionCode& ec) const
+{
+    ec = INVALID_STATE_ERR;
+}
+
+bool InputType::supportsValidation() const
+{
+    return true;
+}
+
+bool InputType::typeMismatchFor(const String&) const
+{
+    return false;
+}
+
+bool InputType::typeMismatch() const
+{
+    return false;
+}
+
+bool InputType::supportsRequired() const
+{
+    // Almost all validatable types support @required.
+    return supportsValidation();
+}
+
+bool InputType::valueMissing(const String&) const
+{
+    return false;
+}
+
 bool InputType::patternMismatch(const String&) const
 {
     return false;
 }
+
+bool InputType::rangeUnderflow(const String&) const
+{
+    return false;
+}
+
+bool InputType::rangeOverflow(const String&) const
+{
+    return false;
+}
+
+double InputType::minimum() const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+double InputType::maximum() const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+bool InputType::stepMismatch(const String&, double) const
+{
+    // Non-supported types should be rejected by HTMLInputElement::getAllowedValueStep().
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+double InputType::stepBase() const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+double InputType::defaultStep() const
+{
+    return numeric_limits<double>::quiet_NaN();
+}
+
+double InputType::stepScaleFactor() const
+{
+    return numeric_limits<double>::quiet_NaN();
+}
+
+bool InputType::parsedStepValueShouldBeInteger() const
+{
+    return false;
+}
+
+bool InputType::scaledStepValeuShouldBeInteger() const
+{
+    return false;
+}
+
+double InputType::parseToDouble(const String&, double defaultValue) const
+{
+    return defaultValue;
+}
+
+bool InputType::parseToDateComponents(const String&, DateComponents*) const
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+String InputType::serialize(double) const
+{
+    ASSERT_NOT_REACHED();
+    return String();
+}
+
 
 namespace InputTypeNames {
 

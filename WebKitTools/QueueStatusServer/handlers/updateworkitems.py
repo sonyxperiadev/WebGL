@@ -30,7 +30,7 @@ from google.appengine.ext import webapp, db
 from google.appengine.ext.webapp import template
 
 from handlers.updatebase import UpdateBase
-from model.queues import queues
+from model.queues import Queue
 from model.workitems import WorkItems
 
 from datetime import datetime
@@ -40,16 +40,6 @@ class UpdateWorkItems(UpdateBase):
     def get(self):
         self.response.out.write(template.render("templates/updateworkitems.html", None))
 
-    def _work_items_for_queue(self, queue_name):
-        if queue_name not in queues:
-            self.response.out.write("\"%s\" is not in queues %s" % (queue_name, queues))
-            return None
-        work_items = WorkItems.all().filter("queue_name =", queue_name).get()
-        if not work_items:
-            work_items = WorkItems()
-            work_items.queue_name = queue_name
-        return work_items
-
     def _parse_work_items_string(self, items_string):
         # Our parsing could be much more robust.
         item_strings = items_string.split(" ") if items_string else []
@@ -57,10 +47,13 @@ class UpdateWorkItems(UpdateBase):
 
     def _work_items_from_request(self):
         queue_name = self.request.get("queue_name")
-        work_items = self._work_items_for_queue(queue_name)
-        if not work_items:
+        queue = Queue.queue_with_name(queue_name)
+        if not queue:
+            self.response.out.write("\"%s\" is not in queues %s" % (queue_name, Queue.all()))
             return None
+
         items_string = self.request.get("work_items")
+        work_items = queue.work_items()
         work_items.item_ids = self._parse_work_items_string(items_string)
         work_items.date = datetime.now()
         return work_items

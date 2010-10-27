@@ -324,7 +324,7 @@ int RenderBoxModelObject::relativePositionOffsetX() const
     // call availableWidth on our containing block.
     if (!style()->left().isAuto()) {
         RenderBlock* cb = containingBlock();
-        if (!style()->right().isAuto() && containingBlock()->style()->direction() == RTL)
+        if (!style()->right().isAuto() && !containingBlock()->style()->isLeftToRightDirection())
             return -style()->right().calcValue(cb->availableWidth());
         return style()->left().calcValue(cb->availableWidth());
     }
@@ -348,13 +348,13 @@ int RenderBoxModelObject::relativePositionOffsetY() const
     if (!style()->top().isAuto()
         && (!containingBlock->style()->height().isAuto()
             || !style()->top().isPercent()
-            || containingBlock->stretchesToViewHeight()))
+            || containingBlock->stretchesToViewport()))
         return style()->top().calcValue(containingBlock->availableHeight());
 
     if (!style()->bottom().isAuto()
         && (!containingBlock->style()->height().isAuto()
             || !style()->bottom().isPercent()
-            || containingBlock->stretchesToViewHeight()))
+            || containingBlock->stretchesToViewport()))
         return -style()->bottom().calcValue(containingBlock->availableHeight());
 
     return 0;
@@ -855,23 +855,25 @@ int RenderBoxModelObject::verticalPosition(bool firstLine) const
         const Font& f = parent()->style(firstLine)->font();
         int fontsize = f.pixelSize();
 
+        LineDirectionMode lineDirection = parent()->style()->isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
+
         if (va == SUB)
             vpos += fontsize / 5 + 1;
         else if (va == SUPER)
             vpos -= fontsize / 3 + 1;
         else if (va == TEXT_TOP)
-            vpos += baselinePosition(firstLine) - f.ascent();
+            vpos += baselinePosition(firstLine, lineDirection) - f.ascent();
         else if (va == MIDDLE)
-            vpos += -static_cast<int>(f.xHeight() / 2) - lineHeight(firstLine) / 2 + baselinePosition(firstLine);
+            vpos += -static_cast<int>(f.xHeight() / 2) - lineHeight(firstLine, lineDirection) / 2 + baselinePosition(firstLine, lineDirection);
         else if (va == TEXT_BOTTOM) {
             vpos += f.descent();
             // lineHeight - baselinePosition is always 0 for replaced elements (except inline blocks), so don't bother wasting time in that case.
             if (!isReplaced() || style()->display() == INLINE_BLOCK)
-                vpos -= (lineHeight(firstLine) - baselinePosition(firstLine));
+                vpos -= (lineHeight(firstLine, lineDirection) - baselinePosition(firstLine, lineDirection));
         } else if (va == BASELINE_MIDDLE)
-            vpos += -lineHeight(firstLine) / 2 + baselinePosition(firstLine);
+            vpos += -lineHeight(firstLine, lineDirection) / 2 + baselinePosition(firstLine, lineDirection);
         else if (va == LENGTH)
-            vpos -= style()->verticalAlignLength().calcValue(lineHeight(firstLine));
+            vpos -= style()->verticalAlignLength().calcValue(lineHeight(firstLine, lineDirection));
     }
 
     return vpos;
@@ -1061,7 +1063,7 @@ void RenderBoxModelObject::paintBorder(GraphicsContext* graphicsContext, int tx,
         graphicsContext->addRoundedRectClip(borderRect, topLeft, topRight, bottomLeft, bottomRight);
         graphicsContext->clipOutRoundedRect(innerBorderRect, innerTopLeftRadius, innerTopRightRadius, innerBottomLeftRadius, innerBottomRightRadius);
 
-        roundedPath = Path::createRoundedRectangle(borderRect, topLeft, topRight, bottomLeft, bottomRight);
+        roundedPath.addRoundedRect(borderRect, topLeft, topRight, bottomLeft, bottomRight);
         graphicsContext->addPath(roundedPath);
     }
 
@@ -1752,24 +1754,29 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
 
             context->save();
 
-            if (hasBorderRadius)
-                context->clip(Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight));
-            else
+            Path path;
+            if (hasBorderRadius) {
+                path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+                context->clip(path);
+                path.clear();
+            } else
                 context->clip(rect);
 
             IntSize extraOffset(2 * w + max(0, shadowOffset.width()) + shadowBlur - 2 * shadowSpread + 1, 0);
             context->translate(extraOffset.width(), extraOffset.height());
             shadowOffset -= extraOffset;
 
-            context->beginPath();
-            context->addPath(Path::createRectangle(outerRect));
+            path.addRect(outerRect);
 
             if (hasBorderRadius) {
                 if (shadowSpread > 0)
                     uniformlyExpandBorderRadii(-shadowSpread, topLeft, topRight, bottomLeft, bottomRight);
-                context->addPath(Path::createRoundedRectangle(holeRect, topLeft, topRight, bottomLeft, bottomRight));
+                path.addRoundedRect(holeRect, topLeft, topRight, bottomLeft, bottomRight);
             } else
-                context->addPath(Path::createRectangle(holeRect));
+                path.addRect(holeRect);
+
+            context->beginPath();
+            context->addPath(path);
 
             context->setFillRule(RULE_EVENODD);
             context->setFillColor(fillColor, s->colorSpace());

@@ -29,7 +29,7 @@
 WebInspector.Resource = function(identifier, url)
 {
     this.identifier = identifier;
-    this._url = url;
+    this.url = url;
     this._startTime = -1;
     this._endTime = -1;
     this._requestMethod = "";
@@ -97,14 +97,19 @@ WebInspector.Resource.prototype = {
         if (this._url === x)
             return;
 
-        var oldURL = this._url;
         this._url = x;
         delete this._parsedQueryParameters;
-        // FIXME: We should make the WebInspector object listen for the "url changed" event.
-        // Then resourceURLChanged can be removed.
-        WebInspector.resourceURLChanged(this, oldURL);
 
-        this.dispatchEventToListeners("url changed");
+        var parsedURL = x.asParsedURL();
+        this.domain = parsedURL ? parsedURL.host : "";
+        this.path = parsedURL ? parsedURL.path : "";
+        this.lastPathComponent = "";
+        if (parsedURL && parsedURL.path) {
+            var lastSlashIndex = parsedURL.path.lastIndexOf("/");
+            if (lastSlashIndex !== -1)
+                this.lastPathComponent = parsedURL.path.substring(lastSlashIndex + 1);
+        }
+        this.lastPathComponentLowerCase = this.lastPathComponent.toLowerCase();
     },
 
     get documentURL()
@@ -114,46 +119,21 @@ WebInspector.Resource.prototype = {
 
     set documentURL(x)
     {
-        if (this._documentURL === x)
-            return;
         this._documentURL = x;
-    },
-
-    get domain()
-    {
-        return this._domain;
-    },
-
-    set domain(x)
-    {
-        if (this._domain === x)
-            return;
-        this._domain = x;
-    },
-
-    get lastPathComponent()
-    {
-        return this._lastPathComponent;
-    },
-
-    set lastPathComponent(x)
-    {
-        if (this._lastPathComponent === x)
-            return;
-        this._lastPathComponent = x;
-        this._lastPathComponentLowerCase = x ? x.toLowerCase() : null;
     },
 
     get displayName()
     {
-        var title = this.lastPathComponent;
-        if (!title)
-            title = this.displayDomain;
-        if (!title && this.url)
-            title = this.url.trimURL(WebInspector.mainResource ? WebInspector.mainResource.domain : "");
-        if (title === "/")
-            title = this.url;
-        return title;
+        if (this._displayName)
+            return this._displayName;
+        this._displayName = this.lastPathComponent;
+        if (!this._displayName)
+            this._displayName = this.displayDomain;
+        if (!this._displayName && this.url)
+            this._displayName = this.url.trimURL(WebInspector.mainResource ? WebInspector.mainResource.domain : "");
+        if (this._displayName === "/")
+            this._displayName = this.url;
+        return this._displayName;
     },
 
     get displayDomain()
@@ -171,29 +151,22 @@ WebInspector.Resource.prototype = {
 
     set startTime(x)
     {
-        if (this._startTime === x)
-            return;
-
         this._startTime = x;
-
-        if (WebInspector.panels.resources)
-            WebInspector.panels.resources.refreshResource(this);
     },
 
     get responseReceivedTime()
     {
+        if (this.timing && this.timing.requestTime) {
+            // Calculate responseReceivedTime from timing data for better accuracy.
+            // Timing's requestTime is a baseline in seconds, rest of the numbers there are ticks in millis.
+            return this.timing.requestTime + this.timing.receiveHeadersEnd / 1000.0;
+        }
         return this._responseReceivedTime || -1;
     },
 
     set responseReceivedTime(x)
     {
-        if (this._responseReceivedTime === x)
-            return;
-
         this._responseReceivedTime = x;
-
-        if (WebInspector.panels.resources)
-            WebInspector.panels.resources.refreshResource(this);
     },
 
     get endTime()
@@ -203,13 +176,13 @@ WebInspector.Resource.prototype = {
 
     set endTime(x)
     {
-        if (this._endTime === x)
-            return;
+        // In case of fast load (or in case of cached resources), endTime on network stack
+        // can be less then m_responseReceivedTime measured in WebCore. Normalize it here,
+        // prefer actualEndTime to m_responseReceivedTime.
+        if (x < this.responseReceivedTime)
+            this.responseReceivedTime = x;
 
         this._endTime = x;
-
-        if (WebInspector.panels.resources)
-            WebInspector.panels.resources.refreshResource(this);
     },
 
     get duration()
@@ -240,13 +213,7 @@ WebInspector.Resource.prototype = {
 
     set resourceSize(x)
     {
-        if (this._resourceSize === x)
-            return;
-
         this._resourceSize = x;
-
-        if (WebInspector.panels.resources)
-            WebInspector.panels.resources.refreshResource(this);
     },
 
     get transferSize()
@@ -262,8 +229,6 @@ WebInspector.Resource.prototype = {
 
     set expectedContentLength(x)
     {
-        if (this._expectedContentLength === x)
-            return;
         this._expectedContentLength = x;
     },
 
@@ -313,11 +278,6 @@ WebInspector.Resource.prototype = {
 
         if (this._category)
             this._category.addResource(this);
-
-        if (WebInspector.panels.resources) {
-            WebInspector.panels.resources.refreshResource(this);
-            WebInspector.panels.resources.recreateViewForResourceIfNeeded(this);
-        }
     },
 
     get cached()
@@ -328,7 +288,6 @@ WebInspector.Resource.prototype = {
     set cached(x)
     {
         this._cached = x;
-        this.dispatchEventToListeners("cached changed");
     },
 
     get mimeType()
@@ -338,9 +297,6 @@ WebInspector.Resource.prototype = {
 
     set mimeType(x)
     {
-        if (this._mimeType === x)
-            return;
-
         this._mimeType = x;
     },
 
@@ -387,18 +343,14 @@ WebInspector.Resource.prototype = {
 
     get requestHeaders()
     {
-        if (this._requestHeaders === undefined)
-            this._requestHeaders = {};
-        return this._requestHeaders;
+        return this._requestHeaders || {};
     },
 
     set requestHeaders(x)
     {
-        if (this._requestHeaders === x)
-            return;
-
         this._requestHeaders = x;
         delete this._sortedRequestHeaders;
+        delete this._requestCookies;
 
         this.dispatchEventToListeners("requestHeaders changed");
     },
@@ -421,6 +373,13 @@ WebInspector.Resource.prototype = {
         return this._headerValue(this.requestHeaders, headerName);
     },
 
+    get requestCookies()
+    {
+        if (!this._requestCookies)
+            this._requestCookies = WebInspector.CookieParser.parseCookie(this.requestHeaderValue("Cookie"));
+        return this._requestCookies;
+    },
+
     get requestFormData()
     {
         return this._requestFormData;
@@ -434,18 +393,14 @@ WebInspector.Resource.prototype = {
 
     get responseHeaders()
     {
-        if (this._responseHeaders === undefined)
-            this._responseHeaders = {};
-        return this._responseHeaders;
+        return this._responseHeaders || {};
     },
 
     set responseHeaders(x)
     {
-        if (this._responseHeaders === x)
-            return;
-
         this._responseHeaders = x;
         delete this._sortedResponseHeaders;
+        delete this._responseCookies;
 
         this.dispatchEventToListeners("responseHeaders changed");
     },
@@ -466,6 +421,13 @@ WebInspector.Resource.prototype = {
     responseHeaderValue: function(headerName)
     {
         return this._headerValue(this.responseHeaders, headerName);
+    },
+
+    get responseCookies()
+    {
+        if (!this._responseCookies)
+            this._responseCookies = WebInspector.CookieParser.parseSetCookie(this.responseHeaderValue("Set-Cookie"));
+        return this._responseCookies;
     },
 
     get queryParameters()
@@ -627,6 +589,15 @@ WebInspector.Resource.prototype = {
 
         if (msg)
             WebInspector.console.addMessage(msg);
+    },
+
+    getContents: function(callback)
+    {
+        // FIXME: eventually, cached resources will have no identifiers.
+        if (this.frameID)
+            InspectorBackend.resourceContent(this.frameID, this.url, callback);
+        else
+            InspectorBackend.getResourceContent(this.identifier, false, callback);
     }
 }
 

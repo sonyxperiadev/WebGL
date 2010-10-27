@@ -31,17 +31,27 @@
 #ifndef MonthInputType_h
 #define MonthInputType_h
 
-#include "TextFieldInputType.h"
+#include "BaseDateAndTimeInputType.h"
 
 namespace WebCore {
 
-class MonthInputType : public TextFieldInputType {
+class MonthInputType : public BaseDateAndTimeInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    MonthInputType(HTMLInputElement* element) : TextFieldInputType(element) { }
+    MonthInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
     virtual const AtomicString& formControlType() const;
+    virtual double valueAsDate() const;
+    virtual void setValueAsDate(double, ExceptionCode&) const;
+    virtual double parseToDouble(const String&, double) const;
+    virtual double minimum() const;
+    virtual double maximum() const;
+    virtual double defaultStep() const;
+    virtual double stepScaleFactor() const;
+    virtual bool parsedStepValueShouldBeInteger() const;
+    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const;
+    virtual bool setMillisecondToDateComponents(double, DateComponents*) const;
 };
 
 } // namespace WebCore

@@ -202,16 +202,16 @@ jobject WebViewCore::getApplicationContext() {
 
 
 struct WebViewCoreStaticMethods {
-    jmethodID    m_supportsMimeType;
+    jmethodID    m_isSupportedMediaMimeType;
 } gWebViewCoreStaticMethods;
 
 // Check whether a media mimeType is supported in Android media framework.
-bool WebViewCore::supportsMimeType(const WTF::String& mimeType) {
+bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jMimeType = env->NewString(mimeType.characters(), mimeType.length());
     jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
     bool val = env->CallStaticBooleanMethod(webViewCore,
-          gWebViewCoreStaticMethods.m_supportsMimeType, jMimeType);
+          gWebViewCoreStaticMethods.m_isSupportedMediaMimeType, jMimeType);
     checkException(env);
     env->DeleteLocalRef(jMimeType);
 
@@ -2347,12 +2347,14 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WTF::String test = renderText->text();
-    if (test == current) {
+    if (test != current) {
+        // If the text changed during the key event, update the UI text field.
+        updateTextfield(focus, false, test);
+    } else {
         DBG_NAV_LOG("test == current");
-        return;
     }
-    // If the text changed during the key event, update the UI text field.
-    updateTextfield(focus, false, test);
+    // Now that the selection has settled down, send it.
+    updateTextSelection();
 }
 
 void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
@@ -4108,10 +4110,10 @@ int registerWebViewCore(JNIEnv* env)
     LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
 
-    gWebViewCoreStaticMethods.m_supportsMimeType =
-        env->GetStaticMethodID(widget, "supportsMimeType", "(Ljava/lang/String;)Z");
-    LOG_FATAL_IF(gWebViewCoreStaticMethods.m_supportsMimeType == NULL,
-        "Could not find static method supportsMimeType from WebViewCore");
+    gWebViewCoreStaticMethods.m_isSupportedMediaMimeType =
+        env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");
+    LOG_FATAL_IF(gWebViewCoreStaticMethods.m_isSupportedMediaMimeType == NULL,
+        "Could not find static method isSupportedMediaMimeType from WebViewCore");
 
     return jniRegisterNativeMethods(env, "android/webkit/WebViewCore",
             gJavaWebViewCoreMethods, NELEM(gJavaWebViewCoreMethods));

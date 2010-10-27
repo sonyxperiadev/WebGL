@@ -219,7 +219,7 @@ void GraphicsContext::setStrokePattern(PassRefPtr<Pattern> pattern)
 {
     ASSERT(pattern);
     if (!pattern) {
-        setStrokeColor(Color::black, DeviceColorSpace);
+        setStrokeColor(Color::black, ColorSpaceDeviceRGB);
         return;
     }
     m_common->state.strokeGradient.clear();
@@ -231,7 +231,7 @@ void GraphicsContext::setFillPattern(PassRefPtr<Pattern> pattern)
 {
     ASSERT(pattern);
     if (!pattern) {
-        setFillColor(Color::black, DeviceColorSpace);
+        setFillColor(Color::black, ColorSpaceDeviceRGB);
         return;
     }
     m_common->state.fillGradient.clear();
@@ -243,7 +243,7 @@ void GraphicsContext::setStrokeGradient(PassRefPtr<Gradient> gradient)
 {
     ASSERT(gradient);
     if (!gradient) {
-        setStrokeColor(Color::black, DeviceColorSpace);
+        setStrokeColor(Color::black, ColorSpaceDeviceRGB);
         return;
     }
     m_common->state.strokeGradient = gradient;
@@ -255,7 +255,7 @@ void GraphicsContext::setFillGradient(PassRefPtr<Gradient> gradient)
 {
     ASSERT(gradient);
     if (!gradient) {
-        setFillColor(Color::black, DeviceColorSpace);
+        setFillColor(Color::black, ColorSpaceDeviceRGB);
         return;
     }
     m_common->state.fillGradient = gradient;
@@ -500,7 +500,9 @@ void GraphicsContext::addRoundedRectClip(const IntRect& rect, const IntSize& top
     if (paintingDisabled())
         return;
 
-    clip(Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight));
+    Path path;
+    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+    clip(path);
 }
 
 void GraphicsContext::clipOutRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight,
@@ -509,7 +511,9 @@ void GraphicsContext::clipOutRoundedRect(const IntRect& rect, const IntSize& top
     if (paintingDisabled())
         return;
 
-    clipOut(Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight));
+    Path path;
+    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+    clipOut(path);
 }
 
 void GraphicsContext::clipToImageBuffer(ImageBuffer* buffer, const FloatRect& rect)

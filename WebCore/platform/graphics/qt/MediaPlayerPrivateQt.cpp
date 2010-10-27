@@ -27,6 +27,7 @@
 #include "HTMLVideoElement.h"
 #include "NetworkingContext.h"
 #include "NotImplemented.h"
+#include "RenderVideo.h"
 #include "TimeRanges.h"
 #include "Widget.h"
 #include "qwebframe.h"
@@ -42,12 +43,17 @@
 #include <QPainter>
 #include <QPoint>
 #include <QRect>
+#include <QStyleOptionGraphicsItem>
 #include <QTime>
 #include <QTimer>
 #include <QUrl>
 #include <limits>
 #include <wtf/HashSet.h>
 #include <wtf/text/CString.h>
+
+#if USE(ACCELERATED_COMPOSITING)
+#include "texmap/TextureMapperPlatformLayer.h"
+#endif
 
 using namespace WTF;
 
@@ -93,6 +99,8 @@ MediaPlayerPrivateQt::MediaPlayerPrivateQt(MediaPlayer* player)
     , m_videoScene(new QGraphicsScene)
     , m_networkState(MediaPlayer::Empty)
     , m_readyState(MediaPlayer::HaveNothing)
+    , m_currentSize(0, 0)
+    , m_naturalSize(RenderVideo::defaultSize())
     , m_isVisible(false)
     , m_isSeeking(false)
     , m_composited(false)
@@ -125,8 +133,7 @@ MediaPlayerPrivateQt::MediaPlayerPrivateQt(MediaPlayer* player)
            this, SLOT(nativeSizeChanged(QSizeF)));
 
     // Grab the player control
-    QMediaService* service = m_mediaPlayer->service();
-    if (service) {
+    if (QMediaService* service = m_mediaPlayer->service()) {
         m_mediaPlayerControl = qobject_cast<QMediaPlayerControl *>(
                 service->requestControl(QMediaPlayerControl_iid));
     }
@@ -134,6 +141,10 @@ MediaPlayerPrivateQt::MediaPlayerPrivateQt(MediaPlayer* player)
 
 MediaPlayerPrivateQt::~MediaPlayerPrivateQt()
 {
+    m_mediaPlayer->disconnect(this);
+    m_mediaPlayer->stop();
+    m_mediaPlayer->setMedia(QMediaContent());
+
     delete m_mediaPlayer;
     delete m_videoScene;
 }
@@ -330,8 +341,7 @@ float MediaPlayerPrivateQt::duration() const
 
 float MediaPlayerPrivateQt::currentTime() const
 {
-    float currentTime = m_mediaPlayer->position() / 1000.0f;
-    return currentTime;
+    return m_mediaPlayer->position() / 1000.0f;
 }
 
 PassRefPtr<TimeRanges> MediaPlayerPrivateQt::buffered() const
@@ -437,8 +447,15 @@ void MediaPlayerPrivateQt::stateChanged(QMediaPlayer::State state)
     }
 }
 
-void MediaPlayerPrivateQt::nativeSizeChanged(const QSizeF&)
+void MediaPlayerPrivateQt::nativeSizeChanged(const QSizeF& size)
 {
+    LOG(Media, "MediaPlayerPrivateQt::naturalSizeChanged(%dx%d)",
+            size.toSize().width(), size.toSize().height());
+
+    if (!size.isValid())
+        return;
+
+    m_naturalSize = size.toSize();
     m_webCorePlayer->sizeChanged();
 }
 
@@ -466,7 +483,7 @@ void MediaPlayerPrivateQt::seekTimeout()
 
 void MediaPlayerPrivateQt::positionChanged(qint64)
 {
-    // Only propogate this event if we are seeking
+    // Only propagate this event if we are seeking
     if (m_isSeeking && m_queuedSeek == -1) {
         m_webCorePlayer->timeChanged();
         m_isSeeking = false;
@@ -546,6 +563,9 @@ void MediaPlayerPrivateQt::updateStates()
 
 void MediaPlayerPrivateQt::setSize(const IntSize& size)
 {
+    LOG(Media, "MediaPlayerPrivateQt::setSize(%dx%d)",
+            size.width(), size.height());
+
     if (size == m_currentSize)
         return;
 
@@ -555,10 +575,15 @@ void MediaPlayerPrivateQt::setSize(const IntSize& size)
 
 IntSize MediaPlayerPrivateQt::naturalSize() const
 {
-    if (!hasVideo() || m_readyState < MediaPlayer::HaveMetadata)
+    if (!hasVideo() ||  m_readyState < MediaPlayer::HaveMetadata) {
+        LOG(Media, "MediaPlayerPrivateQt::naturalSize() -> 0x0 (!hasVideo || !haveMetaData)");
         return IntSize();
+    }
 
-    return IntSize(m_videoItem->nativeSize().toSize());
+    LOG(Media, "MediaPlayerPrivateQt::naturalSize() -> %dx%d (m_naturalSize)",
+            m_naturalSize.width(), m_naturalSize.height());
+
+    return m_naturalSize;
 }
 
 void MediaPlayerPrivateQt::paint(GraphicsContext* context, const IntRect& rect)
@@ -573,10 +598,7 @@ void MediaPlayerPrivateQt::paint(GraphicsContext* context, const IntRect& rect)
     if (!m_isVisible)
         return;
 
-    // Grab the painter and widget
     QPainter* painter = context->platformContext();
-
-    // Render the video
     m_videoScene->render(painter, QRectF(QRect(rect)), m_videoItem->sceneBoundingRect());
 }
 
@@ -585,7 +607,41 @@ void MediaPlayerPrivateQt::repaint()
     m_webCorePlayer->repaint();
 }
 
-#if USE(ACCELERATED_COMPOSITING)
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+
+class TextureMapperVideoLayerQt : public virtual TextureMapperVideoLayer {
+public:
+    TextureMapperVideoLayerQt(QGraphicsVideoItem* videoItem)
+        : m_videoItem(videoItem)
+    {
+    }
+
+    virtual void setPlatformLayerClient(TextureMapperLayerClient* client)
+    {
+        m_client = client;
+    }
+
+    virtual void paint(GraphicsContext* context)
+    {
+        if (!m_videoItem)
+            return;
+
+        QStyleOptionGraphicsItem opt;
+        opt.exposedRect = m_videoItem.data()->sceneBoundingRect();
+        opt.rect = opt.exposedRect.toRect();
+        m_videoItem.data()->paint(context->platformContext(), &opt);
+    }
+
+    virtual IntSize size() const
+    {
+        return m_videoItem ? IntSize(m_videoItem.data()->size().width(), m_videoItem.data()->size().height()) : IntSize();
+    }
+
+    QWeakPointer<QGraphicsVideoItem> m_videoItem;
+    TextureMapperLayerClient* m_client;
+};
+
+
 void MediaPlayerPrivateQt::acceleratedRenderingStateChanged()
 {
     MediaPlayerClient* client = m_webCorePlayer->mediaPlayerClient();
@@ -595,14 +651,12 @@ void MediaPlayerPrivateQt::acceleratedRenderingStateChanged()
 
     m_composited = composited;
     if (composited)
-        m_videoScene->removeItem(m_videoItem);
-    else
-        m_videoScene->addItem(m_videoItem);
+        m_platformLayer = new TextureMapperVideoLayerQt(m_videoItem);
 }
 
 PlatformLayer* MediaPlayerPrivateQt::platformLayer() const
 {
-    return m_composited ? m_videoItem : 0;
+    return m_composited ? m_platformLayer.get() : 0;
 }
 #endif
 

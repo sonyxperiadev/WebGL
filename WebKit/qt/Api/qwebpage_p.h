@@ -36,6 +36,8 @@
 
 #include <wtf/RefPtr.h>
 
+#include "ViewportArguments.h"
+
 namespace WebCore {
     class ChromeClientQt;
     class ContextMenuClientQt;
@@ -58,13 +60,13 @@ QT_END_NAMESPACE
 class QWebInspector;
 class QWebPageClient;
 
-class QtViewportConfigurationPrivate : public QSharedData {
+class QtViewportAttributesPrivate : public QSharedData {
 public:
-    QtViewportConfigurationPrivate(QWebPage::ViewportConfiguration* qq)
+    QtViewportAttributesPrivate(QWebPage::ViewportAttributes* qq)
         : q(qq)
     { }
 
-    QWebPage::ViewportConfiguration* q;
+    QWebPage::ViewportAttributes* q;
 };
 
 class QWebPagePrivate {
@@ -88,36 +90,26 @@ public:
 
     void timerEvent(QTimerEvent*);
 
-    void mouseMoveEvent(QMouseEvent*);
-    void mouseMoveEvent(QGraphicsSceneMouseEvent*);
-    void mousePressEvent(QMouseEvent*);
-    void mousePressEvent(QGraphicsSceneMouseEvent*);
-    void mouseDoubleClickEvent(QMouseEvent*);
-    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent*);
-    void mouseTripleClickEvent(QMouseEvent*);
-    void mouseTripleClickEvent(QGraphicsSceneMouseEvent*);
-    void mouseReleaseEvent(QMouseEvent*);
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent*);
+    template<class T> void mouseMoveEvent(T*);
+    template<class T> void mousePressEvent(T*);
+    template<class T> void mouseDoubleClickEvent(T*);
+    template<class T> void mouseTripleClickEvent(T*);
+    template<class T> void mouseReleaseEvent(T*);
 #ifndef QT_NO_CONTEXTMENU
     void contextMenuEvent(const QPoint& globalPos);
 #endif
 #ifndef QT_NO_WHEELEVENT
-    void wheelEvent(QWheelEvent*);
-    void wheelEvent(QGraphicsSceneWheelEvent*);
+    template<class T> void wheelEvent(T*);
 #endif
     void keyPressEvent(QKeyEvent*);
     void keyReleaseEvent(QKeyEvent*);
     void focusInEvent(QFocusEvent*);
     void focusOutEvent(QFocusEvent*);
 
-    void dragEnterEvent(QDragEnterEvent*);
-    void dragEnterEvent(QGraphicsSceneDragDropEvent*);
-    void dragLeaveEvent(QDragLeaveEvent*);
-    void dragLeaveEvent(QGraphicsSceneDragDropEvent*);
-    void dragMoveEvent(QDragMoveEvent*);
-    void dragMoveEvent(QGraphicsSceneDragDropEvent*);
-    void dropEvent(QDropEvent*);
-    void dropEvent(QGraphicsSceneDragDropEvent*);
+    template<class T> void dragEnterEvent(T*);
+    template<class T> void dragLeaveEvent(T*);
+    template<class T> void dragMoveEvent(T*);
+    template<class T> void dropEvent(T*);
 
     void inputMethodEvent(QInputMethodEvent*);
 
@@ -138,6 +130,8 @@ public:
     QWebInspector* getOrCreateInspector();
     WebCore::InspectorController* inspectorController();
     quint16 inspectorServerPort();
+
+    WebCore::ViewportArguments viewportArguments();
 
 #ifndef QT_NO_SHORTCUT
     static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event);

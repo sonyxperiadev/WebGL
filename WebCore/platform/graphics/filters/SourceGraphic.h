@@ -35,12 +35,12 @@ public:
 
     static const AtomicString& effectName();
 
-    virtual FloatRect determineFilterPrimitiveSubregion(Filter*);
-
     virtual void apply(Filter*);
     virtual void dump();
 
-    virtual bool isSourceInput() const { return true; }
+    virtual void determineAbsolutePaintRect(Filter*);
+
+    virtual FilterEffectType filterEffectType() const { return FilterEffectTypeSourceInput; }
 
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 

@@ -43,8 +43,6 @@
 #include "PlatformContextSkia.h"
 #include "skia/ext/platform_canvas.h"
 #elif PLATFORM(CG)
-#include "LocalCurrentGraphicsContext.h"
-
 #include <CoreGraphics/CGBitmapContext.h>
 #endif
 
@@ -121,22 +119,13 @@ PassRefPtr<ContentLayerChromium> ContentLayerChromium::create(GraphicsLayerChrom
 ContentLayerChromium::ContentLayerChromium(GraphicsLayerChromium* owner)
     : LayerChromium(owner)
     , m_contentsTexture(0)
+    , m_skipsDraw(false)
 {
 }
 
 ContentLayerChromium::~ContentLayerChromium()
 {
     cleanupResources();
-}
-
-void ContentLayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
-{
-    // If we're changing layer renderers then we need to free up any resources
-    // allocated by the old renderer.
-    if (layerRenderer() && layerRenderer() != renderer)
-        cleanupResources();
-
-    LayerChromium::setLayerRenderer(renderer);
 }
 
 void ContentLayerChromium::cleanupResources()
@@ -149,6 +138,42 @@ void ContentLayerChromium::cleanupResources()
     }
 }
 
+bool ContentLayerChromium::requiresClippedUpdateRect() const
+{
+    // To avoid allocating excessively large textures, switch into "large layer mode" if
+    // one of the layer's dimensions is larger than 2000 pixels or the current size
+    // of the visible rect. This is a temporary measure until layer tiling is implemented.
+    static const int maxLayerSize = 2000;
+    return (m_bounds.width() > max(maxLayerSize, layerRenderer()->rootLayerContentRect().width())
+            || m_bounds.height() > max(maxLayerSize, layerRenderer()->rootLayerContentRect().height())
+            || !layerRenderer()->checkTextureSize(m_bounds));
+}
+
+void ContentLayerChromium::calculateClippedUpdateRect(IntRect& dirtyRect, IntRect& drawRect) const
+{
+    // For the given layer size and content rect, calculate:
+    // 1) The minimal texture space rectangle to be uploaded, returned in dirtyRect.
+    // 2) The content rect-relative rectangle to draw this texture in, returned in drawRect.
+
+    const IntRect clipRect = layerRenderer()->currentScissorRect();
+    const TransformationMatrix& transform = drawTransform();
+    // The layer's draw transform points to the center of the layer, relative to
+    // the content rect.  layerPos is the distance from the top left of the
+    // layer to the top left of the content rect.
+    const IntPoint layerPos(m_bounds.width() / 2 - transform.m41(),
+                            m_bounds.height() / 2 - transform.m42());
+    // Transform the contentRect into the space of the layer.
+    IntRect contentRectInLayerSpace(layerPos, clipRect.size());
+
+    // Clip the entire layer against the visible region in the content rect
+    // and use that as the drawable texture, instead of the entire layer.
+    dirtyRect = IntRect(IntPoint(0, 0), m_bounds);
+    dirtyRect.intersect(contentRectInLayerSpace);
+
+    // The draw position is relative to the content rect.
+    drawRect = IntRect(toPoint(dirtyRect.location() - layerPos), dirtyRect.size());
+}
+
 void ContentLayerChromium::updateContents()
 {
     RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_owner->client());
@@ -159,29 +184,47 @@ void ContentLayerChromium::updateContents()
 
     ASSERT(layerRenderer());
 
-    // FIXME: Remove this test when tiled layers are implemented.
-    m_skipsDraw = false;
-    if (!layerRenderer()->checkTextureSize(m_bounds)) {
-        m_skipsDraw = true;
-        return;
-    }
-
     void* pixels = 0;
-    IntRect dirtyRect(m_dirtyRect);
+    IntRect dirtyRect;
+    IntRect updateRect;
     IntSize requiredTextureSize;
     IntSize bitmapSize;
 
-    requiredTextureSize = m_bounds;
-    IntRect boundsRect(IntPoint(0, 0), m_bounds);
+    // FIXME: Remove this test when tiled layers are implemented.
+    if (requiresClippedUpdateRect()) {
+        // A layer with 3D transforms could require an arbitrarily large number
+        // of texels to be repainted, so ignore these layers until tiling is
+        // implemented.
+        if (!drawTransform().isIdentityOrTranslation()) {
+            m_skipsDraw = true;
+            return;
+        }
 
-    // If the texture needs to be reallocated then we must redraw the entire
-    // contents of the layer.
-    if (requiredTextureSize != m_allocatedTextureSize)
-        dirtyRect = boundsRect;
-    else {
-        // Clip the dirtyRect to the size of the layer to avoid drawing outside
-        // the bounds of the backing texture.
-        dirtyRect.intersect(boundsRect);
+        calculateClippedUpdateRect(dirtyRect, m_largeLayerDrawRect);
+        if (!layerRenderer()->checkTextureSize(m_largeLayerDrawRect.size())) {
+            m_skipsDraw = true;
+            return;
+        }
+        if (m_largeLayerDirtyRect == dirtyRect)
+            return;
+
+        m_largeLayerDirtyRect = dirtyRect;
+        requiredTextureSize = dirtyRect.size();
+        updateRect = IntRect(IntPoint(0, 0), dirtyRect.size());
+    } else {
+        dirtyRect = IntRect(m_dirtyRect);
+        IntRect boundsRect(IntPoint(0, 0), m_bounds);
+        requiredTextureSize = m_bounds;
+        // If the texture needs to be reallocated then we must redraw the entire
+        // contents of the layer.
+        if (requiredTextureSize != m_allocatedTextureSize)
+            dirtyRect = boundsRect;
+        else {
+            // Clip the dirtyRect to the size of the layer to avoid drawing
+            // outside the bounds of the backing texture.
+            dirtyRect.intersect(boundsRect);
+        }
+        updateRect = dirtyRect;
     }
 
 #if PLATFORM(SKIA)
@@ -228,7 +271,6 @@ void ContentLayerChromium::updateContents()
     CGContextScaleCTM(contextCG.get(), 1, -1);
 
     GraphicsContext graphicsContext(contextCG.get());
-    LocalCurrentGraphicsContext scopedNSGraphicsContext(&graphicsContext);
 
     // Translate the graphics context into the coordinate system of the dirty rect.
     graphicsContext.translate(-dirtyRect.x(), -dirtyRect.y());
@@ -246,7 +288,7 @@ void ContentLayerChromium::updateContents()
         textureId = layerRenderer()->createLayerTexture();
 
     if (pixels)
-        updateTextureRect(pixels, bitmapSize, requiredTextureSize,  dirtyRect, textureId);
+        updateTextureRect(pixels, bitmapSize, requiredTextureSize, updateRect, textureId);
 }
 
 void ContentLayerChromium::updateTextureRect(void* pixels, const IntSize& bitmapSize, const IntSize& requiredTextureSize, const IntRect& updateRect, unsigned textureId)
@@ -272,7 +314,8 @@ void ContentLayerChromium::updateTextureRect(void* pixels, const IntSize& bitmap
     }
 
     m_dirtyRect.setSize(FloatSize());
-    m_contentsDirty = false;
+    // Large layers always stay dirty, because they need to update when the content rect changes.
+    m_contentsDirty = requiresClippedUpdateRect();
 }
 
 void ContentLayerChromium::draw()
@@ -288,9 +331,21 @@ void ContentLayerChromium::draw()
     GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_contentsTexture));
     layerRenderer()->useShader(sv->contentShaderProgram());
     GLC(context, context->uniform1i(sv->shaderSamplerLocation(), 0));
-    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), drawTransform(),
-                     bounds().width(), bounds().height(), drawOpacity(),
-                     sv->shaderMatrixLocation(), sv->shaderAlphaLocation());
+
+    if (requiresClippedUpdateRect()) {
+        float m43 = drawTransform().m43();
+        TransformationMatrix transform;
+        transform.translate3d(m_largeLayerDrawRect.center().x(), m_largeLayerDrawRect.center().y(), m43);
+        drawTexturedQuad(context, layerRenderer()->projectionMatrix(),
+                         transform, m_largeLayerDrawRect.width(),
+                         m_largeLayerDrawRect.height(), drawOpacity(),
+                         sv->shaderMatrixLocation(), sv->shaderAlphaLocation());
+    } else {
+        drawTexturedQuad(context, layerRenderer()->projectionMatrix(),
+                         drawTransform(), m_bounds.width(), m_bounds.height(),
+                         drawOpacity(), sv->shaderMatrixLocation(),
+                         sv->shaderAlphaLocation());
+    }
 }
 
 }

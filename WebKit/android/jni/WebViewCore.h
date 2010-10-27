@@ -634,7 +634,7 @@ namespace android {
         static jobject getApplicationContext();
 
         // Check whether a media mimeType is supported in Android media framework.
-        static bool supportsMimeType(const WTF::String& mimeType);
+        static bool isSupportedMediaMimeType(const WTF::String& mimeType);
     };
 
 }   // namespace android

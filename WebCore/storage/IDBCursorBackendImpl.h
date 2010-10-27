@@ -41,34 +41,39 @@ class IDBDatabaseBackendImpl;
 class IDBIndexBackendImpl;
 class IDBKeyRange;
 class IDBObjectStoreBackendImpl;
+class IDBTransactionBackendInterface;
 class SQLiteStatement;
 class SerializedScriptValue;
 
 class IDBCursorBackendImpl : public IDBCursorBackendInterface {
 public:
-    static PassRefPtr<IDBCursorBackendImpl> create(PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKeyRange> keyRange, IDBCursor::Direction direction, PassOwnPtr<SQLiteStatement> query)
+    static PassRefPtr<IDBCursorBackendImpl> create(PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKeyRange> keyRange, IDBCursor::Direction direction, PassOwnPtr<SQLiteStatement> query, IDBTransactionBackendInterface* transaction)
     {
-        return adoptRef(new IDBCursorBackendImpl(objectStore, keyRange, direction, query));
+        return adoptRef(new IDBCursorBackendImpl(objectStore, keyRange, direction, query, transaction));
     }
-    static PassRefPtr<IDBCursorBackendImpl> create(PassRefPtr<IDBIndexBackendImpl> index, PassRefPtr<IDBKeyRange> keyRange, IDBCursor::Direction direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor)
+    static PassRefPtr<IDBCursorBackendImpl> create(PassRefPtr<IDBIndexBackendImpl> index, PassRefPtr<IDBKeyRange> keyRange, IDBCursor::Direction direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor, IDBTransactionBackendInterface* transaction)
     {
-        return adoptRef(new IDBCursorBackendImpl(index, keyRange, direction, query, isSerializedScriptValueCursor));
+        return adoptRef(new IDBCursorBackendImpl(index, keyRange, direction, query, isSerializedScriptValueCursor, transaction));
     }
     virtual ~IDBCursorBackendImpl();
 
     virtual unsigned short direction() const;
     virtual PassRefPtr<IDBKey> key() const;
     virtual PassRefPtr<IDBAny> value() const;
-    virtual void update(PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBCallbacks>);
-    virtual void continueFunction(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
-    virtual void remove(PassRefPtr<IDBCallbacks>);
+    virtual void update(PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
+    virtual void continueFunction(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
+    virtual void remove(PassRefPtr<IDBCallbacks>, ExceptionCode&);
 
 private:
-    IDBCursorBackendImpl(PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBKeyRange>, IDBCursor::Direction, PassOwnPtr<SQLiteStatement> query);
-    IDBCursorBackendImpl(PassRefPtr<IDBIndexBackendImpl>, PassRefPtr<IDBKeyRange>, IDBCursor::Direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor);
+    IDBCursorBackendImpl(PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBKeyRange>, IDBCursor::Direction, PassOwnPtr<SQLiteStatement> query, IDBTransactionBackendInterface*);
+    IDBCursorBackendImpl(PassRefPtr<IDBIndexBackendImpl>, PassRefPtr<IDBKeyRange>, IDBCursor::Direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor, IDBTransactionBackendInterface*);
 
     void loadCurrentRow();
     IDBDatabaseBackendImpl* database() const;
+
+    static void updateInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl>, PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBCallbacks>);
+    static void continueFunctionInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl>, PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
+    static void removeInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl>, PassRefPtr<IDBCallbacks>);
 
     static const int64_t InvalidId = -1;
 
@@ -86,6 +91,8 @@ private:
     // Only one of these will ever be used for each instance. Which depends on m_isSerializedScriptValueCursor.
     RefPtr<SerializedScriptValue> m_currentSerializedScriptValue;
     RefPtr<IDBKey> m_currentIDBKeyValue;
+
+    RefPtr<IDBTransactionBackendInterface> m_transaction;
 };
 
 } // namespace WebCore

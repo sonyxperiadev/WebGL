@@ -313,10 +313,24 @@ public:
         if (!input.checkInput(matchSize))
             return false;
 
-        for (int i = 0; i < matchSize; ++i) {
-            if (!checkCharacter(input.reread(matchBegin + i), inputOffset - matchSize + i)) {
-                input.uncheckInput(matchSize);
-                return false;
+        if (pattern->m_ignoreCase) {
+            for (int i = 0; i < matchSize; ++i) {
+                int ch = input.reread(matchBegin + i);
+
+                int lo = Unicode::toLower(ch);
+                int hi = Unicode::toUpper(ch);
+
+                if ((lo != hi) ? (!checkCasedCharacter(lo, hi, inputOffset - matchSize + i)) : (!checkCharacter(ch, inputOffset - matchSize + i))) {
+                    input.uncheckInput(matchSize);
+                    return false;
+                }
+            }
+        } else {
+            for (int i = 0; i < matchSize; ++i) {
+                if (!checkCharacter(input.reread(matchBegin + i), inputOffset - matchSize + i)) {
+                    input.uncheckInput(matchSize);
+                    return false;
+                }
             }
         }
 
@@ -481,6 +495,13 @@ public:
 
         int matchBegin = output[(term.atom.subpatternId << 1)];
         int matchEnd = output[(term.atom.subpatternId << 1) + 1];
+
+        // If the end position of the referenced match hasn't set yet then the backreference in the same parentheses where it references to that.
+        // In this case the result of match is empty string like when it references to a parentheses with zero-width match.
+        // Eg.: /(a\1)/
+        if (matchEnd == -1)
+            return true;
+
         ASSERT((matchBegin == -1) == (matchEnd == -1));
         ASSERT(matchBegin <= matchEnd);
 
@@ -1497,7 +1518,7 @@ public:
         m_currentAlternativeIndex = newAlternativeIndex;
     }
 
-    void emitDisjunction(PatternDisjunction* disjunction, unsigned inputCountAlreadyChecked = 0, unsigned parenthesesInputCountAlreadyChecked = 0)
+    void emitDisjunction(PatternDisjunction* disjunction, unsigned inputCountAlreadyChecked = 0, unsigned parenthesesInputCountAlreadyChecked = 0, bool isParentheticalAssertion = false)
     {
         for (unsigned alt = 0; alt < disjunction->m_alternatives.size(); ++alt) {
             unsigned currentCountAlreadyChecked = inputCountAlreadyChecked;
@@ -1512,12 +1533,18 @@ public:
             }
 
             unsigned minimumSize = alternative->m_minimumSize;
+            int countToCheck;
 
-            ASSERT(minimumSize >= parenthesesInputCountAlreadyChecked);
-            unsigned countToCheck = minimumSize - parenthesesInputCountAlreadyChecked;
-            if (countToCheck)
+            if (isParentheticalAssertion && parenthesesInputCountAlreadyChecked > minimumSize)
+                countToCheck = 0;
+            else
+                countToCheck = minimumSize - parenthesesInputCountAlreadyChecked;
+
+            ASSERT(countToCheck >= 0);
+            if (countToCheck) {
                 checkInput(countToCheck);
-            currentCountAlreadyChecked += countToCheck;
+                currentCountAlreadyChecked += countToCheck;
+            }
 
             for (unsigned i = 0; i < alternative->m_terms.size(); ++i) {
                 PatternTerm& term = alternative->m_terms[i];
@@ -1577,8 +1604,11 @@ public:
                 case PatternTerm::TypeParentheticalAssertion: {
                     unsigned alternativeFrameLocation = term.frameLocation + RegexStackSpaceForBackTrackInfoParentheticalAssertion;
 
+                    ASSERT(currentCountAlreadyChecked >= (unsigned)term.inputPosition);
+                    int positiveInputOffset = currentCountAlreadyChecked - term.inputPosition;
+
                     atomParentheticalAssertionBegin(term.parentheses.subpatternId, term.invertOrCapture, term.frameLocation, alternativeFrameLocation);
-                    emitDisjunction(term.parentheses.disjunction, currentCountAlreadyChecked, 0);
+                    emitDisjunction(term.parentheses.disjunction, currentCountAlreadyChecked, positiveInputOffset, true);
                     atomParenthesesEnd(true, term.parentheses.lastSubpatternId, 0, term.frameLocation, term.quantityCount, term.quantityType);
                     break;
                 }

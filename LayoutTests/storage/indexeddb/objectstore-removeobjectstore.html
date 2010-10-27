@@ -10,36 +10,46 @@
 <div id="console"></div>
 <script>
 
-description("Test IndexedDB's IDBObjectStore.removeObjectStore().");
+description("Test IndexedDB's webkitIDBObjectStore.removeObjectStore().");
 if (window.layoutTestController) 
     layoutTestController.waitUntilDone();
 
 function test()
 {
-    result = evalAndLog("indexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
     verifyResult(result);
-    result.onsuccess = createObjectStore;
+    result.onsuccess = startSetVersion;
     result.onerror = unexpectedErrorCallback;
 }
 
-function createObjectStore()
+function startSetVersion()
 {
     verifySuccessEvent(event);
     db = evalAndLog("db = event.result");
 
-    deleteAllObjectStores(db);
-
-    result = evalAndLog("db.createObjectStore('storeName', null)");
+    result = evalAndLog("db.setVersion('new version')");
     verifyResult(result);
-    result.onsuccess = addValue;
+    result.onsuccess = deleteExisting;
     result.onerror = unexpectedErrorCallback;
 }
 
-function addValue()
+function deleteExisting()
 {
     verifySuccessEvent(event);
+    window.trans = evalAndLog("trans = event.result");
+    shouldBeTrue("trans !== null");
 
-    result = evalAndLog("event.result.add('value', 'key')");
+    deleteAllObjectStores(db, createObjectStoreAndAddValue);
+}
+
+function createObjectStoreAndAddValue()
+{
+    store = evalAndLog("store = db.createObjectStore('storeName', null)");
+
+    window.index = evalAndLog("store.createIndex('indexName', '')");
+    shouldBeTrue("store.indexNames.contains('indexName')");
+
+    result = evalAndLog("store.add('value', 'key')");
     verifyResult(result);
     result.onsuccess = getValue;
     result.onerror = unexpectedErrorCallback;
@@ -64,42 +74,31 @@ function addIndex()
     verifySuccessEvent(event);
     shouldBeEqualToString("event.result", "value");
 
-    result = evalAndLog("event.source.createIndex('indexName', '')");
+    result = evalAndLog("db.setVersion('new version')");
     verifyResult(result);
-    result.onsuccess = commitTransaction;
+    result.onsuccess = removeObjectStore;
     result.onerror = unexpectedErrorCallback;
-}
-
-function commitTransaction()
-{
-    verifySuccessEvent(event);
-    shouldBeTrue("event.source.indexNames.contains('indexName')");
-    // Let the transaction commit.
-    window.setTimeout('removeObjectStore()', 0);
 }
 
 function removeObjectStore()
 {
-    result = evalAndLog("db.removeObjectStore('storeName')");
-    verifyResult(result);
-    result.onsuccess = createObjectStoreAgain;
-    result.onerror = unexpectedErrorCallback;
+    verifySuccessEvent(event);
+    window.trans = evalAndLog("trans = event.result");
+    shouldBeTrue("trans !== null");
+    trans.onabort = unexpectedAbortCallback;
+
+    evalAndLog("db.removeObjectStore('storeName')");
+    createObjectStoreAgain();
 }
 
 function createObjectStoreAgain()
 {
-    verifySuccessEvent(event);
-
-    result = evalAndLog("db.createObjectStore('storeName', null)");
-    verifyResult(result);
-    result.onsuccess = getValueAgain;
-    result.onerror = unexpectedErrorCallback;
+    evalAndLog("db.createObjectStore('storeName', null)");
+    getValueAgain();
 }
 
 function getValueAgain()
 {
-    verifySuccessEvent(event);
-
     transaction = evalAndLog("db.transaction()");
     transaction.onabort = unexpectedErrorCallback;
     var store = evalAndLog("store = transaction.objectStore('storeName')");

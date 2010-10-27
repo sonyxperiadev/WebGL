@@ -2,6 +2,7 @@ SET(WTF_SOURCES
     Assertions.cpp
     ByteArray.cpp
     CurrentTime.cpp
+    DecimalNumber.cpp
     FastMalloc.cpp
     HashTable.cpp
     MainThread.cpp
@@ -16,6 +17,7 @@ SET(WTF_SOURCES
 
     text/AtomicString.cpp
     text/CString.cpp
+    text/StringBuilder.cpp
     text/StringImpl.cpp
     text/StringStatics.cpp
     text/WTFString.cpp

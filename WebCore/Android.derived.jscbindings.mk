@@ -160,12 +160,37 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 
 # Fileapi
 GEN := \
-	$(intermediates)/fileapi/JSBlob.h \
-	$(intermediates)/fileapi/JSBlobBuilder.h \
-	$(intermediates)/fileapi/JSFile.h \
-	$(intermediates)/fileapi/JSFileError.h \
-	$(intermediates)/fileapi/JSFileList.h \
-	$(intermediates)/fileapi/JSFileReader.h
+    $(intermediates)/fileapi/JSBlob.h \
+    $(intermediates)/fileapi/JSBlobBuilder.h \
+    $(intermediates)/fileapi/JSDOMFileSystem.h \
+    $(intermediates)/fileapi/JSDOMFileSystemSync.h \
+    $(intermediates)/fileapi/JSDirectoryEntry.h \
+    $(intermediates)/fileapi/JSDirectoryEntrySync.h \
+    $(intermediates)/fileapi/JSDirectoryReader.h \
+    $(intermediates)/fileapi/JSDirectoryReaderSync.h \
+    $(intermediates)/fileapi/JSEntriesCallback.h \
+    $(intermediates)/fileapi/JSEntry.h \
+    $(intermediates)/fileapi/JSEntryArray.h \
+    $(intermediates)/fileapi/JSEntryArraySync.h \
+    $(intermediates)/fileapi/JSEntryCallback.h \
+    $(intermediates)/fileapi/JSEntrySync.h \
+    $(intermediates)/fileapi/JSErrorCallback.h \
+    $(intermediates)/fileapi/JSFile.h \
+    $(intermediates)/fileapi/JSFileCallback.h \
+    $(intermediates)/fileapi/JSFileEntry.h \
+    $(intermediates)/fileapi/JSFileEntrySync.h \
+    $(intermediates)/fileapi/JSFileError.h \
+    $(intermediates)/fileapi/JSFileException.h \
+    $(intermediates)/fileapi/JSFileList.h \
+    $(intermediates)/fileapi/JSFileReader.h \
+    $(intermediates)/fileapi/JSFileReaderSync.h \
+    $(intermediates)/fileapi/JSFileSystemCallback.h \
+    $(intermediates)/fileapi/JSFileWriter.h \
+    $(intermediates)/fileapi/JSFileWriterCallback.h \
+    $(intermediates)/fileapi/JSFlags.h \
+    $(intermediates)/fileapi/JSMetadata.h \
+    $(intermediates)/fileapi/JSMetadataCallback.h
+
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include fileapi --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/fileapi/JS%.h : $(LOCAL_PATH)/fileapi/%.idl $(js_binding_scripts)
@@ -274,6 +299,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 # Canvas
 GEN := \
     $(intermediates)/html/canvas/JSArrayBuffer.h \
+    $(intermediates)/html/canvas/JSArrayBufferView.h \
     $(intermediates)/html/canvas/JSCanvasGradient.h \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \

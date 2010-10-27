@@ -37,6 +37,7 @@
 #include "FrameLoader.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "RenderBox.h"
@@ -128,7 +129,7 @@ void WMLAElement::defaultEventHandler(Event* event)
         }
 
         if (isLinkClick(event)) {
-            handleLinkClick(event, document(), deprecatedParseURL(getAttribute(HTMLNames::hrefAttr)), target(), event);
+            handleLinkClick(event, document(), stripLeadingAndTrailingHTMLSpaces(getAttribute(HTMLNames::hrefAttr)), target(), event);
             return;
         }
     }

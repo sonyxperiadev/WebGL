@@ -34,6 +34,7 @@
 #include <sqlite3.h>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 namespace WebCore {
 
@@ -64,8 +65,7 @@ bool SQLiteDatabase::open(const String& filename, bool forWebSQLDatabase)
 {
     close();
 
-    m_lastError = SQLiteFileSystem::openDatabase(filename, &m_db, forWebSQLDatabase);
-    if (m_lastError != SQLITE_OK) {
+    if (SQLiteFileSystem::openDatabase(filename, &m_db, forWebSQLDatabase) != SQLITE_OK) {
         LOG_ERROR("SQLite database failed to load from %s\nCause - %s", filename.ascii().data(),
             sqlite3_errmsg(m_db));
         sqlite3_close(m_db);
@@ -100,6 +100,7 @@ void SQLiteDatabase::close()
 
 void SQLiteDatabase::interrupt()
 {
+#if !ENABLE(SINGLE_THREADED)
     m_interrupted = true;
     while (!m_lockingMutex.tryLock()) {
         MutexLocker locker(m_databaseClosingMutex);
@@ -110,6 +111,7 @@ void SQLiteDatabase::interrupt()
     }
 
     m_lockingMutex.unlock();
+#endif
 }
 
 bool SQLiteDatabase::isInterrupted()
@@ -217,7 +219,7 @@ int64_t SQLiteDatabase::totalSize()
 
 void SQLiteDatabase::setSynchronous(SynchronousPragma sync)
 {
-    executeCommand(String::format("PRAGMA synchronous = %i", sync));
+    executeCommand(makeString("PRAGMA synchronous = ", String::number(sync)));
 }
 
 void SQLiteDatabase::setBusyTimeout(int ms)

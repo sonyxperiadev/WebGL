@@ -905,7 +905,7 @@ NSLevelIndicatorCell* RenderThemeMac::levelIndicatorFor(const RenderMeter* rende
     }
 
     [cell setLevelIndicatorStyle:levelIndicatorStyleFor(style->appearance())];
-    [cell setBaseWritingDirection:style->direction() == LTR ? NSWritingDirectionLeftToRight : NSWritingDirectionRightToLeft];
+    [cell setBaseWritingDirection:style->isLeftToRightDirection() ? NSWritingDirectionLeftToRight : NSWritingDirectionRightToLeft];
     [cell setMinValue:element->min()];
     [cell setMaxValue:element->max()];
     RetainPtr<NSNumber> valueObject = [NSNumber numberWithDouble:value];
@@ -959,12 +959,12 @@ bool RenderThemeMac::paintProgressBar(RenderObject* renderObject, const PaintInf
 
     paintInfo.context->save();
 
-    if (renderProgress->style()->direction() == RTL) {
+    if (!renderProgress->style()->isLeftToRightDirection()) {
         paintInfo.context->translate(2 * rect.x() + rect.width(), 0);
         paintInfo.context->scale(FloatSize(-1, 1));
     }
     
-    paintInfo.context->drawImageBuffer(imageBuffer.get(), DeviceColorSpace, rect.location());
+    paintInfo.context->drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, rect.location());
 
     paintInfo.context->restore();
     return false;
@@ -1141,11 +1141,11 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const PaintInfo& paint
     // Draw the separator to the left of the arrows
     paintInfo.context->setStrokeThickness(1.0f); // Deliberately ignores zoom since it looks nicer if it stays thin.
     paintInfo.context->setStrokeStyle(SolidStroke);
-    paintInfo.context->setStrokeColor(leftSeparatorColor, DeviceColorSpace);
+    paintInfo.context->setStrokeColor(leftSeparatorColor, ColorSpaceDeviceRGB);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator, bounds.bottom()));
 
-    paintInfo.context->setStrokeColor(rightSeparatorColor, DeviceColorSpace);
+    paintInfo.context->setStrokeColor(rightSeparatorColor, ColorSpaceDeviceRGB);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.bottom()));
 

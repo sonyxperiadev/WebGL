@@ -692,7 +692,7 @@ int RenderTableSection::layoutRows(int toAdd)
             
             IntRect oldCellRect(cell->x(), cell->y() , cell->width(), cell->height());
             
-            if (style()->direction() == RTL)
+            if (!style()->isLeftToRightDirection())
                 cell->setLocation(table()->columnPositions()[nEffCols] - table()->columnPositions()[table()->colToEffCol(cell->col() + cell->colSpan())] + hspacing, m_rowPos[rindx]);
             else
                 cell->setLocation(table()->columnPositions()[c] + hspacing, m_rowPos[rindx]);
@@ -748,9 +748,27 @@ int RenderTableSection::layoutRows(int toAdd)
     return height();
 }
 
-int RenderTableSection::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
+int RenderTableSection::topmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
 {
-    int bottom = RenderBox::lowestPosition(includeOverflowInterior, includeSelf);
+    int top = RenderBox::topmostPosition(includeOverflowInterior, includeSelf, applyTransform);
+    if (!includeOverflowInterior && hasOverflowClip())
+        return top;
+
+    for (RenderObject* row = firstChild(); row; row = row->nextSibling()) {
+        for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
+            if (curr->isTableCell()) {
+                RenderTableCell* cell = toRenderTableCell(curr);
+                top = min(top, cell->transformedFrameRect().y() + cell->topmostPosition(false));
+            }
+        }
+    }
+    
+    return top;
+}
+
+int RenderTableSection::lowestPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
+{
+    int bottom = RenderBox::lowestPosition(includeOverflowInterior, includeSelf, applyTransform);
     if (!includeOverflowInterior && hasOverflowClip())
         return bottom;
 
@@ -758,7 +776,7 @@ int RenderTableSection::lowestPosition(bool includeOverflowInterior, bool includ
         for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
             if (curr->isTableCell()) {
                 RenderTableCell* cell = toRenderTableCell(curr);
-                bottom = max(bottom, cell->y() + cell->lowestPosition(false));
+                bottom = max(bottom, cell->transformedFrameRect().y() + cell->lowestPosition(false));
             }
         }
     }
@@ -766,9 +784,9 @@ int RenderTableSection::lowestPosition(bool includeOverflowInterior, bool includ
     return bottom;
 }
 
-int RenderTableSection::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
+int RenderTableSection::rightmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
 {
-    int right = RenderBox::rightmostPosition(includeOverflowInterior, includeSelf);
+    int right = RenderBox::rightmostPosition(includeOverflowInterior, includeSelf, applyTransform);
     if (!includeOverflowInterior && hasOverflowClip())
         return right;
 
@@ -776,7 +794,7 @@ int RenderTableSection::rightmostPosition(bool includeOverflowInterior, bool inc
         for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
             if (curr->isTableCell()) {
                 RenderTableCell* cell = toRenderTableCell(curr);
-                right = max(right, cell->x() + cell->rightmostPosition(false));
+                right = max(right, cell->transformedFrameRect().x() + cell->rightmostPosition(false));
             }
         }
     }
@@ -784,9 +802,9 @@ int RenderTableSection::rightmostPosition(bool includeOverflowInterior, bool inc
     return right;
 }
 
-int RenderTableSection::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
+int RenderTableSection::leftmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
 {
-    int left = RenderBox::leftmostPosition(includeOverflowInterior, includeSelf);
+    int left = RenderBox::leftmostPosition(includeOverflowInterior, includeSelf, applyTransform);
     if (!includeOverflowInterior && hasOverflowClip())
         return left;
     
@@ -794,7 +812,7 @@ int RenderTableSection::leftmostPosition(bool includeOverflowInterior, bool incl
         for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
             if (curr->isTableCell()) {
                 RenderTableCell* cell = toRenderTableCell(curr);
-                left = min(left, cell->x() + cell->leftmostPosition(false));
+                left = min(left, cell->transformedFrameRect().x() + cell->leftmostPosition(false));
             }
         }
     }
@@ -998,7 +1016,7 @@ int RenderTableSection::calcOuterBorderRight(bool rtl) const
 
 void RenderTableSection::recalcOuterBorder()
 {
-    bool rtl = table()->style()->direction() == RTL;
+    bool rtl = !table()->style()->isLeftToRightDirection();
     m_outerBorderTop = calcOuterBorderTop();
     m_outerBorderBottom = calcOuterBorderBottom();
     m_outerBorderLeft = calcOuterBorderLeft(rtl);
@@ -1136,9 +1154,9 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
         if (startrow == m_rowPos.size() || (startrow > 0 && (m_rowPos[startrow] >  top)))
           --startrow;
 
-        int bottom = relativeY + h + os - 1;
+        int bottom = relativeY + h + os;
         endrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), bottom) - m_rowPos.begin();
-        if ((endrow == m_rowPos.size()) || (endrow > 0 && m_rowPos[endrow - 1] == bottom))
+        if (endrow == m_rowPos.size())
           --endrow;
 
         if (!endrow && ty + m_rowPos[0] - table()->outerBorderTop() <= y + h + os)
@@ -1147,7 +1165,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
     unsigned startcol = 0;
     unsigned endcol = totalCols;
     // FIXME: Implement RTL.
-    if (!m_hasOverflowingCell && style()->direction() == LTR) {
+    if (!m_hasOverflowingCell && style()->isLeftToRightDirection()) {
         int relativeX = x - tx;
         int left = relativeX - os;
         Vector<int>& columnPos = table()->columnPositions();
@@ -1155,9 +1173,9 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
         if ((startcol == columnPos.size()) || (startcol > 0 && (columnPos[startcol] > left)))
             --startcol;
 
-        int right = relativeX + w + os - 1;
+        int right = relativeX + w + os;
         endcol = std::lower_bound(columnPos.begin(), columnPos.end(), right) - columnPos.begin();
-        if (endcol == columnPos.size() || (endcol > 0 && (columnPos[endcol - 1] == right)))
+        if (endcol == columnPos.size())
             --endcol;
 
         if (!endcol && tx + table()->columnPositions()[0] - table()->outerBorderLeft() <= y + w + os)
@@ -1305,7 +1323,7 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     tx += x();
     ty += y();
 
-    if (hasOverflowClip() && !overflowClipRect(tx, ty).intersects(result.rectFromPoint(xPos, yPos)))
+    if (hasOverflowClip() && !overflowClipRect(tx, ty).intersects(result.rectForPoint(xPos, yPos)))
         return false;
 
     if (m_hasOverflowingCell) {
@@ -1332,7 +1350,7 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
         --leftrow;
 
     Vector<int>& columnPos = table()->columnPositions();
-    bool rtl = style()->direction() == RTL;
+    bool rtl = !style()->isLeftToRightDirection();
     int relativeX = xPos - tx;
     if (rtl)
         relativeX = columnPos[columnPos.size() - 1] - relativeX;

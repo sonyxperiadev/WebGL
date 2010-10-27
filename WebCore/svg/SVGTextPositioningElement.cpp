@@ -24,8 +24,8 @@
 #include "SVGTextPositioningElement.h"
 
 #include "Attribute.h"
-#include "RenderObject.h"
 #include "RenderSVGResource.h"
+#include "RenderSVGText.h"
 #include "SVGLengthList.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
@@ -58,21 +58,65 @@ void SVGTextPositioningElement::parseMappedAttribute(Attribute* attr)
         SVGTextContentElement::parseMappedAttribute(attr);
 }
 
+static inline void updatePositioningValuesInRenderer(RenderObject* renderer)
+{
+    RenderSVGText* textRenderer = 0;
+
+    if (renderer->isSVGText())
+        textRenderer = toRenderSVGText(renderer);
+    else {
+        // Locate RenderSVGText parent renderer.
+        RenderObject* parent = renderer->parent();
+        while (parent && !parent->isSVGText())
+            parent = parent->parent();
+
+        if (parent) {
+            ASSERT(parent->isSVGText());
+            textRenderer = toRenderSVGText(parent);
+        }
+    }
+
+    if (!textRenderer)
+        return;
+
+    textRenderer->setNeedsPositioningValuesUpdate();
+}
+
 void SVGTextPositioningElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGTextContentElement::svgAttributeChanged(attrName);
 
-    if (attrName == SVGNames::xAttr
-        || attrName == SVGNames::yAttr
-        || attrName == SVGNames::dxAttr
-        || attrName == SVGNames::dyAttr)
+    bool updateRelativeLengths = attrName == SVGNames::xAttr
+                              || attrName == SVGNames::yAttr
+                              || attrName == SVGNames::dxAttr
+                              || attrName == SVGNames::dyAttr;
+
+    if (updateRelativeLengths)
         updateRelativeLengthsInformation();
 
-    if (!renderer())
+    RenderObject* renderer = this->renderer();
+    if (!renderer)
         return;
 
-    if (isKnownAttribute(attrName))
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer());
+    if (updateRelativeLengths || attrName == SVGNames::rotateAttr) {
+        updatePositioningValuesInRenderer(renderer);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
+        return;
+    }
+
+    if (SVGTextContentElement::isKnownAttribute(attrName))
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
+}
+
+void SVGTextPositioningElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+{
+    SVGTextContentElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+
+    if (changedByParser)
+        return;
+
+    if (RenderObject* object = renderer())
+        updatePositioningValuesInRenderer(object);
 }
 
 void SVGTextPositioningElement::synchronizeProperty(const QualifiedName& attrName)
@@ -98,16 +142,6 @@ void SVGTextPositioningElement::synchronizeProperty(const QualifiedName& attrNam
         synchronizeDy();
     else if (attrName == SVGNames::rotateAttr)
         synchronizeRotate();
-}
-
-bool SVGTextPositioningElement::isKnownAttribute(const QualifiedName& attrName)
-{
-    return (attrName.matches(SVGNames::xAttr) ||
-            attrName.matches(SVGNames::yAttr) ||
-            attrName.matches(SVGNames::dxAttr) ||
-            attrName.matches(SVGNames::dyAttr) ||
-            attrName.matches(SVGNames::rotateAttr) ||
-            SVGTextContentElement::isKnownAttribute(attrName));
 }
 
 static inline bool listContainsRelativeValue(SVGLengthList* list)
@@ -142,6 +176,30 @@ bool SVGTextPositioningElement::selfHasRelativeLengths() const
         return true;
     return false;
 }
+
+SVGTextPositioningElement* SVGTextPositioningElement::elementFromRenderer(RenderObject* renderer)
+{
+    if (!renderer)
+        return 0;
+
+    if (!renderer->isSVGText() && !renderer->isSVGInline())
+        return 0;
+
+    Node* node = renderer->node();
+    ASSERT(node);
+    ASSERT(node->isSVGElement());
+
+    if (!node->hasTagName(SVGNames::textTag)
+        && !node->hasTagName(SVGNames::tspanTag)
+#if ENABLE(SVG_FONTS)
+        && !node->hasTagName(SVGNames::altGlyphTag)
+#endif
+        && !node->hasTagName(SVGNames::trefTag))
+        return 0;
+
+    return static_cast<SVGTextPositioningElement*>(node);
+}
+
 
 }
 

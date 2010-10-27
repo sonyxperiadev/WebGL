@@ -16,7 +16,7 @@ if (window.layoutTestController)
 
 function test()
 {
-    result = evalAndLog("indexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
     verifyResult(result);
     result.onsuccess = openSuccess;
     result.onerror = unexpectedErrorCallback;
@@ -26,21 +26,29 @@ function openSuccess()
 {
     debug("openSuccess():");
     verifySuccessEvent(event);
-    db = evalAndLog("db = event.result");
+    window.db = evalAndLog("db = event.result");
 
-    deleteAllObjectStores(db);
-
-    result = evalAndLog("db.createObjectStore('storeName', null)");
+    result = evalAndLog("db.setVersion('new version')");
     verifyResult(result);
-    result.onsuccess = createSuccess;
+    result.onsuccess = setVersionSuccess;
     result.onerror = unexpectedErrorCallback;
 }
 
-function createSuccess()
+function setVersionSuccess()
 {
-    debug("createSuccess():");
+    debug("setVersionSuccess():");
     verifySuccessEvent(event);
-    var store = evalAndLog("store = event.result");
+    window.trans = evalAndLog("trans = event.result");
+    shouldBeTrue("trans !== null");
+    trans.onabort = unexpectedAbortCallback;
+
+    deleteAllObjectStores(db, createObjectStore);
+}
+
+function createObjectStore()
+{
+    debug("creatObjectStore():");
+    window.store = evalAndLog("store = db.createObjectStore('storeName', null)");
     var storeNames = evalAndLog("storeNames = db.objectStores");
 
     shouldBeEqualToString("store.name", "storeName");
@@ -49,42 +57,92 @@ function createSuccess()
     shouldBe("storeNames.length", "1");
     // FIXME: test all of object store's methods.
 
-    debug("Ask for a store that doesn't exist:");
+    debug("Ask for an index that doesn't exist:");
     try {
-        index = evalAndLog("index = store.index('asdf')");
-        shouldBeNull("index"); // Returning null is wrong, but less wrong than returning an actual object!
+        debug("index = store.index('asdf')");
+        index = store.index('asdf');
         testFailed("Asking for a store that doesn't exist should have thrown.");
     } catch (err) {
-        testPassed("Error thrown.");
+        testPassed("Exception thrown.");
         // FIXME: Verify the correct exception thrown.
     }
 
-    result = evalAndLog("event.result.createIndex('indexName', 'x', true)"); // true == unique requirement.
+    createIndex();
+}
+
+function createIndex()
+{
+    debug("createIndex():");
+    var index = evalAndLog("index = store.createIndex('indexName', 'x', true)"); // true == unique requirement.
+    shouldBeTrue("index !== null");
+    shouldBeTrue("store.indexNames.contains('indexName')");
+    index = evalAndLog("index = store.index('indexName')");
+    shouldBeTrue("index !== null");
+ 
+    debug("Ask for an index that doesn't exist:");
+    try {
+        debug("index = store.index('asdf')");
+        index = store.index('asdf');
+        testFailed("Asking for a store that doesn't exist should have thrown.");
+    } catch (err) {
+        testPassed("Exception thrown.");
+        // FIXME: Verify the correct exception thrown.
+    }
+
+    commitAndContinue();    
+}
+
+function commitAndContinue()
+{
+    window.setTimeout(testSetVersionAbort, 0);
+}
+
+function testSetVersionAbort()
+{
+    result = evalAndLog('db.setVersion("version fail")');
     verifyResult(result);
-    result.onsuccess = addIndexSuccess;
+    result.onsuccess = createAnotherIndex;
     result.onerror = unexpectedErrorCallback;
 }
 
-function addIndexSuccess()
+function createAnotherIndex()
 {
-    debug("addIndexSuccess():");
     verifySuccessEvent(event);
-    shouldBeTrue("event.result !== null");
-    shouldBeTrue("event.source.indexNames.contains('indexName')");
-    index = evalAndLog("index = event.source.index('indexName')");
-    shouldBeTrue("index !== null");
+    shouldBeEqualToString("db.version", "version fail");
 
-    debug("Ask for a store that doesn't exist:");
-    try {
-        index = evalAndLog("index = store.index('asdf')");
-        shouldBeNull("index"); // Returning null is wrong, but less wrong than returning an actual object!
-        testFailed("Asking for a store that doesn't exist should have thrown.");
-    } catch (err) {
-        testPassed("Error thrown.");
-        // FIXME: Verify the correct exception thrown.
-    }
+    var setVersionTrans = evalAndLog("setVersionTrans = event.result");
+    shouldBeTrue("setVersionTrans !== null");
+    setVersionTrans.oncomplete = unexpectedCompleteCallback;
+    setVersionTrans.onabort = checkMetadata;
+    window.store = evalAndLog("store = setVersionTrans.objectStore('storeName')");
+    var index = evalAndLog("index = store.createIndex('indexFail', 'x')");
 
-    result = evalAndLog("event.source.add({x: 'value'}, 'key')");
+    setVersionTrans.abort();
+}
+
+function checkMetadata()
+{
+    shouldBeEqualToString("db.version", "new version");
+    shouldBe("store.indexNames", "['indexName']");
+    shouldBe("store.indexNames.length", "1");
+    shouldBe("store.indexNames.contains('')", "false");
+    shouldBe("store.indexNames.contains('indexFail')", "false");
+    shouldBe("store.indexNames.contains('indexName')", "true");
+    shouldBeEqualToString("store.indexNames[0]", "indexName");
+    shouldBeNull("store.indexNames[1]");
+    shouldBeNull("store.indexNames[100]");
+    shouldBeNull("store.indexNames.item(1)");
+    shouldBeNull("store.indexNames.item(100)");
+    addData();
+}
+
+
+function addData()
+{
+    var transaction = evalAndLog("transaction = db.transaction()");
+    transaction.onabort = unexpectedAbortCallback;
+    window.store = evalAndLog("store = transaction.objectStore('storeName')");
+    result = evalAndLog("store.add({x: 'value'}, 'key')");
     verifyResult(result);
     result.onsuccess = addSuccess;
     result.onerror = unexpectedErrorCallback;
@@ -107,7 +165,7 @@ function addAgainFailure()
     debug("addAgainFailure():");
     verifyErrorEvent(event);
     // FIXME: This error code needs to be specced.
-    shouldBe("event.code", "IDBDatabaseException.UNKNOWN_ERR");
+    shouldBe("event.code", "webkitIDBDatabaseException.UNKNOWN_ERR");
 
     transaction = evalAndLog("db.transaction()");
     transaction.onabort = unexpectedErrorCallback;

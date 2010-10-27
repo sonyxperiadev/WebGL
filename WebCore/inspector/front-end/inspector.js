@@ -56,15 +56,6 @@ var WebInspector = {
     missingLocalizedStrings: {},
     pendingDispatches: 0,
 
-    // RegExp groups:
-    // 1 - scheme
-    // 2 - hostname
-    // 3 - ?port
-    // 4 - ?path
-    // 5 - ?fragment
-    URLRegExp: /^(http[s]?|file):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
-    GenericURLRegExp: /^([^:]+):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
-
     get platform()
     {
         if (!("_platform" in this))
@@ -213,9 +204,9 @@ var WebInspector = {
         var pane = new WebInspector.BreakpointsSidebarPane(WebInspector.UIString("DOM Breakpoints"));
         function breakpointAdded(event)
         {
-            pane.addBreakpoint(new WebInspector.DOMBreakpointItem(event.data));
+            pane.addBreakpoint(new WebInspector.BreakpointItem(event.data));
         }
-        WebInspector.domBreakpointManager.addEventListener("dom-breakpoint-added", breakpointAdded);
+        WebInspector.breakpointManager.addEventListener("dom-breakpoint-added", breakpointAdded);
         return pane;
     },
 
@@ -224,7 +215,7 @@ var WebInspector = {
         var pane = new WebInspector.XHRBreakpointsSidebarPane();
         function breakpointAdded(event)
         {
-            pane.addBreakpoint(new WebInspector.XHRBreakpointItem(event.data));
+            pane.addBreakpoint(new WebInspector.BreakpointItem(event.data));
         }
         WebInspector.breakpointManager.addEventListener("xhr-breakpoint-added", breakpointAdded);
         return pane;
@@ -516,6 +507,8 @@ WebInspector.doLoadedDone = function()
     // this.changes = new WebInspector.ChangesView(this.drawer);
     // TODO: Remove class="hidden" from inspector.html on button#changes-status-bar-item
     this.drawer.visibleView = this.console;
+    // FIXME: uncomment when ready.
+    // this.resourceManager = new WebInspector.ResourceManager();
     this.domAgent = new WebInspector.DOMAgent();
 
     this.resourceCategories = {
@@ -530,7 +523,6 @@ WebInspector.doLoadedDone = function()
     };
 
     this.breakpointManager = new WebInspector.BreakpointManager();
-    this.domBreakpointManager = new WebInspector.DOMBreakpointManager();
     this.cssModel = new WebInspector.CSSStyleModel();
 
     this.panels = {};
@@ -604,6 +596,7 @@ WebInspector.doLoadedDone = function()
     InspectorBackend.getInspectorState(populateInspectorState);
 
     InspectorBackend.populateScriptObjects();
+    InspectorBackend.setConsoleMessagesEnabled(true);
 
     // As a DOMAgent method, this needs to happen after the frontend has loaded and the agent is available.
     InspectorBackend.getSupportedCSSProperties(WebInspector.CSSCompletions._load);
@@ -770,10 +763,10 @@ WebInspector.documentClick = function(event)
             return;
         }
 
-        const urlMatch = WebInspector.GenericURLRegExp.exec(anchor.href);
-        if (urlMatch && urlMatch[1] === "webkit-link-action") {
-            if (urlMatch[2] === "show-panel") {
-                const panel = urlMatch[4].substring(1);
+        var parsedURL = anchor.href.asParsedURL();
+        if (parsedURL && parsedURL.scheme === "webkit-link-action") {
+            if (parsedURL.host === "show-panel") {
+                var panel = parsedURL.path.substring(1);
                 if (WebInspector.panels[panel])
                     WebInspector.currentPanel = WebInspector.panels[panel];
             }
@@ -1229,14 +1222,9 @@ WebInspector.updateResource = function(payload)
         this.resourceURLMap[resource.url] = resource;
         this.panels.resources.addResource(resource);
         this.panels.audits.resourceStarted(resource);
-        if (this.panels.network)
-            this.panels.network.addResource(resource);
     }
 
     if (payload.didRequestChange) {
-        resource.domain = payload.host;
-        resource.path = payload.path;
-        resource.lastPathComponent = payload.lastPathComponent;
         resource.requestHeaders = payload.requestHeaders;
         resource.mainResource = payload.mainResource;
         resource.requestMethod = payload.requestMethod;
@@ -1248,11 +1236,10 @@ WebInspector.updateResource = function(payload)
         if (resource.mainResource)
             this.mainResource = resource;
 
-        var match = payload.documentURL.match(WebInspector.GenericURLRegExp);
-        if (match) {
-            var protocol = match[1].toLowerCase();
-            this._addCookieDomain(match[2]);
-            this._addAppCacheDomain(match[2]);
+        var parsedURL = payload.documentURL.asParsedURL();
+        if (parsedURL) {
+            this._addCookieDomain(parsedURL.host);
+            this._addAppCacheDomain(parsedURL.host);
         }
     }
 
@@ -1293,29 +1280,24 @@ WebInspector.updateResource = function(payload)
             resource.responseReceivedTime = payload.responseReceivedTime;
         if (payload.endTime)
             resource.endTime = payload.endTime;
-
-        if (payload.loadEventTime) {
-            // This loadEventTime is for the main resource, and we want to show it
-            // for all resources on this page. This means we want to set it as a member
-            // of the resources panel instead of the individual resource.
-            this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
-            this.panels.audits.mainResourceLoadTime = payload.loadEventTime;
-            if (this.panels.network)
-                this.panels.network.mainResourceLoadTime = payload.loadEventTime;
-        }
-
-        if (payload.domContentEventTime) {
-            // This domContentEventTime is for the main resource, so it should go in
-            // the resources panel for the same reasons as above.
-            this.panels.resources.mainResourceDOMContentTime = payload.domContentEventTime;
-            this.panels.audits.mainResourceDOMContentTime = payload.domContentEventTime;
-            if (this.panels.network)
-                this.panels.network.mainResourceDOMContentTime = payload.domContentEventTime;
-        }
     }
+    this.panels.resources.refreshResource(resource);
+}
 
+WebInspector.domContentEventFired = function(time)
+{
+    this.panels.resources.mainResourceDOMContentTime = time;
+    this.panels.audits.mainResourceDOMContentTime = time;
     if (this.panels.network)
-        this.panels.network.refreshResource(resource);
+        this.panels.network.mainResourceDOMContentTime = time;
+}
+
+WebInspector.loadEventFired = function(time)
+{
+    this.panels.resources.mainResourceLoadTime = time;
+    this.panels.audits.mainResourceLoadTime = time;
+    if (this.panels.network)
+        this.panels.network.mainResourceLoadTime = time;
 }
 
 WebInspector.removeResource = function(identifier)
@@ -1447,16 +1429,20 @@ WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLin
 WebInspector.pausedScript = function(details)
 {
     this.panels.scripts.debuggerPaused(details);
+    this.breakpointManager.debuggerPaused(details);
     InspectorFrontendHost.bringToFront();
 }
 
 WebInspector.resumedScript = function()
 {
+    this.breakpointManager.debuggerResumed();
     this.panels.scripts.debuggerResumed();
 }
 
 WebInspector.reset = function()
 {
+    this.breakpointManager.reset();
+
     for (var panelName in this.panels) {
         var panel = this.panels[panelName];
         if ("reset" in panel)
@@ -1464,7 +1450,6 @@ WebInspector.reset = function()
     }
 
     this.sessionSettings.reset();
-    this.breakpointManager.reset();
 
     for (var category in this.resourceCategories)
         this.resourceCategories[category].removeAllResources();
@@ -1496,12 +1481,6 @@ WebInspector.inspectedURLChanged = function(url)
 {
     InspectorFrontendHost.inspectedURLChanged(url);
     this.extensionServer.notifyInspectedURLChanged();
-}
-
-WebInspector.resourceURLChanged = function(resource, oldURL)
-{
-    delete this.resourceURLMap[oldURL];
-    this.resourceURLMap[resource.url] = resource;
 }
 
 WebInspector.didCommitLoad = function()
@@ -1837,8 +1816,8 @@ WebInspector.resourceURLForRelatedNode = function(node, url)
 
     // documentURL not found or has bad value
     for (var resourceURL in WebInspector.resourceURLMap) {
-        var match = resourceURL.match(WebInspector.URLRegExp);
-        if (match && match[4] === url)
+        var parsedURL = resourceURL.asParsedURL();
+        if (parsedURL && parsedURL.path === url)
             return resourceURL;
     }
     return url;
@@ -1846,17 +1825,17 @@ WebInspector.resourceURLForRelatedNode = function(node, url)
 
 WebInspector.completeURL = function(baseURL, href)
 {
-    var match = baseURL.match(WebInspector.URLRegExp);
-    if (match) {
+    var parsedURL = baseURL.asParsedURL();
+    if (parsedURL) {
         var path = href;
         if (path.charAt(0) !== "/") {
-            var basePath = match[4] || "/";
+            var basePath = parsedURL.path;
             path = basePath.substring(0, basePath.lastIndexOf("/")) + "/" + path;
         } else if (path.length > 1 && path.charAt(1) === "/") {
             // href starts with "//" which is a full URL with the protocol dropped (use the baseURL protocol).
-            return match[1] + ":" + path;
+            return parsedURL.scheme + ":" + path;
         }
-        return match[1] + "://" + match[2] + (match[3] ? (":" + match[3]) : "") + path;
+        return parsedURL.scheme + "://" + parsedURL.host + (parsedURL.port ? (":" + parsedURL.port) : "") + path;
     }
     return null;
 }

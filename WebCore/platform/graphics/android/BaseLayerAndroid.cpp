@@ -83,16 +83,23 @@ BaseLayerAndroid::~BaseLayerAndroid()
 void BaseLayerAndroid::setContent(const PictureSet& src)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_glWebViewState) {
-        m_glWebViewState->baseLayerLock();
-        m_content.set(src);
-        m_glWebViewState->baseLayerUnlock();
-    } else {
-        m_content.set(src);
-    }
-#else
-    m_content.set(src);
+    // FIXME: We lock here because we do not want
+    // to paint and change the m_content concurrently.
+    // We should instead refactor PictureSet to use
+    // an atomic refcounting scheme and use atomic operations
+    // to swap PictureSets.
+    android::Mutex::Autolock lock(m_drawLock);
 #endif
+    m_content.set(src);
+}
+
+void BaseLayerAndroid::draw(SkCanvas* canvas)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    android::Mutex::Autolock lock(m_drawLock);
+#endif
+    if (!m_content.isEmpty())
+        m_content.draw(canvas);
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -220,6 +227,13 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
+
+#ifdef DEBUG_COUNT
+    XLOG("GLWebViewState(%d) DoubleBufferedTexture(%d) BaseTile(%d) TileSet(%d) TiledPage(%d)",
+         GLWebViewState::count(), DoubleBufferedTexture::count(),
+         BaseTile::count(), TileSet::count(), TiledPage::count());
+#endif // DEBUG_COUNT
+
 #endif // USE(ACCELERATED_COMPOSITING)
     return ret;
 }

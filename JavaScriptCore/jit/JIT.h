@@ -516,8 +516,7 @@ namespace JSC {
         Jump emitJumpIfNotJSCell(RegisterID);
         void emitJumpSlowCaseIfNotJSCell(RegisterID);
         void emitJumpSlowCaseIfNotJSCell(RegisterID, int VReg);
-#if USE(JSVALUE64)
-#else
+#if USE(JSVALUE32_64)
         JIT::Jump emitJumpIfImmediateNumber(RegisterID reg)
         {
             return emitJumpIfImmediateInteger(reg);
@@ -535,7 +534,7 @@ namespace JSC {
         void emitJumpSlowCaseIfNotImmediateNumber(RegisterID);
         void emitJumpSlowCaseIfNotImmediateIntegers(RegisterID, RegisterID, RegisterID);
 
-#if !USE(JSVALUE64)
+#if USE(JSVALUE32_64)
         void emitFastArithDeTagImmediate(RegisterID);
         Jump emitFastArithDeTagImmediateJumpIfZero(RegisterID);
 #endif
@@ -738,13 +737,14 @@ namespace JSC {
         void emit_op_get_callee(Instruction*);
         void emit_op_create_this(Instruction*);
         void emit_op_convert_this(Instruction*);
+        void emit_op_convert_this_strict(Instruction*);
         void emit_op_create_arguments(Instruction*);
         void emit_op_debug(Instruction*);
         void emit_op_del_by_id(Instruction*);
         void emit_op_div(Instruction*);
         void emit_op_end(Instruction*);
         void emit_op_enter(Instruction*);
-        void emit_op_enter_with_activation(Instruction*);
+        void emit_op_create_activation(Instruction*);
         void emit_op_eq(Instruction*);
         void emit_op_eq_null(Instruction*);
         void emit_op_get_by_id(Instruction*);
@@ -810,6 +810,7 @@ namespace JSC {
         void emit_op_put_setter(Instruction*);
         void emit_op_resolve(Instruction*);
         void emit_op_resolve_base(Instruction*);
+        void emit_op_ensure_property_exists(Instruction*);
         void emit_op_resolve_global(Instruction*, bool dynamic = false);
         void emit_op_resolve_global_dynamic(Instruction*);
         void emit_op_resolve_skip(Instruction*);
@@ -845,6 +846,7 @@ namespace JSC {
         void emitSlow_op_call_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_convert_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_convert_this_strict(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_div(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_eq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_by_id(Instruction*, Vector<SlowCaseEntry>::iterator&);

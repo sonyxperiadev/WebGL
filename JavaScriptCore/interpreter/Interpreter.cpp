@@ -59,6 +59,7 @@
 #include "RegExpPrototype.h"
 #include "Register.h"
 #include "SamplingTool.h"
+#include "StrictEvalActivation.h"
 #include <limits.h>
 #include <stdio.h>
 #include <wtf/Threading.h>
@@ -127,6 +128,12 @@ NEVER_INLINE bool Interpreter::resolveSkip(CallFrame* callFrame, Instruction* vP
     ScopeChainIterator iter = scopeChain->begin();
     ScopeChainIterator end = scopeChain->end();
     ASSERT(iter != end);
+    bool checkTopLevel = codeBlock->codeType() == FunctionCode && codeBlock->needsFullScopeChain();
+    ASSERT(skip || !checkTopLevel);
+    if (checkTopLevel && skip--) {
+        if (callFrame->r(codeBlock->activationRegister()).jsValue())
+            ++iter;
+    }
     while (skip--) {
         ++iter;
         ASSERT(iter != end);
@@ -140,6 +147,7 @@ NEVER_INLINE bool Interpreter::resolveSkip(CallFrame* callFrame, Instruction* vP
             exceptionValue = callFrame->globalData().exception;
             if (exceptionValue)
                 return false;
+            ASSERT(result);
             callFrame->r(dst) = JSValue(result);
             return true;
         }
@@ -203,6 +211,12 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
     ScopeChainIterator iter = scopeChain->begin();
     ScopeChainIterator end = scopeChain->end();
     ASSERT(iter != end);
+    bool checkTopLevel = codeBlock->codeType() == FunctionCode && codeBlock->needsFullScopeChain();
+    ASSERT(skip || !checkTopLevel);
+    if (checkTopLevel && skip--) {
+        if (callFrame->r(codeBlock->activationRegister()).jsValue())
+            ++iter;
+    }
     while (skip--) {
         JSObject* o = *iter;
         if (o->hasCustomProperties()) {
@@ -214,6 +228,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
                     exceptionValue = callFrame->globalData().exception;
                     if (exceptionValue)
                         return false;
+                    ASSERT(result);
                     callFrame->r(dst) = JSValue(result);
                     return true;
                 }
@@ -230,6 +245,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
     
     if (structure == globalObject->structure()) {
         callFrame->r(dst) = JSValue(globalObject->getDirectOffset(offset));
+        ASSERT(callFrame->r(dst).jsValue());
         return true;
     }
 
@@ -243,6 +259,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
             globalObject->structure()->ref();
             vPC[3] = globalObject->structure();
             vPC[4] = slot.cachedOffset();
+            ASSERT(result);
             callFrame->r(dst) = JSValue(result);
             return true;
         }
@@ -250,6 +267,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
         exceptionValue = callFrame->globalData().exception;
         if (exceptionValue)
             return false;
+        ASSERT(result);
         callFrame->r(dst) = JSValue(result);
         return true;
     }
@@ -262,7 +280,14 @@ NEVER_INLINE void Interpreter::resolveBase(CallFrame* callFrame, Instruction* vP
 {
     int dst = vPC[1].u.operand;
     int property = vPC[2].u.operand;
-    callFrame->r(dst) = JSValue(JSC::resolveBase(callFrame, callFrame->codeBlock()->identifier(property), callFrame->scopeChain()));
+    bool isStrictPut = vPC[3].u.operand;
+    Identifier ident = callFrame->codeBlock()->identifier(property);
+    JSValue result = JSC::resolveBase(callFrame, ident, callFrame->scopeChain(), isStrictPut);
+    if (!result) {
+        callFrame->r(dst) = result;
+        ASSERT(callFrame->r(dst).jsValue());
+    } else
+        callFrame->globalData().exception = createErrorForInvalidGlobalAssignment(callFrame, ident.ustring());
 }
 
 NEVER_INLINE bool Interpreter::resolveBaseAndProperty(CallFrame* callFrame, Instruction* vPC, JSValue& exceptionValue)
@@ -371,14 +396,18 @@ NEVER_INLINE JSValue Interpreter::callEval(CallFrame* callFrame, RegisterFile* r
     UString programSource = asString(program)->value(callFrame);
     if (callFrame->hadException())
         return JSValue();
-
-    LiteralParser preparser(callFrame, programSource, LiteralParser::NonStrictJSON);
-    if (JSValue parsedObject = preparser.tryLiteralParse())
-        return parsedObject;
+    
+    CodeBlock* codeBlock = callFrame->codeBlock();
+    if (!codeBlock->isStrictMode()) {
+        // FIXME: We can use the preparser in strict mode, we just need additional logic
+        // to prevent duplicates.
+        LiteralParser preparser(callFrame, programSource, LiteralParser::NonStrictJSON);
+        if (JSValue parsedObject = preparser.tryLiteralParse())
+            return parsedObject;
+    }
 
     ScopeChainNode* scopeChain = callFrame->scopeChain();
-    CodeBlock* codeBlock = callFrame->codeBlock();
-    RefPtr<EvalExecutable> eval = codeBlock->evalCodeCache().get(callFrame, programSource, scopeChain, exceptionValue);
+    RefPtr<EvalExecutable> eval = codeBlock->evalCodeCache().get(callFrame, codeBlock->isStrictMode(), programSource, scopeChain, exceptionValue);
 
     JSValue result = jsUndefined();
     if (eval)
@@ -535,13 +564,19 @@ NEVER_INLINE bool Interpreter::unwindCallFrame(CallFrame*& callFrame, JSValue ex
 
     // If this call frame created an activation or an 'arguments' object, tear it off.
     if (oldCodeBlock->codeType() == FunctionCode && oldCodeBlock->needsFullScopeChain()) {
+        if (!callFrame->r(oldCodeBlock->activationRegister()).jsValue()) {
+            oldCodeBlock->createActivation(callFrame);
+            scopeChain = callFrame->scopeChain();
+        }
         while (!scopeChain->object->inherits(&JSActivation::info))
             scopeChain = scopeChain->pop();
         JSActivation* activation = asActivation(scopeChain->object);
         activation->copyRegisters();
-        if (JSValue arguments = callFrame->r(unmodifiedArgumentsRegister(oldCodeBlock->argumentsRegister())).jsValue())
-            asArguments(arguments)->setActivation(activation);
-    } else if (oldCodeBlock->usesArguments()) {
+        if (JSValue arguments = callFrame->r(unmodifiedArgumentsRegister(oldCodeBlock->argumentsRegister())).jsValue()) {
+            if (!oldCodeBlock->isStrictMode())
+                asArguments(arguments)->setActivation(activation);
+        }
+    } else if (oldCodeBlock->usesArguments() && !oldCodeBlock->isStrictMode()) {
         if (JSValue arguments = callFrame->r(unmodifiedArgumentsRegister(oldCodeBlock->argumentsRegister())).jsValue())
             asArguments(arguments)->copyRegisters();
     }
@@ -641,12 +676,23 @@ NEVER_INLINE HandlerInfo* Interpreter::throwException(CallFrame*& callFrame, JSV
     }
 
     // Shrink the JS stack, in case stack overflow made it huge.
-    m_registerFile.shrink(callFrame->registers() + callFrame->codeBlock()->m_numCalleeRegisters);
+    Register* highWaterMark = callFrame->registers() + callFrame->codeBlock()->m_numCalleeRegisters;
+    for (CallFrame* callerFrame = callFrame->callerFrame()->removeHostCallFrameFlag(); callerFrame; callerFrame = callerFrame->callerFrame()->removeHostCallFrameFlag()) {
+        CodeBlock* codeBlock = callerFrame->codeBlock();
+        if (!codeBlock)
+            continue;
+        Register* callerHighWaterMark = callerFrame->registers() + codeBlock->m_numCalleeRegisters;
+        highWaterMark = max(highWaterMark, callerHighWaterMark);
+    }
+    m_registerFile.shrink(highWaterMark);
 
     // Unwind the scope chain within the exception handler's call frame.
     ScopeChainNode* scopeChain = callFrame->scopeChain();
     ScopeChain sc(scopeChain);
-    int scopeDelta = depth(codeBlock, sc) - handler->scopeDepth;
+    int scopeDelta = 0;
+    if (!codeBlock->needsFullScopeChain() || codeBlock->codeType() != FunctionCode 
+        || callFrame->r(codeBlock->activationRegister()).jsValue())
+        scopeDelta = depth(codeBlock, sc) - handler->scopeDepth;
     ASSERT(scopeDelta >= 0);
     while (scopeDelta--)
         scopeChain = scopeChain->pop();
@@ -1036,7 +1082,7 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
     }
     EvalCodeBlock* codeBlock = &eval->generatedBytecode();
 
-    JSVariableObject* variableObject;
+    JSObject* variableObject;
     for (ScopeChainNode* node = scopeChain; ; node = node->next) {
         ASSERT(node);
         if (node->object->isVariableObject()) {
@@ -1047,7 +1093,13 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
 
     unsigned numVariables = codeBlock->numVariables();
     int numFunctions = codeBlock->numberOfFunctionDecls();
+    bool pushedScope = false;
     if (numVariables || numFunctions) {
+        if (codeBlock->isStrictMode()) {
+            variableObject = new (callFrame) StrictEvalActivation(callFrame);
+            scopeChain = scopeChain->push(variableObject);
+            pushedScope = true;
+        }
         // Scope for BatchedTransitionOptimizer
         BatchedTransitionOptimizer optimizer(variableObject);
 
@@ -1070,6 +1122,8 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
     Register* newEnd = m_registerFile.start() + globalRegisterOffset + codeBlock->m_numCalleeRegisters;
     if (!m_registerFile.grow(newEnd)) {
         *exception = createStackOverflowError(callFrame);
+        if (pushedScope)
+            scopeChain->pop();
         return jsNull();
     }
 
@@ -1112,6 +1166,8 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
         (*profiler)->didExecute(callFrame, eval->sourceURL(), eval->lineNo());
 
     m_registerFile.shrink(oldEnd);
+    if (pushedScope)
+        scopeChain->pop();
     return result;
 }
 
@@ -1518,6 +1574,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         */
         int dst = vPC[1].u.operand;
         int src = vPC[2].u.operand;
+        
         callFrame->r(dst) = callFrame->r(src);
 
         vPC += OPCODE_LENGTH(op_mov);
@@ -2327,6 +2384,13 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         ScopeChainIterator iter = scopeChain->begin();
         ScopeChainIterator end = scopeChain->end();
         ASSERT(iter != end);
+        ASSERT(codeBlock == callFrame->codeBlock());
+        bool checkTopLevel = codeBlock->codeType() == FunctionCode && codeBlock->needsFullScopeChain();
+        ASSERT(skip || !checkTopLevel);
+    if (checkTopLevel && skip--) {
+            if (callFrame->r(codeBlock->activationRegister()).jsValue())
+                ++iter;
+        }
         while (skip--) {
             ++iter;
             ASSERT(iter != end);
@@ -2334,6 +2398,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         ASSERT((*iter)->isVariableObject());
         JSVariableObject* scope = static_cast<JSVariableObject*>(*iter);
         callFrame->r(dst) = scope->registerAt(index);
+        ASSERT(callFrame->r(dst).jsValue());
         vPC += OPCODE_LENGTH(op_get_scoped_var);
         NEXT_INSTRUCTION();
     }
@@ -2348,7 +2413,14 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         ScopeChainNode* scopeChain = callFrame->scopeChain();
         ScopeChainIterator iter = scopeChain->begin();
         ScopeChainIterator end = scopeChain->end();
+        ASSERT(codeBlock == callFrame->codeBlock());
         ASSERT(iter != end);
+        bool checkTopLevel = codeBlock->codeType() == FunctionCode && codeBlock->needsFullScopeChain();
+        ASSERT(skip || !checkTopLevel);
+    if (checkTopLevel && skip--) {
+            if (callFrame->r(codeBlock->activationRegister()).jsValue())
+                ++iter;
+        }
         while (skip--) {
             ++iter;
             ASSERT(iter != end);
@@ -2356,6 +2428,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
 
         ASSERT((*iter)->isVariableObject());
         JSVariableObject* scope = static_cast<JSVariableObject*>(*iter);
+        ASSERT(callFrame->r(value).jsValue());
         scope->registerAt(index) = JSValue(callFrame->r(value).jsValue());
         vPC += OPCODE_LENGTH(op_put_scoped_var);
         NEXT_INSTRUCTION();
@@ -2371,6 +2444,24 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         resolveBase(callFrame, vPC);
 
         vPC += OPCODE_LENGTH(op_resolve_base);
+        NEXT_INSTRUCTION();
+    }
+    DEFINE_OPCODE(op_ensure_property_exists) {
+        /* ensure_property_exists base(r) property(id)
+
+           Throws an exception if property does not exist on base
+         */
+        int base = vPC[1].u.operand;
+        int property = vPC[2].u.operand;
+        Identifier& ident = codeBlock->identifier(property);
+        
+        JSValue baseVal = callFrame->r(base).jsValue();
+        JSObject* baseObject = asObject(baseVal);
+        PropertySlot slot(baseVal);
+        if (!baseObject->getPropertySlot(callFrame, ident, slot)) {
+            exceptionValue = createErrorForInvalidGlobalAssignment(callFrame, ident.ustring());
+            goto vm_throw;
+        }
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_resolve_with_base) {
@@ -2922,7 +3013,7 @@ skip_id_custom_self:
 
         JSValue baseValue = callFrame->r(base).jsValue();
         Identifier& ident = codeBlock->identifier(property);
-        PutPropertySlot slot;
+        PutPropertySlot slot(codeBlock->isStrictMode());
         if (direct) {
             baseValue.putDirect(callFrame, ident, callFrame->r(value).jsValue(), slot);
             ASSERT(slot.base() == baseValue);
@@ -3038,7 +3129,7 @@ skip_id_custom_self:
 
         JSValue baseValue = callFrame->r(base).jsValue();
         Identifier& ident = codeBlock->identifier(property);
-        PutPropertySlot slot;
+        PutPropertySlot slot(codeBlock->isStrictMode());
         if (direct) {
             baseValue.putDirect(callFrame, ident, callFrame->r(value).jsValue(), slot);
             ASSERT(slot.base() == baseValue);
@@ -3063,9 +3154,13 @@ skip_id_custom_self:
 
         JSObject* baseObj = callFrame->r(base).jsValue().toObject(callFrame);
         Identifier& ident = codeBlock->identifier(property);
-        JSValue result = jsBoolean(baseObj->deleteProperty(callFrame, ident));
+        bool result = baseObj->deleteProperty(callFrame, ident);
+        if (!result && codeBlock->isStrictMode()) {
+            exceptionValue = createTypeError(callFrame, "Unable to delete property.");
+            goto vm_throw;
+        }
         CHECK_FOR_EXCEPTION();
-        callFrame->r(dst) = result;
+        callFrame->r(dst) = jsBoolean(result);
         vPC += OPCODE_LENGTH(op_del_by_id);
         NEXT_INSTRUCTION();
     }
@@ -3131,8 +3226,8 @@ skip_id_custom_self:
         }
         if (!arguments) {
             Arguments* arguments = new (globalData) Arguments(callFrame);
-            callFrame->r(dst) = JSValue(arguments);
-            callFrame->r(unmodifiedArgumentsRegister(dst)) = JSValue(arguments);
+            callFrame->r(argumentsRegister) = JSValue(arguments);
+            callFrame->r(unmodifiedArgumentsRegister(argumentsRegister)) = JSValue(arguments);
         }
         // fallthrough
     }
@@ -3218,7 +3313,7 @@ skip_id_custom_self:
         } else {
             Identifier property(callFrame, subscript.toString(callFrame));
             if (!globalData->exception) { // Don't put to an object if toString threw an exception.
-                PutPropertySlot slot;
+                PutPropertySlot slot(codeBlock->isStrictMode());
                 baseValue.put(callFrame, property, callFrame->r(value).jsValue(), slot);
             }
         }
@@ -3242,19 +3337,22 @@ skip_id_custom_self:
         JSObject* baseObj = callFrame->r(base).jsValue().toObject(callFrame); // may throw
 
         JSValue subscript = callFrame->r(property).jsValue();
-        JSValue result;
+        bool result;
         uint32_t i;
         if (subscript.getUInt32(i))
-            result = jsBoolean(baseObj->deleteProperty(callFrame, i));
+            result = baseObj->deleteProperty(callFrame, i);
         else {
             CHECK_FOR_EXCEPTION();
             Identifier property(callFrame, subscript.toString(callFrame));
             CHECK_FOR_EXCEPTION();
-            result = jsBoolean(baseObj->deleteProperty(callFrame, property));
+            result = baseObj->deleteProperty(callFrame, property);
         }
-
+        if (!result && codeBlock->isStrictMode()) {
+            exceptionValue = createTypeError(callFrame, "Unable to delete property.");
+            goto vm_throw;
+        }
         CHECK_FOR_EXCEPTION();
-        callFrame->r(dst) = result;
+        callFrame->r(dst) = jsBoolean(result);
         vPC += OPCODE_LENGTH(op_del_by_val);
         NEXT_INSTRUCTION();
     }
@@ -3658,7 +3756,7 @@ skip_id_custom_self:
         int dst = vPC[1].u.operand;
         int func = vPC[2].u.operand;
         int shouldCheck = vPC[3].u.operand;
-
+        ASSERT(codeBlock->codeType() != FunctionCode || !codeBlock->needsFullScopeChain() || callFrame->r(codeBlock->activationRegister()).jsValue());
         if (!shouldCheck || !callFrame->r(dst).jsValue())
             callFrame->r(dst) = JSValue(codeBlock->functionDecl(func)->make(callFrame, callFrame->scopeChain()));
 
@@ -3675,7 +3773,8 @@ skip_id_custom_self:
         */
         int dst = vPC[1].u.operand;
         int funcIndex = vPC[2].u.operand;
-
+        
+        ASSERT(codeBlock->codeType() != FunctionCode || !codeBlock->needsFullScopeChain() || callFrame->r(codeBlock->activationRegister()).jsValue());
         FunctionExecutable* function = codeBlock->functionExpr(funcIndex);
         JSFunction* func = function->make(callFrame, callFrame->scopeChain());
 
@@ -3711,7 +3810,8 @@ skip_id_custom_self:
         int func = vPC[1].u.operand;
         int argCount = vPC[2].u.operand;
         int registerOffset = vPC[3].u.operand;
-
+        
+        ASSERT(codeBlock->codeType() != FunctionCode || !codeBlock->needsFullScopeChain() || callFrame->r(codeBlock->activationRegister()).jsValue());
         JSValue funcVal = callFrame->r(func).jsValue();
 
         Register* newCallFrame = callFrame->registers() + registerOffset;
@@ -3980,15 +4080,22 @@ skip_id_custom_self:
            This opcode appears before op_ret in functions that require full scope chains.
         */
 
-        int src1 = vPC[1].u.operand;
-        int src2 = vPC[2].u.operand;
+        int activation = vPC[1].u.operand;
+        int arguments = vPC[2].u.operand;
         ASSERT(codeBlock->needsFullScopeChain());
+        JSValue activationValue = callFrame->r(activation).jsValue();
+        if (activationValue) {
+            asActivation(activationValue)->copyRegisters();
 
-        JSActivation* activation = asActivation(callFrame->r(src1).jsValue());
-        activation->copyRegisters();
+            if (JSValue argumentsValue = callFrame->r(unmodifiedArgumentsRegister(arguments)).jsValue())
+                asArguments(argumentsValue)->setActivation(asActivation(activationValue));
+        } else if (JSValue argumentsValue = callFrame->r(unmodifiedArgumentsRegister(arguments)).jsValue())
+            asArguments(argumentsValue)->copyRegisters();
 
-        if (JSValue arguments = callFrame->r(unmodifiedArgumentsRegister(src2)).jsValue())
-            asArguments(arguments)->setActivation(activation);
+        if (JSValue argumentsValue = callFrame->r(unmodifiedArgumentsRegister(arguments)).jsValue()) {
+            if (!codeBlock->isStrictMode())
+                asArguments(argumentsValue)->setActivation(asActivation(activationValue));
+        }
 
         vPC += OPCODE_LENGTH(op_tear_off_activation);
         NEXT_INSTRUCTION();
@@ -4026,7 +4133,7 @@ skip_id_custom_self:
 
         int result = vPC[1].u.operand;
 
-        if (callFrame->codeBlock()->needsFullScopeChain())
+        if (callFrame->codeBlock()->needsFullScopeChain() && callFrame->r(codeBlock->activationRegister()).jsValue())
             callFrame->scopeChain()->deref();
 
         JSValue returnValue = callFrame->r(result).jsValue();
@@ -4067,7 +4174,7 @@ skip_id_custom_self:
 
         int result = vPC[1].u.operand;
 
-        if (codeBlock->needsFullScopeChain())
+        if (codeBlock->needsFullScopeChain() && callFrame->r(codeBlock->activationRegister()).jsValue())
             callFrame->scopeChain()->deref();
 
         JSValue returnValue = callFrame->r(result).jsValue();
@@ -4103,25 +4210,20 @@ skip_id_custom_self:
         vPC += OPCODE_LENGTH(op_enter);
         NEXT_INSTRUCTION();
     }
-    DEFINE_OPCODE(op_enter_with_activation) {
-        /* enter_with_activation dst(r)
+    DEFINE_OPCODE(op_create_activation) {
+        /* create_activation dst(r)
 
-           Initializes local variables to undefined, creates an activation object,
-           places it in dst, and pushes it onto the scope chain.
-
-           This opcode appears only at the beginning of a code block.
+           If the activation object for this callframe has not yet been created,
+           this creates it and writes it back to dst.
         */
 
-        size_t i = 0;
-        for (size_t count = codeBlock->m_numVars; i < count; ++i)
-            callFrame->r(i) = jsUndefined();
-
-        int dst = vPC[1].u.operand;
-        JSActivation* activation = new (globalData) JSActivation(callFrame, static_cast<FunctionExecutable*>(codeBlock->ownerExecutable()));
-        callFrame->r(dst) = JSValue(activation);
-        callFrame->setScopeChain(callFrame->scopeChain()->copy()->push(activation));
-
-        vPC += OPCODE_LENGTH(op_enter_with_activation);
+        int activationReg = vPC[1].u.operand;
+        if (!callFrame->r(activationReg).jsValue()) {
+            JSActivation* activation = new (globalData) JSActivation(callFrame, static_cast<FunctionExecutable*>(codeBlock->ownerExecutable()));
+            callFrame->r(activationReg) = JSValue(activation);
+            callFrame->setScopeChain(callFrame->scopeChain()->copy()->push(activation));
+        }
+        vPC += OPCODE_LENGTH(op_create_activation);
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_get_callee) {
@@ -4182,6 +4284,25 @@ skip_id_custom_self:
             callFrame->r(thisRegister) = JSValue(thisVal.toThisObject(callFrame));
 
         vPC += OPCODE_LENGTH(op_convert_this);
+        NEXT_INSTRUCTION();
+    }
+    DEFINE_OPCODE(op_convert_this_strict) {
+        /* convert_this_strict this(r)
+         
+         Takes the value in the 'this' register, and converts it to
+         its "this" form if (and only if) "this" is an object with a
+         custom this conversion
+         
+         This opcode should only be used at the beginning of a code
+         block.
+         */
+        
+        int thisRegister = vPC[1].u.operand;
+        JSValue thisVal = callFrame->r(thisRegister).jsValue();
+        if (thisVal.isObject() && thisVal.needsThisConversion())
+            callFrame->r(thisRegister) = JSValue(thisVal.toStrictThisObject(callFrame));
+        
+        vPC += OPCODE_LENGTH(op_convert_this_strict);
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_init_lazy_reg) {

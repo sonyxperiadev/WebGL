@@ -127,6 +127,7 @@ static const int computedProperties[] = {
     CSSPropertyPosition,
     CSSPropertyResize,
     CSSPropertyRight,
+    CSSPropertySpeak,
     CSSPropertyTableLayout,
     CSSPropertyTextAlign,
     CSSPropertyTextDecoration,
@@ -162,7 +163,6 @@ static const int computedProperties[] = {
     CSSPropertyWebkitBackgroundComposite,
     CSSPropertyWebkitBackgroundOrigin,
     CSSPropertyWebkitBackgroundSize,
-    CSSPropertyWebkitBlockFlow,
     CSSPropertyWebkitBorderFit,
     CSSPropertyWebkitBorderHorizontalSpacing,
     CSSPropertyWebkitBorderImage,
@@ -229,7 +229,8 @@ static const int computedProperties[] = {
     CSSPropertyWebkitTransitionTimingFunction,
     CSSPropertyWebkitUserDrag,
     CSSPropertyWebkitUserModify,
-    CSSPropertyWebkitUserSelect
+    CSSPropertyWebkitUserSelect,
+    CSSPropertyWebkitWritingMode
 
 #if ENABLE(SVG)
     ,
@@ -753,7 +754,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
     if (!style)
         return 0;
 
-    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style->direction(), style->blockFlow());
+    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style->direction(), style->writingMode());
 #ifdef ANDROID_LAYOUT
     const Settings * settings = node->document()->frame() ? node->document()->frame()->settings() : 0; 
 #endif
@@ -1407,8 +1408,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->appearance());
         case CSSPropertyWebkitBackfaceVisibility:
             return CSSPrimitiveValue::createIdentifier((style->backfaceVisibility() == BackfaceVisibilityHidden) ? CSSValueHidden : CSSValueVisible);
-        case CSSPropertyWebkitBlockFlow:
-            return CSSPrimitiveValue::create(style->blockFlow());
         case CSSPropertyWebkitBorderImage:
             return valueForNinePieceImage(style->borderImage());
         case CSSPropertyWebkitMaskBoxImage:
@@ -1416,8 +1415,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitFontSizeDelta:
             // Not a real style property -- used by the editing engine -- so has no computed value.
             break;
+        case CSSPropertyWebkitMarginBottomCollapse:
         case CSSPropertyWebkitMarginAfterCollapse:
             return CSSPrimitiveValue::create(style->marginAfterCollapse());
+        case CSSPropertyWebkitMarginTopCollapse:
         case CSSPropertyWebkitMarginBeforeCollapse:
             return CSSPrimitiveValue::create(style->marginBeforeCollapse());
         case CSSPropertyWebkitPerspective:
@@ -1463,6 +1464,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             rect->setLeft(zoomAdjustedPixelValue(style->clip().left().value(), style.get()));
             return CSSPrimitiveValue::create(rect.release());
         }
+        case CSSPropertySpeak:
+            return CSSPrimitiveValue::create(style->speak());
         case CSSPropertyWebkitTransform:
             return computedTransform(renderer, style.get());
         case CSSPropertyWebkitTransformOrigin: {
@@ -1512,7 +1515,9 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->pointerEvents());
         case CSSPropertyWebkitColorCorrection:
             return CSSPrimitiveValue::create(style->colorSpace());
-
+        case CSSPropertyWebkitWritingMode:
+            return CSSPrimitiveValue::create(style->writingMode());
+        
         /* Shorthand properties, currently not supported see bug 13658*/
         case CSSPropertyBackground:
         case CSSPropertyBorder:
@@ -1528,7 +1533,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyListStyle:
         case CSSPropertyMargin:
         case CSSPropertyPadding:
-        case CSSPropertyWebkitWritingMode:
             break;
 
         /* Unimplemented CSS 3 properties (including CSS3 shorthand properties) */
@@ -1650,10 +1654,47 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::createColor(style->tapHighlightColor().rgb());
 #endif
 #if ENABLE(SVG)
-        // FIXME: This default case ruins the point of using an enum for
-        // properties -- it prevents us from getting a warning when we
-        // forget to list a property above.
-        default:
+        case CSSPropertyClipPath:
+        case CSSPropertyClipRule:
+        case CSSPropertyMask:
+        case CSSPropertyEnableBackground:
+        case CSSPropertyFilter:
+        case CSSPropertyFloodColor:
+        case CSSPropertyFloodOpacity:
+        case CSSPropertyLightingColor:
+        case CSSPropertyStopColor:
+        case CSSPropertyStopOpacity:
+        case CSSPropertyColorInterpolation:
+        case CSSPropertyColorInterpolationFilters:
+        case CSSPropertyColorProfile:
+        case CSSPropertyColorRendering:
+        case CSSPropertyFill:
+        case CSSPropertyFillOpacity:
+        case CSSPropertyFillRule:
+        case CSSPropertyImageRendering:
+        case CSSPropertyMarker:
+        case CSSPropertyMarkerEnd:
+        case CSSPropertyMarkerMid:
+        case CSSPropertyMarkerStart:
+        case CSSPropertyShapeRendering:
+        case CSSPropertyStroke:
+        case CSSPropertyStrokeDasharray:
+        case CSSPropertyStrokeDashoffset:
+        case CSSPropertyStrokeLinecap:
+        case CSSPropertyStrokeLinejoin:
+        case CSSPropertyStrokeMiterlimit:
+        case CSSPropertyStrokeOpacity:
+        case CSSPropertyStrokeWidth:
+        case CSSPropertyAlignmentBaseline:
+        case CSSPropertyBaselineShift:
+        case CSSPropertyDominantBaseline:
+        case CSSPropertyGlyphOrientationHorizontal:
+        case CSSPropertyGlyphOrientationVertical:
+        case CSSPropertyKerning:
+        case CSSPropertyTextAnchor:
+        case CSSPropertyVectorEffect:
+        case CSSPropertyWritingMode:
+        case CSSPropertyWebkitSvgShadow:
             return getSVGPropertyCSSValue(propertyID, DoNotUpdateLayout);
 #endif
     }

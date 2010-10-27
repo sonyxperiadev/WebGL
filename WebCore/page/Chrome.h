@@ -53,6 +53,7 @@ namespace WebCore {
 #endif
 
     struct FrameLoadRequest;
+    struct ViewportArguments;
     struct WindowFeatures;
     
     class Chrome : public HostWindow {
@@ -138,6 +139,8 @@ namespace WebCore {
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         void chooseIconForFiles(const Vector<String>&, FileChooser*);
+
+        void dispatchViewportDataDidChange(const ViewportArguments&) const;
 
 #if PLATFORM(MAC)
         void focusNSView(NSView*);

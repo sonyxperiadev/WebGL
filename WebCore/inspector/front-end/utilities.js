@@ -26,19 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-Object.properties = function(obj)
-{
-    var properties = [];
-    for (var prop in obj)
-        properties.push(prop);
-    return properties;
-}
-
-Object.sortedProperties = function(obj, sortFunc)
-{
-    return Object.properties(obj).sort(sortFunc);
-}
-
 Function.prototype.bind = function(thisObject)
 {
     var func = this;
@@ -391,6 +378,26 @@ String.prototype.hasSubstring = function(string, caseInsensitive)
     if (!caseInsensitive)
         return this.indexOf(string) !== -1;
     return this.match(new RegExp(string.escapeForRegExp(), "i"));
+}
+
+String.prototype.asParsedURL = function()
+{
+    // RegExp groups:
+    // 1 - scheme
+    // 2 - hostname
+    // 3 - ?port
+    // 4 - ?path
+    // 5 - ?fragment
+    var match = this.match(/^([^:]+):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i);
+    if (!match)
+        return null;
+    var result = {};
+    result.scheme = match[1].toLowerCase();
+    result.host = match[2];
+    result.port = match[3];
+    result.path = match[4] || "/";
+    result.fragment = match[5];
+    return result;
 }
 
 String.prototype.escapeCharacters = function(chars)
@@ -990,6 +997,6 @@ function offerFileForDownload(contents)
     var builder = new BlobBuilder();
     builder.append(contents);
     var blob = builder.getBlob("application/octet-stream");
-    var url = window.createBlobURL(blob);
+    var url = window.createObjectURL(blob);
     window.open(url);
 }

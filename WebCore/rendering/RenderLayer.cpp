@@ -978,7 +978,7 @@ void RenderLayer::beginTransparencyLayers(GraphicsContext* p, const RenderLayer*
         p->clip(clipRect);
         p->beginTransparencyLayer(renderer()->opacity());
 #ifdef REVEAL_TRANSPARENCY_LAYERS
-        p->setFillColor(Color(0.0f, 0.0f, 0.5f, 0.2f), DeviceColorSpace);
+        p->setFillColor(Color(0.0f, 0.0f, 0.5f, 0.2f), ColorSpaceDeviceRGB);
         p->fillRect(clipRect);
 #endif
     }
@@ -1986,7 +1986,7 @@ void RenderLayer::computeScrollDimensions(bool* needHBar, bool* needVBar)
     
     m_scrollDimensionsDirty = false;
     
-    bool ltr = renderer()->style()->direction() == LTR;
+    bool ltr = renderer()->style()->isLeftToRightDirection();
 
     int clientWidth = box->clientWidth();
     int clientHeight = box->clientHeight();
@@ -2234,9 +2234,9 @@ void RenderLayer::paintResizer(GraphicsContext* context, int tx, int ty, const I
         context->clip(absRect);
         IntRect largerCorner = absRect;
         largerCorner.setSize(IntSize(largerCorner.width() + 1, largerCorner.height() + 1));
-        context->setStrokeColor(Color(makeRGB(217, 217, 217)), DeviceColorSpace);
+        context->setStrokeColor(Color(makeRGB(217, 217, 217)), ColorSpaceDeviceRGB);
         context->setStrokeThickness(1.0f);
-        context->setFillColor(Color::transparent, DeviceColorSpace);
+        context->setFillColor(Color::transparent, ColorSpaceDeviceRGB);
         context->drawRect(largerCorner);
         context->restore();
     }
@@ -2811,7 +2811,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     useTemporaryClipRects = compositor()->inCompositingMode();
 #endif
 
-    IntRect hitTestArea = result.rectFromPoint(hitTestPoint);
+    IntRect hitTestArea = result.rectForPoint(hitTestPoint);
 
     // Apply a transform if we have one.
     if (transform() && !appliedTransform) {
@@ -3094,7 +3094,7 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
         IntRect localClipRect(hitTestRect);
         localClipRect.intersect(colRect);
         
-        if (!localClipRect.isEmpty() && localClipRect.intersects(result.rectFromPoint(hitTestPoint))) {
+        if (!localClipRect.isEmpty() && localClipRect.intersects(result.rectForPoint(hitTestPoint))) {
             RenderLayer* hitLayer = 0;
             if (!columnIndex) {
                 // Apply a translation transform to change where the layer paints.

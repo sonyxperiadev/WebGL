@@ -31,6 +31,8 @@
 #if USE(JSC)
 #include "Bridge.h"
 #endif
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -69,8 +71,10 @@
 
 #include <QApplication>
 #include <QDesktopWidget>
+#include <QGraphicsWidget>
 #include <QKeyEvent>
 #include <QPainter>
+#include <QStyleOptionGraphicsItem>
 #include <QWidget>
 #include <QX11Info>
 #include <X11/X.h>
@@ -95,6 +99,24 @@ using namespace WTF;
 namespace WebCore {
 
 using namespace HTMLNames;
+
+#if USE(ACCELERATED_COMPOSITING)
+// Qt's GraphicsLayer (GraphicsLayerQt) requires layers to be QGraphicsWidgets
+class PluginGraphicsLayerQt : public QGraphicsWidget {
+public:
+    PluginGraphicsLayerQt(PluginView* view) : m_view(view) { }
+    ~PluginGraphicsLayerQt() { }
+
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = 0)
+    {
+        Q_UNUSED(widget);
+        m_view->paintUsingXPixmap(painter, option->exposedRect.toRect());
+    }
+
+private:
+    PluginView* m_view;
+};
+#endif
 
 void PluginView::updatePluginWidget()
 {
@@ -145,9 +167,11 @@ void PluginView::updatePluginWidget()
         || (QWebPagePrivate::drtRun && platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect)))
         setNPWindowIfNeeded();
 
-    // Make sure we get repainted afterwards. This is necessary for downward
-    // scrolling to move the plugin widget properly.
-    invalidate();
+    if (!m_platformLayer) {
+        // Make sure we get repainted afterwards. This is necessary for downward
+        // scrolling to move the plugin widget properly.
+        invalidate();
+    }
 }
 
 void PluginView::setFocus(bool focused)
@@ -237,40 +261,8 @@ void PluginView::paintUsingImageSurfaceExtension(QPainter* painter, const IntRec
 }
 #endif
 
-void PluginView::paint(GraphicsContext* context, const IntRect& rect)
+void PluginView::paintUsingXPixmap(QPainter* painter, const QRect &exposedRect)
 {
-    if (!m_isStarted) {
-        paintMissingPluginIcon(context, rect);
-        return;
-    }
-
-    if (context->paintingDisabled())
-        return;
-
-    setNPWindowIfNeeded();
-
-    if (m_isWindowed)
-        return;
-
-    if (!m_drawable
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-        && m_image.isNull()
-#endif
-       )
-        return;
-
-    QPainter* painter = context->platformContext();
-    IntRect exposedRect(rect);
-    exposedRect.intersect(frameRect());
-    exposedRect.move(-frameRect().x(), -frameRect().y());
-
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-    if (!m_image.isNull()) {
-        paintUsingImageSurfaceExtension(painter, exposedRect);
-        return;
-    }
-#endif
-
     QPixmap qtDrawable = QPixmap::fromX11Pixmap(m_drawable, QPixmap::ExplicitlyShared);
     const int drawableDepth = ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth;
     ASSERT(drawableDepth == qtDrawable.depth());
@@ -328,8 +320,51 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     if (syncX)
         XSync(m_pluginDisplay, false); // sync changes by plugin
 
-    painter->drawPixmap(QPoint(frameRect().x() + exposedRect.x(), frameRect().y() + exposedRect.y()), qtDrawable,
-                        exposedRect);
+    painter->drawPixmap(QPoint(exposedRect.x(), exposedRect.y()), qtDrawable, exposedRect);
+}
+
+void PluginView::paint(GraphicsContext* context, const IntRect& rect)
+{
+    if (!m_isStarted) {
+        paintMissingPluginIcon(context, rect);
+        return;
+    }
+
+    if (context->paintingDisabled())
+        return;
+
+    setNPWindowIfNeeded();
+
+    if (m_isWindowed)
+        return;
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_platformLayer)
+        return;
+#endif
+
+    if (!m_drawable
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
+        && m_image.isNull()
+#endif
+       )
+        return;
+
+    QPainter* painter = context->platformContext();
+    IntRect exposedRect(rect);
+    exposedRect.intersect(frameRect());
+    exposedRect.move(-frameRect().x(), -frameRect().y());
+
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
+    if (!m_image.isNull()) {
+        paintUsingImageSurfaceExtension(painter, exposedRect);
+        return;
+    }
+#endif
+
+    painter->translate(frameRect().x(), frameRect().y());
+    paintUsingXPixmap(painter, exposedRect);
+    painter->translate(-frameRect().x(), -frameRect().y());
 }
 
 // TODO: Unify across ports.
@@ -372,19 +407,21 @@ void PluginView::initXEvent(XEvent* xEvent)
 
 void setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
 {
-    QKeyEvent* qKeyEvent = event->keyEvent()->qtEvent();
+    const PlatformKeyboardEvent* keyEvent = event->keyEvent();
 
     xEvent->type = (event->type() == eventNames().keydownEvent) ? 2 : 3; // ints as Qt unsets KeyPress and KeyRelease
     xEvent->xkey.root = QX11Info::appRootWindow();
     xEvent->xkey.subwindow = 0; // we have no child window
     xEvent->xkey.time = event->timeStamp();
-    xEvent->xkey.state = qKeyEvent->nativeModifiers();
-    xEvent->xkey.keycode = qKeyEvent->nativeScanCode();
+    xEvent->xkey.state = keyEvent->nativeModifiers();
+    xEvent->xkey.keycode = keyEvent->nativeScanCode();
 
     // We may not have a nativeScanCode() if the key event is from DRT's eventsender. In that
     // case just populate the XEvent's keycode with the Qt platform-independent keycode. The only
     // place this keycode will be used is in webkit_test_plugin_handle_event().
     if (QWebPagePrivate::drtRun && !xEvent->xkey.keycode) {
+        QKeyEvent* qKeyEvent = keyEvent->qtEvent();
+        ASSERT(qKeyEvent);
         if (!qKeyEvent->text().isEmpty())
             xEvent->xkey.keycode = int(qKeyEvent->text().at(0).unicode() + qKeyEvent->modifiers());
         else if (qKeyEvent->key() && (qKeyEvent->key() != Qt::Key_unknown))
@@ -497,6 +534,9 @@ static void setXCrossingEventSpecificFields(XEvent* xEvent, MouseEvent* event, c
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
     if (m_isWindowed)
+        return;
+
+    if (event->button() == RightButton && m_plugin->quirks().contains(PluginQuirkIgnoreRightClickInWindowlessMode))
         return;
 
     if (event->type() == eventNames().mousedownEvent) {
@@ -744,6 +784,13 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 
 void PluginView::invalidateRect(const IntRect& rect)
 {
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_platformLayer) {
+        m_platformLayer->update(QRectF(rect));
+        return;
+    }
+#endif
+
     if (m_isWindowed) {
         if (platformWidget())
             platformWidget()->update(rect);
@@ -760,11 +807,12 @@ void PluginView::invalidateRect(NPRect* rect)
         return;
     }
     IntRect r(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top);
-    invalidateWindowlessPluginRect(r);
+    invalidateRect(r);
 }
 
 void PluginView::invalidateRegion(NPRegion region)
 {
+    Q_UNUSED(region);
     invalidate();
 }
 
@@ -869,6 +917,16 @@ bool PluginView::platformStart()
     } else {
         setPlatformWidget(0);
         m_pluginDisplay = getPluginDisplay();
+
+#if USE(ACCELERATED_COMPOSITING)
+        if (m_parentFrame->page()->chrome()->client()->allowsAcceleratedCompositing()
+            && m_parentFrame->page()->settings() 
+            && m_parentFrame->page()->settings()->acceleratedCompositingEnabled()) {
+            m_platformLayer = new PluginGraphicsLayerQt(this);
+            // Trigger layer computation in RenderLayerCompositor
+            m_element->setNeedsStyleRecalc(SyntheticStyleChange);
+        }
+#endif
     }
 
     show();
@@ -942,5 +1000,12 @@ void PluginView::halt()
 void PluginView::restart()
 {
 }
+ 
+#if USE(ACCELERATED_COMPOSITING)
+PlatformLayer* PluginView::platformLayer() const
+{
+    return m_platformLayer.get();
+}
+#endif
 
 } // namespace WebCore

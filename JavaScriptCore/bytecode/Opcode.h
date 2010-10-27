@@ -39,12 +39,13 @@ namespace JSC {
 
     #define FOR_EACH_OPCODE_ID(macro) \
         macro(op_enter, 1) \
-        macro(op_enter_with_activation, 2) \
+        macro(op_create_activation, 2) \
         macro(op_init_lazy_reg, 2) \
         macro(op_create_arguments, 2) \
         macro(op_create_this, 3) \
         macro(op_get_callee, 2) \
         macro(op_convert_this, 2) \
+        macro(op_convert_this_strict, 2) \
         \
         macro(op_new_object, 2) \
         macro(op_new_array, 4) \
@@ -99,7 +100,8 @@ namespace JSC {
         macro(op_put_scoped_var, 4) \
         macro(op_get_global_var, 3) \
         macro(op_put_global_var, 3) \
-        macro(op_resolve_base, 3) \
+        macro(op_resolve_base, 4) \
+        macro(op_ensure_property_exists, 3) \
         macro(op_resolve_with_base, 4) \
         macro(op_get_by_id, 8) \
         macro(op_get_by_id_self, 8) \

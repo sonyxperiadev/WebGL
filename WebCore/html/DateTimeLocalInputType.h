@@ -31,17 +31,26 @@
 #ifndef DateTimeLocalInputType_h
 #define DateTimeLocalInputType_h
 
-#include "TextFieldInputType.h"
+#include "BaseDateAndTimeInputType.h"
 
 namespace WebCore {
 
-class DateTimeLocalInputType : public TextFieldInputType {
+class DateTimeLocalInputType : public BaseDateAndTimeInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    DateTimeLocalInputType(HTMLInputElement* element) : TextFieldInputType(element) { }
+    DateTimeLocalInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
     virtual const AtomicString& formControlType() const;
+    virtual double valueAsDate() const;
+    virtual void setValueAsDate(double, ExceptionCode&) const;
+    virtual double minimum() const;
+    virtual double maximum() const;
+    virtual double defaultStep() const;
+    virtual double stepScaleFactor() const;
+    virtual bool scaledStepValeuShouldBeInteger() const;
+    virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const;
+    virtual bool setMillisecondToDateComponents(double, DateComponents*) const;
 };
 
 } // namespace WebCore

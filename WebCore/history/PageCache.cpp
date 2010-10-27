@@ -31,6 +31,8 @@
 #include "Cache.h"
 #include "CachedPage.h"
 #include "DOMWindow.h"
+#include "DeviceMotionController.h"
+#include "DeviceOrientationController.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
@@ -45,6 +47,7 @@
 #include "SystemTime.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 using namespace std;
 
@@ -74,7 +77,7 @@ static void pageCacheLog(const String& prefix, const String& message)
     LOG(PageCache, "%s%s", prefix.utf8().data(), message.utf8().data());
 }
     
-#define PCLOG(...) pageCacheLog(pageCacheLogPrefix(indentLevel), String::format(__VA_ARGS__))
+#define PCLOG(...) pageCacheLog(pageCacheLogPrefix(indentLevel), makeString(__VA_ARGS__))
     
 static bool logCanCacheFrameDecision(Frame* frame, int indentLevel)
 {
@@ -88,9 +91,9 @@ static bool logCanCacheFrameDecision(Frame* frame, int indentLevel)
     PCLOG("+---");
     KURL newURL = frame->loader()->provisionalDocumentLoader() ? frame->loader()->provisionalDocumentLoader()->url() : KURL();
     if (!newURL.isEmpty())
-        PCLOG(" Determining if frame can be cached navigating from (%s) to (%s):", currentURL.string().utf8().data(), newURL.string().utf8().data());
+        PCLOG(" Determining if frame can be cached navigating from (", currentURL.string(), ") to (", newURL.string(), "):");
     else
-        PCLOG(" Determining if subframe with URL (%s) can be cached:", currentURL.string().utf8().data());
+        PCLOG(" Determining if subframe with URL (", currentURL.string(), ") can be cached:");
     
     bool cannotCache = false;
     
@@ -201,6 +204,16 @@ static void logCanCachePageDecision(Page* page)
         PCLOG("   -Page settings says b/f cache disabled");
         cannotCache = true;
     }
+#if ENABLE(DEVICE_ORIENTATION)
+    if (page->deviceMotionController() && page->deviceMotionController()->isActive()) {
+        PCLOG("   -Page is using DeviceMotion");
+        cannotCache = true;
+    }
+    if (page->deviceOrientationController() && page->deviceOrientationController()->isActive()) {
+        PCLOG("   -Page is using DeviceOrientation");
+        cannotCache = true;
+    }
+#endif
     if (loadType == FrameLoadTypeReload) {
         PCLOG("   -Load type is: Reload");
         cannotCache = true;
@@ -297,7 +310,11 @@ bool PageCache::canCache(Page* page)
         && page->backForwardList()->enabled()
         && page->backForwardList()->capacity() > 0
         && page->settings()->usesPageCache()
-        && loadType != FrameLoadTypeReload 
+#if ENABLE(DEVICE_ORIENTATION)
+        && !(page->deviceMotionController() && page->deviceMotionController()->isActive())
+        && !(page->deviceOrientationController() && page->deviceOrientationController()->isActive())
+#endif
+        && loadType != FrameLoadTypeReload
         && loadType != FrameLoadTypeReloadFromOrigin
         && loadType != FrameLoadTypeSame;
 }

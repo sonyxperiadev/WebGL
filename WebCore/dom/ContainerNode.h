@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,9 +25,10 @@
 #define ContainerNode_h
 
 #include "Node.h"
-#include "FloatPoint.h"
 
 namespace WebCore {
+
+class FloatPoint;
     
 typedef void (*NodeCallback)(Node*);
 
@@ -43,10 +44,10 @@ public:
     Node* firstChild() const { return m_firstChild; }
     Node* lastChild() const { return m_lastChild; }
 
-    virtual bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&, bool shouldLazyAttach = false);
-    virtual bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&, bool shouldLazyAttach = false);
-    virtual bool removeChild(Node* child, ExceptionCode&);
-    virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, bool shouldLazyAttach = false);
+    bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&, bool shouldLazyAttach = false);
+    bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&, bool shouldLazyAttach = false);
+    bool removeChild(Node* child, ExceptionCode&);
+    bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, bool shouldLazyAttach = false);
 
     // These methods are only used during parsing.
     // They don't send DOM mutation events or handle reparenting.
@@ -72,8 +73,9 @@ public:
     virtual void removedFromTree(bool deep);
     virtual void childrenChanged(bool createdByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    virtual bool removeChildren();
-
+    // FIXME: It's not good to have two functions with such similar names, especially public functions.
+    // How do removeChildren and removeAllChildren differ?
+    void removeChildren();
     void removeAllChildren();
     void takeAllChildrenFrom(ContainerNode*);
 
@@ -118,6 +120,21 @@ private:
     Node* m_lastChild;
 };
 
+inline ContainerNode* toContainerNode(Node* node)
+{
+    ASSERT(!node || node->isContainerNode());
+    return static_cast<ContainerNode*>(node);
+}
+
+inline const ContainerNode* toContainerNode(const Node* node)
+{
+    ASSERT(!node || node->isContainerNode());
+    return static_cast<const ContainerNode*>(node);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toContainerNode(const ContainerNode*);
+
 inline ContainerNode::ContainerNode(Document* document, ConstructionType type)
     : Node(document, type)
     , m_firstChild(0)
@@ -125,28 +142,32 @@ inline ContainerNode::ContainerNode(Document* document, ConstructionType type)
 {
 }
 
-inline unsigned Node::containerChildNodeCount() const
+inline unsigned Node::childNodeCount() const
 {
-    ASSERT(isContainerNode());
-    return static_cast<const ContainerNode*>(this)->childNodeCount();
+    if (!isContainerNode())
+        return 0;
+    return toContainerNode(this)->childNodeCount();
 }
 
-inline Node* Node::containerChildNode(unsigned index) const
+inline Node* Node::childNode(unsigned index) const
 {
-    ASSERT(isContainerNode());
-    return static_cast<const ContainerNode*>(this)->childNode(index);
+    if (!isContainerNode())
+        return 0;
+    return toContainerNode(this)->childNode(index);
 }
 
-inline Node* Node::containerFirstChild() const
+inline Node* Node::firstChild() const
 {
-    ASSERT(isContainerNode());
-    return static_cast<const ContainerNode*>(this)->firstChild();
+    if (!isContainerNode())
+        return 0;
+    return toContainerNode(this)->firstChild();
 }
 
-inline Node* Node::containerLastChild() const
+inline Node* Node::lastChild() const
 {
-    ASSERT(isContainerNode());
-    return static_cast<const ContainerNode*>(this)->lastChild();
+    if (!isContainerNode())
+        return 0;
+    return toContainerNode(this)->lastChild();
 }
 
 } // namespace WebCore

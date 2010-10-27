@@ -31,6 +31,7 @@
 #include "CSSValueKeywords.h"
 #include "ExceptionCode.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLTableCaptionElement.h"
 #include "HTMLTableRowElement.h"
 #include "HTMLTableRowsCollection.h"
@@ -202,7 +203,7 @@ PassRefPtr<HTMLElement> HTMLTableElement::insertRow(int index, ExceptionCode& ec
         }
     }
 
-    Node* parent;
+    ContainerNode* parent;
     if (lastRow)
         parent = row ? row->parent() : lastRow->parent();
     else {
@@ -336,7 +337,7 @@ void HTMLTableElement::parseMappedAttribute(Attribute* attr)
             m_borderColorAttr = true;
         }
     } else if (attr->name() == backgroundAttr) {
-        String url = deprecatedParseURL(attr->value());
+        String url = stripLeadingAndTrailingHTMLSpaces(attr->value());
         if (!url.isEmpty())
             addCSSImageProperty(attr, CSSPropertyBackgroundImage, document()->completeURL(url).string());
     } else if (attr->name() == frameAttr) {

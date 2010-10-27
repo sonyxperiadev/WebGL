@@ -57,7 +57,6 @@ namespace WebCore {
     class Frame;
     class History;
     class IDBFactory;
-    class InspectorTimelineAgent;
     class Location;
     class StyleMedia;
     class Navigator;
@@ -235,7 +234,7 @@ namespace WebCore {
         void pageDestroyed();
 
 #if ENABLE(INDEXED_DATABASE)
-        IDBFactory* indexedDB() const;
+        IDBFactory* webkitIndexedDB() const;
 #endif
 
 #if ENABLE(FILE_SYSTEM)
@@ -393,8 +392,8 @@ namespace WebCore {
         DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
 #endif
 #if ENABLE(BLOB)
-        String createBlobURL(Blob*);
-        void revokeBlobURL(const String&);
+        String createObjectURL(Blob*);
+        void revokeObjectURL(const String&);
 #endif
 
         using RefCounted<DOMWindow>::ref;
@@ -407,7 +406,6 @@ namespace WebCore {
         virtual void derefEventTarget() { deref(); }
         virtual EventTargetData* eventTargetData();
         virtual EventTargetData* ensureEventTargetData();
-        InspectorTimelineAgent* inspectorTimelineAgent();
 
         RefPtr<SecurityOrigin> m_securityOrigin;
         KURL m_url;

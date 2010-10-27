@@ -91,6 +91,7 @@ public:
     unsigned resize : 2; // EResize
     unsigned userSelect : 1;  // EUserSelect
     unsigned colorSpace : 1; // ColorSpace
+    unsigned speak : 3; // ESpeak
     unsigned hyphens : 2; // Hyphens
 
     AtomicString hyphenationString;

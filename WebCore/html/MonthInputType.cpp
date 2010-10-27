@@ -31,9 +31,18 @@
 #include "config.h"
 #include "MonthInputType.h"
 
+#include "DateComponents.h"
+#include "HTMLInputElement.h"
+#include "HTMLNames.h"
+#include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+
+using namespace HTMLNames;
+
+static const double monthDefaultStep = 1.0;
+static const double monthStepScaleFactor = 1.0;
 
 PassOwnPtr<InputType> MonthInputType::create(HTMLInputElement* element)
 {
@@ -43,6 +52,74 @@ PassOwnPtr<InputType> MonthInputType::create(HTMLInputElement* element)
 const AtomicString& MonthInputType::formControlType() const
 {
     return InputTypeNames::month();
+}
+
+double MonthInputType::valueAsDate() const
+{
+    DateComponents date;
+    if (!parseToDateComponents(element()->value(), &date))
+        return DateComponents::invalidMilliseconds();
+    double msec = date.millisecondsSinceEpoch();
+    ASSERT(isfinite(msec));
+    return msec;
+}
+
+void MonthInputType::setValueAsDate(double value, ExceptionCode&) const
+{
+    DateComponents date;
+    if (!date.setMillisecondsSinceEpochForMonth(value)) {
+        element()->setValue(String());
+        return;
+    }
+    element()->setValue(date.toString());
+}
+
+double MonthInputType::minimum() const
+{
+    return parseToDouble(element()->fastGetAttribute(minAttr), DateComponents::minimumMonth());
+}
+
+double MonthInputType::maximum() const
+{
+    return parseToDouble(element()->fastGetAttribute(maxAttr), DateComponents::maximumMonth());
+}
+
+double MonthInputType::defaultStep() const
+{
+    return monthDefaultStep;
+}
+
+double MonthInputType::stepScaleFactor() const
+{
+    return monthStepScaleFactor;
+}
+
+bool MonthInputType::parsedStepValueShouldBeInteger() const
+{
+    return true;
+}
+
+double MonthInputType::parseToDouble(const String& src, double defaultValue) const
+{
+    DateComponents date;
+    if (!parseToDateComponents(src, &date))
+        return defaultValue;
+    double months = date.monthsSinceEpoch();
+    ASSERT(isfinite(months));
+    return months;
+}
+
+bool MonthInputType::parseToDateComponentsInternal(const UChar* characters, unsigned length, DateComponents* out) const
+{
+    ASSERT(out);
+    unsigned end;
+    return out->parseMonth(characters, length, 0, end) && end == length;
+}
+
+bool MonthInputType::setMillisecondToDateComponents(double value, DateComponents* date) const
+{
+    ASSERT(date);
+    return date->setMonthsSinceEpoch(value);
 }
 
 } // namespace WebCore

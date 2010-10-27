@@ -64,6 +64,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/DOMWrapperWorld.cpp \
 	bindings/js/GCController.cpp \
 	bindings/js/IDBBindingUtilities.cpp \
+	bindings/js/JSArrayBufferCustom.cpp \
+	bindings/js/JSArrayBufferViewCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
 	bindings/js/JSAudioConstructor.cpp \
 	bindings/js/JSCDATASectionCustom.cpp \
@@ -100,8 +102,10 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDeviceMotionEventCustom.cpp \
 	bindings/js/JSDeviceOrientationEventCustom.cpp \
+	bindings/js/JSDirectoryEntrySyncCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
+	bindings/js/JSEntrySyncCustom.cpp \
 	bindings/js/JSEventCustom.cpp \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \
@@ -128,6 +132,9 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSIDBKeyCustom.cpp \
 	bindings/js/JSImageConstructor.cpp \
 	bindings/js/JSImageDataCustom.cpp \
+	bindings/js/JSInt16ArrayCustom.cpp \
+	bindings/js/JSInt32ArrayCustom.cpp \
+	bindings/js/JSInt8ArrayCustom.cpp \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMainThreadExecState.cpp \
@@ -160,6 +167,9 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSTouchCustom.cpp \
 	bindings/js/JSTouchListCustom.cpp \
 	bindings/js/JSTreeWalkerCustom.cpp \
+	bindings/js/JSUint16ArrayCustom.cpp \
+	bindings/js/JSUint32ArrayCustom.cpp \
+	bindings/js/JSUint8ArrayCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixCustom.cpp \
 	bindings/js/JSWebKitPointCustom.cpp \
 	bindings/js/JSWorkerContextBase.cpp \

@@ -33,6 +33,8 @@
 
 #if ENABLE(INSPECTOR)
 
+#include <wtf/DecimalNumber.h>
+
 namespace WebCore {
 
 namespace {
@@ -604,9 +606,9 @@ void InspectorBasicValue::writeJSON(Vector<UChar>* output) const
         else
             output->append(falseString, 5);
     } else if (type() == TypeNumber) {
-        String value = String::format("%f", m_doubleValue);
-        value.replace(',', '.');
-        output->append(value.characters(), value.length());
+        NumberToStringBuffer buffer;
+        unsigned length = DecimalNumber(m_doubleValue).toStringDecimal(buffer, WTF::NumberToStringBufferLength);
+        output->append(buffer, length);
     }
 }
 
@@ -620,6 +622,10 @@ void InspectorString::writeJSON(Vector<UChar>* output) const
 {
     ASSERT(type() == TypeString);
     doubleQuoteString(m_stringValue, output);
+}
+
+InspectorObject::~InspectorObject()
+{
 }
 
 bool InspectorObject::asObject(RefPtr<InspectorObject>* output)
@@ -696,6 +702,17 @@ void InspectorObject::writeJSON(Vector<UChar>* output) const
     output->append('}');
 }
 
+InspectorObject::InspectorObject()
+    : InspectorValue(TypeObject)
+    , m_data()
+    , m_order()
+{
+}
+
+InspectorArray::~InspectorArray()
+{
+}
+
 bool InspectorArray::asArray(RefPtr<InspectorArray>* output)
 {
     *output = this;
@@ -716,6 +733,12 @@ void InspectorArray::writeJSON(Vector<UChar>* output) const
         (*it)->writeJSON(output);
     }
     output->append(']');
+}
+
+InspectorArray::InspectorArray()
+    : InspectorValue(TypeArray)
+    , m_data()
+{
 }
 
 PassRefPtr<InspectorValue> InspectorArray::get(size_t index)

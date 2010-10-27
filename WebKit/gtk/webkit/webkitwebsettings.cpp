@@ -33,8 +33,8 @@
 #include "FileSystem.h"
 #include "PluginDatabase.h"
 #include "Language.h"
-#include "PlatformString.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 #include <glib/gi18n-lib.h>
 #if OS(UNIX)
@@ -45,9 +45,9 @@
  * SECTION:webkitwebsettings
  * @short_description: Control the behaviour of a #WebKitWebView
  *
- * #WebKitWebSettings can be applied to a #WebKitWebView to control
- * the to be used text encoding, color, font sizes, printing mode,
- * script support, loading of images and various other things.
+ * #WebKitWebSettings can be applied to a #WebKitWebView to control text encoding, 
+ * color, font sizes, printing mode, script support, loading of images and various other things. 
+ * After creation, a #WebKitWebSettings object contains default settings. 
  *
  * <informalexample><programlisting>
  * /<!-- -->* Create a new websettings and disable java script *<!-- -->/
@@ -94,6 +94,7 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_html5_local_storage;
     gboolean enable_xss_auditor;
     gboolean enable_spatial_navigation;
+    gboolean enable_frame_flattening;
     gchar* user_agent;
     gboolean javascript_can_open_windows_automatically;
     gboolean javascript_can_access_clipboard;
@@ -145,6 +146,7 @@ enum {
     PROP_ENABLE_HTML5_LOCAL_STORAGE,
     PROP_ENABLE_XSS_AUDITOR,
     PROP_ENABLE_SPATIAL_NAVIGATION,
+    PROP_ENABLE_FRAME_FLATTENING,
     PROP_USER_AGENT,
     PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
     PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD,
@@ -201,7 +203,7 @@ static String webkitOSVersion()
 
     struct utsname name;
     if (uname(&name) != -1)
-        uaOSVersion = String::format("%s %s", name.sysname, name.machine);
+        uaOSVersion = makeString(name.sysname, ' ', name.machine);
     else
         uaOSVersion = String("Unknown");
 #elif OS(WINDOWS)
@@ -218,9 +220,9 @@ String webkitUserAgent()
     // We mention Safari since many broken sites check for it (OmniWeb does this too)
     // We re-use the WebKit version, though it doesn't seem to matter much in practice
 
-    DEFINE_STATIC_LOCAL(const String, uaVersion, (String::format("%d.%d+", WEBKIT_USER_AGENT_MAJOR_VERSION, WEBKIT_USER_AGENT_MINOR_VERSION)));
-    DEFINE_STATIC_LOCAL(const String, staticUA, (String::format("Mozilla/5.0 (%s; U; %s; %s) AppleWebKit/%s (KHTML, like Gecko) Version/5.0 Safari/%s",
-                                                                webkitPlatform().utf8().data(), webkitOSVersion().utf8().data(), defaultLanguage().utf8().data(), uaVersion.utf8().data(), uaVersion.utf8().data())));
+    DEFINE_STATIC_LOCAL(const String, uaVersion, (makeString(String::number(WEBKIT_USER_AGENT_MAJOR_VERSION), '.', String::number(WEBKIT_USER_AGENT_MINOR_VERSION), '+')));
+    DEFINE_STATIC_LOCAL(const String, staticUA, (makeString("Mozilla/5.0 (", webkitPlatform(), "; U; ", webkitOSVersion(), "; ", defaultLanguage(), ") AppleWebKit/", uaVersion) +
+                                                 makeString(" (KHTML, like Gecko) Version/5.0 Safari/", uaVersion)));
 
     return staticUA;
 }
@@ -597,6 +599,25 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     g_param_spec_boolean("enable-spatial-navigation",
                                                          _("Enable Spatial Navigation"),
                                                          _("Whether to enable Spatial Navigation"),
+                                                         FALSE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-frame-flattening
+    *
+    * Whether to enable the Frame Flattening. With this setting each subframe is expanded
+    * to its contents, which will flatten all the frames to become one scrollable page.
+    * On touch devices, it is desired to not have any scrollable sub parts of the page as
+    * it results in a confusing user experience, with scrolling sometimes scrolling sub parts
+    * and at other times scrolling the page itself. For this reason iframes and framesets are
+    * barely usable on touch devices.
+    *
+    * Since: 1.3.5
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_FRAME_FLATTENING,
+                                    g_param_spec_boolean("enable-frame-flattening",
+                                                         _("Enable Frame Flattening"),
+                                                         _("Whether to enable Frame Flattening"),
                                                          FALSE,
                                                          flags));
     /**
@@ -1054,6 +1075,9 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         priv->enable_spatial_navigation = g_value_get_boolean(value);
         break;
+    case PROP_ENABLE_FRAME_FLATTENING:
+        priv->enable_frame_flattening = g_value_get_boolean(value);
+        break;
     case PROP_USER_AGENT:
         g_free(priv->user_agent);
         if (!g_value_get_string(value) || !strlen(g_value_get_string(value)))
@@ -1202,6 +1226,9 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         g_value_set_boolean(value, priv->enable_spatial_navigation);
         break;
+    case PROP_ENABLE_FRAME_FLATTENING:
+        g_value_set_boolean(value, priv->enable_frame_flattening);
+        break;
     case PROP_USER_AGENT:
         g_value_set_string(value, priv->user_agent);
         break;
@@ -1306,6 +1333,7 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "enable-html5-local-storage", priv->enable_html5_local_storage,
                  "enable-xss-auditor", priv->enable_xss_auditor,
                  "enable-spatial-navigation", priv->enable_spatial_navigation,
+                 "enable-frame-flattening", priv->enable_frame_flattening,
                  "user-agent", webkit_web_settings_get_user_agent(web_settings),
                  "javascript-can-open-windows-automatically", priv->javascript_can_open_windows_automatically,
                  "javascript-can-access-clipboard", priv->javascript_can_access_clipboard,

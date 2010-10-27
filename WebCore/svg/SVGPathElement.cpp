@@ -24,7 +24,7 @@
 #include "SVGPathElement.h"
 
 #include "Attribute.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
 #include "SVGNames.h"
 #include "SVGPathParserFactory.h"
@@ -57,14 +57,18 @@ PassRefPtr<SVGPathElement> SVGPathElement::create(const QualifiedName& tagName, 
 float SVGPathElement::getTotalLength()
 {
     // FIXME: this may wish to use the pathSegList instead of the pathdata if that's cheaper to build (or cached)
-    return toPathData().length();
+    Path path;
+    toPathData(path);
+    return path.length();
 }
 
 FloatPoint SVGPathElement::getPointAtLength(float length)
 {
     // FIXME: this may wish to use the pathSegList instead of the pathdata if that's cheaper to build (or cached)
     bool ok = false;
-    return toPathData().pointAtLength(length, ok);
+    Path path;
+    toPathData(path);
+    return path.pointAtLength(length, ok);
 }
 
 unsigned long SVGPathElement::getPathSegAtLength(float length)
@@ -197,7 +201,7 @@ void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
@@ -262,12 +266,12 @@ SVGPathSegList* SVGPathElement::animatedNormalizedPathSegList() const
     return 0;
 }
 
-Path SVGPathElement::toPathData() const
+void SVGPathElement::toPathData(Path& path) const
 {
-    Path result;
+    ASSERT(path.isEmpty());
+
     SVGPathParserFactory* factory = SVGPathParserFactory::self();
-    factory->buildPathFromSVGPathSegList(pathSegList(), result);
-    return result;
+    factory->buildPathFromSVGPathSegList(pathSegList(), path);
 }
 
 }

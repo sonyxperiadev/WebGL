@@ -30,6 +30,7 @@
 #include "FrameLoaderTypes.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "Page.h"
@@ -37,6 +38,7 @@
 #include "RenderImage.h"
 #include "ResourceHandle.h"
 #include "Settings.h"
+#include "UserGestureIndicator.h"
 
 namespace WebCore {
 
@@ -145,7 +147,7 @@ void HTMLAnchorElement::defaultEventHandler(Event* event)
         }
 
         if (isLinkClick(event) && treatLinkAsLiveForEventType(eventType(event))) {
-            String url = deprecatedParseURL(getAttribute(hrefAttr));
+            String url = stripLeadingAndTrailingHTMLSpaces(getAttribute(hrefAttr));
             appendServerMapMousePosition(url, event);
             handleLinkClick(event, document(), url, getAttribute(targetAttr), hasRel(RelationNoReferrer));
             sendPings(document()->completeURL(url));
@@ -210,7 +212,7 @@ void HTMLAnchorElement::parseMappedAttribute(Attribute* attr)
         if (wasLink != isLink())
             setNeedsStyleRecalc();
         if (isLink()) {
-            String parsedURL = deprecatedParseURL(attr->value());
+            String parsedURL = stripLeadingAndTrailingHTMLSpaces(attr->value());
             if (document()->isDNSPrefetchEnabled()) {
                 if (protocolIs(parsedURL, "http") || protocolIs(parsedURL, "https") || parsedURL.startsWith("//"))
                     ResourceHandle::prepareForURL(document()->completeURL(parsedURL));
@@ -261,7 +263,7 @@ bool HTMLAnchorElement::draggable() const
 
 KURL HTMLAnchorElement::href() const
 {
-    return document()->completeURL(deprecatedParseURL(getAttribute(hrefAttr)));
+    return document()->completeURL(stripLeadingAndTrailingHTMLSpaces(getAttribute(hrefAttr)));
 }
 
 void HTMLAnchorElement::setHref(const AtomicString& value)
@@ -448,6 +450,13 @@ String HTMLAnchorElement::origin() const
     return origin->toString();
 }
 
+String HTMLAnchorElement::getParameter(const String& name) const
+{
+    ParsedURLParameters parameters;
+    href().copyParsedQueryTo(parameters);
+    return parameters.get(name);
+}
+
 void HTMLAnchorElement::setSearch(const String& value)
 {
     KURL url = href();
@@ -542,7 +551,9 @@ void handleLinkClick(Event* event, Document* document, const String& url, const 
     Frame* frame = document->frame();
     if (!frame)
         return;
-    frame->loader()->urlSelected(document->completeURL(url), target, event, false, false, true, hideReferrer ? NoReferrer : SendReferrer);
+    // FIXME: This seems wrong.  Why are we manufactuing a user gesture?
+    UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+    frame->loader()->urlSelected(document->completeURL(url), target, event, false, false, hideReferrer ? NoReferrer : SendReferrer);
 }
 
 }

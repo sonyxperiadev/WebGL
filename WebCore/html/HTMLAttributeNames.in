@@ -206,6 +206,7 @@ onseeked
 onseeking
 onselect
 onselectstart
+onwebkitspeechchange
 onstalled
 onstorage
 onsuspend
@@ -258,7 +259,7 @@ size
 sortable
 sortdirection
 span
-webkitspeech
+x-webkit-speech
 spellcheck
 src
 standby

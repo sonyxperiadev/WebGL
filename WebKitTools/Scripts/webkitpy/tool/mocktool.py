@@ -317,7 +317,7 @@ class MockBugzilla(Mock):
             flag_name, flag_value, attachment_id, comment_text, additional_comment_text))
 
     def post_comment_to_bug(self, bug_id, comment_text, cc=None):
-        log("MOCK bug comment: bug_id=%s, cc=%s\n--- Begin comment ---\%s\n--- End comment ---\n" % (
+        log("MOCK bug comment: bug_id=%s, cc=%s\n--- Begin comment ---\n%s\n--- End comment ---\n" % (
             bug_id, cc, comment_text))
 
     def add_patch_to_bug(self,
@@ -350,14 +350,24 @@ class MockBuilder(object):
             self._name, username, comments))
 
 
-class MockFailureMap():
+class MockFailureMap(object):
     def __init__(self, buildbot):
         self._buildbot = buildbot
 
-    def revisions_causing_failures(self):
-        return {
-            "29837": [self._buildbot.builder_with_name("Builder1")],
-        }
+    def is_empty(self):
+        return False
+
+    def filter_out_old_failures(self, is_old_revision):
+        pass
+
+    def failing_revisions(self):
+        return [29837]
+
+    def builders_failing_for(self, revision):
+        return [self._buildbot.builder_with_name("Builder1")]
+
+    def tests_failing_for(self, revision):
+        return ["mock-test-1"]
 
 
 class MockBuildBot(object):
@@ -419,7 +429,7 @@ class MockSCM(Mock):
         # will actually be the root.  Since getcwd() is wrong, use a globally fake root for now.
         self.checkout_root = self.fake_checkout_root
 
-    def create_patch(self, git_commit):
+    def create_patch(self, git_commit, changed_files=None):
         return "Patch1"
 
     def commit_ids_from_commitish_arguments(self, args):
@@ -447,6 +457,9 @@ class MockCheckout(object):
     _committer_list = CommitterList()
 
     def commit_info_for_revision(self, svn_revision):
+        # The real Checkout would probably throw an exception, but this is the only way tests have to get None back at the moment.
+        if not svn_revision:
+            return None
         return CommitInfo(svn_revision, "eric@webkit.org", {
             "bug_id": 42,
             "author_name": "Adam Barth",
@@ -459,7 +472,10 @@ class MockCheckout(object):
     def bug_id_for_revision(self, svn_revision):
         return 12345
 
-    def modified_changelogs(self, git_commit):
+    def recent_commit_infos_for_files(self, paths):
+        return [self.commit_info_for_revision(32)]
+
+    def modified_changelogs(self, git_commit, changed_files=None):
         # Ideally we'd return something more interesting here.  The problem is
         # that LandDiff will try to actually read the patch from disk!
         return []
@@ -515,8 +531,9 @@ class MockIRC(object):
 
 class MockStatusServer(object):
 
-    def __init__(self, work_items=None):
+    def __init__(self, bot_id=None, work_items=None):
         self.host = "example.com"
+        self.bot_id = bot_id
         self._work_items = work_items or []
 
     def patch_status(self, queue_name, patch_id):
@@ -530,9 +547,15 @@ class MockStatusServer(object):
             return None
         return self._work_items[0]
 
+    def release_work_item(self, queue_name, patch):
+        log("MOCK: release_work_item: %s %s" % (queue_name, patch.id()))
+
     def update_work_items(self, queue_name, work_items):
         self._work_items = work_items
         log("MOCK: update_work_items: %s %s" % (queue_name, work_items))
+
+    def submit_to_ews(self, patch_id):
+        log("MOCK: submit_to_ews: %s" % (patch_id))
 
     def update_status(self, queue_name, status, patch=None, results_file=None):
         log("MOCK: update_status: %s %s" % (queue_name, status))
@@ -567,9 +590,17 @@ class MockExecute(Mock):
         return "MOCK output of child process"
 
 
-class MockOptions(Mock):
-    no_squash = False
-    squash = False
+class MockOptions(object):
+    """Mock implementation of optparse.Values."""
+
+    def __init__(self, **kwargs):
+        # The caller can set option values using keyword arguments. We don't
+        # set any values by default because we don't know how this
+        # object will be used. Generally speaking unit tests should
+        # subclass this or provider wrapper functions that set a common
+        # set of options.
+        for key, value in kwargs.items():
+            self.__dict__[key] = value
 
 
 class MockRietveld():
@@ -630,3 +661,22 @@ class MockTool():
 
     def path(self):
         return "echo"
+
+    def port(self):
+        return Mock()
+
+
+class MockBrowser(object):
+    params = {}
+
+    def open(self, url):
+        pass
+
+    def select_form(self, name):
+        pass
+
+    def __setitem__(self, key, value):
+        self.params[key] = value
+
+    def submit(self):
+        return Mock(file)

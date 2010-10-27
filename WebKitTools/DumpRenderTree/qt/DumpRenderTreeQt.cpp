@@ -37,6 +37,7 @@
 #include "GCControllerQt.h"
 #include "LayoutTestControllerQt.h"
 #include "TextInputControllerQt.h"
+#include "PlainTextControllerQt.h"
 #include "testplugin.h"
 #include "WorkQueue.h"
 
@@ -450,6 +451,9 @@ DumpRenderTree::DumpRenderTree()
         view->setPage(m_page);
         m_mainView = view;
     }
+    // Use a frame group name for all pages created by DumpRenderTree to allow
+    // testing of cross-page frame lookup.
+    DumpRenderTreeSupportQt::webPageSetGroupName(m_page, "org.webkit.qt.DumpRenderTree");
 
     m_mainView->setContextMenuPolicy(Qt::NoContextMenu);
     m_mainView->resize(QSize(LayoutTestController::maxViewWidth, LayoutTestController::maxViewHeight));
@@ -470,6 +474,7 @@ DumpRenderTree::DumpRenderTree()
     connect(m_controller, SIGNAL(done()), this, SLOT(dump()));
     m_eventSender = new EventSender(m_page);
     m_textInputController = new TextInputController(m_page);
+    m_plainTextController = new PlainTextController(m_page);
     m_gcController = new GCController(m_page);
 
     // now connect our different signals
@@ -752,6 +757,7 @@ void DumpRenderTree::initJSObjects()
     frame->addToJavaScriptWindowObject(QLatin1String("eventSender"), m_eventSender);
     frame->addToJavaScriptWindowObject(QLatin1String("textInputController"), m_textInputController);
     frame->addToJavaScriptWindowObject(QLatin1String("GCController"), m_gcController);
+    frame->addToJavaScriptWindowObject(QLatin1String("plainText"), m_plainTextController);
 }
 
 void DumpRenderTree::showPage()
@@ -827,7 +833,7 @@ static QString dumpHistoryItem(const QWebHistoryItem& item, int indent, bool cur
     for (int i = start; i < indent; i++)
         result.append(' ');
 
-    QString url = item.url().toString();
+    QString url = item.url().toEncoded();
     if (url.contains("file://")) {
         static QString layoutTestsString("/LayoutTests/");
         static QString fileTestString("(file test):");
@@ -1059,6 +1065,11 @@ QWebPage *DumpRenderTree::createWindow()
     connectFrame(page->mainFrame());
     connect(page, SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
     connect(page, SIGNAL(windowCloseRequested()), this, SLOT(windowCloseRequested()));
+
+    // Use a frame group name for all pages created by DumpRenderTree to allow
+    // testing of cross-page frame lookup.
+    DumpRenderTreeSupportQt::webPageSetGroupName(page, "org.webkit.qt.DumpRenderTree");
+
     return page;
 }
 
@@ -1067,6 +1078,9 @@ void DumpRenderTree::windowCloseRequested()
     QWebPage* page = qobject_cast<QWebPage*>(sender());
     QObject* container = page->parent();
     windows.removeAll(container);
+    // Our use of container->deleteLater() means we need to remove closed pages
+    // from the org.webkit.qt.DumpRenderTree group explicitly.
+    DumpRenderTreeSupportQt::webPageSetGroupName(page, "");
     container->deleteLater();
 }
 

@@ -31,7 +31,7 @@
 #include "config.h"
 #include "ScriptCallFrame.h"
 
-#include <interpreter/CallFrame.h>
+#include <runtime/ArgList.h>
 #include <runtime/UString.h>
 
 using namespace JSC;
@@ -39,8 +39,8 @@ using namespace JSC;
 namespace WebCore {
 
 ScriptCallFrame::ScriptCallFrame(const UString& functionName, const UString& urlString, int lineNumber, ExecState* exec, unsigned skipArgumentCount)
-    : m_functionName(functionName)
-    , m_sourceURL(ParsedURLString, ustringToString(urlString))
+    : m_functionName(ustringToString(functionName))
+    , m_sourceURL(ustringToString(urlString))
     , m_lineNumber(lineNumber)
 {
     if (!exec)

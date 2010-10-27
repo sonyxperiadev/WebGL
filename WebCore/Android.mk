@@ -40,7 +40,6 @@ LOCAL_SRC_FILES := \
 	css/CSSFontSelector.cpp \
 	css/CSSFunctionValue.cpp \
 	css/CSSGradientValue.cpp \
-	css/CSSHelper.cpp \
 	css/CSSImageGeneratorValue.cpp \
 	css/CSSImageValue.cpp \
 	css/CSSImportRule.cpp \
@@ -208,6 +207,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/default/PlatformMessagePortChannel.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
+	editing/ApplyBlockElementCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
 	editing/BreakBlockquoteCommand.cpp \
 	editing/CompositeEditCommand.cpp \
@@ -229,6 +229,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/InsertParagraphSeparatorCommand.cpp \
 	editing/InsertTextCommand.cpp \
 	editing/JoinTextNodesCommand.cpp \
+	editing/MarkupAccumulator.cpp \
 	editing/MergeIdenticalElementsCommand.cpp \
 	editing/ModifySelectionListLevel.cpp \
 	editing/MoveSelectionCommand.cpp \
@@ -258,13 +259,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/Blob.cpp \
 	fileapi/BlobBuilder.cpp \
 	fileapi/BlobURL.cpp \
+	fileapi/DOMFileSystemBase.cpp \
+	fileapi/DOMFileSystemSync.cpp \
+	fileapi/DirectoryEntrySync.cpp \
+	fileapi/DirectoryReaderSync.cpp \
+	fileapi/EntryArraySync.cpp \
+	fileapi/EntrySync.cpp \
 	fileapi/File.cpp \
+	fileapi/FileEntrySync.cpp \
 	fileapi/FileList.cpp \
 	fileapi/FileReader.cpp \
 	fileapi/FileStreamProxy.cpp \
 	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \
-    \
+	\
 	history/BackForwardController.cpp \
 	history/BackForwardListImpl.cpp \
 	history/CachedFrame.cpp \
@@ -275,6 +283,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/android/HistoryItemAndroid.cpp \
 	\
 	html/AsyncImageResizer.cpp \
+	html/BaseDateAndTimeInputType.cpp \
 	html/BaseTextInputType.cpp \
 	html/ButtonInputType.cpp \
 	html/CheckboxInputType.cpp \
@@ -331,6 +340,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ValidityState.cpp \
 	html/WeekInputType.cpp \
 	\
+	html/canvas/ArrayBuffer.cpp \
+	html/canvas/ArrayBufferView.cpp \
 	html/canvas/CanvasGradient.cpp \
 	html/canvas/WebGLObject.cpp \
 	html/canvas/CanvasPattern.cpp \
@@ -339,6 +350,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/CanvasRenderingContext2D.cpp \
 	html/canvas/CanvasStyle.cpp \
 	html/canvas/Float32Array.cpp \
+	html/canvas/Int16Array.cpp \
+	html/canvas/Int32Array.cpp \
+	html/canvas/Int8Array.cpp \
+	html/canvas/Uint16Array.cpp \
+	html/canvas/Uint32Array.cpp \
+	html/canvas/Uint8Array.cpp \
 	\
 	html/parser/HTMLConstructionSite.cpp \
 	html/parser/HTMLDocumentParser.cpp \
@@ -378,13 +395,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
 	loader/NavigationAction.cpp \
+	loader/NavigationScheduler.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
 	loader/PingLoader.cpp \
 	loader/PlaceholderDocument.cpp \
 	loader/PolicyCallback.cpp \
 	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
-	loader/RedirectScheduler.cpp \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
@@ -403,7 +420,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
-	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
@@ -477,6 +493,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/KURL.cpp \
 	platform/KURLGoogle.cpp \
 	platform/KillRingNone.cpp \
+	platform/Language.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/LocalizedStrings.cpp \
@@ -642,12 +659,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/BlobResourceHandle.cpp \
 	platform/network/Credential.cpp \
 	platform/network/CredentialStorage.cpp \
+	platform/network/DataURL.cpp \
 	platform/network/FormData.cpp \
 	platform/network/FormDataBuilder.cpp \
 	platform/network/HTTPHeaderMap.cpp \
 	platform/network/HTTPParsers.cpp \
 	platform/network/NetworkStateNotifier.cpp \
 	platform/network/ProtectionSpace.cpp \
+	platform/network/ProxyServer.cpp \
 	platform/network/ResourceErrorBase.cpp \
 	platform/network/ResourceHandle.cpp \
 	platform/network/ResourceRequestBase.cpp \
@@ -655,6 +674,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/network/android/CookieJarAndroid.cpp \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
+	platform/network/android/ProxyServerAndroid.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/ResourceRequestAndroid.cpp \
 	\
@@ -673,7 +693,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
-	platform/text/StringBuilder.cpp \
 	platform/text/TextBoundaries.cpp \
 	platform/text/TextBreakIteratorICU.cpp \
 	platform/text/TextCodec.cpp \
@@ -756,7 +775,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderObject.cpp \
 	rendering/RenderObjectChildList.cpp \
 	rendering/RenderPart.cpp \
-	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
 	rendering/RenderRuby.cpp \
@@ -771,8 +789,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGGradientStop.cpp \
 	rendering/RenderSVGHiddenContainer.cpp \
 	rendering/RenderSVGImage.cpp \
-	rendering/RenderSVGInline.cpp \
-	rendering/RenderSVGInlineText.cpp \
 	rendering/RenderSVGModelObject.cpp \
 	rendering/RenderSVGResource.cpp \
 	rendering/RenderSVGResourceClipper.cpp \
@@ -788,13 +804,27 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGResourceSolidColor.cpp \
 	rendering/RenderSVGRoot.cpp \
 	rendering/RenderSVGShadowTreeRootContainer.cpp \
-	rendering/RenderSVGTSpan.cpp \
-	rendering/RenderSVGText.cpp \
-	rendering/RenderSVGTextPath.cpp \
 	rendering/RenderSVGTransformableContainer.cpp \
 	rendering/RenderSVGViewportContainer.cpp \
+	\
+	rendering/svg/RenderSVGInline.cpp \
+	rendering/svg/RenderSVGInlineText.cpp \
+	rendering/svg/RenderSVGPath.cpp \
+	rendering/svg/RenderSVGTSpan.cpp \
+	rendering/svg/RenderSVGText.cpp \
+	rendering/svg/RenderSVGTextPath.cpp \
+	rendering/svg/SVGInlineFlowBox.cpp \
+	rendering/svg/SVGInlineTextBox.cpp \
+	rendering/svg/SVGRootInlineBox.cpp \
+	rendering/svg/SVGTextChunk.cpp \
+	rendering/svg/SVGTextChunkBuilder.cpp \
 	rendering/svg/SVGTextLayoutAttributes.cpp \
-	rendering/svg/SVGTextLayoutBuilder.cpp
+	rendering/svg/SVGTextLayoutAttributesBuilder.cpp \
+	rendering/svg/SVGTextLayoutEngine.cpp \
+	rendering/svg/SVGTextLayoutEngineBaseline.cpp \
+	rendering/svg/SVGTextLayoutEngineSpacing.cpp \
+	rendering/svg/SVGTextMetrics.cpp \
+	rendering/svg/SVGTextQuery.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -822,22 +852,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	rendering/SVGCharacterData.cpp \
-	rendering/SVGCharacterLayoutInfo.cpp \
 	rendering/SVGImageBufferTools.cpp \
-	rendering/SVGInlineFlowBox.cpp \
-	rendering/SVGInlineTextBox.cpp \
 	rendering/SVGMarkerLayoutInfo.cpp \
 	rendering/SVGRenderSupport.cpp \
 	rendering/SVGRenderTreeAsText.cpp \
 	rendering/SVGResources.cpp \
 	rendering/SVGResourcesCache.cpp \
 	rendering/SVGResourcesCycleSolver.cpp \
-	rendering/SVGRootInlineBox.cpp \
-	rendering/SVGShadowTreeElements.cpp \
-	rendering/SVGTextChunkLayoutInfo.cpp \
-	rendering/SVGTextLayoutUtilities.cpp \
-	rendering/SVGTextQuery.cpp
+	rendering/SVGShadowTreeElements.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -885,6 +907,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
+	storage/IDBCompleteEvent.cpp \
 	storage/IDBCursor.cpp \
 	storage/IDBCursorBackendImpl.cpp \
 	storage/IDBDatabase.cpp \
@@ -902,6 +925,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBObjectStoreBackendImpl.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \
+	storage/IDBTimeoutEvent.cpp \
 	storage/IDBTransaction.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \

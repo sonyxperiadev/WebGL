@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 University of Szeged. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,54 +28,35 @@
 #define StringFunctions_h
 
 #include <JavaScriptCore/JSRetainPtr.h>
-#include <JavaScriptCore/JavaScriptCore.h>
+#include <JavaScriptCore/JavaScript.h>
+#include <sstream>
+#include <string>
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WKString.h>
-#include <WebKit2/WKStringCF.h>
+#include <WebKit2/WKStringPrivate.h>
 #include <WebKit2/WKURL.h>
-#include <WebKit2/WKURLCF.h>
-#include <sstream>
+#include <wtf/OwnArrayPtr.h>
+#include <wtf/PassOwnArrayPtr.h>
 #include <wtf/Platform.h>
-#include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
 namespace WTR {
 
 // Conversion functions
 
-inline RetainPtr<CFStringRef> toCF(JSStringRef string)
-{
-    return RetainPtr<CFStringRef>(AdoptCF, JSStringCopyCFString(0, string));
-}
-
-inline RetainPtr<CFStringRef> toCF(WKStringRef string)
-{
-    return RetainPtr<CFStringRef>(AdoptCF, WKStringCopyCFString(0, string));
-}
-
-inline RetainPtr<CFURLRef> toCF(WKURLRef url)
-{
-    return RetainPtr<CFURLRef>(AdoptCF, WKURLCopyCFURL(0, url));
-}
-
-inline RetainPtr<CFURLRef> toCF(const WKRetainPtr<WKURLRef>& url)
-{
-    return toCF(url.get());
-}
-
 inline WKRetainPtr<WKStringRef> toWK(JSStringRef string)
 {
-    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithCFString(toCF(string).get()));
+    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithJSString(string));
 }
 
 inline WKRetainPtr<WKStringRef> toWK(JSRetainPtr<JSStringRef> string)
 {
-    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithCFString(toCF(string.get()).get()));
+    return toWK(string.get());
 }
 
 inline JSRetainPtr<JSStringRef> toJS(WKStringRef string)
 {
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCFString(toCF(string).get()));
+    return JSRetainPtr<JSStringRef>(Adopt, WKStringCopyJSString(string));
 }
 
 inline JSRetainPtr<JSStringRef> toJS(const WKRetainPtr<WKStringRef>& string)
@@ -82,53 +64,33 @@ inline JSRetainPtr<JSStringRef> toJS(const WKRetainPtr<WKStringRef>& string)
     return toJS(string.get());
 }
 
+inline std::string toSTD(WKStringRef string)
+{
+    size_t bufferSize = WKStringGetMaximumUTF8CStringSize(string);
+    OwnArrayPtr<char> buffer = adoptArrayPtr(new char[bufferSize]);
+    size_t stringLength = WKStringGetUTF8CString(string, buffer.get(), bufferSize);
+    return std::string(buffer.get(), stringLength - 1);
+}
+
+inline std::string toSTD(const WKRetainPtr<WKStringRef>& string)
+{
+    return toSTD(string.get());
+}
+
 // Streaming functions
-
-inline std::ostream& operator<<(std::ostream& out, CFStringRef stringRef)
-{
-    if (!stringRef)
-        return out;
-    CFIndex bufferLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(stringRef), kCFStringEncodingUTF8) + 1;
-    Vector<char> buffer(bufferLength);
-    if (!CFStringGetCString(stringRef, buffer.data(), bufferLength, kCFStringEncodingUTF8))
-        return out;
-    return out << buffer.data();
-}
-
-inline std::ostream& operator<<(std::ostream& out, const RetainPtr<CFStringRef>& stringRef)
-{
-    return out << stringRef.get();
-}
 
 inline std::ostream& operator<<(std::ostream& out, WKStringRef stringRef)
 {
     if (!stringRef)
         return out;
-    return out << toCF(stringRef);
+
+    return out << toSTD(stringRef);
 }
 
 inline std::ostream& operator<<(std::ostream& out, const WKRetainPtr<WKStringRef>& stringRef)
 {
     return out << stringRef.get();
 }
-
-// URL creation
-
-inline WKURLRef createWKURL(const char* pathOrURL)
-{
-    RetainPtr<CFStringRef> pathOrURLCFString(AdoptCF, CFStringCreateWithCString(0, pathOrURL, kCFStringEncodingUTF8));
-    RetainPtr<CFURLRef> cfURL;
-    if (CFStringHasPrefix(pathOrURLCFString.get(), CFSTR("http://")) || CFStringHasPrefix(pathOrURLCFString.get(), CFSTR("https://")))
-        cfURL.adoptCF(CFURLCreateWithString(0, pathOrURLCFString.get(), 0));
-    else
-#if PLATFORM(WIN)
-        cfURL.adoptCF(CFURLCreateWithFileSystemPath(0, pathOrURLCFString.get(), kCFURLWindowsPathStyle, false));
-#else
-        cfURL.adoptCF(CFURLCreateWithFileSystemPath(0, pathOrURLCFString.get(), kCFURLPOSIXPathStyle, false));
-#endif
-    return WKURLCreateWithCFURL(cfURL.get());
-}
-
 
 } // namespace WTR
 

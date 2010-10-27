@@ -48,7 +48,6 @@ class AbstractEarlyWarningSystem(AbstractReviewQueue):
             self.run_webkit_patch([
                 "build",
                 self.port.flag(),
-                "--build",
                 "--build-style=%s" % self._build_style,
                 "--force-clean",
                 "--no-update",
@@ -149,10 +148,6 @@ class ChromiumWindowsEWS(AbstractChromiumEWS):
     name = "cr-win-ews"
 
 
-class ChromiumMacEWS(AbstractChromiumEWS):
-    name = "cr-mac-ews"
-
-
 # For platforms that we can't run inside a VM (like Mac OS X), we require
 # patches to be uploaded by committers, who are generally trustworthy folk. :)
 class AbstractCommitterOnlyEWS(AbstractEarlyWarningSystem):
@@ -165,6 +160,14 @@ class AbstractCommitterOnlyEWS(AbstractEarlyWarningSystem):
             self._did_error(patch, "%s cannot process patches from non-committers :(" % self.name)
             return False
         return AbstractEarlyWarningSystem.process_work_item(self, patch)
+
+
+# FIXME: Inheriting from AbstractCommitterOnlyEWS is kinda a hack, but it
+# happens to work because AbstractChromiumEWS and AbstractCommitterOnlyEWS
+# provide disjoint sets of functionality, and Python is otherwise smart
+# enough to handle the diamond inheritance.
+class ChromiumMacEWS(AbstractChromiumEWS, AbstractCommitterOnlyEWS):
+    name = "cr-mac-ews"
 
 
 class MacEWS(AbstractCommitterOnlyEWS):

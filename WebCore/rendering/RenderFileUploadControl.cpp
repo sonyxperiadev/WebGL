@@ -124,8 +124,11 @@ void RenderFileUploadControl::chooseIconForFiles(FileChooser* chooser, const Vec
 
 void RenderFileUploadControl::click()
 {
+    // Requires a user gesture to open the file dialog.
+    if (!frame() || !frame()->loader()->isProcessingUserGesture())
+        return;
     if (Chrome* chromePointer = chrome())
-        chromePointer->runOpenPanel(node()->document()->frame(), m_fileChooser);
+        chromePointer->runOpenPanel(frame(), m_fileChooser);
 }
 
 Chrome* RenderFileUploadControl::chrome() const
@@ -213,14 +216,14 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         const String& displayedFilename = fileTextValue();
         unsigned length = displayedFilename.length();
         const UChar* string = displayedFilename.characters();
-        TextRun textRun(string, length, false, 0, 0, style()->direction() == RTL, style()->unicodeBidi() == Override);
+        TextRun textRun(string, length, false, 0, 0, !style()->isLeftToRightDirection(), style()->unicodeBidi() == Override);
         
         // Determine where the filename should be placed
         int contentLeft = tx + borderLeft() + paddingLeft();
         int buttonAndIconWidth = m_button->renderBox()->width() + afterButtonSpacing
             + (m_fileChooser->icon() ? iconWidth + iconFilenameSpacing : 0);
         int textX;
-        if (style()->direction() == LTR)
+        if (style()->isLeftToRightDirection())
             textX = contentLeft + buttonAndIconWidth;
         else
             textX = contentLeft + contentWidth() - buttonAndIconWidth - style()->font().width(textRun);
@@ -228,7 +231,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         RenderButton* buttonRenderer = toRenderButton(m_button->renderer());
         int textY = buttonRenderer->absoluteBoundingBoxRect().y()
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
-            + buttonRenderer->baselinePosition(true, false);
+            + buttonRenderer->baselinePosition(true, HorizontalLine, PositionOnContainingLine);
 
         paintInfo.context->setFillColor(style()->visitedDependentColor(CSSPropertyColor), style()->colorSpace());
         
@@ -239,7 +242,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
             // Determine where the icon should be placed
             int iconY = ty + borderTop() + paddingTop() + (contentHeight() - iconHeight) / 2;
             int iconX;
-            if (style()->direction() == LTR)
+            if (style()->isLeftToRightDirection())
                 iconX = contentLeft + m_button->renderBox()->width() + afterButtonSpacing;
             else
                 iconX = contentLeft + contentWidth() - m_button->renderBox()->width() - afterButtonSpacing - iconWidth;

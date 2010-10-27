@@ -73,10 +73,10 @@ public:
     void draw(float transparency, SkRect& rect);
 
     // the only thread-safe function called by the background thread
-    bool paintBitmap();
+    void paintBitmap();
 
     float scale() const { return m_scale; }
-    void setScale(float scale) { m_scale = scale; }
+    void setScale(float scale);
 
     TiledPage* page() { return m_page; }
     int x() const { return m_x; }
@@ -92,9 +92,6 @@ private:
     // these variables can be updated throughout the lifetime of the object
     BackedDoubleBufferedTexture* m_texture;
     float m_scale;
-
-    // used to ensure the variables are consistent between threads
-    android::Mutex m_varLock;
 };
 
 } // namespace WebCore

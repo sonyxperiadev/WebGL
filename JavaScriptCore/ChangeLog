@@ -1,3 +1,1734 @@
+2010-10-20  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix the EFL build.
+
+        * wtf/CMakeLists.txt:
+
+2010-10-20  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix Windows build: export needed symbols.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-10-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47851
+        
+        Add methods to DecimalNumber to return the buffer length
+        required for decimal and exponential output.
+        
+        Make some of the DecimalNumber code non-inline (no
+        effect on Sunspider), adding DecimalNumber.cpp to various
+        build systems.
+        
+        Make some DecimalNumber methods 'const'.
+
+        * Android.mk:
+        * Android.v8.wtf.mk:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToExponential):
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToPrecision):
+        * wtf/DecimalNumber.cpp: Added.
+        (WTF::DecimalNumber::bufferLengthForStringDecimal):
+        (WTF::DecimalNumber::bufferLengthForStringExponential):
+        (WTF::DecimalNumber::toStringDecimal):
+        (WTF::DecimalNumber::toStringExponential):
+        * wtf/DecimalNumber.h:
+        (WTF::DecimalNumber::sign):
+        (WTF::DecimalNumber::exponent):
+        (WTF::DecimalNumber::significand):
+        (WTF::DecimalNumber::precision):
+        * wtf/dtoa.cpp:
+        (WTF::dtoa):
+        * wtf/dtoa.h:
+        * wtf/wtf.pri:
+
+2010-10-20  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70165.
+        http://trac.webkit.org/changeset/70165
+        https://bugs.webkit.org/show_bug.cgi?id=48007
+
+        It broke tests on Qt bot (Requested by Ossy on #webkit).
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/TextPosition.h: Removed.
+
+2010-10-20  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix the Windows build after r70165. Move the copying of JavaScript headers from JavaScriptCore's post-build
+        step to JavaScriptCoreGenerated, so the copying is done even when a cpp file in JavaScriptCore is changed.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2010-10-20  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Unreviewed, fixing the Win build.
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+
+2010-10-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=41948
+        REGRESSION(r60392): Registerfile can be unwound too far following an exception
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::throwException): Walk the stack to calculate the high
+        water mark currently in use. It's not safe to assume that the current
+        CallFrame's high water mark is the highest high water mark because
+        calls do not always set up at the end of a CallFrame. A large caller
+        CallFrame can encompass a small callee CallFrame.
+
+2010-10-20  Peter Rybin  <peter.rybin@gmail.com>
+
+        Reviewed by Adam Barth.
+
+        HTML parser should provide script column position within HTML document to JavaScript engine
+        https://bugs.webkit.org/show_bug.cgi?id=45271
+
+        Adds TextPosition* classes -- a structure that stores line/column/generation
+        level coordinates inside text document. Adds *BasedNumber classes -- typesafe int
+        wrappers that emphasize whether int number is used as zero-based or
+        one-based.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/TextPosition.h: Added.
+        (WTF::TextPosition::TextPosition):
+        (WTF::TextPosition::minimumPosition):
+        (WTF::TextPosition::belowRangePosition):
+        (WTF::ZeroBasedNumber::fromZeroBasedInt):
+        (WTF::ZeroBasedNumber::ZeroBasedNumber):
+        (WTF::ZeroBasedNumber::zeroBasedInt):
+        (WTF::ZeroBasedNumber::base):
+        (WTF::ZeroBasedNumber::belowBase):
+        (WTF::OneBasedNumber::fromOneBasedInt):
+        (WTF::OneBasedNumber::OneBasedNumber):
+        (WTF::OneBasedNumber::oneBasedInt):
+        (WTF::OneBasedNumber::convertAsZeroBasedInt):
+        (WTF::OneBasedNumber::convertToZeroBased):
+        (WTF::OneBasedNumber::base):
+        (WTF::OneBasedNumber::belowBase):
+        (WTF::toZeroBasedTextPosition):
+        (WTF::toOneBasedTextPosition):
+        (WTF::ZeroBasedNumber::convertToOneBased):
+
+2010-10-19  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by David Kilzer.
+
+        [BREWMP] Turn off JIT for simulator build
+        https://bugs.webkit.org/show_bug.cgi?id=47937
+
+        We don't need to test x86 JIT.
+
+        * wtf/Platform.h:
+
+2010-10-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Remove support for JSVALUE32 from JSC
+        https://bugs.webkit.org/show_bug.cgi?id=47948
+
+        Remove all the code for supporting JSVALUE32 from JSC.
+
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_lshift):
+        (JSC::JIT::emitSlow_op_lshift):
+        (JSC::JIT::emit_op_rshift):
+        (JSC::JIT::emitSlow_op_rshift):
+        (JSC::JIT::emit_op_urshift):
+        (JSC::JIT::emitSlow_op_urshift):
+        (JSC::JIT::emit_op_jnless):
+        (JSC::JIT::emitSlow_op_jnless):
+        (JSC::JIT::emit_op_jless):
+        (JSC::JIT::emitSlow_op_jless):
+        (JSC::JIT::emit_op_jlesseq):
+        (JSC::JIT::emitSlow_op_jlesseq):
+        (JSC::JIT::emit_op_bitand):
+        (JSC::JIT::emit_op_post_inc):
+        (JSC::JIT::emit_op_post_dec):
+        (JSC::JIT::emit_op_pre_inc):
+        (JSC::JIT::emit_op_pre_dec):
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+        * jit/JITCall.cpp:
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitGetFromCallFrameHeaderPtr):
+        (JSC::JIT::emitGetFromCallFrameHeader32):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_loop_if_lesseq):
+        (JSC::JIT::emit_op_bitnot):
+        (JSC::JIT::emit_op_next_pname):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        * jit/JITStubs.h:
+        * jit/JSInterfaceJIT.h:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::returnDouble):
+        (JSC::SpecializedThunkJIT::tagReturnAsInt32):
+        * jit/ThunkGenerators.cpp:
+        (JSC::sqrtThunkGenerator):
+        (JSC::powThunkGenerator):
+        * runtime/Collector.cpp:
+        (JSC::isPossibleCell):
+        (JSC::typeName):
+        * runtime/JSCell.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.h:
+        (JSC::Structure::prototypeForLookup):
+        * runtime/JSImmediate.h:
+        (JSC::reinterpretIntptrToDouble):
+        (JSC::JSImmediate::isIntegerNumber):
+        (JSC::JSImmediate::isDouble):
+        (JSC::JSImmediate::areBothImmediateIntegerNumbers):
+        (JSC::JSImmediate::makeDouble):
+        (JSC::JSImmediate::doubleValue):
+        (JSC::JSImmediate::toBoolean):
+        (JSC::JSImmediate::fromNumberOutsideIntegerRange):
+        (JSC::JSImmediate::from):
+        (JSC::JSImmediate::toDouble):
+        (JSC::JSFastMath::rightShiftImmediateNumbers):
+        * runtime/JSNumberCell.cpp:
+        * runtime/JSNumberCell.h:
+        * runtime/JSObject.h:
+        (JSC::JSObject::JSObject):
+        * runtime/JSValue.h:
+        * runtime/NumberObject.h:
+        * wtf/Platform.h:
+
+2010-10-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        BytecodeGenerator::m_lastOpcodePosition must be initialized in all constructors
+        https://bugs.webkit.org/show_bug.cgi?id=47920
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator): Add missing member initialization.
+
+2010-10-19  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by David Kilzer.
+
+        RVCT fails to compile DateMath.cpp due to overloaded function pow
+        https://bugs.webkit.org/show_bug.cgi?id=47844
+
+        Choose std::pow(double, double) among multiple overloaded pow functions
+        to fix build for RVCT.
+
+        * wtf/DateMath.cpp:
+        (WTF::parseES5DateFromNullTerminatedCharacters):
+
+2010-10-19  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Use UChar instead of wchar_t in UnicodeWinCE
+        https://bugs.webkit.org/show_bug.cgi?id=47904
+
+        Make UnicodeWinCE more portable, so we can use it for other ports too.
+
+        * wtf/unicode/wince/UnicodeWinCE.cpp:
+        (WTF::Unicode::toLower):
+        (WTF::Unicode::toUpper):
+        (WTF::Unicode::foldCase):
+        (WTF::Unicode::isPrintableChar):
+        (WTF::Unicode::isSpace):
+        (WTF::Unicode::isLetter):
+        (WTF::Unicode::isUpper):
+        (WTF::Unicode::isLower):
+        (WTF::Unicode::isDigit):
+        (WTF::Unicode::isPunct):
+        (WTF::Unicode::isAlphanumeric):
+        (WTF::Unicode::toTitleCase):
+        (WTF::Unicode::mirroredChar):
+        (WTF::Unicode::digitValue):
+        * wtf/unicode/wince/UnicodeWinCE.h:
+        (WTF::Unicode::isSeparatorSpace):
+        (WTF::Unicode::isHighSurrogate):
+        (WTF::Unicode::isLowSurrogate):
+        (WTF::Unicode::umemcasecmp):
+        (WTF::Unicode::surrogateToUcs4):
+
+2010-10-19  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Fix style of UnicodeWinCE
+        https://bugs.webkit.org/show_bug.cgi?id=47818
+
+        * wtf/unicode/wince/UnicodeWinCE.cpp:
+        (WTF::Unicode::toLower):
+        (WTF::Unicode::toUpper):
+        * wtf/unicode/wince/UnicodeWinCE.h:
+
+2010-10-18  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        * GNUmakefile.am: add missing file.
+
+2010-10-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Strict mode: Functions created with the function constructor don't implement strict mode semantics
+        https://bugs.webkit.org/show_bug.cgi?id=47860
+
+        When creating the FunctionExecutable for a new function the function constructor
+        was always passing false for whether or not a function was strict, rather than
+        using the information from the freshly parsed function itself.
+
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::fromGlobalCode):
+
+2010-10-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Strict mode: |this| should be undefined if it is not explicitly provided
+        https://bugs.webkit.org/show_bug.cgi?id=47833
+
+        To make strict mode behave correctly we want to pass undefined instead of null
+        as the default this value.  This has no impact on behaviour outside of strict
+        mode as both values are replaced with the global object if necessary.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::FunctionCallValueNode::emitBytecode):
+        (JSC::FunctionCallResolveNode::emitBytecode):
+        (JSC::CallFunctionCallDotNode::emitBytecode):
+        (JSC::ApplyFunctionCallDotNode::emitBytecode):
+
+
+2010-10-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Make a nullptr that works with OwnPtr and RefPtr
+        https://bugs.webkit.org/show_bug.cgi?id=47756
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Added NullPtr.h.
+
+        * wtf/NullPtr.h: Added.
+
+        * wtf/OwnArrayPtr.h: Add an overload of = taking nullptr.
+        * wtf/OwnPtr.h: Ditto.
+        * wtf/PassOwnArrayPtr.h: Ditto.
+        * wtf/PassOwnPtr.h: Ditto.
+        * wtf/PassRefPtr.h: Ditto.
+        * wtf/RefPtr.h: Ditto.
+        * wtf/RetainPtr.h: Ditto.
+
+2010-10-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Strict mode: JIT doesn't check for |this| being an immediate before dereferencing
+        https://bugs.webkit.org/show_bug.cgi?id=47826
+
+        There's no guarantee that |this| will be a cell in a strict mode function, so
+        don't claim that it is.
+
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::isKnownNotImmediate):
+
+2010-10-18  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        if (0) throw "x" ; else { } throws parse error after r69906
+        https://bugs.webkit.org/show_bug.cgi?id=47807
+
+        r69906 introduced a bug: the semicolon is not parsed after a throw
+        expression anymore. Thus, the semicolon terminates the "if" parsing
+        in the example above, and the else token results a parse error.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseThrowStatement):
+
+2010-10-18  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Andreas Kling.
+
+        Remove some unnecessary lines of code from Parser.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=47816
+
+        * parser/Parser.cpp:
+
+2010-10-18  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Build broken with JIT disabled
+        https://bugs.webkit.org/show_bug.cgi?id=47801
+
+        This is a regression caused by r69940.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveBase):
+
+2010-10-18  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Change FastAllocBase implementation into a macro
+        https://bugs.webkit.org/show_bug.cgi?id=42998
+
+        It was investigated in bug #33896 that inheriting classes from FastAllocBase 
+        can result in objects getting larger which leads to memory regressions. 
+        Using a macro instead of inheriting classes from FastAllocBase would solve the issue. 
+
+        * wtf/FastAllocBase.h: Add a WTF_MAKE_FAST_ALLOCATED macro
+
+2010-10-17  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Strict mode: arguments is not valid as the base expression for pre- or post-fix expressions
+        https://bugs.webkit.org/show_bug.cgi?id=47791
+
+        Simple fix, check for arguments in addition to eval.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseUnaryExpression):
+
+2010-10-17  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Strict mode: Assignment that would create a global should be a late ReferenceError, not a syntax failure
+        https://bugs.webkit.org/show_bug.cgi?id=47788
+
+        Fixing this required a couple of changes:
+         * resolve_base now has a flag to indicate whether it is being used for a put in strict mode.
+           this allows us to throw an exception when we're doing a completely generic resolve for
+           assignment, and that assignment would create a new global.
+         * There is a new opcode 'op_ensure_property_exists' that is used to determine whether
+           the property being assigned to already exists on the global object.  This currently
+           has no caching, but such caching could be added relatively trivially.  It is only used
+           in the case where we know that a property will be placed on the global object, and
+           we cannot verify that the property already exists.
+
+        In the jit we plant a call to cti_op_resolve_base_strict_put in the effected case rather
+        than making op_resolve_base have an additional runtime branch.
+
+        There's also a new helper function to create the exception for the invalid assignment.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitResolveBase):
+        (JSC::BytecodeGenerator::emitResolveBaseForPut):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::AssignResolveNode::emitBytecode):
+        (JSC::ForInNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveBase):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_resolve_base):
+        (JSC::JIT::emit_op_ensure_property_exists):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_resolve_base):
+        (JSC::JIT::emit_op_ensure_property_exists):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseProgram):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createErrorForInvalidGlobalAssignment):
+        * runtime/ExceptionHelpers.h:
+        * runtime/Operations.h:
+        (JSC::resolveBase):
+
+2010-10-17  Simon Fraser  <simon.fraser@apple.com>
+
+        First part of fix for Windows build failure. Will wait for the
+        next set of link errors to determine the mangled forms for dtoaRoundSF
+        and dtoaRoundDP.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-10-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Very large and small numbers fail to round-trip through CSS
+        https://bugs.webkit.org/show_bug.cgi?id=20674
+        
+        New exports required to use DecimalNumber in WebCore.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-10-16  Kyusun Kim  <maniagoon@company100.net>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add using declarations for currentTimeMS() and parseDateFromNullTerminatedCharacters()
+        https://bugs.webkit.org/show_bug.cgi?id=47758
+
+        * wtf/CurrentTime.h:
+        * wtf/DateMath.h:
+
+2010-10-16  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename StringHasherFunctions.h to StringHasher.h
+        https://bugs.webkit.org/show_bug.cgi?id=47200
+
+        Now StringHasherFunctions.h only contains the StringHasher class, so rename it to the correct name.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/StringHashFunctions.h: Removed.
+        * wtf/StringHasher.h: Copied from JavaScriptCore/wtf/StringHashFunctions.h.
+        * wtf/text/StringHash.h:
+        * wtf/text/StringImpl.h:
+
+2010-10-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Automatic Semicolon Insertion incorrectly inserts semicolon after break, continue, and return followed by a newline
+        https://bugs.webkit.org/show_bug.cgi?id=47762
+
+        The old YACC parser depended on the lexer for some classes of semicolon insertion.
+        The new parser handles ASI entirely on its own so when the lexer inserts a semicolon
+        on its own the net result is a spurious semicolon in the input stream.  This can result
+        in incorrect parsing in some cases:
+
+        if (0)
+            break
+        ;else {}
+
+        Would result in a parse failure as the output from the lexer is essentially
+
+        if (0)
+             break
+        ;;else
+
+        So the second semicolon is interpreted as a empty statement, which terminates the if,
+        making the else an error.
+
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseThrowStatement):
+          Parsing of throw statement was wrong, and only worked due to the weird behaviour
+          in the lexer
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+          Remove bogus semicolon insertion from the newline handling
+
+2010-10-15  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Replace some String::format() usages by StringConcatenate in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=47714
+
+        * wtf/text/StringConcatenate.h: Add UChar specific StringTypeAdapter, to accept single UChars in makeString().
+
+2010-10-15  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Unreviewed build fix for Debug Leopard which is failng to compile after r69842.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+
+2010-10-15  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        The parenthetical assertion checking isn't working in some cases with YARR
+        Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=46893
+
+        Calculate the countToCheck value of a TypeParentheticalAssertion by
+        subtracting the number of characters which follows
+        a TypeParentheticalAssertion term with the number of characters which should
+        be matched by terms which are contained
+        in the TypeParentheticalAssertion term (minimumSize).
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+
+2010-10-14  Nathan Vander Wilt  <nate@andyet.net>
+
+        Reviewed by Darin Adler.
+
+        Added parser for ECMAScript 5 standard date format, so Date.parse can handle RFC 3339 timestamps: https://bugs.webkit.org/show_bug.cgi?id=44632
+
+        * runtime/DateConversion.cpp:
+        (JSC::parseDate):
+        * wtf/DateMath.cpp:
+        (WTF::ymdhmsToSeconds):
+        (WTF::parseES5DateFromNullTerminatedCharacters):
+        * wtf/DateMath.h:
+
+2010-10-14  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Replace lots of String::format() usages by StringConcatenate
+        https://bugs.webkit.org/show_bug.cgi?id=47664
+
+        Add StringTypeAdapter<char> to accept single characters for makeString().
+
+        * wtf/text/StringConcatenate.h:
+        (WTF::makeString):
+
+2010-10-14  David Goodwin  <david_goodwin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        need way to measure size of JITed ARM code
+        https://bugs.webkit.org/show_bug.cgi?id=47121
+
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::linkCode):
+        (JSC::LinkBuffer::dumpLinkStats):
+        (JSC::LinkBuffer::dumpCode):
+
+2010-10-14  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        The backreference checking isn't working in some cases with YARR Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=46904
+
+        The Interpreter::matchBackReference() function returns true without matching
+        when a backreference points to the same parentheses where it is.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::matchBackReference):
+
+2010-10-14  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Text breaking is slow: enable ICU as an opt-in
+        https://bugs.webkit.org/show_bug.cgi?id=40332
+
+        Added a config flag that enables ICU as an opt-in instead of the Qt specific code.
+        Because of the inclusion of ICU headers, some explicit casting was necessary in UnicodeQt4.h
+
+        * JavaScriptCore.pri:
+        * wtf/unicode/qt4/UnicodeQt4.h:
+        (WTF::Unicode::toLower):
+        (WTF::Unicode::toUpper):
+        (WTF::Unicode::toTitleCase):
+        (WTF::Unicode::foldCase):
+        (WTF::Unicode::isPrintableChar):
+        (WTF::Unicode::isSeparatorSpace):
+        (WTF::Unicode::isPunct):
+        (WTF::Unicode::isLower):
+        (WTF::Unicode::mirroredChar):
+        (WTF::Unicode::combiningClass):
+        (WTF::Unicode::direction):
+        (WTF::Unicode::category):
+
+2010-10-14  Anton Faern  <anton@bladehawke.com>
+
+        Reviewed by Csaba Osztrogonác.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47658
+        NetBSD was not included in the WTF_PLATFORM_FOO to WTF_OS_FOO
+        change.  This means that OS(NETBSD) is also undefined.
+
+        * wtf/Platform.h: s/_PLATFORM_/_OS_/ for NetBSD
+
+2010-10-13  David Goodwin  <david_goodwin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        ARMv7 JIT should generated conditional branches when possible
+        https://bugs.webkit.org/show_bug.cgi?id=47384
+
+        Use different jump padding sizes for conditional and unconditional
+        jumps (12 bytes and 10 bytes respectively). This allows the JIT to
+        include the IT instruction as part of the conditional jump sequence
+        which in turn allows it to optimize away the IT using an ARMv7 
+        conditional branch instruction. Use 2-byte B(T1) and 4-byte B(T3) for
+        conditional branches when displacement is in range. Also use IT/B(T4)
+        for conditional branch when displacement does not fit in B(T3).
+
+        For unconditional jump, instruction selection options are:
+        B(T2), B(T4), MOVW/MOVT/BX. For conditional jump, instruction selection
+        options are: B(T1), B(T3), IT/B(T4), ITTT/MOVW/MOVT/BX.
+
+        * assembler/ARMv7Assembler.cpp:
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::JmpSrc::JmpSrc):
+        (JSC::ARMv7Assembler::ifThenElse):
+        (JSC::ARMv7Assembler::jumpSizeDelta):
+        (JSC::ARMv7Assembler::canCompact):
+        (JSC::ARMv7Assembler::computeJumpType):
+        (JSC::ARMv7Assembler::link):
+        (JSC::ARMv7Assembler::canBeJumpT1):
+        (JSC::ARMv7Assembler::canBeJumpT3):
+        (JSC::ARMv7Assembler::canBeJumpT4):
+        (JSC::ARMv7Assembler::linkJumpT1):
+        (JSC::ARMv7Assembler::linkJumpT3):
+        (JSC::ARMv7Assembler::linkJumpT4):
+        (JSC::ARMv7Assembler::linkConditionalJumpT4):
+        (JSC::ARMv7Assembler::linkBX):
+        (JSC::ARMv7Assembler::linkConditionalBX):
+        (JSC::ARMv7Assembler::linkJumpAbsolute):
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::linkCode):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::canCompact):
+        (JSC::MacroAssemblerARMv7::computeJumpType):
+        (JSC::MacroAssemblerARMv7::jumpSizeDelta):
+        (JSC::MacroAssemblerARMv7::jump):
+        (JSC::MacroAssemblerARMv7::nearCall):
+        (JSC::MacroAssemblerARMv7::call):
+        (JSC::MacroAssemblerARMv7::ret):
+        (JSC::MacroAssemblerARMv7::tailRecursiveCall):
+        (JSC::MacroAssemblerARMv7::makeJump):
+        (JSC::MacroAssemblerARMv7::makeBranch):
+
+2010-10-13  Fridrich Strba  <fridrich.strba@bluewin.ch>
+
+        Reviewed by Darin Adler.
+
+        Don't depend on Windows on sched_yield and sched.h
+        https://bugs.webkit.org/show_bug.cgi?id=45543
+
+        sched.h is part of pthreads and sched_yield is implemented
+        in pthreads-win32 as Sleep(0). This patch avoids a gratuitous
+        dependency on pthreads-win32 in this file.
+
+        * wtf/TCSpinLock.h:
+        (TCMalloc_SlowLock):
+
+2010-10-13  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Port unicode
+        https://bugs.webkit.org/show_bug.cgi?id=45716
+
+        Brew MP port uses only the subset of ICU library to reduce the binary size.
+        Follow the WinCE's implementation.
+
+        * wtf/Platform.h:
+        * wtf/unicode/Unicode.h:
+        * wtf/unicode/brew/UnicodeBrew.cpp: Added.
+        (WTF::Unicode::toLower):
+        (WTF::Unicode::toUpper):
+        (WTF::Unicode::foldCase):
+        (WTF::Unicode::isPrintableChar):
+        (WTF::Unicode::isUpper):
+        (WTF::Unicode::isLower):
+        (WTF::Unicode::isDigit):
+        (WTF::Unicode::isPunct):
+        (WTF::Unicode::isAlphanumeric):
+        (WTF::Unicode::toTitleCase):
+        (WTF::Unicode::direction):
+        (WTF::Unicode::category):
+        (WTF::Unicode::decompositionType):
+        (WTF::Unicode::combiningClass):
+        (WTF::Unicode::mirroredChar):
+        (WTF::Unicode::digitValue):
+        (WTF::Unicode::isSpace):
+        (WTF::Unicode::isLetter):
+        * wtf/unicode/brew/UnicodeBrew.h: Added.
+        (WTF::Unicode::isArabicChar):
+        (WTF::Unicode::isSeparatorSpace):
+        (WTF::Unicode::hasLineBreakingPropertyComplexContext):
+        (WTF::Unicode::hasLineBreakingPropertyComplexContextOrIdeographic):
+        (WTF::Unicode::umemcasecmp):
+
+2010-10-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-10-13  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        [WTFURL] Add URLQueryCanonicalizer
+        https://bugs.webkit.org/show_bug.cgi?id=45088
+
+        This class canonicalizes the query component of URLs.  The main tricky
+        bit there is the convertCharset function, which I've moved to a
+        templated dependency.  There'll likely be more about that in future
+        patches.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/url/src/URLEscape.cpp: Added.
+        * wtf/url/src/URLEscape.h: Added.
+        (WTF::appendEscapedCharacter):
+        * wtf/url/src/URLQueryCanonicalizer.h: Added.
+        (WTF::URLQueryCanonicalizer::canonicalize):
+        (WTF::URLQueryCanonicalizer::isAllASCII):
+        (WTF::URLQueryCanonicalizer::appendRaw8BitQueryString):
+        (WTF::URLQueryCanonicalizer::convertToQueryEncoding):
+
+2010-10-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 43987 - Downloading using XHR is much slower than before
+        Change StringBuilder to use overcapacity in a StringImpl, rather than a Vector.
+        Fundamentally this should be the same (copies current contents to expand capacity,
+        rather than using a rope), but this approach allows the intermadiate state of the
+        String to be inspected in the buffer without copying to resolve.
+
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::appendQuotedString):
+        (JSC::Stringifier::Holder::appendNextProperty):
+            Renamed StringBuilder::size() -> length() (to match other String types).
+
+        * runtime/UStringBuilder.h:
+        (JSC::UStringBuilder::append):
+        (JSC::UStringBuilder::toUString):
+            Update for changes in parent class, can just 'using' the append methods.
+
+        * wtf/text/StringBuilder.cpp: Added.
+        (WTF::StringBuilder::reifyString):
+        (WTF::StringBuilder::resize):
+        (WTF::StringBuilder::reserveCapacity):
+        (WTF::StringBuilder::allocateBuffer):
+        (WTF::StringBuilder::appendUninitialized):
+        (WTF::StringBuilder::append):
+        (WTF::StringBuilder::shrinkToFit):
+        * wtf/text/StringBuilder.h:
+        (WTF::StringBuilder::StringBuilder):
+        (WTF::StringBuilder::append):
+        (WTF::StringBuilder::toString):
+        (WTF::StringBuilder::toStringPreserveCapacity):
+        (WTF::StringBuilder::length):
+        (WTF::StringBuilder::isEmpty):
+        (WTF::StringBuilder::operator[]):
+        (WTF::StringBuilder::clear):
+            Class updated to use overcapacity in a StringImpl, rather than a Vector.
+
+        * Android.mk:
+        * Android.v8.wtf.mk:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.vcproj/jsc/jsc.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/wtf.pri:
+
+2010-10-13  Adam Roben  <aroben@apple.com>
+
+        Export tryFastRealloc for WebKit2's benefit
+
+        Rubber-stamped by Anders Carlsson.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Added
+        tryFastRealloc. Removed RegExpObject::info, which is now exported via
+        JS_EXPORTDATA.
+
+2010-10-13  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        [WTFURL] Add a mechanism for classifying types of characters
+        https://bugs.webkit.org/show_bug.cgi?id=45085
+
+        Various characters have different escaping rules depending on where
+        they are in URLs.  This patch adds a table containing that information.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/url/src/URLCharacterTypes.cpp: Added.
+        * wtf/url/src/URLCharacterTypes.h: Added.
+        (WTF::URLCharacterTypes::isQueryChar):
+        (WTF::URLCharacterTypes::isIPv4Char):
+        (WTF::URLCharacterTypes::isHexChar):
+        (WTF::URLCharacterTypes::isCharOfType):
+
+2010-10-13  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Missing parameters for bytecode dump of next_pname
+        https://bugs.webkit.org/show_bug.cgi?id=47590
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump): add missing parameters to the dump.
+
+2010-10-13  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Add wtf/text/StringConcatenate
+        https://bugs.webkit.org/show_bug.cgi?id=47584
+
+        Move runtime/StringConcatenate.h to wtf/text, make it work for Strings too.
+        Add a special runtime/UStringConcatenate.h class that inherits from StringConcatenate, and extends it for use with UString.
+        Exactly the same design that has been followed while refactoring StringBuilder.
+
+        The UString variants can all be removed as soon as WTF::String & JSC::UString converge.
+
+        * GNUmakefile.am: Add wtf/text/StringConcatenate.h and runtime/UStringConcatenate.h.
+        * JavaScriptCore.gypi: Ditto.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj: Ditto.
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Ditto.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Ditto.
+        * bytecode/CodeBlock.cpp: s/makeString/makeUString/
+        (JSC::escapeQuotes):
+        (JSC::valueToSourceString):
+        (JSC::constantName):
+        (JSC::idName):
+        (JSC::CodeBlock::registerName):
+        (JSC::regexpToSourceString):
+        (JSC::regexpName):
+        * bytecompiler/NodesCodegen.cpp: Ditto.
+        (JSC::substitute):
+        * profiler/Profiler.cpp: Ditto.
+        (JSC::Profiler::createCallIdentifier):
+        * runtime/ExceptionHelpers.cpp: Ditto.
+        (JSC::createUndefinedVariableError):
+        (JSC::createErrorMessage):
+        (JSC::createInvalidParamError):
+        * runtime/FunctionConstructor.cpp: Ditto.
+        (JSC::constructFunction):
+        * runtime/FunctionPrototype.cpp: Ditto.
+        (JSC::insertSemicolonIfNeeded):
+        * runtime/JSONObject.cpp: Ditto.
+        (JSC::Stringifier::indent):
+        * runtime/JSStringBuilder.h:
+        (JSC::jsMakeNontrivialString):
+        * runtime/RegExpConstructor.cpp: Ditto.
+        (JSC::constructRegExp):
+        * runtime/RegExpObject.cpp: Ditto.
+        (JSC::RegExpObject::match):
+        * runtime/RegExpPrototype.cpp: Ditto.
+        (JSC::regExpProtoFuncCompile):
+        * runtime/StringConcatenate.h: Removed.
+        * runtime/UStringConcatenate.h: Added. Only contains the StringTypeAdapter<JSC::UString> code and the makeUString variants, the rest lives in wtf/text/StringConcatenate.h
+        (JSC::makeUString):
+        * wtf/text/StringConcatenate.h: Copied from runtime/StringConcatenate.h.
+        (WTF::makeString):
+
+2010-10-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * wtf/text/StringBuilder.h:
+        (WTF::StringBuilder::length):
+
+2010-10-12  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Unify JSC::StringBuilder & WebCore::StringBuilder
+        https://bugs.webkit.org/show_bug.cgi?id=47538
+
+        Move runtime/StringBuilder.h to wtf/text/StringBuilder.h. Rename build() to toString() and return a WTF::String().
+        Move the append(const JSC::UString&) method into runtime/UStringBuilder.h.
+        UStringBuilder inherits from StringBuilder.h and adds append(const JSC::UString&) and UString toUString() functionality.
+
+        No new code, just move code around.
+
+        * GNUmakefile.am: Add wtf/text/StringBuilder.h / runtime/UStringBuilder.h. Remove runtime/StringBuilder.h.
+        * JavaScriptCore.gypi: Ditto.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj: Ditto.
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Ditto.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Ditto.
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::paramString): Use UStringBuilder, instead of StringBuilder. Rename build() -> toUString().
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructFunction): Ditto.
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::globalFuncUnescape): Ditto.
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::stringify): Ditto.
+        (JSC::Stringifier::appendQuotedString): Ditto.
+        (JSC::Stringifier::appendStringifiedValue): Ditto.
+        (JSC::Stringifier::startNewLine): Ditto.
+        (JSC::Stringifier::Holder::appendNextProperty): Ditto.
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::Lexer::lexString): Ditto.
+        * runtime/NumberPrototype.cpp: Remove unneeded JSStringBuilder.h / StringBuilder.h include.
+        * runtime/StringBuilder.h: Removed.
+        * runtime/UStringBuilder.h: Added. Inherits from WTF::StringBuilder, extending it by two methods.
+        (JSC::UStringBuilder::append): append(const JSC::UString&)
+        (JSC::UStringBuilder::toUString):
+        * wtf/text/StringBuilder.h: Copied from runtime/StringBuilder.h. Move JSC::UString parts into runtime/UStringBuilder.h
+        (WTF::StringBuilder::append): Renamed m_buffer to buffer everywhere.
+        (WTF::StringBuilder::isEmpty): Ditto (+ constify method). 
+        (WTF::StringBuilder::reserveCapacity): Ditto.
+        (WTF::StringBuilder::resize): Ditto.
+        (WTF::StringBuilder::size): Ditto.
+        (WTF::StringBuilder::operator[]): Ditto.
+        (WTF::StringBuilder::toString): Ditto (+ renamed from build()). Returns a String, not an UString. The old build() method is now named toUString() and lives in UStringBuilder.
+
+2010-10-12  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Cleaned up the processing of replacements after regular expression
+        processing, especially the case where there wasn't a match.
+        Changed to use empty strings instead of computing a zero length sub
+        string.
+        https://bugs.webkit.org/show_bug.cgi?id=47506
+
+        * runtime/StringPrototype.cpp:
+        (JSC::jsSpliceSubstringsWithSeparators):
+        (JSC::stringProtoFuncReplace):
+
+2010-10-11  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Clang build fix after r69472.
+        https://bugs.webkit.org/show_bug.cgi?id=46523
+
+        * wtf/text/StringHash.h:
+
+2010-10-11  Oliver Hunt  <oliver@apple.com>
+
+        Undo last minute change to 32bit build.
+
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_convert_this_strict):
+
+2010-10-11  Brian Weinstein  <bweinstein@apple.com>
+
+        Build fix for Windows. Add a necessary export from r69516.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-10-11  Oliver Hunt  <oliver@apple.com>
+
+        Fix interpreter build -- was broken by incorrect merge.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-10-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [ES5] Implement strict mode
+        https://bugs.webkit.org/show_bug.cgi?id=10701
+
+        Initial strict mode implementation.  This is the simplest
+        implementation that could possibly work and adds (hopefully)
+        all of the restrictions required by strict mode.  There are
+        a number of inefficiencies, especially in the handling of
+        arguments and eval as smart implementations would make this
+        patch more complicated.  
+
+        The SyntaxChecker AST builder has become somewhat more complex
+        as strict mode does require more parse tree information to
+        validate the syntax.
+
+        Summary of major changes to the parser:
+            * We track when we enter strict mode (this may come as a surprise)
+            * Strict mode actually requires a degree of AST knowledge to validate
+              so the SyntaxChecker now produces values that can be used to distinguish
+              "node" types.
+            * We now track variables that are written to.  We do this to
+              statically identify writes to global properties that don't exist
+              and abort at that point.  This should actually make it possible
+              to optimise some other cases in the future but for now it's
+              purely for validity checking.  Currently writes are only tracked
+              in strict mode code.
+            * Labels are now tracked as it is now a syntax error to jump to a label
+              that does not exist (or to use break, continue, or return in a context
+              where they would be invalid).
+
+        Runtime changes:
+            * In order to get correct hanlding of the Arguments object all
+              strict mode functions that reference arguments create and tearoff
+              the arguments object on entry.  This is not strictly necessary
+              but was the least work necessary to get the correct behaviour.
+            * PutPropertySlot now tracks whether it is being used for a strict
+              mode write, and if so Object::put will throw when a write can't be
+              completed.
+            * StrictEvalActivation was added as an "activation" object for strict
+              mode eval (so that strict eval does not introduce new variables into
+              the containing scope).
+
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::CodeBlock):
+        (JSC::CodeBlock::reparseForExceptionInfoIfNecessary):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::isStrictMode):
+        * bytecode/EvalCodeCache.h:
+        (JSC::EvalCodeCache::get):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::createArgumentsIfNecessary):
+        (JSC::BytecodeGenerator::emitReturn):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::isStrictMode):
+        (JSC::BytecodeGenerator::makeFunction):
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::callEval):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_get_pnames):
+        (JSC::JIT::emit_op_convert_this_strict):
+        (JSC::JIT::emitSlow_op_convert_this_strict):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_get_pnames):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createFunctionBody):
+        (JSC::ASTBuilder::isResolve):
+        * parser/JSParser.cpp:
+        (JSC::JSParser::next):
+        (JSC::JSParser::startLoop):
+        (JSC::JSParser::endLoop):
+        (JSC::JSParser::startSwitch):
+        (JSC::JSParser::endSwitch):
+        (JSC::JSParser::setStrictMode):
+        (JSC::JSParser::strictMode):
+        (JSC::JSParser::isValidStrictMode):
+        (JSC::JSParser::declareParameter):
+        (JSC::JSParser::breakIsValid):
+        (JSC::JSParser::pushLabel):
+        (JSC::JSParser::popLabel):
+        (JSC::JSParser::hasLabel):
+        (JSC::JSParser::DepthManager::DepthManager):
+        (JSC::JSParser::DepthManager::~DepthManager):
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::startSwitch):
+        (JSC::JSParser::Scope::endSwitch):
+        (JSC::JSParser::Scope::startLoop):
+        (JSC::JSParser::Scope::endLoop):
+        (JSC::JSParser::Scope::inLoop):
+        (JSC::JSParser::Scope::breakIsValid):
+        (JSC::JSParser::Scope::pushLabel):
+        (JSC::JSParser::Scope::popLabel):
+        (JSC::JSParser::Scope::hasLabel):
+        (JSC::JSParser::Scope::isFunction):
+        (JSC::JSParser::Scope::declareVariable):
+        (JSC::JSParser::Scope::declareWrite):
+        (JSC::JSParser::Scope::deleteProperty):
+        (JSC::JSParser::Scope::declareParameter):
+        (JSC::JSParser::Scope::setNeedsFullActivation):
+        (JSC::JSParser::Scope::collectFreeVariables):
+        (JSC::JSParser::Scope::getUncapturedWrittenVariables):
+        (JSC::JSParser::Scope::getDeletedVariables):
+        (JSC::JSParser::Scope::setStrictMode):
+        (JSC::JSParser::Scope::strictMode):
+        (JSC::JSParser::Scope::isValidStrictMode):
+        (JSC::JSParser::pushScope):
+        (JSC::JSParser::popScope):
+        (JSC::JSParser::declareVariable):
+        (JSC::JSParser::declareWrite):
+        (JSC::JSParser::deleteProperty):
+        (JSC::jsParse):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseSourceElements):
+        (JSC::JSParser::parseDoWhileStatement):
+        (JSC::JSParser::parseWhileStatement):
+        (JSC::JSParser::parseVarDeclarationList):
+        (JSC::JSParser::parseConstDeclarationList):
+        (JSC::JSParser::parseForStatement):
+        (JSC::JSParser::parseBreakStatement):
+        (JSC::JSParser::parseContinueStatement):
+        (JSC::JSParser::parseReturnStatement):
+        (JSC::JSParser::parseWithStatement):
+        (JSC::JSParser::parseSwitchStatement):
+        (JSC::JSParser::parseSwitchClauses):
+        (JSC::JSParser::parseSwitchDefaultClause):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseBlockStatement):
+        (JSC::JSParser::parseStatement):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionBody):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseFunctionDeclaration):
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+        (JSC::JSParser::parseIfStatement):
+        (JSC::JSParser::parseExpression):
+        (JSC::JSParser::parseAssignmentExpression):
+        (JSC::JSParser::parseConditionalExpression):
+        (JSC::JSParser::parseBinaryExpression):
+        (JSC::JSParser::parseStrictObjectLiteral):
+        (JSC::JSParser::parsePrimaryExpression):
+        (JSC::JSParser::parseMemberExpression):
+        (JSC::JSParser::parseUnaryExpression):
+        * parser/JSParser.h:
+        * parser/Lexer.cpp:
+        (JSC::Lexer::parseString):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+        (JSC::Lexer::isReparsing):
+        * parser/Nodes.cpp:
+        (JSC::ScopeNode::ScopeNode):
+        (JSC::FunctionBodyNode::FunctionBodyNode):
+        (JSC::FunctionBodyNode::create):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::isStrictMode):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::SyntaxChecker):
+        (JSC::SyntaxChecker::makeFunctionCallNode):
+        (JSC::SyntaxChecker::appendToComma):
+        (JSC::SyntaxChecker::createCommaExpr):
+        (JSC::SyntaxChecker::makeAssignNode):
+        (JSC::SyntaxChecker::makePrefixNode):
+        (JSC::SyntaxChecker::makePostfixNode):
+        (JSC::SyntaxChecker::makeTypeOfNode):
+        (JSC::SyntaxChecker::makeDeleteNode):
+        (JSC::SyntaxChecker::makeNegateNode):
+        (JSC::SyntaxChecker::makeBitwiseNotNode):
+        (JSC::SyntaxChecker::createLogicalNot):
+        (JSC::SyntaxChecker::createUnaryPlus):
+        (JSC::SyntaxChecker::createVoid):
+        (JSC::SyntaxChecker::thisExpr):
+        (JSC::SyntaxChecker::createResolve):
+        (JSC::SyntaxChecker::createObjectLiteral):
+        (JSC::SyntaxChecker::createArray):
+        (JSC::SyntaxChecker::createNumberExpr):
+        (JSC::SyntaxChecker::createString):
+        (JSC::SyntaxChecker::createBoolean):
+        (JSC::SyntaxChecker::createNull):
+        (JSC::SyntaxChecker::createBracketAccess):
+        (JSC::SyntaxChecker::createDotAccess):
+        (JSC::SyntaxChecker::createRegex):
+        (JSC::SyntaxChecker::createNewExpr):
+        (JSC::SyntaxChecker::createConditionalExpr):
+        (JSC::SyntaxChecker::createAssignResolve):
+        (JSC::SyntaxChecker::createFunctionExpr):
+        (JSC::SyntaxChecker::createFunctionBody):
+        (JSC::SyntaxChecker::appendBinaryExpressionInfo):
+        (JSC::SyntaxChecker::operatorStackPop):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::createStrictModeCallerIfNecessary):
+        (JSC::Arguments::createStrictModeCalleeIfNecessary):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/Arguments.h:
+        (JSC::Arguments::Arguments):
+        * runtime/CommonIdentifiers.cpp:
+        (JSC::CommonIdentifiers::CommonIdentifiers):
+        * runtime/CommonIdentifiers.h:
+        * runtime/Error.cpp:
+        (JSC::StrictModeTypeErrorFunction::StrictModeTypeErrorFunction):
+        (JSC::StrictModeTypeErrorFunction::constructThrowTypeError):
+        (JSC::StrictModeTypeErrorFunction::getConstructData):
+        (JSC::StrictModeTypeErrorFunction::callThrowTypeError):
+        (JSC::StrictModeTypeErrorFunction::getCallData):
+        (JSC::createTypeErrorFunction):
+        * runtime/Error.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::EvalExecutable):
+        (JSC::ProgramExecutable::ProgramExecutable):
+        (JSC::FunctionExecutable::FunctionExecutable):
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::checkSyntax):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        (JSC::FunctionExecutable::fromGlobalCode):
+        (JSC::ProgramExecutable::reparseExceptionInfo):
+        * runtime/Executable.h:
+        (JSC::ScriptExecutable::ScriptExecutable):
+        (JSC::ScriptExecutable::isStrictMode):
+        (JSC::EvalExecutable::create):
+        (JSC::FunctionExecutable::create):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::toStrictThisObject):
+        * runtime/JSActivation.h:
+        * runtime/JSFunction.cpp:
+        (JSC::createDescriptorForThrowingProperty):
+        (JSC::JSFunction::getOwnPropertySlot):
+        (JSC::JSFunction::getOwnPropertyDescriptor):
+        (JSC::JSFunction::put):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::internalFunctionStructure):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::globalFuncEval):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::put):
+        (JSC::JSObject::toStrictThisObject):
+        (JSC::throwTypeError):
+        * runtime/JSObject.h:
+        (JSC::JSObject::isStrictModeFunction):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSValue::putDirect):
+        (JSC::JSValue::toStrictThisObject):
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::toStrictThisObject):
+        * runtime/JSStaticScopeObject.h:
+        * runtime/JSValue.h:
+        * runtime/JSZombie.h:
+        (JSC::JSZombie::toStrictThisObject):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::PutPropertySlot):
+        (JSC::PutPropertySlot::isStrictMode):
+        * runtime/StrictEvalActivation.cpp: Added.
+        (JSC::StrictEvalActivation::StrictEvalActivation):
+        (JSC::StrictEvalActivation::deleteProperty):
+        (JSC::StrictEvalActivation::toThisObject):
+        (JSC::StrictEvalActivation::toStrictThisObject):
+        * runtime/StrictEvalActivation.h: Added.
+
+2010-10-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Windows build fix after r69472.
+
+        * wtf/text/StringHash.h:
+        (WTF::CaseFoldingHash::hash):
+
+2010-10-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Use WTF::StringHasher in WTF::CaseFoldingHash
+        https://bugs.webkit.org/show_bug.cgi?id=46523
+
+        * wtf/text/StringHash.h:
+        (WTF::CaseFoldingHash::foldCase):
+        (WTF::CaseFoldingHash::hash):
+
+2010-10-09  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Xan Lopez.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47445
+        Remove unused function WTFThreadData::initializeIdentifierTable()
+
+        * wtf/WTFThreadData.h:
+
+2010-10-08  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Added check to start of subexpression being positive before using
+        subexpression in replacement.
+        https://bugs.webkit.org/show_bug.cgi?id=47324
+
+        * runtime/StringPrototype.cpp:
+        (JSC::substituteBackreferencesSlow):
+
+2010-10-08  Chris Evans  <cevans@google.com>
+
+        Reviewed by David Levin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47393
+
+        Use unsigned consistently to check for max StringImpl length.
+        Add a few integer overflow checks.
+        Uses the existing paradigm of CRASH() when we can't reasonably handle a crazily large request.
+
+        * wtf/text/WTFString.cpp:
+        * wtf/text/StringImpl.h:
+        * wtf/text/StringImpl.cpp:
+        Better use of size_t vs. unsigned; check for integer overflows.
+
+2010-10-07  David Goodwin  <david_goodwin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        ARM JIT generates undefined operations due to partially uninitialized ShiftTypeAndAmount
+        https://bugs.webkit.org/show_bug.cgi?id=47356
+
+        * assembler/ARMv7Assembler.h:
+
+2010-10-06  Chris Evans  <cevans@google.com>
+
+        Reviewed by David Levin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47248
+
+        Use size_t consistently in CString, to prevent theoretical trouble
+        with > 4GB strings on 64-bit platforms.
+
+        * wtf/text/CString.h:
+        * wtf/text/CString.cpp:
+        Use size_t for string lengths.
+        * wtf/MD5.cpp:
+        (WTF::expectMD5): use suitable format string + cast for size_t.
+        * JavaScriptCore.exp:
+        Update symbol name.
+
+2010-10-06  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Start cleaning up Arguments.h
+        https://bugs.webkit.org/show_bug.cgi?id=47304
+
+        * wtf/TypeTraits.h:
+        * wtf/TypeTraits.cpp:
+        Add RemoveReference type trait.
+
+2010-10-06  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Unreviewed build fix.
+
+        [EFL] Build fix for glib support.
+        https://bugs.webkit.org/show_bug.cgi?id=47221
+
+        If compiling with GLib support enabled, we also need to link wtf against
+        glib library.
+
+        * wtf/CMakeListsEfl.txt:
+
+2010-10-05  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Gavin Barraclough.
+
+        [BREWMP] Port ExecutableAllocator::cacheFlush to enable ARM JIT
+        https://bugs.webkit.org/show_bug.cgi?id=47117
+
+        Use IMemCache1 to flush data cache and invalidate instruction cache.
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::cacheFlush):
+
+2010-10-05  Leandro Pereira  <leandro@profusion.mobi>
+
+        Unreviewed. Build fix.
+
+        Moved "jsc" directory to "shell", so that the name does not clash with the
+        JavaScriptCore shell in some build systems.
+        http://webkit.org/b/47049
+
+        * CMakeLists.txt: Changed reference from "jsc" to "shell".
+        * jsc: Removed.
+        * jsc/CMakeLists.txt: Removed.
+        * jsc/CMakeListsEfl.txt: Removed.
+        * shell: Copied from JavaScriptCore/jsc.
+
+2010-10-05  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Use PlatformRefPtr in randomNumber
+        https://bugs.webkit.org/show_bug.cgi?id=46989
+
+        Use PlatformRefPtr to free memory automatically.
+
+        * wtf/RandomNumber.cpp:
+        (WTF::randomNumber):
+
+2010-10-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r68338): JavaScript error on PowerPC only (crashes on Interpreter built for x86_64)
+        https://bugs.webkit.org/show_bug.cgi?id=46690
+
+        Use the correct register value when initialising the arguments
+        object in the interpreter.  This is covered by existing tests.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-10-04  David Goodwin  <david_goodwin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        ARMv7 JIT should take advantage of 2-byte branches to reduce code size
+        https://bugs.webkit.org/show_bug.cgi?id=47007
+
+        * assembler/ARMv7Assembler.cpp:
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::computeJumpType):
+        (JSC::ARMv7Assembler::link):
+        (JSC::ARMv7Assembler::canBeJumpT2):
+        (JSC::ARMv7Assembler::canBeJumpT4):
+        (JSC::ARMv7Assembler::linkBX):
+        (JSC::ARMv7Assembler::linkJumpT4):
+        (JSC::ARMv7Assembler::linkJumpT2):
+        (JSC::ARMv7Assembler::linkJumpAbsolute):
+
+2010-10-04  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Use fast malloc for WebKit EFL
+        https://bugs.webkit.org/show_bug.cgi?id=46691
+
+        Use fast malloc for WebKit EFL because the fast malloc is to allocate
+        memory quickly.
+
+        * wtf/CMakeListsEfl.txt:
+
+2010-10-04  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Lazily create activation objects
+        https://bugs.webkit.org/show_bug.cgi?id=47107
+
+        Make it possible to lazily create the activation object
+        for a function that needs one.  This allows us to reduce
+        the overhead of entering a function that may require
+        an activation in some cases, but not always.
+
+        This does make exception handling a little more complex as
+        it's now necessary to verify that a callframes activation
+        has been created, and create it if not, in all of the
+        paths used in exception handling.
+
+        We also need to add logic to check for the existence of
+        the activation in the scoped_var opcodes, as well as
+        op_ret, op_ret_object_or_this and op_tearoff_activation
+        so that we can avoid creating an activation unnecesarily
+        on function exit. 
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::reparseForExceptionInfoIfNecessary):
+        (JSC::CodeBlock::createActivation):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::setActivationRegister):
+        (JSC::CodeBlock::activationRegister):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitNewFunctionInternal):
+        (JSC::BytecodeGenerator::emitNewFunctionExpression):
+        (JSC::BytecodeGenerator::createActivationIfNecessary):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBase):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITCall32_64.cpp:
+        (JSC::JIT::emit_op_ret):
+        (JSC::JIT::emit_op_ret_object_or_this):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_end):
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+        (JSC::JIT::emit_op_tear_off_activation):
+        (JSC::JIT::emit_op_ret):
+        (JSC::JIT::emit_op_ret_object_or_this):
+        (JSC::JIT::emit_op_create_activation):
+        (JSC::JIT::emit_op_resolve_global_dynamic):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+        (JSC::JIT::emit_op_tear_off_activation):
+        (JSC::JIT::emit_op_create_activation):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+
+2010-10-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Sam Weinig.
+
+        Remove ENABLE_SANDBOX
+        https://bugs.webkit.org/show_bug.cgi?id=47032
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-10-01  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Geoffrey Garen.
+        Specify ALWAYS_INLINE at function declaration not function definition
+        https://bugs.webkit.org/show_bug.cgi?id=46960
+
+        For functions defined with ALWAYS_INLINE, add the attribute to the declaration as well.
+
+        * bytecompiler/BytecodeGenerator.h:
+        * wtf/FastMalloc.cpp:
+
+2010-10-01  Kwang Yul Seo  <skyul@company100.net>
+
+        Unreviewed.
+
+        [BREWMP] Change Collector BLOCK_SIZE to 64KB
+        https://bugs.webkit.org/show_bug.cgi?id=46436
+
+        Lower BLOCK_SIZE to 64KB because Brew MP runs on low end devices.
+
+        * runtime/Collector.h:
+
+2010-10-01  Viatcheslav Ostapenko  <ostapenko.viatcheslav@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Stack overflow on symbian platform.
+        https://bugs.webkit.org/show_bug.cgi?id=40598
+        
+        Move big allocation in arrayProtoFuncToString from stack to heap.
+        JSC::arrayProtoFuncToString function can be called recursivly and
+        1K allocation on stack cahse stack overflow.
+        Can be useful for other platforms with limited stack size.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+
+2010-09-30  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Add a factory function which returns an instance wrapped in PlatformRefPtr.
+        https://bugs.webkit.org/show_bug.cgi?id=46373
+
+        A Brew MP instance has reference count 1 when it is created, so call adoptPlatformRef
+        to wrap the instance in PlatformRefPtr.
+
+        * wtf/brew/ShellBrew.h:
+        (WTF::createRefPtrInstance):
+
+2010-09-30  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Port PlatformRefPtr
+        https://bugs.webkit.org/show_bug.cgi?id=46370
+
+        Implement refPlatformPtr and derefPlatformPtr to use PlatformRefPtr in Brew MP.
+
+        * wtf/brew/RefPtrBrew.h: Added.
+        (WTF::refPlatformPtr):
+        (WTF::derefPlatformPtr):
+
+2010-09-29  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add additional checks to StringBuffer.
+        <rdar://problem/7756381>
+
+        * wtf/text/StringBuffer.h:
+        (WTF::StringBuffer::StringBuffer):
+        (WTF::StringBuffer::resize):
+
+2010-09-30  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Make 2D accelerated canvas rendering build on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=46007
+        
+        Added ACCELERATED_2D_CANVAS to FeatureDefines
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-09-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] wxMSW build fix. Make sure we copy the compiler flags and remove exception handling from
+        the copy so as not to alter global settings.
+
+        * wscript:
+
+2010-09-30  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        The case-insensitivity backreference checking isn't working with YARR
+        Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=46882
+
+        Add ignorecase checking to the Interpreter::tryConsumeBackReference() function.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::tryConsumeBackReference):
+
+2010-09-30  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Andreas Kling.
+
+        [BREWMP] Leave initializeRandomNumberGenerator empty.
+        https://bugs.webkit.org/show_bug.cgi?id=46851
+
+        On Brew MP, AEECLSID_RANDOM initializes itself.
+
+        * wtf/RandomNumberSeed.h:
+        (WTF::initializeRandomNumberGenerator):
+
+2010-09-30  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Remove unnecessary cacheFlush calls from Thumb-2
+        https://bugs.webkit.org/show_bug.cgi?id=46702
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::relinkCall):
+        (JSC::ARMv7Assembler::repatchInt32):
+        (JSC::ARMv7Assembler::repatchPointer):
+
 2010-09-29  Patrick Gansterer  <paroga@webkit.org>
 
         Unreviewed.

@@ -55,10 +55,10 @@
 #include "NotificationPresenterImpl.h"
 #include "Page.h"
 #include "PopupMenuChromium.h"
+#include "RenderWidget.h"
 #include "ScriptController.h"
 #include "SearchPopupMenuChromium.h"
 #include "SecurityOrigin.h"
-#include "SharedGraphicsContext3D.h"
 #if USE(V8)
 #include "V8Proxy.h"
 #endif
@@ -72,6 +72,8 @@
 #include "WebInputEvent.h"
 #include "WebKit.h"
 #include "WebNode.h"
+#include "WebPlugin.h"
+#include "WebPluginContainerImpl.h"
 #include "WebPopupMenuImpl.h"
 #include "WebPopupMenuInfo.h"
 #include "WebPopupType.h"
@@ -246,28 +248,6 @@ void ChromeClientImpl::focusedNodeChanged(Node* node)
             focusURL = hitTest.absoluteLinkURL();
     }
     m_webView->client()->setKeyboardFocusURL(focusURL);
-    
-    if (!node)
-        return;
-
-    // If accessibility is enabled, we should notify assistive technology that
-    // the active AccessibilityObject changed.
-    Document* document = node->document();
-    if (!document) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    // TODO: Remove once the FocusedUIElementChanged notification is handled downstream.
-    if (document && document->axObjectCache()->accessibilityEnabled()) {
-        // Retrieve the focused AccessibilityObject.
-        AccessibilityObject* focusedAccObj =
-            document->axObjectCache()->getOrCreate(node->renderer());
-
-        // Alert assistive technology that focus changed.
-        if (focusedAccObj)
-            m_webView->client()->focusAccessibilityObject(WebAccessibilityObject(focusedAccObj));
-    }
 }
 
 Page* ChromeClientImpl::createWindow(
@@ -604,11 +584,25 @@ void ChromeClientImpl::mouseDidMoveOverElement(
 {
     if (!m_webView->client())
         return;
+
+    WebURL url;
     // Find out if the mouse is over a link, and if so, let our UI know...
     if (result.isLiveLink() && !result.absoluteLinkURL().string().isEmpty())
-        m_webView->client()->setMouseOverURL(result.absoluteLinkURL());
-    else
-        m_webView->client()->setMouseOverURL(WebURL());
+        url = result.absoluteLinkURL();
+    else if (result.innerNonSharedNode()
+             && (result.innerNonSharedNode()->hasTagName(HTMLNames::objectTag)
+                 || result.innerNonSharedNode()->hasTagName(HTMLNames::embedTag))) {
+        RenderObject* object = result.innerNonSharedNode()->renderer();
+        if (object && object->isWidget()) {
+            Widget* widget = toRenderWidget(object)->widget();
+            if (widget && widget->isPluginContainer()) {
+                WebPluginContainerImpl* plugin = static_cast<WebPluginContainerImpl*>(widget);
+                url = plugin->plugin()->linkAtPosition(result.point());
+            }
+        }
+    }
+
+    m_webView->client()->setMouseOverURL(url);
 }
 
 void ChromeClientImpl::setToolTip(const String& tooltipText, TextDirection dir)
@@ -777,15 +771,23 @@ NotificationPresenter* ChromeClientImpl::notificationPresenter() const
 
 void ChromeClientImpl::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    // FIXME: Implement Client-based Geolocation Permissions
+#else
     GeolocationServiceChromium* geolocationService = static_cast<GeolocationServiceChromium*>(geolocation->getGeolocationService());
     geolocationService->geolocationServiceBridge()->attachBridgeIfNeeded();
     m_webView->client()->geolocationService()->requestPermissionForFrame(geolocationService->geolocationServiceBridge()->getBridgeId(), frame->document()->url());
+#endif
 }
 
 void ChromeClientImpl::cancelGeolocationPermissionRequestForFrame(Frame* frame, Geolocation* geolocation)
 {
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    // FIXME: Implement Client-based Geolocation Permissions
+#else
     GeolocationServiceChromium* geolocationService = static_cast<GeolocationServiceChromium*>(geolocation->getGeolocationService());
     m_webView->client()->geolocationService()->cancelPermissionRequestForFrame(geolocationService->geolocationServiceBridge()->getBridgeId(), frame->document()->url());
+#endif
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -804,11 +806,6 @@ bool ChromeClientImpl::allowsAcceleratedCompositing() const
     return m_webView->allowsAcceleratedCompositing();
 }
 #endif
-
-WebCore::SharedGraphicsContext3D* ChromeClientImpl::getSharedGraphicsContext3D()
-{
-    return m_webView->getSharedGraphicsContext3D();
-}
 
 bool ChromeClientImpl::supportsFullscreenForNode(const WebCore::Node* node)
 {

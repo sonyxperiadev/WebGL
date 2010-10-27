@@ -780,6 +780,17 @@ int AccessibilityUIElement::hierarchicalLevel() const
     return 0;
 }
 
+JSStringRef AccessibilityUIElement::speak()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXDRTSpeechAttribute"];
+    if ([value isKindOfClass:[NSString class]])
+        return [value createJSStringRef];
+    END_AX_OBJC_EXCEPTIONS
+        
+    return 0;
+}
+
 bool AccessibilityUIElement::ariaIsGrabbed() const
 {
     BEGIN_AX_OBJC_EXCEPTIONS
@@ -822,6 +833,18 @@ int AccessibilityUIElement::lineForIndex(int index)
     END_AX_OBJC_EXCEPTIONS
 
     return -1;
+}
+
+JSStringRef AccessibilityUIElement::rangeForLine(int line)
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityRangeForLineParameterizedAttribute forParameter:[NSNumber numberWithInt:line]];
+    if ([value isKindOfClass:[NSValue class]]) {
+        return [NSStringFromRange([value rangeValue]) createJSStringRef];
+    }
+    END_AX_OBJC_EXCEPTIONS
+    
+    return 0;
 }
 
 JSStringRef AccessibilityUIElement::boundsForRange(unsigned location, unsigned length)

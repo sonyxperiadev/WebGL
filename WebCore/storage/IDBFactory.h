@@ -31,6 +31,7 @@
 #include "DOMStringList.h"
 #include "ExceptionCode.h"
 #include "IDBFactoryBackendInterface.h"
+#include "IDBRequest.h"
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -42,7 +43,6 @@ namespace WebCore {
 
 class IDBKey;
 class IDBKeyRange;
-class IDBRequest;
 class IDBFactoryBackendInterface;
 class ScriptExecutionContext;
 
@@ -54,7 +54,7 @@ public:
     }
     ~IDBFactory();
 
-    PassRefPtr<IDBRequest> open(ScriptExecutionContext*, const String& name, const String& description = String());
+    PassRefPtr<IDBRequest> open(ScriptExecutionContext*, const String& name, const String& description, ExceptionCode&);
 
 private:
     IDBFactory(IDBFactoryBackendInterface*);

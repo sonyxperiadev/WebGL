@@ -27,6 +27,7 @@
 #define WebIDBCursor_h
 
 #include "WebCommon.h"
+#include "WebExceptionCode.h"
 #include "WebIDBCallbacks.h"
 #include "WebIDBKey.h"
 #include "WebSerializedScriptValue.h"
@@ -52,9 +53,9 @@ public:
     // One or the other will set, depending on what type of cursor this is.
     virtual void value(WebSerializedScriptValue& serializedScriptValue, WebIDBKey& idbKey) const { WEBKIT_ASSERT_NOT_REACHED(); }
 
-    virtual void update(const WebSerializedScriptValue&, WebIDBCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
-    virtual void continueFunction(const WebIDBKey&, WebIDBCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
-    virtual void remove(WebIDBCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void update(const WebSerializedScriptValue&, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void continueFunction(const WebIDBKey&, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void remove(WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
 };
 
 } // namespace WebKit

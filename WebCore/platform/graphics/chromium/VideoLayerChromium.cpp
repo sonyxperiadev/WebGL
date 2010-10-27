@@ -175,16 +175,22 @@ VideoLayerChromium::VideoLayerChromium(GraphicsLayerChromium* owner, VideoFrameP
     , m_skipsDraw(true)
     , m_frameFormat(VideoFrameChromium::Invalid)
     , m_provider(provider)
+    , m_currentFrame(0)
 {
-    for (unsigned plane = 0; plane < VideoFrameChromium::maxPlanes; plane++) {
-        m_textures[plane] = 0;
-        m_textureSizes[plane] = IntSize();
-        m_frameSizes[plane] = IntSize();
-    }
+    resetFrameParameters();
 }
 
 VideoLayerChromium::~VideoLayerChromium()
 {
+    cleanupResources();
+}
+
+void VideoLayerChromium::cleanupResources()
+{
+    releaseCurrentFrame();
+    if (!layerRenderer())
+        return;
+
     GraphicsContext3D* context = layerRendererContext();
     for (unsigned plane = 0; plane < VideoFrameChromium::maxPlanes; plane++) {
         if (m_textures[plane])
@@ -218,6 +224,14 @@ void VideoLayerChromium::updateContents()
         return;
     }
 
+    if (frame->surfaceType() == VideoFrameChromium::TypeTexture) {
+        releaseCurrentFrame();
+        saveCurrentFrame(frame);
+        m_dirtyRect.setSize(FloatSize());
+        m_contentsDirty = false;
+        return;
+    }
+
     // Allocate textures for planes if they are not allocated already, or
     // reallocate textures that are the wrong size for the frame.
     GraphicsContext3D* context = layerRendererContext();
@@ -236,6 +250,7 @@ void VideoLayerChromium::updateContents()
 
     m_dirtyRect.setSize(FloatSize());
     m_contentsDirty = false;
+
     m_provider->putCurrentFrame(frame);
 }
 
@@ -319,6 +334,17 @@ void VideoLayerChromium::draw()
         notImplemented();
         break;
     }
+    releaseCurrentFrame();
+}
+
+void VideoLayerChromium::releaseCurrentFrame()
+{
+    if (!m_currentFrame)
+        return;
+
+    m_provider->putCurrentFrame(m_currentFrame);
+    m_currentFrame = 0;
+    resetFrameParameters();
 }
 
 void VideoLayerChromium::drawYUV(const SharedValues* sv)
@@ -368,6 +394,26 @@ void VideoLayerChromium::drawRGBA(const SharedValues* sv)
     drawTexturedQuad(context, layerRenderer()->projectionMatrix(), drawTransform(),
                      bounds().width(), bounds().height(), drawOpacity(),
                      sv->rgbaShaderMatrixLocation(), sv->rgbaAlphaLocation());
+}
+
+void VideoLayerChromium::resetFrameParameters()
+{
+    for (unsigned plane = 0; plane < VideoFrameChromium::maxPlanes; plane++) {
+        m_textures[plane] = 0;
+        m_textureSizes[plane] = IntSize();
+        m_frameSizes[plane] = IntSize();
+    }
+}
+
+void VideoLayerChromium::saveCurrentFrame(VideoFrameChromium* frame)
+{
+    ASSERT(!m_currentFrame);
+    m_currentFrame = frame;
+    for (unsigned plane = 0; plane < frame->planes(); plane++) {
+        m_textures[plane] = frame->texture(plane);
+        m_textureSizes[plane] = frame->requiredTextureSize(plane);
+        m_frameSizes[plane] = m_textureSizes[plane];
+    }
 }
 
 } // namespace WebCore

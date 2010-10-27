@@ -30,8 +30,13 @@
 #include "WindowsKeyboardCodes.h"
 
 #include <AEEEvent.h>
+#include <AEEIKeysMapping.h>
+#include <AEEKeysMapping.bid>
 #include <AEEStdDef.h>
 #include <AEEVCodes.h>
+
+#include <wtf/brew/RefPtrBrew.h>
+#include <wtf/brew/ShellBrew.h>
 
 namespace WebCore {
 
@@ -143,23 +148,93 @@ static int windowsKeyCodeForKeyEvent(uint16 code)
 
 static inline String singleCharacterString(UChar c)
 {
-    return String(&c, 1);
+    UChar text;
+
+    // Some key codes are not mapped to Unicode characters. Convert them to Unicode characters here.
+    switch (c) {
+    case AVK_0:
+        text = VK_0;
+        break;
+    case AVK_1:
+        text = VK_1;
+        break;
+    case AVK_2:
+        text = VK_2;
+        break;
+    case AVK_3:
+        text = VK_3;
+        break;
+    case AVK_4:
+        text = VK_4;
+        break;
+    case AVK_5:
+        text = VK_5;
+        break;
+    case AVK_6:
+        text = VK_6;
+        break;
+    case AVK_7:
+        text = VK_7;
+        break;
+    case AVK_8:
+        text = VK_8;
+        break;
+    case AVK_9:
+        text = VK_9;
+        break;
+    case AVK_STAR:
+        text = '*';
+        break;
+    case AVK_POUND:
+        text = '#';
+        break;
+    case AVK_FUNCTION1:
+        text = '=';
+        break;
+    case AVK_FUNCTION2:
+        text = '/';
+        break;
+    case AVK_FUNCTION3:
+        text = '_';
+        break;
+    case AVK_PUNC1:
+        text = ',';
+        break;
+    case AVK_PUNC2:
+        text = '.';
+        break;
+    case AVK_SPACE:
+        text = VK_SPACE;
+        break;
+    default:
+        text = c;
+        break;
+    }
+
+    return String(&text, 1);
 }
 
 PlatformKeyboardEvent::PlatformKeyboardEvent(AEEEvent event, uint16 code, uint32 modifiers, Type type)
     : m_type(type)
-    , m_text((type == Char) ? singleCharacterString(code) : String())
-    , m_unmodifiedText((type == Char) ? singleCharacterString(code) : String())
-    , m_keyIdentifier((type == Char) ? String() : keyIdentifierForBrewKeyCode(code))
-    , m_autoRepeat(modifiers & KB_AUTOREPEAT)
-    , m_windowsVirtualKeyCode((type == RawKeyDown || type == KeyUp) ? windowsKeyCodeForKeyEvent(code) : 0)
-    , m_nativeVirtualKeyCode(code)
     , m_isKeypad(false)
-    , m_shiftKey(modifiers & (KB_LSHIFT | KB_RSHIFT))
-    , m_ctrlKey(modifiers & (KB_LCTRL | KB_RCTRL))
-    , m_altKey(modifiers & (KB_LALT | KB_RALT))
     , m_metaKey(false)
+    , m_windowsVirtualKeyCode((type == RawKeyDown || type == KeyUp) ? windowsKeyCodeForKeyEvent(code) : 0)
 {
+    if ((m_type == Char) && modifiers) {
+        PlatformRefPtr<IKeysMapping> keysMapping = createRefPtrInstance<IKeysMapping>(AEECLSID_KeysMapping);
+        int result = IKeysMapping_GetMapping(keysMapping.get(), code, modifiers, reinterpret_cast<AECHAR*>(&code));
+        if (result == AEE_SUCCESS) // Reset the modifier when key code is successfully mapped.
+            modifiers = 0;
+    }
+
+    m_text = (type == Char) ? singleCharacterString(code) : String();
+    m_unmodifiedText = (type == Char) ? singleCharacterString(code) : String();
+    m_keyIdentifier = (type == Char) ? String() : keyIdentifierForBrewKeyCode(code);
+    m_nativeVirtualKeyCode = code;
+    m_autoRepeat = modifiers & KB_AUTOREPEAT;
+    m_shiftKey = modifiers & (KB_LSHIFT | KB_RSHIFT);
+    m_ctrlKey = modifiers & (KB_LCTRL | KB_RCTRL);
+    m_altKey = modifiers & (KB_LALT | KB_RALT);
 }
 
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)

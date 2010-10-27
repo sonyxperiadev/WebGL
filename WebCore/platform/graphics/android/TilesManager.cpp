@@ -157,33 +157,23 @@ void TilesManager::resetTextureUsage(TiledPage* page)
 BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
-    unsigned int max = m_textures.size();
-    // First see if we have something already painted for this tile
-    for (unsigned int i = 0; i < max; i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
-        if (texture->painter() == owner) {
-            if (texture->acquire(owner)) {
-                texture->setUsedLevel(0);
-                XLOG("same painter, getAvailableTexture(%x) => texture %x", owner, texture);
-                return texture;
-            }
-        }
+
+    // Sanity check that the tile does not already own a texture
+    if (owner->texture() && owner->texture()->owner() == owner) {
+        owner->texture()->setUsedLevel(0);
+        XLOG("same owner, getAvailableTexture(%x) => texture %x", owner, owner->texture());
+        return owner->texture();
     }
-    // Then, let's return an owned texture if any
-    for (unsigned int i = 0; i < max; i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
-        if (texture->owner() == owner) {
-            texture->setUsedLevel(0);
-            XLOG("same owner, getAvailableTexture(%x) => texture %x", owner, texture);
-            return texture;
-        }
-    }
-    // Ok... at this point we need to decide which texture to grab
-    // The texture level indicates their closeness to the current viewport;
-    // let's just grab the texture that is as far as possible, or any
-    // texture that is unused.
+
+    // The heuristic for selecting a texture is as follows:
+    //  1. return an unused texture if one exists
+    //  2. return the farthest texture from the viewport (from any tiled page)
+    //  3. return any texture not used by the tile's page or the page's sibiling
+    //
+    // The texture level indicates a tiles closeness to the current viewport
     BackedDoubleBufferedTexture* farthestTexture = 0;
     int farthestTextureLevel = 0;
+    const unsigned int max = m_textures.size();
     for (unsigned int i = 0; i < max; i++) {
         BackedDoubleBufferedTexture* texture = m_textures[i];
         if (texture->usedLevel() == -1) { // found an unused texture, grab it
@@ -201,23 +191,22 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
              owner, farthestTexture, farthestTexture->usedLevel());
         return farthestTexture;
     }
-    // At this point, all textures are used. Let's just grab one
-    // that is not ours...
-    // First, get the two tiled page associated to this, to be sure
-    // we won't starve ourselves
+
+    // At this point, all textures are used or we failed to aquire the farthest
+    // texture. Now let's just grab a texture not in use by either of the two
+    // tiled pages associated with this view.
     TiledPage* currentPage = owner->page();
     TiledPage* nextPage = currentPage->sibling();
     for (unsigned int i = 0; i < max; i++) {
         BackedDoubleBufferedTexture* texture = m_textures[i];
         if (texture->owner()
             && texture->owner()->page() != currentPage
-            && texture->owner()->page() != nextPage) {
-            if (texture->acquire(owner)) {
-                XLOG("grab a texture that wasn't ours, (%x != %x) at %d => texture %x",
-                     owner->page(), texture->owner()->page(), i, texture);
-                texture->setUsedLevel(0);
-                return texture;
-            }
+            && texture->owner()->page() != nextPage
+            && texture->acquire(owner)) {
+            XLOG("grab a texture that wasn't ours, (%x != %x) at %d => texture %x",
+                 owner->page(), texture->owner()->page(), i, texture);
+            texture->setUsedLevel(0);
+            return texture;
         }
     }
 

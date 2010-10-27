@@ -33,21 +33,23 @@
 
 #include "ChromiumBridge.h"
 #include "ClipboardMimeTypes.h"
+#include "Pasteboard.h"
+#include "PasteboardPrivate.h"
 
 namespace WebCore {
 
-static PasteboardPrivate::ClipboardBuffer clipboardBuffer(bool isForDragging)
+static PasteboardPrivate::ClipboardBuffer clipboardBuffer(Clipboard::ClipboardType clipboardType)
 {
-    return isForDragging ? PasteboardPrivate::DragBuffer : PasteboardPrivate::StandardBuffer;
+    return clipboardType == Clipboard::DragAndDrop ? PasteboardPrivate::DragBuffer : PasteboardPrivate::StandardBuffer;
 }
 
-PassRefPtr<ReadableDataObject> ReadableDataObject::create(bool isForDragging)
+PassRefPtr<ReadableDataObject> ReadableDataObject::create(Clipboard::ClipboardType clipboardType)
 {
-    return adoptRef(new ReadableDataObject(isForDragging));
+    return adoptRef(new ReadableDataObject(clipboardType));
 }
 
-ReadableDataObject::ReadableDataObject(bool isForDragging)
-    : m_isForDragging(isForDragging)
+ReadableDataObject::ReadableDataObject(Clipboard::ClipboardType clipboardType)
+    : m_clipboardType(clipboardType)
     , m_containsFilenames(false)
     , m_isTypeCacheInitialized(false)
 {
@@ -69,34 +71,51 @@ String ReadableDataObject::getData(const String& type, bool& succeeded) const
 {
     String data;
     String ignoredMetadata;
+    // Since the Chromium-side bridge isn't complete yet, we special case this
+    // for copy-and-paste, since that code path no longer uses
+    // ChromiumDataObjectLegacy.
+    if (m_clipboardType == Clipboard::CopyAndPaste) {
+        if (type == mimeTypeTextPlain) {
+            PasteboardPrivate::ClipboardBuffer buffer =
+                Pasteboard::generalPasteboard()->isSelectionMode() ?
+                PasteboardPrivate::SelectionBuffer :
+                PasteboardPrivate::StandardBuffer;
+            data = ChromiumBridge::clipboardReadPlainText(buffer);
+        } else if (type == mimeTypeTextHTML) {
+            PasteboardPrivate::ClipboardBuffer buffer =
+                Pasteboard::generalPasteboard()->isSelectionMode() ?
+                PasteboardPrivate::SelectionBuffer :
+                PasteboardPrivate::StandardBuffer;
+            KURL ignoredSourceURL;
+            ChromiumBridge::clipboardReadHTML(buffer, &data, &ignoredSourceURL);
+        }
+        succeeded = !data.isEmpty();
+        return data;
+    }
     succeeded = ChromiumBridge::clipboardReadData(
-        clipboardBuffer(m_isForDragging), type, data, ignoredMetadata);
+        clipboardBuffer(m_clipboardType), type, data, ignoredMetadata);
     return data;
 }
 
-String ReadableDataObject::getURL(String* title) const
+String ReadableDataObject::urlTitle() const
 {
-    String url;
-    String ignoredTitle;
-    if (!title)
-        title = &ignoredTitle;
+    String ignoredData;
+    String urlTitle;
     ChromiumBridge::clipboardReadData(
-        clipboardBuffer(m_isForDragging), textUriListType, url, *title);
-    return url;
+        clipboardBuffer(m_clipboardType), mimeTypeTextURIList, ignoredData, urlTitle);
+    return urlTitle;
 }
 
-String ReadableDataObject::getHTML(String* baseURL) const
+KURL ReadableDataObject::htmlBaseUrl() const
 {
-    String html;
-    String ignoredBaseURL;
-    if (!baseURL)
-        baseURL = &ignoredBaseURL;
+    String ignoredData;
+    String htmlBaseUrl;
     ChromiumBridge::clipboardReadData(
-        clipboardBuffer(m_isForDragging), textHtmlType, html, *baseURL);
-    return html;
+        clipboardBuffer(m_clipboardType), mimeTypeTextHTML, ignoredData, htmlBaseUrl);
+    return KURL(ParsedURLString, htmlBaseUrl);
 }
 
-bool ReadableDataObject::hasFilenames() const
+bool ReadableDataObject::containsFilenames() const
 {
     ensureTypeCacheInitialized();
     return m_containsFilenames;
@@ -104,7 +123,7 @@ bool ReadableDataObject::hasFilenames() const
 
 Vector<String> ReadableDataObject::filenames() const
 {
-    return ChromiumBridge::clipboardReadFilenames(clipboardBuffer(m_isForDragging));
+    return ChromiumBridge::clipboardReadFilenames(clipboardBuffer(m_clipboardType));
 }
 
 void ReadableDataObject::ensureTypeCacheInitialized() const
@@ -113,7 +132,7 @@ void ReadableDataObject::ensureTypeCacheInitialized() const
         return;
 
     m_types = ChromiumBridge::clipboardReadAvailableTypes(
-        clipboardBuffer(m_isForDragging), &m_containsFilenames);
+        clipboardBuffer(m_clipboardType), &m_containsFilenames);
     m_isTypeCacheInitialized = true;
 }
 

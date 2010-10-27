@@ -142,7 +142,7 @@ WebInspector.ResourcesPanel.prototype = {
 
         // Add a divider
         var dividerElement = document.createElement("div");
-        dividerElement.addStyleClass("divider");
+        dividerElement.addStyleClass("scope-bar-divider");
         this.filterBarElement.appendChild(dividerElement);
 
         for (var category in this.categories)
@@ -757,7 +757,6 @@ WebInspector.ResourcesPanel.prototype = {
     addResource: function(resource)
     {
         this._resources.push(resource);
-        this.refreshResource(resource);
     },
 
     removeResource: function(resource)
@@ -815,18 +814,19 @@ WebInspector.ResourcesPanel.prototype = {
 
     refreshResource: function(resource)
     {
+        this._recreateViewForResourceIfNeeded(resource);
         this.refreshItem(resource);
     },
 
-    recreateViewForResourceIfNeeded: function(resource)
+    _recreateViewForResourceIfNeeded: function(resource)
     {
         if (!resource || !resource._resourcesView)
             return;
 
-        var newView = this._createResourceView(resource);
-        if (newView.__proto__ === resource._resourcesView.__proto__)
+        if (this._resourceViewIsConsistentWithCategory(resource, resource._resourcesView))
             return;
 
+        var newView = this._createResourceView(resource);
         if (!this.currentQuery && resource._itemsTreeElement)
             resource._itemsTreeElement.updateErrorsAndWarnings();
 
@@ -1068,6 +1068,23 @@ WebInspector.ResourcesPanel.prototype = {
         this.calculator = this.summaryBar.calculator = selectedOption.calculator;
     },
 
+    _resourceViewIsConsistentWithCategory: function(resource, resourceView)
+    {
+        switch (resource.category) {
+            case WebInspector.resourceCategories.documents:
+            case WebInspector.resourceCategories.stylesheets:
+            case WebInspector.resourceCategories.scripts:
+            case WebInspector.resourceCategories.xhr:
+                return resourceView.__proto__ === WebInspector.SourceView.prototype;
+            case WebInspector.resourceCategories.images:
+                return resourceView.__proto__ === WebInspector.ImageView.prototype;
+            case WebInspector.resourceCategories.fonts:
+                return resourceView.__proto__ === WebInspector.FontView.prototype;
+            default:
+                return resourceView.__proto__ === WebInspector.ResourceView.prototype;
+        }
+    },
+
     _createResourceView: function(resource)
     {
         switch (resource.category) {
@@ -1250,17 +1267,27 @@ WebInspector.ResourcesPanel.prototype = {
 
     _contextMenu: function(event)
     {
-        // createBlobURL is enabled conditionally, do not expose resource export if it's not available.
-        if (typeof window.createBlobURL !== "function" || !Preferences.resourceExportEnabled)
-            return;
-
         var contextMenu = new WebInspector.ContextMenu();
         var resourceTreeItem = event.target.enclosingNodeOrSelfWithClass("resource-sidebar-tree-item");
-        if (resourceTreeItem && resourceTreeItem.treeElement) {
-            var resource = resourceTreeItem.treeElement.representedObject;
-            contextMenu.appendItem(WebInspector.UIString("Export to HAR"), this._exportResource.bind(this, resource));
+        var resource;
+        if (resourceTreeItem && resourceTreeItem.treeElement)
+            resource = resourceTreeItem.treeElement.representedObject;
+
+        var needSeparator = false;
+        // createObjectURL is enabled conditionally, do not expose resource export if it's not available.
+        if (typeof window.createObjectURL === "function" && Preferences.resourceExportEnabled) {
+            if (resource)
+                contextMenu.appendItem(WebInspector.UIString("Export to HAR"), this._exportResource.bind(this, resource));
+            contextMenu.appendItem(WebInspector.UIString("Export all to HAR"), this._exportAll.bind(this));
+            needSeparator = true;
         }
-        contextMenu.appendItem(WebInspector.UIString("Export all to HAR"), this._exportAll.bind(this));
+
+        if (resource && resource.category === WebInspector.resourceCategories.xhr) {
+            if (needSeparator)
+                contextMenu.appendSeparator();
+            contextMenu.appendItem(WebInspector.UIString("Set XHR Breakpoint"), WebInspector.breakpointManager.createXHRBreakpoint.bind(WebInspector.breakpointManager, resource.url));
+        }
+
         contextMenu.show(event);
     },
 
@@ -1280,11 +1307,6 @@ WebInspector.ResourcesPanel.prototype = {
 }
 
 WebInspector.ResourcesPanel.prototype.__proto__ = WebInspector.Panel.prototype;
-
-WebInspector.getResourceContent = function(identifier, callback)
-{
-    InspectorBackend.getResourceContent(identifier, callback);
-}
 
 WebInspector.ResourceBaseCalculator = function()
 {
@@ -1814,7 +1836,8 @@ WebInspector.ResourceGraph = function(resource)
     this._graphElement.className = "resources-graph-side";
     this._graphElement.addEventListener("mouseover", this.refreshLabelPositions.bind(this), false);
 
-    this._cachedChanged();
+    if (this.resource.cached)
+        this._graphElement.addStyleClass("resource-cached");
 
     this._barAreaElement = document.createElement("div");
     this._barAreaElement.className = "resources-graph-bar-area hidden";
@@ -1838,8 +1861,6 @@ WebInspector.ResourceGraph = function(resource)
     this._barAreaElement.appendChild(this._labelRightElement);
 
     this._graphElement.addStyleClass("resources-category-" + resource.category.name);
-
-    resource.addEventListener("cached changed", this._cachedChanged, this);
 }
 
 WebInspector.ResourceGraph.prototype = {
@@ -1963,11 +1984,8 @@ WebInspector.ResourceGraph.prototype = {
         this._labelLeftElement.title = tooltip;
         this._labelRightElement.title = tooltip;
         this._barRightElement.title = tooltip;
-    },
 
-    _cachedChanged: function()
-    {
-        if (this.resource.cached)
+        if (this.resource.cached && !this._graphElement.hasStyleClass("resource-cached"))
             this._graphElement.addStyleClass("resource-cached");
     }
 }

@@ -40,11 +40,11 @@
 #include "PatternAttributes.h"
 #include "RadialGradientAttributes.h"
 #include "RenderImage.h"
-#include "RenderPath.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGGradientStop.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceGradient.h"
@@ -57,15 +57,21 @@
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "RenderTreeAsText.h"
-#include "SVGCharacterLayoutInfo.h"
+#include "SVGCircleElement.h"
+#include "SVGEllipseElement.h"
 #include "SVGInlineTextBox.h"
+#include "SVGLineElement.h"
 #include "SVGLinearGradientElement.h"
+#include "SVGPathElement.h"
+#include "SVGPathParserFactory.h"
 #include "SVGPatternElement.h"
+#include "SVGPointList.h"
+#include "SVGPolyElement.h"
 #include "SVGRadialGradientElement.h"
+#include "SVGRectElement.h"
 #include "SVGRootInlineBox.h"
 #include "SVGStopElement.h"
 #include "SVGStyledElement.h"
-#include "SVGTextLayoutUtilities.h"
 
 #include <math.h>
 
@@ -316,12 +322,13 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
         writeNameValuePair(ts, "transform", object.localTransform());
     writeIfNotDefault(ts, "image rendering", svgStyle->imageRendering(), SVGRenderStyle::initialImageRendering());
     writeIfNotDefault(ts, "opacity", style->opacity(), RenderStyle::initialOpacity());
-    if (object.isRenderPath()) {
-        const RenderPath& path = static_cast<const RenderPath&>(object);
+    if (object.isSVGPath()) {
+        const RenderSVGPath& path = static_cast<const RenderSVGPath&>(object);
         ASSERT(path.node());
         ASSERT(path.node()->isSVGElement());
 
-        if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(const_cast<RenderPath*>(&path), path.style())) {
+        Color fallbackColor;
+        if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(const_cast<RenderSVGPath*>(&path), path.style(), fallbackColor)) {
             TextStreamSeparator s(" ");
             ts << " [stroke={" << s;
             writeSVGPaintingResource(ts, strokePaintingResource);
@@ -348,7 +355,7 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
             ts << "}]";
         }
 
-        if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(const_cast<RenderPath*>(&path), path.style())) {
+        if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(const_cast<RenderSVGPath*>(&path), path.style(), fallbackColor)) {
             TextStreamSeparator s(" ");
             ts << " [fill={" << s;
             writeSVGPaintingResource(ts, fillPaintingResource);
@@ -372,10 +379,46 @@ static TextStream& writePositionAndStyle(TextStream& ts, const RenderObject& obj
     return ts;
 }
 
-static TextStream& operator<<(TextStream& ts, const RenderPath& path)
+static TextStream& operator<<(TextStream& ts, const RenderSVGPath& path)
 {
     writePositionAndStyle(ts, path);
-    writeNameAndQuotedValue(ts, "data", path.path().debugString());
+
+    ASSERT(path.node()->isSVGElement());
+    SVGElement* svgElement = static_cast<SVGElement*>(path.node());
+
+    if (svgElement->hasTagName(SVGNames::rectTag)) {
+        SVGRectElement* element = static_cast<SVGRectElement*>(svgElement);
+        writeNameValuePair(ts, "x", element->x().value(element));
+        writeNameValuePair(ts, "y", element->y().value(element));
+        writeNameValuePair(ts, "width", element->width().value(element));
+        writeNameValuePair(ts, "height", element->height().value(element));
+    } else if (svgElement->hasTagName(SVGNames::lineTag)) {
+        SVGLineElement* element = static_cast<SVGLineElement*>(svgElement);
+        writeNameValuePair(ts, "x1", element->x1().value(element));
+        writeNameValuePair(ts, "y1", element->y1().value(element));
+        writeNameValuePair(ts, "x2", element->x2().value(element));
+        writeNameValuePair(ts, "y2", element->y2().value(element));
+    } else if (svgElement->hasTagName(SVGNames::ellipseTag)) {
+        SVGEllipseElement* element = static_cast<SVGEllipseElement*>(svgElement);
+        writeNameValuePair(ts, "cx", element->cx().value(element));
+        writeNameValuePair(ts, "cy", element->cy().value(element));
+        writeNameValuePair(ts, "rx", element->rx().value(element));
+        writeNameValuePair(ts, "ry", element->ry().value(element));
+    } else if (svgElement->hasTagName(SVGNames::circleTag)) {
+        SVGCircleElement* element = static_cast<SVGCircleElement*>(svgElement);
+        writeNameValuePair(ts, "cx", element->cx().value(element));
+        writeNameValuePair(ts, "cy", element->cy().value(element));
+        writeNameValuePair(ts, "r", element->r().value(element));
+    } else if (svgElement->hasTagName(SVGNames::polygonTag) || svgElement->hasTagName(SVGNames::polylineTag)) {
+        SVGPolyElement* element = static_cast<SVGPolyElement*>(svgElement);
+        writeNameAndQuotedValue(ts, "points", element->points()->valueAsString());
+    } else if (svgElement->hasTagName(SVGNames::pathTag)) {
+        SVGPathElement* element = static_cast<SVGPathElement*>(svgElement);
+        String pathString;
+        SVGPathParserFactory::self()->buildStringFromSVGPathSegList(element->pathSegList(), pathString, UnalteredParsing);
+        writeNameAndQuotedValue(ts, "data", pathString);
+    } else
+        ASSERT_NOT_REACHED();
     return ts;
 }
 
@@ -387,116 +430,72 @@ static TextStream& operator<<(TextStream& ts, const RenderSVGRoot& root)
 static void writeRenderSVGTextBox(TextStream& ts, const RenderBlock& text)
 {
     SVGRootInlineBox* box = static_cast<SVGRootInlineBox*>(text.firstRootBox());
-
     if (!box)
         return;
 
-    Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(box->svgTextChunks());
-    ts << " at (" << text.x() << "," << text.y() << ") size " << box->logicalWidth() << "x" << box->logicalHeight() << " contains " << chunks.size() << " chunk(s)";
+    ts << " at (" << text.x() << "," << text.y() << ") size " << box->logicalWidth() << "x" << box->logicalHeight();
+    
+    // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
+    ts << " contains 1 chunk(s)";
 
     if (text.parent() && (text.parent()->style()->visitedDependentColor(CSSPropertyColor) != text.style()->visitedDependentColor(CSSPropertyColor)))
         writeNameValuePair(ts, "color", text.style()->visitedDependentColor(CSSPropertyColor).name());
 }
 
-static inline bool containsInlineTextBox(SVGTextChunk& chunk, SVGInlineTextBox* box)
-{
-    Vector<SVGInlineBoxCharacterRange>::iterator boxIt = chunk.boxes.begin();
-    Vector<SVGInlineBoxCharacterRange>::iterator boxEnd = chunk.boxes.end();
-
-    bool found = false;
-    for (; boxIt != boxEnd; ++boxIt) {
-        SVGInlineBoxCharacterRange& range = *boxIt;
-
-        if (box == static_cast<SVGInlineTextBox*>(range.box)) {
-            found = true;
-            break;
-        }
-    }
-
-    return found;
-}
-
 static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textBox, int indent)
 {
-    SVGRootInlineBox* rootBox = textBox->svgRootInlineBox();
-    if (!rootBox)
+    Vector<SVGTextFragment>& fragments = textBox->textFragments();
+    if (fragments.isEmpty())
         return;
 
-    Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(rootBox->svgTextChunks());
+    RenderSVGInlineText* textRenderer = toRenderSVGInlineText(textBox->textRenderer());
+    ASSERT(textRenderer);
 
-    Vector<SVGTextChunk>::iterator it = chunks.begin();
-    Vector<SVGTextChunk>::iterator end = chunks.end();
+    const SVGRenderStyle* svgStyle = textRenderer->style()->svgStyle();
+    String text = textBox->textRenderer()->text();
 
-    // Write text chunks
-    unsigned int i = 1;
-    for (; it != end; ++it) {
-        SVGTextChunk& cur = *it;
-
-        // Write inline box character ranges
-        Vector<SVGInlineBoxCharacterRange>::iterator boxIt = cur.boxes.begin();
-        Vector<SVGInlineBoxCharacterRange>::iterator boxEnd = cur.boxes.end();
-
-        if (!containsInlineTextBox(cur, textBox)) {
-            i++;
-            continue;
-        }
-
+    unsigned fragmentsSize = fragments.size();
+    for (unsigned i = 0; i < fragmentsSize; ++i) {
+        SVGTextFragment& fragment = fragments.at(i);
         writeIndent(ts, indent + 1);
 
-        unsigned int j = 1;
-        ts << "chunk " << i << " ";
+        unsigned startOffset = fragment.positionListOffset;
+        unsigned endOffset = fragment.positionListOffset + fragment.length;
 
-        if (cur.anchor == TA_MIDDLE) {
+        // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
+        ts << "chunk 1 ";
+        ETextAnchor anchor = svgStyle->textAnchor();
+        bool isVerticalText = svgStyle->isVerticalWritingMode();
+        if (anchor == TA_MIDDLE) {
             ts << "(middle anchor";
-            if (cur.isVerticalText)
+            if (isVerticalText)
                 ts << ", vertical";
             ts << ") ";
-        } else if (cur.anchor == TA_END) {
+        } else if (anchor == TA_END) {
             ts << "(end anchor";
-            if (cur.isVerticalText)
+            if (isVerticalText)
                 ts << ", vertical";
             ts << ") ";
-        } else if (cur.isVerticalText)
+        } else if (isVerticalText)
             ts << "(vertical) ";
+        startOffset -= textBox->start();
+        endOffset -= textBox->start();
+        // </hack>
 
-        unsigned int totalOffset = 0;
+        ts << "text run " << i + 1 << " at (" << fragment.x << "," << fragment.y << ")";
+        ts << " startOffset " << startOffset << " endOffset " << endOffset;
+        if (isVerticalText)
+            ts << " height " << fragment.height;
+        else
+            ts << " width " << fragment.width;
 
-        for (; boxIt != boxEnd; ++boxIt) {
-            SVGInlineBoxCharacterRange& range = *boxIt;
-
-            unsigned int offset = range.endOffset - range.startOffset;
-            ASSERT(cur.start + totalOffset <= cur.end);
-    
-            totalOffset += offset;
-      
-            if (textBox != static_cast<SVGInlineTextBox*>(range.box)) {
-                j++;
-                continue;
-            }
-  
-            FloatPoint topLeft = topLeftPositionOfCharacterRange(cur.start + totalOffset - offset, cur.start + totalOffset);
-
-            ts << "text run " << j << " at (" << topLeft.x() << "," << topLeft.y() << ") ";
-            ts << "startOffset " << range.startOffset << " endOffset " << range.endOffset;
-
-            if (cur.isVerticalText)
-                ts << " height " << cummulatedHeightOfInlineBoxCharacterRange(range);
-            else
-                ts << " width " << cummulatedWidthOfInlineBoxCharacterRange(range);
-
-            if (textBox->direction() == RTL || textBox->m_dirOverride) {
-                ts << (textBox->direction() == RTL ? " RTL" : " LTR");
-
-                if (textBox->m_dirOverride)
-                    ts << " override";
-            }
-
-            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textRenderer()->text()).substring(textBox->start() + range.startOffset, offset)) << "\n";
-
-            j++;
+        if (!textBox->isLeftToRightDirection() || textBox->m_dirOverride) {
+            ts << (textBox->isLeftToRightDirection() ? " LTR" : " RTL");
+            if (textBox->m_dirOverride)
+                ts << " override";
         }
 
-        i++;
+        ts << ": " << quoteAndEscapeNonPrintables(text.substring(fragment.positionListOffset, fragment.length)) << "\n";
     }
 }
 
@@ -582,7 +581,9 @@ void writeSVGResourceContainer(TextStream& ts, const RenderObject& object, int i
 
         // Dump final results that are used for rendering. No use in asking SVGPatternElement for its patternUnits(), as it may
         // link to other patterns using xlink:href, we need to build the full inheritance chain, aka. collectPatternProperties()
-        PatternAttributes attributes = static_cast<SVGPatternElement*>(pattern->node())->collectPatternProperties();
+        PatternAttributes attributes;
+        static_cast<SVGPatternElement*>(pattern->node())->collectPatternAttributes(attributes);
+
         writeNameValuePair(ts, "patternUnits", boundingBoxModeString(attributes.boundingBoxMode()));
         writeNameValuePair(ts, "patternContentUnits", boundingBoxModeString(attributes.boundingBoxModeContent()));
 
@@ -597,7 +598,8 @@ void writeSVGResourceContainer(TextStream& ts, const RenderObject& object, int i
         // link to other gradients using xlink:href, we need to build the full inheritance chain, aka. collectGradientProperties()
         SVGLinearGradientElement* linearGradientElement = static_cast<SVGLinearGradientElement*>(gradient->node());
 
-        LinearGradientAttributes attributes = linearGradientElement->collectGradientProperties();
+        LinearGradientAttributes attributes;
+        linearGradientElement->collectGradientAttributes(attributes);
         writeCommonGradientProperties(ts, attributes.spreadMethod(), attributes.gradientTransform(), attributes.boundingBoxMode());
 
         FloatPoint startPoint;
@@ -612,7 +614,8 @@ void writeSVGResourceContainer(TextStream& ts, const RenderObject& object, int i
         // link to other gradients using xlink:href, we need to build the full inheritance chain, aka. collectGradientProperties()
         SVGRadialGradientElement* radialGradientElement = static_cast<SVGRadialGradientElement*>(gradient->node());
 
-        RadialGradientAttributes attributes = radialGradientElement->collectGradientProperties();
+        RadialGradientAttributes attributes;
+        radialGradientElement->collectGradientAttributes(attributes);
         writeCommonGradientProperties(ts, attributes.spreadMethod(), attributes.gradientTransform(), attributes.boundingBoxMode());
 
         FloatPoint focalPoint;
@@ -672,7 +675,7 @@ void writeSVGImage(TextStream& ts, const RenderSVGImage& image, int indent)
     writeResources(ts, image, indent);
 }
 
-void write(TextStream& ts, const RenderPath& path, int indent)
+void write(TextStream& ts, const RenderSVGPath& path, int indent)
 {
     writeStandardPrefix(ts, path, indent);
     ts << path << "\n";

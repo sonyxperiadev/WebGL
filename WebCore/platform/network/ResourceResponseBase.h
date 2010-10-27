@@ -30,6 +30,7 @@
 #include "HTTPHeaderMap.h"
 #include "KURL.h"
 #include "ResourceLoadTiming.h"
+#include "ResourceRawHeaders.h"
 
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
@@ -109,6 +110,9 @@ public:
     ResourceLoadTiming* resourceLoadTiming() const;
     void setResourceLoadTiming(PassRefPtr<ResourceLoadTiming>);
 
+    PassRefPtr<ResourceRawHeaders> resourceRawHeaders() const;
+    void setResourceRawHeaders(PassRefPtr<ResourceRawHeaders>);
+
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
     {
@@ -116,7 +120,7 @@ public:
         return 1280;
     }
 
-    static bool compare(const ResourceResponse& a, const ResourceResponse& b);
+    static bool compare(const ResourceResponse&, const ResourceResponse&);
 
 protected:
     ResourceResponseBase();
@@ -143,10 +147,12 @@ protected:
     unsigned m_connectionID;
     bool m_connectionReused : 1;
     RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
+    RefPtr<ResourceRawHeaders> m_resourceRawHeaders;
 
     bool m_isNull : 1;
     
 private:
+    const ResourceResponse& asResourceResponse() const;
     void parseCacheControlDirectives() const;
 
     mutable bool m_haveParsedCacheControlHeader : 1;
@@ -169,7 +175,7 @@ private:
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
 inline bool operator!=(const ResourceResponse& a, const ResourceResponse& b) { return !(a == b); }
 
-struct CrossThreadResourceResponseData : Noncopyable {
+struct CrossThreadResourceResponseDataBase : Noncopyable {
     KURL m_url;
     String m_mimeType;
     long long m_expectedContentLength;

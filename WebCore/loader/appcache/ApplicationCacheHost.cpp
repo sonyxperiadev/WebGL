@@ -55,6 +55,8 @@ ApplicationCacheHost::ApplicationCacheHost(DocumentLoader* documentLoader)
 
 ApplicationCacheHost::~ApplicationCacheHost()
 {
+    ASSERT(!m_applicationCache || !m_candidateApplicationCacheGroup || m_applicationCache->group() == m_candidateApplicationCacheGroup);
+
     if (m_applicationCache)
         m_applicationCache->group()->disassociateDocumentLoader(m_documentLoader);
     else if (m_candidateApplicationCacheGroup)
@@ -126,7 +128,10 @@ void ApplicationCacheHost::failedLoadingMainResource()
 {
     ApplicationCacheGroup* group = m_candidateApplicationCacheGroup;
     if (!group && m_applicationCache) {
-        ASSERT(!mainResourceApplicationCache()); // If the main resource were loaded from a cache, it wouldn't fail.
+        if (mainResourceApplicationCache()) {
+            // Even when the main resource is being loaded from an application cache, loading can fail if aborted.
+            return;
+        }
         group = m_applicationCache->group();
     }
     
@@ -237,6 +242,16 @@ void ApplicationCacheHost::notifyDOMApplicationCache(EventID id, int total, int 
         return;
     }
     dispatchDOMEvent(id, total, done);
+}
+
+void ApplicationCacheHost::stopLoadingInFrame(Frame* frame)
+{
+    ASSERT(!m_applicationCache || !m_candidateApplicationCacheGroup || m_applicationCache->group() == m_candidateApplicationCacheGroup);
+
+    if (m_candidateApplicationCacheGroup)
+        m_candidateApplicationCacheGroup->stopLoadingInFrame(frame);
+    else if (m_applicationCache)
+        m_applicationCache->group()->stopLoadingInFrame(frame);
 }
 
 void ApplicationCacheHost::stopDeferringEvents()

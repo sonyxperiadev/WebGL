@@ -134,6 +134,7 @@ _PATH_RULES_SPECIFIER = [
     ([# The GTK+ APIs use GTK+ naming style, which includes
       # lower-cased, underscore-separated values.
       # Also, GTK+ allows the use of NULL.
+      "WebCore/bindings/scripts/test/GObject",
       "WebKit/gtk/webkit/",
       "WebKitTools/DumpRenderTree/gtk/"],
      ["-readability/naming",
@@ -142,6 +143,10 @@ _PATH_RULES_SPECIFIER = [
       # exceptional header guards (e.g., WebCore_FWD_Debugger_h).
       "/ForwardingHeaders/"],
      ["-build/header_guard"]),
+    ([# assembler has lots of opcodes that use underscores, so
+      # we don't check for underscores in that directory.
+      "/JavaScriptCore/assembler/"],
+     ["-readability/naming"]),
 
     # For third-party Python code, keep only the following checks--
     #

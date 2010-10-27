@@ -73,7 +73,7 @@ static inline bool compareLayerZ(const LayerChromium* a, const LayerChromium* b)
     return transformA.m43() < transformB.m43();
 }
 
-PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassOwnPtr<GraphicsContext3D> context)
+PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassRefPtr<GraphicsContext3D> context)
 {
     if (!context)
         return 0;
@@ -85,7 +85,7 @@ PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassOwnPtr<Graph
     return layerRenderer.release();
 }
 
-LayerRendererChromium::LayerRendererChromium(PassOwnPtr<GraphicsContext3D> context)
+LayerRendererChromium::LayerRendererChromium(PassRefPtr<GraphicsContext3D> context)
     : m_rootLayerTextureId(0)
     , m_rootLayerTextureWidth(0)
     , m_rootLayerTextureHeight(0)
@@ -127,7 +127,6 @@ void LayerRendererChromium::setRootLayerCanvasSize(const IntSize& size)
     // the old ones.
     m_rootLayerCanvas = new skia::PlatformCanvas(size.width(), size.height(), false);
     m_rootLayerSkiaContext = new PlatformContextSkia(m_rootLayerCanvas.get());
-    m_rootLayerSkiaContext->setDrawingToImageBuffer(true);
     m_rootLayerGraphicsContext = new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(m_rootLayerSkiaContext.get()));
 #elif PLATFORM(CG)
     // Release the previous CGBitmapContext before reallocating the backing store as a precaution.
@@ -204,6 +203,8 @@ void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, cons
     GLC(m_context, m_context->disable(GraphicsContext3D::CULL_FACE));
     GLC(m_context, m_context->depthFunc(GraphicsContext3D::LEQUAL));
     GLC(m_context, m_context->clearStencil(0));
+    // Blending disabled by default. Root layer alpha channel on Windows is incorrect when Skia uses ClearType. 
+    GLC(m_context, m_context->disable(GraphicsContext3D::BLEND)); 
 
     if (m_scrollPosition == IntPoint(-1, -1)) {
         m_scrollPosition = scrollPosition;
@@ -284,11 +285,15 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
     const ContentLayerChromium::SharedValues* contentLayerValues = contentLayerSharedValues();
     useShader(contentLayerValues->contentShaderProgram());
     GLC(m_context, m_context->uniform1i(contentLayerValues->shaderSamplerLocation(), 0));
+    // Mask out writes to alpha channel: ClearType via Skia results in invalid
+    // zero alpha values on text glyphs. The root layer is always opaque.
+    GLC(m_context, m_context->colorMask(true, true, true, false));
     TransformationMatrix layerMatrix;
     layerMatrix.translate3d(visibleRect.width() * 0.5f, visibleRect.height() * 0.5f, 0);
     LayerChromium::drawTexturedQuad(m_context.get(), m_projectionMatrix, layerMatrix,
                                     visibleRect.width(), visibleRect.height(), 1,
                                     contentLayerValues->shaderMatrixLocation(), contentLayerValues->shaderAlphaLocation());
+    GLC(m_context, m_context->colorMask(true, true, true, true));
 
     // If culling is enabled then we will cull the backface.
     GLC(m_context, m_context->cullFace(GraphicsContext3D::BACK));
@@ -302,8 +307,9 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
     GLC(m_context, m_context->enable(GraphicsContext3D::BLEND));
     GLC(m_context, m_context->blendFunc(GraphicsContext3D::ONE, GraphicsContext3D::ONE_MINUS_SRC_ALPHA));
 
-    // Set the rootVisibleRect --- used by subsequent drawLayers calls
+    // Set the root visible/content rects --- used by subsequent drawLayers calls.
     m_rootVisibleRect = visibleRect;
+    m_rootContentRect = contentRect;
 
     // Traverse the layer tree and update the layer transforms.
     float opacity = 1;
@@ -315,7 +321,7 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
 
     // Enable scissoring to avoid rendering composited layers over the scrollbars.
     GLC(m_context, m_context->enable(GraphicsContext3D::SCISSOR_TEST));
-    FloatRect scissorRect(contentRect);
+    IntRect scissorRect(contentRect);
 
     // The scissorRect should not include the scroll offset.
     scissorRect.move(-m_scrollPosition.x(), -m_scrollPosition.y());
@@ -328,9 +334,10 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
 
     // Traverse the layer tree one more time to draw the layers.
     for (size_t i = 0; i < sublayers.size(); i++)
-        drawLayersRecursive(sublayers[i].get(), scissorRect);
+        drawLayersRecursive(sublayers[i].get());
 
     GLC(m_context, m_context->disable(GraphicsContext3D::SCISSOR_TEST));
+    GLC(m_context, m_context->disable(GraphicsContext3D::BLEND));
 }
 
 void LayerRendererChromium::finish()
@@ -494,14 +501,14 @@ void LayerRendererChromium::drawLayerIntoStencilBuffer(LayerChromium* layer, boo
 }
 
 // Recursively walk the layer tree and draw the layers.
-void LayerRendererChromium::drawLayersRecursive(LayerChromium* layer, const FloatRect& scissorRect)
+void LayerRendererChromium::drawLayersRecursive(LayerChromium* layer)
 {
     static bool depthTestEnabledForSubtree = false;
     static int currentStencilValue = 0;
 
     // Check if the layer falls within the visible bounds of the page.
-    FloatRect layerRect = layer->getDrawRect();
-    bool isLayerVisible = scissorRect.intersects(layerRect);
+    IntRect layerRect = layer->getDrawRect();
+    bool isLayerVisible = m_currentScissorRect.intersects(layerRect);
 
     // Enable depth testing for this layer and all its descendants if preserves3D is set.
     bool mustClearDepth = false;
@@ -520,15 +527,16 @@ void LayerRendererChromium::drawLayersRecursive(LayerChromium* layer, const Floa
 
     // FIXME: We should check here if the layer has descendants that draw content
     // before we setup for clipping.
-    FloatRect currentScissorRect = scissorRect;
+    IntRect previousScissorRect = m_currentScissorRect;
     bool mustResetScissorRect = false;
     bool didStencilDraw = false;
     if (layer->masksToBounds()) {
         // If the layer isn't rotated then we can use scissoring otherwise we need
         // to clip using the stencil buffer.
         if (layer->drawTransform().isIdentityOrTranslation()) {
+            IntRect currentScissorRect = previousScissorRect;
             currentScissorRect.intersect(layerRect);
-            if (currentScissorRect != scissorRect) {
+            if (currentScissorRect != previousScissorRect) {
                 scissorToRect(currentScissorRect);
                 mustResetScissorRect = true;
             }
@@ -573,11 +581,11 @@ void LayerRendererChromium::drawLayersRecursive(LayerChromium* layer, const Floa
         std::stable_sort(sublayerList.begin(), sublayerList.end(), compareLayerZ);
 
         for (i = 0; i < sublayerList.size(); i++)
-            drawLayersRecursive(sublayerList[i], currentScissorRect);
+            drawLayersRecursive(sublayerList[i]);
     } else {
         const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
         for (size_t i = 0; i < sublayers.size(); i++)
-            drawLayersRecursive(sublayers[i].get(), currentScissorRect);
+            drawLayersRecursive(sublayers[i].get());
     }
 
     if (didStencilDraw) {
@@ -593,7 +601,7 @@ void LayerRendererChromium::drawLayersRecursive(LayerChromium* layer, const Floa
     }
 
     if (mustResetScissorRect) {
-        scissorToRect(scissorRect);
+        scissorToRect(previousScissorRect);
     }
 
     if (mustClearDepth) {
@@ -629,11 +637,12 @@ void LayerRendererChromium::drawLayer(LayerChromium* layer)
 
 // Sets the scissor region to the given rectangle. The coordinate system for the
 // scissorRect has its origin at the top left corner of the current visible rect.
-void LayerRendererChromium::scissorToRect(const FloatRect& scissorRect)
+void LayerRendererChromium::scissorToRect(const IntRect& scissorRect)
 {
     // Compute the lower left corner of the scissor rect.
-    float bottom = std::max((float)m_rootVisibleRect.height() - scissorRect.bottom(), 0.f);
+    int bottom = std::max(m_rootVisibleRect.height() - scissorRect.bottom(), 0);
     GLC(m_context, m_context->scissor(scissorRect.x(), bottom, scissorRect.width(), scissorRect.height()));
+    m_currentScissorRect = scissorRect;
 }
 
 bool LayerRendererChromium::makeContextCurrent()

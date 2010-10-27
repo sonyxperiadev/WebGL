@@ -26,26 +26,24 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import datetime
+
 from google.appengine.ext import db
 from google.appengine.ext import webapp
 
-from model.workitems import WorkItems
-from model.activeworkitems import ActiveWorkItems
-from model import queuestatus
-
-from datetime import datetime, timedelta
+from model.queues import Queue
 
 
 class NextPatch(webapp.RequestHandler):
-    def _get_next_patch_id(self, queue_name):
-        work_items = WorkItems.all().filter("queue_name =", queue_name).get()
-        if not work_items:
-            return None
-        active_work_items = ActiveWorkItems.get_or_insert(key_name=queue_name, queue_name=queue_name)
-        return db.run_in_transaction(self._assign_patch, active_work_items.key(), work_items.item_ids)
-
+    # FIXME: This should probably be a post, or an explict lock_patch
+    # since GET requests shouldn't really modify the datastore.
     def get(self, queue_name):
-        patch_id = self._get_next_patch_id(queue_name)
+        queue = Queue.queue_with_name(queue_name)
+        if not queue:
+            self.error(404)
+            return
+        # FIXME: Patch assignment should probably move into Queue.
+        patch_id = db.run_in_transaction(self._assign_patch, queue.active_work_items().key(), queue.work_items().item_ids)
         if not patch_id:
             self.error(404)
             return

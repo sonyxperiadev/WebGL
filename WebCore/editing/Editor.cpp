@@ -95,10 +95,14 @@ VisibleSelection Editor::selectionForCommand(Event* event)
     Node* target = event->target()->toNode();
     Node* selectionStart = selection.start().node();
     if (target && (!selectionStart || target->shadowAncestorNode() != selectionStart->shadowAncestorNode())) {
+        RefPtr<Range> range;
         if (target->hasTagName(inputTag) && static_cast<HTMLInputElement*>(target)->isTextField())
-            return static_cast<HTMLInputElement*>(target)->selection();
-        if (target->hasTagName(textareaTag))
-            return static_cast<HTMLTextAreaElement*>(target)->selection();
+            range = static_cast<HTMLInputElement*>(target)->selection();
+        else if (target->hasTagName(textareaTag))
+            range = static_cast<HTMLTextAreaElement*>(target)->selection();
+
+        if (range)
+            return VisibleSelection(range.get());
     }
     return selection;
 }
@@ -643,7 +647,7 @@ bool Editor::hasBidiSelection() const
         return false;
 
     RenderStyle* style = renderer->style();
-    if (style->direction() == RTL)
+    if (!style->isLeftToRightDirection())
         return true;
 
     return toRenderBlock(renderer)->containsNonZeroBidiLevel();
@@ -2373,6 +2377,49 @@ void Editor::markMisspellingsAndBadGrammar(const VisibleSelection &movingSelecti
 void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
 {
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    // Apply pending autocorrection before next round of spell checking.
+    bool didApplyCorrection = false;
+    if (m_rangeToBeReplacedByCorrection) {
+        ExceptionCode ec = 0;
+        RefPtr<Range> paragraphRangeContainingCorrection = m_rangeToBeReplacedByCorrection->cloneRange(ec);
+        if (!ec) {
+            setStart(paragraphRangeContainingCorrection.get(), startOfParagraph(m_rangeToBeReplacedByCorrection->startPosition()));
+            setEnd(paragraphRangeContainingCorrection.get(), endOfParagraph(m_rangeToBeReplacedByCorrection->endPosition()));
+            // After we replace the word at range m_rangeToBeReplacedByCorrection, we need to add 
+            // autocorrection underline at that range. However, once the replacement took place, the
+            // value of m_rangeToBeReplacedByCorrection is not valid anymore. So before we carry out
+            // the replacement, we need to store the start position of m_rangeToBeReplacedByCorrection
+            // relative to the start position of the containing paragraph. We use correctionStartOffsetInParagraph
+            // to store this value. In order to obtain this offset, we need to first create a range
+            // which spans from the start of paragraph to the start position of m_rangeToBeReplacedByCorrection.
+            RefPtr<Range> correctionStartOffsetInParagraphAsRange = Range::create(paragraphRangeContainingCorrection->startContainer(ec)->document(), paragraphRangeContainingCorrection->startPosition(), paragraphRangeContainingCorrection->startPosition());
+            if (!ec) {
+                Position startPositionOfRangeToBeReplaced = m_rangeToBeReplacedByCorrection->startPosition();
+                correctionStartOffsetInParagraphAsRange->setEnd(startPositionOfRangeToBeReplaced.containerNode(), startPositionOfRangeToBeReplaced.computeOffsetInContainerNode(), ec);
+                if (!ec) {
+                    // Take note of the location of autocorrection so that we can add marker after the replacement took place.
+                    int correctionStartOffsetInParagraph = TextIterator::rangeLength(correctionStartOffsetInParagraphAsRange.get());
+                    Position caretPosition = m_frame->selection()->selection().end();
+                    RefPtr<Range> rangeToBeReplaced = m_rangeToBeReplacedByCorrection->cloneRange(ec);
+                    VisibleSelection selectionToReplace(rangeToBeReplaced.get(), DOWNSTREAM);
+                    if (m_frame->selection()->shouldChangeSelection(selectionToReplace)) {
+                        m_frame->selection()->setSelection(selectionToReplace);
+                        replaceSelectionWithText(m_correctionReplacementString, false, false);
+                        caretPosition.moveToOffset(caretPosition.offsetInContainerNode() + m_correctionReplacementString.length() - m_stringToBeReplacedByCorrection.length());
+                        RefPtr<Range> replacementRange = TextIterator::subrange(paragraphRangeContainingCorrection.get(), correctionStartOffsetInParagraph, m_correctionReplacementString.length());
+                        replacementRange->startContainer()->document()->markers()->addMarker(replacementRange.get(), DocumentMarker::Replacement, m_correctionReplacementString);
+                        replacementRange->startContainer()->document()->markers()->addMarker(replacementRange.get(), DocumentMarker::CorrectionIndicator);
+                        m_frame->selection()->moveTo(caretPosition, false);
+                        didApplyCorrection = true;
+                    }
+                }
+            }
+        }
+        m_rangeToBeReplacedByCorrection.clear();
+    }
+#endif
+
     TextCheckingOptions textCheckingOptions = 0;
     if (isContinuousSpellCheckingEnabled())
         textCheckingOptions |= MarkSpelling;
@@ -2723,6 +2770,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                             totalBoundingBox.unite(it->boundingBox());
                         m_rangeToBeReplacedByCorrection = rangeToReplace;
                         m_stringToBeReplacedByCorrection = replacedString;
+                        m_correctionReplacementString = result->replacement;
                         client()->showCorrectionPanel(totalBoundingBox, m_stringToBeReplacedByCorrection, result->replacement, this);
                         doReplacement = false;
                     }
@@ -2734,10 +2782,6 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                         if (resultLocation < selectionOffset)
                             selectionOffset += replacementLength - resultLength;
                         if (result->type == TextCheckingTypeCorrection) {
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-                            if (client())
-                                client()->dismissCorrectionPanel(true);
-#endif
                             // Add a marker so that corrections can easily be undone and won't be re-corrected.
                             RefPtr<Range> replacedRange = TextIterator::subrange(paragraphRange.get(), resultLocation, replacementLength);
                             replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::Replacement, replacedString);
@@ -2826,10 +2870,10 @@ void Editor::startCorrectionPanelTimer()
 {
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     static const double correctionPanelTimerInterval = 0.3;
-    if (client())
-        client()->dismissCorrectionPanel(true);
-    if (isAutomaticSpellingCorrectionEnabled())
+    if (isAutomaticSpellingCorrectionEnabled()) {
+        m_rangeToBeReplacedByCorrection.clear();
         m_correctionPanelTimer.startOneShot(correctionPanelTimerInterval);
+    }
 #endif
 }
 
@@ -3565,12 +3609,12 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection, boo
             }
         }
 
+#if !PLATFORM(MAC) || (PLATFORM(MAC) && (defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)))
         // This only erases markers that are in the first unit (word or sentence) of the selection.
-        // Perhaps peculiar, but it matches AppKit.
-        if (RefPtr<Range> wordRange = newAdjacentWords.toNormalizedRange()) {
+        // Perhaps peculiar, but it matches AppKit on these Mac OSX versions.
+        if (RefPtr<Range> wordRange = newAdjacentWords.toNormalizedRange())
             m_frame->document()->markers()->removeMarkers(wordRange.get(), DocumentMarker::Spelling);
-            m_frame->document()->markers()->removeMarkers(wordRange.get(), DocumentMarker::Replacement);
-        }
+#endif
         if (RefPtr<Range> sentenceRange = newSelectedSentence.toNormalizedRange())
             m_frame->document()->markers()->removeMarkers(sentenceRange.get(), DocumentMarker::Grammar);
     }

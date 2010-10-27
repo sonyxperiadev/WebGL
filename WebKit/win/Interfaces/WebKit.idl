@@ -100,7 +100,6 @@ import "ocidl.idl";
 #include "IWebHistoryItemPrivate.idl"
 #include "IWebHistoryPrivate.idl"
 #include "IWebIconDatabase.idl"
-#include "IWebIconFetcher.idl"
 #include "IWebInspector.idl"
 #include "IWebInspectorPrivate.idl"
 #include "IWebJavaScriptCollector.idl"
@@ -123,6 +122,7 @@ import "ocidl.idl";
 #include "IWebScrollBarPrivate.idl"
 #include "IWebSecurityOrigin.idl"
 #include "IWebSerializedJSValue.idl"
+#include "IWebSerializedJSValuePrivate.idl"
 #include "IWebTextRenderer.idl"
 #include "IWebUIDelegate.idl"
 #include "IWebUIDelegate2.idl"
@@ -300,3 +300,4 @@ library WebKit
         [default] interface IWebUserContentURLPattern;
     }
 }
+

@@ -26,16 +26,12 @@
 #ifndef GraphicsContext3D_h
 #define GraphicsContext3D_h
 
-#if PLATFORM(MAC)
-#include "ANGLEWebKitBridge.h"
-#endif
 #include "GraphicsLayer.h"
 #include "PlatformString.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
 
 // FIXME: Find a better way to avoid the name confliction for NO_ERROR.
 #if ((PLATFORM(CHROMIUM) && OS(WINDOWS)) || PLATFORM(WIN) || (PLATFORM(QT) && OS(WINDOWS)))
@@ -43,6 +39,7 @@
 #endif
 
 #if PLATFORM(MAC)
+#include "ANGLEWebKitBridge.h"
 #include <OpenGL/OpenGL.h>
 #include <wtf/RetainPtr.h>
 
@@ -78,6 +75,7 @@ const Platform3DObject NullPlatform3DObject = 0;
 
 namespace WebCore {
 class CanvasRenderingContext;
+class DrawingBuffer;
 class HostWindow;
 class Image;
 class ImageData;
@@ -94,7 +92,7 @@ struct ActiveInfo {
 class GraphicsContext3DInternal;
 #endif
 
-class GraphicsContext3D : public Noncopyable {
+class GraphicsContext3D : public RefCounted<GraphicsContext3D> {
 public:
     enum WebGLEnumType {
         DEPTH_BUFFER_BIT = 0x00000100,
@@ -409,7 +407,13 @@ public:
 
         // GL_CHROMIUM_map_sub (enums inherited from GL_ARB_vertex_buffer_object)
         READ_ONLY = 0x88B8,
-        WRITE_ONLY = 0x88B9
+        WRITE_ONLY = 0x88B9,
+
+        // GL_ARB_robustness enums
+        GUILTY_CONTEXT_RESET_ARB = 0x8253,
+        INNOCENT_CONTEXT_RESET_ARB = 0x8254,
+        UNKNOWN_CONTEXT_RESET_ARB = 0x8255
+
     };
 
     // Context creation attributes.
@@ -435,8 +439,8 @@ public:
         RenderDirectlyToHostWindow
     };
 
-    static PassOwnPtr<GraphicsContext3D> create(Attributes attrs, HostWindow* hostWindow, RenderStyle renderStyle = RenderOffscreen);
-    virtual ~GraphicsContext3D();
+    static PassRefPtr<GraphicsContext3D> create(Attributes, HostWindow*, RenderStyle = RenderOffscreen);
+    ~GraphicsContext3D();
 
 #if PLATFORM(MAC)
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return m_contextObj; }
@@ -463,6 +467,8 @@ public:
 #endif
     void makeContextCurrent();
 
+    PassRefPtr<DrawingBuffer> createDrawingBuffer(const IntSize& = IntSize());
+    
 #if PLATFORM(MAC) || PLATFORM(CHROMIUM)
     // With multisampling on, blit from multisampleFBO to regular FBO.
     void prepareTexture();
@@ -535,16 +541,32 @@ public:
     // by non-member functions.
     enum SourceDataFormat {
         kSourceFormatRGBA8,
+        kSourceFormatRGBA16Little,
+        kSourceFormatRGBA16Big,
         kSourceFormatRGB8,
+        kSourceFormatRGB16Little,
+        kSourceFormatRGB16Big,
         kSourceFormatBGRA8,
+        kSourceFormatBGRA16Little,
+        kSourceFormatBGRA16Big,
         kSourceFormatARGB8,
+        kSourceFormatARGB16Little,
+        kSourceFormatARGB16Big,
         kSourceFormatRGBA5551,
         kSourceFormatRGBA4444,
         kSourceFormatRGB565,
         kSourceFormatR8,
+        kSourceFormatR16Little,
+        kSourceFormatR16Big,
         kSourceFormatRA8,
+        kSourceFormatRA16Little,
+        kSourceFormatRA16Big,
         kSourceFormatAR8,
-        kSourceFormatA8
+        kSourceFormatAR16Little,
+        kSourceFormatAR16Big,
+        kSourceFormatA8,
+        kSourceFormatA16Little,
+        kSourceFormatA16Big
     };
 
     //----------------------------------------------------------------------
@@ -776,6 +798,9 @@ public:
     // GL_CHROMIUM_copy_texture_to_parent_texture
     bool supportsCopyTextureToParentTextureCHROMIUM();
     void copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture);
+
+    // GL_ARB_robustness
+    int getGraphicsResetStatusARB();
 
   private:
     GraphicsContext3D(Attributes attrs, HostWindow* hostWindow, bool renderDirectlyToHostWindow);

@@ -32,11 +32,11 @@
 #include "TextInputController.h"
 
 #include "TestShell.h"
-#include "public/WebBindings.h"
-#include "public/WebFrame.h"
-#include "public/WebRange.h"
-#include "public/WebString.h"
-#include "public/WebView.h"
+#include "WebBindings.h"
+#include "WebFrame.h"
+#include "WebRange.h"
+#include "WebString.h"
+#include "WebView.h"
 #include <wtf/StringExtras.h>
 #include <string>
 
@@ -58,7 +58,6 @@ TextInputController::TextInputController(TestShell* shell)
     bindMethod("doCommand", &TextInputController::doCommand);
     bindMethod("firstRectForCharacterRange", &TextInputController::firstRectForCharacterRange);
     bindMethod("hasMarkedText", &TextInputController::hasMarkedText);
-    bindMethod("hasSpellingMarker", &TextInputController::hasSpellingMarker);
     bindMethod("insertText", &TextInputController::insertText);
     bindMethod("makeAttributedString", &TextInputController::makeAttributedString);
     bindMethod("markedRange", &TextInputController::markedRange);
@@ -232,15 +231,4 @@ void TextInputController::makeAttributedString(const CppArgumentList&, CppVarian
 {
     // FIXME: Implement this.
     result->setNull();
-}
-
-void TextInputController::hasSpellingMarker(const CppArgumentList& arguments, CppVariant* result)
-{
-    if (arguments.size() < 2 || !arguments[0].isNumber() || !arguments[1].isNumber())
-        return;
-    WebFrame* mainFrame = getMainFrame();
-    if (!mainFrame)
-        return;
-    // Returns as a number for a compatibility reason.
-    result->set(mainFrame->selectionStartHasSpellingMarkerFor(arguments[0].toInt32(), arguments[1].toInt32()) ? 1 : 0);
 }

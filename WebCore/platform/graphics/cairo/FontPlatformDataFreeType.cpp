@@ -75,21 +75,42 @@ void setCairoFontOptionsFromFontConfigPattern(cairo_font_options_t* options, FcP
     FcBool booleanResult;
     int integerResult;
 
-    // We will determine if subpixel anti-aliasing is enabled via the FC_RGBA setting.
-    if (FcPatternGetBool(pattern, FC_ANTIALIAS, 0, &booleanResult) == FcResultMatch && booleanResult)
-        cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_GRAY);
-
     if (FcPatternGetInteger(pattern, FC_RGBA, 0, &integerResult) == FcResultMatch) {
+        cairo_font_options_set_subpixel_order(options, convertFontConfigSubpixelOrder(integerResult));
+
+        // Based on the logic in cairo-ft-font.c in the cairo source, a font with
+        // a subpixel order implies that is uses subpixel antialiasing.
         if (integerResult != FC_RGBA_NONE)
             cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_SUBPIXEL);
-        cairo_font_options_set_subpixel_order(options, convertFontConfigSubpixelOrder(integerResult));
+    }
+
+    if (FcPatternGetBool(pattern, FC_ANTIALIAS, 0, &booleanResult) == FcResultMatch) {
+        // Only override the anti-aliasing setting if was previously turned off. Otherwise
+        // we'll override the preference which decides between gray anti-aliasing and
+        // subpixel anti-aliasing.
+        if (!booleanResult)
+            cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_NONE);
+        else if (cairo_font_options_get_antialias(options) == CAIRO_ANTIALIAS_NONE)
+            cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_GRAY);
     }
 
     if (FcPatternGetInteger(pattern, FC_HINT_STYLE, 0, &integerResult) == FcResultMatch)
         cairo_font_options_set_hint_style(options, convertFontConfigHintStyle(integerResult));
-
     if (FcPatternGetBool(pattern, FC_HINTING, 0, &booleanResult) == FcResultMatch && !booleanResult)
         cairo_font_options_set_hint_style(options, CAIRO_HINT_STYLE_NONE);
+}
+
+static const cairo_font_options_t* getDefaultFontOptions()
+{
+    static const cairo_font_options_t* options = cairo_font_options_create();
+#if PLATFORM(GTK) || ENABLE(GLIB_SUPPORT)
+    if (GdkScreen* screen = gdk_screen_get_default()) {
+        const cairo_font_options_t* screenOptions = gdk_screen_get_font_options(screen);
+        if (screenOptions)
+            options = screenOptions;
+    }
+#endif
+    return options;
 }
 
 FontPlatformData::FontPlatformData(FcPattern* pattern, const FontDescription& fontDescription)
@@ -98,17 +119,21 @@ FontPlatformData::FontPlatformData(FcPattern* pattern, const FontDescription& fo
     , m_size(fontDescription.computedPixelSize())
     , m_syntheticBold(false)
     , m_syntheticOblique(false)
+    , m_fixedWidth(false)
 {
-    cairo_font_options_t* options = cairo_font_options_create();
-    setCairoFontOptionsFromFontConfigPattern(options, pattern);
-
-    cairo_matrix_t fontMatrix;
-    cairo_matrix_init_scale(&fontMatrix, m_size, m_size);
-    cairo_matrix_t ctm;
-    cairo_matrix_init_identity(&ctm);
-
     PlatformRefPtr<cairo_font_face_t> fontFace = adoptPlatformRef(cairo_ft_font_face_create_for_pattern(m_pattern.get()));
-    m_scaledFont = adoptPlatformRef(cairo_scaled_font_create(fontFace.get(), &fontMatrix, &ctm, options));
+    initializeWithFontFace(fontFace.get());
+
+    int spacing;
+    if (FcPatternGetInteger(pattern, FC_SPACING, 0, &spacing) == FcResultMatch && spacing == FC_MONO)
+        m_fixedWidth = true;
+
+    if (fontDescription.weight() >= FontWeightBold) {
+        // The FC_EMBOLDEN property instructs us to fake the boldness of the font.
+        FcBool fontConfigEmbolden;
+        if (FcPatternGetBool(pattern, FC_EMBOLDEN, 0, &fontConfigEmbolden) == FcResultMatch)
+            m_syntheticBold = fontConfigEmbolden;
+    }
 }
 
 FontPlatformData::FontPlatformData(float size, bool bold, bool italic)
@@ -116,7 +141,9 @@ FontPlatformData::FontPlatformData(float size, bool bold, bool italic)
     , m_size(size)
     , m_syntheticBold(bold)
     , m_syntheticOblique(italic)
+    , m_fixedWidth(false)
 {
+    // We cannot create a scaled font here.
 }
 
 FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, float size, bool bold, bool italic)
@@ -125,24 +152,13 @@ FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, float size, bool
     , m_syntheticBold(bold)
     , m_syntheticOblique(italic)
 {
-    cairo_matrix_t fontMatrix;
-    cairo_matrix_init_scale(&fontMatrix, size, size);
-    cairo_matrix_t ctm;
-    cairo_matrix_init_identity(&ctm);
-    static const cairo_font_options_t* defaultOptions = cairo_font_options_create();
-    const cairo_font_options_t* options = NULL;
+    initializeWithFontFace(fontFace);
 
-#if !PLATFORM(EFL) || ENABLE(GLIB_SUPPORT)
-    if (GdkScreen* screen = gdk_screen_get_default())
-        options = gdk_screen_get_font_options(screen);
-#endif
-
-    // gdk_screen_get_font_options() returns NULL if no default options are
-    // set, so we always have to check.
-    if (!options)
-        options = defaultOptions;
-
-    m_scaledFont = adoptPlatformRef(cairo_scaled_font_create(fontFace, &fontMatrix, &ctm, options));
+    FT_Face fontConfigFace = cairo_ft_scaled_font_lock_face(m_scaledFont.get());
+    if (fontConfigFace) {
+        m_fixedWidth = fontConfigFace->face_flags & FT_FACE_FLAG_FIXED_WIDTH;
+        cairo_ft_scaled_font_unlock_face(m_scaledFont.get());
+    }
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
@@ -154,6 +170,7 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
     m_size = other.m_size;
     m_syntheticBold = other.m_syntheticBold;
     m_syntheticOblique = other.m_syntheticOblique;
+    m_fixedWidth = other.m_fixedWidth;
     m_scaledFont = other.m_scaledFont;
     m_pattern = other.m_pattern;
 
@@ -172,6 +189,16 @@ FontPlatformData::FontPlatformData(const FontPlatformData& other)
     *this = other;
 }
 
+FontPlatformData::FontPlatformData(const FontPlatformData& other, float size)
+{
+    *this = other;
+
+    // We need to reinitialize the instance, because the difference in size 
+    // necessitates a new scaled font instance.
+    m_size = size;
+    initializeWithFontFace(cairo_scaled_font_get_font_face(m_scaledFont.get()));
+}
+
 FontPlatformData::~FontPlatformData()
 {
     if (m_fallbacks) {
@@ -182,14 +209,7 @@ FontPlatformData::~FontPlatformData()
 
 bool FontPlatformData::isFixedPitch()
 {
-    // TODO: Support isFixedPitch() for custom fonts.
-    if (!m_pattern)
-        return false;
-
-    int spacing;
-    if (FcPatternGetInteger(m_pattern.get(), FC_SPACING, 0, &spacing) == FcResultMatch)
-        return spacing == FC_MONO;
-    return false;
+    return m_fixedWidth;
 }
 
 bool FontPlatformData::operator==(const FontPlatformData& other) const
@@ -207,5 +227,38 @@ String FontPlatformData::description() const
     return String();
 }
 #endif
+
+void FontPlatformData::initializeWithFontFace(cairo_font_face_t* fontFace)
+{
+    cairo_font_options_t* options = cairo_font_options_copy(getDefaultFontOptions());
+
+    cairo_matrix_t ctm;
+    cairo_matrix_init_identity(&ctm);
+
+    cairo_matrix_t fontMatrix;
+    if (!m_pattern)
+        cairo_matrix_init_scale(&fontMatrix, m_size, m_size);
+    else {
+        setCairoFontOptionsFromFontConfigPattern(options, m_pattern.get());
+
+        // FontConfig may return a list of transformation matrices with the pattern, for instance,
+        // for fonts that are oblique. We use that to initialize the cairo font matrix.
+        FcMatrix fontConfigMatrix, *tempFontConfigMatrix;
+        FcMatrixInit(&fontConfigMatrix);
+
+        // These matrices may be stacked in the pattern, so it's our job to get them all and multiply them.
+        for (int i = 0; FcPatternGetMatrix(m_pattern.get(), FC_MATRIX, i, &tempFontConfigMatrix) == FcResultMatch; i++)
+            FcMatrixMultiply(&fontConfigMatrix, &fontConfigMatrix, tempFontConfigMatrix);
+        cairo_matrix_init(&fontMatrix, fontConfigMatrix.xx, -fontConfigMatrix.yx,
+                          -fontConfigMatrix.xy, fontConfigMatrix.yy, 0, 0);
+
+        // The matrix from FontConfig does not include the scale.
+        cairo_matrix_scale(&fontMatrix, m_size, m_size);
+    }
+
+    m_scaledFont = adoptPlatformRef(cairo_scaled_font_create(fontFace, &fontMatrix, &ctm, options));
+    cairo_font_options_destroy(options);
+}
+
 
 }

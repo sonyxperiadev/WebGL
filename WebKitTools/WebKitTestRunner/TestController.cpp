@@ -28,11 +28,18 @@
 #include "PlatformWebView.h"
 #include "StringFunctions.h"
 #include "TestInvocation.h"
+#include <cstdio>
 #include <WebKit2/WKContextPrivate.h>
 #include <WebKit2/WKPreferencesPrivate.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WTR {
+
+static WKURLRef blankURL()
+{
+    static WKURLRef staticBlankURL = WKURLCreateWithUTF8CString("about:blank");
+    return staticBlankURL;
+}
 
 static TestController* controller;
 
@@ -60,6 +67,30 @@ TestController::~TestController()
 {
 }
 
+static WKRect getWindowFrameMainPage(WKPageRef page, const void* clientInfo)
+{
+    PlatformWebView* view = static_cast<TestController*>(const_cast<void*>(clientInfo))->mainWebView();
+    return view->windowFrame();
+}
+
+static void setWindowFrameMainPage(WKPageRef page, WKRect frame, const void* clientInfo)
+{
+    PlatformWebView* view = static_cast<TestController*>(const_cast<void*>(clientInfo))->mainWebView();
+    view->setWindowFrame(frame);
+}
+
+static WKRect getWindowFrameOtherPage(WKPageRef page, const void* clientInfo)
+{
+    PlatformWebView* view = static_cast<PlatformWebView*>(const_cast<void*>(clientInfo));
+    return view->windowFrame();
+}
+
+static void setWindowFrameOtherPage(WKPageRef page, WKRect frame, const void* clientInfo)
+{
+    PlatformWebView* view = static_cast<PlatformWebView*>(const_cast<void*>(clientInfo));
+    view->setWindowFrame(frame);
+}
+
 static void closeOtherPage(WKPageRef page, const void* clientInfo)
 {
     WKPageClose(page);
@@ -78,15 +109,19 @@ static WKPageRef createOtherPage(WKPageRef oldPage, const void*)
         0,
         view,
         createOtherPage,
-        0,
+        0, // showPage
         closeOtherPage,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        0, // runJavaScriptAlert        
+        0, // runJavaScriptConfirm
+        0, // runJavaScriptPrompt
+        0, // setStatusText
+        0, // mouseDidMoveOverElement
+        0, // contentsSizeChanged
+        0, // didNotHandleKeyEvent
+        getWindowFrameOtherPage,
+        setWindowFrameOtherPage,
+        0, // runBeforeUnloadConfirmPanel
+        0 // didDraw
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
 
@@ -159,39 +194,43 @@ void TestController::initialize(int argc, const char* argv[])
         0,
         this,
         createOtherPage,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        0, // showPage
+        0, // close
+        0, // runJavaScriptAlert        
+        0, // runJavaScriptConfirm
+        0, // runJavaScriptPrompt
+        0, // setStatusText
+        0, // mouseDidMoveOverElement
+        0, // contentsSizeChanged
+        0, // didNotHandleKeyEvent
+        getWindowFrameMainPage,
+        setWindowFrameMainPage,
+        0, // runBeforeUnloadConfirmPanel
+        0 // didDraw
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient);
 
     WKPageLoaderClient pageLoaderClient = {
         0,
         this,
-        0,
-        0,
-        0,
-        0,
-        0,
+        0, // didStartProvisionalLoadForFrame
+        0, // didReceiveServerRedirectForProvisionalLoadForFrame
+        0, // didFailProvisionalLoadWithErrorForFrame
+        0, // didCommitLoadForFrame
+        0, // didFinishDocumentLoadForFrame
         didFinishLoadForFrame,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        0, // didFailLoadWithErrorForFrame
+        0, // didReceiveTitleForFrame
+        0, // didFirstLayoutForFrame
+        0, // didFirstVisuallyNonEmptyLayoutForFrame
+        0, // didRemoveFrameFromHierarchy
+        0, // didStartProgress
+        0, // didChangeProgress
+        0, // didFinishProgress
+        0, // didBecomeUnresponsive
+        0, // didBecomeResponsive
+        0, // processDidExit
+        0 // didChangeBackForwardList
     };
     WKPageSetPageLoaderClient(m_mainWebView->page(), &pageLoaderClient);
 }
@@ -208,13 +247,26 @@ void TestController::resetStateToConsistentValues()
     WKPreferencesSetFontSmoothingLevel(preferences, kWKFontSmoothingLevelNoSubpixelAntiAliasing);
     WKPreferencesSetXSSAuditorEnabled(preferences, false);
 
+    static WKStringRef standardFontFamily = WKStringCreateWithUTF8CString("Times");
+    static WKStringRef cursiveFontFamily = WKStringCreateWithUTF8CString("Apple Chancery");
+    static WKStringRef fantasyFontFamily = WKStringCreateWithUTF8CString("Papyrus");
+    static WKStringRef fixedFontFamily = WKStringCreateWithUTF8CString("Courier");
+    static WKStringRef sansSerifFontFamily = WKStringCreateWithUTF8CString("Helvetica");
+    static WKStringRef serifFontFamily = WKStringCreateWithUTF8CString("Times");
+
+    WKPreferencesSetStandardFontFamily(preferences, standardFontFamily);
+    WKPreferencesSetCursiveFontFamily(preferences, cursiveFontFamily);
+    WKPreferencesSetFantasyFontFamily(preferences, fantasyFontFamily);
+    WKPreferencesSetFixedFontFamily(preferences, fixedFontFamily);
+    WKPreferencesSetSansSerifFontFamily(preferences, sansSerifFontFamily);
+    WKPreferencesSetSerifFontFamily(preferences, serifFontFamily);
+
     m_mainWebView->focus();
 
     // Reset main page back to about:blank
     m_doneResetting = false;
 
-    WKRetainPtr<WKURLRef> url(AdoptWK, createWKURL("about:blank"));
-    WKPageLoadURL(m_mainWebView->page(), url.get());
+    WKPageLoadURL(m_mainWebView->page(), blankURL());
     TestController::runUntil(m_doneResetting);
 }
 
@@ -281,9 +333,7 @@ void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame)
         return;
 
     WKRetainPtr<WKURLRef> wkURL(AdoptWK, WKFrameCopyURL(frame));
-    RetainPtr<CFURLRef> cfURL= toCF(wkURL);
-    CFStringRef cfURLString = CFURLGetString(cfURL.get());
-    if (!CFEqual(cfURLString, CFSTR("about:blank")))
+    if (!WKURLIsEqual(wkURL.get(), blankURL()))
         return;
 
     m_doneResetting = true;

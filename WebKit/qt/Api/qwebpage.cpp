@@ -45,6 +45,8 @@
 #include "ChromeClientQt.h"
 #include "ContextMenu.h"
 #include "ContextMenuClientQt.h"
+#include "DeviceMotionClientQt.h"
+#include "DeviceOrientationClientQt.h"
 #include "DocumentLoader.h"
 #include "DragClientQt.h"
 #include "DragController.h"
@@ -91,6 +93,9 @@
 #include "PlatformTouchEvent.h"
 #include "WorkerThread.h"
 #include "wtf/Threading.h"
+#include "MIMETypeRegistry.h"
+#include "PluginDatabase.h"
+#include "PluginPackage.h"
 
 #include <QApplication>
 #include <QBasicTimer>
@@ -298,6 +303,10 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     pageClients.editorClient = new EditorClientQt(q);
     pageClients.dragClient = new DragClientQt(q);
     pageClients.inspectorClient = new InspectorClientQt(q);
+#if ENABLE(DEVICE_ORIENTATION)
+    pageClients.deviceOrientationClient = new DeviceOrientationClientQt(q);
+    pageClients.deviceMotionClient = new DeviceMotionClientQt(q);
+#endif
     page = new Page(pageClients);
 
     settings = new QWebSettings(page->settings());
@@ -326,6 +335,11 @@ QWebPagePrivate::~QWebPagePrivate()
 #if ENABLE(NOTIFICATIONS)
     NotificationPresenterClientQt::notificationPresenter()->removeClient();
 #endif
+}
+
+WebCore::ViewportArguments QWebPagePrivate::viewportArguments()
+{
+    return page ? page->viewportArguments() : WebCore::ViewportArguments();
 }
 
 WebCore::Page* QWebPagePrivate::core(const QWebPage* page)
@@ -602,7 +616,8 @@ void QWebPagePrivate::timerEvent(QTimerEvent *ev)
         q->timerEvent(ev);
 }
 
-void QWebPagePrivate::mouseMoveEvent(QGraphicsSceneMouseEvent* ev)
+template<class T>
+void QWebPagePrivate::mouseMoveEvent(T* ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -612,51 +627,8 @@ void QWebPagePrivate::mouseMoveEvent(QGraphicsSceneMouseEvent* ev)
     ev->setAccepted(accepted);
 }
 
-void QWebPagePrivate::mouseMoveEvent(QMouseEvent *ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    bool accepted = frame->eventHandler()->mouseMoved(PlatformMouseEvent(ev, 0));
-    ev->setAccepted(accepted);
-}
-
-void QWebPagePrivate::mousePressEvent(QGraphicsSceneMouseEvent* ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    RefPtr<WebCore::Node> oldNode;
-    Frame* focusedFrame = page->focusController()->focusedFrame();
-    if (Document* focusedDocument = focusedFrame ? focusedFrame->document() : 0)
-        oldNode = focusedDocument->focusedNode();
-
-    if (tripleClickTimer.isActive()
-            && (ev->pos().toPoint() - tripleClick).manhattanLength()
-                < QApplication::startDragDistance()) {
-        mouseTripleClickEvent(ev);
-        return;
-    }
-
-    bool accepted = false;
-    PlatformMouseEvent mev(ev, 1);
-    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
-    if (mev.button() != NoButton)
-        accepted = frame->eventHandler()->handleMousePressEvent(mev);
-    ev->setAccepted(accepted);
-
-    RefPtr<WebCore::Node> newNode;
-    focusedFrame = page->focusController()->focusedFrame();
-    if (Document* focusedDocument = focusedFrame ? focusedFrame->document() : 0)
-        newNode = focusedDocument->focusedNode();
-
-    if (newNode && oldNode != newNode)
-        clickCausedFocus = true;
-}
-
-void QWebPagePrivate::mousePressEvent(QMouseEvent *ev)
+template<class T>
+void QWebPagePrivate::mousePressEvent(T* ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -690,7 +662,8 @@ void QWebPagePrivate::mousePressEvent(QMouseEvent *ev)
         clickCausedFocus = true;
 }
 
-void QWebPagePrivate::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
+template<class T>
+void QWebPagePrivate::mouseDoubleClickEvent(T *ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -704,41 +677,11 @@ void QWebPagePrivate::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
     ev->setAccepted(accepted);
 
     tripleClickTimer.start(QApplication::doubleClickInterval(), q);
-    tripleClick = ev->pos().toPoint();
+    tripleClick = QPointF(ev->pos()).toPoint();
 }
 
-void QWebPagePrivate::mouseDoubleClickEvent(QMouseEvent *ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    bool accepted = false;
-    PlatformMouseEvent mev(ev, 2);
-    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
-    if (mev.button() != NoButton)
-        accepted = frame->eventHandler()->handleMousePressEvent(mev);
-    ev->setAccepted(accepted);
-
-    tripleClickTimer.start(QApplication::doubleClickInterval(), q);
-    tripleClick = ev->pos();
-}
-
-void QWebPagePrivate::mouseTripleClickEvent(QGraphicsSceneMouseEvent *ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    bool accepted = false;
-    PlatformMouseEvent mev(ev, 3);
-    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
-    if (mev.button() != NoButton)
-        accepted = frame->eventHandler()->handleMousePressEvent(mev);
-    ev->setAccepted(accepted);
-}
-
-void QWebPagePrivate::mouseTripleClickEvent(QMouseEvent *ev)
+template<class T>
+void QWebPagePrivate::mouseTripleClickEvent(T *ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -775,7 +718,8 @@ void QWebPagePrivate::handleClipboard(QEvent* ev, Qt::MouseButton button)
 #endif
 }
 
-void QWebPagePrivate::mouseReleaseEvent(QGraphicsSceneMouseEvent* ev)
+template<class T>
+void QWebPagePrivate::mouseReleaseEvent(T *ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -812,23 +756,6 @@ void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
     clickCausedFocus = false;
 }
 
-void QWebPagePrivate::mouseReleaseEvent(QMouseEvent *ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    bool accepted = false;
-    PlatformMouseEvent mev(ev, 0);
-    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
-    if (mev.button() != NoButton)
-        accepted = frame->eventHandler()->handleMouseReleaseEvent(mev);
-    ev->setAccepted(accepted);
-
-    handleClipboard(ev, ev->button());
-    handleSoftwareInputPanel(ev->button());
-}
-
 #ifndef QT_NO_CONTEXTMENU
 void QWebPagePrivate::contextMenuEvent(const QPoint& globalPos)
 {
@@ -859,18 +786,8 @@ QMenu *QWebPage::createStandardContextMenu()
 }
 
 #ifndef QT_NO_WHEELEVENT
-void QWebPagePrivate::wheelEvent(QGraphicsSceneWheelEvent* ev)
-{
-    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
-    if (!frame->view())
-        return;
-
-    WebCore::PlatformWheelEvent pev(ev);
-    bool accepted = frame->eventHandler()->handleWheelEvent(pev);
-    ev->setAccepted(accepted);
-}
-
-void QWebPagePrivate::wheelEvent(QWheelEvent *ev)
+template<class T>
+void QWebPagePrivate::wheelEvent(T *ev)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
@@ -1007,10 +924,11 @@ void QWebPagePrivate::focusOutEvent(QFocusEvent*)
     focusController->setActive(false);
 }
 
-void QWebPagePrivate::dragEnterEvent(QGraphicsSceneDragDropEvent* ev)
+template<class T>
+void QWebPagePrivate::dragEnterEvent(T* ev)
 {
 #ifndef QT_NO_DRAGANDDROP
-    DragData dragData(ev->mimeData(), ev->pos().toPoint(),
+    DragData dragData(ev->mimeData(), QPointF(ev->pos()).toPoint(),
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragEntered(&dragData));
     ev->setDropAction(action);
@@ -1019,20 +937,8 @@ void QWebPagePrivate::dragEnterEvent(QGraphicsSceneDragDropEvent* ev)
 #endif
 }
 
-void QWebPagePrivate::dragEnterEvent(QDragEnterEvent* ev)
-{
-#ifndef QT_NO_DRAGANDDROP
-    DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
-                      dropActionToDragOp(ev->possibleActions()));
-    Qt::DropAction action = dragOpToDropAction(page->dragController()->dragEntered(&dragData));
-    ev->setDropAction(action);
-    // We must accept this event in order to receive the drag move events that are sent
-    // while the drag and drop action is in progress.
-    ev->acceptProposedAction();
-#endif
-}
-
-void QWebPagePrivate::dragLeaveEvent(QGraphicsSceneDragDropEvent* ev)
+template<class T>
+void QWebPagePrivate::dragLeaveEvent(T *ev)
 {
 #ifndef QT_NO_DRAGANDDROP
     DragData dragData(0, IntPoint(), QCursor::pos(), DragOperationNone);
@@ -1041,19 +947,11 @@ void QWebPagePrivate::dragLeaveEvent(QGraphicsSceneDragDropEvent* ev)
 #endif
 }
 
-void QWebPagePrivate::dragLeaveEvent(QDragLeaveEvent* ev)
+template<class T>
+void QWebPagePrivate::dragMoveEvent(T *ev)
 {
 #ifndef QT_NO_DRAGANDDROP
-    DragData dragData(0, IntPoint(), QCursor::pos(), DragOperationNone);
-    page->dragController()->dragExited(&dragData);
-    ev->accept();
-#endif
-}
-
-void QWebPagePrivate::dragMoveEvent(QGraphicsSceneDragDropEvent* ev)
-{
-#ifndef QT_NO_DRAGANDDROP
-    DragData dragData(ev->mimeData(), ev->pos().toPoint(),
+    DragData dragData(ev->mimeData(), QPointF(ev->pos()).toPoint(),
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragUpdated(&dragData));
     ev->setDropAction(action);
@@ -1062,37 +960,12 @@ void QWebPagePrivate::dragMoveEvent(QGraphicsSceneDragDropEvent* ev)
 #endif
 }
 
-void QWebPagePrivate::dragMoveEvent(QDragMoveEvent* ev)
+template<class T>
+void QWebPagePrivate::dropEvent(T *ev)
 {
 #ifndef QT_NO_DRAGANDDROP
-    DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
-                      dropActionToDragOp(ev->possibleActions()));
-    Qt::DropAction action = dragOpToDropAction(page->dragController()->dragUpdated(&dragData));
-    m_lastDropAction = action;
-    ev->setDropAction(action);
-    // We must accept this event in order to receive the drag move events that are sent
-    // while the drag and drop action is in progress.
-    ev->acceptProposedAction();
-#endif
-}
-
-void QWebPagePrivate::dropEvent(QGraphicsSceneDragDropEvent* ev)
-{
-#ifndef QT_NO_DRAGANDDROP
-    DragData dragData(ev->mimeData(), ev->pos().toPoint(),
+    DragData dragData(ev->mimeData(), QPointF(ev->pos()).toPoint(),
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
-    if (page->dragController()->performDrag(&dragData))
-        ev->acceptProposedAction();
-#endif
-}
-
-void QWebPagePrivate::dropEvent(QDropEvent* ev)
-{
-#ifndef QT_NO_DRAGANDDROP
-    // Overwrite the defaults set by QDragManager::defaultAction()
-    ev->setDropAction(m_lastDropAction);
-    DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
-                      dropActionToDragOp(Qt::DropAction(ev->dropAction())));
     if (page->dragController()->performDrag(&dragData))
         ev->acceptProposedAction();
 #endif
@@ -1702,15 +1575,15 @@ quint16 QWebPagePrivate::inspectorServerPort()
 
 
 /*!
-    \class QWebPage::ViewportConfiguration
+    \class QWebPage::ViewportAttributes
     \since 4.7
-    \brief The QWebPage::ViewportConfiguration class describes hints that can be applied to a viewport.
+    \brief The QWebPage::ViewportAttributes class describes hints that can be applied to a viewport.
 
-    QWebPage::ViewportConfiguration provides a description of a viewport, such as viewport geometry,
+    QWebPage::ViewportAttributes provides a description of a viewport, such as viewport geometry,
     initial scale factor with limits, plus information about whether a user should be able
     to scale the contents in the viewport or not, ie. by zooming.
 
-    ViewportConfiguration can be set by a web author using the viewport meta tag extension, documented
+    ViewportAttributes can be set by a web author using the viewport meta tag extension, documented
     at \l{http://developer.apple.com/safari/library/documentation/appleapplications/reference/safariwebcontent/usingtheviewport/usingtheviewport.html}{Safari Reference Library: Using the Viewport Meta Tag}.
 
     All values might not be set, as such when dealing with the hints, the developer needs to
@@ -1720,9 +1593,9 @@ quint16 QWebPagePrivate::inspectorServerPort()
 */
 
 /*!
-    Constructs an empty QWebPage::ViewportConfiguration.
+    Constructs an empty QWebPage::ViewportAttributes.
 */
-QWebPage::ViewportConfiguration::ViewportConfiguration()
+QWebPage::ViewportAttributes::ViewportAttributes()
     : d(0)
     , m_initialScaleFactor(-1.0)
     , m_minimumScaleFactor(-1.0)
@@ -1735,9 +1608,9 @@ QWebPage::ViewportConfiguration::ViewportConfiguration()
 }
 
 /*!
-    Constructs a QWebPage::ViewportConfiguration which is a copy from \a other .
+    Constructs a QWebPage::ViewportAttributes which is a copy from \a other .
 */
-QWebPage::ViewportConfiguration::ViewportConfiguration(const QWebPage::ViewportConfiguration& other)
+QWebPage::ViewportAttributes::ViewportAttributes(const QWebPage::ViewportAttributes& other)
     : d(other.d)
     , m_initialScaleFactor(other.m_initialScaleFactor)
     , m_minimumScaleFactor(other.m_minimumScaleFactor)
@@ -1751,18 +1624,18 @@ QWebPage::ViewportConfiguration::ViewportConfiguration(const QWebPage::ViewportC
 }
 
 /*!
-    Destroys the QWebPage::ViewportConfiguration.
+    Destroys the QWebPage::ViewportAttributes.
 */
-QWebPage::ViewportConfiguration::~ViewportConfiguration()
+QWebPage::ViewportAttributes::~ViewportAttributes()
 {
 
 }
 
 /*!
-    Assigns the given QWebPage::ViewportConfiguration to this viewport hints and returns a
+    Assigns the given QWebPage::ViewportAttributes to this viewport hints and returns a
     reference to this.
 */
-QWebPage::ViewportConfiguration& QWebPage::ViewportConfiguration::operator=(const QWebPage::ViewportConfiguration& other)
+QWebPage::ViewportAttributes& QWebPage::ViewportAttributes::operator=(const QWebPage::ViewportAttributes& other)
 {
     if (this != &other) {
         d = other.d;
@@ -1777,30 +1650,30 @@ QWebPage::ViewportConfiguration& QWebPage::ViewportConfiguration::operator=(cons
     return *this;
 }
 
-/*! \fn inline bool QWebPage::ViewportConfiguration::isValid() const
-    Returns whether this is a valid ViewportConfiguration or not.
+/*! \fn inline bool QWebPage::ViewportAttributes::isValid() const
+    Returns whether this is a valid ViewportAttributes or not.
 
-    An invalid ViewportConfiguration will have an empty QSize, negative values for scale factors and
+    An invalid ViewportAttributes will have an empty QSize, negative values for scale factors and
     true for the boolean isUserScalable.
 */
 
-/*! \fn inline QSize QWebPage::ViewportConfiguration::size() const
+/*! \fn inline QSize QWebPage::ViewportAttributes::size() const
     Returns the size of the viewport.
 */
 
-/*! \fn inline qreal QWebPage::ViewportConfiguration::initialScaleFactor() const
+/*! \fn inline qreal QWebPage::ViewportAttributes::initialScaleFactor() const
     Returns the initial scale of the viewport as a multiplier.
 */
 
-/*! \fn inline qreal QWebPage::ViewportConfiguration::minimumScaleFactor() const
+/*! \fn inline qreal QWebPage::ViewportAttributes::minimumScaleFactor() const
     Returns the minimum scale value of the viewport as a multiplier.
 */
 
-/*! \fn inline qreal QWebPage::ViewportConfiguration::maximumScaleFactor() const
+/*! \fn inline qreal QWebPage::ViewportAttributes::maximumScaleFactor() const
     Returns the maximum scale value of the viewport as a multiplier.
 */
 
-/*! \fn inline bool QWebPage::ViewportConfiguration::isUserScalable() const
+/*! \fn inline bool QWebPage::ViewportAttributes::isUserScalable() const
     Determines whether or not the scale can be modified by the user.
 */
 
@@ -2149,6 +2022,63 @@ QObject *QWebPage::createPlugin(const QString &classid, const QUrl &url, const Q
     return 0;
 }
 
+static void extractContentTypeFromHash(const HashSet<String>& types, QStringList* list)
+{
+    if (!list)
+        return;
+
+    HashSet<String>::const_iterator endIt = types.end();
+    for (HashSet<String>::const_iterator it = types.begin(); it != endIt; ++it)
+        *list << *it;
+}
+
+static void extractContentTypeFromPluginVector(const Vector<PluginPackage*>& plugins, QStringList* list)
+{
+    if (!list)
+        return;
+
+    for (unsigned int i = 0; i < plugins.size(); ++i) {
+        MIMEToDescriptionsMap::const_iterator map_it = plugins[i]->mimeToDescriptions().begin();
+        MIMEToDescriptionsMap::const_iterator map_end = plugins[i]->mimeToDescriptions().end();
+        for (; map_it != map_end; ++map_it)
+            *list << map_it->first;
+    }
+}
+
+/*!
+ *  Returns the list of all content types supported by QWebPage.
+ */
+QStringList QWebPage::supportedContentTypes() const
+{
+    QStringList mimeTypes;
+
+    extractContentTypeFromHash(MIMETypeRegistry::getSupportedImageMIMETypes(), &mimeTypes);
+    extractContentTypeFromHash(MIMETypeRegistry::getSupportedNonImageMIMETypes(), &mimeTypes);
+    if (d->page->settings() && d->page->settings()->arePluginsEnabled())
+        extractContentTypeFromPluginVector(PluginDatabase::installedPlugins()->plugins(), &mimeTypes);
+
+    return mimeTypes;
+}
+
+/*!
+ *  Returns true if QWebPage can handle the given \a mimeType; otherwise, returns false.
+ */
+bool QWebPage::supportsContentType(const QString& mimeType) const
+{
+    const String type = mimeType.toLower();
+    if (MIMETypeRegistry::isSupportedImageMIMEType(type))
+        return true;
+
+    if (MIMETypeRegistry::isSupportedNonImageMIMEType(type))
+        return true;
+
+    if (d->page->settings() && d->page->settings()->arePluginsEnabled()
+        && PluginDatabase::installedPlugins()->isMIMETypeRegistered(type))
+        return true;
+
+    return false;
+}
+
 static WebCore::FrameLoadRequest frameLoadRequest(const QUrl &url, WebCore::Frame *frame)
 {
     WebCore::ResourceRequest rr(url, frame->loader()->outgoingReferrer());
@@ -2244,6 +2174,7 @@ void QWebPage::triggerAction(WebAction action, bool)
             break;
         case Stop:
             mainFrame()->d->frame->loader()->stopForUserCancel();
+            d->updateNavigationActions();
             break;
         case Reload:
             mainFrame()->d->frame->loader()->reload(/*endtoendreload*/false);
@@ -2272,12 +2203,12 @@ void QWebPage::triggerAction(WebAction action, bool)
         }
         case StopScheduledPageRefresh: {
             QWebFrame* topFrame = mainFrame();
-            topFrame->d->frame->redirectScheduler()->cancel();
+            topFrame->d->frame->navigationScheduler()->cancel();
             QList<QWebFrame*> childFrames;
             collectChildFrames(topFrame, childFrames);
             QListIterator<QWebFrame*> it(childFrames);
             while (it.hasNext())
-                it.next()->d->frame->redirectScheduler()->cancel();
+                it.next()->d->frame->navigationScheduler()->cancel();
             break;
         }
         default:
@@ -2363,12 +2294,12 @@ static QSize queryDeviceSizeForScreenContainingWidget(const QWidget* widget)
     both needs to be set.
 */
 
-QWebPage::ViewportConfiguration QWebPage::viewportConfigurationForSize(const QSize& availableSize) const
+QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& availableSize) const
 {
     static int desktopWidth = 980;
     static int deviceDPI = 160;
 
-    ViewportConfiguration result;
+    ViewportAttributes result;
 
     int deviceWidth = getintenv("QTWEBKIT_DEVICE_WIDTH");
     int deviceHeight = getintenv("QTWEBKIT_DEVICE_HEIGHT");
@@ -2380,15 +2311,15 @@ QWebPage::ViewportConfiguration QWebPage::viewportConfigurationForSize(const QSi
         deviceHeight = size.height();
     }
 
-    WebCore::ViewportConfiguration conf = WebCore::findConfigurationForViewportData(mainFrame()->d->viewportArguments(),
-            desktopWidth, deviceWidth, deviceHeight, deviceDPI, availableSize);
+    WebCore::ViewportAttributes conf = WebCore::computeViewportAttributes(d->viewportArguments(), desktopWidth, deviceWidth, deviceHeight, deviceDPI, availableSize);
 
     result.m_isValid = true;
-    result.m_size = conf.layoutViewport;
+    result.m_size = conf.layoutSize;
     result.m_initialScaleFactor = conf.initialScale;
     result.m_minimumScaleFactor = conf.minimumScale;
     result.m_maximumScaleFactor = conf.maximumScale;
     result.m_devicePixelRatio = conf.devicePixelRatio;
+    result.m_isUserScalable = conf.userScalable;
 
     return result;
 }
@@ -3777,7 +3708,7 @@ quint64 QWebPage::bytesReceived() const
     Page authors can provide the supplied values by using the viewport meta tag. More information
     about this can be found at \l{http://developer.apple.com/safari/library/documentation/appleapplications/reference/safariwebcontent/usingtheviewport/usingtheviewport.html}{Safari Reference Library: Using the Viewport Meta Tag}.
 
-    \sa QWebPage::ViewportConfiguration, setPreferredContentsSize(), QGraphicsWebView::setScale()
+    \sa QWebPage::ViewportAttributes, setPreferredContentsSize(), QGraphicsWebView::setScale()
 */
 
 /*!

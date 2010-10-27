@@ -38,11 +38,26 @@ public:
         // Initiaized to 0 in its array, so nothing to do in the
         // constructor
     }
+
+    enum Type {
+        NONE = -1,
+        NORMAL_TEXT_FIELD = 0,
+        TEXT_AREA = 1,
+        PASSWORD = 2,
+        SEARCH = 3,
+        EMAIL = 4,
+        NUMBER = 5,
+        TELEPHONE = 6,
+        URL = 7
+    };
+
     void* formPointer() const { return mForm; }
     void init();
-    WebCore::HTMLInputElement::DeprecatedInputType inputType() const { return mInputType; }
+    void setTypeFromElement(WebCore::HTMLInputElement*);
+    Type getType() const { return mType; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
+    bool isTextArea() const { return mIsTextArea; }
     int maxLength() const { return mMaxLength; };
     const WTF::String& name() const { return mName; }
     int paddingBottom() const { return mPaddingBottom; }
@@ -50,9 +65,9 @@ public:
     int paddingRight() const { return mPaddingRight; }
     int paddingTop() const { return mPaddingTop; }
     void setFormPointer(void* form) { mForm = form; }
-    void setInputType(WebCore::HTMLInputElement::DeprecatedInputType type) { mInputType = type; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
+    void setIsTextArea(bool isTextArea) { mIsTextArea = isTextArea; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WTF::String& name) { mName = name; }
     void setPaddingBottom(int bottom) { mPaddingBottom = bottom; }
@@ -61,7 +76,9 @@ public:
     void setPaddingTop(int top) { mPaddingTop = top; }
     void setTextSize(int textSize) { mTextSize = textSize; }
     int textSize() const { return mTextSize; }
+
 private:
+
     void* mForm;
     WTF::String mName;
     int mMaxLength;
@@ -70,9 +87,10 @@ private:
     int mPaddingRight;
     int mPaddingTop;
     int mTextSize;
-    WebCore::HTMLInputElement::DeprecatedInputType mInputType;
+    Type mType;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
+    bool mIsTextArea : 1;
 #if DUMP_NAV_CACHE
 public:
     class Debug {

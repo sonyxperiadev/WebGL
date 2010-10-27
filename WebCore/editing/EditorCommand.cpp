@@ -432,10 +432,16 @@ static bool executeFormatBlock(Frame* frame, Event*, EditorCommandSource, const 
     String tagName = value.lower();
     if (tagName[0] == '<' && tagName[tagName.length() - 1] == '>')
         tagName = tagName.substring(1, tagName.length() - 2);
-    if (!validBlockTag(tagName))
+
+    ExceptionCode ec;
+    String localName, prefix;
+    if (!Document::parseQualifiedName(tagName, prefix, localName, ec))
         return false;
-    applyCommand(FormatBlockCommand::create(frame->document(), tagName));
-    return true;
+    QualifiedName qualifiedTagName(prefix, localName, xhtmlNamespaceURI);
+
+    RefPtr<FormatBlockCommand> command = FormatBlockCommand::create(frame->document(), qualifiedTagName);
+    applyCommand(command);
+    return command->didApply();
 }
 
 static bool executeForwardDelete(Frame* frame, Event*, EditorCommandSource source, const String&)
@@ -1304,6 +1310,11 @@ static TriState stateJustifyCenter(Frame* frame, Event*)
     return stateStyle(frame, CSSPropertyTextAlign, "center");
 }
 
+static TriState stateJustifyFull(Frame* frame, Event*)
+{
+    return stateStyle(frame, CSSPropertyTextAlign, "justify");
+}
+
 static TriState stateJustifyLeft(Frame* frame, Event*)
 {
     return stateStyle(frame, CSSPropertyTextAlign, "left");
@@ -1346,6 +1357,17 @@ static String valueForeColor(Frame* frame, Event*)
     return valueStyle(frame, CSSPropertyColor);
 }
 
+static String valueFormatBlock(Frame* frame, Event*)
+{
+    const VisibleSelection& selection = frame->selection()->selection();
+    if (!selection.isNonOrphanedCaretOrRange() || !selection.isContentEditable())
+        return "";
+    Element* formatBlockElement = FormatBlockCommand::elementForFormatBlockCommand(selection.firstRange().get());
+    if (!formatBlockElement)
+        return "";
+    return formatBlockElement->localName();
+}
+
 // Map of functions
 
 struct CommandEntry {
@@ -1382,7 +1404,7 @@ static const CommandMap& createCommandMap()
         { "FontSize", { executeFontSize, supported, enabledInEditableText, stateNone, valueFontSize, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "FontSizeDelta", { executeFontSizeDelta, supported, enabledInEditableText, stateNone, valueFontSizeDelta, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "ForeColor", { executeForeColor, supported, enabledInRichlyEditableText, stateNone, valueForeColor, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "FormatBlock", { executeFormatBlock, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "FormatBlock", { executeFormatBlock, supported, enabledInRichlyEditableText, stateNone, valueFormatBlock, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "ForwardDelete", { executeForwardDelete, supported, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "HiliteColor", { executeBackColor, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "IgnoreSpelling", { executeIgnoreSpelling, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1401,7 +1423,7 @@ static const CommandMap& createCommandMap()
         { "InsertUnorderedList", { executeInsertUnorderedList, supported, enabledInRichlyEditableText, stateUnorderedList, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Italic", { executeToggleItalic, supported, enabledInRichlyEditableText, stateItalic, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyCenter", { executeJustifyCenter, supported, enabledInRichlyEditableText, stateJustifyCenter, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "JustifyFull", { executeJustifyFull, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "JustifyFull", { executeJustifyFull, supported, enabledInRichlyEditableText, stateJustifyFull, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyLeft", { executeJustifyLeft, supported, enabledInRichlyEditableText, stateJustifyLeft, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyNone", { executeJustifyLeft, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyRight", { executeJustifyRight, supported, enabledInRichlyEditableText, stateJustifyRight, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },

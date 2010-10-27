@@ -148,6 +148,7 @@ namespace JSC {
             RefPtr<Structure> regExpMatchesArrayStructure;
             RefPtr<Structure> regExpStructure;
             RefPtr<Structure> stringObjectStructure;
+            RefPtr<Structure> internalFunctionStructure;
 
             SymbolTable symbolTable;
             unsigned profileGroup;
@@ -243,6 +244,7 @@ namespace JSC {
         Structure* functionStructure() const { return d()->functionStructure.get(); }
         Structure* numberObjectStructure() const { return d()->numberObjectStructure.get(); }
         Structure* prototypeFunctionStructure() const { return d()->prototypeFunctionStructure.get(); }
+        Structure* internalFunctionStructure() const { return d()->internalFunctionStructure.get(); }
         Structure* regExpMatchesArrayStructure() const { return d()->regExpMatchesArrayStructure.get(); }
         Structure* regExpStructure() const { return d()->regExpStructure.get(); }
         Structure* stringObjectStructure() const { return d()->stringObjectStructure.get(); }
@@ -384,16 +386,8 @@ namespace JSC {
         if (typeInfo().type() == ObjectType)
             return m_prototype;
 
-#if USE(JSVALUE32)
-        if (typeInfo().type() == StringType)
-            return exec->lexicalGlobalObject()->stringPrototype();
-
-        ASSERT(typeInfo().type() == NumberType);
-        return exec->lexicalGlobalObject()->numberPrototype();
-#else
         ASSERT(typeInfo().type() == StringType);
         return exec->lexicalGlobalObject()->stringPrototype();
-#endif
     }
 
     inline StructureChain* Structure::prototypeChain(ExecState* exec) const

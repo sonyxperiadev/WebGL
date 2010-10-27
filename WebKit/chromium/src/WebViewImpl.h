@@ -132,8 +132,11 @@ public:
     virtual void setFocusedFrame(WebFrame* frame);
     virtual void setInitialFocus(bool reverse);
     virtual void clearFocusedNode();
-    virtual int zoomLevel();
-    virtual int setZoomLevel(bool textOnly, int zoomLevel);
+    virtual void scrollFocusedNodeIntoView();
+    virtual double zoomLevel();
+    virtual double setZoomLevel(bool textOnly, double zoomLevel);
+    virtual void zoomLimitsChanged(double minimumZoomLevel,
+                                   double maximumZoomLevel);
     virtual void performMediaPlayerAction(
         const WebMediaPlayerAction& action,
         const WebPoint& location);
@@ -149,6 +152,11 @@ public:
     virtual void dragSourceSystemDragEnded();
     virtual WebDragOperation dragTargetDragEnter(
         const WebDragData& dragData, int identity,
+        const WebPoint& clientPoint,
+        const WebPoint& screenPoint,
+        WebDragOperationsMask operationsAllowed);
+    virtual WebDragOperation dragTargetDragEnterNew(
+        int identity,
         const WebPoint& clientPoint,
         const WebPoint& screenPoint,
         WebDragOperationsMask operationsAllowed);
@@ -338,16 +346,18 @@ public:
     // WebGL. Returns 0 if compositing support is not compiled in.
     virtual WebGraphicsContext3D* graphicsContext3D();
 
-    virtual WebCore::SharedGraphicsContext3D* getSharedGraphicsContext3D();
-
     WebCore::PopupContainer* selectPopup() const { return m_selectPopup.get(); }
-
-    bool zoomTextOnly() const { return m_zoomTextOnly; }
 
     // Returns true if the event leads to scrolling.
     static bool mapKeyCodeForScroll(int keyCode,
                                    WebCore::ScrollDirection* scrollDirection,
                                    WebCore::ScrollGranularity* scrollGranularity);
+
+    // Called by a full frame plugin inside this view to inform it that its
+    // zoom level has been updated.  The plugin should only call this function
+    // if the zoom change was triggered by the browser, it's only needed in case
+    // a plugin can update its own zoom, say because of its own UI.
+    void fullFramePluginZoomLevelChanged(double zoomLevel);
 
 private:
     friend class WebView;  // So WebView::Create can call our constructor
@@ -440,9 +450,11 @@ private:
 
     // Keeps track of the current zoom level. 0 means no zoom, positive numbers
     // mean zoom in, negative numbers mean zoom out.
-    int m_zoomLevel;
+    double m_zoomLevel;
 
-    bool m_zoomTextOnly;
+    double m_minimumZoomLevel;
+
+    double m_maximumZoomLevel;
 
     bool m_contextMenuAllowed;
 
@@ -536,10 +548,7 @@ private:
     // If we attempt to fetch the on-screen GraphicsContext3D before
     // the compositor has been turned on, we need to instantiate it
     // early. This member holds on to the GC3D in this case.
-    OwnPtr<WebCore::GraphicsContext3D> m_temporaryOnscreenGraphicsContext3D;
-
-    RefPtr<WebCore::SharedGraphicsContext3D> m_sharedContext3D;
-
+    RefPtr<WebCore::GraphicsContext3D> m_temporaryOnscreenGraphicsContext3D;
     OwnPtr<DeviceOrientationClientProxy> m_deviceOrientationClientProxy;
 };
 

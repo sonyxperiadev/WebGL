@@ -1,3 +1,584 @@
+2010-10-20  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Wrong null check in PopupMenuQt
+        https://bugs.webkit.org/show_bug.cgi?id=47945
+
+        Wrong null check in PopupMenuQt.
+
+        * WebCoreSupport/PopupMenuQt.cpp:
+        (WebCore::PopupMenuQt::hide):
+
+2010-10-18  Viatcheslav Ostapenko  <ostapenko.viatcheslav@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Export QWebPage::ViewportAttributes class.
+        https://bugs.webkit.org/show_bug.cgi?id=47845
+
+        * Api/qwebpage.h:
+        * symbian/eabi/QtWebKitu.def:
+
+2010-10-18  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Web Inspector: [crash] when Inspector Open in CSSStyleSelector::loadPendingImages().
+        https://bugs.webkit.org/show_bug.cgi?id=46224
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::sendMessageToFrontend):
+
+2010-10-18  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] AC rendering bugs
+
+        This fixes a regression that was introduced by making scrolling in accelerated compositing automatic,
+        which made our explicit function to scroll the compositing layers superfluous, making the scrolling behavior
+        when graphics layers are present incorrect. The fix simply removes those redundant functions.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47571
+
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQGraphicsWidget::scroll):
+        (WebCore::PageClientQGraphicsWidget::update):
+        (WebCore::PageClientQGraphicsWidget::setRootGraphicsLayer):
+        * WebCoreSupport/PageClientQt.h:
+
+2010-10-18  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by nobody, build fix.
+
+        [Qt] Fix the build with MSVC.
+
+        Splitting the condition in two to prevent qmake parentheses issues.
+
+        * Api/DerivedSources.pro:
+
+2010-10-18  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [QT] Unable to load pages on QtTestBrowser after canceling a page load. 
+        https://bugs.webkit.org/show_bug.cgi?id=43827
+
+        * Api/qwebpage.cpp:
+        (QWebPage::triggerAction):
+
+2010-10-15  Qi Zhang  <qi.2.zhang@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] window.close() doesn't work in qt
+        https://bugs.webkit.org/show_bug.cgi?id=46186
+
+        Introduce new attribute in QWebSettings to trigger "setAllowScriptsToCloseWindow"
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+        * Api/qwebsettings.h:
+
+2010-10-15  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Unbreak scrolling the ContentsLayer with QWebView
+
+        r69777 broke scrolling the contents layer in QWebView by not restoring
+        the painter clip after painting each part of the dirty region.
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderRelativeCoords):
+
+2010-09-27 Dawit Alemayehu  <adawit@kde.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Added functions for obtaining and checking the supported content types.
+        http://webkit.org/b/37880
+
+        * Api/qwebpage.cpp:
+        (extractContentTypeFromHash):
+        (extractContentTypeFromPluginVector):
+        (QWebPage::supportedContentTypes):
+        (QWebPage::supportsContentType):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::supportedContentType):
+
+2010-10-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r69795.
+        http://trac.webkit.org/changeset/69795
+        https://bugs.webkit.org/show_bug.cgi?id=47687
+
+        'See discussion at webkit.org/b/47609' (Requested by mwenge on
+        #webkit).
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::canHandleRequest):
+        (WebCore::FrameLoaderClientQt::dispatchUnableToImplementPolicy):
+
+2010-10-14  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Fix http/tests/misc/redirect-to-external-url.html
+
+        Support the test in FrameLoaderClientQt and unskip.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47609
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::canHandleRequest):
+        (WebCore::FrameLoaderClientQt::dispatchUnableToImplementPolicy):
+
+2010-10-14  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Texmap] [Qt] Texture mapper initial implementation
+        https://bugs.webkit.org/show_bug.cgi?id=47070
+
+        Allow rendering of accelerated-compositing with TextureMapper, inside a QWebFrame. The frame will render the regular content,
+        either normally or through tiled backingstore, then let the TextureMapper layer render itself to the active context, and
+        then render the scrollbar and pan icon. This is different from the current implementation, which uses additional QGraphicsItems for AC
+        and the scrollbar overlay.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::paint):
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderFromTiledBackingStore):
+        (QWebFramePrivate::renderRelativeCoords):
+
+2010-10-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43987
+        Switch XMLHttpRequest, FileReader, and FileReaderSync to use a Stringbuilder
+        to construct their internal result string.  Remove ScriptString (this is now
+        redundant).
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+
+2010-10-13  Dinu Jacob  <dinu.jacob@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Update .def file for Symbian
+        https://bugs.webkit.org/show_bug.cgi?id=47540
+
+        Updated symbols for Symbian - added viewportAttributesForSize and
+        made viewportConfigurationForSize absent based on the API change in
+        47325
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-10-12  David Leong  <david.leong@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Enable Netscape plugin metadata caching on Linux 
+        https://bugs.webkit.org/show_bug.cgi?id=46287
+        
+        QWebSettings::enablePersistentStorage will now store the netscape
+        plugin cache to QDesktopServices::CacheLocation.
+        
+        * Api/qwebsettings.cpp:
+        (QWebSettings::enablePersistentStorage):
+
+2010-10-12  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Editing commands should not be executed on non-editable content.
+        https://bugs.webkit.org/show_bug.cgi?id=47426
+
+        Remove calls to editor()->command() when we are not in editable content.
+        There is no value in doing that, and in some cases, it prevents scrolling.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-10-08  Hui Huang  <hui.2.huang@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        ifdef out code that rewrites Flash Plug-in wmode for Symbian build
+        https://bugs.webkit.org/show_bug.cgi?id=43484
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-10-07  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] API: ViewportConfiguration => ViewportArguments
+        https://bugs.webkit.org/show_bug.cgi?id=47325
+
+        * Api/qwebpage.cpp:
+        (QWebPage::ViewportAttributes::ViewportAttributes):
+        (QWebPage::ViewportAttributes::~ViewportAttributes):
+        (QWebPage::ViewportAttributes::operator=):
+        (QWebPage::viewportAttributesForSize):
+        * Api/qwebpage.h:
+        * Api/qwebpage_p.h:
+        (QtViewportAttributesPrivate::QtViewportAttributesPrivate):
+
+2010-10-07  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fixing viewport meta tag user-scalable handling
+        https://bugs.webkit.org/show_bug.cgi?id=47330
+
+        user-scalable attribute was not considered in viewport meta tag handling.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::viewportConfigurationForSize):
+
+2010-10-05  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Hook up accelerometer data via Qt DeviceMotion
+        https://bugs.webkit.org/show_bug.cgi?id=47105
+
+        Get accelerometer necessary data via Qt mobility library using a
+        provider class. Enable, also the RotationRate using the current device
+        orientation provider.
+
+        * WebCoreSupport/DeviceMotionClientQt.cpp:
+        (WebCore::DeviceMotionClientQt::DeviceMotionClientQt):
+        (WebCore::DeviceMotionClientQt::~DeviceMotionClientQt):
+        (WebCore::DeviceMotionClientQt::startUpdating):
+        (WebCore::DeviceMotionClientQt::stopUpdating):
+        (WebCore::DeviceMotionClientQt::currentDeviceMotion):
+        (WebCore::DeviceMotionClientQt::changeDeviceMotion):
+        * WebCoreSupport/DeviceMotionClientQt.h:
+        * WebCoreSupport/DeviceMotionProviderQt.cpp: Added.
+        (WebCore::DeviceMotionProviderQt::DeviceMotionProviderQt):
+        (WebCore::DeviceMotionProviderQt::~DeviceMotionProviderQt):
+        (WebCore::DeviceMotionProviderQt::start):
+        (WebCore::DeviceMotionProviderQt::stop):
+        (WebCore::DeviceMotionProviderQt::filter):
+        * WebCoreSupport/DeviceMotionProviderQt.h: Added.
+        (WebCore::DeviceMotionProviderQt::currentDeviceMotion):
+
+2010-10-07  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Some viewport meta tag api refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=47334
+
+        WebCore::findConfigurationForViewportData renamed to computeViewportAttributes.
+        WebCore::ViewportAttributes::layoutViewport renamed to layoutSize.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::viewportConfigurationForSize):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::viewportAsText):
+
+2010-10-07  Keith Kyzivat  <keith.kyzivat@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Update .def file for Symbian
+        https://bugs.webkit.org/show_bug.cgi?id=47336
+        Fix and re-freeze symbols for symbian - viewportConfigurationForSize
+        API changed, allowGeolocationRequest removed from API, several
+        DumpRenderTree support calls added.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-10-06  Ragner Magalhaes  <ragner.magalhaes@openbossa.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Duplicated code in QWebPagePrivate
+        https://bugs.webkit.org/show_bug.cgi?id=47195
+
+        Remove duplicated code from QWebPagePrivate class for QGraphicsView and QWidget's mouse events.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::mouseMoveEvent):
+        (QWebPagePrivate::mousePressEvent):
+        (QWebPagePrivate::mouseDoubleClickEvent):
+        (QWebPagePrivate::mouseTripleClickEvent):
+        (QWebPagePrivate::mouseReleaseEvent):
+        (QWebPagePrivate::wheelEvent):
+        (QWebPagePrivate::dragEnterEvent):
+        (QWebPagePrivate::dragLeaveEvent):
+        (QWebPagePrivate::dragMoveEvent):
+        (QWebPagePrivate::dropEvent):
+        * Api/qwebpage_p.h:
+
+2010-10-06  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Renaming WebCore::ViewportConfiguration to WebCore::ViewportAttributes
+        https://bugs.webkit.org/show_bug.cgi?id=47268
+
+        Renaming WebCore::ViewportConfiguration to WebCore::ViewportAttributes
+
+        * Api/qwebpage.cpp:
+        (QWebPage::viewportConfigurationForSize):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::viewportAsText):
+
+2010-10-05  Andrew Wilson  <atwilson@chromium.org>
+
+        Reviewed by Andreas Kling.
+
+        Notification onclick() events don't act like user gestures
+        https://bugs.webkit.org/show_bug.cgi?id=47137
+
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::notificationClicked):
+        Use UserGestureIndicator to make sure click events are treated like user gestures.
+
+2010-10-05  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Fix url conversion in QWebHistory
+
+        Converting from KURL to WFT::String to QUrl does not
+        permit proper percent encoding later.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47048
+
+        * Api/qwebhistory.cpp:
+        (QWebHistoryItem::originalUrl):
+        (QWebHistoryItem::url):
+
+2010-10-05  Jakob Petsovits  <jpetsovits@rim.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Make build work with QT_NO_CURSOR
+        https://bugs.webkit.org/show_bug.cgi?id=46097
+
+        Add a missing semicolon.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::setCursor):
+
+2010-10-05  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Unreviewed build fix.
+
+        [Symbian] Fix build issue due to gaps in ordinals in the def file
+
+        Restore previously removed symbols and mark them absent instead. We must
+        not remove symbols from this file, because it breaks binary compatibility
+        (when re-assigning the ordinals of the following symbols) or it causes build
+        breakage when instead having a gap in the ordinal sequence. Instead removing
+        a symbol is done by marking it as absent.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-10-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Rename RedirectScheduler to NavigationScheduler
+        https://bugs.webkit.org/show_bug.cgi?id=47037
+
+        Update for name change.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::triggerAction):
+
+2010-10-04  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Hook up DeviceOrientation data for Qt support
+        https://bugs.webkit.org/show_bug.cgi?id=47052
+
+        Get DeviceOrientation necessary data via Qt mobility library
+        using a provider class.
+
+        * WebCoreSupport/DeviceOrientationClientQt.cpp:
+        (WebCore::DeviceOrientationClientQt::DeviceOrientationClientQt):
+        (WebCore::DeviceOrientationClientQt::~DeviceOrientationClientQt):
+        (WebCore::DeviceOrientationClientQt::startUpdating):
+        (WebCore::DeviceOrientationClientQt::stopUpdating):
+        (WebCore::DeviceOrientationClientQt::lastOrientation):
+        (WebCore::DeviceOrientationClientQt::changeDeviceOrientation):
+        * WebCoreSupport/DeviceOrientationClientQt.h:
+        * WebCoreSupport/DeviceOrientationProviderQt.cpp: Added.
+        (WebCore::DeviceOrientationProviderQt::DeviceOrientationProviderQt):
+        (WebCore::DeviceOrientationProviderQt::~DeviceOrientationProviderQt):
+        (WebCore::DeviceOrientationProviderQt::start):
+        (WebCore::DeviceOrientationProviderQt::stop):
+        (WebCore::DeviceOrientationProviderQt::filter):
+        * WebCoreSupport/DeviceOrientationProviderQt.h: Added.
+        (WebCore::DeviceOrientationProviderQt::isActive):
+        (WebCore::DeviceOrientationProviderQt::orientation):
+        (WebCore::DeviceOrientationProviderQt::hasAlpha):
+
+2010-09-28  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Viewport data change notifications
+        https://bugs.webkit.org/show_bug.cgi?id=46755
+
+        Regarding viewport meta tags, what matters for browser developers is to know when the viewport data has
+        changed and its current value. Viewport data belongs to the document, but it is useful to keep the current
+        viewport data in Page as a reference, to be able to send notifications only when the current viewport
+        has changed.
+
+        * Api/qwebframe.cpp:
+        * Api/qwebframe_p.h:
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::viewportArguments):
+        (QWebPage::viewportConfigurationForSize):
+        * Api/qwebpage_p.h:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::viewportDataChanged):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::viewportAsText):
+
+2010-10-04  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Rubber-stamped by Tor Arne Vestbø.
+
+        [Qt] Fix platform plugin support after r68128
+
+        Replaced the qobject_cast from the QObject derived extension to a
+        static_cast. qobject_cast works by comparing pointers to meta-object
+        instances, of which there are two each: one compiled into WebKit and
+        one compiled into the plugin.
+
+        The platform plugin ensures the validity of the interface contract
+        through its version and the initial safe qobject_cast from QObject
+        to QWebKitPlatformPlugin. After that it is safe to use static_cast,
+        and with the recent changes even required.
+
+        * WebCoreSupport/QtPlatformPlugin.cpp:
+        (WebCore::QtPlatformPlugin::createSelectInputMethod):
+        (WebCore::QtPlatformPlugin::createNotificationPresenter):
+        (WebCore::QtPlatformPlugin::createHapticFeedbackPlayer):
+
+2010-10-02  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Provide Qt support for DeviceMotion/Orientation clients
+        https://bugs.webkit.org/show_bug.cgi?id=47051
+
+        Dummy implementation of DeviceMotion/Orientation client classes
+        to make possible to hook up motion/orientation data
+        in further implementations.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate):
+        * WebCoreSupport/DeviceMotionClientQt.cpp: Added.
+        (WebCore::DeviceMotionClientQt::DeviceMotionClientQt):
+        (WebCore::DeviceMotionClientQt::setController):
+        (WebCore::DeviceMotionClientQt::startUpdating):
+        (WebCore::DeviceMotionClientQt::stopUpdating):
+        (WebCore::DeviceMotionClientQt::currentDeviceMotion):
+        (WebCore::DeviceMotionClientQt::deviceMotionControllerDestroyed):
+        * WebCoreSupport/DeviceMotionClientQt.h: Added.
+        (WebCore::DeviceMotionClientQt::~DeviceMotionClientQt):
+        * WebCoreSupport/DeviceOrientationClientQt.cpp: Added.
+        (WebCore::DeviceOrientationClientQt::DeviceOrientationClientQt):
+        (WebCore::DeviceOrientationClientQt::setController):
+        (WebCore::DeviceOrientationClientQt::startUpdating):
+        (WebCore::DeviceOrientationClientQt::stopUpdating):
+        (WebCore::DeviceOrientationClientQt::lastOrientation):
+        (WebCore::DeviceOrientationClientQt::deviceOrientationControllerDestroyed):
+        * WebCoreSupport/DeviceOrientationClientQt.h: Added.
+        (WebCore::DeviceOrientationClientQt::~DeviceOrientationClientQt):
+
+2010-09-30  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Support for PlainTextController
+
+        Unskip editing/text-iterator/basic-iteration.html
+
+        https://bugs.webkit.org/show_bug.cgi?id=38805
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::plainText):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-09-30  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] V8 port: Unbreak build
+
+        Add missing <wtf/text/CString.h> include.
+
+        * WebCoreSupport/InspectorServerQt.cpp:
+
+2010-09-30  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Crash if an scene with accelerated compositing layout during the paint event
+        https://bugs.webkit.org/show_bug.cgi?id=46812
+
+        Delay the deletion of the overlay after the current event is processed.
+
+        Removing the overlay can sometimes be done inside the rendering code of
+        the overlay itself. When the rendering code is using the reference after
+        the deletion of the overlay, WebKit crashes.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::overlay):
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQGraphicsWidget::~PageClientQGraphicsWidget):
+        (WebCore::PageClientQGraphicsWidget::createOrDeleteOverlay):
+        * WebCoreSupport/PageClientQt.h:
+        (WebCore::PageClientQGraphicsWidget::PageClientQGraphicsWidget):
+
+2010-09-30  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Fix tst_QWebPage::geolocationRequestJS()
+        https://bugs.webkit.org/show_bug.cgi?id=46814
+
+        Disable the test. This test cannot pass with a
+        standard build of WebKit, it is disabled until the API is finilized.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::geolocationRequestJS):
+
+2010-09-29  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Don't keep local reference to QGraphicsItemOverlay in QGWVPrivate
+        https://bugs.webkit.org/show_bug.cgi?id=46812
+
+        Get the QGraphicsItemOverlay* via the QWebPageClient (d->page->d->client)
+        instead of keeping a local pointer to it.
+
+        This is cleanup for a follow-up patch.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::overlay):
+        (QGraphicsWebView::paint):
+        (QGraphicsWebView::setPage):
+        (QGraphicsWebView::updateGeometry):
+        (QGraphicsWebView::setGeometry):
+
 2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
 
         Reviewed by Dmitry Titov.
@@ -215,7 +796,6 @@
         (QWebSettingsPrivate::apply):
         (QWebSettings::QWebSettings):
         * Api/qwebsettings.h:
-
 
 2010-09-23  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
 

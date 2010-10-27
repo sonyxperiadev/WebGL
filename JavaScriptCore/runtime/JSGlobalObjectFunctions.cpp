@@ -35,7 +35,7 @@
 #include "LiteralParser.h"
 #include "Nodes.h"
 #include "Parser.h"
-#include "StringBuilder.h"
+#include "UStringBuilder.h"
 #include "dtoa.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -450,7 +450,7 @@ EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
     if (JSValue parsedObject = preparser.tryLiteralParse())
         return JSValue::encode(parsedObject);
 
-    RefPtr<EvalExecutable> eval = EvalExecutable::create(exec, makeSource(s));
+    RefPtr<EvalExecutable> eval = EvalExecutable::create(exec, makeSource(s), false);
     JSObject* error = eval->compile(exec, static_cast<JSGlobalObject*>(unwrappedObject)->globalScopeChain().node());
     if (error)
         return throwVMError(exec, error);
@@ -563,7 +563,7 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
 {
-    StringBuilder builder;
+    UStringBuilder builder;
     UString str = exec->argument(0).toString(exec);
     int k = 0;
     int len = str.length();
@@ -585,7 +585,7 @@ EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
         builder.append(*c);
     }
 
-    return JSValue::encode(jsString(exec, builder.build()));
+    return JSValue::encode(jsString(exec, builder.toUString()));
 }
 
 #ifndef NDEBUG

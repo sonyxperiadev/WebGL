@@ -24,7 +24,6 @@
 #include "debugger/DebuggerCallFrame.h"
 
 #include "ActiveDOMObject.h"
-#include "CSSHelper.h"
 #include "DOMCoreException.h"
 #include "DOMObjectHashTableMap.h"
 #include "Document.h"
@@ -453,6 +452,13 @@ JSValue jsStringOrNull(ExecState* exec, const String& s)
     return jsString(exec, s);
 }
 
+JSValue jsOwnedStringOrNull(ExecState* exec, const String& s)
+{
+    if (s.isNull())
+        return jsNull();
+    return jsOwnedString(exec, stringToUString(s));
+}
+
 JSValue jsOwnedStringOrNull(ExecState* exec, const UString& s)
 {
     if (s.isNull())
@@ -648,7 +654,7 @@ bool shouldAllowNavigation(ExecState* exec, Frame* frame)
 
 bool allowSettingSrcToJavascriptURL(ExecState* exec, Element* element, const String& name, const String& value)
 {
-    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && protocolIsJavaScript(deprecatedParseURL(value))) {
+    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(value))) {
           Document* contentDocument = static_cast<HTMLFrameElementBase*>(element)->contentDocument();
           if (contentDocument && !checkNodeSecurity(exec, contentDocument))
               return false;

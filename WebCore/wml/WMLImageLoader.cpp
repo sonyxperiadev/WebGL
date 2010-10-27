@@ -24,8 +24,8 @@
 #include "WMLImageLoader.h"
 
 #include "CachedImage.h"
-#include "CSSHelper.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "WMLImageElement.h"
 #include "WMLNames.h"
 
@@ -49,7 +49,7 @@ void WMLImageLoader::dispatchLoadEvent()
 
 String WMLImageLoader::sourceURI(const AtomicString& attr) const
 {
-    return KURL(element()->baseURI(), deprecatedParseURL(attr));
+    return KURL(element()->baseURI(), stripLeadingAndTrailingHTMLSpaces(attr));
 }
 
 void WMLImageLoader::notifyFinished(CachedResource* image)

@@ -25,7 +25,7 @@ function emptyCursorSuccess()
 function openEmptyCursor()
 {
     debug("Opening an empty cursor.");
-    keyRange = IDBKeyRange.leftBound("InexistentKey");
+    keyRange = webkitIDBKeyRange.leftBound("InexistentKey");
     result = evalAndLog("objectStore.openCursor(keyRange)");
     verifyResult(result);
     result.onsuccess = emptyCursorSuccess;
@@ -47,26 +47,31 @@ function cursorSuccess()
 function openCursor()
 {
     debug("Opening cursor");
-    keyRange = IDBKeyRange.leftBound("myKey");
-    result = evalAndLog("objectStore.openCursor(keyRange)");
+    keyRange = webkitIDBKeyRange.leftBound("myKey");
+    result = evalAndLog("event.source.openCursor(keyRange)");
     verifyResult(result);
     result.onsuccess = cursorSuccess;
     result.onerror = unexpectedErrorCallback;
 }
 
-function populateObjectStore(objectStore)
+function createAndPopulateObjectStore() 
 {
+    var objectStore = evalAndLog("objectStore = db.createObjectStore('test')");
     result = evalAndLog("objectStore.add('myValue', 'myKey')");
     verifyResult(result);
     result.onsuccess = openCursor;
     result.onerror = unexpectedErrorCallback;
 }
 
-function createObjectStoreSuccess()
+function setVersionSuccess()
 {
+    debug("setVersionSuccess():");
     verifySuccessEvent(event);
-    var objectStore = evalAndLog("objectStore = event.result");
-    populateObjectStore(objectStore);
+    window.trans = evalAndLog("trans = event.result");
+    shouldBeTrue("trans !== null");
+    trans.onabort = unexpectedAbortCallback;
+
+    deleteAllObjectStores(db, createAndPopulateObjectStore);
 }
 
 function openSuccess()
@@ -74,17 +79,15 @@ function openSuccess()
     verifySuccessEvent(event);
     var db = evalAndLog("db = event.result");
 
-    deleteAllObjectStores(db);
-
-    result = evalAndLog("db.createObjectStore('test')");
+    result = evalAndLog("db.setVersion('new version')");
     verifyResult(result);
-    result.onsuccess = createObjectStoreSuccess;
+    result.onsuccess = setVersionSuccess;
     result.onerror = unexpectedErrorCallback;
 }
 
 function test()
 {
-    result = evalAndLog("indexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
     verifyResult(result);
     result.onsuccess = openSuccess;
     result.onerror = unexpectedErrorCallback;

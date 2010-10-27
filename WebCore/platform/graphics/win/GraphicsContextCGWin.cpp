@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,8 +70,8 @@ GraphicsContext::GraphicsContext(HDC hdc, bool hasAlpha)
     setPaintingDisabled(!m_data->m_cgContext);
     if (m_data->m_cgContext) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor(), DeviceColorSpace);
-        setPlatformStrokeColor(strokeColor(), DeviceColorSpace);
+        setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
+        setPlatformStrokeColor(strokeColor(), ColorSpaceDeviceRGB);
     }
 }
 
@@ -129,6 +129,8 @@ void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int of
     // FIXME: implement
 }
 
+// FIXME: This is nearly identical to the GraphicsContext::drawFocusRing function in GraphicsContextMac.mm.
+// The code could move to GraphicsContextCG.cpp and be shared.
 void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
 {
     if (paintingDisabled())
@@ -136,7 +138,7 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
 
     float radius = (width - 1) / 2.0f;
     offset += radius;
-    CGColorRef colorRef = color.isValid() ? createCGColor(color) : 0;
+    CGColorRef colorRef = color.isValid() ? cachedCGColor(color, ColorSpaceDeviceRGB) : 0;
 
     CGMutablePathRef focusRingPath = CGPathCreateMutable();
     unsigned rectCount = rects.size();
@@ -150,8 +152,6 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     CGContextAddPath(context, focusRingPath);
 
     wkDrawFocusRing(context, colorRef, radius);
-
-    CGColorRelease(colorRef);
 
     CGPathRelease(focusRingPath);
 

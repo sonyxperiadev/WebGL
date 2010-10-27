@@ -32,7 +32,7 @@
 #include "V8XMLHttpRequest.h"
 
 #include "Frame.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "V8Binding.h"
 #include "V8Blob.h"
 #include "V8DOMFormData.h"
@@ -51,10 +51,10 @@ v8::Handle<v8::Value> V8XMLHttpRequest::responseTextAccessorGetter(v8::Local<v8:
     INC_STATS("DOM.XMLHttpRequest.responsetext._get");
     XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(info.Holder());
     ExceptionCode ec = 0;
-    const ScriptString& text = xmlHttpRequest->responseText(ec);
+    const String& text = xmlHttpRequest->responseText(ec);
     if (ec)
         return throwError(ec);
-    return text.v8StringOrNull();
+    return v8String(text);
 }
 
 v8::Handle<v8::Value> V8XMLHttpRequest::openCallback(const v8::Arguments& args)
@@ -114,7 +114,7 @@ v8::Handle<v8::Value> V8XMLHttpRequest::sendCallback(const v8::Arguments& args)
     INC_STATS("DOM.XMLHttpRequest.send()");
     XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
 
-    InspectorController::instrumentWillSendXMLHttpRequest(xmlHttpRequest->scriptExecutionContext(), xmlHttpRequest->url());
+    InspectorInstrumentation::willSendXMLHttpRequest(xmlHttpRequest->scriptExecutionContext(), xmlHttpRequest->url());
 
     ExceptionCode ec = 0;
     if (args.Length() < 1)

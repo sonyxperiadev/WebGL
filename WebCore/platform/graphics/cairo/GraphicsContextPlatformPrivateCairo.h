@@ -28,6 +28,7 @@
 #include "GraphicsContext.h"
 
 #include "CairoPath.h"
+#include "ContextShadow.h"
 #include <cairo.h>
 #include <math.h>
 #include <stdio.h>
@@ -97,6 +98,10 @@ public:
     cairo_t* cr;
     Vector<float> layers;
     CairoPath m_pendingPath;
+
+    ContextShadow shadow;
+    Vector<ContextShadow> shadowStack;
+    bool hasShadow() const { return shadow.m_type != ContextShadow::NoShadow; }
 
 #if PLATFORM(GTK)
     GdkEventExpose* expose;

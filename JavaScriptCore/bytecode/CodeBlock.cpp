@@ -34,10 +34,11 @@
 #include "Debugger.h"
 #include "Interpreter.h"
 #include "JIT.h"
+#include "JSActivation.h"
 #include "JSFunction.h"
 #include "JSStaticScopeObject.h"
 #include "JSValue.h"
-#include "StringConcatenate.h"
+#include "UStringConcatenate.h"
 #include <stdio.h>
 #include <wtf/StringExtras.h>
 
@@ -52,7 +53,7 @@ static UString escapeQuotes(const UString& str)
     UString result = str;
     size_t pos = 0;
     while ((pos = result.find('\"', pos)) != notFound) {
-        result = makeString(result.substringSharingImpl(0, pos), "\"\\\"\"", result.substringSharingImpl(pos + 1));
+        result = makeUString(result.substringSharingImpl(0, pos), "\"\\\"\"", result.substringSharingImpl(pos + 1));
         pos += 4;
     }
     return result;
@@ -64,19 +65,19 @@ static UString valueToSourceString(ExecState* exec, JSValue val)
         return "0";
 
     if (val.isString())
-        return makeString("\"", escapeQuotes(val.toString(exec)), "\"");
+        return makeUString("\"", escapeQuotes(val.toString(exec)), "\"");
 
     return val.toString(exec);
 }
 
 static CString constantName(ExecState* exec, int k, JSValue value)
 {
-    return makeString(valueToSourceString(exec, value), "(@k", UString::number(k - FirstConstantRegisterIndex), ")").utf8();
+    return makeUString(valueToSourceString(exec, value), "(@k", UString::number(k - FirstConstantRegisterIndex), ")").utf8();
 }
 
 static CString idName(int id0, const Identifier& ident)
 {
-    return makeString(ident.ustring(), "(@id", UString::number(id0), ")").utf8();
+    return makeUString(ident.ustring(), "(@id", UString::number(id0), ")").utf8();
 }
 
 CString CodeBlock::registerName(ExecState* exec, int r) const
@@ -87,7 +88,7 @@ CString CodeBlock::registerName(ExecState* exec, int r) const
     if (isConstantRegisterIndex(r))
         return constantName(exec, r, getConstant(r));
 
-    return makeString("r", UString::number(r)).utf8();
+    return makeUString("r", UString::number(r)).utf8();
 }
 
 static UString regexpToSourceString(RegExp* regExp)
@@ -101,12 +102,12 @@ static UString regexpToSourceString(RegExp* regExp)
     if (regExp->multiline())
         postfix[index] = 'm';
 
-    return makeString("/", regExp->pattern(), postfix);
+    return makeUString("/", regExp->pattern(), postfix);
 }
 
 static CString regexpName(int re, RegExp* regexp)
 {
-    return makeString(regexpToSourceString(regexp), "(@re", UString::number(re), ")").utf8();
+    return makeUString(regexpToSourceString(regexp), "(@re", UString::number(re), ")").utf8();
 }
 
 static UString pointerToSourceString(void* p)
@@ -485,9 +486,9 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] enter\n", location);
             break;
         }
-        case op_enter_with_activation: {
+        case op_create_activation: {
             int r0 = (++it)->u.operand;
-            printf("[%4d] enter_with_activation %s\n", location, registerName(exec, r0).data());
+            printf("[%4d] create_activation %s\n", location, registerName(exec, r0).data());
             break;
         }
         case op_create_arguments: {
@@ -514,6 +515,11 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         case op_convert_this: {
             int r0 = (++it)->u.operand;
             printf("[%4d] convert_this %s\n", location, registerName(exec, r0).data());
+            break;
+        }
+        case op_convert_this_strict: {
+            int r0 = (++it)->u.operand;
+            printf("[%4d] convert_this_strict %s\n", location, registerName(exec, r0).data());
             break;
         }
         case op_new_object: {
@@ -722,9 +728,8 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int id0 = (++it)->u.operand;
             JSValue scope = JSValue((++it)->u.jsCell);
             ++it;
-            int depth = it[2].u.operand;
+            int depth = (++it)->u.operand;
             printf("[%4d] resolve_global_dynamic\t %s, %s, %s, %d\n", location, registerName(exec, r0).data(), valueToSourceString(exec, scope).utf8().data(), idName(id0, m_identifiers[id0]).data(), depth);
-            it += 3;
             break;
         }
         case op_get_scoped_var: {
@@ -756,7 +761,14 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         case op_resolve_base: {
             int r0 = (++it)->u.operand;
             int id0 = (++it)->u.operand;
-            printf("[%4d] resolve_base\t %s, %s\n", location, registerName(exec, r0).data(), idName(id0, m_identifiers[id0]).data());
+            int isStrict = (++it)->u.operand;
+            printf("[%4d] resolve_base%s\t %s, %s\n", location, isStrict ? "_strict" : "", registerName(exec, r0).data(), idName(id0, m_identifiers[id0]).data());
+            break;
+        }
+        case op_ensure_property_exists: {
+            int r0 = (++it)->u.operand;
+            int id0 = (++it)->u.operand;
+            printf("[%4d] ensure_property_exists\t %s, %s\n", location, registerName(exec, r0).data(), idName(id0, m_identifiers[id0]).data());
             break;
         }
         case op_resolve_with_base: {
@@ -1134,9 +1146,12 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_next_pname: {
             int dest = it[1].u.operand;
-            int iter = it[4].u.operand;
-            int offset = it[5].u.operand;
-            printf("[%4d] next_pname\t %s, %s, %d(->%d)\n", location, registerName(exec, dest).data(), registerName(exec, iter).data(), offset, location + offset);
+            int base = it[2].u.operand;
+            int i = it[3].u.operand;
+            int size = it[4].u.operand;
+            int iter = it[5].u.operand;
+            int offset = it[6].u.operand;
+            printf("[%4d] next_pname\t %s, %s, %s, %s, %s, %d(->%d)\n", location, registerName(exec, dest).data(), registerName(exec, base).data(), registerName(exec, i).data(), registerName(exec, size).data(), registerName(exec, iter).data(), offset, location + offset);
             it += OPCODE_LENGTH(op_next_pname) - 1;
             break;
         }
@@ -1371,6 +1386,7 @@ CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlo
     , m_needsFullScopeChain(ownerExecutable->needsActivation())
     , m_usesEval(ownerExecutable->usesEval())
     , m_isNumericCompareFunction(false)
+    , m_isStrictMode(ownerExecutable->isStrictMode())
     , m_codeType(codeType)
     , m_source(sourceProvider)
     , m_sourceOffset(sourceOffset)
@@ -1542,6 +1558,10 @@ bool CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
     ASSERT(!m_rareData || !m_rareData->m_exceptionHandlers.size());
     ScopeChainNode* scopeChain = callFrame->scopeChain();
     if (m_needsFullScopeChain) {
+        if (codeType() == FunctionCode && !callFrame->r(activationRegister()).jsValue()) {
+            createActivation(callFrame);
+            scopeChain = callFrame->scopeChain();
+        }
         ScopeChain sc(scopeChain);
         int scopeDelta = sc.localDepth();
         if (m_codeType == EvalCode)
@@ -1553,7 +1573,7 @@ bool CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
             scopeChain = scopeChain->next;
     }
 
-    m_exceptionInfo = m_ownerExecutable->reparseExceptionInfo(m_globalData, scopeChain, this);
+    m_exceptionInfo = m_ownerExecutable->reparseExceptionInfo(scopeChain, this);
     return m_exceptionInfo;
 }
 
@@ -1763,6 +1783,16 @@ void CodeBlock::shrinkToFit()
         m_rareData->m_functionRegisterInfos.shrinkToFit();
 #endif
     }
+}
+
+void CodeBlock::createActivation(CallFrame* callFrame)
+{
+    ASSERT(codeType() == FunctionCode);
+    ASSERT(needsFullScopeChain());
+    ASSERT(!callFrame->r(activationRegister()).jsValue());
+    JSActivation* activation = new (callFrame) JSActivation(callFrame, static_cast<FunctionExecutable*>(ownerExecutable()));
+    callFrame->r(activationRegister()) = JSValue(activation);
+    callFrame->setScopeChain(callFrame->scopeChain()->copy()->push(activation));
 }
 
 } // namespace JSC

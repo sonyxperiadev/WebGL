@@ -112,6 +112,10 @@ BitStack::BitStack()
 {
 }
 
+BitStack::~BitStack()
+{
+}
+
 void BitStack::push(bool bit)
 {
     unsigned index = m_size / bitsInWord;
@@ -150,9 +154,9 @@ unsigned BitStack::size() const
 
 // --------
 
-static inline Node* parentCrossingShadowBoundaries(Node* node)
+static inline ContainerNode* parentCrossingShadowBoundaries(Node* node)
 {
-    if (Node* parent = node->parentNode())
+    if (ContainerNode* parent = node->parentNode())
         return parent;
     return node->shadowParentNode();
 }
@@ -334,6 +338,10 @@ TextIterator::TextIterator(const Range* r, TextIteratorBehavior behavior)
 
     // identify the first run
     advance();
+}
+
+TextIterator::~TextIterator()
+{
 }
 
 void TextIterator::advance()
@@ -1454,6 +1462,10 @@ WordAwareIterator::WordAwareIterator(const Range* r)
     , m_textIterator(r)
 {
     advance(); // get in position over the first chunk of text
+}
+
+WordAwareIterator::~WordAwareIterator()
+{
 }
 
 // We're always in one of these modes:

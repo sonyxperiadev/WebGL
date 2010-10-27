@@ -31,9 +31,26 @@
 #include "config.h"
 #include "NumberInputType.h"
 
+#include "HTMLInputElement.h"
+#include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
+#include <limits>
+#include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+
+using namespace HTMLNames;
+using namespace std;
+
+// FIXME: Number values should be in the range of IEEE 754 single-precision
+// floating point number.
+// http://www.whatwg.org/specs/web-apps/current-work/multipage/common-microsyntaxes.html#real-numbers
+static const double numberDefaultMinimum = -DBL_MAX;
+static const double numberDefaultMaximum = DBL_MAX;
+
+static const double numberDefaultStep = 1.0;
+static const double numberStepScaleFactor = 1.0;
 
 PassOwnPtr<InputType> NumberInputType::create(HTMLInputElement* element)
 {
@@ -43,6 +60,100 @@ PassOwnPtr<InputType> NumberInputType::create(HTMLInputElement* element)
 const AtomicString& NumberInputType::formControlType() const
 {
     return InputTypeNames::number();
+}
+
+double NumberInputType::valueAsNumber() const
+{
+    return parseToDouble(element()->value(), numeric_limits<double>::quiet_NaN());
+}
+
+void NumberInputType::setValueAsNumber(double newValue, ExceptionCode&) const
+{
+    element()->setValue(serialize(newValue));
+}
+
+bool NumberInputType::typeMismatchFor(const String& value) const
+{
+    return !value.isEmpty() && !parseToDoubleForNumberType(value, 0);
+}
+
+bool NumberInputType::typeMismatch() const
+{
+    ASSERT(!typeMismatchFor(element()->value()));
+    return false;
+}
+
+bool NumberInputType::rangeUnderflow(const String& value) const
+{
+    const double nan = numeric_limits<double>::quiet_NaN();
+    double doubleValue = parseToDouble(value, nan);
+    return isfinite(doubleValue) && doubleValue < minimum();
+}
+
+bool NumberInputType::rangeOverflow(const String& value) const
+{
+    const double nan = numeric_limits<double>::quiet_NaN();
+    double doubleValue = parseToDouble(value, nan);
+    return isfinite(doubleValue) && doubleValue > maximum();
+}
+
+double NumberInputType::minimum() const
+{
+    return parseToDouble(element()->fastGetAttribute(minAttr), numberDefaultMinimum);
+}
+
+double NumberInputType::maximum() const
+{
+    return parseToDouble(element()->fastGetAttribute(maxAttr), numberDefaultMaximum);
+}
+
+bool NumberInputType::stepMismatch(const String& value, double step) const
+{
+    double doubleValue;
+    if (!parseToDoubleForNumberType(value, &doubleValue))
+        return false;
+    doubleValue = fabs(doubleValue - stepBase());
+    if (isinf(doubleValue))
+        return false;
+    // double's fractional part size is DBL_MAN_DIG-bit. If the current value
+    // is greater than step*2^DBL_MANT_DIG, the following fmod() makes no sense.
+    if (doubleValue / pow(2.0, DBL_MANT_DIG) > step)
+        return false;
+    double remainder = fmod(doubleValue, step);
+    // Accepts errors in lower 7-bit.
+    double acceptableError = step / pow(2.0, DBL_MANT_DIG - 7);
+    return acceptableError < remainder && remainder < (step - acceptableError);
+}
+
+double NumberInputType::stepBase() const
+{
+    return parseToDouble(element()->fastGetAttribute(minAttr), defaultStepBase());
+}
+
+double NumberInputType::defaultStep() const
+{
+    return numberDefaultStep;
+}
+
+double NumberInputType::stepScaleFactor() const
+{
+    return numberStepScaleFactor;
+}
+
+double NumberInputType::parseToDouble(const String& src, double defaultValue) const
+{
+    double numberValue;
+    if (!parseToDoubleForNumberType(src, &numberValue))
+        return defaultValue;
+    ASSERT(isfinite(numberValue));
+    return numberValue;
+}
+
+String NumberInputType::serialize(double value) const
+{
+    if (!isfinite(value))
+        return String();
+    return serializeForNumberType(value);
 }
 
 } // namespace WebCore

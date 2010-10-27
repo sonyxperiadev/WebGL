@@ -44,21 +44,33 @@ PassRefPtr<FEImage> FEImage::create(RefPtr<Image> image, const SVGPreserveAspect
     return adoptRef(new FEImage(image, preserveAspectRatio));
 }
 
-void FEImage::apply(Filter*)
+void FEImage::determineAbsolutePaintRect(Filter*)
+{
+    ASSERT(m_image);
+    FloatRect srcRect(FloatPoint(), m_image->size());
+    FloatRect paintRect(m_absoluteSubregion);
+    m_preserveAspectRatio.transformRect(paintRect, srcRect);
+    paintRect.intersect(maxEffectRect());
+    setAbsolutePaintRect(enclosingIntRect(paintRect));
+}
+
+void FEImage::apply(Filter* filter)
 {
     if (!m_image.get())
         return;
 
-    GraphicsContext* filterContext = effectContext();
+    GraphicsContext* filterContext = effectContext(filter);
     if (!filterContext)
         return;
 
     FloatRect srcRect(FloatPoint(), m_image->size());
-    FloatRect destRect(FloatPoint(), filterPrimitiveSubregion().size());
-
+    FloatRect destRect(m_absoluteSubregion);
     m_preserveAspectRatio.transformRect(destRect, srcRect);
 
-    filterContext->drawImage(m_image.get(), DeviceColorSpace, destRect, srcRect);
+    IntPoint paintLocation = absolutePaintRect().location();
+    destRect.move(-paintLocation.x(), -paintLocation.y());
+
+    filterContext->drawImage(m_image.get(), ColorSpaceDeviceRGB, destRect, srcRect);
 }
 
 void FEImage::dump()

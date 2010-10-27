@@ -69,6 +69,10 @@ public:
     void setHasHyphen(bool hasHyphen) { m_hasEllipsisBoxOrHyphen = hasHyphen; }
     static inline bool compareByStart(const InlineTextBox* first, const InlineTextBox* second) { return first->start() < second->start(); }
 
+    
+    virtual int baselinePosition() const;
+    virtual int lineHeight() const;
+
 private:
     virtual int selectionTop();
     virtual int selectionHeight();
@@ -78,7 +82,7 @@ public:
 
     virtual IntRect selectionRect(int absx, int absy, int startPos, int endPos);
     bool isSelected(int startPos, int endPos) const;
-    virtual void selectionStartEnd(int& sPos, int& ePos);
+    void selectionStartEnd(int& sPos, int& ePos);
 
 protected:
     virtual void paint(PaintInfo&, int tx, int ty);

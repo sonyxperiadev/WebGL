@@ -128,6 +128,16 @@ static JSValueRef lineForIndexCallback(JSContextRef context, JSObjectRef functio
     return JSValueMakeNumber(context, toAXElement(thisObject)->lineForIndex(indexNumber));
 }
 
+static JSValueRef rangeForLineCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    int indexNumber = -1;
+    if (argumentCount == 1)
+        indexNumber = JSValueToNumber(context, arguments[0], exception);
+    
+    JSRetainPtr<JSStringRef> rangeLine(Adopt, toAXElement(thisObject)->rangeForLine(indexNumber));
+    return JSValueMakeString(context, rangeLine.get());
+}
+
 static JSValueRef boundsForRangeCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     unsigned location = UINT_MAX, length = 0;
@@ -679,6 +689,12 @@ static JSValueRef isIgnoredCallback(JSContextRef context, JSObjectRef thisObject
     return JSValueMakeBoolean(context, toAXElement(thisObject)->isIgnored());
 }
 
+static JSValueRef speakCallback(JSContextRef context, JSObjectRef thisObject, JSStringRef, JSValueRef*)
+{
+    JSRetainPtr<JSStringRef> speakString(Adopt, toAXElement(thisObject)->speak());
+    return JSValueMakeString(context, speakString.get());
+}
+
 static JSValueRef getHasPopupCallback(JSContextRef context, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     return JSValueMakeBoolean(context, toAXElement(thisObject)->hasPopup());
@@ -736,6 +752,12 @@ static JSValueRef removeNotificationListenerCallback(JSContextRef context, JSObj
 }
 
 // Implementation
+
+// Unsupported methods on various platforms.
+#if !PLATFORM(MAC)
+JSStringRef AccessibilityUIElement::speak() { return 0; }
+JSStringRef AccessibilityUIElement::rangeForLine(int line) { return 0; }
+#endif
 
 #if !SUPPORTS_AX_TEXTMARKERS
 
@@ -837,6 +859,7 @@ JSClassRef AccessibilityUIElement::getJSClass()
         { "ariaIsGrabbed", getARIAIsGrabbedCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "ariaDropEffects", getARIADropEffectsCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "isIgnored", isIgnoredCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "speak", speakCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { 0, 0, 0, 0 }
     };
 
@@ -847,6 +870,7 @@ JSClassRef AccessibilityUIElement::getJSClass()
         { "attributesOfChildren", attributesOfChildrenCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "parameterizedAttributeNames", parameterizedAttributeNamesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "lineForIndex", lineForIndexCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "rangeForLine", rangeForLineCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "boundsForRange", boundsForRangeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "stringForRange", stringForRangeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "attributedStringForRange", attributedStringForRangeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

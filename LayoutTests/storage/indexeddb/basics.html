@@ -14,24 +14,46 @@ description("Test IndexedDB's basics.");
 if (window.layoutTestController)
     layoutTestController.waitUntilDone();
 
-function openCallback()
-{
-    verifySuccessEvent(event);
-    done();
-}
-
 function test()
 {
-    shouldBeTrue("'indexedDB' in window");
-    shouldBeFalse("indexedDB == null");
+    shouldBeTrue("'webkitIndexedDB' in window");
+    shouldBeFalse("webkitIndexedDB == null");
 
     // FIXME: Verify other IndexedDatabaseRequest constructors, once they're implemented.
 
-    result = evalAndLog("indexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
     verifyResult(result);
     result.onsuccess = openCallback;
     result.onerror = unexpectedErrorCallback;
 }
+
+function openCallback()
+{
+    verifySuccessEvent(event);
+    try {
+        debug("webkitIndexedDB.open('name');");
+        webkitIndexedDB.open('name');
+        testFailed("Calling IDBFactory::open without a description should have thrown.");
+    } catch (err) {
+        testPassed("Exception thrown.");
+    }
+    try {
+        debug("webkitIndexedDB.open('name', null);");
+        webkitIndexedDB.open('name', null);
+        testFailed("Calling IDBFactory::open with a null description should have thrown.");
+    } catch (err) {
+        testPassed("Exception thrown.");
+    }
+    try {
+        debug("webkitIndexedDB.open('name', undefined);");
+        webkitIndexedDB.open('name', undefined);
+        testFailed("Calling IDBFactory::open with an undefined description should have thrown.");
+    } catch (err) {
+        testPassed("Exception thrown.");
+    }
+    done();
+}
+
 
 test();
 

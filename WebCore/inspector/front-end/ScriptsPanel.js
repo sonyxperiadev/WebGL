@@ -134,10 +134,9 @@ WebInspector.ScriptsPanel = function()
     this.sidebarPanes.jsBreakpoints = WebInspector.createJSBreakpointsSidebarPane();
     if (Preferences.nativeInstrumentationEnabled) {
         this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
-        this.sidebarPanes.domBreakpoints.expanded = true;
         this.sidebarPanes.xhrBreakpoints = WebInspector.createXHRBreakpointsSidebarPane();
-        this.sidebarPanes.xhrBreakpoints.expanded = true;
     }
+    this.sidebarPanes.eventListenerBreakpoints = new WebInspector.EventListenerBreakpointsSidebarPane();
 
     this.sidebarPanes.workers = new WebInspector.WorkersSidebarPane();
 
@@ -389,9 +388,6 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.callstack.update(details.callFrames, this._sourceIDMap);
         this.sidebarPanes.callstack.selectedCallFrame = details.callFrames[0];
 
-        if ("eventType" in details)
-            this.sidebarPanes.callstack.updateStatus(details.eventType, details.eventData);
-
         WebInspector.currentPanel = this;
         window.focus();
     },
@@ -439,13 +435,7 @@ WebInspector.ScriptsPanel.prototype = {
         delete this.currentQuery;
         this.searchCanceled();
 
-        if (!this._debuggerEnabled) {
-            this._paused = false;
-            this._waitingToPause = false;
-            this._stepping = false;
-        }
-
-        this._clearInterface();
+        this.debuggerResumed();
 
         this._backForwardList = [];
         this._currentBackForwardIndex = -1;
@@ -473,6 +463,7 @@ WebInspector.ScriptsPanel.prototype = {
                 this.sidebarPanes.domBreakpoints.reset();
                 this.sidebarPanes.xhrBreakpoints.reset();
             }
+            this.sidebarPanes.eventListenerBreakpoints.reset();
             this.sidebarPanes.workers.reset();
         }
     },

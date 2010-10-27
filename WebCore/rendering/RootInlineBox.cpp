@@ -46,8 +46,9 @@ RootInlineBox::RootInlineBox(RenderBlock* block)
     , m_lineTop(0)
     , m_lineBottom(0)
     , m_paginationStrut(0)
+    , m_blockLogicalHeight(0)
 {
-    setIsVertical(!block->style()->isVerticalBlockFlow());
+    setIsVertical(!block->style()->isHorizontalWritingMode());
 }
 
 
@@ -199,7 +200,7 @@ void RootInlineBox::adjustPosition(int dx, int dy)
     InlineFlowBox::adjustPosition(dx, dy);
     m_lineTop += dy;
     m_lineBottom += dy;
-    m_blockHeight += dy;
+    m_blockLogicalHeight += dy;
 }
 
 void RootInlineBox::childRemoved(InlineBox* box)
@@ -240,10 +241,12 @@ int RootInlineBox::alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAn
     placeBoxesInBlockDirection(heightOfBlock, maxHeight, maxAscent, noQuirksMode, lineTop, lineBottom);
     computeBlockDirectionOverflow(lineTop, lineBottom, noQuirksMode, textBoxDataMap);
     setLineTopBottomPositions(lineTop, lineBottom);
-    
-    heightOfBlock += maxHeight;
-    
-    return heightOfBlock;
+
+    // Detect integer overflow.
+    if (heightOfBlock > numeric_limits<int>::max() - maxHeight)
+        return numeric_limits<int>::max();
+
+    return heightOfBlock + maxHeight;
 }
 
 GapRects RootInlineBox::fillLineSelectionGap(int selTop, int selHeight, RenderBlock* rootBlock, int blockX, int blockY, int tx, int ty,

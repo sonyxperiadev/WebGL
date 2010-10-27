@@ -10,47 +10,50 @@
 <div id="console"></div>
 <script>
 
-description("Test the basics of IndexedDB's IDBIndex.");
+description("Test the basics of IndexedDB's webkitIDBIndex.");
 if (window.layoutTestController) 
     layoutTestController.waitUntilDone();
 
 function test()
 {
-    result = evalAndLog("indexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
     verifyResult(result);
-    result.onsuccess = createObjectStore;
+    result.onsuccess = setVersion;
     result.onerror = unexpectedErrorCallback;
 }
 
-function createObjectStore()
+function setVersion()
 {
     verifySuccessEvent(event);
     db = evalAndLog("db = event.result");
 
-    deleteAllObjectStores(db);
-
-    result = evalAndLog("db.createObjectStore('storeName', null)");
+    result = evalAndLog("db.setVersion('new version')");
     verifyResult(result);
-    result.onsuccess = createIndex;
+    result.onsuccess = deleteExisting;
     result.onerror = unexpectedErrorCallback;
+}
+
+function deleteExisting()
+{
+    debug("setVersionSuccess():");
+    verifySuccessEvent(event);
+    window.trans = evalAndLog("trans = event.result");
+    shouldBeTrue("trans !== null");
+    trans.onabort = unexpectedAbortCallback;
+
+    deleteAllObjectStores(db, createIndex);
 }
 
 function createIndex()
 {
-    verifySuccessEvent(event);
-    window.store = evalAndLog("store = event.result");
-
-    result = evalAndLog("event.result.createIndex('indexName', 'x')");
-    verifyResult(result);
-    result.onsuccess = addData;
-    result.onerror = unexpectedErrorCallback;
+    window.store = evalAndLog("db.createObjectStore('storeName', null)");
+    window.indexObject = evalAndLog("store.createIndex('indexName', 'x')");
+    window.indexObject2 = evalAndLog("store.createIndex('indexName2', 'y', false)");
+    addData();
 }
 
 function addData()
 {
-    verifySuccessEvent(event);
-    shouldBeFalse("event.result === null");
-    window.indexObject = evalAndLog("indexObject = event.result");
     shouldBeTrue("'name' in indexObject");
     shouldBeEqualToString("indexObject.name", "indexName");
     shouldBeTrue("'storeName' in indexObject");
@@ -59,12 +62,12 @@ function addData()
     shouldBeEqualToString("indexObject.keyPath", "x");
     shouldBeTrue("'unique' in indexObject");
     shouldBeFalse("indexObject.unique");
-    shouldBeTrue("'openObjectCursor' in indexObject");
+    shouldBeTrue("'openKeyCursor' in indexObject");
     shouldBeTrue("'openCursor' in indexObject");
-    shouldBeTrue("'getObject' in indexObject");
+    shouldBeTrue("'getKey' in indexObject");
     shouldBeTrue("'get' in indexObject");
 
-    result = evalAndLog("event.source.add({x: 'value', y: 'zzz'}, 'key')");
+    result = evalAndLog("store.add({x: 'value', y: 'zzz'}, 'key')");
     verifyResult(result);
     result.onsuccess = addMore;
     result.onerror = unexpectedErrorCallback;
@@ -84,7 +87,7 @@ function getData()
 {
     verifySuccessEvent(event);
 
-    result = evalAndLog("indexObject.get('value')");
+    result = evalAndLog("indexObject.getKey('value')");
     verifyResult(result);
     result.onsuccess = getObjectData;
     result.onerror = unexpectedErrorCallback;
@@ -95,7 +98,18 @@ function getObjectData()
     verifySuccessEvent(event);
     shouldBeEqualToString("event.result", "key");
 
-    result = evalAndLog("indexObject.getObject('value')");
+    result = evalAndLog("indexObject2.getKey('zzz')");
+    verifyResult(result);
+    result.onsuccess = getObjectData2;
+    result.onerror = unexpectedErrorCallback;
+}
+
+function getObjectData2()
+{
+    verifySuccessEvent(event);
+    shouldBeEqualToString("event.result", "key");
+
+    result = evalAndLog("indexObject.get('value')");
     verifyResult(result);
     result.onsuccess = getDataFail;
     result.onerror = unexpectedErrorCallback;
@@ -107,7 +121,7 @@ function getDataFail()
     shouldBeEqualToString("event.result.x", "value");
     shouldBeEqualToString("event.result.y", "zzz");
 
-    result = evalAndLog("indexObject.get('does not exist')");
+    result = evalAndLog("indexObject.getKey('does not exist')");
     verifyResult(result);
     result.onsuccess = unexpectedSuccessCallback;
     result.onerror = getObjectDataFail;
@@ -116,20 +130,20 @@ function getDataFail()
 function getObjectDataFail()
 {
     verifyErrorEvent(event);
-    shouldBe("event.code", "IDBDatabaseException.NOT_FOUND_ERR");
+    shouldBe("event.code", "webkitIDBDatabaseException.NOT_FOUND_ERR");
 
-    result = evalAndLog("indexObject.getObject('does not exist')");
+    result = evalAndLog("indexObject.get('does not exist')");
     verifyResult(result);
     result.onsuccess = unexpectedSuccessCallback;
-    result.onerror = openCursor;
+    result.onerror = openKeyCursor;
 }
 
-function openCursor()
+function openKeyCursor()
 {
     verifyErrorEvent(event);
-    shouldBe("event.code", "IDBDatabaseException.NOT_FOUND_ERR");
+    shouldBe("event.code", "webkitIDBDatabaseException.NOT_FOUND_ERR");
 
-    window.result = evalAndLog("indexObject.openCursor()");
+    window.result = evalAndLog("indexObject.openKeyCursor()");
     verifyResult(result);
     result.onsuccess = cursor1Continue;
     result.onerror = unexpectedErrorCallback;
@@ -166,7 +180,7 @@ function openObjectCursor()
     verifySuccessEvent(event);
     shouldBeTrue("event.result === null");
 
-    window.result = evalAndLog("indexObject.openObjectCursor()");
+    window.result = evalAndLog("indexObject.openCursor()");
     verifyResult(result);
     result.onsuccess = cursor2Continue;
     result.onerror = unexpectedErrorCallback;

@@ -57,7 +57,8 @@ StyleRareInheritedData::StyleRareInheritedData()
     , textSizeAdjust(RenderStyle::initialTextSizeAdjust())
     , resize(RenderStyle::initialResize())
     , userSelect(RenderStyle::initialUserSelect())
-    , colorSpace(DeviceColorSpace)
+    , colorSpace(ColorSpaceDeviceRGB)
+    , speak(SpeakNormal)
     , hyphens(HyphensManual)
 {
 }
@@ -98,6 +99,7 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , resize(o.resize)
     , userSelect(o.userSelect)
     , colorSpace(o.colorSpace)
+    , speak(o.speak)
     , hyphens(o.hyphens)
     , hyphenationString(o.hyphenationString)
     , hyphenationLocale(o.hyphenationLocale)
@@ -154,6 +156,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && resize == o.resize
         && userSelect == o.userSelect
         && colorSpace == o.colorSpace
+        && speak == o.speak
         && hyphens == o.hyphens
         && hyphenationString == o.hyphenationString
         && hyphenationLocale == o.hyphenationLocale;

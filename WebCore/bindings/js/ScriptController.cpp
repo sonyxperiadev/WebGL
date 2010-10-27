@@ -28,7 +28,7 @@
 #include "FrameLoaderClient.h"
 #include "GCController.h"
 #include "HTMLPlugInElement.h"
-#include "InspectorTimelineAgent.h"
+#include "InspectorInstrumentation.h"
 #include "JSDocument.h"
 #include "JSMainThreadExecState.h"
 #include "NP_jsobject.h"
@@ -142,19 +142,13 @@ ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode
 
     RefPtr<Frame> protect = m_frame;
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0)
-        timelineAgent->willEvaluateScript(sourceURL, sourceCode.startLine());
-#endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL, sourceCode.startLine());
 
     exec->globalData().timeoutChecker.start();
     Completion comp = JSMainThreadExecState::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), jsSourceCode, shell);
     exec->globalData().timeoutChecker.stop();
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0)
-        timelineAgent->didEvaluateScript();
-#endif
+    InspectorInstrumentation::didEvaluateScript(cookie);
 
     // Evaluating the JavaScript could cause the frame to be deallocated
     // so we start the keep alive timer here.
@@ -500,7 +494,7 @@ void ScriptController::clearScriptObjects()
 
 ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const String& script, bool forceUserGesture, ShouldAllowXSS shouldAllowXSS)
 {
-    ScriptSourceCode sourceCode(script, forceUserGesture ? KURL() : m_frame->loader()->url());
+    ScriptSourceCode sourceCode(script, forceUserGesture ? KURL() : m_frame->document()->url());
 
     if (!canExecuteScripts(AboutToExecuteScript) || isPaused())
         return ScriptValue();

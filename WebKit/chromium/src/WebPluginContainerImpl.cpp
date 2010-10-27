@@ -48,6 +48,7 @@
 #include "WebURLError.h"
 #include "WebURLRequest.h"
 #include "WebVector.h"
+#include "WebViewImpl.h"
 #include "WrappedResourceResponse.h"
 
 #include "EventNames.h"
@@ -348,6 +349,12 @@ void WebPluginContainerImpl::loadFrameRequest(
         SendReferrer);
 }
 
+void WebPluginContainerImpl::zoomLevelChanged(double zoomLevel)
+{
+    WebViewImpl* view = WebViewImpl::fromPage(m_element->document()->frame()->page());
+    view->fullFramePluginZoomLevelChanged(zoomLevel);
+}
+
 void WebPluginContainerImpl::didReceiveResponse(const ResourceResponse& response)
 {
     // Make sure that the plugin receives window geometry before data, or else
@@ -461,6 +468,16 @@ void WebPluginContainerImpl::handleKeyboardEvent(KeyboardEvent* event)
         }
     }
 
+    const WebInputEvent* currentInputEvent = WebViewImpl::currentInputEvent();
+
+    // Copy stashed info over, and only copy here in order not to interfere
+    // the ctrl-c logic above.
+    if (currentInputEvent
+        && WebInputEvent::isKeyboardEventType(currentInputEvent->type)) {
+        webEvent.modifiers |= currentInputEvent->modifiers &
+            (WebInputEvent::CapsLockOn | WebInputEvent::NumLockOn);
+    }
+
     WebCursorInfo cursorInfo;
     if (m_webPlugin->handleInputEvent(webEvent, cursorInfo))
         event->setDefaultHandled();
@@ -541,11 +558,20 @@ static bool checkStackOnTop(
                     return false;
             }
 
-            // For compatibility with IE: when the plugin is not positioned,
-            // it stacks behind the iframe, even if it's later in the
-            // document order.
-            if (ro2->style()->position() == StaticPosition)
+            // If the plugin does not have an explicit z-index it stacks behind the iframe.
+            // This is for maintaining compatibility with IE.
+            if (ro2->style()->position() == StaticPosition) {
+                // The 0'th elements of these RenderObject arrays represent the plugin node and
+                // the iframe.
+                const RenderObject* pluginRenderObject = pluginZstack[0];
+                const RenderObject* iframeRenderObject = iframeZstack[0];
+
+                if (pluginRenderObject->style() && iframeRenderObject->style()) {
+                    if (pluginRenderObject->style()->zIndex() > iframeRenderObject->style()->zIndex())
+                        return false;
+                }
                 return true;
+            }
 
             // Inspect the document order.  Later order means higher
             // stacking.

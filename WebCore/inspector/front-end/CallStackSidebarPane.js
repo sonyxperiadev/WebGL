@@ -26,12 +26,8 @@
 WebInspector.CallStackSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Call Stack"));
+    WebInspector.breakpointManager.addEventListener("breakpoint-hit", this._breakpointHit, this);
 }
-
-WebInspector.CallStackSidebarPane.DebuggerEventType = {
-    DOMBreakpoint: 0,
-    NativeBreakpoint: 1
-};
 
 WebInspector.CallStackSidebarPane.prototype = {
     update: function(callFrames, sourceIDMap)
@@ -85,44 +81,6 @@ WebInspector.CallStackSidebarPane.prototype = {
             this.placards.push(placard);
             this.bodyElement.appendChild(placard.element);
         }
-    },
-
-    updateStatus:  function(eventType, eventData)
-    {
-        var statusElement = document.createElement("div");
-        if (eventType === WebInspector.CallStackSidebarPane.DebuggerEventType.DOMBreakpoint) {
-            var breakpoint = eventData.breakpoint;
-            var substitutions = [WebInspector.DOMBreakpoint.labelForType(breakpoint.type), WebInspector.panels.elements.linkifyNodeById(breakpoint.nodeId)];
-            var formatters = {
-                s: function(substitution)
-                {
-                    return substitution;
-                }
-            };
-            function append(a, b)
-            {
-                if (typeof b === "string")
-                    b = document.createTextNode(b);
-                statusElement.appendChild(b);
-            }
-            if (breakpoint.type === WebInspector.DOMBreakpoint.Types.SubtreeModified) {
-                var targetNode = WebInspector.panels.elements.linkifyNodeById(eventData.targetNodeId);
-                if (eventData.insertion) {
-                    if (eventData.targetNodeId !== breakpoint.nodeId)
-                        WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because a new child was added to its descendant %s.", substitutions.concat(targetNode), formatters, "", append);
-                    else
-                        WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because a new child was added to that node.", substitutions, formatters, "", append);
-                } else
-                    WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because its descendant %s was removed.", substitutions.concat(targetNode), formatters, "", append);
-            } else
-                WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s.", substitutions, formatters, "", append);
-        } else if (eventType === WebInspector.CallStackSidebarPane.DebuggerEventType.NativeBreakpoint && eventData.type === "XHR")
-             statusElement.appendChild(document.createTextNode(WebInspector.UIString("Paused on XMLHttpRequest.")));
-        else
-            return;
-
-        statusElement.className = "info";
-        this.bodyElement.appendChild(statusElement);
     },
 
     get selectedCallFrame()
@@ -210,6 +168,16 @@ WebInspector.CallStackSidebarPane.prototype = {
         this._shortcuts[prevCallFrame.key] = this._selectPreviousCallFrameOnStack.bind(this);
 
         section.addRelatedKeys([ nextCallFrame.name, prevCallFrame.name ], WebInspector.UIString("Next/previous call frame"));
+    },
+
+    _breakpointHit:  function(event)
+    {
+        var breakpoint = event.data.breakpoint;
+
+        var statusMessageElement = document.createElement("div");
+        statusMessageElement.className = "info";
+        breakpoint.populateStatusMessageElement(statusMessageElement, event.data.eventData);
+        this.bodyElement.appendChild(statusMessageElement);
     }
 }
 

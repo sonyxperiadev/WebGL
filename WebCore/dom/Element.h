@@ -74,10 +74,10 @@ public:
 
     // These four attribute event handler attributes are overridden by HTMLBodyElement
     // and HTMLFrameSetElement to forward to the DOMWindow.
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(blur);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(error);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(focus);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(load);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(blur);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(error);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(focus);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(load);
 
     // WebKit extensions
     DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut);
@@ -276,6 +276,12 @@ public:
     DOMStringMap* dataset();
     DOMStringMap* optionalDataset() const;
 
+#if ENABLE(MATHML)
+    virtual bool isMathMLElement() const { return false; }
+#else
+    static bool isMathMLElement() { return false; }
+#endif
+
     virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
     virtual bool isReadOnlyFormControl() const { return false; }
@@ -372,25 +378,40 @@ private:
     mutable RefPtr<NamedNodeMap> m_attributeMap;
 };
     
+inline Element* toElement(Node* node)
+{
+    ASSERT(!node || node->isElementNode());
+    return static_cast<Element*>(node);
+}
+
+inline const Element* toElement(const Node* node)
+{
+    ASSERT(!node || node->isElementNode());
+    return static_cast<const Element*>(node);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toElement(const Element*);
+
 inline bool Node::hasTagName(const QualifiedName& name) const
 {
-    return isElementNode() && static_cast<const Element*>(this)->hasTagName(name);
+    return isElementNode() && toElement(this)->hasTagName(name);
 }
 
 inline bool Node::hasAttributes() const
 {
-    return isElementNode() && static_cast<const Element*>(this)->hasAttributes();
+    return isElementNode() && toElement(this)->hasAttributes();
 }
 
 inline NamedNodeMap* Node::attributes() const
 {
-    return isElementNode() ? static_cast<const Element*>(this)->attributes() : 0;
+    return isElementNode() ? toElement(this)->attributes() : 0;
 }
 
 inline Element* Node::parentElement() const
 {
-    Node* parent = parentNode();
-    return parent && parent->isElementNode() ? static_cast<Element*>(parent) : 0;
+    ContainerNode* parent = parentNode();
+    return parent && parent->isElementNode() ? toElement(parent) : 0;
 }
 
 inline NamedNodeMap* Element::attributes(bool readonly) const

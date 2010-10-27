@@ -25,7 +25,7 @@
 
 // requires jQuery
 
-const kTestSuiteVersion = '20100917';
+const kTestSuiteVersion = '20101001';
 const kTestSuiteHome = '../' + kTestSuiteVersion + '/';
 const kTestInfoDataFile = 'testinfo.data';
 
@@ -201,11 +201,62 @@ function Test(testInfoLine)
   this.flags = fields[3];
   this.links = fields[4];
   this.assertion = fields[5];
+
+  this.paged = false;
+  this.testHTML = true;
+  this.testXHTML = true;
+
+  if (this.flags) {
+    this.paged = this.flags.indexOf('paged') != -1;
   
-  this.completed = false; // true if this test has a result (pass, fail or skip)
+    if (this.flags.indexOf('nonHTML') != -1)
+      this.testHTML = false;
+
+    if (this.flags.indexOf('HTMLonly') != -1)
+      this.testXHTML = false;
+  }
+  
+  this.completedHTML = false; // true if this test has a result (pass, fail or skip)
+  this.completedXHTML = false; // true if this test has a result (pass, fail or skip)
+
+  this.statusHTML = '';
+  this.statusXHTML = '';
   
   if (!this.links)
     this.links = "other.html"
+}
+
+Test.prototype.runForFormat = function(format)
+{
+  if (format == 'html4')
+    return this.testHTML;
+
+  if (format == 'xhtml1')
+    return this.testXHTML;
+
+  return true;
+}
+
+Test.prototype.completedForFormat = function(format)
+{
+  if (format == 'html4')
+    return this.completedHTML;
+
+  if (format == 'xhtml1')
+    return this.completedXHTML;
+
+  return true;
+}
+
+Test.prototype.statusForFormat = function(format)
+{
+  if (format == 'html4')
+    return this.statusHTML;
+
+  if (format == 'xhtml1')
+    return this.statusXHTML;
+
+  return true;
 }
 
 function ChapterSection(link)
@@ -215,21 +266,84 @@ function ChapterSection(link)
     this.file = result[1];
     this.anchor = result[2];
   }
-  
+
+  this.testCountHTML = 0;
+  this.testCountXHTML = 0;
+
   this.tests = [];
+}
+
+ChapterSection.prototype.countTests = function()
+{
+  this.testCountHTML = 0;
+  this.testCountXHTML = 0;
+
+  for (var i = 0; i < this.tests.length; ++i) {
+    var currTest = this.tests[i];
+
+    if (currTest.testHTML)
+      ++this.testCountHTML;
+
+    if (currTest.testXHTML)
+      ++this.testCountXHTML;
+  }
 }
 
 function Chapter(chapterInfo)
 {
   this.file = chapterInfo.file;
   this.title = chapterInfo.title;
-  this.testCount = 0;
+  this.testCountHTML = 0;
+  this.testCountXHTML = 0;
   this.sections = []; // array of ChapterSection
 }
 
-Chapter.prototype.description = function()
+Chapter.prototype.description = function(format)
 {
-  return this.title + ' (' + this.testCount + ' tests)';
+  
+  
+  return this.title + ' (' + this.testCount(format) + ' tests, ' + this.untestedCount(format) + ' untested)';
+}
+
+Chapter.prototype.countTests = function()
+{
+  this.testCountHTML = 0;
+  this.testCountXHTML = 0;
+
+  for (var i = 0; i < this.sections.length; ++i) {
+    var currSection = this.sections[i];
+
+    currSection.countTests();
+
+    this.testCountHTML += currSection.testCountHTML;
+    this.testCountXHTML += currSection.testCountXHTML;
+  }
+}
+
+Chapter.prototype.testCount = function(format)
+{
+  if (format == 'html4')
+    return this.testCountHTML;
+
+  if (format == 'xhtml1')
+    return this.testCountXHTML;
+
+  return 0;
+}
+
+Chapter.prototype.untestedCount = function(format)
+{
+  var completedProperty = format == 'html4' ? 'completedHTML' : 'completedXHTML';
+  
+  var count = 0;
+  for (var i = 0; i < this.sections.length; ++i) {
+    var currSection = this.sections[i];
+    for (var j = 0; j < currSection.tests.length; ++j) {
+      count += currSection.tests[j].completedForFormat(format) ? 0 : 1;
+    }
+  }
+  return count;
+  
 }
 
 // Utils
@@ -277,7 +391,7 @@ TestSuite.prototype.testInfoDataLoaded = function(data, status)
 
   this.testInfoLoaded = true;
   
-  this.fillChapterPopup(document.getElementById('chapters'));
+  this.fillChapterPopup();
 
   this.initializeControls();
 
@@ -335,12 +449,7 @@ TestSuite.prototype.buildChapters = function()
   for (var chapterName in this.chapters) {
     var currChapter = this.chapters[chapterName];
     currChapter.sections.sort();
-    
-    var testCount = 0;
-    for (var s = 0; s < currChapter.sections.length; ++s)
-      testCount += currChapter.sections[s].tests.length;
-      
-    currChapter.testCount = testCount;
+    currChapter.countTests();
   }
 }
 
@@ -363,8 +472,9 @@ TestSuite.prototype.chapterAtIndex = function(index)
   return this.chapters[kChapterData[index].file];
 }
 
-TestSuite.prototype.fillChapterPopup = function(select)
+TestSuite.prototype.fillChapterPopup = function()
 {
+  var select = document.getElementById('chapters')
   select.innerHTML = ''; // Remove all children.
   
   for (var i = 0; i < kChapterData.length; ++i) {
@@ -372,27 +482,53 @@ TestSuite.prototype.fillChapterPopup = function(select)
     var chapter = this.chapters[chapterData.file];
     
     var option = document.createElement('option');
-    option.innerText = chapter.description();
+    option.innerText = chapter.description(this.format);
     option._chapter = chapter;
     
     select.appendChild(option);
   }
 }
 
+TestSuite.prototype.updateChapterPopup = function()
+{
+  var select = document.getElementById('chapters')
+  var currOption = select.firstChild;
+  
+  for (var i = 0; i < kChapterData.length; ++i) {
+    var chapterData = kChapterData[i];
+    var chapter = this.chapters[chapterData.file];
+    if (!chapter)
+      continue;
+    currOption.innerText = chapter.description(this.format);
+    currOption = currOption.nextSibling;
+  }
+}
+
 TestSuite.prototype.buildTestListForChapter = function(chapter)
 {
-  this.currentChapterTests = [];
+  this.currentChapterTests = this.testListForChapter(chapter);
+}
+
+TestSuite.prototype.testListForChapter = function(chapter)
+{
+  var testList = [];
   
   for (var i in chapter.sections) {
     var currSection = chapter.sections[i];
-    // FIXME: why do I need the assignment?
-    this.currentChapterTests = this.currentChapterTests.concat(currSection.tests);
+    
+    for (var j = 0; j < currSection.tests.length; ++j) {
+      var currTest = currSection.tests[j];
+      if (currTest.runForFormat(this.format))
+        testList.push(currTest);
+    }
   }
   
   // FIXME: test may occur more than once.
-  this.currentChapterTests.sort(function(a, b) {
+  testList.sort(function(a, b) {
     return a.id.localeCompare(b.id);
   });
+  
+  return testList;
 }
 
 TestSuite.prototype.initializeControls = function()
@@ -428,6 +564,8 @@ TestSuite.prototype.chapterPopupChanged = function()
 
 TestSuite.prototype.fillTestList = function()
 {
+  var statusProperty = this.format == 'html4' ? 'statusHTML' : 'statusXHTML';
+
   var testList = document.getElementById('test-list');
   testList.innerHTML = '';
   
@@ -436,7 +574,7 @@ TestSuite.prototype.fillTestList = function()
 
     var option = document.createElement('option');
     option.innerText = currTest.id;
-    option.className = currTest.completed ? 'completed' : 'untested';
+    option.className = currTest[statusProperty];
     option._test = currTest;
     testList.appendChild(option);
   }
@@ -444,12 +582,13 @@ TestSuite.prototype.fillTestList = function()
 
 TestSuite.prototype.updateTestList = function()
 {
+  var statusProperty = this.format == 'html4' ? 'statusHTML' : 'statusXHTML';
   var testList = document.getElementById('test-list');
   
   var options = testList.getElementsByTagName('option');
   for (var i = 0; i < options.length; ++i) {
     var currOption = options[i];
-    currOption.className = currOption._test.completed ? 'completed' : 'untested';
+    currOption.className = currOption._test[statusProperty];
   }
 }
 
@@ -513,7 +652,104 @@ TestSuite.prototype.previousTest = function()
   }
 }
 
+TestSuite.prototype.goToNextIncompleteTest = function()
+{
+  var completedProperty = this.format == 'html4' ? 'completedHTML' : 'completedXHTML';
+
+  // Look to the end of this chapter.
+  for (var i = this.currChapterTestIndex + 1; i < this.currentChapterTests.length; ++i) {
+    if (!this.currentChapterTests[i][completedProperty]) {
+      this.goToTestIndex(i);
+      return;
+    }
+  }
+
+  // Start looking through later chapter
+  var currChapterIndex = this.indexOfChapter(this.currentChapter);
+  for (var c = currChapterIndex + 1; c < kChapterData.length; ++c) {
+    var chapterData = this.chapterAtIndex(c);
+    
+    var testIndex = this.firstIncompleteTestIndex(chapterData);
+    if (testIndex != -1) {
+      this.goToChapterIndex(c);
+      this.goToTestIndex(testIndex);
+      break;
+    }
+  }
+}
+
+TestSuite.prototype.firstIncompleteTestIndex = function(chapter)
+{
+  var completedProperty = this.format == 'html4' ? 'completedHTML' : 'completedXHTML';
+
+  var chapterTests = this.testListForChapter(chapter);
+  for (var i = 0; i < chapterTests.length; ++i) {
+    if (!chapterTests[i][completedProperty])
+      return i;
+  }
+  
+  return -1;
+}
+
 /* ------------------------------------------------------- */
+
+TestSuite.prototype.goToTestByName = function(testName)
+{
+  var match = testName.match(/^(?:(html4|xhtml1)\/)?([\w-_]+)(\.xht|\.htm)?/);
+  if (!match)
+    return false;
+
+  var prefix = match[1];
+  var testId = match[2];
+  var extension = match[3];
+  
+  var format = this.format;
+  if (prefix)
+    format = prefix;
+  else if (extension) {
+    if (extension == kXHTML1Data.suffix)
+      format = kXHTML1Data.path;
+    else if (extension == kHTML4Data.suffix)
+      format = kHTML4Data.path;
+  }
+  
+  this.switchToFormat(format);
+  
+  var test = this.tests[testId];
+  if (!test)
+    return false;
+
+  // Find the first chapter.
+  var links = test.links.split(',');
+  if (links.length == 0) {
+    window.console.log('test ' + test.id + 'had no links.');
+    return false;
+  }
+
+  var firstLink = links[0];
+  var result = firstLink.match(/^([.\w]+)(#.+)?$/);
+  if (result)
+    firstLink = result[1];
+
+  // Find the chapter and index of the test.
+  for (var i = 0; i < kChapterData.length; ++i) {
+    var chapterData = kChapterData[i];
+    if (chapterData.file == firstLink) {
+
+      this.goToChapterIndex(i);
+      
+      for (var j = 0; j < this.currentChapterTests.length; ++j) {
+        var currTest = this.currentChapterTests[j];
+        if (currTest.id == testId) {
+          this.goToTestIndex(j);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
 
 TestSuite.prototype.goToTestIndex = function(index)
 {
@@ -557,10 +793,15 @@ TestSuite.prototype.loadCurrentTest = function()
 
   this.loadTest(theTest);
 
-  document.getElementById('test-index').innerText = this.currChapterTestIndex + 1;
-  document.getElementById('chapter-test-count').innerText = this.currentChapterTests.length;
+  this.updateProgressLabel();
   
   document.getElementById('test-list').selectedIndex = this.currChapterTestIndex;
+}
+
+TestSuite.prototype.updateProgressLabel = function()
+{
+  document.getElementById('test-index').innerText = this.currChapterTestIndex + 1;
+  document.getElementById('chapter-test-count').innerText = this.currentChapterTests.length;
 }
 
 TestSuite.prototype.configureForRefTest = function()
@@ -576,12 +817,52 @@ TestSuite.prototype.configureForManualTest = function()
 TestSuite.prototype.loadTest = function(test)
 {
   var iframe = document.getElementById('test-frame');
-  iframe.src = this.urlForTest(test.id);
+  iframe.src = 'about:blank';
+  
+  var url = this.urlForTest(test.id);
+  window.setTimeout(function() {
+    iframe.src = url;
+  }, 0);
   
   document.getElementById('test-title').innerText = test.title;
   document.getElementById('test-url').innerText = this.pathForTest(test.id);
   document.getElementById('test-assertion').innerText = test.assertion;
   document.getElementById('test-flags').innerText = test.flags;
+  
+  this.processFlags(test);
+}
+
+TestSuite.prototype.processFlags = function(test)
+{ 
+  if (test.paged)
+    $('#test-content').addClass('print');
+  else
+    $('#test-content').removeClass('print');
+
+  var showWarning = false;
+  var warning = '';
+  if (test.flags.indexOf('font') != -1)
+    warning = 'Requires a specific font to be installed.';
+  
+  if (test.flags.indexOf('http') != -1) {
+    if (warning != '')
+      warning += ' ';
+    warning += 'Must be tested over HTTP, with custom HTTP headers.';
+  }
+  
+  if (test.paged) {
+    if (warning != '')
+      warning += ' ';
+    warning += 'Test via the browser\'s Print Preview.';
+  }
+
+  document.getElementById('warning').innerText = warning;
+
+  if (warning.length > 0)
+    $('#test-content').addClass('warn');
+  else
+    $('#test-content').removeClass('warn');
+
 }
 
 TestSuite.prototype.clearTest = function()
@@ -593,21 +874,20 @@ TestSuite.prototype.clearTest = function()
   document.getElementById('test-url').innerText = '';
   document.getElementById('test-assertion').innerText = '';
   document.getElementById('test-flags').innerText = '';
+
+  $('#test-content').removeClass('print');
+  $('#test-content').removeClass('warn');
+  document.getElementById('warning').innerText = '';
 }
 
 TestSuite.prototype.loadRef = function(test)
 {
+  // Suites 20101001 and earlier used .xht refs, even for HTML tests, so strip off
+  // the extension and use the same format as the test.
+  var ref = test.reference.replace(/(\.xht)?$/, '');
+  
   var iframe = document.getElementById('ref-frame');
-  iframe.src = this.urlForTest(testInfo.reference);
-}
-
-TestSuite.prototype.loadTestByName = function(testName)
-{
-  var currChapterInfo = this.chapterInfoMap[this.currChapterName];
-
-  var testIndex = currChapterInfo.testNames.indexOf(testName);
-  if (testIndex >= 0 && testIndex < currChapterInfo.testNames.length)
-    this.goToTestIndex(testIndex);
+  iframe.src = this.urlForTest(ref);
 }
 
 TestSuite.prototype.pathForTest = function(testName)
@@ -638,10 +918,19 @@ TestSuite.prototype.recordResult = function(testName, resolution, comment)
     comment = '';
   
   this.storeTestResult(testName, this.format, resolution, comment, navigator.userAgent);
-  this.markTestCompleted(testName);
+  
+  var htmlStatus = null;
+  var xhtmlStatus = null;
+  if (this.format == 'html4')
+    htmlStatus = resolution;
+  if (this.format == 'xhtml1')
+    xhtmlStatus = resolution;
+
+  this.markTestCompleted(testName, htmlStatus, xhtmlStatus);
   this.updateTestList();
 
   this.updateSummaryData();
+  this.updateChapterPopup();
 }
 
 TestSuite.prototype.beginAppendingOutput = function()
@@ -675,6 +964,16 @@ TestSuite.prototype.clearOutput = function()
 
 /* ------------------------------------------------------- */
 
+TestSuite.prototype.switchToFormat = function(formatString)
+{
+  if (formatString == 'html4')
+    document.harness.format.html4.checked = true;
+  else
+    document.harness.format.xhtml1.checked = true;
+
+  this.formatChanged(formatString);
+}
+
 TestSuite.prototype.formatChanged = function(formatString)
 {
   if (this.format == formatString)
@@ -687,7 +986,20 @@ TestSuite.prototype.formatChanged = function(formatString)
   else
     this.formatInfo = kXHTML1Data;
 
-    this.loadCurrentTest();
+  // try to keep the current test selected
+  var selectedTestName;
+  if (this.currChapterTestIndex >= 0 && this.currChapterTestIndex < this.currentChapterTests.length)
+    selectedTestName = this.currentChapterTests[this.currChapterTestIndex].id;
+  
+  if (this.currentChapter) {
+    this.buildTestListForChapter(this.currentChapter);
+    this.fillTestList();
+    this.goToTestByName(selectedTestName);
+  }
+
+  this.updateChapterPopup();
+  this.updateTestList();
+  this.updateProgressLabel();
 }
 
 /* ------------------------------------------------------- */
@@ -744,11 +1056,97 @@ TestSuite.prototype.resultsPopupChanged = function(index)
   document.getElementById('export-button').disabled = !enableExport;
 }
 
+/* ------------------------- Import ------------------------------- */
+/*
+  Import format is the same as the export format, namely:
+  
+  testname<tab>result
+
+  with optional trailing <tab>comment.
+
+html4/absolute-non-replaced-height-002<tab>pass
+xhtml1/absolute-non-replaced-height-002<tab>?
+  
+  Lines starting with # are ignored.
+  The "testname<tab>result" line is ignored.
+*/
+TestSuite.prototype.importResults = function(data)
+{
+  var testsToImport = [];
+
+  var lines = data.split('\n');
+  for (var i = 0; i < lines.length; ++i) {
+    var currLine = lines[i];
+    if (currLine.length == 0 || currLine.charAt(0) == '#')
+      continue;
+
+    var match = currLine.match(/^(html4|xhtml1)\/([\w-_]+)\t([\w?]+)\t?(.+)?$/);
+    if (match) {
+      var test = { 'id' : match[2] };
+      test.format =  match[1];
+      test.result = match[3];
+      test.comment = match[4];
+      
+      if (test.result != '?')
+        testsToImport.push(test);
+    } else {
+      window.console.log('failed to match line \'' + currLine + '\'');
+    }
+  }
+
+  this.importTestResults(testsToImport);
+  
+  this.resetTestStatus();
+  this.updateSummaryData();
+}
+
+
+
+/* --------------------- Clear Results --------------------------- */
+/*
+  Clear results format is either same as the export format, or
+  a list of bare test IDs (e.g. absolute-non-replaced-height-001)
+  in which case both HTML4 and XHTML1 results are cleared.
+*/
+TestSuite.prototype.clearResults = function(data)
+{
+  var testsToClear = [];
+
+  var lines = data.split('\n');
+  for (var i = 0; i < lines.length; ++i) {
+    var currLine = lines[i];
+    if (currLine.length == 0 || currLine.charAt(0) == '#')
+      continue;
+
+    // Look for format/test with possible extension
+    var result = currLine.match(/^((html4|xhtml1)?)\/?([\w-_]+)/);
+    if (result) {
+      var testId = result[3];
+      var format = result[1];
+      
+      var clearHTML = format.length == 0 || format == 'html4';
+      var clearXHTML = format.length == 0 || format == 'xhtml1';
+      
+      var result = { 'id' : testId };
+      result.clearHTML = clearHTML;
+      result.clearXHTML = clearXHTML;
+
+      testsToClear.push(result);
+    } else {
+      window.console.log('failed to match line ' + currLine);
+    }
+  }
+  
+  this.clearTestResults(testsToClear);
+  
+  this.resetTestStatus();
+  this.updateSummaryData();
+}
+
 /* -------------------------------------------------------- */
 
 TestSuite.prototype.exportResultsCompletion = function(exportTests)
 {
-  window.console.log('exportResultsCompletion')
   // Lame workaround for ORDER BY not working
   exportTests.sort(function(a, b) {
       return a.test.localeCompare(b.test);
@@ -839,8 +1237,8 @@ TestSuite.prototype.exportResultsForAllTests = function()
   var _self = this;
   this.queryDatabaseForAllTests('test',
       function(item) {
-        var htmlLine= _self.createExportLine(kHTML4Data, item.test, item.hstatus, item.hcomment);
-        var xhtmlLine = _self.createExportLine(kXHTML1Data, item.test, item.xstatus, item.xcomment);
+        var htmlLine= _self.createExportLine(kHTML4Data, item.test, item.hstatus ? item.hstatus : '?', item.hcomment);
+        var xhtmlLine = _self.createExportLine(kXHTML1Data, item.test, item.xstatus ? item.xstatus : '?', item.xcomment);
         exportTests.push({
           'test' : item.test,
           'html4' : htmlLine,
@@ -969,8 +1367,8 @@ TestSuite.prototype.exportResultsForTestsWithMismatchedResults = function()
   var _self = this;
   this.queryDatabaseForTestsWithMixedStatus(
       function(item) {
-        var htmlLine= _self.createExportLine(kHTML4Data, item.test, item.hstatus, item.hcomment);
-        var xhtmlLine = _self.createExportLine(kXHTML1Data, item.test, item.xstatus, item.xcomment);
+        var htmlLine= _self.createExportLine(kHTML4Data, item.test, item.hstatus ? item.hstatus : '?', item.hcomment);
+        var xhtmlLine = _self.createExportLine(kXHTML1Data, item.test, item.xstatus ? item.xstatus : '?', item.xcomment);
         exportTests.push({
           'test' : item.test,
           'html4' : htmlLine,
@@ -984,21 +1382,28 @@ TestSuite.prototype.exportResultsForTestsWithMismatchedResults = function()
 
 /* -------------------------------------------------------- */
 
-TestSuite.prototype.markTestCompleted = function(testID)
+TestSuite.prototype.markTestCompleted = function(testID, htmlStatus, xhtmlStatus)
 {
   var test = this.tests[testID];
   if (!test) {
-    window.console.log('markTestCompleted to find test ' + testID);
+    window.console.log('markTestCompleted failed to find test ' + testID);
     return;
   }
-  
-  test.completed = true;
+
+  if (htmlStatus) {
+    test.completedHTML = true;
+    test.statusHTML = htmlStatus;
+  }
+  if (xhtmlStatus) {
+    test.completedXHTML = true;
+    test.statusXHTML = xhtmlStatus;
+  }
 }
 
 TestSuite.prototype.testCompletionStateChanged = function()
 {
-  // update the test list
   this.updateTestList();
+  this.updateChapterPopup();
 }
 
 TestSuite.prototype.loadTestStatus = function()
@@ -1006,12 +1411,24 @@ TestSuite.prototype.loadTestStatus = function()
   var _self = this;
   this.queryDatabaseForCompletedTests(
       function(item) {
-        _self.markTestCompleted(item.test);
+      _self.markTestCompleted(item.test, item.hstatus, item.xstatus);
       },
       function() {
         _self.testCompletionStateChanged();
       }
     );
+    
+    this.updateChapterPopup();
+}
+
+TestSuite.prototype.resetTestStatus = function()
+{
+  for (var testID in this.tests) {
+    var currTest = this.tests[testID];
+    currTest.completedHTML = false;
+    currTest.completedXHTML = false;
+  }
+  this.loadTestStatus();
 }
 
 /* -------------------------------------------------------- */
@@ -1063,27 +1480,61 @@ TestSuite.prototype.openDatabase = function()
   }
   
   var _self = this;
-  this.db = window.openDatabase('css21testsuite', '1.0', 'CSS 2.1 test suite results', 10 * 1024 * 1024, function() {
-    _self.databaseCreated();
-  }, errorHandler);
+  this.db = window.openDatabase('css21testsuite', '', 'CSS 2.1 test suite results', 10 * 1024 * 1024);
 
-  this.updateSummaryData();
-  this.loadTestStatus();
+  // Migration handling. We assume migration will happen whenever the suite version changes,
+  // so that we can check for new or obsoleted tests.
+  function creation(tx) {
+    _self.databaseCreated(tx);
+  }
+
+  function migration1_0To1_1(tx) {
+    window.console.log('updating 1.0 to 1.1');
+    // We'll use the 'seen' column to cross-check with testinfo.data.
+    tx.executeSql('ALTER TABLE tests ADD COLUMN seen BOOLEAN DEFAULT \"FALSE\"', null, function() {
+      _self.syncDatabaseWithTestInfoData();
+    }, errorHandler);
+  }
+
+  if (this.db.version == '') {
+    _self.db.changeVersion('', '1.0', creation, null, function() {
+      _self.db.changeVersion('1.0', '1.1', migration1_0To1_1, null, function() {
+        _self.databaseReady();
+      }, errorHandler);
+    }, errorHandler);
+
+    return;
+  }
+
+  if (this.db.version == '1.0') {
+    _self.db.changeVersion('1.0', '1.1', migration1_0To1_1, null, function() {
+      window.console.log('ready')
+      _self.databaseReady();
+    }, errorHandler);
+    return;
+  }
+
+  this.databaseReady();
 }
 
-TestSuite.prototype.databaseCreated = function(db)
+TestSuite.prototype.databaseCreated = function(tx)
 {
+  window.console.log('databaseCreated');
   this.populatingDatabase = true;
 
+  // hstatus: HTML4 result
+  // xstatus: XHTML1 result
   var _self = this;
-  this.db.transaction(function (tx) {
-    // hstatus: HTML4 result
-    // xstatus: XHTML1 result
-    tx.executeSql('CREATE TABLE tests (test PRIMARY KEY UNIQUE, ref, title, flags, links, assertion, hstatus, hcomment, xstatus, xcomment)', null,
-      function(tx, results) {
-        _self.populateDatabaseFromTestInfoData();
-      }, errorHandler);
-  });
+  tx.executeSql('CREATE TABLE tests (test PRIMARY KEY UNIQUE, ref, title, flags, links, assertion, hstatus, hcomment, xstatus, xcomment)', null,
+    function(tx, results) {
+      _self.populateDatabaseFromTestInfoData();
+    }, errorHandler);
+}
+
+TestSuite.prototype.databaseReady = function()
+{
+  this.updateSummaryData();
+  this.loadTestStatus();
 }
 
 TestSuite.prototype.storeTestResult = function(test, format, result, comment, useragent)
@@ -1096,26 +1547,132 @@ TestSuite.prototype.storeTestResult = function(test, format, result, comment, us
       tx.executeSql('UPDATE tests SET hstatus=?, hcomment=? WHERE test=?\n', [result, comment, test], null, errorHandler);
     else if (format == 'xhtml1')
       tx.executeSql('UPDATE tests SET xstatus=?, xcomment=? WHERE test=?\n', [result, comment, test], null, errorHandler);
-  });  
+  });
 }
 
-TestSuite.prototype.populateDatabaseFromTestInfoData = function(testInfoURL)
+TestSuite.prototype.importTestResults = function(results)
+{
+  if (!this.db)
+    return;
+
+  this.db.transaction(function (tx) {
+
+    for (var i = 0; i < results.length; ++i) {
+      var currResult = results[i];
+
+      var query;
+      if (currResult.format == 'html4')
+        query = 'UPDATE tests SET hstatus=?, hcomment=? WHERE test=?\n';
+      else if (currResult.format == 'xhtml1')
+        query = 'UPDATE tests SET xstatus=?, xcomment=? WHERE test=?\n';
+
+      tx.executeSql(query, [currResult.result, currResult.comment, currResult.id], null, errorHandler);
+    }
+  });
+}
+
+TestSuite.prototype.clearTestResults = function(results)
+{
+  if (!this.db)
+    return;
+
+  this.db.transaction(function (tx) {
+    
+    for (var i = 0; i < results.length; ++i) {
+      var currResult = results[i];
+
+      if (currResult.clearHTML)
+        tx.executeSql('UPDATE tests SET hstatus=NULL, hcomment=NULL WHERE test=?\n', [currResult.id], null, errorHandler);
+
+      if (currResult.clearXHTML)
+        tx.executeSql('UPDATE tests SET xstatus=NULL, xcomment=NULL WHERE test=?\n', [currResult.id], null, errorHandler);
+      
+    }
+  });
+}
+
+TestSuite.prototype.populateDatabaseFromTestInfoData = function()
 {
   if (!this.testInfoLoaded) {
     window.console.log('Tring to populate database before testinfo.data has been loaded');
     return;
   }
   
+  window.console.log('populateDatabaseFromTestInfoData')
   var _self = this;
   this.db.transaction(function (tx) {
     for (var testID in _self.tests) {
-      var currTest = _self.tests[testID];
-      tx.executeSql('INSERT INTO tests (test, ref, title, flags, links, assertion) VALUES (?, ?, ?, ?, ?, ?)', [currTest.id, currTest.reference, currTest.title, currTest.flags, currTest.links, currTest.assertion], null, errorHandler);
+      var test = _self.tests[testID];
+      // Version 1.0, so no 'seen' column.
+      tx.executeSql('INSERT INTO tests (test, ref, title, flags, links, assertion) VALUES (?, ?, ?, ?, ?, ?)',
+        [test.id, test.reference, test.title, test.flags, test.links, test.assertion], null, errorHandler);
     }
-
     _self.populatingDatabase = false;
   });
 
+}
+
+TestSuite.prototype.insertTest = function(tx, test)
+{
+  tx.executeSql('INSERT INTO tests (test, ref, title, flags, links, assertion, seen) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [test.id, test.reference, test.title, test.flags, test.links, test.assertion, 'TRUE'], null, errorHandler);
+}
+
+// Deal with removed/renamed tests in a new version of the suite.
+// self.tests is canonical; the database may contain stale entries.
+TestSuite.prototype.syncDatabaseWithTestInfoData = function()
+{
+  if (!this.testInfoLoaded) {
+    window.console.log('Trying to sync database before testinfo.data has been loaded');
+    return;
+  }
+
+  // Make an object with all tests that we'll use to track new tests.
+  var testsToInsert = {};
+  for (var testId in this.tests) {
+    var currTest = this.tests[testId];
+    testsToInsert[currTest.id] = currTest;
+  }
+  
+  var _self = this;
+  this.db.transaction(function (tx) {
+    // Find tests that are not in the database yet.
+    // (Wasn't able to get INSERT ... IF NOT working.)
+    tx.executeSql('SELECT * FROM tests', [], function(tx, results) {
+      var len = results.rows.length;
+      for (var i = 0; i < len; ++i) {
+        var item = results.rows.item(i);
+        delete testsToInsert[item.test];
+      }
+    }, errorHandler);
+  });
+
+  this.db.transaction(function (tx) {
+    for (var testId in testsToInsert) {
+      var currTest = testsToInsert[testId];
+      window.console.log(currTest.id + ' is new; inserting');
+      _self.insertTest(tx, currTest);
+    }
+  });
+    
+  this.db.transaction(function (tx) {
+    for (var testID in _self.tests)
+      tx.executeSql('UPDATE tests SET seen=\"TRUE\" WHERE test=?\n', [testID], null, errorHandler);
+
+    tx.executeSql('SELECT * FROM tests WHERE seen=\"FALSE\"', [], function(tx, results) {
+      var len = results.rows.length;
+      for (var i = 0; i < len; ++i) {
+        var item = results.rows.item(i);
+        window.console.log('Test ' + item.test + ' was in the database but is no longer in the suite; deleting.');
+      }
+    }, errorHandler);
+
+    // Delete rows for disappeared tests.
+    tx.executeSql('DELETE FROM tests WHERE seen=\"FALSE\"', [], function(tx, results) {
+      _self.populatingDatabase = false;
+      _self.databaseReady();
+    }, errorHandler);
+  });
 }
 
 TestSuite.prototype.queryDatabaseForAllTests = function(sortKey, perRowHandler, completionHandler)
@@ -1269,34 +1826,65 @@ TestSuite.prototype.countTestsWithColumnValue = function(tx, completionHandler, 
   }, errorHandler);
 }
 
+TestSuite.prototype.countTestsWithFlag = function(tx, completionHandler, flag)
+{  
+  var allRowsCount = 'COUNT(*)';
+
+  tx.executeSql('SELECT COUNT(*) FROM tests WHERE flags LIKE \"%' + flag + '%\"', [], function(tx, results) {
+    var rowCount = 0;
+    if (results.rows.length > 0)
+      rowCount = results.rows.item(0)[allRowsCount];
+    completionHandler(rowCount);
+  }, errorHandler);
+}
+
 TestSuite.prototype.queryDatabaseForSummary = function(completionHandler)
 {
   if (!this.db || this.populatingDatabase)
     return;
 
   var _self = this;
-  this.db.transaction(function (tx) {
 
+  var htmlOnlyTestCount = 0;
+  var xHtmlOnlyTestCount = 0;
+
+  this.db.transaction(function (tx) {
+    if (_self.populatingDatabase)
+      return;
+
+    var allRowsCount = 'COUNT(*)';
+      
+    _self.countTestsWithFlag(tx, function(count) {
+      htmlOnlyTestCount = count;
+    }, 'htmlOnly');
+
+    _self.countTestsWithFlag(tx, function(count) {
+      xHtmlOnlyTestCount = count;
+    }, 'nonHTML');
+  });
+  
+  this.db.transaction(function (tx) {
     if (_self.populatingDatabase)
       return;
 
     var allRowsCount = 'COUNT(*)';
     var html4RowsCount = 'COUNT(hstatus)';
     var xhtml1RowsCount = 'COUNT(xstatus)';
-
+    
     tx.executeSql('SELECT COUNT(*), COUNT(hstatus), COUNT(xstatus) FROM tests', [], function(tx, results) {
 
       var data = [];
       if (results.rows.length > 0) {
         var rowItem = results.rows.item(0);
-        data.push({ 'name' : 'h-total' , 'count' : rowItem[allRowsCount] })
-        data.push({ 'name' : 'x-total' , 'count' : rowItem[allRowsCount] })
+        data.push({ 'name' : 'h-total' , 'count' : rowItem[allRowsCount] - xHtmlOnlyTestCount })
+        data.push({ 'name' : 'x-total' , 'count' : rowItem[allRowsCount] - htmlOnlyTestCount })
         data.push({ 'name' : 'h-tested', 'count' : rowItem[html4RowsCount] })
         data.push({ 'name' : 'x-tested', 'count' : rowItem[xhtml1RowsCount] })
       }
       completionHandler(data);
       
     }, errorHandler);
+
 
     _self.countTestsWithColumnValue(tx, completionHandler, 'hstatus', 'pass', 'h-passed');
     _self.countTestsWithColumnValue(tx, completionHandler, 'xstatus', 'pass', 'x-passed');

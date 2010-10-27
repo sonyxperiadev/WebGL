@@ -177,6 +177,8 @@ public:
 
     virtual ~HTMLTextFormControlElement();
 
+    // The derived class should return true if placeholder processing is needed.
+    virtual bool supportsPlaceholder() const = 0;
     String strippedPlaceholder() const;
 
     int selectionStart();
@@ -185,7 +187,7 @@ public:
     void setSelectionEnd(int);
     void select();
     void setSelectionRange(int start, int end);
-    VisibleSelection selection() const;
+    PassRefPtr<Range> selection() const;
 
 protected:
     HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);
@@ -204,8 +206,6 @@ private:
     virtual int cachedSelectionStart() const = 0;
     virtual int cachedSelectionEnd() const = 0;
 
-    // The derived class should return true if placeholder processing is needed.
-    virtual bool supportsPlaceholder() const = 0;
     // Returns true if user-editable value is empty. Used to check placeholder visibility.
     virtual bool isEmptyValue() const = 0;
     // Called in dispatchFocusEvent(), after placeholder process, before calling parent's dispatchFocusEvent().

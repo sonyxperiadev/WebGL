@@ -126,6 +126,9 @@ class LayerAndroid;
 
 class GLWebViewState {
 public:
+#ifdef DEBUG_COUNT
+    static int count();
+#endif
     enum GLScaleStates {
         kNoScaleRequest = 0,
         kWillScheduleRequest = 1,
@@ -152,7 +155,7 @@ public:
     int originalTilesPosY() const { return m_originalTilesPosY; }
     void setOriginalTilesPosY(int pos) { m_originalTilesPosY = pos; }
 
-    bool paintBaseLayerContent(SkCanvas* canvas);
+    void paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, IntRect& rect);
     void setExtra(android::DrawExtra* extra, LayerAndroid* navLayer);
     void resetExtra(bool repaint);
@@ -174,9 +177,6 @@ public:
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
     SkRect& invalidatedRect() { return m_invalidatedRect; }
-
-    void baseLayerLock() { m_baseLayerLock.lock(); }
-    void baseLayerUnlock() { m_baseLayerLock.unlock(); }
 
 private:
 

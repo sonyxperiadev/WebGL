@@ -63,7 +63,26 @@
     {
       gTestSuite.passTest();
     }
+    
+    function goToNextUntested()
+    {
+      gTestSuite.goToNextIncompleteTest();
+    }
 
+    function goToTest()
+    {
+      var testName = prompt('Go to test:', '');
+      
+      // This accepts any of the following:
+      // at-charset-010
+      // at-charset-010.xht
+      // xhtml1/at-charset-010
+      // xhtml1/at-charset-010.xht
+      // and will choose the format if specified.
+      if (!gTestSuite.goToTestByName(testName))
+        alert('Failed to find test ' + testName);
+    }
+    
     function formatChanged()
     {
       var newFormat;
@@ -92,37 +111,48 @@
     {
       gTestSuite.exportResults(document.getElementById('results-popup').selectedIndex);
     }
-
-    /*
-    This conflicts badly with key handling in selects.
-    function keyHandler(event)
+    
+    function printTestIframe()
     {
-      var charCode = String.fromCharCode(event.keyCode);
-      window.console.log('keyHandler')
-      switch (charCode) {
-        case 'P':
-          passTest();
-          break;
+      var testFrame = document.getElementById('test-frame');
+      testFrame.contentWindow.print();
+    }
 
-        case 'F':
-          failTest();
-          break;
+    var gOverlayConfirmCallback;
+    function showOverlay(overlayConfirmCallback)
+    {
+      document.getElementById('overlay-data').value = '';
+      gOverlayConfirmCallback = overlayConfirmCallback;
+      $('#overlay').addClass('visible');
+    }
 
-        case 'I':
-          invalidTest();
-          break;
-          
-        case 'S':
-          skipTest();
-          break;
-      }
-      
-      event.stopPropagation();
-      event.preventDefault();
+    function overlayCancel()
+    {
+      $('#overlay').removeClass('visible');
     }
     
-    document.addEventListener('keyup', keyHandler, false);
-    */
+    function overlayConfirm()
+    {
+      var data = document.getElementById('overlay-data').value;
+      gOverlayConfirmCallback(data);
+      $('#overlay').removeClass('visible');
+    }
+    
+    function doImport()
+    {
+      document.getElementById('overlay-action').innerText = 'Enter results to import (in the same format as the exported results):';
+      showOverlay(function(data) {
+        gTestSuite.importResults(data);
+      });
+    }
+    
+    function doClear()
+    {
+      document.getElementById('overlay-action').innerText = 'Enter list of tests for which to clear results (so they can be re-tested):';
+      showOverlay(function(data) {
+        gTestSuite.clearResults(data);
+      });
+    }
   </script>
 
 </head>
@@ -137,11 +167,13 @@
       <div><span id="test-index">1</span> of <span id="chapter-test-count">200</span> unique tests</div>
     </div>
     <div class="details">
-      <div class="name">        
+      <div class="name">
         <div class="test-type">
           <input type="radio" name="format" id="html4" onchange="formatChanged()" checked><label for="html4">HTML4</label><br>
           <input type="radio" name="format" id="xhtml1" onchange="formatChanged()"><label for="xhtml1">XHTML1</label>
         </div>
+        <button onclick="goToNextUntested()" accesskey="n"><strong>N</strong>ext Untested</button>
+        <button onclick="goToTest()" accesskey="g">Go to Test...</button>
       </div>
     </div>
     
@@ -153,12 +185,12 @@
   
   <div class="actions">
     <span>Skip reason:</span> <input type="text" id="skip-reason" size="50">
-    <button onclick="skipTest()" accesskey="s">Skip</button>
-    <span class="note">Use <i>Control-Option-letter</i> to trigger buttons via the keyboard.</span>
+    <button onclick="skipTest()" accesskey="s"><strong>S</strong>kip</button>
+    <div class="note">Use <i>Control-Option-letter</i> to<br> trigger buttons via the keyboard.</div>
     <div class="action-buttons">
       <button onclick="invalidTest()" accesskey="i">Invalid</button>
-      <button onclick="failTest()" accesskey="f">Fail</button>
-      <button onclick="passTest()" accesskey="p">Pass</button>
+      <button onclick="failTest()" accesskey="f"><strong>F</strong>ail</button>
+      <button onclick="passTest()" accesskey="p"><strong>P</strong>ass</button>
     </div>
   </div>
   <div id="test-content">
@@ -166,7 +198,10 @@
       <div class="title">Title: <span id="test-title"></span></div>
       <div class="url">URL: <span id="test-url"></span></div>
       <div class="assertion">Assertion: <span id="test-assertion"></span></div>
-      <div class="flags">Flags: <span id="test-flags"></span></div>
+      <div class="flags">Flags: <span id="test-flags"></span>
+        <span id="warning">This test must be run over HTTP.</span>
+        <button id="print-button" onclick="printTestIframe()">Print Preview</button>
+      </div>
     </div>
     
     <div id="test-wrapper" class="frame-wrapper">
@@ -180,12 +215,21 @@
   </div>
 
   <div class="results">
+
     <div class="output-options">
       <p>Show results for:</p>
       <select id="results-popup" onchange="resultsPopupChanged(this)">
       </select>
-      <button id="export-button" onclick="doExport()">Export...</button>
+      <div>
+        <button id="export-button" onclick="doExport()">Export...</button>
+      </div>
+
+      <div class="custom">
+        <button id="import-button" onclick="doImport()">Import...</button>
+        <button id="import-button" onclick="doClear()">Clear Results...</button>
+      </div>
     </div>
+
     <div id="output"></div>
     <div class="summary">
       <table>
@@ -202,5 +246,17 @@
     </div>
   </div>
 
+  <div id="overlay">
+    
+    <div class="overlay-contents">
+      <p id="overlay-action"></p>
+      <textarea id="overlay-data"></textarea>
+      <p class="note">Pasting many lines of text here can be very slow in Safari 5. You can quit Safari and use a <a href="http://nightly.webkit.org/" title="WebKit Nightly Builds">WebKit nightly build</a> for importing or clearing.</p>
+      <div class="buttons">
+        <button onclick="overlayCancel()">Cancel</button><button onclick="overlayConfirm()">OK</button>
+      </div>
+    </div>
+    
+  </div>
 </body>
 </html>

@@ -20,6 +20,7 @@
     <file>ConsoleView.js</file>
     <file>ContextMenu.js</file>
     <file>CookieItemsView.js</file>
+    <file>CookieParser.js</file>
     <file>CSSCompletions.js</file>
     <file>CSSStyleModel.js</file>
     <file>Database.js</file>
@@ -68,6 +69,7 @@
     <file>RemoteObject.js</file>
     <file>Resource.js</file>
     <file>ResourceCategory.js</file>
+    <file>ResourceManager.js</file>
     <file>ResourcesPanel.js</file>
     <file>ResourceView.js</file>
     <file>ScopeChainSidebarPane.js</file>

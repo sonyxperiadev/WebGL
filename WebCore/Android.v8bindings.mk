@@ -64,7 +64,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/ScriptObject.cpp \
 	bindings/v8/ScriptScope.cpp \
 	bindings/v8/ScriptState.cpp \
-	bindings/v8/ScriptStringImpl.cpp \
 	bindings/v8/ScriptValue.cpp \
 	bindings/v8/SerializedScriptValue.cpp \
 	bindings/v8/StaticDOMDataStore.cpp \
@@ -95,6 +94,8 @@ LOCAL_SRC_FILES += \
 	\
 	bindings/v8/npruntime.cpp \
 	\
+	bindings/v8/custom/V8ArrayBufferCustom.cpp \
+	bindings/v8/custom/V8ArrayBufferViewCustom.cpp \
 	bindings/v8/custom/V8CSSRuleCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
 	bindings/v8/custom/V8CSSStyleSheetCustom.cpp \
@@ -118,11 +119,14 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
 	bindings/v8/custom/V8DeviceMotionEventCustom.cpp \
 	bindings/v8/custom/V8DeviceOrientationEventCustom.cpp \
+	bindings/v8/custom/V8DirectoryEntrySyncCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
+	bindings/v8/custom/V8EntrySyncCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
+	bindings/v8/custom/V8FileReaderCustom.cpp \
 	bindings/v8/custom/V8Float32ArrayCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
@@ -142,6 +146,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
+	bindings/v8/custom/V8Int16ArrayCustom.cpp \
+	bindings/v8/custom/V8Int32ArrayCustom.cpp \
+	bindings/v8/custom/V8Int8ArrayCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8MessagePortCustom.cpp \
@@ -155,6 +162,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionSyncCustom.cpp \
+	bindings/v8/custom/V8Uint16ArrayCustom.cpp \
+	bindings/v8/custom/V8Uint32ArrayCustom.cpp \
+	bindings/v8/custom/V8Uint8ArrayCustom.cpp \
 	bindings/v8/custom/V8WebSocketCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)

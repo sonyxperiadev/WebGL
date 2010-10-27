@@ -170,7 +170,9 @@ namespace WebCore {
     \
     macro(loadend) \
     \
-    macro(webkitfullscreenchange)
+    macro(webkitfullscreenchange) \
+    \
+    macro(webkitspeechchange)
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 

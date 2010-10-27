@@ -3,7 +3,7 @@ Test the basics of IndexedDB's IDBObjectStore.
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
 
-indexedDB.open('name', 'description')
+webkitIndexedDB.open('name', 'description')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
@@ -22,13 +22,13 @@ PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
 db = event.result
-db.createObjectStore('storeName', null)
+db.setVersion('new version')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
-createSuccess():
+setVersionSuccess():
 Success event fired:
 PASS 'result' in event is true
 PASS 'code' in event is false
@@ -40,23 +40,34 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
-store = event.result
+trans = event.result
+PASS trans !== null is true
+Deleted all object stores.
+creatObjectStore():
+store = db.createObjectStore('storeName', null)
 storeNames = db.objectStores
 PASS store.name is "storeName"
 PASS store.keyPath is null
 PASS storeNames.contains('storeName') is true
 PASS storeNames.length is 1
-Ask for a store that doesn't exist:
+Ask for an index that doesn't exist:
 index = store.index('asdf')
-PASS index is null
-FAIL Asking for a store that doesn't exist should have thrown.
-event.result.createIndex('indexName', 'x', true)
+PASS Exception thrown.
+createIndex():
+index = store.createIndex('indexName', 'x', true)
+PASS index !== null is true
+PASS store.indexNames.contains('indexName') is true
+index = store.index('indexName')
+PASS index !== null is true
+Ask for an index that doesn't exist:
+index = store.index('asdf')
+PASS Exception thrown.
+db.setVersion("version fail")
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
-addIndexSuccess():
 Success event fired:
 PASS 'result' in event is true
 PASS 'code' in event is false
@@ -68,15 +79,25 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
-PASS event.result !== null is true
-PASS event.source.indexNames.contains('indexName') is true
-index = event.source.index('indexName')
-PASS index !== null is true
-Ask for a store that doesn't exist:
-index = store.index('asdf')
-PASS index is null
-FAIL Asking for a store that doesn't exist should have thrown.
-event.source.add({x: 'value'}, 'key')
+PASS db.version is "version fail"
+setVersionTrans = event.result
+PASS setVersionTrans !== null is true
+store = setVersionTrans.objectStore('storeName')
+index = store.createIndex('indexFail', 'x')
+PASS db.version is "new version"
+PASS store.indexNames is ['indexName']
+PASS store.indexNames.length is 1
+PASS store.indexNames.contains('') is false
+PASS store.indexNames.contains('indexFail') is false
+PASS store.indexNames.contains('indexName') is true
+PASS store.indexNames[0] is "indexName"
+PASS store.indexNames[1] is null
+PASS store.indexNames[100] is null
+PASS store.indexNames.item(1) is null
+PASS store.indexNames.item(100) is null
+transaction = db.transaction()
+store = transaction.objectStore('storeName')
+store.add({x: 'value'}, 'key')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
@@ -113,7 +134,7 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
-PASS event.code is IDBDatabaseException.UNKNOWN_ERR
+PASS event.code is webkitIDBDatabaseException.UNKNOWN_ERR
 db.transaction()
 store = transaction.objectStore('storeName')
 store.get('key')

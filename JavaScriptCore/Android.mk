@@ -154,6 +154,7 @@ LOCAL_SRC_FILES := \
 	runtime/RopeImpl.cpp \
 	runtime/ScopeChain.cpp \
 	runtime/SmallStrings.cpp \
+	runtime/StrictEvalActivation.cpp \
 	runtime/StringConstructor.cpp \
 	runtime/StringObject.cpp \
 	runtime/StringPrototype.cpp \
@@ -166,6 +167,7 @@ LOCAL_SRC_FILES := \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
 	wtf/DateMath.cpp \
+	wtf/DecimalNumber.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
@@ -185,6 +187,7 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/text/AtomicString.cpp \
 	wtf/text/CString.cpp \
+	wtf/text/StringBuilder.cpp \
 	wtf/text/StringImpl.cpp \
 	wtf/text/StringStatics.cpp \
 	wtf/text/WTFString.cpp \
@@ -194,6 +197,8 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
+	wtf/url/src/URLCharacterTypes.cpp \
+	wtf/url/src/URLEscape.cpp \
 	wtf/url/src/URLSegments.cpp \
 	\
 	yarr/RegexCompiler.cpp \

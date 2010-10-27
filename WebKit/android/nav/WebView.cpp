@@ -188,6 +188,15 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
         env->DeleteWeakGlobalRef(m_javaGlue.m_obj);
         m_javaGlue.m_obj = 0;
     }
+#if USE(ACCELERATED_COMPOSITING)
+    // We remove the base layer from glWebViewState
+    // as we are about to destroy it, while the
+    // glWebViewState destructor will be called just after.
+    // If we do not remove it here, we risk having BaseTiles
+    // trying to paint using a deallocated base layer.
+    IntRect rect;
+    m_glWebViewState.setBaseLayer(0, rect);
+#endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
     delete m_baseLayer;
@@ -1306,7 +1315,7 @@ void copyBaseContentToPicture(SkPicture* picture)
     if (!m_baseLayer)
         return;
     PictureSet* content = m_baseLayer->content();
-    content->draw(picture->beginRecording(content->width(), content->height(),
+    m_baseLayer->draw(picture->beginRecording(content->width(), content->height(),
             SkPicture::kUsePathBoundsForClip_RecordingFlag));
     picture->endRecording();
 }
@@ -1642,7 +1651,7 @@ static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
-    return input && input->inputType() == WebCore::HTMLInputElement::PASSWORD;
+    return input && input->getType() == CachedInput::PASSWORD;
 }
 
 static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
@@ -1722,39 +1731,16 @@ static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
     return input ? input->textSize() : 0;
 }
 
-enum type {
-    NONE = -1,
-    NORMAL_TEXT_FIELD = 0,
-    TEXT_AREA = 1,
-    PASSWORD = 2,
-    SEARCH = 3,
-    EMAIL = 4,
-    NUMBER = 5,
-    TELEPHONE = 6,
-    URL = 7
-};
-
 static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
-    if (!input) return NONE;
-    if (!input->isTextField()) return TEXT_AREA;
-    switch (input->inputType()) {
-    case HTMLInputElement::PASSWORD:
-        return PASSWORD;
-    case HTMLInputElement::SEARCH:
-        return SEARCH;
-    case HTMLInputElement::EMAIL:
-        return EMAIL;
-    case HTMLInputElement::NUMBER:
-        return NUMBER;
-    case HTMLInputElement::TELEPHONE:
-        return TELEPHONE;
-    case HTMLInputElement::URL:
-        return URL;
-    default:
-        return NORMAL_TEXT_FIELD;
-    }
+    if (!input)
+        return CachedInput::NONE;
+
+    if (input->isTextArea())
+        return CachedInput::TEXT_AREA;
+
+    return input->getType();
 }
 
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
@@ -2074,7 +2060,7 @@ static jboolean nativeCleanupPrivateBrowsingFiles(
     std::string cacheDirectory(cString);
     if (isCopy == JNI_TRUE)
         env->ReleaseStringUTFChars(cacheDirectoryJString, cString);
-    return WebRequestContext::CleanupPrivateBrowsingFiles(databaseDirectory, cacheDirectory);
+    return WebRequestContext::cleanupPrivateBrowsingFiles(databaseDirectory, cacheDirectory);
 #else
     return JNI_FALSE;
 #endif

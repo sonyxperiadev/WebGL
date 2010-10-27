@@ -49,6 +49,15 @@ body {
   margin: 4px 0;
 }
 
+.test-type {
+  float: left;
+}
+
+.name > button {
+  margin-top: 20px;
+  float: right;
+}
+
 .actions {
   margin-left: 320px;
   border: 1px solid black;
@@ -64,7 +73,9 @@ body {
 }
 
 .note {
+  display: inline-block;
   font-size: 10px;
+  margin-left: 5px;
   color: gray;
 }
 .action-buttons {
@@ -96,6 +107,28 @@ body {
   font-size: smaller;
 }
 
+#warning {
+  padding-left: 1em;
+  color: red;
+  display: none;
+}
+
+#print-button {
+  float: right;
+  display: none;
+}
+
+#test-content.print {
+}
+
+#test-content.print #print-button {
+  display: inline;
+}
+
+#test-content.warn #warning {
+  display: inline;
+}
+
 #test-content iframe {
   border: 1px solid gray;
   margin: 2px;
@@ -108,11 +141,18 @@ body {
 }
 
 #test-list > option.untested {
-  
 }
 
-#test-list > option.completed {
-  color: gray;
+#test-list > option.pass {
+  color: rgba(0, 128, 0, 0.6);
+}
+
+#test-list > option.fail {
+  color: rgba(255, 0, 0, 0.6);
+}
+
+#test-list > option.skipped {
+  color: rgba(255, 128, 0, 0.6);
 }
 
 #test-content.with-ref {
@@ -218,3 +258,51 @@ body {
   text-align: right;
   padding: 4px;
 }
+
+.custom button {
+  display: block;
+  margin: 12px 0;
+}
+
+/* Overlay */
+
+#overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: none;
+}
+
+#overlay.visible {
+  display: block;
+}
+
+.overlay-contents {
+  position: relative;
+  background-color: white;
+  margin: 50px auto;
+  width: 1000px;
+  padding: 20px;
+}
+
+.overlay-contents textarea {
+  width: 90em;
+  height: 50em;
+}
+.overlay-contents .buttons {
+  text-align: right;
+}
+
+.overlay-contents .note {
+  float: left;
+}
+
+.overlay-contents .buttons button {
+  font-size: 13px;
+  width: 6em;
+  margin: 12px 8px;
+}
+

@@ -33,6 +33,8 @@ class AffineTransform;
 class SVGStyledTransformableElement : public SVGStyledLocatableElement,
                                       public SVGTransformable {
 public:
+    virtual ~SVGStyledTransformableElement();
+
     virtual AffineTransform getCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
     virtual AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
     virtual SVGElement* nearestViewportElement() const;
@@ -47,8 +49,8 @@ public:
     bool isKnownAttribute(const QualifiedName&);
 
     // "base class" methods for all the elements which render as paths
-    virtual Path toPathData() const { return Path(); }
-    virtual Path toClipPath() const;
+    virtual void toPathData(Path&) const { }
+    virtual void toClipPath(Path&) const;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
 protected:

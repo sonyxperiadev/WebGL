@@ -39,7 +39,6 @@ class PrepareChangeLog(AbstractStep):
     @classmethod
     def options(cls):
         return AbstractStep.options() + [
-            Options.port,
             Options.quiet,
             Options.email,
             Options.git_commit,
@@ -62,7 +61,7 @@ class PrepareChangeLog(AbstractStep):
             self._ensure_bug_url(state)
             return
         os.chdir(self._tool.scm().checkout_root)
-        args = [self.port().script_path("prepare-ChangeLog")]
+        args = [self._tool.port().script_path("prepare-ChangeLog")]
         if state.get("bug_id"):
             args.append("--bug=%s" % state["bug_id"])
         if self._options.email:
@@ -75,4 +74,4 @@ class PrepareChangeLog(AbstractStep):
             self._tool.executive.run_and_throw_if_fail(args, self._options.quiet)
         except ScriptError, e:
             error("Unable to prepare ChangeLogs.")
-        state["diff"] = None # We've changed the diff
+        self.did_modify_checkout(state)

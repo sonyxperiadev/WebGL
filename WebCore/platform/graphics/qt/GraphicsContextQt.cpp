@@ -204,6 +204,13 @@ public:
         return shadow.m_type != ContextShadow::NoShadow;
     }
 
+    inline void clearCurrentPath()
+    {
+        if (!currentPath.elementCount())
+            return;
+        currentPath = QPainterPath();
+    }
+
     QRectF clipBoundingRect() const
     {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
@@ -248,8 +255,8 @@ GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
     setPaintingDisabled(!context);
     if (context) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor(), DeviceColorSpace);
-        setPlatformStrokeColor(strokeColor(), DeviceColorSpace);
+        setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
+        setPlatformStrokeColor(strokeColor(), ColorSpaceDeviceRGB);
 
         // Make sure we start with the correct join mode.
         setLineJoin(MiterJoin);
@@ -533,7 +540,7 @@ void GraphicsContext::fillPath()
     } else
         p->fillPath(path, p->brush());
 
-    m_data->currentPath = QPainterPath();
+    m_data->clearCurrentPath();
 }
 
 void GraphicsContext::strokePath()
@@ -566,7 +573,7 @@ void GraphicsContext::strokePath()
         p->strokePath(path, pen);
     } else
         p->strokePath(path, pen);
-    m_data->currentPath = QPainterPath();
+    m_data->clearCurrentPath();
 }
 
 static inline void drawRepeatPattern(QPainter* p, QPixmap* image, const FloatRect& rect, const bool repeatX, const bool repeatY)
@@ -722,7 +729,8 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     if (paintingDisabled() || !color.isValid())
         return;
 
-    Path path = Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight);
+    Path path;
+    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
     QPainter* p = m_data->p();
     if (m_data->hasShadow()) {
         p->translate(m_data->shadow.offset());
@@ -734,7 +742,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
 void GraphicsContext::beginPath()
 {
-    m_data->currentPath = QPainterPath();
+    m_data->clearCurrentPath();
 }
 
 void GraphicsContext::addPath(const Path& path)
@@ -777,7 +785,7 @@ void GraphicsContext::clipPath(WindRule clipRule)
     QPainter* p = m_data->p();
     QPainterPath newPath = m_data->currentPath;
     newPath.setFillRule(clipRule == RULE_EVENODD ? Qt::OddEvenFill : Qt::WindingFill);
-    p->setClipPath(newPath);
+    p->setClipPath(newPath, Qt::IntersectClip);
 }
 
 void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
@@ -835,8 +843,28 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool)
     if (paintingDisabled())
         return;
 
+    IntPoint startPoint = origin;
     IntPoint endPoint = origin + IntSize(width, 0);
-    drawLine(origin, endPoint);
+
+    // If paintengine type is X11 to avoid artifacts
+    // like bug https://bugs.webkit.org/show_bug.cgi?id=42248
+#if defined(Q_WS_X11)
+    QPainter* p = m_data->p();
+    if (p->paintEngine()->type() == QPaintEngine::X11) {
+        // If stroke thickness is odd we need decrease Y coordinate by 1 pixel,
+        // because inside method adjustLineToPixelBoundaries(...), which
+        // called from drawLine(...), Y coordinate will be increased by 0.5f
+        // and then inside Qt painting engine will be rounded to next greater
+        // integer value.
+        float strokeWidth = strokeThickness();
+        if (static_cast<int>(strokeWidth) % 2) {
+            startPoint.setY(startPoint.y() - 1);
+            endPoint.setY(endPoint.y() - 1);
+        }
+    }
+#endif // defined(Q_WS_X11)
+
+    drawLine(startPoint, endPoint);
 }
 
 void GraphicsContext::drawLineForTextChecking(const IntPoint&, int, TextCheckingLineStyle)

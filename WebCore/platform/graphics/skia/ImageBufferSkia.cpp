@@ -45,6 +45,8 @@
 #include "SkColorPriv.h"
 #include "SkiaUtils.h"
 
+#include <wtf/text/StringConcatenate.h>
+
 using namespace std;
 
 namespace WebCore {
@@ -58,7 +60,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -290,6 +292,7 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
 
 void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
+    context()->platformContext()->prepareForSoftwareDraw();
     putImageData<Unmultiplied>(source, sourceRect, destPoint, *context()->platformContext()->bitmap(), m_size);
 }
 
@@ -311,7 +314,7 @@ String ImageBuffer::toDataURL(const String&, const double*) const
     base64EncodedData.append('\0');
 
     // And the resulting string.
-    return String::format("data:image/png;base64,%s", base64EncodedData.data());
+    return makeString("data:image/png;base64,", base64EncodedData.data());
 }
 
 } // namespace WebCore

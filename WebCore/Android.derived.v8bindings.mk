@@ -146,10 +146,34 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
     $(intermediates)/bindings/V8BlobBuilder.h \
+    $(intermediates)/bindings/V8DOMFileSystem.h \
+    $(intermediates)/bindings/V8DOMFileSystemSync.h \
+    $(intermediates)/bindings/V8DirectoryEntry.h \
+    $(intermediates)/bindings/V8DirectoryEntrySync.h \
+    $(intermediates)/bindings/V8DirectoryReader.h \
+    $(intermediates)/bindings/V8DirectoryReaderSync.h \
+    $(intermediates)/bindings/V8EntriesCallback.h \
+    $(intermediates)/bindings/V8Entry.h \
+    $(intermediates)/bindings/V8EntryArray.h \
+    $(intermediates)/bindings/V8EntryArraySync.h \
+    $(intermediates)/bindings/V8EntryCallback.h \
+    $(intermediates)/bindings/V8EntrySync.h \
+    $(intermediates)/bindings/V8ErrorCallback.h \
     $(intermediates)/bindings/V8File.h \
+    $(intermediates)/bindings/V8FileCallback.h \
+    $(intermediates)/bindings/V8FileEntry.h \
+    $(intermediates)/bindings/V8FileEntrySync.h \
     $(intermediates)/bindings/V8FileError.h \
+    $(intermediates)/bindings/V8FileException.h \
     $(intermediates)/bindings/V8FileList.h \
-    $(intermediates)/bindings/V8FileReader.h
+    $(intermediates)/bindings/V8FileReader.h \
+    $(intermediates)/bindings/V8FileReaderSync.h \
+    $(intermediates)/bindings/V8FileSystemCallback.h \
+    $(intermediates)/bindings/V8FileWriter.h \
+    $(intermediates)/bindings/V8FileWriterCallback.h \
+    $(intermediates)/bindings/V8Flags.h \
+    $(intermediates)/bindings/V8Metadata.h \
+    $(intermediates)/bindings/V8MetadataCallback.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include fileapi --outputdir $(dir $@) $<
@@ -259,6 +283,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # Canvas
 GEN := \
     $(intermediates)/bindings/V8ArrayBuffer.h \
+    $(intermediates)/bindings/V8ArrayBufferView.h \
     $(intermediates)/bindings/V8CanvasGradient.h \
     $(intermediates)/bindings/V8CanvasPattern.h \
     $(intermediates)/bindings/V8CanvasPixelArray.h \

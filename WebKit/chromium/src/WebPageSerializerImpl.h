@@ -31,12 +31,12 @@
 #ifndef WebPageSerializerImpl_h
 #define WebPageSerializerImpl_h
 
-#include "PlatformString.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
-#include "StringBuilder.h"
+#include <wtf/text/WTFString.h>
 
 #include "WebEntities.h"
 #include "WebPageSerializer.h"
@@ -98,7 +98,7 @@ private:
     // original link.
     LinkLocalPathMap m_localLinks;
     // Data buffer for saving result of serialized DOM data.
-    WebCore::StringBuilder m_dataBuffer;
+    StringBuilder m_dataBuffer;
     // Passing true to recursive_serialization_ indicates we will serialize not
     // only the specified frame but also all sub-frames in the specific frame.
     // Otherwise we only serialize the specified frame excluded all sub-frames.
@@ -116,42 +116,26 @@ private:
     WebEntities m_xmlEntities;
 
     struct SerializeDomParam {
-        // Frame URL of current processing document presented by GURL
-        const WebCore::KURL& currentFrameURL;
-        // Current using text encoding object.
+        const WebCore::KURL& url;
         const WebCore::TextEncoding& textEncoding;
-
-        // Document object of current frame.
-        WebCore::Document* doc;
-        // Local directory name of all local resource files.
+        WebCore::Document* document;
         const WTF::String& directoryName;
-
-        // Flag indicates current doc is html document or not. It's a cache value
-        // of Document.isHTMLDocument().
-        bool isHTMLDocument;
-        // Flag which indicate whether we have met document type declaration.
-        bool hasDoctype;
-        // Flag which indicate whether will process meta issue.
-        bool hasCheckedMeta;
+        bool isHTMLDocument; // document.isHTMLDocument()
+        bool haveSeenDocType;
+        bool haveAddedCharsetDeclaration;
         // This meta element need to be skipped when serializing DOM.
         const WebCore::Element* skipMetaElement;
         // Flag indicates we are in script or style tag.
         bool isInScriptOrStyleTag;
-        // Flag indicates whether we have written xml document declaration.
-        // It is only used in xml document
-        bool hasDocDeclaration;
+        bool haveAddedXMLProcessingDirective;
         // Flag indicates whether we have added additional contents before end tag.
         // This flag will be re-assigned in each call of function
         // PostActionAfterSerializeOpenTag and it could be changed in function
         // PreActionBeforeSerializeEndTag if the function adds new contents into
         // serialization stream.
-        bool hasAddedContentsBeforeEnd;
+        bool haveAddedContentsBeforeEnd;
 
-        // Constructor.
-        SerializeDomParam(const WebCore::KURL& currentFrameURL,
-                          const WebCore::TextEncoding& textEncoding,
-                          WebCore::Document* doc,
-                          const WTF::String& directoryName);
+        SerializeDomParam(const WebCore::KURL&, const WebCore::TextEncoding&, WebCore::Document*, const WTF::String& directoryName);
     };
 
     // Collect all target frames which need to be serialized.
@@ -177,12 +161,18 @@ private:
     // Save generated html content to data buffer.
     void saveHTMLContentToBuffer(const WTF::String& content,
                                  SerializeDomParam* param);
+
+    enum FlushOption {
+        ForceFlush,
+        DoNotForceFlush,
+    };
+
     // Flushes the content buffer by encoding and sending the content to the
     // WebPageSerializerClient. Content is not flushed if the buffer is not full
     // unless force is 1.
     void encodeAndFlushBuffer(WebPageSerializerClient::PageSerializationStatus status,
                               SerializeDomParam* param,
-                              bool force);
+                              FlushOption);
     // Serialize open tag of an specified element.
     void openTagToString(const WebCore::Element* element,
                          SerializeDomParam* param);

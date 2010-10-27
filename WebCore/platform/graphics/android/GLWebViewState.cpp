@@ -55,6 +55,14 @@ namespace WebCore {
 
 using namespace android;
 
+#ifdef DEBUG_COUNT
+static int gGLWebViewStateCount = 0;
+int GLWebViewState::count()
+{
+    return gGLWebViewStateCount;
+}
+#endif
+
 GLWebViewState::GLWebViewState()
     : m_scaleRequestState(kNoScaleRequest)
     , m_currentScale(1)
@@ -76,6 +84,9 @@ GLWebViewState::GLWebViewState()
     m_invalidatedRect.setEmpty();
     m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
     m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
+#ifdef DEBUG_COUNT
+    gGLWebViewStateCount++;
+#endif
 }
 
 GLWebViewState::~GLWebViewState()
@@ -83,6 +94,9 @@ GLWebViewState::~GLWebViewState()
     delete m_tiledPageA;
     delete m_tiledPageB;
     delete m_navLayer;
+#ifdef DEBUG_COUNT
+    gGLWebViewStateCount--;
+#endif
 }
 
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
@@ -97,7 +111,6 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
         m_invalidatedRect.set(rect);
         m_currentPictureCounter++;
     }
-    XLOG("%x setBaseLayer %x (%d)", this, layer, m_currentPictureCounter);
 }
 
 void GLWebViewState::setExtra(android::DrawExtra* extra, LayerAndroid* navLayer)
@@ -119,17 +132,14 @@ void GLWebViewState::resetExtra(bool repaint)
     m_navLayer = 0;
 }
 
-bool GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
+void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_baseLayer && m_baseLayer->content()
-        && !m_baseLayer->content()->isEmpty()) {
-        m_baseLayer->content()->draw(canvas);
+    if (m_baseLayer) {
+        m_baseLayer->draw(canvas);
         if (m_extra && m_navLayer)
             m_extra->draw(canvas, m_navLayer);
-        return true;
     }
-    return false;
 }
 
 void GLWebViewState::scheduleUpdate(const double& currentTime, float scale)

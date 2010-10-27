@@ -45,10 +45,9 @@ using namespace HTMLNames;
 
 static Node* nextRenderedEditable(Node* node)
 {
-    while (1) {
-        node = node->nextEditable();
-        if (!node)
-            return 0;
+    while ((node = node->nextLeafNode())) {
+        if (!node->isContentEditable())
+            continue;
         RenderObject* renderer = node->renderer();
         if (!renderer)
             continue;
@@ -60,10 +59,9 @@ static Node* nextRenderedEditable(Node* node)
 
 static Node* previousRenderedEditable(Node* node)
 {
-    while (1) {
-        node = node->previousEditable();
-        if (!node)
-            return 0;
+    while ((node = node->previousLeafNode())) {
+        if (!node->isContentEditable())
+            continue;
         RenderObject* renderer = node->renderer();
         if (!renderer)
             continue;
@@ -239,7 +237,7 @@ Position Position::previous(PositionMoveType moveType) const
         }
     }
 
-    Node* parent = n->parentNode();
+    ContainerNode* parent = n->parentNode();
     if (!parent)
         return *this;
 
@@ -271,7 +269,7 @@ Position Position::next(PositionMoveType moveType) const
         return Position(n, (moveType == Character) ? uncheckedNextOffset(n, o) : o + 1);
     }
 
-    Node* parent = n->parentNode();
+    ContainerNode* parent = n->parentNode();
     if (!parent)
         return *this;
 

@@ -25,7 +25,7 @@
 
 #include "Attribute.h"
 #include "FloatPoint.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -77,7 +77,7 @@ void SVGCircleElement::svgAttributeChanged(const QualifiedName& attrName)
     if (isLengthAttribute)
         updateRelativeLengthsInformation();
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
@@ -121,9 +121,16 @@ void SVGCircleElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
 }
 
-Path SVGCircleElement::toPathData() const
+void SVGCircleElement::toPathData(Path& path) const
 {
-    return Path::createCircle(FloatPoint(cx().value(this), cy().value(this)), r().value(this));
+    ASSERT(path.isEmpty());
+
+    float radius = r().value(this);
+
+    if (radius <= 0)
+        return;
+
+    path.addEllipse(FloatRect(cx().value(this) - radius, cy().value(this) - radius, radius * 2, radius * 2));
 }
 
 bool SVGCircleElement::selfHasRelativeLengths() const

@@ -118,11 +118,6 @@ WebAccessibilityObject WebAccessibilityCacheImpl::getObjectById(int id)
     return WebAccessibilityObject(it->second->accessibilityObject());
 }
 
-bool WebAccessibilityCacheImpl::isValidId(int id) const
-{
-    return id >= firstObjectId;
-}
-
 void WebAccessibilityCacheImpl::remove(int id)
 {
     ObjectMap::iterator it = m_objectMap.find(id);
@@ -164,6 +159,19 @@ int WebAccessibilityCacheImpl::addOrGetId(const WebAccessibilityObject& object)
     m_idMap.set(o.get(), m_nextNewId);
 
     return m_nextNewId++;
+}
+
+bool WebAccessibilityCacheImpl::isCached(const WebAccessibilityObject& object)
+{
+    if (!object.isValid())
+        return false;
+
+    RefPtr<AccessibilityObject> o = toAccessibilityObject(object);
+    IdMap::iterator it = m_idMap.find(o.get());
+    if (it == m_idMap.end())
+        return false;
+        
+    return true;
 }
 
 }

@@ -44,12 +44,12 @@
 
 namespace WebCore {
 
-int InspectorTimelineAgent::s_instanceCount = 0;
+int InspectorTimelineAgent::s_id = 0;
 
 InspectorTimelineAgent::InspectorTimelineAgent(InspectorFrontend* frontend)
     : m_frontend(frontend)
+    , m_id(++s_id)
 {
-    ++s_instanceCount;
     ScriptGCEvent::addEventListener(this);
     ASSERT(m_frontend);
 }
@@ -76,8 +76,6 @@ void InspectorTimelineAgent::didGC(double startTime, double endTime, size_t coll
 
 InspectorTimelineAgent::~InspectorTimelineAgent()
 {
-    ASSERT(s_instanceCount);
-    --s_instanceCount;
     ScriptGCEvent::removeEventListener(this);
 }
 
@@ -242,10 +240,11 @@ void InspectorTimelineAgent::didReceiveResourceResponse()
     didCompleteCurrentRecord(ResourceReceiveResponseTimelineRecordType);
 }
 
-void InspectorTimelineAgent::didFinishLoadingResource(unsigned long identifier, bool didFail)
+void InspectorTimelineAgent::didFinishLoadingResource(unsigned long identifier, bool didFail, double finishTime)
 {
     pushGCEventRecords();
-    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    // Sometimes network stack can provide for us exact finish loading time. In the other case we will use currentTime.
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(finishTime ? finishTime * 1000 : WTF::currentTimeMS());
     record->setObject("data", TimelineRecordFactory::createResourceFinishData(identifier, didFail));
     record->setNumber("type", ResourceFinishTimelineRecordType);
     setHeapSizeStatistic(record.get());

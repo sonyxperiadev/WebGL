@@ -1,3 +1,303 @@
+2010-10-20  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] use gtk_widget_hide instead of gtk_widget_hide_all in the fullscreen video conroller
+        https://bugs.webkit.org/show_bug.cgi?id=47972
+
+        * WebCoreSupport/FullscreenVideoController.cpp:
+        (FullscreenVideoController::hideHud):
+        (FullscreenVideoController::exitFullscreen):
+
+2010-10-19  Joone Hur  <joone@kldp.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Needs fixing mistyped comments in the API documentation
+        https://bugs.webkit.org/show_bug.cgi?id=47656
+
+        Fixed mistyped comments in the API documenentation.
+
+        * webkit/webkitwebsettings.cpp: Fixed a mistyped comment in the the section block.
+        * webkit/webkitwebwindowfeatures.cpp: Fixed a mistyped comment in the section block.
+
+2010-10-18  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        * NEWS: update for 1.3.5 release.
+        * docs/webkitgtk-sections.txt: add new APIs.
+
+2010-10-18  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Web Inspector: [crash] when Inspector Open in CSSStyleSelector::loadPendingImages().
+        https://bugs.webkit.org/show_bug.cgi?id=46224
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::sendMessageToFrontend):
+
+2010-10-14  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Martin Robinson and Xan Lopez.
+
+        [Gtk]: DRT does not support frame flattening testing
+        https://bugs.webkit.org/show_bug.cgi?id=38650
+
+        Implement enable-frame-flattening API for Gtk+.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2010-10-15  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Replace some String::format() usages by StringConcatenate in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=47714
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidFailLoad):
+        * webkit/webkitwebsettings.cpp:
+        (webkitOSVersion):
+        (webkitUserAgent):
+
+2010-10-14  Joone Hur  <joone@kldp.org>
+
+        Reviewed by Andreas Kling.
+
+        [GTK] google.co.kr was missed when checking Google domains
+        https://bugs.webkit.org/show_bug.cgi?id=47652
+
+        WebKitGtk+ maintains a list of Google domains for working well with Google sites.
+        Add google.co.kr also to the list to be checked with other Google domains.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::initializeDomainsList): Added google.co.kr.
+
+2010-10-13  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        WebKitGtk+ to use the new API from the imported SoupURILoader code
+
+        [GTK] Add HTTP caching support
+        https://bugs.webkit.org/show_bug.cgi?id=44261
+
+        ResourceHandleInternal m_msg is now called m_soupMessage.
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_new_with_handle):
+        (webkit_download_start):
+
+2010-10-13  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Remove more warnings from the g-i scanner run
+        https://bugs.webkit.org/show_bug.cgi?id=47255
+
+        Fixes almost all warnings coming from the g-i scanner.
+
+        * webkit/webkitsecurityorigin.cpp: Rename parameter names in
+        gtk-doc blurb to the actual name of the parameter.
+        * webkit/webkitsoupauthdialog.c: ditto.
+        (webkit_soup_auth_dialog_class_init): Write missing doc for the
+        'current-toplevel' signal.
+        * webkit/webkitsoupauthdialog.h: Rename signal parameter to its
+        actual name.
+        * webkit/webkitwebdatabase.cpp: Rename parameter names in
+        gtk-doc blurb to the actual name of the parameter.
+        * webkit/webkitwebinspector.cpp: ditto.
+        (webkit_web_inspector_class_init): ditto.
+        * webkit/webkitwebview.cpp: ditto.
+        (webkit_web_view_class_init): ditto.
+        * webkit/webkitwebview.h: Rename the parameter names to be in sync
+        with the ones we use in the function definition.
+
+2010-10-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r69589.
+        http://trac.webkit.org/changeset/69589
+        https://bugs.webkit.org/show_bug.cgi?id=47547
+
+        Wrong patch landed from a bug with two patches (Requested by
+        mrobinson on #webkit).
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_new_with_handle):
+        (webkit_download_start):
+
+2010-10-12  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Add HTTP caching support
+        https://bugs.webkit.org/show_bug.cgi?id=44261
+
+        ResourceHandle's m_msg renamed to m_soupMsg and it's also now a PlatformRefPtr
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_new_with_handle):
+        (webkit_download_start):
+
+2010-10-09  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Removed unused callback in webkitwebview
+        https://bugs.webkit.org/show_bug.cgi?id=47092
+
+        In webkit_web_view_forward_context_menu_event() a callback is
+        connected for the destroy signal of the popup menu, however we
+        reuse the same menu always, holding a ref to it, so it's not
+        destroyed when withdrawn by the user.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_forward_context_menu_event):
+
+2010-10-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Remove duplicate code in WebKit/gtk/WebCoreSupport/DragClientGtk.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=47367
+
+        Remove as much duplicate code as possible from DragClientGtk. Most of this code
+        is GTK2/GTK3 independent, so only the bits that aren't should be protected by
+        #ifdefs.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::dragIconWindowDrawEventCallback): Modified the name of this callback
+        so that it is shared between build types.
+        (WebKit::DragClient::DragClient): Updated the signal connectors to reflect the change above.
+        (WebKit::DragClient::~DragClient): The build types share the callback name, so remove
+        the #ifdef here.
+        (WebKit::DragClient::drawDragIconWindow): Changed the name of this method and make it
+        independent of the build type.
+        * WebCoreSupport/DragClientGtk.h: Update method declaration and remove #ifdefs.
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Use draw instead of expose_event in WebView when building with gtk3
+        https://bugs.webkit.org/show_bug.cgi?id=47338
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_expose_event):
+        (webkit_web_view_draw):
+        (webkit_web_view_class_init):
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Don't use GtkObject
+        https://bugs.webkit.org/show_bug.cgi?id=47090
+
+        GtkObject has been removed in gtk3.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::generateEditorCommands):
+        * WebCoreSupport/FullscreenVideoController.cpp:
+        (FullscreenVideoController::createHud):
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Fix the build for GTK+ 3
+        https://bugs.webkit.org/show_bug.cgi?id=47249
+
+        Use GdkVisual instead of GdkColormap. GdkColormap has been removed
+        in gtk3
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_realize):
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Fix the build for GTK+ 3
+        https://bugs.webkit.org/show_bug.cgi?id=47249
+
+        Do not use GdkDrawable deprecated API. Some methods of GdkDrawable
+        are deprecated in gtk2 and have been removed in gtk3. Equivalent
+        API has been added to GdkWindow.
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_button_press_event):
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Use draw signal instead of expose_event in DragClientGtk when building with gtk3
+        https://bugs.webkit.org/show_bug.cgi?id=47326
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::dragIconWindowDrawCallback):
+        (WebKit::DragClient::DragClient):
+        (WebKit::DragClient::~DragClient):
+        (WebKit::DragClient::startDrag):
+        (WebKit::DragClient::dragIconWindowDraw):
+        * WebCoreSupport/DragClientGtk.h:
+
+2010-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Fix the build for GTK+ 3
+        https://bugs.webkit.org/show_bug.cgi?id=47249
+
+        Don't use gtk_size_request_get_size(). It has been removed,
+        gtk_widget_get_preferred_size() should be used instead
+
+        * webkit/webkitwebview.cpp:
+        (PopupMenuPositionFunc):
+
+2010-10-06  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r69201.
+        http://trac.webkit.org/changeset/69201
+        https://bugs.webkit.org/show_bug.cgi?id=47279
+
+        This change broke the WebKitGTK+ build for GTK+ 2.0.
+        (Requested by mrobinson on #webkit).
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_button_press_event):
+
+2010-10-06  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Port to gtk+3 (2.91.0)
+        https://bugs.webkit.org/show_bug.cgi?id=47249
+
+        Do not use GdkDrawable deprecated API
+
+        Some methods of GdkDrawable are deprecated in gtk2 and have been
+        remmoved in gtk3. Equivalent API has been added to GdkWindow.
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_button_press_event):
+
 2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
 
         Reviewed by Dmitry Titov.

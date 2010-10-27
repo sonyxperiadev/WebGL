@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
- *               2008 Eric Seidel <eric@webkit.org>
- *               2008 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2008 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -28,6 +28,7 @@
 
 #include "GradientAttributes.h"
 #include "GraphicsContext.h"
+#include "RenderSVGText.h"
 #include "SVGImageBufferTools.h"
 #include "SVGRenderSupport.h"
 #include <wtf/UnusedParam.h>
@@ -36,6 +37,7 @@ namespace WebCore {
 
 RenderSVGResourceGradient::RenderSVGResourceGradient(SVGGradientElement* node)
     : RenderSVGResourceContainer(node)
+    , m_shouldCollectGradientAttributes(true)
 #if PLATFORM(CG)
     , m_savedContext(0)
 #endif
@@ -58,6 +60,7 @@ void RenderSVGResourceGradient::removeAllClientsFromCache(bool markForInvalidati
         m_gradient.clear();
     }
 
+    m_shouldCollectGradientAttributes = true;
     markAllClientsForInvalidation(markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
@@ -75,9 +78,9 @@ void RenderSVGResourceGradient::removeClientFromCache(RenderObject* client, bool
 static inline bool createMaskAndSwapContextForTextGradient(GraphicsContext*& context,
                                                            GraphicsContext*& savedContext,
                                                            OwnPtr<ImageBuffer>& imageBuffer,
-                                                           const RenderObject* object)
+                                                           RenderObject* object)
 {
-    const RenderObject* textRootBlock = SVGRenderSupport::findTextRootObject(object);
+    RenderObject* textRootBlock = RenderSVGText::locateRenderSVGTextAncestor(object);
     ASSERT(textRootBlock);
 
     AffineTransform absoluteTransform;
@@ -89,7 +92,7 @@ static inline bool createMaskAndSwapContextForTextGradient(GraphicsContext*& con
         return false;
 
     OwnPtr<ImageBuffer> maskImage;
-    if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, maskImage, DeviceRGB))
+    if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, maskImage, ColorSpaceDeviceRGB))
         return false;
 
     GraphicsContext* maskImageContext = maskImage->context();
@@ -108,10 +111,11 @@ static inline bool createMaskAndSwapContextForTextGradient(GraphicsContext*& con
 static inline AffineTransform clipToTextMask(GraphicsContext* context,
                                              OwnPtr<ImageBuffer>& imageBuffer,
                                              FloatRect& targetRect,
-                                             const RenderObject* object,
-                                             GradientData* gradientData)
+                                             RenderObject* object,
+                                             bool boundingBoxMode,
+                                             const AffineTransform& gradientTransform)
 {
-    const RenderObject* textRootBlock = SVGRenderSupport::findTextRootObject(object);
+    RenderObject* textRootBlock = RenderSVGText::locateRenderSVGTextAncestor(object);
     ASSERT(textRootBlock);
 
     targetRect = textRootBlock->repaintRectInLocalCoordinates();
@@ -125,12 +129,12 @@ static inline AffineTransform clipToTextMask(GraphicsContext* context,
     SVGImageBufferTools::clipToImageBuffer(context, absoluteTransform, clampedAbsoluteTargetRect, imageBuffer);
 
     AffineTransform matrix;
-    if (gradientData->boundingBoxMode) {
+    if (boundingBoxMode) {
         FloatRect maskBoundingBox = textRootBlock->objectBoundingBox();
         matrix.translate(maskBoundingBox.x(), maskBoundingBox.y());
         matrix.scaleNonUniform(maskBoundingBox.width(), maskBoundingBox.height());
     }
-    matrix.multLeft(gradientData->transform);
+    matrix.multLeft(gradientTransform);
     return matrix;
 }
 #endif
@@ -150,13 +154,22 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
     if (!gradientElement)
         return false;
 
-    gradientElement->updateAnimatedSVGAttribute(anyQName());
+    if (m_shouldCollectGradientAttributes) {
+        gradientElement->updateAnimatedSVGAttribute(anyQName());
+        collectGradientAttributes(gradientElement);
+        m_shouldCollectGradientAttributes = false;
+    }
+
+    // Spec: When the geometry of the applicable element has no width or height and objectBoundingBox is specified,
+    // then the given effect (e.g. a gradient or a filter) will be ignored.
+    FloatRect objectBoundingBox = object->objectBoundingBox();
+    if (boundingBoxMode() && objectBoundingBox.isEmpty())
+        return false;
 
     if (!m_gradient.contains(object))
         m_gradient.set(object, new GradientData);
 
     GradientData* gradientData = m_gradient.get(object);
-
     bool isPaintingText = resourceMode & ApplyToTextMode;
 
     // Create gradient object
@@ -167,16 +180,18 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
         // resource, so don't apply it here. For non-CG platforms, we want the text bounding
         // box applied to the gradient space transform now, so the gradient shader can use it.
 #if PLATFORM(CG)
-        if (gradientData->boundingBoxMode && !isPaintingText) {
+        if (boundingBoxMode() && !objectBoundingBox.isEmpty() && !isPaintingText) {
 #else
-        if (gradientData->boundingBoxMode) {
+        if (boundingBoxMode() && !objectBoundingBox.isEmpty()) {
 #endif
-            FloatRect objectBoundingBox = object->objectBoundingBox();
             gradientData->userspaceTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
             gradientData->userspaceTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
         }
 
-        gradientData->userspaceTransform.multLeft(gradientData->transform);
+        AffineTransform gradientTransform;
+        calculateGradientTransform(gradientTransform);
+
+        gradientData->userspaceTransform.multLeft(gradientTransform);
         gradientData->gradient->setGradientSpaceTransform(gradientData->userspaceTransform);
     }
 
@@ -230,8 +245,11 @@ void RenderSVGResourceGradient::postApplyResource(RenderObject* object, Graphics
             context = m_savedContext;
             m_savedContext = 0;
 
+            AffineTransform gradientTransform;
+            calculateGradientTransform(gradientTransform);
+
             FloatRect targetRect;
-            gradientData->gradient->setGradientSpaceTransform(clipToTextMask(context, m_imageBuffer, targetRect, object, gradientData));
+            gradientData->gradient->setGradientSpaceTransform(clipToTextMask(context, m_imageBuffer, targetRect, object, boundingBoxMode(), gradientTransform));
             context->setFillGradient(gradientData->gradient);
 
             context->fillRect(targetRect);

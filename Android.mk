@@ -186,6 +186,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders/ico \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders/jpeg \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders/png \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/webp \
 	$(LOCAL_PATH)/WebCore/platform/mock \
 	$(LOCAL_PATH)/WebCore/platform/network \
 	$(LOCAL_PATH)/WebCore/platform/network/android \
@@ -202,6 +203,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/svg/animation \
 	$(LOCAL_PATH)/WebCore/svg/graphics \
 	$(LOCAL_PATH)/WebCore/svg/graphics/filters \
+	$(LOCAL_PATH)/WebCore/svg/properties \
 	$(LOCAL_PATH)/WebCore/websockets \
 	$(LOCAL_PATH)/WebCore/workers \
 	$(LOCAL_PATH)/WebCore/xml
