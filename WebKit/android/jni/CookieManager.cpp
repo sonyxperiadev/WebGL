@@ -52,10 +52,6 @@ static void removeAllCookie(JNIEnv*, jobject) {
     // getter just returns a pointer which is only set when the context is first
     // constructed. The CookieMonster is threadsafe, so the call below is safe
     // overall.
-    //
-    // TODO: It's possible that this call is made before the WebKit thread has
-    // started up and the settings have been synced to the BrowserFrame. This
-    // will cause creation of the context to fail.
     WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies

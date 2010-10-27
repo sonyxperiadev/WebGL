@@ -28,6 +28,7 @@
 
 #include "ChromiumIncludes.h"
 #include "JNIUtility.h"
+#include "WebCoreJni.h"
 #include "WebUrlLoaderClient.h"
 #include "jni.h"
 
@@ -46,6 +47,9 @@ std::string acceptLanguage("");
 
 Lock userAgentLock;
 Lock acceptLanguageLock;
+
+WTF::Mutex databaseDirectoryMutex;
+WTF::Mutex cacheDirectoryMutex;
 }
 
 using namespace WTF;
@@ -105,39 +109,33 @@ const std::string& WebRequestContext::GetAcceptLanguage() const
 
 static const std::string& getDatabaseDirectory()
 {
+    // This method may be called on any thread, as the Java method is
+    // synchronized.
+    MutexLocker lock(databaseDirectoryMutex);
     static std::string databaseDirectory;
     if (databaseDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
+        jclass bridgeClass = env->FindClass("android/webkit/CookieSyncManager");
         jmethodID method = env->GetStaticMethodID(bridgeClass, "getDatabaseDirectory", "()Ljava/lang/String;");
-
-        jstring str = (jstring)env->CallStaticObjectMethod(bridgeClass, method);
-        jboolean isCopy;
-        const char* nativeString = env->GetStringUTFChars(str, &isCopy);
-        databaseDirectory = std::string(nativeString);
-        if (isCopy == JNI_TRUE)
-            env->ReleaseStringUTFChars(str, nativeString);
+        databaseDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
+        env->DeleteLocalRef(bridgeClass);
     }
-
     return databaseDirectory;
 }
 
 static const std::string& getCacheDirectory()
 {
+    // This method may be called on any thread, as the Java method is
+    // synchronized.
+    MutexLocker lock(cacheDirectoryMutex);
     static std::string cacheDirectory;
     if (cacheDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
+        jclass bridgeClass = env->FindClass("android/webkit/CookieSyncManager");
         jmethodID method = env->GetStaticMethodID(bridgeClass, "getCacheDirectory", "()Ljava/lang/String;");
-
-        jstring str = (jstring)env->CallStaticObjectMethod(bridgeClass, method);
-        jboolean isCopy;
-        const char* nativeString = env->GetStringUTFChars(str, &isCopy);
-        cacheDirectory = std::string(nativeString);
-        if (isCopy == JNI_TRUE)
-            env->ReleaseStringUTFChars(str, nativeString);
+        cacheDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
+        env->DeleteLocalRef(bridgeClass);
     }
-
     return cacheDirectory;
 }
 
