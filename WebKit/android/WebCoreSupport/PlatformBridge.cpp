@@ -72,7 +72,7 @@ void PlatformBridge::setCookies(const Document* document, const KURL& url, const
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    WebRequestContext::GetContext(isPrivateBrowsing)->cookie_store()->SetCookie(cookieGurl, cookieValue);
+    WebRequestContext::get(isPrivateBrowsing)->cookie_store()->SetCookie(cookieGurl, cookieValue);
 #else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
@@ -87,7 +87,7 @@ String PlatformBridge::cookies(const Document* document, const KURL& url)
 #if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    std::string cookies = WebRequestContext::GetContext(isPrivateBrowsing)->cookie_store()->GetCookies(cookieGurl);
+    std::string cookies = WebRequestContext::get(isPrivateBrowsing)->cookie_store()->GetCookies(cookieGurl);
     String cookieString(cookies.c_str());
     return cookieString;
 #else

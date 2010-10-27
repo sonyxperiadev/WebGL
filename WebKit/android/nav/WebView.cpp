@@ -2060,7 +2060,7 @@ static jboolean nativeCleanupPrivateBrowsingFiles(
     std::string cacheDirectory(cString);
     if (isCopy == JNI_TRUE)
         env->ReleaseStringUTFChars(cacheDirectoryJString, cString);
-    return WebRequestContext::CleanupPrivateBrowsingFiles(databaseDirectory, cacheDirectory);
+    return WebRequestContext::cleanupPrivateBrowsingFiles(databaseDirectory, cacheDirectory);
 #else
     return JNI_FALSE;
 #endif

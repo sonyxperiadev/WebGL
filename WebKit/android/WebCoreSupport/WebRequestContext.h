@@ -26,8 +26,6 @@
 #ifndef WebRequestContext_h
 #define WebRequestContext_h
 
-// Cannot forward declare the chrome classes since this is
-// a subclass of a chrome class.
 #include "ChromiumIncludes.h"
 #include "PlatformString.h"
 
@@ -35,25 +33,25 @@ namespace android {
 
 class WebRequestContext : public URLRequestContext {
 public:
-    virtual const std::string& GetUserAgent(const GURL& url) const;
+    // URLRequestContext overrides.
+    virtual const std::string& GetUserAgent(const GURL&) const;
     virtual const std::string& GetAcceptLanguage() const;
 
     // Lazily create the relevant context. This class holds a reference.
-    static URLRequestContext* GetContext(bool isPrivateBrowsing);
+    static WebRequestContext* get(bool isPrivateBrowsing);
 
-    static bool CleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
-
-    static void SetUserAgent(WTF::String);
-    static void SetAcceptLanguage(WTF::String);
+    // These methods are threadsafe.
+    static bool cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
+    static void setUserAgent(WTF::String);
+    static void setAcceptLanguage(WTF::String);
 
 private:
-    static URLRequestContext* GetAndroidContext();
-    static URLRequestContext* GetAndroidPrivateBrowsingContext();
-    static const std::string& GetDatabaseDirectory();
-    static const std::string& GetCacheDirectory();
-    static WebRequestContext* GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
     WebRequestContext();
     ~WebRequestContext();
+
+    static WebRequestContext* getContextForPath(const char* cookieFilename, const char* cacheFilename);
+    static WebRequestContext* getRegularContext();
+    static WebRequestContext* getPrivateBrowsingContext();
 };
 
 } // namespace android

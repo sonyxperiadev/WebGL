@@ -46,13 +46,13 @@ static bool useChromiumHttpStack(JNIEnv*, jobject) {
 
 static void removeAllCookie(JNIEnv*, jobject) {
 #if USE(CHROME_NETWORK_STACK)
-    WebRequestContext::GetContext(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies
     // for such contexts are cleared up when we're done with them.
     // TODO: Consider adding an optimisation to not create the context if it
     // doesn't already exist.
-    WebRequestContext::GetContext(true)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebRequestContext::get(true)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
 #endif
 }
 

@@ -24,13 +24,13 @@
  */
 
 #include "config.h"
-
 #include "WebRequestContext.h"
 
 #include "ChromiumIncludes.h"
 #include "JNIUtility.h"
 #include "WebUrlLoaderClient.h"
 #include "jni.h"
+
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,6 +48,8 @@ Lock userAgentLock;
 Lock acceptLanguageLock;
 }
 
+using namespace WTF;
+
 namespace android {
 
 static const char* const kCookiesDatabaseFilename = "/webviewCookiesChromium.db";
@@ -55,8 +57,8 @@ static const char* const kCacheDirectory = "/webviewCacheChromium";
 static const char* const kCookiesDatabaseFilenamePrivate = "/webviewCookiesChromiumPrivate.db";
 static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
-static scoped_refptr<URLRequestContext> androidPrivateBrowsingContext(0);
-static WTF::Mutex androidPrivateBrowsingContextMutex;
+static scoped_refptr<WebRequestContext> privateBrowsingContext(0);
+static WTF::Mutex privateBrowsingContextMutex;
 
 WebRequestContext::WebRequestContext()
 {
@@ -68,32 +70,40 @@ WebRequestContext::~WebRequestContext()
 {
 }
 
-void WebRequestContext::SetUserAgent(WTF::String string)
+void WebRequestContext::setUserAgent(String string)
 {
+    // The useragent is set on the WebCore thread and read on the network
+    // stack's IO thread.
     AutoLock aLock(userAgentLock);
     userAgent = string.utf8().data();
 }
 
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
 {
+    // The useragent is set on the WebCore thread and read on the network
+    // stack's IO thread.
     AutoLock aLock(userAgentLock);
     ASSERT(userAgent != "");
     return userAgent;
 }
 
-void WebRequestContext::SetAcceptLanguage(WTF::String string)
+void WebRequestContext::setAcceptLanguage(String string)
 {
+    // The accept language is set on the WebCore thread and read on the network
+    // stack's IO thread.
     AutoLock aLock(acceptLanguageLock);
     acceptLanguage = string.utf8().data();
 }
 
 const std::string& WebRequestContext::GetAcceptLanguage() const
 {
+    // The accept language is set on the WebCore thread and read on the network
+    // stack's IO thread.
     AutoLock aLock(acceptLanguageLock);
     return acceptLanguage;
 }
 
-const std::string& WebRequestContext::GetDatabaseDirectory()
+static const std::string& getDatabaseDirectory()
 {
     static std::string databaseDirectory;
     if (databaseDirectory.empty()) {
@@ -112,7 +122,7 @@ const std::string& WebRequestContext::GetDatabaseDirectory()
     return databaseDirectory;
 }
 
-const std::string& WebRequestContext::GetCacheDirectory()
+static const std::string& getCacheDirectory()
 {
     static std::string cacheDirectory;
     if (cacheDirectory.empty()) {
@@ -131,57 +141,57 @@ const std::string& WebRequestContext::GetCacheDirectory()
     return cacheDirectory;
 }
 
-WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
+WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilename, const char* cacheFilename)
 {
-    std::string cookieString(GetDatabaseDirectory());
+    std::string cookieString(getDatabaseDirectory());
     cookieString.append(cookieFilename);
     FilePath cookiePath(cookieString.c_str());
-    std::string cacheString(GetCacheDirectory());
+    std::string cacheString(getCacheDirectory());
     cacheString.append(cacheFilename);
     FilePath cachePath(cacheString.c_str());
 
-    WebRequestContext* androidContext = new WebRequestContext();
-    androidContext->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0);
+    WebRequestContext* context = new WebRequestContext();
+    context->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0);
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
     // Todo: check if the context takes ownership of the cache
     net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
 
-    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(androidContext->host_resolver_), 0, 0, defaultBackend);
+    context->http_transaction_factory_ = new net::HttpCache(context->host_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(context->host_resolver_), 0, 0, defaultBackend);
 
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
 
-    // This is needed for the page cycler
+    // This is needed for the page cycler. See http://b/2944150
     net::CookieMonster::EnableFileScheme();
 
-    androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
+    context->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
 
-    return androidContext;
+    return context;
 }
 
-URLRequestContext* WebRequestContext::GetAndroidContext()
+WebRequestContext* WebRequestContext::getRegularContext()
 {
-    static scoped_refptr<URLRequestContext> androidContext(0);
-    if (!androidContext)
-        androidContext = GetAndroidContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
-    return androidContext;
+    static scoped_refptr<WebRequestContext> regularContext(0);
+    if (!regularContext)
+        regularContext = getContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
+    return regularContext;
 }
 
-URLRequestContext* WebRequestContext::GetAndroidPrivateBrowsingContext()
+WebRequestContext* WebRequestContext::getPrivateBrowsingContext()
 {
-    WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
+    MutexLocker lock(privateBrowsingContextMutex);
 
-    if (!androidPrivateBrowsingContext) {
+    if (!privateBrowsingContext) {
         // TODO: Where is the right place to put the temporary db? Should it be
         // kept in memory?
-        androidPrivateBrowsingContext = GetAndroidContextForPath(kCookiesDatabaseFilenamePrivate, kCacheDirectoryPrivate);
+        privateBrowsingContext = getContextForPath(kCookiesDatabaseFilenamePrivate, kCacheDirectoryPrivate);
     }
-    return androidPrivateBrowsingContext;
+    return privateBrowsingContext;
 }
 
-URLRequestContext* WebRequestContext::GetContext(bool isPrivateBrowsing)
+WebRequestContext* WebRequestContext::get(bool isPrivateBrowsing)
 {
-    return isPrivateBrowsing ?  GetAndroidPrivateBrowsingContext() : GetAndroidContext();
+    return isPrivateBrowsing ? getPrivateBrowsingContext() : getRegularContext();
 }
 
 static void removeFileOrDirectory(const char* filename)
@@ -208,12 +218,13 @@ static void removeFileOrDirectory(const char* filename)
     unlink(filename);
 }
 
-bool WebRequestContext::CleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory)
+bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory)
 {
-    WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
+    // This is called on the UI thread.
+    MutexLocker lock(privateBrowsingContextMutex);
 
-    if (!androidPrivateBrowsingContext || androidPrivateBrowsingContext->HasOneRef()) {
-        androidPrivateBrowsingContext = 0;
+    if (!privateBrowsingContext || privateBrowsingContext->HasOneRef()) {
+        privateBrowsingContext = 0;
 
         std::string cookiePath(databaseDirectory);
         cookiePath.append(kCookiesDatabaseFilenamePrivate);
