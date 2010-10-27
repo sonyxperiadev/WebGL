@@ -202,7 +202,7 @@ jobject WebViewCore::getApplicationContext() {
 
 
 struct WebViewCoreStaticMethods {
-    jmethodID    m_supportsMimeType;
+    jmethodID    m_isSupportedMediaMimeType;
 } gWebViewCoreStaticMethods;
 
 // Check whether a media mimeType is supported in Android media framework.
