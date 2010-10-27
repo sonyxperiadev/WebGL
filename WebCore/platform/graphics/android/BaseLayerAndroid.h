@@ -51,7 +51,7 @@ public:
     // the passed canvas. We used it to paint the GL tiles as well as
     // WebView::copyBaseContentToPicture(), so a lock is necessary as
     // we are running in different threads.
-    void draw(SkCanvas* canvas);
+    void drawCanvas(SkCanvas* canvas);
 
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);

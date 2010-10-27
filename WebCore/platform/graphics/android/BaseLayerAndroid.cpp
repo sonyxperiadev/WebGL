@@ -93,7 +93,7 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
     m_content.set(src);
 }
 
-void BaseLayerAndroid::draw(SkCanvas* canvas)
+void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 {
 #if USE(ACCELERATED_COMPOSITING)
     android::Mutex::Autolock lock(m_drawLock);
