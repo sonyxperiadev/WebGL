@@ -97,15 +97,15 @@ public:
     // We use this to prioritize the order in which we reclaim textures, see
     // TilesManager::getAvailableTexture() for more information.
     int usedLevel() { return m_usedLevel; }
-    void setUsedLevel(int used) { android::Mutex::Autolock lock(m_varLock); m_usedLevel = used; }
+    void setUsedLevel(int used) { m_usedLevel = used; }
 
-    // assigns ownership of the texture to the tile if possible
+    // allows consumer thread to assign ownership of the texture to the tile. It
+    // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(BaseTile* owner);
 
     // private member accessor functions
-    BaseTile* owner() { android::Mutex::Autolock lock(m_varLock); return m_owner; }
-    BaseTile* painter() { return m_painter; }
-    SkCanvas* canvas() { return m_canvas; }
+    BaseTile* owner() { return m_owner; } // only used by the consumer thread
+    SkCanvas* canvas() { return m_canvas; } // only used by the producer thread
 
     // checks to see if the current readable texture equals the provided PaintingInfo
     bool consumerTextureUpToDate(PaintingInfo& info);
@@ -119,7 +119,8 @@ private:
     SkCanvas* m_canvas;
     int m_usedLevel;
     BaseTile* m_owner;
-    BaseTile* m_painter;
+
+    //The following values are shared among threads and use m_varLock to stay synced
     PaintingInfo m_paintingInfoA;
     PaintingInfo m_paintingInfoB;
     bool m_busy;
