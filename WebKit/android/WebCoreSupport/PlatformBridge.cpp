@@ -101,11 +101,16 @@ String PlatformBridge::cookies(const Document* document, const KURL& url)
 
 bool PlatformBridge::cookiesEnabled(const Document* document)
 {
+#if USE(CHROME_NETWORK_STACK)
+    bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
+    return WebRequestContext::get(isPrivateBrowsing)->allowCookies();
+#else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
         return false;
 
     return client->cookiesEnabled();
+#endif
 }
 
 NPObject* PlatformBridge::pluginScriptableObject(Widget* widget)

@@ -44,6 +44,21 @@ static bool useChromiumHttpStack(JNIEnv*, jobject) {
 #endif
 }
 
+static bool acceptCookie(JNIEnv*, jobject) {
+#if USE(CHROME_NETWORK_STACK)
+    // This is a static method which gets the cookie policy for all WebViews. We
+    // always apply the same configuration to the contexts for both regular and
+    // private browsing, so expect the same result here.
+    bool regularAcceptCookies = WebRequestContext::get(false)->allowCookies();
+    ASSERT(regularAcceptCookies == WebRequestContext::get(true)->allowCookies());
+    return regularAcceptCookies;
+#else
+    // The Android HTTP stack is implemented Java-side.
+    ASSERT_NOT_REACHED();
+    return false;
+#endif
+}
+
 static void removeAllCookie(JNIEnv*, jobject) {
 #if USE(CHROME_NETWORK_STACK)
     // Though WebRequestContext::get() is threadsafe, the context itself, in
@@ -62,9 +77,21 @@ static void removeAllCookie(JNIEnv*, jobject) {
 #endif
 }
 
+static void setAcceptCookie(JNIEnv*, jobject, jboolean accept) {
+#if USE(CHROME_NETWORK_STACK)
+    // This is a static method which configures the cookie policy for all
+    // WebViews, so we configure the contexts for both regular and private
+    // browsing.
+    WebRequestContext::get(false)->setAllowCookies(accept);
+    WebRequestContext::get(true)->setAllowCookies(accept);
+#endif
+}
+
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
+    { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
     { "nativeRemoveAllCookie", "()V", (void*) removeAllCookie },
+    { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
 };
 
 int registerCookieManager(JNIEnv* env)
