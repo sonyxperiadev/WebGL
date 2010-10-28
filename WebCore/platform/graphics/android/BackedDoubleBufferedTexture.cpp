@@ -40,7 +40,6 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
     : DoubleBufferedTexture(eglGetCurrentContext())
     , m_usedLevel(-1)
     , m_owner(0)
-    , m_painter(0)
     , m_busy(false)
 {
     m_bitmap.setConfig(config, w, h);
@@ -95,7 +94,6 @@ void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
     }
 
     m_varLock.lock();
-    m_painter = painter;
     // set the painting information for this texture
     if (equalsIdTextureA(textureInfo->m_textureId))
         m_paintingInfoA = info;
@@ -125,13 +123,15 @@ bool BackedDoubleBufferedTexture::consumerTextureSimilar(PaintingInfo& info)
 
 bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
 {
-    // if the writable texture is currently being written to we can't change the
-    // owner out from underneath that texture
-    android::Mutex::Autolock lock(m_varLock);
     if (m_owner == owner)
         return true;
+
+    // if the writable texture is busy (i.e. currently being written to) then we
+    // can't change the owner out from underneath that texture
+    m_varLock.lock();
     if (m_busy)
         return false;
+    m_varLock.unlock();
 
     if (m_owner)
         m_owner->removeTexture();
