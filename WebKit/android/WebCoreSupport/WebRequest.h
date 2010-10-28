@@ -87,9 +87,7 @@ private:
     void handleAndroidURL();
     void finish(bool success);
 
-    // Not owned
-    WebUrlLoaderClient* m_urlLoader;
-
+    scoped_refptr<WebUrlLoaderClient> m_urlLoader;
     OwnPtr<URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
     int m_inputStream;

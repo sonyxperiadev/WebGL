@@ -60,10 +60,9 @@ class WebRequest;
 // - Implement sync requests
 // - Implement downloadFile
 // - Implement pauseLoad
-class WebUrlLoaderClient {
+class WebUrlLoaderClient : public base::RefCountedThreadSafe<WebUrlLoaderClient> {
 public:
     WebUrlLoaderClient(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
-    ~WebUrlLoaderClient();
 
     // Called from WebCore, will be forwarded to the IO thread
     bool start(bool sync, bool isPrivateBrowsing);
@@ -77,22 +76,25 @@ public:
 
     // This is called from the IO thread, and dispatches the callback to the main thread.
     // (For asynchronous calls, we just delegate to WebKit's callOnMainThread.)
-    void maybeCallOnMainThread(CallbackFunction*, void* context);
+    void maybeCallOnMainThread(Task* task);
 
     // Called by WebRequest (using maybeCallOnMainThread), should be forwarded to WebCore.
-    static void didReceiveResponse(void*);
-    static void didReceiveData(void*);
-    static void didReceiveDataUrl(void*);
-    static void didReceiveAndroidFileData(void*);
-    static void didFinishLoading(void*);
-    static void didFail(void*);
-    static void willSendRequest(void*);
-    static void authRequired(void*);
+    void didReceiveResponse(PassOwnPtr<WebResponse>);
+    void didReceiveData(scoped_refptr<net::IOBuffer>, int size);
+    void didReceiveDataUrl(PassOwnPtr<std::string>);
+    void didReceiveAndroidFileData(PassOwnPtr<std::vector<char> >);
+    void didFinishLoading();
+    void didFail(PassOwnPtr<WebResponse>);
+    void willSendRequest(PassOwnPtr<WebResponse>);
+    void authRequired(scoped_refptr<net::AuthChallengeInfo>);
 
     // Handle to the chrome IO thread
     static base::Thread* ioThread();
 
 private:
+    friend class base::RefCountedThreadSafe<WebUrlLoaderClient>;
+    virtual ~WebUrlLoaderClient();
+
     void finish();
 
     WebFrame* m_webFrame;
@@ -101,8 +103,7 @@ private:
     bool m_sync;
     volatile bool m_finished;
 
-    // Not an OwnPtr since it should be deleted on another thread
-    WebRequest* m_request;
+    scoped_refptr<WebRequest> m_request;
 
     // Check if a request is active
     bool isActive() const;
@@ -112,44 +113,8 @@ private:
     static Lock* syncLock();
     static ConditionVariable* syncCondition();
 
-    typedef Tuple2<CallbackFunction*, void*> Callback;
-    typedef std::deque<Callback> CallbackQueue;
-
     // Queue of callbacks to be executed by the main thread. Must only be accessed inside mutex.
-    CallbackQueue m_queue;
-};
-
-// A struct to send more than one thing in a void*, needed for maybeCallOnMainThread
-struct LoaderData {
-    net::IOBuffer* buffer;
-    WebUrlLoaderClient* loader;
-    WebResponse webResponse;
-    const int size;
-    OwnPtr<std::string*> string;
-    OwnPtr<std::vector<char> > vector;
-    scoped_refptr<net::AuthChallengeInfo> authChallengeInfo;
-
-    LoaderData(WebUrlLoaderClient* l) : buffer(0), loader(l), size(0)
-    {
-    }
-
-    LoaderData(WebUrlLoaderClient* l, std::string* s) : buffer(0), loader(l), size(0), string(s)
-    {
-    }
-
-    LoaderData(WebUrlLoaderClient* l, WebResponse r) : buffer(0), loader(l), webResponse(r), size(0)
-    {
-    }
-
-    LoaderData(WebUrlLoaderClient* l, net::IOBuffer* b, const int s) : buffer(b), loader(l), size(s)
-    {
-    }
-
-    LoaderData(WebUrlLoaderClient* l, std::vector<char>* data, const int s) : buffer(0), loader(l), size(s), vector(data)
-    {
-    }
-
-    ~LoaderData();
+    std::deque<Task*> m_queue;
 };
 
 } // namespace android
