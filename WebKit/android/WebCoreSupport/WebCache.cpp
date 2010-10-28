@@ -27,6 +27,8 @@
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
 
+using namespace net;
+
 namespace android {
 
 WebCache* WebCache::s_instance = 0;
@@ -60,11 +62,11 @@ void WebCache::doClear()
         return;
     m_isClearInProgress = true;
     URLRequestContext* context = WebRequestContext::get(false /* isPrivateBrowsing */);
-    net::HttpTransactionFactory* factory = context->http_transaction_factory();
+    HttpTransactionFactory* factory = context->http_transaction_factory();
     int code = factory->GetCache()->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
     // Code ERR_IO_PENDING indicates that the operation is still in progress and
     // the supplied callback will be invoked when it completes.
-    if (code == net::ERR_IO_PENDING)
+    if (code == ERR_IO_PENDING)
         return;
     else if (code != OK) {
         m_isClearInProgress = false;
@@ -83,7 +85,7 @@ void WebCache::doomAllEntries(int)
     int code = m_cacheBackend->DoomAllEntries(&m_doneCallback);
     // Code ERR_IO_PENDING indicates that the operation is still in progress and
     // the supplied callback will be invoked when it completes.
-    if (code == net::ERR_IO_PENDING)
+    if (code == ERR_IO_PENDING)
         return;
     else if (code != OK) {
         m_isClearInProgress = false;

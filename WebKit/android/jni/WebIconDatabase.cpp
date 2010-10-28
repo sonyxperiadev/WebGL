@@ -206,8 +206,11 @@ static JNINativeMethod gWebIconDatabaseMethods[] = {
 
 int registerWebIconDatabase(JNIEnv* env)
 {
-    jclass webIconDB = env->FindClass("android/webkit/WebIconDatabase");
-    LOG_ASSERT(webIconDB, "Unable to find class android.webkit.WebIconDatabase");
+#ifndef NDEBUG
+    jclass webIconDatabase = env->FindClass("android/webkit/WebIconDatabase");
+    LOG_ASSERT(webIconDatabase, "Unable to find class android.webkit.WebIconDatabase");
+    env->DeleteLocalRef(webIconDatabase);
+#endif
 
     return jniRegisterNativeMethods(env, "android/webkit/WebIconDatabase",
             gWebIconDatabaseMethods, NELEM(gWebIconDatabaseMethods));

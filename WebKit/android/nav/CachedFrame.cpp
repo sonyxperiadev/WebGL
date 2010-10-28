@@ -1015,6 +1015,19 @@ SkPicture* CachedFrame::picture(const CachedNode* node) const
     return mRoot->mPicture;
 }
 
+SkPicture* CachedFrame::picture(const CachedNode* node, int* xPtr, int* yPtr) const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (node->isInLayer()) {
+        const CachedLayer* cachedLayer = layer(node);
+        const LayerAndroid* rootLayer = mRoot->rootLayer();
+        cachedLayer->toLocal(rootLayer, xPtr, yPtr);
+        return cachedLayer->picture(rootLayer);
+    }
+#endif
+    return mRoot->mPicture;
+}
+
 void CachedFrame::resetClippedOut()
 {
     for (CachedNode* test = mCachedNodes.begin(); test != mCachedNodes.end(); test++)

@@ -58,6 +58,7 @@ static jobject GetOrigins(JNIEnv* env, jobject obj)
     jmethodID cid = env->GetMethodID(setClass, "<init>", "()V");
     jmethodID mid = env->GetMethodID(setClass, "add", "(Ljava/lang/Object;)Z");
     jobject set = env->NewObject(setClass, cid);
+    env->DeleteLocalRef(setClass);
 
     for (unsigned i = 0; i < coreOrigins.size(); ++i) {
         WebCore::SecurityOrigin* origin = coreOrigins[i].get();
@@ -165,8 +166,11 @@ static JNINativeMethod gWebStorageMethods[] = {
 
 int registerWebStorage(JNIEnv* env)
 {
+#ifndef NDEBUG
     jclass webStorage = env->FindClass("android/webkit/WebStorage");
     LOG_ASSERT(webStorage, "Unable to find class android.webkit.WebStorage");
+    env->DeleteLocalRef(webStorage);
+#endif
 
     return jniRegisterNativeMethods(env, "android/webkit/WebStorage",
             gWebStorageMethods, NELEM(gWebStorageMethods));

@@ -140,6 +140,7 @@ struct FieldIds {
         mAutoFillProfileZipCode = env->GetFieldID(autoFillProfileClass, "mZipCode", "Ljava/lang/String;");
         mAutoFillProfileCountry = env->GetFieldID(autoFillProfileClass, "mCountry", "Ljava/lang/String;");
         mAutoFillProfilePhoneNumber = env->GetFieldID(autoFillProfileClass, "mPhoneNumber", "Ljava/lang/String;");
+        env->DeleteLocalRef(autoFillProfileClass);
 #endif
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
@@ -181,13 +182,16 @@ struct FieldIds {
         LOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
         LOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
 
-        jclass c = env->FindClass("java/lang/Enum");
-        LOG_ASSERT(c, "Could not find Enum class!");
-        mOrdinal = env->GetMethodID(c, "ordinal", "()I");
+        jclass enumClass = env->FindClass("java/lang/Enum");
+        LOG_ASSERT(enumClass, "Could not find Enum class!");
+        mOrdinal = env->GetMethodID(enumClass, "ordinal", "()I");
         LOG_ASSERT(mOrdinal, "Could not find method ordinal");
-        c = env->FindClass("android/webkit/WebSettings$TextSize");
-        LOG_ASSERT(c, "Could not find TextSize enum");
-        mTextSizeValue = env->GetFieldID(c, "value", "I");
+        env->DeleteLocalRef(enumClass);
+
+        jclass textSizeClass = env->FindClass("android/webkit/WebSettings$TextSize");
+        LOG_ASSERT(textSizeClass, "Could not find TextSize enum");
+        mTextSizeValue = env->GetFieldID(textSizeClass, "value", "I");
+        env->DeleteLocalRef(textSizeClass);
     }
 
     // Field ids
@@ -534,6 +538,7 @@ int registerWebSettings(JNIEnv* env)
     jclass clazz = env->FindClass("android/webkit/WebSettings");
     LOG_ASSERT(clazz, "Unable to find class WebSettings!");
     gFieldIds = new FieldIds(env, clazz);
+    env->DeleteLocalRef(clazz);
     return jniRegisterNativeMethods(env, "android/webkit/WebSettings",
             gWebSettingsMethods, NELEM(gWebSettingsMethods));
 }

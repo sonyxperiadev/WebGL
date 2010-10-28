@@ -29,13 +29,19 @@
 #include "ChromiumIncludes.h"
 #include "PlatformString.h"
 
+#include <wtf/ThreadingPrimitives.h>
+
 namespace android {
 
-class WebRequestContext : public URLRequestContext {
+class WebRequestContext : public URLRequestContext, net::CookiePolicy {
 public:
     // URLRequestContext overrides.
     virtual const std::string& GetUserAgent(const GURL&) const;
     virtual const std::string& GetAcceptLanguage() const;
+
+    // CookiePolicy implementation.
+    virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
+    virtual int CanSetCookie(const GURL& url, const GURL& first_party_for_cookies, const std::string& cookie_line, net::CompletionCallback*);
 
     // Lazily create the relevant context. This class holds a reference.
     // This may be called on any thread. The context returned, however, is not
@@ -47,6 +53,8 @@ public:
     static bool cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
     static void setUserAgent(WTF::String);
     static void setAcceptLanguage(WTF::String);
+    bool allowCookies();
+    void setAllowCookies(bool allow);
 
 private:
     WebRequestContext();
@@ -55,6 +63,9 @@ private:
     static WebRequestContext* getContextForPath(const char* cookieFilename, const char* cacheFilename);
     static WebRequestContext* getRegularContext();
     static WebRequestContext* getPrivateBrowsingContext();
+
+    bool m_allowCookies;
+    WTF::Mutex m_allowCookiesMutex;
 };
 
 } // namespace android

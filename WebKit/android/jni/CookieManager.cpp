@@ -27,16 +27,29 @@
 
 #include "ChromiumIncludes.h"
 #include "WebRequestContext.h"
+#include "WebCoreJni.h"
 #include <JNIHelp.h>
 
 using namespace base;
+using namespace net;
 
 namespace android {
 
 // JNI for android.webkit.CookieManager
 static const char* javaCookieManagerClass = "android/webkit/CookieManager";
 
-static bool useChromiumHttpStack(JNIEnv*, jobject) {
+// Though WebRequestContext::get() is threadsafe, the context itself, in
+// general, is not. The context is generally used on the HTTP stack IO
+// thread, but calls to the methods of this class are made on the UI thread.
+// We ensure thread safety as follows ...
+// - The cookie_store() getter just returns a pointer which is only set when the
+//   context is first constructed. The CookieMonster itself is threadsafe, so
+//   using it from the UI thread is safe.
+// - Calls to the other WebRequestContext methods used here are explicitly
+//   threadsafe.
+
+static bool useChromiumHttpStack(JNIEnv*, jobject)
+{
 #if USE(CHROME_NETWORK_STACK)
     return true;
 #else
@@ -44,14 +57,38 @@ static bool useChromiumHttpStack(JNIEnv*, jobject) {
 #endif
 }
 
-static void removeAllCookie(JNIEnv*, jobject) {
+static bool acceptCookie(JNIEnv*, jobject)
+{
 #if USE(CHROME_NETWORK_STACK)
-    // Though WebRequestContext::get() is threadsafe, the context itself, in
-    // general, is not. The context is generally used on the HTTP stack IO
-    // thread, but this call is on the UI thread. However, the cookie_store()
-    // getter just returns a pointer which is only set when the context is first
-    // constructed. The CookieMonster is threadsafe, so the call below is safe
-    // overall.
+    // This is a static method which gets the cookie policy for all WebViews. We
+    // always apply the same configuration to the contexts for both regular and
+    // private browsing, so expect the same result here.
+    bool regularAcceptCookies = WebRequestContext::get(false)->allowCookies();
+    ASSERT(regularAcceptCookies == WebRequestContext::get(true)->allowCookies());
+    return regularAcceptCookies;
+#else
+    // The Android HTTP stack is implemented Java-side.
+    ASSERT_NOT_REACHED();
+    return false;
+#endif
+}
+
+static jstring getCookie(JNIEnv* env, jobject, jstring url)
+{
+#if USE(CHROME_NETWORK_STACK)
+    GURL gurl(jstringToStdString(env, url));
+    std::string cookies = WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetCookiesWithOptions(gurl, CookieOptions());
+    return env->NewStringUTF(cookies.c_str());
+#else
+    // The Android HTTP stack is implemented Java-side.
+    ASSERT_NOT_REACHED();
+    return jstring();
+#endif
+}
+
+static void removeAllCookie(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
     WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies
@@ -62,15 +99,32 @@ static void removeAllCookie(JNIEnv*, jobject) {
 #endif
 }
 
+static void setAcceptCookie(JNIEnv*, jobject, jboolean accept)
+{
+#if USE(CHROME_NETWORK_STACK)
+    // This is a static method which configures the cookie policy for all
+    // WebViews, so we configure the contexts for both regular and private
+    // browsing.
+    WebRequestContext::get(false)->setAllowCookies(accept);
+    WebRequestContext::get(true)->setAllowCookies(accept);
+#endif
+}
+
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
+    { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
+    { "nativeGetCookie", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getCookie },
     { "nativeRemoveAllCookie", "()V", (void*) removeAllCookie },
+    { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
 };
 
 int registerCookieManager(JNIEnv* env)
 {
+#ifndef NDEBUG
     jclass cookieManager = env->FindClass(javaCookieManagerClass);
     LOG_ASSERT(cookieManager, "Unable to find class");
+    env->DeleteLocalRef(cookieManager);
+#endif
     return jniRegisterNativeMethods(env, javaCookieManagerClass, gCookieManagerMethods, NELEM(gCookieManagerMethods));
 }
 

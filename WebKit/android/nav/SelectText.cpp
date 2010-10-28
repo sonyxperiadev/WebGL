@@ -29,10 +29,10 @@
 #include "BidiResolver.h"
 #include "CachedRoot.h"
 #include "LayerAndroid.h"
+#include "ParseCanvas.h"
 #include "SelectText.h"
 #include "SkBitmap.h"
 #include "SkBounder.h"
-#include "SkCanvas.h"
 #include "SkGradientShader.h"
 #include "SkMatrix.h"
 #include "SkPicture.h"
@@ -158,7 +158,7 @@ public:
     SkBounder::GlyphRec mLastGlyph;
 };
 
-class SpaceCanvas : public SkCanvas {
+class SpaceCanvas : public ParseCanvas {
 public:
     SpaceCanvas(const SkIRect& area)
     {
@@ -431,7 +431,10 @@ public:
         if (mDistance > distance) {
             mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
-            if (distance < 100) {
+#ifndef EXTRA_NOISY_LOGGING
+            if (distance < 100) 
+#endif
+            {
                 DBG_NAV_LOGD("FirstCheck mBestBounds={%d,%d,r=%d,b=%d} distance=%d",
                     mBestBounds.fLeft, mBestBounds.fTop,
                     mBestBounds.fRight, mBestBounds.fBottom, distance >> 2);
@@ -992,7 +995,7 @@ private:
     typedef BuilderCheck INHERITED;
 };
 
-class TextCanvas : public SkCanvas {
+class TextCanvas : public ParseCanvas {
 public:
 
     TextCanvas(CommonCheck* bounder, const SkIRect& area)
@@ -1003,10 +1006,13 @@ public:
             area.height());
         setBitmapDevice(bitmap);
         translate(SkIntToScalar(-area.fLeft), SkIntToScalar(-area.fTop));
-    }
-
-    virtual ~TextCanvas() {
-        setBounder(NULL);
+#ifdef DEBUG_NAV_UI
+        const SkIRect& clip = getTotalClip().getBounds();
+        const SkMatrix& matrix = getTotalMatrix();
+        DBG_NAV_LOGD("bitmap=(%d,%d) clip=(%d,%d,%d,%d) matrix=(%g,%g)",
+            bitmap.width(), bitmap.height(), clip.fLeft, clip.fTop,
+            clip.fRight, clip.fBottom, matrix.getTranslateX(), matrix.getTranslateY());
+#endif
     }
 
     virtual void drawPaint(const SkPaint& paint) {
@@ -1033,14 +1039,14 @@ public:
     virtual void drawText(const void* text, size_t byteLength, SkScalar x, 
                           SkScalar y, const SkPaint& paint) {
         mBounder.setUp(paint, getTotalMatrix(), y, text);
-        SkCanvas::drawText(text, byteLength, x, y, paint);
+        INHERITED::drawText(text, byteLength, x, y, paint);
     }
 
     virtual void drawPosTextH(const void* text, size_t byteLength,
                               const SkScalar xpos[], SkScalar constY,
                               const SkPaint& paint) {
         mBounder.setUp(paint, getTotalMatrix(), constY, text);
-        SkCanvas::drawPosTextH(text, byteLength, xpos, constY, paint);
+        INHERITED::drawPosTextH(text, byteLength, xpos, constY, paint);
     }
 
     virtual void drawVertices(VertexMode vmode, int vertexCount,
@@ -1051,6 +1057,8 @@ public:
     }
 
     CommonCheck& mBounder;
+private:
+    typedef ParseCanvas INHERITED;
 };
 
 static bool buildSelection(const SkPicture& picture, const SkIRect& area,
@@ -1196,6 +1204,7 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 
 SelectText::SelectText()
 {
+    m_picture = 0;
     reset();
     SkPaint paint;
 
@@ -1270,16 +1279,19 @@ SelectText::SelectText()
     m_endControl.endRecording();
     fillGradient->safeUnref();
     dropGradient->safeUnref();
-    m_picture = 0;
+}
+
+SelectText::~SelectText()
+{
+    m_picture->safeUnref();
 }
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
-    // FIXME: layer may not own the original selected picture
-    m_picture = layer->picture();
-    if (!m_picture)
+    if (!m_picture || m_picture != layer->picture())
         return;
-    DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d", m_extendSelection, m_drawPointer);
+    DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d layer [%d]",
+        m_extendSelection, m_drawPointer, layer->uniqueId());
     if (m_extendSelection)
         drawSelectionRegion(canvas);
     if (m_drawPointer)
@@ -1317,16 +1329,14 @@ void SelectText::drawSelectionPointer(SkCanvas* canvas)
 void SelectText::drawSelectionRegion(SkCanvas* canvas)
 {
     m_selRegion.setEmpty();
-    SkRect visBounds;
-    if (!canvas->getClipBounds(&visBounds, SkCanvas::kAA_EdgeType))
-        return;
-    SkIRect ivisBounds;
-    visBounds.round(&ivisBounds);
+    SkIRect ivisBounds = m_visibleRect;
     ivisBounds.join(m_selStart);
     ivisBounds.join(m_selEnd);
-    DBG_NAV_LOGD("m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)",
+    DBG_NAV_LOGD("m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)"
+        " ivisBounds=(%d,%d,r=%d,b=%d)",
         m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
-        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
+        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom,
+        ivisBounds.fLeft, ivisBounds.fTop, ivisBounds.fRight, ivisBounds.fBottom);
     m_flipped = buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
         m_selEnd, m_endBase, &m_selRegion);
     SkPath path;
@@ -1348,12 +1358,15 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas)
     canvas->restore();
 }
 
-void SelectText::extendSelection(const SkPicture* picture, int x, int y)
+void SelectText::extendSelection(const IntRect& vis, int x, int y)
 {
-    if (!picture)
+    if (!m_picture)
         return;
+    setVisibleRect(vis);
     SkIRect clipRect = m_visibleRect;
     int base;
+    x -= m_startOffset.fX;
+    y -= m_startOffset.fY;
     if (m_startSelection) {
         if (!clipRect.contains(x, y)
                 || !clipRect.contains(m_original.fX, m_original.fY)) {
@@ -1363,15 +1376,13 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
         }
         DBG_NAV_LOGD("selStart clip=(%d,%d,%d,%d)", clipRect.fLeft,
             clipRect.fTop, clipRect.fRight, clipRect.fBottom);
-        m_picture = picture;
         FirstCheck center(m_original.fX, m_original.fY, clipRect);
-        m_selStart = m_selEnd = findClosest(center, *picture, clipRect, &base);
+        m_selStart = m_selEnd = findClosest(center, *m_picture, clipRect, &base);
         m_startBase = m_endBase = base;
         m_startSelection = false;
         m_extendSelection = true;
         m_original.fX = m_original.fY = 0;
-    } else if (picture != m_picture)
-        return;
+    }
     x -= m_original.fX;
     y -= m_original.fY;
     if (!clipRect.contains(x, y) || !clipRect.contains(m_selStart)) {
@@ -1382,10 +1393,10 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
     DBG_NAV_LOGD("extend clip=(%d,%d,%d,%d)", clipRect.fLeft,
         clipRect.fTop, clipRect.fRight, clipRect.fBottom);
     FirstCheck extension(x, y, clipRect);
-    SkIRect found = findClosest(extension, *picture, clipRect, &base);
-    DBG_NAV_LOGD("pic=%p x=%d y=%d m_startSelection=%s %s=(%d, %d, %d, %d)"
+    SkIRect found = findClosest(extension, *m_picture, clipRect, &base);
+    DBG_NAV_LOGD("x=%d y=%d m_startSelection=%s %s=(%d, %d, %d, %d)"
         " m_extendSelection=%s",
-        picture, x, y, m_startSelection ? "true" : "false",
+        x, y, m_startSelection ? "true" : "false",
         m_hitTopLeft ? "m_selStart" : "m_selEnd",
         found.fLeft, found.fTop, found.fRight, found.fBottom,
         m_extendSelection ? "true" : "false");
@@ -1449,6 +1460,8 @@ bool SelectText::hitCorner(int cx, int cy, int x, int y) const
 
 bool SelectText::hitSelection(int x, int y) const
 {
+    x -= m_startOffset.fX;
+    y -= m_startOffset.fY;
     int left = m_selStart.fLeft - CONTROL_WIDTH / 2;
     int top = m_selStart.fBottom + CONTROL_HEIGHT / 2;
     if (hitCorner(left, top, x, y))
@@ -1460,18 +1473,19 @@ bool SelectText::hitSelection(int x, int y) const
     return m_selRegion.contains(x, y);
 }
 
-void SelectText::moveSelection(const SkPicture* picture, int x, int y)
+void SelectText::moveSelection(const IntRect& vis, int x, int y)
 {
-    if (!picture)
+    if (!m_picture)
         return;
+    x -= m_startOffset.fX;
+    y -= m_startOffset.fY;
+    setVisibleRect(vis);
     SkIRect clipRect = m_visibleRect;
     clipRect.join(m_selStart);
     clipRect.join(m_selEnd);
-    if (!m_extendSelection)
-        m_picture = picture;
     FirstCheck center(x, y, clipRect);
     int base;
-    SkIRect found = findClosest(center, *picture, clipRect, &base);
+    SkIRect found = findClosest(center, *m_picture, clipRect, &base);
     if (m_hitTopLeft || !m_extendSelection) {
         m_startBase = base;
         m_selStart = found;
@@ -1494,32 +1508,58 @@ void SelectText::reset()
     m_selEnd.setEmpty();
     m_extendSelection = false;
     m_startSelection = false;
+    m_picture->safeUnref();
+    m_picture = 0;
 }
 
-void SelectText::selectAll(const SkPicture* picture)
+void SelectText::selectAll()
 {
-    m_selStart = findFirst(*picture, &m_startBase);
-    m_selEnd = findLast(*picture, &m_endBase);
+    if (!m_picture)
+        return;
+    m_selStart = findFirst(*m_picture, &m_startBase);
+    m_selEnd = findLast(*m_picture, &m_endBase);
     m_extendSelection = true;
 }
 
 int SelectText::selectionX() const
 {
-    return m_hitTopLeft ? m_selStart.fLeft : m_selEnd.fRight;
+    return (m_hitTopLeft ? m_selStart.fLeft : m_selEnd.fRight) + m_startOffset.fX;
 }
 
 int SelectText::selectionY() const
 {
     const SkIRect& rect = m_hitTopLeft ? m_selStart : m_selEnd;
-    return (rect.fTop + rect.fBottom) >> 1;
+    return ((rect.fTop + rect.fBottom) >> 1) + m_startOffset.fY;
 }
 
-bool SelectText::startSelection(int x, int y)
+void SelectText::setVisibleRect(const IntRect& vis)
 {
+    DBG_NAV_LOGD("vis=(%d,%d,w=%d,h=%d) offset=(%g,%g)",
+        vis.x(), vis.y(), vis.width(), vis.height(), m_startOffset.fX,
+        m_startOffset.fY);
+    m_visibleRect = vis;
+    m_visibleRect.offset(-m_startOffset.fX, -m_startOffset.fY);
+}
+
+bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
+    int x, int y)
+{
+    m_startOffset.set(x, y);
+    m_picture->safeUnref();
+    m_picture = root->pictureAt(&x, &y);
+    if (!m_picture) {
+        DBG_NAV_LOG("picture==0");
+        return false;
+    }
+    m_picture->ref();
+    m_startOffset.fX -= x;
+    m_startOffset.fY -= y;
     m_original.fX = x;
     m_original.fY = y;
+    setVisibleRect(vis);
     if (m_selStart.isEmpty()) {
-        DBG_NAV_LOGD("empty start x=%d y=%d", x, y);
+        DBG_NAV_LOGD("empty start picture=(%d,%d) x=%d y=%d", 
+             m_picture->width(), m_picture->height(), x, y);
         m_startSelection = true;
         return true;
     }
@@ -1529,8 +1569,8 @@ bool SelectText::startSelection(int x, int y)
     int right = m_selEnd.fRight + CONTROL_WIDTH / 2;
     int bottom = m_selEnd.fBottom + CONTROL_HEIGHT / 2;
     bool hitBottomRight = hitCorner(right, bottom, x, y);
-    DBG_NAV_LOGD("left=%d top=%d right=%d bottom=%d x=%d y=%d", left, top,
-        right, bottom, x, y);
+    DBG_NAV_LOGD("picture=(%d,%d) left=%d top=%d right=%d bottom=%d x=%d y=%d",
+        m_picture->width(), m_picture->height(),left, top, right, bottom, x, y);
     if (m_hitTopLeft && (!hitBottomRight || y - top < bottom - y)) {
         DBG_NAV_LOG("hit top left");
         m_original.fX -= left;
@@ -1549,14 +1589,14 @@ bool SelectText::startSelection(int x, int y)
 * FIXME: digit find isn't implemented yet
 * returns true if a word was selected
 */
-bool SelectText::wordSelection(const SkPicture* picture)
+bool SelectText::wordSelection()
 {
     int x = m_selStart.fLeft;
     int y = (m_selStart.fTop + m_selStart.fBottom) >> 1;
     SkIRect clipRect = m_visibleRect;
     clipRect.fLeft -= m_visibleRect.width() >> 1;
     int base;
-    SkIRect left = findLeft(*picture, clipRect, x, y, &base);
+    SkIRect left = findLeft(*m_picture, clipRect, x, y, &base);
     if (!left.isEmpty()) {
         m_startBase = base;
         m_selStart = left;
@@ -1565,7 +1605,7 @@ bool SelectText::wordSelection(const SkPicture* picture)
     y = (m_selEnd.fTop + m_selEnd.fBottom) >> 1;
     clipRect = m_visibleRect;
     clipRect.fRight += m_visibleRect.width() >> 1;
-    SkIRect right = findRight(*picture, clipRect, x, y, &base);
+    SkIRect right = findRight(*m_picture, clipRect, x, y, &base);
     if (!right.isEmpty()) {
         m_endBase = base;
         m_selEnd = right;

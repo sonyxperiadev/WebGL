@@ -173,6 +173,7 @@
 #endif
 
 #ifdef ANDROID_META_SUPPORT
+#include "PlatformBridge.h"
 #include "Settings.h"
 #endif
 

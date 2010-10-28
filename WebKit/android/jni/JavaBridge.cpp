@@ -143,6 +143,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
     mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     mResolveFilePathForContentUri = env->GetMethodID(clazz, "resolveFilePathForContentUri", "(Ljava/lang/String;)Ljava/lang/String;");
+    env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
     LOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
@@ -491,6 +492,7 @@ int registerJavaBridge(JNIEnv* env)
     LOG_FATAL_IF(javaBridge == NULL, "Unable to find class android/webkit/JWebCoreJavaBridge");
     gJavaBridge_ObjectID = env->GetFieldID(javaBridge, "mNativeBridge", "I");
     LOG_FATAL_IF(gJavaBridge_ObjectID == NULL, "Unable to find android/webkit/JWebCoreJavaBridge.mNativeBridge");
+    env->DeleteLocalRef(javaBridge);
 
     return jniRegisterNativeMethods(env, "android/webkit/JWebCoreJavaBridge", 
                                     gWebCoreJavaBridgeMethods, NELEM(gWebCoreJavaBridgeMethods));

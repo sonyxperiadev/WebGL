@@ -156,18 +156,24 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
+    env->DeleteLocalRef(clazz);
+
     jclass rectClass = env->FindClass("android/graphics/Rect");
     LOG_ASSERT(rectClass, "Could not find Rect class");
     m_javaGlue.m_rectLeft = env->GetFieldID(rectClass, "left", "I");
     m_javaGlue.m_rectTop = env->GetFieldID(rectClass, "top", "I");
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
+    env->DeleteLocalRef(rectClass);
+
     jclass rectClassF = env->FindClass("android/graphics/RectF");
     LOG_ASSERT(rectClassF, "Could not find RectF class");
     m_javaGlue.m_rectFLeft = env->GetFieldID(rectClassF, "left", "F");
     m_javaGlue.m_rectFTop = env->GetFieldID(rectClassF, "top", "F");
     m_javaGlue.m_rectFWidth = GetJMethod(env, rectClassF, "width", "()F");
     m_javaGlue.m_rectFHeight = GetJMethod(env, rectClassF, "height", "()F");
+    env->DeleteLocalRef(rectClassF);
+
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
@@ -345,6 +351,7 @@ void calcOurContentVisibleRect(SkRect* r)
     r->fTop = env->GetFloatField(jRect, m_javaGlue.m_rectFTop);
     r->fRight = r->fLeft + env->CallFloatMethod(jRect, m_javaGlue.m_rectFWidth);
     r->fBottom = r->fTop + env->CallFloatMethod(jRect, m_javaGlue.m_rectFHeight);
+    env->DeleteLocalRef(rectClass);
     env->DeleteLocalRef(jRect);
     checkException(env);
 }
@@ -683,26 +690,24 @@ int getScaledMaxYScroll()
     return result;
 }
 
-void getVisibleRect(WebCore::IntRect* rect)
+IntRect getVisibleRect()
 {
+    IntRect rect;
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobject jRect = env->CallObjectMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getVisibleRect);
     checkException(env);
-    int left = (int) env->GetIntField(jRect, m_javaGlue.m_rectLeft);
+    rect.setX(env->GetIntField(jRect, m_javaGlue.m_rectLeft));
     checkException(env);
-    rect->setX(left);
-    int top = (int) env->GetIntField(jRect, m_javaGlue.m_rectTop);
+    rect.setY(env->GetIntField(jRect, m_javaGlue.m_rectTop));
     checkException(env);
-    rect->setY(top);
-    int width = (int) env->CallIntMethod(jRect, m_javaGlue.m_rectWidth);
+    rect.setWidth(env->CallIntMethod(jRect, m_javaGlue.m_rectWidth));
     checkException(env);
-    rect->setWidth(width);
-    int height = (int) env->CallIntMethod(jRect, m_javaGlue.m_rectHeight);
+    rect.setHeight(env->CallIntMethod(jRect, m_javaGlue.m_rectHeight));
     checkException(env);
-    rect->setHeight(height);
     env->DeleteLocalRef(jRect);
     checkException(env);
+    return rect;
 }
 
 static CachedFrame::Direction KeyToDirection(int32_t keyCode)
@@ -853,8 +858,7 @@ const CachedNode* findAt(CachedRoot* root, const WebCore::IntRect& rect,
 
 IntRect setVisibleRect(CachedRoot* root)
 {
-    IntRect visibleRect;
-    getVisibleRect(&visibleRect);
+    IntRect visibleRect = getVisibleRect();
     DBG_NAV_LOGD("getVisibleRect %d,%d,%d,%d",
         visibleRect.x(), visibleRect.y(), visibleRect.width(), visibleRect.height());
     root->setVisibleRect(visibleRect);
@@ -953,10 +957,14 @@ bool motionUp(int x, int y, int slop)
 const LayerAndroid* scrollableLayer(int x, int y)
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL) && USE(ACCELERATED_COMPOSITING)
-    const LayerAndroid* root = compositeRoot();
-    if (!root)
+    const LayerAndroid* layerRoot = compositeRoot();
+    if (!layerRoot)
         return 0;
-    const LayerAndroid* result = root->find(x, y);
+    CachedRoot* cachedRoot = getFrameCache(DontAllowNewer);
+    if (!cachedRoot)
+        return 0;
+    SkPicture* picture = cachedRoot->pictureAt(&x, &y);
+    const LayerAndroid* result = layerRoot->find(x, y, picture);
     if (result != 0 && result->contentIsScrollable())
         return result;
 #endif
@@ -1019,25 +1027,12 @@ String getSelection()
 
 void moveSelection(int x, int y)
 {
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return;
-    SkPicture* picture = root->pictureAt(x, y);
-    // FIXME: use the visibleRect only for the main picture
-    // for layer pictures, use the equivalent of the canvas clipping rect
-    IntRect visibleRect;
-    getVisibleRect(&visibleRect);
-    m_selectText.setVisibleRect(visibleRect);
-    m_selectText.moveSelection(picture, x, y);
+    m_selectText.moveSelection(getVisibleRect(), x, y);
 }
 
 void selectAll()
 {
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return;
-    SkPicture* picture = root->pictureAt(0, 0);
-    m_selectText.selectAll(picture);
+    m_selectText.selectAll();
 }
 
 int selectionX()
@@ -1057,29 +1052,24 @@ void resetSelection()
 
 bool startSelection(int x, int y)
 {
-    return m_selectText.startSelection(x, y);
+    const CachedRoot* root = getFrameCache(DontAllowNewer);
+    if (!root)
+        return false;
+    return m_selectText.startSelection(root, getVisibleRect(), x, y);
 }
 
 bool wordSelection(int x, int y)
 {
-    startSelection(x, y);
-    if (!extendSelection(x, y))
+    if (!startSelection(x, y))
         return false;
+    extendSelection(x, y);
     m_selectText.setDrawPointer(false);
-    SkPicture* picture = getFrameCache(DontAllowNewer)->pictureAt(x, y);
-    return m_selectText.wordSelection(picture);
+    return m_selectText.wordSelection();
 }
 
 bool extendSelection(int x, int y)
 {
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return false;
-    SkPicture* picture = root->pictureAt(x, y);
-    IntRect visibleRect;
-    getVisibleRect(&visibleRect);
-    m_selectText.setVisibleRect(visibleRect);
-    m_selectText.extendSelection(picture, x, y);
+    m_selectText.extendSelection(getVisibleRect(), x, y);
     return true;
 }
 
@@ -1373,6 +1363,7 @@ static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1506,6 +1497,7 @@ static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1525,6 +1517,7 @@ static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
     jclass pointClass = env->FindClass("android/graphics/Point");
     jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
     jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
+    env->DeleteLocalRef(pointClass);
     return point;
 }
 
@@ -1686,6 +1679,7 @@ static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1759,6 +1753,7 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1810,8 +1805,10 @@ static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
 #endif
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    return env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
+    jobject rect = env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
         irect.fRight, irect.fBottom);
+    env->DeleteLocalRef(rectClass);
+    return rect;
 }
 
 static jint nativeTextGeneration(JNIEnv *env, jobject obj)
@@ -1898,6 +1895,7 @@ static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
     view->cursorRingBounds(&webRect);
     jobject rect = env->NewObject(rectClass, init, webRect.x(),
         webRect.y(), webRect.right(), webRect.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -2380,6 +2378,7 @@ int registerWebView(JNIEnv* env)
     LOG_ASSERT(clazz, "Unable to find class android/webkit/WebView");
     gWebViewField = env->GetFieldID(clazz, "mNativeClass", "I");
     LOG_ASSERT(gWebViewField, "Unable to find android/webkit/WebView.mNativeClass");
+    env->DeleteLocalRef(clazz);
 
     return jniRegisterNativeMethods(env, "android/webkit/WebView", gJavaWebViewMethods, NELEM(gJavaWebViewMethods));
 }

@@ -30,10 +30,9 @@
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "SkPath.h"
-
-class SkPicture;
-struct SkIRect;
-class SkRegion;
+#include "SkPicture.h"
+#include "SkRect.h"
+#include "SkRegion.h"
 
 namespace android {
 
@@ -42,20 +41,20 @@ class CachedRoot;
 class SelectText : public DrawExtra {
 public:
     SelectText();
+    virtual ~SelectText();
     virtual void draw(SkCanvas* , LayerAndroid* );
-    void extendSelection(const SkPicture* , int x, int y);
+    void extendSelection(const IntRect& vis, int x, int y);
     const String getSelection();
     bool hitSelection(int x, int y) const;
-    void moveSelection(const SkPicture* , int x, int y);
+    void moveSelection(const IntRect& vis, int x, int y);
     void reset();
-    void selectAll(const SkPicture* );
+    void selectAll();
     int selectionX() const;
     int selectionY() const;
     void setDrawPointer(bool drawPointer) { m_drawPointer = drawPointer; }
     void setExtendSelection(bool extend) { m_extendSelection = extend; }
-    void setVisibleRect(const IntRect& rect) { m_visibleRect = rect; }
-    bool startSelection(int x, int y);
-    bool wordSelection(const SkPicture* picture);
+    bool startSelection(const CachedRoot* , const IntRect& vis, int x, int y);
+    bool wordSelection();
 public:
     float m_inverseScale; // inverse scale, x, y used for drawing select path
     int m_selectX;
@@ -66,8 +65,10 @@ private:
     static void getSelectionArrow(SkPath* );
     void getSelectionCaret(SkPath* );
     bool hitCorner(int cx, int cy, int x, int y) const;
+    void setVisibleRect(const IntRect& );
     void swapAsNeeded();
     SkIPoint m_original; // computed start of extend selection
+    SkIPoint m_startOffset; // difference from global to layer
     SkIRect m_selStart;
     SkIRect m_selEnd;
     int m_startBase;
