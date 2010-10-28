@@ -104,6 +104,7 @@ private:
     volatile bool m_finished;
 
     scoped_refptr<WebRequest> m_request;
+    OwnPtr<WebResponse> m_response; // NULL until didReceiveResponse is called.
 
     // Check if a request is active
     bool isActive() const;

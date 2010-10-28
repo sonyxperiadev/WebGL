@@ -46,13 +46,18 @@ class WebResponse {
 public:
     WebResponse() {}
     WebResponse(URLRequest*);
-    WebResponse(const std::string &url, const std::string &mimeType, const long long length, const std::string &encoding, const int httpStatusCode);
-    WebCore::KURL url();
-    void setUrl(std::string);
+    WebResponse(const std::string &url, const std::string &mimeType, long long expectedSize, const std::string &encoding, int httpStatusCode);
 
-    // Only use on the WebCore thread!
+    const std::string& getUrl() const;
+    void setUrl(const std::string&);
+
+    const std::string& getMimeType() const;
+    bool getHeader(const std::string& header, std::string* result) const;
+    long long getExpectedSize() const;
+
+    // The create() methods create WebCore objects. They must only be called on the WebKit thread.
+    WebCore::KURL createKurl();
     WebCore::ResourceResponse createResourceResponse();
-    // Only use on the WebCore thread!
     WebCore::ResourceError createResourceError();
 
 private:
@@ -60,7 +65,7 @@ private:
     int m_httpStatusCode;
     std::string m_host;
     std::string m_httpStatusText;
-    long long m_length;
+    long long m_expectedSize;
     std::string m_mime;
     std::string m_url;
 

@@ -99,6 +99,16 @@ WebRequest::~WebRequest()
         env->DeleteGlobalRef((_jobject*)m_inputStream);
 }
 
+const std::string& WebRequest::getUrl() const
+{
+    return m_url;
+}
+
+const std::string& WebRequest::getUserAgent() const
+{
+    return m_userAgent;
+}
+
 void WebRequest::finish(bool success)
 {
     ASSERT(m_loadState < Finished, "called finish on an already finished WebRequest (%d)", m_loadState);
@@ -181,9 +191,20 @@ void WebRequest::handleAndroidURL()
     }
 
     m_loadState = Response;
-    FilePath path(m_url);
-    std::string mimeType("");
-    net::GetMimeTypeFromFile(path, &mimeType);
+
+    // Get the MIME type from the URL. "text/html" is a last resort, hopefully overridden.
+    std::string mimeType("text/html");
+
+    // Gmail appends the MIME to the end of the URL, with a ? separator.
+    size_t mimeTypeIndex = m_url.find_last_of('?');
+    if (mimeTypeIndex != std::string::npos) {
+        mimeType.assign(m_url.begin() + mimeTypeIndex + 1, m_url.end());
+    } else {
+        // Get the MIME type from the file extension, if any.
+        FilePath path(m_url);
+        net::GetMimeTypeFromFile(path, &mimeType);
+    }
+
     OwnPtr<WebResponse> webResponse(new WebResponse(m_url, mimeType, 0, "", 200));
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
             m_urlLoader.get(), &WebUrlLoaderClient::didReceiveResponse, webResponse.release()));
@@ -339,17 +360,6 @@ void WebRequest::cancelAuth()
     ASSERT(m_loadState == Started, "cancelAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
     m_request->CancelAuth();
-}
-
-void WebRequest::downloadFile(WebFrame* frame)
-{
-    std::string contentDisposition;
-    std::string mimeType;
-
-    m_request->GetResponseHeaderByName("content-disposition", &contentDisposition);
-    m_request->GetMimeType(&mimeType);
-
-    frame->downloadStart(m_request->url().spec(), m_userAgent, contentDisposition, mimeType, m_request->GetExpectedContentSize());
 }
 
 void WebRequest::startReading()

@@ -23,6 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "WebUrlLoaderClient"
+
 #include "config.h"
 #include "WebUrlLoaderClient.h"
 
@@ -171,7 +173,16 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
 
 void WebUrlLoaderClient::downloadFile()
 {
-    m_request->downloadFile(m_webFrame);
+    if (m_response) {
+        std::string contentDisposition;
+        m_response->getHeader("content-disposition", &contentDisposition);
+        m_webFrame->downloadStart(m_request->getUrl(), m_request->getUserAgent(), contentDisposition, m_response->getMimeType(), m_response->getExpectedSize());
+    } else {
+        LOGE("Unexpected call to downloadFile() before didReceiveResponse(). URL: %s", m_request->getUrl().c_str());
+        // TODO: Turn off asserts crashing before release
+        // http://b/issue?id=2951985
+        CRASH();
+    }
 }
 
 void WebUrlLoaderClient::cancel()
@@ -243,7 +254,8 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
     if (!isActive())
         return;
 
-    m_resourceHandle->client()->didReceiveResponse(m_resourceHandle.get(), webResponse->createResourceResponse());
+    m_response = webResponse;
+    m_resourceHandle->client()->didReceiveResponse(m_resourceHandle.get(), m_response->createResourceResponse());
 }
 
 void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int size)
@@ -290,7 +302,7 @@ void WebUrlLoaderClient::willSendRequest(PassOwnPtr<WebResponse> webResponse)
     if (!isActive())
         return;
 
-    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse->url()));
+    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse->createKurl()));
     m_resourceHandle->client()->willSendRequest(m_resourceHandle.get(), *resourceRequest, webResponse->createResourceResponse());
 }
 
