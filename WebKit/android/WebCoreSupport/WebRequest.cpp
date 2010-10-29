@@ -295,20 +295,15 @@ void WebRequest::handleBrowserURL(GURL url)
 void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, bool* deferRedirect)
 {
     ASSERT(m_loadState < Response, "Redirect after receiving response");
+    ASSERT(newRequest && newRequest->status().is_success(), "Invalid redirect");
 
-    if (newRequest && newRequest->status().is_success()) {
-        OwnPtr<WebResponse> webResponse(new WebResponse(newRequest));
-        webResponse->setUrl(newUrl.spec());
-        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-                m_urlLoader.get(), &WebUrlLoaderClient::willSendRequest, webResponse.release()));
-    } else {
-        // why would this happen? And what to do?
-    }
+    OwnPtr<WebResponse> webResponse(new WebResponse(newRequest));
+    webResponse->setUrl(newUrl.spec());
+    m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+            m_urlLoader.get(), &WebUrlLoaderClient::willSendRequest, webResponse.release()));
 
-    // Here we should check if the url we get back from webkit is the same
-    // as newUrl, but since we are on a different thread that is not
-    // possible. Look into later.
-    return;
+    // Defer the redirect until followDeferredRedirect() is called.
+    *deferRedirect = true;
 }
 
 // Called when we receive an authentication failure.  The delegate should
@@ -360,6 +355,13 @@ void WebRequest::cancelAuth()
     ASSERT(m_loadState == Started, "cancelAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
     m_request->CancelAuth();
+}
+
+void WebRequest::followDeferredRedirect()
+{
+    ASSERT(m_loadState < Response, "Redirect after receiving response");
+
+    m_request->FollowDeferredRedirect();
 }
 
 void WebRequest::startReading()

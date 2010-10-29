@@ -74,6 +74,7 @@ public:
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
     void cancelAuth();
+    void followDeferredRedirect();
 
     const std::string& getUrl() const;
     const std::string& getUserAgent() const;
