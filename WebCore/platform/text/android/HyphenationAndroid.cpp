@@ -75,6 +75,7 @@ size_t lastHyphenLocation(const UChar* characters, size_t length, size_t beforeI
         return 0;
 
     char word[maxWordLen];
+    int wordLength = 0;
     for (size_t i = 0; i < length; ++i) {
         const UChar ch = characters[i];
         // Only English for now.
@@ -82,17 +83,24 @@ size_t lastHyphenLocation(const UChar* characters, size_t length, size_t beforeI
         // detection or rely on the langAttr in the html element.  Though
         // seems right now the langAttr is not used or quite implemented in
         // webkit.
-        if (!isASCIIAlpha(ch))
+        if (!isASCIIAlpha(ch)) {
+            // Bypass leading spaces.
+            if (isASCIISpace(ch) && !wordLength)
+              continue;
             return 0;
-        word[i] = ch;
+        }
+        word[wordLength++] = ch;
     }
+    if (wordLength < minWordLen)
+        return 0;
 
     static const int extraBuffer = 5;
+    const int leadingSpacesCount = length - wordLength;
     char hyphens[maxWordLen + extraBuffer];
-    if (!hnj_hyphen_hyphenate(dict, word, length, hyphens)) {
-        for (size_t i = beforeIndex - 1; i > 0; --i) {
+    if (!hnj_hyphen_hyphenate(dict, word, wordLength, hyphens)) {
+        for (size_t i = beforeIndex - 2 - leadingSpacesCount; i > 0; --i) {
             if (hyphens[i] & 1)
-                return i + 1;
+                return i + 1 + leadingSpacesCount;
         }
     }
 
