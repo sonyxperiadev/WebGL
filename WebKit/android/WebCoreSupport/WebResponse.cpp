@@ -29,6 +29,8 @@
 #include "ResourceResponse.h"
 #include "ResourceError.h"
 
+using namespace std;
+
 namespace android {
 
 WebResponse::WebResponse(URLRequest* request)
@@ -38,7 +40,7 @@ WebResponse::WebResponse(URLRequest* request)
     m_host = request->url().HostNoBrackets();
     request->GetMimeType(&m_mime);
     request->GetCharset(&m_encoding);
-    m_length = request->GetExpectedContentSize();
+    m_expectedSize = request->GetExpectedContentSize();
 
     net::HttpResponseHeaders* responseHeaders = request->response_headers();
     if (!responseHeaders)
@@ -47,18 +49,18 @@ WebResponse::WebResponse(URLRequest* request)
     m_httpStatusCode = responseHeaders->response_code();
     m_httpStatusText = responseHeaders->GetStatusText();
 
-    std::string value;
-    std::string name;
+    string value;
+    string name;
     void* iter = 0;
     while (responseHeaders->EnumerateHeaderLines(&iter, &name, &value))
         m_headerFields[name] = value;
 }
 
-WebResponse::WebResponse(const std::string &url, const std::string &mimeType, const long long length, const std::string &encoding, const int httpStatusCode)
+WebResponse::WebResponse(const string &url, const string &mimeType, long long expectedSize, const string &encoding, int httpStatusCode)
     : m_encoding(encoding)
     , m_httpStatusCode(httpStatusCode)
     , m_httpStatusText("")
-    , m_length(length)
+    , m_expectedSize(expectedSize)
     , m_mime(mimeType)
     , m_url(url)
 {
@@ -66,11 +68,11 @@ WebResponse::WebResponse(const std::string &url, const std::string &mimeType, co
 
 WebCore::ResourceResponse WebResponse::createResourceResponse()
 {
-    WebCore::ResourceResponse resourceResponse(url(), m_mime.c_str(), m_length, m_encoding.c_str(), "");
+    WebCore::ResourceResponse resourceResponse(createKurl(), m_mime.c_str(), m_expectedSize, m_encoding.c_str(), "");
     resourceResponse.setHTTPStatusCode(m_httpStatusCode);
     resourceResponse.setHTTPStatusText(m_httpStatusText.c_str());
 
-    std::map<std::string, std::string>::const_iterator it;
+    map<string, string>::const_iterator it;
     for (it = m_headerFields.begin(); it != m_headerFields.end(); ++it)
         resourceResponse.setHTTPHeaderField(it->first.c_str(), it->second.c_str());
 
@@ -85,15 +87,40 @@ WebCore::ResourceError WebResponse::createResourceError()
 }
 
 
-WebCore::KURL WebResponse::url()
+WebCore::KURL WebResponse::createKurl()
 {
     WebCore::KURL kurl(WebCore::ParsedURLString, m_url.c_str());
     return kurl;
 }
 
-void WebResponse::setUrl(std::string url)
+const string& WebResponse::getUrl() const
+{
+    return m_url;
+}
+
+void WebResponse::setUrl(const string& url)
 {
     m_url = url;
+}
+
+const string& WebResponse::getMimeType() const
+{
+    return m_mime;
+}
+
+bool WebResponse::getHeader(const string& header, string* result) const
+{
+    map<string, string>::const_iterator iter = m_headerFields.find(header);
+    if (iter == m_headerFields.end())
+        return false;
+    if (result)
+        *result = iter->second;
+    return true;
+}
+
+long long WebResponse::getExpectedSize() const
+{
+    return m_expectedSize;
 }
 
 } // namespace android
