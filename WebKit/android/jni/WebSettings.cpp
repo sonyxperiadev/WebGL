@@ -519,6 +519,12 @@ public:
         jobject autoFillProfile = env->GetObjectField(obj, gFieldIds->mAutoFillProfile);
         if (autoFillProfile)
             syncAutoFillProfile(env, autoFillProfile, webAutoFill);
+        else {
+            // The autofill profile is null. We need to tell Chromium about this because
+            // this may be because the user just deleted their profile but left the
+            // autofill feature setting enabled.
+            webAutoFill->clearProfiles();
+        }
 #endif
     }
 };

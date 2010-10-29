@@ -26,6 +26,7 @@
 #ifndef WebUrlLoader_h
 #define WebUrlLoader_h
 
+#include "ChromiumIncludes.h"
 #include "ResourceLoaderAndroid.h"
 
 using namespace WebCore;
@@ -47,7 +48,7 @@ private:
     WebUrlLoader(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
     static PassRefPtr<WebUrlLoader> create(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
 
-    OwnPtr<WebUrlLoaderClient> m_loaderClient;
+    scoped_refptr<WebUrlLoaderClient> m_loaderClient;
 };
 
 } // namespace android

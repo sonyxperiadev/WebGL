@@ -66,6 +66,7 @@ public:
     void setProfile(int id, const string16& fullName, const string16& emailAddress, const string16& companyName,
                     const string16& addressLine1, const string16& addressLine2, const string16& city,
                     const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber);
+    void clearProfiles();
 
 private:
     OwnPtr<FormManager> mFormManager;
@@ -82,6 +83,9 @@ private:
     typedef std::map<int, int> AutoFillQueryToUniqueIdMap;
     AutoFillQueryToUniqueIdMap mUniqueIdMap;
     int mQueryId;
+
+    // This is set by Java when a profile is synced.
+    int mUniqueProfileId;
 
     WebViewCore* mWebViewCore;
 };

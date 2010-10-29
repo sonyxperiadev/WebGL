@@ -712,15 +712,19 @@ public:
                 layers - mLayers.begin(), TypeNames[layerType],
                 layers->getBounds().fLeft, layers->getBounds().fTop,
                 layers->getBounds().fRight, layers->getBounds().fBottom);
-            if (collectGlyphs && layerType == kDrawGlyph_Type) {
+            if (collectGlyphs && (layerType == kDrawGlyph_Type
+                || ((layerType == kDrawRect_Type
+                || layerType == kDrawBitmap_Type)
+                && mTextTest.contains(*layers)))) {
                 DBG_NAV_LOGD("RingCheck #%d collectOvers", layers - mLayers.begin());
                 collectOvers = true;
                 clipped->op(*layers, SkRegion::kUnion_Op);
+                continue;
             }
             collectGlyphs &= layerType != kPushLayer_Type;
             if (collectOvers && (layerType == kDrawRect_Type
-                || (!collectGlyphs && layerType == kDrawSprite_Type)))
-            {
+                || layerType == kDrawBitmap_Type
+                || (!collectGlyphs && layerType == kDrawSprite_Type))) {
                 DBG_NAV_LOGD("RingCheck #%d over.op", layers - mLayers.begin());
                 over.op(*layers, SkRegion::kUnion_Op);
             }
@@ -835,7 +839,7 @@ public:
                 layers->getBounds().fRight, layers->getBounds().fBottom,
                 active.getBounds().fLeft, active.getBounds().fTop,
                 active.getBounds().fRight, active.getBounds().fBottom);
-            if (layerType == kDrawRect_Type) {
+            if (layerType == kDrawRect_Type || layerType == kDrawBitmap_Type) {
                 SkRegion temp = *layers;
                 temp.op(mTestBounds, SkRegion::kIntersect_Op);
                 active.op(temp, SkRegion::kDifference_Op);
@@ -887,7 +891,7 @@ protected:
     {
         joinGlyphs(rect);
         if (mType != kDrawGlyph_Type && mType != kDrawRect_Type
-                && mType != kDrawSprite_Type)
+                && mType != kDrawSprite_Type && mType != kDrawBitmap_Type)
             return false;
         if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType)
             push(mType, mEmpty);
@@ -956,13 +960,14 @@ private:
                 mTextSlop.contains(*layers) ? "true" : "false",
                 gb.fLeft, gb.fTop, gb.fRight, gb.fBottom);
 #endif
-            if (layerType == kDrawGlyph_Type) {
+            if ((layerType == kDrawGlyph_Type && mTextSlop.contains(*layers))
+                || ((layerType == kDrawRect_Type
+                || layerType == kDrawBitmap_Type)
+                && mTextTest.contains(*layers))) {
                 if (!testLayer)
                     testLayer = layers;
-                if (mTextSlop.contains(*layers)) {
-                    testRegion.op(*layers, SkRegion::kUnion_Op);
-                    continue;
-                }
+                testRegion.op(*layers, SkRegion::kUnion_Op);
+                continue;
             }
             if (testLayer) {
                 int area = calcOverlap(testRegion);

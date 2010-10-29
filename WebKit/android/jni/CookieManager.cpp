@@ -77,7 +77,9 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL gurl(jstringToStdString(env, url));
-    std::string cookies = WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetCookiesWithOptions(gurl, CookieOptions());
+    CookieOptions options;
+    options.set_include_httponly();
+    std::string cookies = WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
     return env->NewStringUTF(cookies.c_str());
 #else
     // The Android HTTP stack is implemented Java-side.

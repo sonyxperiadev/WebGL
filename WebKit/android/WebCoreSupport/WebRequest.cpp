@@ -99,21 +99,35 @@ WebRequest::~WebRequest()
         env->DeleteGlobalRef((_jobject*)m_inputStream);
 }
 
+const std::string& WebRequest::getUrl() const
+{
+    return m_url;
+}
+
+const std::string& WebRequest::getUserAgent() const
+{
+    return m_userAgent;
+}
+
 void WebRequest::finish(bool success)
 {
     ASSERT(m_loadState < Finished, "called finish on an already finished WebRequest (%d)", m_loadState);
 
+    // Make sure WebUrlLoaderClient doesn't delete us in the middle of this method.
+    scoped_refptr<WebRequest> guard(this);
+
     m_loadState = Finished;
     if (success) {
-        LoaderData* loaderData = new LoaderData(m_urlLoader);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didFinishLoading));
     } else {
-        WebResponse webResponse(m_request.get());
-        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFail, loaderData);
+        OwnPtr<WebResponse> webResponse(new WebResponse(m_request.get()));
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
     }
     m_networkBuffer = 0;
     m_request = 0;
+    m_urlLoader = 0;
 }
 
 void WebRequest::AppendBytesToUpload(WTF::Vector<char>* data)
@@ -170,19 +184,30 @@ void WebRequest::handleAndroidURL()
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (m_inputStream == 0) {
         m_loadState = Finished;
-        WebResponse webResponse(m_url, "", 0, "", 0);
-        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFail, loaderData);
+        OwnPtr<WebResponse> webResponse(new WebResponse(m_url, "", 0, "", 0));
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
         return;
     }
 
     m_loadState = Response;
-    FilePath path(m_url);
-    std::string mimeType("");
-    net::GetMimeTypeFromFile(path, &mimeType);
-    WebResponse webResponse(m_url, mimeType, 0, "", 200);
-    LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
-    m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
+
+    // Get the MIME type from the URL. "text/html" is a last resort, hopefully overridden.
+    std::string mimeType("text/html");
+
+    // Gmail appends the MIME to the end of the URL, with a ? separator.
+    size_t mimeTypeIndex = m_url.find_last_of('?');
+    if (mimeTypeIndex != std::string::npos) {
+        mimeType.assign(m_url.begin() + mimeTypeIndex + 1, m_url.end());
+    } else {
+        // Get the MIME type from the file extension, if any.
+        FilePath path(m_url);
+        net::GetMimeTypeFromFile(path, &mimeType);
+    }
+
+    OwnPtr<WebResponse> webResponse(new WebResponse(m_url, mimeType, 0, "", 200));
+    m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+            m_urlLoader.get(), &WebUrlLoaderClient::didReceiveResponse, webResponse.release()));
 
     int size = 0;
     jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
@@ -196,14 +221,12 @@ void WebRequest::handleAndroidURL()
 
         // data is deleted in WebUrlLoaderClient::didReceiveAndroidFileData
         // data is sent to the webcore thread
-        std::vector<char>* data = new std::vector<char>();
-        data->reserve(size);
+        OwnPtr<std::vector<char> > data(new std::vector<char>(size));
         env->GetByteArrayRegion(jb, 0, size, (jbyte*)&data->front());
 
         m_loadState = GotData;
-        // Passes ownership of data
-        LoaderData* loaderData = new LoaderData(m_urlLoader, data, size);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveAndroidFileData, loaderData);
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didReceiveAndroidFileData, data.release()));
     } while (true);
 
     env->DeleteLocalRef(jb);
@@ -214,7 +237,7 @@ void WebRequest::handleAndroidURL()
 
 void WebRequest::handleDataURL(GURL url)
 {
-    OwnPtr<std::string*> data(new std::string);
+    OwnPtr<std::string> data(new std::string);
     std::string mimeType;
     std::string charset;
 
@@ -222,14 +245,14 @@ void WebRequest::handleDataURL(GURL url)
         // PopulateURLResponse from chrome implementation
         // weburlloader_impl.cc
         m_loadState = Response;
-        WebResponse webResponse(url.spec(), mimeType, data->size(), charset, 200);
-        LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
+        OwnPtr<WebResponse> webResponse(new WebResponse(url.spec(), mimeType, data->size(), charset, 200));
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didReceiveResponse, webResponse.release()));
 
         if (!data->empty()) {
             m_loadState = GotData;
-            LoaderData* loaderData = new LoaderData(m_urlLoader, data.leakPtr());
-            m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveDataUrl, loaderData);
+            m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                    m_urlLoader.get(), &WebUrlLoaderClient::didReceiveDataUrl, data.release()));
         }
     } else {
         // handle the failed case
@@ -274,10 +297,10 @@ void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, 
     ASSERT(m_loadState < Response, "Redirect after receiving response");
 
     if (newRequest && newRequest->status().is_success()) {
-        WebResponse webResponse(newRequest);
-        webResponse.setUrl(newUrl.spec());
-        LoaderData* ld = new LoaderData(m_urlLoader, webResponse);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::willSendRequest, ld);
+        OwnPtr<WebResponse> webResponse(new WebResponse(newRequest));
+        webResponse->setUrl(newUrl.spec());
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::willSendRequest, webResponse.release()));
     } else {
         // why would this happen? And what to do?
     }
@@ -297,9 +320,9 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
 {
     ASSERT(m_loadState == Started, "OnAuthRequired called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
-    LoaderData* ld = new LoaderData(m_urlLoader);
-    ld->authChallengeInfo = authInfo;
-    m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::authRequired, ld);
+    scoped_refptr<net::AuthChallengeInfo> authInfoPtr(authInfo);
+    m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+            m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr));
 }
 
 // After calling Start(), the delegate will receive an OnResponseStarted
@@ -314,9 +337,9 @@ void WebRequest::OnResponseStarted(URLRequest* request)
 
     m_loadState = Response;
     if (request && request->status().is_success()) {
-        WebResponse webResponse(request);
-        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderData);
+        OwnPtr<WebResponse> webResponse(new WebResponse(request));
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didReceiveResponse, webResponse.release()));
 
         // Start reading the response
         startReading();
@@ -339,17 +362,6 @@ void WebRequest::cancelAuth()
     m_request->CancelAuth();
 }
 
-void WebRequest::downloadFile(WebFrame* frame)
-{
-    std::string contentDisposition;
-    std::string mimeType;
-
-    m_request->GetResponseHeaderByName("content-disposition", &contentDisposition);
-    m_request->GetMimeType(&mimeType);
-
-    frame->downloadStart(m_request->url().spec(), m_userAgent, contentDisposition, mimeType, m_request->GetExpectedContentSize());
-}
-
 void WebRequest::startReading()
 {
     ASSERT(m_loadState == Response || m_loadState == GotData, "StartReading in state other than RESPONSE and GOTDATA");
@@ -367,10 +379,8 @@ void WebRequest::startReading()
 
             m_loadState = GotData;
             // Read ok, forward buffer to webcore
-            m_networkBuffer->AddRef();
-            LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
-            m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
-            // m_networkBuffer->Release() on main thread
+            m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                    m_urlLoader.get(), &WebUrlLoaderClient::didReceiveData, m_networkBuffer, bytesRead));
             m_networkBuffer = 0;
         } else if (m_request && m_request->status().is_io_pending()) {
             // got io_pending, so break and wait for read
@@ -408,10 +418,8 @@ void WebRequest::OnReadCompleted(URLRequest* request, int bytesRead)
 
     if (request->status().is_success()) {
         m_loadState = GotData;
-        m_networkBuffer->AddRef();
-        LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
-        // m_networkBuffer->Release() on main thread
-        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
+        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                m_urlLoader.get(), &WebUrlLoaderClient::didReceiveData, m_networkBuffer, bytesRead));
         m_networkBuffer = 0;
 
         // Get the rest of the data

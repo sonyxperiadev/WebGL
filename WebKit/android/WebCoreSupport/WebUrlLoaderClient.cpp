@@ -23,6 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "WebUrlLoaderClient"
+
 #include "config.h"
 #include "WebUrlLoaderClient.h"
 
@@ -36,12 +38,6 @@
 #include "WebResourceRequest.h"
 
 namespace android {
-
-LoaderData::~LoaderData()
-{
-    if (buffer)
-        buffer->Release();
-}
 
 base::Thread* WebUrlLoaderClient::ioThread()
 {
@@ -77,9 +73,6 @@ ConditionVariable* WebUrlLoaderClient::syncCondition() {
 
 WebUrlLoaderClient::~WebUrlLoaderClient()
 {
-    base::Thread* thread = ioThread();
-    if (thread)
-        thread->message_loop()->ReleaseSoon(FROM_HERE, m_request);
 }
 
 bool WebUrlLoaderClient::isActive() const
@@ -103,12 +96,10 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     if (webResourceRequest.isAndroidUrl()) {
         int inputStream = webFrame->inputStreamForAndroidResource(webResourceRequest.url().c_str(), webResourceRequest.androidFileType());
         m_request = new WebRequest(this, webResourceRequest, inputStream);
-        m_request->AddRef(); // Matched by ReleaseSoon in destructor
         return;
     }
 
     m_request = new WebRequest(this, webResourceRequest);
-    m_request->AddRef(); // Matched by ReleaseSoon in destructor
 
     // Set uploads before start is called on the request
     if (resourceRequest.httpBody() && !(webResourceRequest.method() == "GET" || webResourceRequest.method() == "HEAD")) {
@@ -124,7 +115,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                     base::Thread* thread = ioThread();
                     if (thread) {
                         Vector<char>* data = new Vector<char>(element.m_data);
-                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::AppendBytesToUpload, data));
+                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::AppendBytesToUpload, data));
                     }
                 }
                 break;
@@ -156,16 +147,14 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::start, isPrivateBrowsing));
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, isPrivateBrowsing));
 
         // Run callbacks until the queue is exhausted and m_finished is true.
         while(!m_finished) {
             while (!m_queue.empty()) {
-                Callback& callback = m_queue.front();
-                CallbackFunction* function = callback.a;
-                void* context = callback.b;
-                (*function)(context);
+                OwnPtr<Task> task(m_queue.front());
                 m_queue.pop_front();
+                task->Run();
             }
             if (m_queue.empty() && !m_finished) {
                 syncCondition()->Wait();
@@ -177,14 +166,23 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
         m_resourceHandle = 0;
     } else {
         // Asynchronous start.
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::start, isPrivateBrowsing));
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, isPrivateBrowsing));
     }
     return true;
 }
 
 void WebUrlLoaderClient::downloadFile()
 {
-    m_request->downloadFile(m_webFrame);
+    if (m_response) {
+        std::string contentDisposition;
+        m_response->getHeader("content-disposition", &contentDisposition);
+        m_webFrame->downloadStart(m_request->getUrl(), m_request->getUserAgent(), contentDisposition, m_response->getMimeType(), m_response->getExpectedSize());
+    } else {
+        LOGE("Unexpected call to downloadFile() before didReceiveResponse(). URL: %s", m_request->getUrl().c_str());
+        // TODO: Turn off asserts crashing before release
+        // http://b/issue?id=2951985
+        CRASH();
+    }
 }
 
 void WebUrlLoaderClient::cancel()
@@ -193,7 +191,7 @@ void WebUrlLoaderClient::cancel()
 
     base::Thread* thread = ioThread();
     if (thread)
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::cancel));
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancel));
 }
 
 void WebUrlLoaderClient::setAuth(const std::string& username, const std::string& password)
@@ -204,7 +202,7 @@ void WebUrlLoaderClient::setAuth(const std::string& username, const std::string&
     }
     string16 username16 = ASCIIToUTF16(username);
     string16 password16 = ASCIIToUTF16(password);
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::setAuth, username16, password16));
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::setAuth, username16, password16));
 }
 
 void WebUrlLoaderClient::cancelAuth()
@@ -213,7 +211,7 @@ void WebUrlLoaderClient::cancelAuth()
     if (!thread) {
         return;
     }
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::cancelAuth));
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancelAuth));
 }
 
 void WebUrlLoaderClient::finish()
@@ -224,133 +222,107 @@ void WebUrlLoaderClient::finish()
         // We only release the reference here if start() was called asynchronously!
         m_resourceHandle = 0;
     }
+    m_request = 0;
+}
+
+namespace {
+// Trampoline to wrap a Chromium Task* in a WebKit-style static function + void*.
+static void RunTask(void* v) {
+    OwnPtr<Task> task(static_cast<Task*>(v));
+    task->Run();
+}
 }
 
 // This is called from the IO thread, and dispatches the callback to the main thread.
-void WebUrlLoaderClient::maybeCallOnMainThread(CallbackFunction* function, void* context)
+void WebUrlLoaderClient::maybeCallOnMainThread(Task* task)
 {
     if (m_sync) {
         AutoLock autoLock(*syncLock());
         if (m_queue.empty()) {
             syncCondition()->Broadcast();
         }
-        m_queue.push_back(Callback(function, context));
+        m_queue.push_back(task);
     } else {
         // Let WebKit handle it.
-        callOnMainThread(function, context);
+        callOnMainThread(RunTask, task);
     }
 }
 
 // Response methods
-// static - on main thread
-void WebUrlLoaderClient::didReceiveResponse(void* data)
+void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->loader;
-    WebResponse webResponse = loaderData->webResponse;
-
-    if (!loader->isActive())
+    if (!isActive())
         return;
 
-    loader->m_resourceHandle->client()->didReceiveResponse(loader->m_resourceHandle.get(), webResponse.createResourceResponse());
+    m_response = webResponse;
+    m_resourceHandle->client()->didReceiveResponse(m_resourceHandle.get(), m_response->createResourceResponse());
 }
 
-// static - on main thread
-void WebUrlLoaderClient::didReceiveData(void* data)
+void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int size)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->loader;
-    net::IOBuffer* buf = loaderData->buffer;
-
-    if (!loader->isActive())
+    if (!isActive())
         return;
 
     // didReceiveData will take a copy of the data
-    if (loader->m_resourceHandle && loader->m_resourceHandle->client())
-        loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), buf->data(), loaderData->size, loaderData->size);
+    if (m_resourceHandle && m_resourceHandle->client())
+        m_resourceHandle->client()->didReceiveData(m_resourceHandle.get(), buf->data(), size, size);
 }
 
-// static - on main thread
 // For data url's
-void WebUrlLoaderClient::didReceiveDataUrl(void* data)
+void WebUrlLoaderClient::didReceiveDataUrl(PassOwnPtr<std::string> str)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (!loader->isActive())
+    if (!isActive())
         return;
 
-    std::string* str = loaderData->string.get();
     // didReceiveData will take a copy of the data
-    loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), str->data(), str->size(), str->size());
+    m_resourceHandle->client()->didReceiveData(m_resourceHandle.get(), str->data(), str->size(), str->size());
 }
 
-// static - on main thread
 // For special android files
-void WebUrlLoaderClient::didReceiveAndroidFileData(void* data)
+void WebUrlLoaderClient::didReceiveAndroidFileData(PassOwnPtr<std::vector<char> > vector)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (!loader->isActive())
+    if (!isActive())
         return;
 
     // didReceiveData will take a copy of the data
-    loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), &(loaderData->vector->front()), loaderData->size, loaderData->size);
+    m_resourceHandle->client()->didReceiveData(m_resourceHandle.get(), vector->begin(), vector->size(), vector->size());
 }
 
-// static - on main thread
-void WebUrlLoaderClient::didFail(void* data)
+void WebUrlLoaderClient::didFail(PassOwnPtr<WebResponse> webResponse)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (loader->isActive())
-        loader->m_resourceHandle->client()->didFail(loader->m_resourceHandle.get(), loaderData->webResponse.createResourceError());
+    if (isActive())
+        m_resourceHandle->client()->didFail(m_resourceHandle.get(), webResponse->createResourceError());
 
     // Always finish a request, if not it will leak
-    loader->finish();
+    finish();
 }
 
-// static - on main thread
-void WebUrlLoaderClient::willSendRequest(void* data)
+void WebUrlLoaderClient::willSendRequest(PassOwnPtr<WebResponse> webResponse)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (!loader->isActive())
+    if (!isActive())
         return;
 
-    WebResponse webResponse = loaderData->webResponse;
-    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse.url()));
-    loader->m_resourceHandle->client()->willSendRequest(loader->m_resourceHandle.get(), *resourceRequest, webResponse.createResourceResponse());
+    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse->createKurl()));
+    m_resourceHandle->client()->willSendRequest(m_resourceHandle.get(), *resourceRequest, webResponse->createResourceResponse());
 }
 
-// static - on main thread
-void WebUrlLoaderClient::didFinishLoading(void* data)
+void WebUrlLoaderClient::didFinishLoading()
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (loader->isActive())
-        loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get(), 0);
+    if (isActive())
+        m_resourceHandle->client()->didFinishLoading(m_resourceHandle.get(), 0);
 
     // Always finish a request, if not it will leak
-    loader->finish();
+    finish();
 }
 
-// static - on main thread
-void WebUrlLoaderClient::authRequired(void* data)
+void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo)
 {
-    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    WebUrlLoaderClient* loader = loaderData->loader;
-
-    if (!loader->isActive()) {
+    if (!isActive()) {
         return;
     }
 
-    std::string host = base::SysWideToUTF8(loaderData->authChallengeInfo->host_and_port);
-    std::string realm = base::SysWideToUTF8(loaderData->authChallengeInfo->realm);
+    std::string host = base::SysWideToUTF8(authChallengeInfo->host_and_port);
+    std::string realm = base::SysWideToUTF8(authChallengeInfo->realm);
 
     // TODO: Not clear whose responsibility it is to cache credentials. There's nothing
     // in AuthChallengeInfo that seems suitable, so for safety we'll tell the UI *not*
@@ -358,7 +330,7 @@ void WebUrlLoaderClient::authRequired(void* data)
     // the first call, then "false" for a second call if the credentials are rejected).
     bool useCachedCredentials = false;
 
-    loader->m_webFrame->didReceiveAuthenticationChallenge(loader, host, realm, useCachedCredentials);
+    m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, useCachedCredentials);
 }
 
 } // namespace android

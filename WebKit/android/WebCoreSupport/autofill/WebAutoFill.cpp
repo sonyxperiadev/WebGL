@@ -44,6 +44,7 @@
 #include "WebUrlLoaderClient.h"
 #include "WebViewCore.h"
 
+#define NO_PROFILE_SET 0
 #define FORM_NOT_AUTOFILLABLE -1
 
 namespace android
@@ -56,6 +57,7 @@ static URLRequestContext* webAutoFillContextGetter()
 
 WebAutoFill::WebAutoFill()
     : mWebViewCore(0)
+    , mUniqueProfileId(NO_PROFILE_SET)
 {
     mFormManager = new FormManager();
     mQueryId = 1;
@@ -172,6 +174,7 @@ void WebAutoFill::setProfile(int id, const string16& fullName, const string16& e
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
     AutoFillProfile autoFillProfile;
+    mUniqueProfileId = id;
     autoFillProfile.set_unique_id(id);
 
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
@@ -189,6 +192,17 @@ void WebAutoFill::setProfile(int id, const string16& fullName, const string16& e
     std::vector<AutoFillProfile> profiles;
     profiles.push_back(autoFillProfile);
     mTabContents->profile()->GetPersonalDataManager()->SetProfiles(&profiles);
+}
+
+void WebAutoFill::clearProfiles()
+{
+   // For now Chromium only ever knows about one profile, so we can just
+   // remove it by unique id. If we support multiple profiles in the future
+   // we need to remove them all here.
+   if (mUniqueProfileId != NO_PROFILE_SET) {
+       mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(mUniqueProfileId);
+       mUniqueProfileId = NO_PROFILE_SET;
+   }
 }
 
 }

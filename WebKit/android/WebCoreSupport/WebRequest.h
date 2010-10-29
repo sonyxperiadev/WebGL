@@ -74,7 +74,9 @@ public:
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
     void cancelAuth();
-    void downloadFile(WebFrame*);
+
+    const std::string& getUrl() const;
+    const std::string& getUserAgent() const;
 
 private:
     void startReading();
@@ -87,9 +89,7 @@ private:
     void handleAndroidURL();
     void finish(bool success);
 
-    // Not owned
-    WebUrlLoaderClient* m_urlLoader;
-
+    scoped_refptr<WebUrlLoaderClient> m_urlLoader;
     OwnPtr<URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
     int m_inputStream;
