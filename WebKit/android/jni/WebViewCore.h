@@ -162,6 +162,11 @@ namespace android {
          */
         void contentDraw();
 
+        /**
+         * copy the layers to the UI side
+         */
+        void layersDraw();
+
 #if USE(ACCELERATED_COMPOSITING)
         GraphicsLayerAndroid* graphicsRootLayer() const;
 #endif
@@ -485,6 +490,12 @@ namespace android {
 
         // record the inval area, and the picture size
         BaseLayerAndroid* recordContent(SkRegion* , SkIPoint* );
+
+        // This creates a new BaseLayerAndroid by copying the current m_content
+        // and doing a copy of the layers. The layers' content may be updated
+        // as we are calling layersSync().
+        BaseLayerAndroid* createBaseLayer();
+
         int textWrapWidth() const { return m_textWrapWidth; }
         float scale() const { return m_scale; }
         float textWrapScale() const { return m_screenWidth * m_scale / m_textWrapWidth; }

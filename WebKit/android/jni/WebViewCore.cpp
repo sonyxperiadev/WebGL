@@ -246,6 +246,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_scrollTo;
     jmethodID   m_scrollBy;
     jmethodID   m_contentDraw;
+    jmethodID   m_layersDraw;
     jmethodID   m_requestListBox;
     jmethodID   m_openFileChooser;
     jmethodID   m_requestSingleListBox;
@@ -339,6 +340,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
+    m_javaGlue->m_layersDraw = GetJMethod(env, clazz, "layersDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
     m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
@@ -842,6 +844,26 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
     pictureSet->validate(__FUNCTION__);
 }
 
+BaseLayerAndroid* WebViewCore::createBaseLayer()
+{
+    BaseLayerAndroid* base = new BaseLayerAndroid();
+    base->setContent(m_content);
+
+#if USE(ACCELERATED_COMPOSITING)
+    // We update the layers
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    if (root) {
+        root->notifyClientAnimationStarted();
+        LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
+        base->addChild(copyLayer);
+        copyLayer->unref();
+    }
+#endif
+
+    return base;
+}
+
 BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
@@ -863,22 +885,7 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
         region->getBounds().fBottom);
     DBG_SET_LOG("end");
 
-    BaseLayerAndroid* base = new BaseLayerAndroid();
-    base->setContent(m_content);
-
-#if USE(ACCELERATED_COMPOSITING)
-    // We update the layers
-    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
-    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
-    if (root) {
-        root->notifyClientAnimationStarted();
-        LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
-        base->addChild(copyLayer);
-        copyLayer->unref();
-    }
-#endif
-
-    return base;
+    return createBaseLayer();
 }
 
 void WebViewCore::splitContent(PictureSet* content)
@@ -935,6 +942,13 @@ void WebViewCore::contentDraw()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw);
+    checkException(env);
+}
+
+void WebViewCore::layersDraw()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_layersDraw);
     checkException(env);
 }
 
@@ -3478,6 +3492,13 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
+static jint UpdateLayers(JNIEnv *env, jobject obj)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    BaseLayerAndroid* result = viewImpl->createBaseLayer();
+    return reinterpret_cast<jint>(result);
+}
+
 static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -4014,6 +4035,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
+    { "nativeUpdateLayers", "()I",
+        (void*) UpdateLayers },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",
