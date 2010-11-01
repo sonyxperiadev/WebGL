@@ -302,8 +302,20 @@ void WebUrlLoaderClient::willSendRequest(PassOwnPtr<WebResponse> webResponse)
     if (!isActive())
         return;
 
-    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse->createKurl()));
+    KURL url = webResponse->createKurl();
+    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(url));
     m_resourceHandle->client()->willSendRequest(m_resourceHandle.get(), *resourceRequest, webResponse->createResourceResponse());
+
+    // WebKit may have killed the request.
+    if (!isActive())
+        return;
+
+    // Like Chrome, we only follow the redirect if WebKit left the URL unmodified.
+    if (url == resourceRequest->url()) {
+        ioThread()->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::followDeferredRedirect));
+    } else {
+        cancel();
+    }
 }
 
 void WebUrlLoaderClient::didFinishLoading()

@@ -80,11 +80,22 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
     CookieOptions options;
     options.set_include_httponly();
     std::string cookies = WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
-    return env->NewStringUTF(cookies.c_str());
+    return cookies.empty() ? 0 : env->NewStringUTF(cookies.c_str());
 #else
     // The Android HTTP stack is implemented Java-side.
     ASSERT_NOT_REACHED();
     return jstring();
+#endif
+}
+
+static bool hasCookies(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
+    return !WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetAllCookies().empty();
+#else
+    // The Android HTTP stack is implemented Java-side.
+    ASSERT_NOT_REACHED();
+    return false;
 #endif
 }
 
@@ -101,6 +112,35 @@ static void removeAllCookie(JNIEnv*, jobject)
 #endif
 }
 
+static void removeExpiredCookie(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
+    // This simply forces a GC. The getters delete expired cookies so won't return expired cookies anyway.
+    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetAllCookies();
+    WebRequestContext::get(true)->cookie_store()->GetCookieMonster()->GetAllCookies();
+#endif
+}
+
+static void removeSessionCookies(WebRequestContext* context)
+{
+#if USE(CHROME_NETWORK_STACK)
+  CookieMonster* cookieMonster = context->cookie_store()->GetCookieMonster();
+  CookieMonster::CookieList cookies = cookieMonster->GetAllCookies();
+  for (CookieMonster::CookieList::const_iterator iter = cookies.begin(); iter != cookies.end(); ++iter) {
+    if (!iter->IsPersistent())
+      cookieMonster->DeleteCanonicalCookie(*iter);
+  }
+#endif
+}
+
+static void removeSessionCookie(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
+  removeSessionCookies(WebRequestContext::get(false));
+  removeSessionCookies(WebRequestContext::get(true));
+#endif
+}
+
 static void setAcceptCookie(JNIEnv*, jobject, jboolean accept)
 {
 #if USE(CHROME_NETWORK_STACK)
@@ -112,12 +152,27 @@ static void setAcceptCookie(JNIEnv*, jobject, jboolean accept)
 #endif
 }
 
+static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
+{
+#if USE(CHROME_NETWORK_STACK)
+    GURL gurl(jstringToStdString(env, url));
+    std::string line(jstringToStdString(env, value));
+    CookieOptions options;
+    options.set_include_httponly();
+    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->SetCookieWithOptions(gurl, line, options);
+#endif
+}
+
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
     { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
     { "nativeGetCookie", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getCookie },
+    { "nativeHasCookies", "()Z", (void*) hasCookies },
     { "nativeRemoveAllCookie", "()V", (void*) removeAllCookie },
+    { "nativeRemoveExpiredCookie", "()V", (void*) removeExpiredCookie },
+    { "nativeRemoveSessionCookie", "()V", (void*) removeSessionCookie },
     { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
+    { "nativeSetCookie", "(Ljava/lang/String;Ljava/lang/String;)V", (void*) setCookie },
 };
 
 int registerCookieManager(JNIEnv* env)
