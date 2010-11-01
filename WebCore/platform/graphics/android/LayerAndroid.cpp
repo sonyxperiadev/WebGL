@@ -342,10 +342,12 @@ void LayerAndroid::findInner(LayerAndroidFindState& state) const
     bounds(&localBounds);
     if (!localBounds.contains(x, y))
         return;
-    if (!m_recordingPicture)
-        return;
-    if (!state.drew(m_recordingPicture, localBounds))
-        return;
+    if (!m_foregroundPicture) {
+        if (!m_recordingPicture)
+            return;
+        if (!state.drew(m_recordingPicture, localBounds))
+            return;
+    }
     state.setBest(this); // set last match (presumably on top)
 }
 
@@ -688,8 +690,19 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     }
 
     if (m_recordingPicture) {
-        writeIntVal(file, indentLevel + 1, "picture width", m_recordingPicture->width());
-        writeIntVal(file, indentLevel + 1, "picture height", m_recordingPicture->height());
+        writeIntVal(file, indentLevel + 1, "m_recordingPicture.width", m_recordingPicture->width());
+        writeIntVal(file, indentLevel + 1, "m_recordingPicture.height", m_recordingPicture->height());
+    }
+
+    if (m_foregroundPicture) {
+        writeIntVal(file, indentLevel + 1, "m_foregroundPicture.width", m_foregroundPicture->width());
+        writeIntVal(file, indentLevel + 1, "m_foregroundPicture.height", m_foregroundPicture->height());
+        writeFloatVal(file, indentLevel + 1, "m_foregroundClip.fLeft", m_foregroundClip.fLeft);
+        writeFloatVal(file, indentLevel + 1, "m_foregroundClip.fTop", m_foregroundClip.fTop);
+        writeFloatVal(file, indentLevel + 1, "m_foregroundClip.fRight", m_foregroundClip.fRight);
+        writeFloatVal(file, indentLevel + 1, "m_foregroundClip.fBottom", m_foregroundClip.fBottom);
+        writeFloatVal(file, indentLevel + 1, "m_foregroundLocation.fX", m_foregroundLocation.fX);
+        writeFloatVal(file, indentLevel + 1, "m_foregroundLocation.fY", m_foregroundLocation.fY);
     }
 
     if (countChildren()) {
