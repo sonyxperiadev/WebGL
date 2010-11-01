@@ -63,7 +63,7 @@ static jobject GetOrigins(JNIEnv* env, jobject obj)
     for (unsigned i = 0; i < coreOrigins.size(); ++i) {
         WebCore::SecurityOrigin* origin = coreOrigins[i].get();
         WTF::String url = origin->toString();
-        jstring jUrl = env->NewString(url.characters(), url.length());
+        jstring jUrl = WtfStringToJstring(env, url);
         env->CallBooleanMethod(set, mid, jUrl);
         env->DeleteLocalRef(jUrl);
     }
