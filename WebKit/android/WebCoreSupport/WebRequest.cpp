@@ -130,10 +130,18 @@ void WebRequest::finish(bool success)
     m_urlLoader = 0;
 }
 
-void WebRequest::AppendBytesToUpload(WTF::Vector<char>* data)
+void WebRequest::appendFileToUpload(std::string filename)
+{
+    // AppendFileToUpload is only valid before calling start
+    ASSERT(m_loadState == Created, "appendFileToUpload called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
+    FilePath filePath(filename);
+    m_request->AppendFileToUpload(filePath);
+}
+
+void WebRequest::appendBytesToUpload(WTF::Vector<char>* data)
 {
     // AppendBytesToUpload is only valid before calling start
-    ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
+    ASSERT(m_loadState == Created, "appendBytesToUpload called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
     m_request->AppendBytesToUpload(data->data(), data->size());
     delete data;
 }

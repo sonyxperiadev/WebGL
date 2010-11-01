@@ -66,22 +66,11 @@ public:
         return m_url;
     }
 
-    bool isAndroidUrl() const
-    {
-        return m_specialAndroidFileType != 0;
-    }
-
-    int androidFileType() const
-    {
-        return m_specialAndroidFileType;
-    }
-
 private:
     std::string m_method;
     std::string m_referrer;
     std::string m_userAgent;
     net::HttpRequestHeaders m_requestHeaders;
-    int m_specialAndroidFileType;
     std::string m_url;
 };
 
