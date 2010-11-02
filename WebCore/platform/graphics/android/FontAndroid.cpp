@@ -307,7 +307,7 @@ public:
     TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
         : m_font(font)
         , m_startingX(startingX)
-        , m_run(getTextRun(run))
+        , m_run(getNormalizedTextRun(run, m_normalizedRun, m_normalizedBuffer))
         , m_iterateBackwards(m_run.rtl())
         , m_wordSpacingAdjustment(0)
         , m_padding(0)
@@ -331,18 +331,8 @@ public:
 
         m_item.item.bidiLevel = m_run.rtl();
 
-        int length = m_run.length();
-        m_item.stringLength = length;
-
-        if (!m_item.item.bidiLevel)
-            m_item.string = m_run.characters();
-        else {
-            // Assume mirrored character is in the same Unicode multilingual plane as the original one.
-            UChar* string = new UChar[length];
-            mirrorCharacters(string, m_run.characters(), length);
-            m_item.string = string;
-        }
-
+        m_item.string = m_run.characters();
+        m_item.stringLength = m_run.length();
         reset();
     }
 
@@ -351,8 +341,6 @@ public:
         fastFree(m_item.font);
         deleteGlyphArrays();
         delete[] m_item.log_clusters;
-        if (m_item.item.bidiLevel)
-            delete[] m_item.string;
     }
 
     // setWordSpacingAdjustment sets a delta (in pixels) which is applied at
@@ -552,9 +540,10 @@ public:
     }
 
 private:
-    const TextRun& getTextRun(const TextRun& originalRun)
+    const TextRun& getNormalizedTextRun(const TextRun& originalRun,
+        OwnPtr<TextRun>& normalizedRun, OwnArrayPtr<UChar>& normalizedBuffer)
     {
-        // Normalize the text run in two ways:
+        // Normalize the text run in three ways:
         // 1) Convert the |originalRun| to NFC normalized form if combining diacritical marks
         // (U+0300..) are used in the run. This conversion is necessary since most OpenType
         // fonts (e.g., Arial) don't have substitution rules for the diacritical marks in
@@ -566,41 +555,43 @@ private:
         // Harfbuzz will do the same thing for us using the GSUB table.
         // 2) Convert spacing characters into plain spaces, as some fonts will provide glyphs
         // for characters like '\n' otherwise.
-        for (int16_t i = 0; i < originalRun.length(); ++i) {
-            UChar ch = originalRun[i];
-            UBlockCode block = ::ublock_getCode(ch);
-            if (block == UBLOCK_COMBINING_DIACRITICAL_MARKS ||
-                (Font::treatAsSpace(ch) && ch != ' ')) {
-                return getNormalizedTextRun(originalRun);
-            }
-        }
-        return originalRun;
-    }
+        // 3) Convert mirrored characters such as parenthesis for rtl text.
 
-    const TextRun& getNormalizedTextRun(const TextRun& originalRun)
-    {
+        // Convert to NFC form if the text has diacritical marks.
         icu::UnicodeString normalizedString;
         UErrorCode error = U_ZERO_ERROR;
-        icu::Normalizer::normalize(icu::UnicodeString(originalRun.characters(),
-            originalRun.length()), UNORM_NFC, 0 /* no options */,
-            normalizedString, error);
-        if (U_FAILURE(error))
-            return originalRun;
 
-        m_normalizedBuffer.set(new UChar[normalizedString.length() + 1]);
-        normalizedString.extract(m_normalizedBuffer.get(),
-                                 normalizedString.length() + 1, error);
-        ASSERT(U_SUCCESS(error));
-
-        for (int32_t i = 0; i < normalizedString.length(); ++i) {
-            if (Font::treatAsSpace(m_normalizedBuffer[i]))
-                m_normalizedBuffer[i] = ' ';
+        for (int16_t i = 0; i < originalRun.length(); ++i) {
+            UChar ch = originalRun[i];
+            if (::ublock_getCode(ch) == UBLOCK_COMBINING_DIACRITICAL_MARKS) {
+                icu::Normalizer::normalize(icu::UnicodeString(originalRun.characters(),
+                                           originalRun.length()), UNORM_NFC, 0 /* no options */,
+                                           normalizedString, error);
+                if (U_FAILURE(error))
+                    return originalRun;
+                break;
+            }
         }
 
-        m_normalizedRun.set(new TextRun(originalRun));
-        m_normalizedRun->setText(m_normalizedBuffer.get(),
-                                 normalizedString.length());
-        return *m_normalizedRun;
+        // Normalize space and mirror parenthesis for rtl text.
+        int normalizedBufferLength;
+        const UChar* sourceText;
+        if (normalizedString.isEmpty()) {
+            normalizedBufferLength = originalRun.length();
+            sourceText = originalRun.characters();
+        } else {
+            normalizedBufferLength = normalizedString.length();
+            sourceText = normalizedString.getBuffer();
+        }
+
+        normalizedBuffer.set(new UChar[normalizedBufferLength + 1]);
+
+        normalizeSpacesAndMirrorChars(sourceText, originalRun.rtl(), normalizedBuffer.get(),
+                                      normalizedBufferLength);
+
+        normalizedRun.set(new TextRun(originalRun));
+        normalizedRun->setText(normalizedBuffer.get(), normalizedBufferLength);
+        return *normalizedRun;
     }
 
     void setupFontForScriptRun()
@@ -743,7 +734,8 @@ private:
         m_offsetX += m_pixelWidth;
     }
 
-    void mirrorCharacters(UChar* destination, const UChar* source, int length) const
+    static void normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
+        UChar* destination, int length)
     {
         int position = 0;
         bool error = false;
@@ -752,7 +744,10 @@ private:
             UChar32 character;
             int nextPosition = position;
             U16_NEXT(source, nextPosition, length, character);
-            character = u_charMirror(character);
+            if (Font::treatAsSpace(character))
+                character = ' ';
+            else if (rtl)
+                character = u_charMirror(character);
             U16_APPEND(destination, position, length, character, error);
             ASSERT(!error);
             position = nextPosition;
