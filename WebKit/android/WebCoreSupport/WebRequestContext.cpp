@@ -155,7 +155,7 @@ WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilena
     // Todo: check if the context takes ownership of the cache
     net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
 
-    context->http_transaction_factory_ = new net::HttpCache(context->host_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(context->host_resolver_), 0, 0, defaultBackend);
+    context->http_transaction_factory_ = new net::HttpCache(context->host_resolver(), context->dnsrr_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(context->host_resolver_), 0, 0, defaultBackend);
 
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
 
