@@ -56,6 +56,8 @@ public:
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
 
+    SkColor getColor(const SkIRect& rect);
+
 private:
 #if USE(ACCELERATED_COMPOSITING)
     bool drawBasePictureInGL(SkRect& viewport, float scale);

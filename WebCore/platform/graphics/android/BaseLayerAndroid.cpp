@@ -238,4 +238,30 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     return ret;
 }
 
+SkColor BaseLayerAndroid::getColor(const SkIRect& rect)
+{
+    SkBitmap sample, pixel;
+    SkCanvas canvas;
+    sample.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
+    sample.allocPixels();
+    canvas.setBitmapDevice(sample);
+    canvas.save();
+    canvas.translate(-rect.fLeft, -rect.fTop);
+    draw(&canvas);
+    canvas.restore();
+    pixel.setConfig(SkBitmap::kARGB_8888_Config, 1, 1);
+    pixel.allocPixels();
+    canvas.setBitmapDevice(pixel);
+    SkPaint paint;
+    paint.setFlags(SkPaint::kFilterBitmap_Flag);
+    canvas.scale(SkScalarInvert(SkIntToScalar(rect.width())),
+        SkScalarInvert(SkIntToScalar(rect.height())));
+    canvas.drawBitmap(sample, 0, 0, &paint);
+    pixel.lockPixels();
+    uint32_t* colorAddr = pixel.getAddr32(0, 0);
+    SkColor result = (SkColor) *colorAddr;
+    pixel.unlockPixels();
+    return result;
+}
+
 } // namespace WebCore
