@@ -71,13 +71,15 @@ AutoJObject getRealObject(JNIEnv*, jobject);
 bool checkException(JNIEnv* env);
 
 // Create a WTF::String object from a jstring object.
-WTF::String jstringToWtfString(JNIEnv* env, jstring str);
+WTF::String jstringToWtfString(JNIEnv*, jstring);
+// Returns a local reference to a new jstring.
+jstring WtfStringToJstring(JNIEnv*, const WTF::String&);
 
 #if USE(CHROME_NETWORK_STACK)
-string16 jstringToString16(JNIEnv* env, jstring jstr);
+string16 jstringToString16(JNIEnv*, jstring);
 #endif
 
-std::string jstringToStdString(JNIEnv* env, jstring jstr);
+std::string jstringToStdString(JNIEnv*, jstring);
 
 }
 

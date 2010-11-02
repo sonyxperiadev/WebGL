@@ -525,10 +525,13 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
         return;
     }
 
+    bool addInval = true;
     const size_t maxDirtyRects = 8;
     for (size_t i = 0; i < m_invalidatedRects.size(); ++i) {
-        if (m_invalidatedRects[i].contains(rect))
-            return;
+        if (m_invalidatedRects[i].contains(rect)) {
+            addInval = false;
+            break;
+        }
     }
 
 #ifdef LAYER_DEBUG
@@ -536,13 +539,25 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
         m_needsRepaint, rect.x(), rect.y(), rect.width(), rect.height());
 #endif
 
-    if (m_invalidatedRects.size() < maxDirtyRects)
-        m_invalidatedRects.append(rect);
-    else
-        m_invalidatedRects[0].unite(rect);
+    if (addInval) {
+        if (m_invalidatedRects.size() < maxDirtyRects)
+            m_invalidatedRects.append(rect);
+        else
+            m_invalidatedRects[0].unite(rect);
+    }
 
     m_needsRepaint = true;
     askForSync();
+
+    if (!m_client)
+        return;
+
+    // Update the layers on the UI
+    RenderLayer* renderLayer = renderLayerFromClient(m_client);
+    if (renderLayer) {
+        FrameView* frameView = renderLayer->root()->renderer()->view()->frameView();
+        PlatformBridge::updateLayers(frameView);
+    }
 }
 
 void GraphicsLayerAndroid::pauseDisplay(bool state)

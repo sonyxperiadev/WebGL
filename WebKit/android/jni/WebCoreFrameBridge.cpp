@@ -341,8 +341,8 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
     for (WebCore::HTTPHeaderMap::const_iterator i = map.begin(); i != end; ++i) {
         if (i->first.length() == 0 || i->second.length() == 0)
             continue;
-        jstring key = env->NewString(i->first.characters(), i->first.length());
-        jstring val = env->NewString(i->second.characters(), i->second.length());
+        jstring key = WtfStringToJstring(env, i->first);
+        jstring val = WtfStringToJstring(env, i->second);
         if (key && val) {
             env->CallObjectMethod(hashMap, put, key, val);
         }
@@ -363,7 +363,7 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
 class FileInfo {
 public:
     FileInfo(JNIEnv* env, const WTF::String& name) {
-        m_uri = env->NewString(name.characters(), name.length());
+        m_uri = WtfStringToJstring(env, name);
         checkException(env);
         m_size = 0;
         m_env = env;
@@ -424,10 +424,10 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         }
     }
     LOGV("%s lower=%s", __FUNCTION__, urlStr.latin1().data());
-    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
+    jstring jUrlStr = WtfStringToJstring(env, urlStr);
     jstring jMethodStr = NULL;
     if (!method.isEmpty())
-        jMethodStr = env->NewString(method.characters(), method.length());
+        jMethodStr = WtfStringToJstring(env, method);
     jbyteArray jPostDataStr = NULL;
     WebCore::FormData* formdata = request.httpBody();
     AutoJObject obj = mJavaFrame->frame(env);
@@ -512,9 +512,9 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 
     ResourceHandleInternal* loaderInternal = loader->getInternal();
     jstring jUsernameString = loaderInternal->m_user.isEmpty() ?
-            NULL : env->NewString(loaderInternal->m_user.characters(), loaderInternal->m_user.length());
+            NULL : WtfStringToJstring(env, loaderInternal->m_user);
     jstring jPasswordString = loaderInternal->m_pass.isEmpty() ?
-            NULL : env->NewString(loaderInternal->m_pass.characters(), loaderInternal->m_pass.length());
+            NULL : WtfStringToJstring(env, loaderInternal->m_pass);
 
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
     jobject jLoadListener =
@@ -550,8 +550,8 @@ WebFrame::reportError(int errorCode, const WTF::String& description,
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = getJNIEnv();
 
-    jstring descStr = env->NewString(description.characters(), description.length());
-    jstring failUrl = env->NewString(failingUrl.characters(), failingUrl.length());
+    jstring descStr = WtfStringToJstring(env, description);
+    jstring failUrl = WtfStringToJstring(env, failingUrl);
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mReportError,
             errorCode, descStr, failUrl);
     env->DeleteLocalRef(descStr);
@@ -594,7 +594,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
             favicon = webcoreImageToJavaBitmap(env, icon);
         LOGV("favicons", "Starting load with icon %p for %s", icon, url.string().utf8().data());
     }
-    jstring urlStr = env->NewString(urlString.characters(), urlString.length());
+    jstring urlStr = WtfStringToJstring(env, urlString);
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadStarted, urlStr, favicon,
             (int)loadType, isMainFrame);
@@ -650,7 +650,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = loader->loadType();
     WTF::String urlString(url.string());
-    jstring urlStr = env->NewString(urlString.characters(), urlString.length());
+    jstring urlStr = WtfStringToJstring(env, urlString);
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadFinished, urlStr,
             (int)loadType, isMainFrame);
     checkException(env);
@@ -707,10 +707,9 @@ WebFrame::setTitle(const WTF::String& title)
     LOGV("setTitle(%s)", title.ascii().data());
 #endif
     JNIEnv* env = getJNIEnv();
-    jstring jTitleStr = env->NewString(title.characters(), title.length());
+    jstring jTitleStr = WtfStringToJstring(env, title);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetTitle,
-                                        jTitleStr);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetTitle, jTitleStr);
     checkException(env);
     env->DeleteLocalRef(jTitleStr);
 }
@@ -770,7 +769,7 @@ WebFrame::didReceiveTouchIconURL(const WTF::String& url, bool precomposed)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    jstring jUrlStr = env->NewString(url.characters(), url.length());
+    jstring jUrlStr = WtfStringToJstring(env, url);
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
@@ -786,7 +785,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 #endif
     WTF::String urlStr(url.string());
     JNIEnv* env = getJNIEnv();
-    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
+    jstring jUrlStr = WtfStringToJstring(env, urlStr);
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
     env->DeleteLocalRef(jUrlStr);
@@ -814,7 +813,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (url.isEmpty())
         return true;
     JNIEnv* env = getJNIEnv();
-    jstring jUrlStr = env->NewString(url.characters(), url.length());
+    jstring jUrlStr = WtfStringToJstring(env, url);
 
     // check to see whether browser app wants to hijack url loading.
     // if browser app handles the url, we will return false to bail out WebCore loading
@@ -1280,9 +1279,8 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
     releaseCharactersForJStringInEnv(env, basename, basenameNative);
     xmlFreeTextWriter(writer);
 
-    if (result) {
-        return env->NewString(filename.characters(), filename.length());
-    }
+    if (result)
+        return WtfStringToJstring(env, filename);
 
     return NULL;
 #endif
@@ -1298,10 +1296,7 @@ static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
 
     // Request external representation of the render tree
     WTF::String renderDump = WebCore::externalRepresentation(pFrame);
-    unsigned len = renderDump.length();
-    if (!len)
-        return NULL;
-    return env->NewString(renderDump.characters(), len);
+    return WtfStringToJstring(env, renderDump);
 }
 
 static StringBuilder FrameAsText(WebCore::Frame *pFrame, jboolean dumpChildFrames) {
@@ -1335,10 +1330,7 @@ static jstring DocumentAsText(JNIEnv *env, jobject obj)
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
     WTF::String renderDump = FrameAsText(pFrame, false /* dumpChildFrames */).toString();
-    unsigned len = renderDump.length();
-    if (!len)
-        return NULL;
-    return env->NewString(renderDump.characters(), len);
+    return WtfStringToJstring(env, renderDump);
 }
 
 static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
@@ -1354,10 +1346,7 @@ static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
         renderDumpBuilder.append(FrameAsText(pFrame->tree()->child(i), true /* dumpChildFrames */).toString());
     }
     WTF::String renderDump = renderDumpBuilder.toString();
-    unsigned len = renderDump.length();
-    if (!len)
-        return NULL;
-    return env->NewString(renderDump.characters(), len);
+    return WtfStringToJstring(env, renderDump);
 }
 
 static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
@@ -1410,10 +1399,7 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     ScriptState* scriptState = mainWorldScriptState(pFrame);
     if (!value.getString(scriptState, result))
         return NULL;
-    unsigned len = result.length();
-    if (len == 0)
-        return NULL;
-    return env->NewString(result.characters(), len);
+    return WtfStringToJstring(env, result);
 }
 
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
@@ -1710,8 +1696,8 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
         jclass stringClass = env->FindClass("java/lang/String");
         strArray = env->NewObjectArray(2, stringClass, NULL);
         env->DeleteLocalRef(stringClass);
-        env->SetObjectArrayElement(strArray, 0, env->NewString(username.characters(), username.length()));
-        env->SetObjectArrayElement(strArray, 1, env->NewString(password.characters(), password.length()));
+        env->SetObjectArrayElement(strArray, 0, WtfStringToJstring(env, username));
+        env->SetObjectArrayElement(strArray, 1, WtfStringToJstring(env, password));
     }
     return strArray;
 }
@@ -1797,8 +1783,8 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
                             int len = value.length();
                             if (len) {
                                 const WTF::AtomicString& name = input->name();
-                                jstring key = env->NewString(name.characters(), name.length());
-                                jstring val = env->NewString(value.characters(), len);
+                                jstring key = WtfStringToJstring(env, name);
+                                jstring val = WtfStringToJstring(env, value);
                                 LOG_ASSERT(key && val, "name or value not set");
                                 env->CallObjectMethod(hashMap, put, key, val);
                                 env->DeleteLocalRef(key);

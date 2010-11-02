@@ -71,6 +71,13 @@ WTF::String jstringToWtfString(JNIEnv* env, jstring str)
     return ret;
 }
 
+jstring WtfStringToJstring(JNIEnv* env, const WTF::String& str)
+{
+    int length = str.length();
+    return length ? env->NewString(str.characters(), length) : 0;
+}
+
+
 #if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv* env, jstring jstr)
 {

@@ -35,6 +35,8 @@
 #include <jni.h>
 #include <utils/Log.h>
 
+using namespace android;
+
 namespace WebCore {
 
 String MIMETypeRegistry::getMIMETypeForExtension(const String& ext)
@@ -47,8 +49,7 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String& ext)
             "(Ljava/lang/String;)Ljava/lang/String;");
     LOG_ASSERT(mimeTypeFromExtension,
             "Could not find method mimeTypeFromExtension");
-    jstring extString =
-            env->NewString((const jchar*) ext.characters(), ext.length());
+    jstring extString = WtfStringToJstring(env, ext);
     jobject mimeType = env->CallStaticObjectMethod(mimeClass,
             mimeTypeFromExtension, extString);
     String result = android::jstringToWtfString(env, (jstring) mimeType);

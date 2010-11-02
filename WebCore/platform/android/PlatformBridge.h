@@ -136,6 +136,9 @@ public:
     static void updateViewport(FrameView*);
 
     static void updateTextfield(FrameView*, Node*, bool changeToPassword, const WTF::String& text);
+
+    // Updates the layers on the UI
+    static void updateLayers(FrameView* view);
 };
 
 }

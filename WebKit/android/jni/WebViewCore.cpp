@@ -209,7 +209,7 @@ struct WebViewCoreStaticMethods {
 // Check whether a media mimeType is supported in Android media framework.
 bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jMimeType = env->NewString(mimeType.characters(), mimeType.length());
+    jstring jMimeType = WtfStringToJstring(env, mimeType);
     jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
     bool val = env->CallStaticBooleanMethod(webViewCore,
           gWebViewCoreStaticMethods.m_isSupportedMediaMimeType, jMimeType);
@@ -246,6 +246,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_scrollTo;
     jmethodID   m_scrollBy;
     jmethodID   m_contentDraw;
+    jmethodID   m_layersDraw;
     jmethodID   m_requestListBox;
     jmethodID   m_openFileChooser;
     jmethodID   m_requestSingleListBox;
@@ -339,6 +340,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
+    m_javaGlue->m_layersDraw = GetJMethod(env, clazz, "layersDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
     m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
@@ -842,6 +844,26 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
     pictureSet->validate(__FUNCTION__);
 }
 
+BaseLayerAndroid* WebViewCore::createBaseLayer()
+{
+    BaseLayerAndroid* base = new BaseLayerAndroid();
+    base->setContent(m_content);
+
+#if USE(ACCELERATED_COMPOSITING)
+    // We update the layers
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    if (root) {
+        root->notifyClientAnimationStarted();
+        LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
+        base->addChild(copyLayer);
+        copyLayer->unref();
+    }
+#endif
+
+    return base;
+}
+
 BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
@@ -863,22 +885,7 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
         region->getBounds().fBottom);
     DBG_SET_LOG("end");
 
-    BaseLayerAndroid* base = new BaseLayerAndroid();
-    base->setContent(m_content);
-
-#if USE(ACCELERATED_COMPOSITING)
-    // We update the layers
-    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
-    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
-    if (root) {
-        root->notifyClientAnimationStarted();
-        LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
-        base->addChild(copyLayer);
-        copyLayer->unref();
-    }
-#endif
-
-    return base;
+    return createBaseLayer();
 }
 
 void WebViewCore::splitContent(PictureSet* content)
@@ -935,6 +942,13 @@ void WebViewCore::contentDraw()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw);
+    checkException(env);
+}
+
+void WebViewCore::layersDraw()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_layersDraw);
     checkException(env);
 }
 
@@ -2517,7 +2531,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WTF::String acceptType = chooser->acceptTypes();
-    jstring jAcceptType = env->NewString(const_cast<unsigned short*>(acceptType.characters()), acceptType.length());
+    jstring jAcceptType = WtfStringToJstring(env, acceptType);
     jstring jName = (jstring) env->CallObjectMethod(
             m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
@@ -2940,8 +2954,8 @@ void WebViewCore::formDidBlur(const WebCore::Node* node)
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jMessageStr = env->NewString((unsigned short *)message.characters(), message.length());
-    jstring jSourceIDStr = env->NewString((unsigned short *)sourceID.characters(), sourceID.length());
+    jstring jMessageStr = WtfStringToJstring(env, message);
+    jstring jSourceIDStr = WtfStringToJstring(env, sourceID);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
             m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber,
             jSourceIDStr, msgLevel);
@@ -2953,8 +2967,8 @@ void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int l
 void WebViewCore::jsAlert(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
-    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    jstring jInputStr = WtfStringToJstring(env, text);
+    jstring jUrlStr = WtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -2965,8 +2979,8 @@ void WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::Strin
 {
 #if ENABLE(DATABASE)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jDatabaseIdentifierStr = env->NewString((unsigned short *)databaseIdentifier.characters(), databaseIdentifier.length());
-    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    jstring jDatabaseIdentifierStr = WtfStringToJstring(env, databaseIdentifier);
+    jstring jUrlStr = WtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
             m_javaGlue->m_exceededDatabaseQuota, jUrlStr,
             jDatabaseIdentifierStr, currentQuota, estimatedSize);
@@ -2997,7 +3011,7 @@ void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
 void WebViewCore::geolocationPermissionsShowPrompt(const WTF::String& origin)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring originString = env->NewString((unsigned short *)origin.characters(), origin.length());
+    jstring originString = WtfStringToJstring(env, origin);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_geolocationPermissionsShowPrompt,
                         originString);
@@ -3034,8 +3048,8 @@ jobject WebViewCore::getDeviceOrientationService()
 bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
-    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    jstring jInputStr = WtfStringToJstring(env, text);
+    jstring jUrlStr = WtfStringToJstring(env, url);
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsConfirm, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3046,27 +3060,28 @@ bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, const WTF::String& defaultValue, WTF::String& result)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
-    jstring jDefaultStr = env->NewString((unsigned short *)defaultValue.characters(), defaultValue.length());
-    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
-    jstring returnVal = (jstring) env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr);
+    jstring jInputStr = WtfStringToJstring(env, text);
+    jstring jDefaultStr = WtfStringToJstring(env, defaultValue);
+    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring returnVal = static_cast<jstring>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr));
+    env->DeleteLocalRef(jInputStr);
+    env->DeleteLocalRef(jDefaultStr);
+    env->DeleteLocalRef(jUrlStr);
+    checkException(env);
+
     // If returnVal is null, it means that the user cancelled the dialog.
     if (!returnVal)
         return false;
 
     result = jstringToWtfString(env, returnVal);
-    env->DeleteLocalRef(jInputStr);
-    env->DeleteLocalRef(jDefaultStr);
-    env->DeleteLocalRef(jUrlStr);
-    checkException(env);
     return true;
 }
 
 bool WebViewCore::jsUnload(const WTF::String& url, const WTF::String& message)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = env->NewString((unsigned short *)message.characters(), message.length());
-    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    jstring jInputStr = WtfStringToJstring(env, message);
+    jstring jUrlStr = WtfStringToJstring(env, url);
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3122,8 +3137,7 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
         checkException(env);
         return;
     }
-    int length = text.length();
-    jstring string = env->NewString((unsigned short *) text.characters(), length);
+    jstring string = WtfStringToJstring(env, text);
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateTextfield,
             (int) ptr, false, string, m_textGeneration);
     env->DeleteLocalRef(string);
@@ -3157,7 +3171,7 @@ jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* class
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
-    jstring libString = env->NewString(libName.characters(), libName.length());
+    jstring libString = WtfStringToJstring(env, libName);
     jstring classString = env->NewStringUTF(className);
     jobject pluginClass = env->CallObjectMethod(m_javaGlue->object(env).get(),
                                            m_javaGlue->m_getPluginClass,
@@ -3295,16 +3309,6 @@ bool WebViewCore::drawIsPaused() const
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
-static jstring WebCoreStringToJString(JNIEnv *env, WTF::String string)
-{
-    int length = string.length();
-    if (!length)
-        return 0;
-    jstring ret = env->NewString((jchar *)string.characters(), length);
-    env->DeleteLocalRef(ret);
-    return ret;
-}
-
 static void RevealSelection(JNIEnv *env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->revealSelection();
@@ -3313,7 +3317,7 @@ static void RevealSelection(JNIEnv *env, jobject obj)
 static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
         int nodePointer)
 {
-    return WebCoreStringToJString(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
+    return WtfStringToJstring(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
             (WebCore::Frame*) framePointer, (WebCore::Node*) nodePointer));
 }
 
@@ -3422,7 +3426,7 @@ static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint gr
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     String selectionString = viewImpl->modifySelection(direction, granularity);
-    return WebCoreStringToJString(env, selectionString);
+    return WtfStringToJstring(env, selectionString);
 }
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
@@ -3486,6 +3490,13 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
 {
     if (m_groupForVisitedLinks)
         m_groupForVisitedLinks->addVisitedLink(string, length);
+}
+
+static jint UpdateLayers(JNIEnv *env, jobject obj)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    BaseLayerAndroid* result = viewImpl->createBaseLayer();
+    return reinterpret_cast<jint>(result);
 }
 
 static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -3564,7 +3575,7 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
         &start, &end, caseInsensitive) == CacheBuilder::FOUND_COMPLETE;
     jstring ret = 0;
     if (success) {
-        ret = env->NewString((jchar*) addrChars + start, end - start);
+        ret = env->NewString(addrChars + start, end - start);
         env->DeleteLocalRef(ret);
     }
     env->ReleaseStringChars(addr, addrChars);
@@ -3615,7 +3626,7 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
     WTF::String result = viewImpl->retrieveHref((WebCore::Frame*) frame,
             (WebCore::Node*) node);
     if (!result.isEmpty())
-        return WebCoreStringToJString(env, result);
+        return WtfStringToJstring(env, result);
     return 0;
 }
 
@@ -3630,7 +3641,7 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint frame,
     WTF::String result = viewImpl->retrieveAnchorText((WebCore::Frame*) frame,
             (WebCore::Node*) node);
     if (!result.isEmpty())
-        return WebCoreStringToJString(env, result);
+        return WtfStringToJstring(env, result);
     return 0;
 }
 
@@ -4024,6 +4035,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
+    { "nativeUpdateLayers", "()I",
+        (void*) UpdateLayers },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",

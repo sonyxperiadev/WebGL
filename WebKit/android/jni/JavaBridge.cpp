@@ -198,8 +198,8 @@ JavaBridge::setCookies(WebCore::KURL const& url, WTF::String const& value)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WTF::String& urlStr = url.string();
-    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
-    jstring jValueStr = env->NewString(value.characters(), value.length());
+    jstring jUrlStr = WtfStringToJstring(env, urlStr);
+    jstring jValueStr = WtfStringToJstring(env, value);
 
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jValueStr);
@@ -212,7 +212,7 @@ JavaBridge::cookies(WebCore::KURL const& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WTF::String& urlStr = url.string();
-    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
+    jstring jUrlStr = WtfStringToJstring(env, urlStr);
 
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring string = (jstring)(env->CallObjectMethod(obj.get(), mCookies, jUrlStr));
@@ -301,10 +301,9 @@ WTF::Vector<WTF::String>JavaBridge::getSupportedKeyStrengthList() {
 WTF::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
         const WTF::String& challenge, const WebCore::KURL& url) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jChallenge = env->NewString(challenge.characters(),
-            challenge.length());
+    jstring jChallenge = WtfStringToJstring(env, challenge);
     const WTF::String& urlStr = url.string();
-    jstring jUrl = env->NewString(urlStr.characters(), urlStr.length());
+    jstring jUrl = WtfStringToJstring(env, urlStr);
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring key = (jstring) env->CallObjectMethod(obj.get(),
             mGetSignedPublicKey, index, jChallenge, jUrl);
@@ -317,7 +316,7 @@ WTF::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
 
 WTF::String JavaBridge::resolveFilePathForContentUri(const WTF::String& uri) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jUri = env->NewString(uri.characters(), uri.length());
+    jstring jUri = WtfStringToJstring(env, uri);
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFilePathForContentUri, jUri));
     WTF::String ret = jstringToWtfString(env, path);

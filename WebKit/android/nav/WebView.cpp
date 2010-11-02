@@ -982,7 +982,7 @@ int getBlockLeftEdge(int x, int y, float scale)
 void overrideUrlLoading(const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jName = env->NewString((jchar*) url.characters(), url.length());
+    jstring jName = WtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_overrideLoading, jName);
     env->DeleteLocalRef(jName);
@@ -1339,16 +1339,6 @@ private: // local state for WebView
 /*
  * Native JNI methods
  */
-static jstring WebCoreStringToJString(JNIEnv *env, WTF::String string)
-{
-    int length = string.length();
-    if (!length)
-        return 0;
-    jstring ret = env->NewString((jchar *)string.characters(), length);
-    env->DeleteLocalRef(ret);
-    return ret;
-}
-
 static int nativeCacheHitFramePointer(JNIEnv *env, jobject obj)
 {
     return reinterpret_cast<int>(GET_NATIVE_VIEW(env, obj)
@@ -1554,8 +1544,7 @@ static jobject nativeCursorText(JNIEnv *env, jobject obj)
     if (!node)
         return 0;
     WTF::String value = node->getExport();
-    return !value.isEmpty() ? env->NewString((jchar *)value.characters(),
-        value.length()) : 0;
+    return WtfStringToJstring(env, value);
 }
 
 static void nativeDebugDump(JNIEnv *env, jobject obj)
@@ -1619,13 +1608,7 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     WTF::String uri = view->imageURI(x, y);
-    jstring ret = 0;
-    unsigned len = uri.length();
-    if (len) {
-        ret = env->NewString((jchar*) uri.characters(), len);
-        env->DeleteLocalRef(ret);
-    }
-    return ret;
+    return WtfStringToJstring(env, uri);
 }
 
 static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
@@ -1671,7 +1654,7 @@ static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
     if (!input)
         return 0;
     const WTF::String& name = input->name();
-    return env->NewString((jchar*)name.characters(), name.length());
+    return WtfStringToJstring(env, name);
 }
 
 static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
@@ -1715,8 +1698,7 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
     if (!node)
         return 0;
     WTF::String value = node->getExport();
-    return !value.isEmpty() ? env->NewString((jchar *)value.characters(),
-        value.length()) : 0;
+    return WtfStringToJstring(env, value);
 }
 
 static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
@@ -2099,7 +2081,7 @@ static jobject nativeGetSelection(JNIEnv *env, jobject obj)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     String selection = view->getSelection();
-    return env->NewString((jchar*)selection.characters(), selection.length());
+    return WtfStringToJstring(env, selection);
 }
 
 static jboolean nativeHitSelection(JNIEnv *env, jobject obj, int x, int y)
