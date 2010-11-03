@@ -53,8 +53,7 @@ void DeviceMotionAndOrientationManager::useMock()
 
 void DeviceMotionAndOrientationManager::setMockMotion(PassRefPtr<DeviceMotionData> motion)
 {
-    if (m_useMock)
-        ; // TODO: There is not yet a DeviceMotion mock.
+    // TODO: There is not yet a DeviceMotion mock.
 }
 
 void DeviceMotionAndOrientationManager::onMotionChange(PassRefPtr<DeviceMotionData> motion)

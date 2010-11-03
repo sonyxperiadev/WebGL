@@ -33,8 +33,9 @@
 #include "SkPicture.h"
 #include "SkRegion.h"
 #include "SkTDArray.h"
-#include "icu/unicode/umachine.h"
-#include "wtf/Vector.h"
+
+#include <unicode/umachine.h>
+#include <wtf/Vector.h>
 
 namespace android {
 
