@@ -26,6 +26,7 @@
 #ifndef BaseLayerAndroid_h
 #define BaseLayerAndroid_h
 
+#include "Color.h"
 #include "GLWebViewState.h"
 #include "IntRect.h"
 #include "PictureSet.h"
@@ -44,6 +45,7 @@ public:
 
 #if USE(ACCELERATED_COMPOSITING)
     void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
+    void setBackgroundColor(Color& color) { m_color = color; }
 #endif
     void setContent(const android::PictureSet& src);
     android::PictureSet* content() { return &m_content; }
@@ -56,14 +58,13 @@ public:
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
 
-    SkColor getColor(const SkIRect& rect);
-
 private:
 #if USE(ACCELERATED_COMPOSITING)
     bool drawBasePictureInGL(SkRect& viewport, float scale);
 
     GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;
+    Color m_color;
 #endif
     android::PictureSet m_content;
     SkRect m_previousVisible;
