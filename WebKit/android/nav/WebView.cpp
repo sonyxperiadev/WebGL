@@ -376,6 +376,15 @@ bool drawCursorPreamble(CachedRoot* root)
         m_viewImpl->m_hasCursorBounds = false;
         return false;
     }
+#if USE(ACCELERATED_COMPOSITING)
+    if (node->isInLayer()) {
+        LayerAndroid* layer = const_cast<LayerAndroid*>(root->rootLayer());
+        SkRect visible;
+        calcOurContentVisibleRect(&visible);
+        layer->updateFixedLayersPositions(visible);
+        layer->updatePositions();
+    }
+#endif
     setVisibleRect(root);
     m_ring.m_root = root;
     m_ring.m_frame = frame;
@@ -632,7 +641,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
     m_viewImpl->gFrameCacheMutex.lock();
     delete m_frameCacheUI;
-    delete m_navPictureUI;
+    m_navPictureUI->safeUnref();
     m_viewImpl->m_updatedFrameCache = false;
     m_frameCacheUI = m_viewImpl->m_frameCacheKit;
     m_navPictureUI = m_viewImpl->m_navPictureKit;
