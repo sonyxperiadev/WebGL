@@ -45,10 +45,11 @@ public:
 #ifdef DEBUG_COUNT
     static int count();
 #endif
-    TileSet(TiledPage* tiledPage, int nbRows, int nbCols);
+    TileSet(int id, int firstTileX, int firstTileY, int rows, int cols);
     ~TileSet();
 
     bool operator==(const TileSet& set);
+    void reserveTextures();
     void paint();
 
     void add(BaseTile* texture)
@@ -58,13 +59,17 @@ public:
 
     TiledPage* page()
     {
-        return m_tiledPage;
+        if (m_tiles.size())
+            return m_tiles[0]->page();
+        return 0;
     }
 
 private:
     Vector<BaseTile*> m_tiles;
 
-    TiledPage* m_tiledPage;
+    int m_id;
+    int m_firstTileX;
+    int m_firstTileY;
     int m_nbRows;
     int m_nbCols;
 };
