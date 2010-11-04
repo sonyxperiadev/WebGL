@@ -60,7 +60,7 @@ class WebFrame : public WebCoreRefObject {
     // helper function
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
-    int inputStreamForAndroidResource(const char* url, int type);
+    int inputStreamForAndroidResource(const char* url);
 
     virtual PassRefPtr<WebCore::ResourceLoaderAndroid> startLoadingResource(WebCore::ResourceHandle*,
             const WebCore::ResourceRequest& request, bool mainResource,

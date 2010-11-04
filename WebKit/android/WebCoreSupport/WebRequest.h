@@ -60,7 +60,8 @@ public:
     WebRequest(WebUrlLoaderClient*, const WebResourceRequest&, int inputStream);
 
     // Optional, but if used has to be called before start
-    void AppendBytesToUpload(Vector<char>* data);
+    void appendBytesToUpload(Vector<char>* data);
+    void appendFileToUpload(std::string filename);
 
     void start(bool isPrivateBrowsing);
     void cancel();

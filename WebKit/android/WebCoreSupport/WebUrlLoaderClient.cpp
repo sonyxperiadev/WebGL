@@ -37,6 +37,31 @@
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
 
+#include <wtf/text/CString.h>
+
+namespace {
+const char* androidAsset = "file:///android_asset/";
+const char* androidResource = "file:///android_res/";
+const char* androidContent = "content:";
+const int androidAssetLen = strlen(androidAsset);
+const int androidResourceLen = strlen(androidResource);
+const int androidContentLen = strlen(androidContent);
+
+bool isAndroidUrl(const std::string& url)
+{
+    if (!url.compare(0, androidAssetLen, androidAsset))
+        return true;
+
+    if (!url.compare(0, androidResourceLen, androidResource))
+        return true;
+
+    if (!url.compare(0, androidContentLen, androidContent))
+        return true;
+
+    return false;
+}
+}
+
 namespace android {
 
 base::Thread* WebUrlLoaderClient::ioThread()
@@ -93,8 +118,8 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     , m_finished(false)
 {
     WebResourceRequest webResourceRequest(resourceRequest);
-    if (webResourceRequest.isAndroidUrl()) {
-        int inputStream = webFrame->inputStreamForAndroidResource(webResourceRequest.url().c_str(), webResourceRequest.androidFileType());
+    if (isAndroidUrl(webResourceRequest.url())) {
+        int inputStream = webFrame->inputStreamForAndroidResource(webResourceRequest.url().c_str());
         m_request = new WebRequest(this, webResourceRequest, inputStream);
         return;
     }
@@ -107,6 +132,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
         Vector<FormDataElement> elements = resourceRequest.httpBody()->elements();
         for (iter = elements.begin(); iter != elements.end(); iter++) {
             FormDataElement element = *iter;
+
             switch (element.m_type) {
             case FormDataElement::data:
                 if (!element.m_data.isEmpty()) {
@@ -115,22 +141,29 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                     base::Thread* thread = ioThread();
                     if (thread) {
                         Vector<char>* data = new Vector<char>(element.m_data);
-                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::AppendBytesToUpload, data));
+                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::appendBytesToUpload, data));
+                    }
+                }
+                break;
+            case FormDataElement::encodedFile:
+                {
+                    // Chromium check if it is a directory by checking
+                    // element.m_fileLength, that doesn't work in Android
+                    std::string filename = element.m_filename.utf8().data();
+                    if (filename.size() > 0) {
+                        base::Thread* thread = ioThread();
+                        if (thread)
+                            thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::appendFileToUpload, filename));
                     }
                 }
                 break;
 #if ENABLE(BLOB)
-            case FormDataElement::encodedFile:
-                if (element.m_fileLength == -1)
-                    continue; // TODO: Not supporting directories yet
-                else {
-                    // TODO: Add fileuploads after Google log-in is fixed.
-                    // Chrome code is here: webkit/glue/weburlloader_impl.cc:391
-                }
+            case FormDataElement::encodedBlob:
+                LOG_ASSERT(false, "Unexpected use of FormDataElement::encodedBlob");
                 break;
-#endif
+#endif // ENABLE(BLOB)
             default:
-                // TODO: Add a warning/DCHECK/assert here, should never happen
+                LOG_ASSERT(false, "Unexpected default case in WebUrlLoaderClient.cpp");
                 break;
             }
         }

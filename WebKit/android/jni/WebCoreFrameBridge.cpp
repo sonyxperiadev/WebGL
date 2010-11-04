@@ -234,7 +234,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame = new JavaBrowserFrame;
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
-    mJavaFrame->mInputStreamForAndroidResource = env->GetMethodID(clazz, "inputStreamForAndroidResource", "(Ljava/lang/String;I)Ljava/io/InputStream;");
+    mJavaFrame->mInputStreamForAndroidResource = env->GetMethodID(clazz, "inputStreamForAndroidResource", "(Ljava/lang/String;)Ljava/io/InputStream;");
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
             "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
@@ -382,13 +382,13 @@ private:
     int m_size;
 };
 
-int WebFrame::inputStreamForAndroidResource(const char* url, int type)
+int WebFrame::inputStreamForAndroidResource(const char* url)
 {
     JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     jstring jUrlStr = env->NewStringUTF(url);
 
-    jobject jInputStream = env->CallObjectMethod(obj.get(), mJavaFrame->mInputStreamForAndroidResource, jUrlStr, type);
+    jobject jInputStream = env->CallObjectMethod(obj.get(), mJavaFrame->mInputStreamForAndroidResource, jUrlStr);
     env->DeleteLocalRef(jUrlStr);
 
     return (int)jInputStream;
