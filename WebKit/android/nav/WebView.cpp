@@ -416,7 +416,9 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     if (!m_baseLayer)
         return false;
 
+#if 0
     m_glWebViewState.resetExtra(false);
+#endif
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
@@ -444,12 +446,14 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     }
 
     unsigned int pic = m_glWebViewState.currentPictureCounter();
+#if 0
     if (extra) {
         LayerAndroid* mainPicture = new LayerAndroid(m_navPictureUI);
         m_glWebViewState.setExtra(extra, mainPicture);
     } else {
         m_glWebViewState.resetExtra(true);
     }
+#endif
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
