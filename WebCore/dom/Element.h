@@ -40,6 +40,12 @@ class DOMTokenList;
 class ElementRareData;
 class IntSize;
 
+enum SpellcheckAttributeState {
+    SpellcheckAttributeTrue,
+    SpellcheckAttributeFalse,
+    SpellcheckAttributeDefault
+};
+
 class Element : public ContainerNode {
 public:
     static PassRefPtr<Element> create(const QualifiedName&, Document*);
@@ -158,6 +164,8 @@ public:
     virtual void setScrollTop(int);
     virtual int scrollWidth() const;
     virtual int scrollHeight() const;
+
+    IntRect boundsInWindowSpace() const;
 
     PassRefPtr<ClientRectList> getClientRects() const;
     PassRefPtr<ClientRect> getBoundingClientRect() const;
@@ -318,6 +326,8 @@ public:
     void webkitRequestFullScreen(unsigned short flags);
 #endif
 
+    bool isSpellCheckingEnabled() const;
+
 protected:
     Element(const QualifiedName& tagName, Document* document, ConstructionType type)
         : ContainerNode(document, type)
@@ -373,7 +383,9 @@ private:
 
     ElementRareData* rareData() const;
     ElementRareData* ensureRareData();
-    
+
+    SpellcheckAttributeState spellcheckAttributeState() const;
+
 private:
     mutable RefPtr<NamedNodeMap> m_attributeMap;
 };

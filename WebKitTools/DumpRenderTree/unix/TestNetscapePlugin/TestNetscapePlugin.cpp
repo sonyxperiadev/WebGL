@@ -105,7 +105,7 @@ webkit_test_plugin_new_instance(NPMIMEType /*mimetype*/,
 }
 
 static NPError
-webkit_test_plugin_destroy_instance(NPP instance, NPSavedData** /*save*/)
+webkit_test_plugin_destroy_instance(NPP instance, NPSavedData** save)
 {
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
     if (obj) {
@@ -128,6 +128,8 @@ webkit_test_plugin_destroy_instance(NPP instance, NPSavedData** /*save*/)
 
         if (obj->onSetWindow)
             free(obj->onSetWindow);
+
+        obj->pluginTest->NPP_Destroy(save);
 
         browser->releaseobject(&obj->header);
     }
@@ -157,7 +159,7 @@ webkit_test_plugin_set_window(NPP instance, NPWindow *window)
 
     }
 
-    return NPERR_NO_ERROR;
+    return obj->pluginTest->NPP_SetWindow(instance, window);
 }
 
 static void executeScript(const PluginObject* obj, const char* script)
@@ -386,6 +388,7 @@ NP_Initialize (NPNetscapeFuncs *aMozillaVTable, NPPluginFuncs *aPluginVTable)
         return NPERR_INVALID_FUNCTABLE_ERROR;
 
     browser = aMozillaVTable;
+    pluginFunctions = aPluginVTable;
 
         aPluginVTable->size           = sizeof (NPPluginFuncs);
         aPluginVTable->version        = (NP_VERSION_MAJOR << 8) + NP_VERSION_MINOR;

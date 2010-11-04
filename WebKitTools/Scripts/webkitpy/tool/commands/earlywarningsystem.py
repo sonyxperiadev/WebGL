@@ -50,8 +50,7 @@ class AbstractEarlyWarningSystem(AbstractReviewQueue):
                 self.port.flag(),
                 "--build-style=%s" % self._build_style,
                 "--force-clean",
-                "--no-update",
-                "--quiet"])
+                "--no-update"])
             return True
         except ScriptError, e:
             failure_log = self._log_from_script_error_for_upload(e)
@@ -81,6 +80,14 @@ class AbstractEarlyWarningSystem(AbstractReviewQueue):
             raise
 
     def review_patch(self, patch):
+        if patch.is_obsolete():
+            self._did_error(patch, "%s does not process obsolete patches." % self.name)
+            return False
+
+        if patch.bug().is_closed():
+            self._did_error(patch, "%s does not process patches on closed bugs." % self.name)
+            return False
+
         if not self._build(patch, first_run=True):
             if not self._can_build():
                 return False

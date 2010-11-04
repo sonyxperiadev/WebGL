@@ -25,6 +25,7 @@
 #include "ChromeClientGtk.h"
 
 #include "Console.h"
+#include "DumpRenderTreeSupportGtk.h"
 #include "FileSystem.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
@@ -35,6 +36,7 @@
 #include "HitTestResult.h"
 #include "Icon.h"
 #include "KURL.h"
+#include "NavigationAction.h"
 #include "PlatformString.h"
 #include "PopupMenuClient.h"
 #include "PopupMenuGtk.h"
@@ -137,7 +139,7 @@ void ChromeClient::unfocus()
         gtk_window_set_focus(GTK_WINDOW(window), NULL);
 }
 
-Page* ChromeClient::createWindow(Frame* frame, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& coreFeatures)
+Page* ChromeClient::createWindow(Frame* frame, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& coreFeatures, const NavigationAction&)
 {
     WebKitWebView* webView = 0;
 
@@ -330,6 +332,9 @@ bool ChromeClient::shouldInterruptJavaScript()
 
 bool ChromeClient::tabsToLinks() const
 {
+    if (DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
+        return DumpRenderTreeSupportGtk::linksIncludedInFocusChain();
+
     return true;
 }
 

@@ -39,11 +39,12 @@
 #include "FrameView.h"
 #include "Geolocation.h"
 #if USE(ACCELERATED_COMPOSITING)
-#include "GraphicsLayerQt.h"
+#include "GraphicsLayer.h"
 #endif
 #include "GeolocationPermissionClientQt.h"
 #include "HitTestResult.h"
 #include "Icon.h"
+#include "NavigationAction.h"
 #include "NetworkingContext.h"
 #include "NotImplemented.h"
 #include "NotificationPresenterClientQt.h"
@@ -169,7 +170,7 @@ void ChromeClientQt::focusedNodeChanged(WebCore::Node*)
 }
 
 
-Page* ChromeClientQt::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features)
+Page* ChromeClientQt::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features, const NavigationAction&)
 {
     QWebPage* newPage = m_webPage->createWindow(features.dialog ? QWebPage::WebModalDialog : QWebPage::WebBrowserWindow);
     if (!newPage)
@@ -590,7 +591,7 @@ void ChromeClientQt::cancelGeolocationPermissionRequestForFrame(Frame* frame, Ge
 void ChromeClientQt::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
 {
     if (platformPageClient())
-        platformPageClient()->setRootGraphicsLayer(graphicsLayer ? graphicsLayer->nativeLayer() : 0);
+        platformPageClient()->setRootGraphicsLayer(graphicsLayer ? graphicsLayer->platformLayer() : 0);
 }
 
 void ChromeClientQt::setNeedsOneShotDrawingSynchronization()

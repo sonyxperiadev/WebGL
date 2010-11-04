@@ -32,6 +32,7 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -39,7 +40,7 @@
 #if OS(WINDOWS)
 #include "PlatformString.h"
 #include <windows.h>
-#elif OS(LINUX) || OS(FREEBSD)
+#elif OS(LINUX) || OS(FREEBSD) || PLATFORM(BREWMP)
 #include "SkTypeface.h"
 #endif
 
@@ -54,7 +55,7 @@ struct FontCustomPlatformData : Noncopyable {
         : m_fontReference(fontReference)
         , m_name(name)
     {}
-#elif OS(LINUX) || OS(FREEBSD)
+#elif OS(LINUX) || OS(FREEBSD) || PLATFORM(BREWMP)
     explicit FontCustomPlatformData(SkTypeface* typeface)
         : m_fontReference(typeface)
     {}
@@ -62,7 +63,7 @@ struct FontCustomPlatformData : Noncopyable {
 
     ~FontCustomPlatformData();
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic,
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation = Horizontal,
                                       FontRenderingMode = NormalRenderingMode);
 
     static bool supportsFormat(const String&);
@@ -70,7 +71,7 @@ struct FontCustomPlatformData : Noncopyable {
 #if OS(WINDOWS)
     HANDLE m_fontReference;
     String m_name;
-#elif OS(LINUX) || OS(FREEBSD)
+#elif OS(LINUX) || OS(FREEBSD) || PLATFORM(BREWMP)
     SkTypeface* m_fontReference;
 #endif
 };

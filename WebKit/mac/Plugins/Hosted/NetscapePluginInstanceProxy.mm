@@ -872,9 +872,9 @@ bool NetscapePluginInstanceProxy::evaluate(uint32_t objectID, const String& scri
     bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
     frame->script()->setAllowPopupsFromPlugin(allowPopups);
     
-    globalObject->globalData()->timeoutChecker.start();
+    globalObject->globalData().timeoutChecker.start();
     Completion completion = JSC::evaluate(exec, globalObject->globalScopeChain(), makeSource(script));
-    globalObject->globalData()->timeoutChecker.stop();
+    globalObject->globalData().timeoutChecker.stop();
     ComplType type = completion.complType();
 
     frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);
@@ -921,9 +921,9 @@ bool NetscapePluginInstanceProxy::invoke(uint32_t objectID, const Identifier& me
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
     ProtectedPtr<JSGlobalObject> globalObject = frame->script()->globalObject(pluginWorld());
-    globalObject->globalData()->timeoutChecker.start();
+    globalObject->globalData().timeoutChecker.start();
     JSValue value = call(exec, function, callType, callData, object, argList);
-    globalObject->globalData()->timeoutChecker.stop();
+    globalObject->globalData().timeoutChecker.stop();
         
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -956,9 +956,9 @@ bool NetscapePluginInstanceProxy::invokeDefault(uint32_t objectID, data_t argume
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
     ProtectedPtr<JSGlobalObject> globalObject = frame->script()->globalObject(pluginWorld());
-    globalObject->globalData()->timeoutChecker.start();
+    globalObject->globalData().timeoutChecker.start();
     JSValue value = call(exec, object, callType, callData, object, argList);
-    globalObject->globalData()->timeoutChecker.stop();
+    globalObject->globalData().timeoutChecker.stop();
     
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -992,9 +992,9 @@ bool NetscapePluginInstanceProxy::construct(uint32_t objectID, data_t argumentsD
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
     ProtectedPtr<JSGlobalObject> globalObject = frame->script()->globalObject(pluginWorld());
-    globalObject->globalData()->timeoutChecker.start();
+    globalObject->globalData().timeoutChecker.start();
     JSValue value = JSC::construct(exec, object, constructType, constructData, argList);
-    globalObject->globalData()->timeoutChecker.stop();
+    globalObject->globalData().timeoutChecker.stop();
     
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -1334,7 +1334,7 @@ bool NetscapePluginInstanceProxy::demarshalValueFromArray(ExecState* exec, NSArr
             result = jsBoolean([[array objectAtIndex:index++] boolValue]);
             return true;
         case DoubleValueType:
-            result = jsNumber(exec, [[array objectAtIndex:index++] doubleValue]);
+            result = jsNumber([[array objectAtIndex:index++] doubleValue]);
             return true;
         case StringValueType: {
             NSString *string = [array objectAtIndex:index++];

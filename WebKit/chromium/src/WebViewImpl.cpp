@@ -33,6 +33,7 @@
 
 #include "AutoFillPopupMenuClient.h"
 #include "AXObjectCache.h"
+#include "BackForwardListImpl.h"
 #include "Chrome.h"
 #include "ColorSpace.h"
 #include "CompositionUnderlineVectorBuilder.h"
@@ -88,6 +89,7 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "SpeechInputClientImpl.h"
 #include "Timer.h"
 #include "TypingCommand.h"
 #include "UserGestureIndicator.h"
@@ -182,6 +184,8 @@ static const PopupContainerSettings autoFillPopupSettings = {
     PopupContainerSettings::DOMElementDirection,
 };
 
+static bool shouldUseExternalPopupMenus = false;
+
 // WebView ----------------------------------------------------------------
 
 WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devToolsClient)
@@ -191,6 +195,11 @@ WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devTools
 
     // Pass the WebViewImpl's self-reference to the caller.
     return adoptRef(new WebViewImpl(client, devToolsClient)).leakRef();
+}
+
+void WebView::setUseExternalPopupMenus(bool useExternalPopupMenus)
+{
+    shouldUseExternalPopupMenus = useExternalPopupMenus;
 }
 
 void WebView::updateVisitedLinkState(unsigned long long linkHash)
@@ -275,7 +284,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_compositorCreationFailed(false)
 #endif
 #if ENABLE(INPUT_SPEECH)
-    , m_speechInputClient(client)
+    , m_speechInputClient(SpeechInputClientImpl::create(client))
 #endif
     , m_deviceOrientationClientProxy(new DeviceOrientationClientProxy(client ? client->deviceOrientationClient() : 0))
 {
@@ -298,13 +307,13 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     pageClients.dragClient = &m_dragClientImpl;
     pageClients.inspectorClient = &m_inspectorClientImpl;
 #if ENABLE(INPUT_SPEECH)
-    pageClients.speechInputClient = &m_speechInputClient;
+    pageClients.speechInputClient = m_speechInputClient.get();
 #endif
     pageClients.deviceOrientationClient = m_deviceOrientationClientProxy.get();
 
     m_page.set(new Page(pageClients));
 
-    m_page->backForwardList()->setClient(&m_backForwardListClientImpl);
+    static_cast<BackForwardListImpl*>(m_page->backForwardList())->setClient(&m_backForwardListClientImpl);
     m_page->setGroupName(pageGroupName);
 
     m_inspectorSettingsMap.set(new SettingsMap);
@@ -1039,6 +1048,10 @@ void WebViewImpl::composite(bool finish)
 
     // Put result onscreen.
     m_layerRenderer->present();
+
+    GraphicsContext3D* context = m_layerRenderer->context();
+    if (context->getGraphicsResetStatusARB() != GraphicsContext3D::NO_ERROR)
+        reallocateRenderer();
 #endif
 }
 
@@ -2107,6 +2120,11 @@ void WebViewImpl::didCommitLoad(bool* isNewNavigation)
     m_observedNewNavigation = false;
 }
 
+bool WebViewImpl::useExternalPopupMenus()
+{
+    return shouldUseExternalPopupMenus;
+}
+
 bool WebViewImpl::navigationPolicyFromMouseEvent(unsigned short button,
                                                  bool ctrl, bool shift,
                                                  bool alt, bool meta,
@@ -2476,6 +2494,22 @@ void WebViewImpl::doComposite()
     // Draw the actual layers...
     m_layerRenderer->drawLayers(visibleRect, contentRect);
 }
+
+void WebViewImpl::reallocateRenderer()
+{
+    GraphicsContext3D* context = m_layerRenderer->context();
+    RefPtr<GraphicsContext3D> newContext = GraphicsContext3D::create(context->getContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+    // GraphicsContext3D::create might fail and return 0, in that case LayerRendererChromium::create will also return 0.
+    RefPtr<LayerRendererChromium> layerRenderer = LayerRendererChromium::create(newContext);
+
+    // Reattach the root layer.  Child layers will get reattached as a side effect of updateLayersRecursive.
+    if (layerRenderer)
+        m_layerRenderer->transferRootLayer(layerRenderer.get());
+    m_layerRenderer = layerRenderer;
+
+    // Enable or disable accelerated compositing and request a refresh.
+    setRootGraphicsLayer(m_layerRenderer ? m_layerRenderer->rootLayer() : 0);
+}
 #endif
 
 
@@ -2491,10 +2525,8 @@ WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
         else {
             GraphicsContext3D::Attributes attributes;
             m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
-#if OS(DARWIN)
             if (m_temporaryOnscreenGraphicsContext3D)
                 m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
-#endif
             context = m_temporaryOnscreenGraphicsContext3D.get();
         }
         return GraphicsContext3DInternal::extractWebGraphicsContext3D(context);

@@ -34,6 +34,7 @@ WebInspector.Resource = function(identifier, url)
     this._endTime = -1;
     this._requestMethod = "";
     this._category = WebInspector.resourceCategories.other;
+    this._pendingContentCallbacks = [];
 }
 
 // Keep these in sync with WebCore::InspectorResource::Type
@@ -74,11 +75,11 @@ WebInspector.Resource.Type = {
             case this.Script:
                 return "script";
             case this.XHR:
-                return "XHR";
+                return "xhr";
             case this.Media:
                 return "media";
             case this.WebSocket:
-                return "WebSocket";
+                return "websocket";
             case this.Other:
             default:
                 return "other";
@@ -105,9 +106,16 @@ WebInspector.Resource.prototype = {
         this.path = parsedURL ? parsedURL.path : "";
         this.lastPathComponent = "";
         if (parsedURL && parsedURL.path) {
-            var lastSlashIndex = parsedURL.path.lastIndexOf("/");
+            // First cut the query params.
+            var path = parsedURL.path;
+            var indexOfQuery = path.indexOf("?");
+            if (indexOfQuery !== -1)
+                path = path.substring(0, indexOfQuery);
+
+            // Then take last path component.
+            var lastSlashIndex = path.lastIndexOf("/");
             if (lastSlashIndex !== -1)
-                this.lastPathComponent = parsedURL.path.substring(lastSlashIndex + 1);
+                this.lastPathComponent = path.substring(lastSlashIndex + 1);
         }
         this.lastPathComponentLowerCase = this.lastPathComponent.toLowerCase();
     },
@@ -247,6 +255,8 @@ WebInspector.Resource.prototype = {
         if (x) {
             this._checkWarnings();
             this.dispatchEventToListeners("finished");
+            if (this._pendingContentCallbacks.length)
+                this._requestContent();
         }
     },
 
@@ -267,17 +277,7 @@ WebInspector.Resource.prototype = {
 
     set category(x)
     {
-        if (this._category === x)
-            return;
-
-        var oldCategory = this._category;
-        if (oldCategory)
-            oldCategory.removeResource(this);
-
         this._category = x;
-
-        if (this._category)
-            this._category.addResource(this);
     },
 
     get cached()
@@ -530,6 +530,7 @@ WebInspector.Resource.prototype = {
     set errors(x)
     {
         this._errors = x;
+        this.dispatchEventToListeners("errors-warnings-updated");
     },
 
     get warnings()
@@ -540,6 +541,14 @@ WebInspector.Resource.prototype = {
     set warnings(x)
     {
         this._warnings = x;
+        this.dispatchEventToListeners("errors-warnings-updated");
+    },
+
+    clearErrorsAndWarnings: function()
+    {
+        this._warnings = 0;
+        this._errors = 0;
+        this.dispatchEventToListeners("errors-warnings-updated");
     },
 
     _mimeTypeIsConsistentWithType: function()
@@ -555,6 +564,9 @@ WebInspector.Resource.prototype = {
          || this.type === WebInspector.Resource.Type.XHR
          || this.type === WebInspector.Resource.Type.WebSocket)
             return true;
+
+        if (!this.mimeType)
+            return true; // Might be not known for cached resources with null responses.
 
         if (this.mimeType in WebInspector.MIMETypes)
             return this.type in WebInspector.MIMETypes[this.mimeType];
@@ -575,7 +587,7 @@ WebInspector.Resource.prototype = {
             case WebInspector.Warnings.IncorrectMIMEType.id:
                 if (!this._mimeTypeIsConsistentWithType())
                     msg = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.Other,
-                        WebInspector.ConsoleMessage.MessageType.Log, 
+                        WebInspector.ConsoleMessage.MessageType.Log,
                         WebInspector.ConsoleMessage.MessageLevel.Warning,
                         -1,
                         this.url,
@@ -591,13 +603,48 @@ WebInspector.Resource.prototype = {
             WebInspector.console.addMessage(msg);
     },
 
-    getContents: function(callback)
+    set content(content)
     {
-        // FIXME: eventually, cached resources will have no identifiers.
-        if (this.frameID)
-            InspectorBackend.resourceContent(this.frameID, this.url, callback);
-        else
-            InspectorBackend.getResourceContent(this.identifier, false, callback);
+        this._content = content;
+    },
+
+    getContent: function(callback)
+    {
+        if (this._content) {
+            callback(this._content, this._contentEncoded);
+            return;
+        }
+        this._pendingContentCallbacks.push(callback);
+        if (this.finished)
+            this._requestContent();
+    },
+
+    get contentURL()
+    {
+        const maxDataUrlSize = 1024 * 1024;
+        // If resource content is not available or won't fit a data URL, fall back to using original URL.
+        if (!this._content || this._content.length > maxDataUrlSize)
+            return this.url;
+
+        return "data:" + this.mimeType + (this._contentEncoded ? ";base64," : ",") + this._content;
+    },
+
+    _requestContent: function()
+    {
+        if (this._contentRequested)
+            return;
+        this._contentRequested = true;
+        this._contentEncoded = !WebInspector.Resource.Type.isTextType(this.type);
+
+        function onResourceContent(data)
+        {
+            this._content = data;
+            var callbacks = this._pendingContentCallbacks.slice();
+            for (var i = 0; i < callbacks.length; ++i)
+                callbacks[i](this._content, this._contentEncoded);
+            this._pendingContentCallbacks.length = 0;
+        }
+        WebInspector.ResourceManager.getContent(this, this._contentEncoded, onResourceContent.bind(this));
     }
 }
 

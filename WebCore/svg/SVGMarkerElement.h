@@ -24,6 +24,8 @@
 #if ENABLE(SVG)
 #include "RenderObject.h"
 #include "SVGAngle.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGFitToViewBox.h"
 #include "SVGLangSpace.h"
@@ -32,9 +34,6 @@
 namespace WebCore {
 
 class Document;
-
-extern char SVGOrientTypeAttrIdentifier[];
-extern char SVGOrientAngleAttrIdentifier[];
 
 class SVGMarkerElement : public SVGStyledElement,
                          public SVGLangSpace,
@@ -74,19 +73,22 @@ private:
 
     virtual bool selfHasRelativeLengths() const;
 
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::refXAttr, SVGLength, RefX, refX)
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::refYAttr, SVGLength, RefY, refY)
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::markerWidthAttr, SVGLength, MarkerWidth, markerWidth)
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::markerHeightAttr, SVGLength, MarkerHeight, markerHeight)
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::markerUnitsAttr, int, MarkerUnits, markerUnits)
-    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGMarkerElement, SVGNames::orientAttr, SVGOrientTypeAttrIdentifier, int, OrientType, orientType)
-    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGMarkerElement, SVGNames::orientAttr, SVGOrientAngleAttrIdentifier, SVGAngle, OrientAngle, orientAngle)
+    static const AtomicString& orientTypeIdentifier();
+    static const AtomicString& orientAngleIdentifier();
+
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGMarkerElement, SVGNames::refXAttr, SVGLength, RefX, refX)
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGMarkerElement, SVGNames::refYAttr, SVGLength, RefY, refY)
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGMarkerElement, SVGNames::markerWidthAttr, SVGLength, MarkerWidth, markerWidth)
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGMarkerElement, SVGNames::markerHeightAttr, SVGLength, MarkerHeight, markerHeight)
+    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMarkerElement, SVGNames::markerUnitsAttr, int, MarkerUnits, markerUnits)
+    DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGMarkerElement, SVGNames::orientAttr, orientTypeIdentifier(), int, OrientType, orientType)
+    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGMarkerElement, SVGNames::orientAttr, orientAngleIdentifier(), SVGAngle, OrientAngle, orientAngle)
 
     // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMarkerElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
 
     // SVGFitToViewBox
-    DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGMarkerElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
     DECLARE_ANIMATED_PROPERTY(SVGMarkerElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
 };
 

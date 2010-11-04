@@ -30,6 +30,9 @@
 #include <cmath>
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebKit2/WKArray.h>
+#include <WebKit2/WKBundle.h>
+#include <WebKit2/WKBundleBackForwardList.h>
+#include <WebKit2/WKBundleBackForwardListItem.h>
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
@@ -37,6 +40,16 @@
 using namespace std;
 
 namespace WTR {
+
+template<typename T> static inline WKRetainPtr<T> adoptWK(T item)
+{
+    return WKRetainPtr<T>(AdoptWK, item);
+}
+
+static bool hasPrefix(const string& searchString, const string& prefix)
+{
+    return searchString.length() >= prefix.length() && searchString.substr(0, prefix.length()) == prefix;
+}
 
 static JSValueRef propertyValue(JSContextRef context, JSObjectRef object, const char* propertyName)
 {
@@ -171,13 +184,13 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         0,
         0,
         0,
+        didDisplayInsecureContentForFrame,
+        didRunInsecureContentForFrame,
         didClearWindowForFrame,
         didCancelClientRedirectForFrame,
         willPerformClientRedirectForFrame,
         didChangeLocationWithinPageForFrame,
-        didHandleOnloadEventsForFrame,
-        didDisplayInsecureContentForFrame,
-        didRunInsecureContentForFrame
+        didHandleOnloadEventsForFrame
     };
     WKBundlePageSetLoaderClient(m_page, &loaderClient);
 
@@ -189,7 +202,8 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         willRunJavaScriptAlert,
         willRunJavaScriptConfirm,
         willRunJavaScriptPrompt,
-        0 /*mouseDidMoveOverElement*/
+        0, /*mouseDidMoveOverElement*/
+        0, /*pageDidScroll*/
     };
     WKBundlePageSetUIClient(m_page, &uiClient);
 
@@ -227,6 +241,8 @@ void InjectedBundlePage::reset()
 
     WKBundlePageSetPageZoomFactor(m_page, 1);
     WKBundlePageSetTextZoomFactor(m_page, 1);
+
+    m_previousTestBackForwardListItem = adoptWK(WKBundleBackForwardListCopyItemAtIndex(WKBundlePageGetBackForwardList(m_page), 0));
 }
 
 // Loader Client Callbacks
@@ -296,12 +312,12 @@ void InjectedBundlePage::didHandleOnloadEventsForFrame(WKBundlePageRef page, WKB
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didHandleOnloadEventsForFrame(frame);
 }
 
-void InjectedBundlePage::didDisplayInsecureContentForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void* clientInfo)
+void InjectedBundlePage::didDisplayInsecureContentForFrame(WKBundlePageRef page, WKBundleFrameRef frame, WKTypeRef*, const void* clientInfo)
 {
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didDisplayInsecureContentForFrame(frame);
 }
 
-void InjectedBundlePage::didRunInsecureContentForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void* clientInfo)
+void InjectedBundlePage::didRunInsecureContentForFrame(WKBundlePageRef page, WKBundleFrameRef frame, WKTypeRef*, const void* clientInfo)
 {
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didRunInsecureContentForFrame(frame);
 }
@@ -361,8 +377,38 @@ void InjectedBundlePage::dumpAllFrameScrollPositions()
     dumpDescendantFrameScrollPositions(frame);
 }
 
+static JSRetainPtr<JSStringRef> toJS(const char* string)
+{
+    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithUTF8CString(string));
+}
+
+static bool hasDocumentElement(WKBundleFrameRef frame)
+{
+    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContext(frame);
+    JSObjectRef globalObject = JSContextGetGlobalObject(context);
+
+    JSValueRef documentValue = JSObjectGetProperty(context, globalObject, toJS("document").get(), 0);
+    if (!documentValue)
+        return false;
+
+    ASSERT(JSValueIsObject(context, documentValue));
+    JSObjectRef document = JSValueToObject(context, documentValue, 0);
+
+    JSValueRef documentElementValue = JSObjectGetProperty(context, document, toJS("documentElement").get(), 0);
+    if (!documentElementValue)
+        return false;
+
+    return JSValueToBoolean(context, documentElementValue);
+}
+
 static void dumpFrameText(WKBundleFrameRef frame)
 {
+    // If the frame doesn't have a document element, its inner text will be an empty string, so
+    // we'll end up just appending a single newline below. But DumpRenderTree doesn't append
+    // anything in this case, so we shouldn't either.
+    if (!hasDocumentElement(frame))
+        return;
+
     WKRetainPtr<WKStringRef> text(AdoptWK, WKBundleFrameCopyInnerText(frame));
     InjectedBundle::shared().os() << text << "\n";
 }
@@ -411,6 +457,9 @@ void InjectedBundlePage::dump()
         dumpAllFrameScrollPositions();
     else if (InjectedBundle::shared().layoutTestController()->shouldDumpMainFrameScrollPosition())
         dumpFrameScrollPosition(WKBundlePageGetMainFrame(m_page));
+
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpBackForwardListsForAllWindows())
+        InjectedBundle::shared().dumpBackForwardListsForAllPages();
 
     InjectedBundle::shared().done();
 }
@@ -762,6 +811,91 @@ void InjectedBundlePage::didChangeSelection(WKStringRef notificationName)
 
     if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
         InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidChangeSelection:" << notificationName << "\n";
+}
+
+static bool compareByTargetName(WKBundleBackForwardListItemRef item1, WKBundleBackForwardListItemRef item2)
+{
+    return toSTD(adoptWK(WKBundleBackForwardListItemCopyTarget(item1))) < toSTD(adoptWK(WKBundleBackForwardListItemCopyTarget(item2)));
+}
+
+static void dumpBackForwardListItem(WKBundleBackForwardListItemRef item, unsigned indent, bool isCurrentItem)
+{
+    unsigned column = 0;
+    if (isCurrentItem) {
+        InjectedBundle::shared().os() << "curr->";
+        column = 6;
+    }
+    for (unsigned i = column; i < indent; i++)
+        InjectedBundle::shared().os() << ' ';
+
+    string url = toSTD(adoptWK(WKURLCopyString(adoptWK(WKBundleBackForwardListItemCopyURL(item)).get())));
+    if (hasPrefix(url, "file:")) {
+        string directoryName = "/LayoutTests/";
+        size_t start = url.find(directoryName);
+        if (start == string::npos)
+            start = 0;
+        else
+            start += directoryName.size();
+        InjectedBundle::shared().os() << "(file test):" << url.substr(start);
+    } else
+        InjectedBundle::shared().os() << url;
+
+    string target = toSTD(adoptWK(WKBundleBackForwardListItemCopyTarget(item)));
+    if (target.length())
+        InjectedBundle::shared().os() << " (in frame \"" << target << "\")";
+
+    // FIXME: Need WKBackForwardListItemIsTargetItem.
+    if (WKBundleBackForwardListItemIsTargetItem(item))
+        InjectedBundle::shared().os() << "  **nav target**";
+
+    InjectedBundle::shared().os() << '\n';
+
+    if (WKRetainPtr<WKArrayRef> kids = adoptWK(WKBundleBackForwardListItemCopyChildren(item))) {
+        // Sort to eliminate arbitrary result ordering which defeats reproducible testing.
+        size_t size = WKArrayGetSize(kids.get());
+        Vector<WKBundleBackForwardListItemRef> sortedKids(size);
+        for (size_t i = 0; i < size; ++i)
+            sortedKids[i] = static_cast<WKBundleBackForwardListItemRef>(WKArrayGetItemAtIndex(kids.get(), i));
+        stable_sort(sortedKids.begin(), sortedKids.end(), compareByTargetName);
+        for (size_t i = 0; i < size; ++i)
+            dumpBackForwardListItem(sortedKids[i], indent + 4, false);
+    }
+}
+
+void InjectedBundlePage::dumpBackForwardList()
+{
+    InjectedBundle::shared().os() << "\n============== Back Forward List ==============\n";
+
+    WKBundleBackForwardListRef list = WKBundlePageGetBackForwardList(m_page);
+
+    // Print out all items in the list after m_previousTestBackForwardListItem.
+    // Gather items from the end of the list, then print them out from oldest to newest.
+    Vector<WKRetainPtr<WKBundleBackForwardListItemRef> > itemsToPrint;
+    for (unsigned i = WKBundleBackForwardListGetForwardListCount(list); i; --i) {
+        WKRetainPtr<WKBundleBackForwardListItemRef> item = adoptWK(WKBundleBackForwardListCopyItemAtIndex(list, i));
+        // Something is wrong if the item from the last test is in the forward part of the list.
+        ASSERT(!WKBundleBackForwardListItemIsSame(item.get(), m_previousTestBackForwardListItem.get()));
+        itemsToPrint.append(item);
+    }
+
+    ASSERT(!WKBundleBackForwardListItemIsSame(adoptWK(WKBundleBackForwardListCopyItemAtIndex(list, 0)).get(), m_previousTestBackForwardListItem.get()));
+
+    itemsToPrint.append(adoptWK(WKBundleBackForwardListCopyItemAtIndex(list, 0)));
+
+    int currentItemIndex = itemsToPrint.size() - 1;
+
+    int backListCount = WKBundleBackForwardListGetBackListCount(list);
+    for (int i = -1; i >= -backListCount; --i) {
+        WKRetainPtr<WKBundleBackForwardListItemRef> item = adoptWK(WKBundleBackForwardListCopyItemAtIndex(list, i));
+        if (WKBundleBackForwardListItemIsSame(item.get(), m_previousTestBackForwardListItem.get()))
+            break;
+        itemsToPrint.append(item);
+    }
+
+    for (int i = itemsToPrint.size() - 1; i >= 0; i--)
+        dumpBackForwardListItem(itemsToPrint[i].get(), 8, i == currentItemIndex);
+
+    InjectedBundle::shared().os() << "===============================================\n";
 }
 
 } // namespace WTR

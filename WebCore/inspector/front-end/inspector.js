@@ -50,7 +50,6 @@
 
 var WebInspector = {
     resources: {},
-    resourceURLMap: {},
     cookieDomains: {},
     applicationCacheDomains: {},
     missingLocalizedStrings: {},
@@ -182,7 +181,7 @@ var WebInspector = {
 
         for (var panelName in WebInspector.panels) {
             if (WebInspector.panels[panelName] === x) {
-                InspectorBackend.storeLastActivePanel(panelName);
+                WebInspector.applicationSettings.lastActivePanel = panelName;
                 this._panelHistory.setPanel(panelName);
             }
         }
@@ -226,10 +225,17 @@ var WebInspector = {
         var hiddenPanels = (InspectorFrontendHost.hiddenPanels() || "").split(',');
         if (hiddenPanels.indexOf("elements") === -1)
             this.panels.elements = new WebInspector.ElementsPanel();
+
+        if (Preferences.networkPanelEnabled) {
+            if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
+                this.panels.storage = new WebInspector.StoragePanel();
+            if (hiddenPanels.indexOf("network") === -1)
+                this.panels.network = new WebInspector.NetworkPanel();
+        } else if (hiddenPanels.indexOf("resources") === -1)
+            this.panels.resources = new WebInspector.ResourcesPanel();
+
         if (Preferences.networkPanelEnabled && hiddenPanels.indexOf("network") === -1)
             this.panels.network = new WebInspector.NetworkPanel();
-        if (hiddenPanels.indexOf("resources") === -1)
-            this.panels.resources = new WebInspector.ResourcesPanel();
         if (hiddenPanels.indexOf("scripts") === -1)
             this.panels.scripts = new WebInspector.ScriptsPanel();
         if (hiddenPanels.indexOf("timeline") === -1)
@@ -240,8 +246,12 @@ var WebInspector = {
             if (Preferences.heapProfilerPresent)
                 this.panels.profiles.registerProfileType(new WebInspector.HeapSnapshotProfileType());
         }
-        if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
-            this.panels.storage = new WebInspector.StoragePanel();
+
+        if (!Preferences.networkPanelEnabled) {
+            if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
+                this.panels.storage = new WebInspector.StoragePanel();
+        }
+
         if (hiddenPanels.indexOf("audits") === -1)
             this.panels.audits = new WebInspector.AuditsPanel();
         if (hiddenPanels.indexOf("console") === -1)
@@ -441,6 +451,33 @@ var WebInspector = {
     {
         this.currentPanel = this.panels.elements;
         this.panels.elements.updateFocusedNode(nodeId);
+    },
+
+    get networkResources()
+    {
+        if (Preferences.networkPanelEnabled)
+            return this.panels.network.resources;
+        else
+            return this.resources;
+    },
+
+    forAllResources: function(callback)
+    {
+        if (Preferences.networkPanelEnabled)
+            WebInspector.resourceManager.forAllResources(callback);
+        else {
+            for (var id in this.resources) {
+                if (callback(this.resources[id]))
+                    return;
+            }
+        }
+    },
+
+    resourceForURL: function(url)
+    {
+        if (Preferences.networkPanelEnabled)
+            return this.resourceManager.resourceForURL(url);
+        return this.panels.resources.resourceURLMap[url];
     }
 }
 
@@ -493,8 +530,8 @@ WebInspector.doLoadedDone = function()
     document.body.addStyleClass("port-" + port);
 
     InspectorFrontendHost.loaded();
-    WebInspector.Settings.initialize();
-    
+    WebInspector.applicationSettings = new WebInspector.Settings();
+
     this._registerShortcuts();
 
     // set order of some sections explicitly
@@ -507,8 +544,8 @@ WebInspector.doLoadedDone = function()
     // this.changes = new WebInspector.ChangesView(this.drawer);
     // TODO: Remove class="hidden" from inspector.html on button#changes-status-bar-item
     this.drawer.visibleView = this.console;
-    // FIXME: uncomment when ready.
-    // this.resourceManager = new WebInspector.ResourceManager();
+    if (Preferences.networkPanelEnabled)
+        this.resourceManager = new WebInspector.ResourceManager();
     this.domAgent = new WebInspector.DOMAgent();
 
     this.resourceCategories = {
@@ -535,6 +572,11 @@ WebInspector.doLoadedDone = function()
     this.panelOrder = [];
     for (var panelName in this.panels)
         previousToolbarItem = WebInspector.addPanelToolbarIcon(toolbarElement, this.panels[panelName], previousToolbarItem);
+
+    if (Preferences.networkPanelEnabled) {
+        this.panels.storage._toolbarItem.removeStyleClass("storage");
+        this.panels.storage._toolbarItem.addStyleClass("resources");
+    }
 
     this.Tips = {
         ResourceNotCompressed: {id: 0, message: WebInspector.UIString("You could save bandwidth by having your web server compress this transfer with gzip or zlib.")}
@@ -588,14 +630,22 @@ WebInspector.doLoadedDone = function()
         WebInspector.monitoringXHREnabled = inspectorState.monitoringXHREnabled;
         if ("pauseOnExceptionsState" in inspectorState)
             WebInspector.panels.scripts.updatePauseOnExceptionsState(inspectorState.pauseOnExceptionsState);
-        if (inspectorState.resourceTrackingEnabled)
-            WebInspector.panels.resources.resourceTrackingWasEnabled();
-        else
-            WebInspector.panels.resources.resourceTrackingWasDisabled();
+        if (WebInspector.panels.resources) {
+            if (inspectorState.resourceTrackingEnabled)
+                WebInspector.panels.resources.resourceTrackingWasEnabled();
+            else
+                WebInspector.panels.resources.resourceTrackingWasDisabled();
+        }
     }
     InspectorBackend.getInspectorState(populateInspectorState);
 
-    InspectorBackend.populateScriptObjects();
+    function onPopulateScriptObjects()
+    {
+        if (!WebInspector.currentPanel)
+            WebInspector.showPanel(WebInspector.applicationSettings.lastActivePanel);
+    }
+    InspectorBackend.populateScriptObjects(onPopulateScriptObjects);
+
     InspectorBackend.setConsoleMessagesEnabled(true);
 
     // As a DOMAgent method, this needs to happen after the frontend has loaded and the agent is available.
@@ -768,7 +818,7 @@ WebInspector.documentClick = function(event)
             if (parsedURL.host === "show-panel") {
                 var panel = parsedURL.path.substring(1);
                 if (WebInspector.panels[panel])
-                    WebInspector.currentPanel = WebInspector.panels[panel];
+                    WebInspector.showPanel(panel);
             }
             return;
         }
@@ -794,8 +844,13 @@ WebInspector.openResource = function(resourceURL, inResourcesPanel)
 {
     var resource = WebInspector.resourceForURL(resourceURL);
     if (inResourcesPanel && resource) {
-        WebInspector.panels.resources.showResource(resource);
-        WebInspector.showPanel("resources");
+        if (Preferences.networkPanelEnabled) {
+            WebInspector.panels.storage.showResource(resource);
+            WebInspector.showPanel("storage");
+        } else {
+            WebInspector.panels.resources.showResource(resource);
+            WebInspector.showPanel("resources");
+        }
     } else
         InspectorBackend.openInInspectedWindow(resource ? resource.url : resourceURL);
 }
@@ -1214,12 +1269,14 @@ WebInspector.selectDOMStorage = function(o)
 
 WebInspector.updateResource = function(payload)
 {
+    if (Preferences.networkPanelEnabled)
+        return;
+
     var identifier = payload.id;
     var resource = this.resources[identifier];
     if (!resource) {
         resource = new WebInspector.Resource(identifier, payload.url);
         this.resources[identifier] = resource;
-        this.resourceURLMap[resource.url] = resource;
         this.panels.resources.addResource(resource);
         this.panels.audits.resourceStarted(resource);
     }
@@ -1267,6 +1324,7 @@ WebInspector.updateResource = function(payload)
 
     if (payload.didCompletionChange) {
         resource.failed = payload.failed;
+        resource.localizedFailDescription = payload.localizedFailDescription;
         resource.finished = payload.finished;
         if (this.panels.audits)
             this.panels.audits.resourceFinished(resource);
@@ -1286,28 +1344,33 @@ WebInspector.updateResource = function(payload)
 
 WebInspector.domContentEventFired = function(time)
 {
-    this.panels.resources.mainResourceDOMContentTime = time;
+    if (this.panels.resources)
+        this.panels.resources.mainResourceDOMContentTime = time;
     this.panels.audits.mainResourceDOMContentTime = time;
     if (this.panels.network)
         this.panels.network.mainResourceDOMContentTime = time;
+    this.mainResourceDOMContentTime = time;
 }
 
 WebInspector.loadEventFired = function(time)
 {
-    this.panels.resources.mainResourceLoadTime = time;
+    if (this.panels.resources)
+        this.panels.resources.mainResourceLoadTime = time;
     this.panels.audits.mainResourceLoadTime = time;
     if (this.panels.network)
         this.panels.network.mainResourceLoadTime = time;
+    this.mainResourceLoadTime = time;
 }
 
 WebInspector.removeResource = function(identifier)
 {
+    if (Preferences.networkPanelEnabled)
+        return;
+
     var resource = this.resources[identifier];
     if (!resource)
         return;
 
-    resource.category.removeResource(resource);
-    delete this.resourceURLMap[resource.url];
     delete this.resources[identifier];
 
     if (this.panels.resources)
@@ -1449,18 +1512,13 @@ WebInspector.reset = function()
             panel.reset();
     }
 
-    this.sessionSettings.reset();
-
-    for (var category in this.resourceCategories)
-        this.resourceCategories[category].removeAllResources();
-
     this.resources = {};
-    this.resourceURLMap = {};
     this.cookieDomains = {};
     this.applicationCacheDomains = {};
     this.highlightDOMNode(0);
 
-    delete this.mainResource;
+    if (!Preferences.networkPanelEnabled)
+        delete this.mainResource;
 
     this.console.clearMessages();
     this.extensionServer.notifyInspectorReset();
@@ -1669,7 +1727,8 @@ WebInspector.displayNameForURL = function(url)
 {
     if (!url)
         return "";
-    var resource = this.resourceURLMap[url];
+
+    var resource = this.resourceForURL(url);
     if (resource)
         return resource.displayName;
 
@@ -1687,28 +1746,16 @@ WebInspector.displayNameForURL = function(url)
     return url.trimURL(WebInspector.mainResource.domain);
 }
 
-WebInspector.resourceForURL = function(url)
-{
-    if (url in this.resourceURLMap)
-        return this.resourceURLMap[url];
-
-    // No direct match found. Search for resources that contain
-    // a substring of the URL.
-    for (var resourceURL in this.resourceURLMap) {
-        if (resourceURL.hasSubstring(url))
-            return this.resourceURLMap[resourceURL];
-    }
-
-    return null;
-}
-
 WebInspector._choosePanelToShowSourceLine = function(url, line, preferredPanel)
 {
     preferredPanel = preferredPanel || "resources";
+    if (Preferences.networkPanelEnabled && preferredPanel === "resources")
+        preferredPanel = "storage";
+
     var panel = this.panels[preferredPanel];
     if (panel && panel.canShowSourceLine(url, line))
         return panel;
-    panel = this.panels.resources;
+    panel = Preferences.networkPanelEnabled ? this.panels.storage : this.panels.resources;
     return panel.canShowSourceLine(url, line) ? panel : null;
 }
 
@@ -1747,7 +1794,8 @@ WebInspector.linkifyStringAsFragment = function(string)
             title = WebInspector.panels.profiles.displayTitleForProfileLink(profileStringMatches[2], profileStringMatches[1]);
 
         var realURL = (linkString.indexOf("www.") === 0 ? "http://" + linkString : linkString);
-        container.appendChild(WebInspector.linkifyURLAsNode(realURL, title, null, (realURL in WebInspector.resourceURLMap)));
+        var hasResourceWithURL = !!WebInspector.resourceForURL(realURL);
+        container.appendChild(WebInspector.linkifyURLAsNode(realURL, title, null, hasResourceWithURL));
         string = string.substring(linkIndex + linkString.length, string.length);
     }
 
@@ -1815,13 +1863,17 @@ WebInspector.resourceURLForRelatedNode = function(node, url)
     }
 
     // documentURL not found or has bad value
-    for (var resourceURL in WebInspector.resourceURLMap) {
-        var parsedURL = resourceURL.asParsedURL();
-        if (parsedURL && parsedURL.path === url)
-            return resourceURL;
+    var resourceURL = url;
+    function callback(resource)
+    {
+        if (resource.path === url) {
+            resourceURL = resource.url;
+            return true;
+        }
     }
-    return url;
-},
+    WebInspector.forAllResources(callback);
+    return resourceURL;
+}
 
 WebInspector.completeURL = function(baseURL, href)
 {
@@ -1918,9 +1970,10 @@ WebInspector.doPerformSearch = function(query, forceSearch, isBackwardSearch, re
 
         for (var panelName in this.panels) {
             var panel = this.panels[panelName];
-            if (panel.currentQuery && panel.searchCanceled)
-                panel.searchCanceled();
+            var hadCurrentQuery = !!panel.currentQuery;
             delete panel.currentQuery;
+            if (hadCurrentQuery && panel.searchCanceled)
+                panel.searchCanceled();
         }
 
         this.updateSearchMatchesCount();

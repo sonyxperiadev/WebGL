@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Copyright (C) 2005, 2006 Apple Inc. All rights reserved.
+# Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2010 moiji-mobile.com All rights reserved.
 #
@@ -57,26 +57,68 @@ my $prefixPath;
 my $makeArgs;
 my $startTime = time();
 
-my ($linkPrefetchSupport, $accelerated2dCanvasSupport, $threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $clientBasedGeolocationSupport, $databaseSupport, $datagridSupport, $datalistSupport,
-    $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport, $imageResizerSupport, $indexedDatabaseSupport, $inputSpeechSupport,
-    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $systemMallocSupport, $sandboxSupport, $sharedWorkersSupport,
-    $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
-    $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $webTimingSupport, $wmlSupport, $wcssSupport, $xhtmlmpSupport, $workersSupport,
-    $xpathSupport, $xsltSupport, $coverageSupport, $notificationsSupport, $blobSupport, $tiledBackingStoreSupport,
-    $fileWriterSupport, $fileSystemSupport, $directoryUploadSupport, $deviceOrientationSupport);
+my (
+    $threeDCanvasSupport,
+    $threeDRenderingSupport,
+    $accelerated2dCanvasSupport,
+    $blobSupport,
+    $channelMessagingSupport,
+    $clientBasedGeolocationSupport,
+    $coverageSupport,
+    $databaseSupport,
+    $datagridSupport,
+    $datalistSupport,
+    $deviceOrientationSupport,
+    $directoryUploadSupport,
+    $domStorageSupport,
+    $eventsourceSupport,
+    $fileSystemSupport,
+    $filtersSupport,
+    $fullscreenAPISupport,
+    $geolocationSupport,
+    $iconDatabaseSupport,
+    $imageResizerSupport,
+    $indexedDatabaseSupport,
+    $inputSpeechSupport,
+    $javaScriptDebuggerSupport,
+    $linkPrefetchSupport,
+    $mathmlSupport,
+    $meterTagSupport,
+    $notificationsSupport,
+    $offlineWebApplicationSupport,
+    $progressTagSupport,
+    $rubySupport,
+    $sharedWorkersSupport,
+    $svgSupport,
+    $svgAnimationSupport,
+    $svgAsImageSupport,
+    $svgDOMObjCBindingsSupport,
+    $svgFontsSupport,
+    $svgForeignObjectSupport,
+    $svgUseSupport,
+    $systemMallocSupport,
+    $tiledBackingStoreSupport,
+    $videoSupport,
+    $wcssSupport,
+    $webAudioSupport,
+    $webSocketsSupport,
+    $webTimingSupport,
+    $wmlSupport,
+    $workersSupport,
+    $xhtmlmpSupport,
+    $xpathSupport,
+    $xsltSupport,
+);
 
 my @features = (
-    { option => "link-prefetch", desc => "Toggle pre fetching support",
-      define => "ENABLE_LINK_PREFETCH", default => 0, value => \$linkPrefetchSupport },
-
-    { option => "accelerated-2d-canvas", desc => "Toggle accelerated 2D canvas support",
-      define => "ENABLE_ACCELERATED_2D_CANVAS", default => 0, value => \$accelerated2dCanvasSupport },
-
     { option => "3d-canvas", desc => "Toggle 3D canvas support",
       define => "ENABLE_3D_CANVAS", default => (isAppleMacWebKit() && !isTiger() && !isLeopard()), value => \$threeDCanvasSupport },
 
     { option => "3d-rendering", desc => "Toggle 3D rendering support",
       define => "ENABLE_3D_RENDERING", default => (isAppleMacWebKit() && !isTiger()), value => \$threeDRenderingSupport },
+
+    { option => "accelerated-2d-canvas", desc => "Toggle accelerated 2D canvas support",
+      define => "ENABLE_ACCELERATED_2D_CANVAS", default => 0, value => \$accelerated2dCanvasSupport },
 
     { option => "blob", desc => "Toggle Blob support",
       define => "ENABLE_BLOB", default => (isAppleMacWebKit()), value => \$blobSupport },
@@ -95,10 +137,13 @@ my @features = (
 
     { option => "datagrid", desc => "Toggle Datagrid Support",
       define => "ENABLE_DATAGRID", default => 0, value => \$datagridSupport },
-      
+
     { option => "datalist", desc => "Toggle HTML5 datalist support",
       define => "ENABLE_DATALIST", default => 1, value => \$datalistSupport },
-          
+
+    { option => "device-orientation", desc => "Toggle DeviceOrientation support",
+      define => "ENABLE_DEVICE_ORIENTATION", default => 0, value => \$deviceOrientationSupport },
+
     { option => "directory-upload", desc => "Toogle Directory upload support",
       define => "ENABLE_DIRECTORY_UPLOAD", default => 0, value => \$directoryUploadSupport },
 
@@ -108,15 +153,21 @@ my @features = (
     { option => "eventsource", desc => "Toggle server-sent events support",
       define => "ENABLE_EVENTSOURCE", default => 1, value => \$eventsourceSupport },
 
+    { option => "file-system", desc => "Toggle FileSystem support",
+      define => "ENABLE_FILE_SYSTEM", default => 0, value => \$fileSystemSupport },
+
     { option => "filters", desc => "Toggle Filters support",
       define => "ENABLE_FILTERS", default => (isAppleWebKit() || isGtk() || isQt() || isEfl()), value => \$filtersSupport },
+
+    { option => "fullscreen-api", desc => "Toggle Fullscreen API support",
+      define => "ENABLE_FULLSCREEN_API", default => isAppleMacWebKit(), value => \$fullscreenAPISupport },
 
     { option => "geolocation", desc => "Toggle Geolocation support",
       define => "ENABLE_GEOLOCATION", default => (isAppleWebKit() || isGtk()), value => \$geolocationSupport },
 
     { option => "icon-database", desc => "Toggle Icon database support",
       define => "ENABLE_ICONDATABASE", default => 1, value => \$iconDatabaseSupport },
-      
+
     { option => "image-resizer", desc => "Toggle Image Resizer API support",
       define => "ENABLE_IMAGE_RESIZER", default => 0, value => \$imageResizerSupport },
 
@@ -129,8 +180,14 @@ my @features = (
     { option => "javascript-debugger", desc => "Toggle JavaScript Debugger/Profiler support",
       define => "ENABLE_JAVASCRIPT_DEBUGGER", default => 1, value => \$javaScriptDebuggerSupport },
 
+    { option => "link-prefetch", desc => "Toggle pre fetching support",
+      define => "ENABLE_LINK_PREFETCH", default => 0, value => \$linkPrefetchSupport },
+
     { option => "mathml", desc => "Toggle MathML support",
       define => "ENABLE_MATHML", default => 1, value => \$mathmlSupport },
+
+    { option => "meter-tag", desc => "Meter Tag support",
+      define => "ENABLE_METER_TAG", default => !isGtk() && !isAppleWinWebKit(), value => \$meterTagSupport },
 
     { option => "notifications", desc => "Toggle Desktop Notifications Support",
       define => "ENABLE_NOTIFICATIONS", default => 0, value => \$notificationsSupport },
@@ -138,14 +195,14 @@ my @features = (
     { option => "offline-web-applications", desc => "Toggle Offline Web Application Support",
       define => "ENABLE_OFFLINE_WEB_APPLICATIONS", default => 1, value => \$offlineWebApplicationSupport },
 
+    { option => "progress-tag", desc => "Progress Tag support",
+      define => "ENABLE_PROGRESS_TAG", default => 1, value => \$progressTagSupport },
+
     { option => "ruby", desc => "Toggle HTML5 Ruby support",
       define => "ENABLE_RUBY", default => 1, value => \$rubySupport },
 
     { option => "system-malloc", desc => "Toggle system allocator instead of TCmalloc",
       define => "USE_SYSTEM_MALLOC", default => 0, value => \$systemMallocSupport },
-
-    { option => "sandbox", desc => "Toggle HTML5 Sandboxed iframe support",
-      define => "ENABLE_SANDBOX", default => 1, value => \$sandboxSupport },
 
     { option => "shared-workers", desc => "Toggle SharedWorkers support",
       define => "ENABLE_SHARED_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$sharedWorkersSupport },
@@ -177,6 +234,12 @@ my @features = (
     { option => "video", desc => "Toggle Video support",
       define => "ENABLE_VIDEO", default => (isAppleWebKit() || isGtk()), value => \$videoSupport },
 
+    { option => "wcss", desc => "Toggle WCSS support",
+      define => "ENABLE_WCSS", default => 0, value => \$wcssSupport },
+
+    { option => "web-audio", desc => "Toggle Web Audio support",
+      define => "ENABLE_WEB_AUDIO", default => 0, value=> \$webAudioSupport },
+
     { option => "web-sockets", desc => "Toggle Web Sockets support",
       define => "ENABLE_WEB_SOCKETS", default => 1, value=> \$webSocketsSupport },
 
@@ -186,26 +249,17 @@ my @features = (
     { option => "wml", desc => "Toggle WML support",
       define => "ENABLE_WML", default => 0, value => \$wmlSupport },
 
-    { option => "xhtmlmp", desc => "Toggle XHTML-MP support",
-      define => "ENABLE_XHTMLMP", default => 0, value => \$xhtmlmpSupport },
-
-    { option => "wcss", desc => "Toggle WCSS support",
-      define => "ENABLE_WCSS", default => 0, value => \$wcssSupport },
-
     { option => "workers", desc => "Toggle Web Workers support",
       define => "ENABLE_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$workersSupport },
+
+    { option => "xhtmlmp", desc => "Toggle XHTML-MP support",
+      define => "ENABLE_XHTMLMP", default => 0, value => \$xhtmlmpSupport },
 
     { option => "xpath", desc => "Toggle XPath support",
       define => "ENABLE_XPATH", default => 1, value => \$xpathSupport },
 
     { option => "xslt", desc => "Toggle XSLT support",
       define => "ENABLE_XSLT", default => 1, value => \$xsltSupport },
-
-    { option => "file-system", desc => "Toggle FileSystem support",
-      define => "ENABLE_FILE_SYSTEM", default => 0, value => \$fileSystemSupport },
-
-    { option => "device-orientation", desc => "Toggle DeviceOrientation support",
-      define => "ENABLE_DEVICE_ORIENTATION", default => 0, value => \$deviceOrientationSupport },
 );
 
 # Update defaults from Qt's project file
@@ -473,18 +527,24 @@ for my $dir (@projects) {
             $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
         }
     }
+    # Various build* calls above may change the CWD.
+    chdirWebKit();
 
     if (exitStatus($result)) {
+        my $scriptDir = relativeScriptsDir();
+        if (usingVisualStudioExpress()) {
+            # Visual Studio Express is so lame it can't stdout build failures.
+            # So we find its logs and dump them to the console ourselves.
+            system(File::Spec->catfile($scriptDir, "print-vse-failure-logs"));
+        }
         if (isAppleWinWebKit()) {
             print "\n\n===== BUILD FAILED ======\n\n";
-            my $scriptDir = relativeScriptsDir();
             print "Please ensure you have run $scriptDir/update-webkit to install dependencies.\n\n";
             my $baseProductDir = baseProductDir();
             print "You can view build errors by checking the BuildLog.htm files located at:\n$baseProductDir/obj/<project>/<config>.\n";
         }
         exit exitStatus($result);
     }
-    chdirWebKit();
 }
 
 # Don't report the "WebKit is now built" message after a clean operation.

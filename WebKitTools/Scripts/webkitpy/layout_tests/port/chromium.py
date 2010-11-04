@@ -135,7 +135,7 @@ class ChromiumPort(base.Port):
                                  override_step, logging)
 
     def diff_image(self, expected_contents, actual_contents,
-                   diff_filename=None, tolerance=0):
+                   diff_filename=None):
         executable = self._path_to_image_diff()
 
         tempdir = tempfile.mkdtemp()
@@ -384,6 +384,12 @@ class ChromiumDriver(base.Driver):
 
         if self._port.get_option('gp_fault_error_box'):
             driver_args.append('--gp-fault-error-box')
+
+        if self._options.js_flags is not None:
+            driver_args.append('--js-flags="' + self._options.js_flags + '"')
+
+        if self._options.multiple_loads is not None and self._options.multiple_loads > 0:
+            driver_args.append('--multiple-loads=' + str(self._options.multiple_loads))
 
         if self._port.get_option('accelerated_compositing'):
             driver_args.append('--enable-accelerated-compositing')

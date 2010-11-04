@@ -287,12 +287,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/BaseTextInputType.cpp \
 	html/ButtonInputType.cpp \
 	html/CheckboxInputType.cpp \
+	html/ClassList.cpp \
 	html/CollectionCache.cpp \
 	html/parser/CSSPreloadScanner.cpp \
 	html/ColorInputType.cpp \
 	html/DOMFormData.cpp \
+<<<<<<< HEAD
 	html/DOMTokenList.cpp \
 	html/DateComponents.cpp \
+=======
+	html/DOMSettableTokenList.cpp \
+	html/DOMTokenList.cpp \
+>>>>>>> webkit.org at r70949
 	html/DateInputType.cpp \
 	html/DateTimeInputType.cpp \
 	html/DateTimeLocalInputType.cpp \
@@ -462,6 +468,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/SpatialNavigation.cpp \
 	page/SpeechInput.cpp \
+	page/SpeechInputResult.cpp \
 	page/SuspendableTimer.cpp \
 	page/Timing.cpp \
 	page/UserContentURLPattern.cpp \

@@ -240,11 +240,16 @@ WebInspector.ExtensionServer.prototype = {
         var id = message.id;
         var resource = null;
 
-        resource = WebInspector.resources[id] || WebInspector.resourceForURL(id);
+        resource = WebInspector.networkResources[id] || WebInspector.resourceForURL(id);
         if (!resource)
             return this._status.E_NOTFOUND(typeof id + ": " + id);
-        WebInspector.panels.resources.showResource(resource, message.line);
-        WebInspector.showPanel("resources");
+        if (Preferences.networkPanelEnabled) {
+            WebInspector.panels.storage.showResource(resource, message.line);
+            WebInspector.showPanel("storage");
+        } else {
+            WebInspector.panels.resources.showResource(resource, message.line);
+            WebInspector.showPanel("resources");
+        }
     },
 
     _dispatchCallback: function(requestId, port, result)
@@ -256,14 +261,14 @@ WebInspector.ExtensionServer.prototype = {
     {
         function resourceWrapper(id)
         {
-            return WebInspector.extensionServer._convertResource(WebInspector.resources[id]);
+            return WebInspector.extensionServer._convertResource(WebInspector.networkResources[id]);
         }
 
         var response;
         if (request.id)
-            response = WebInspector.resources[request.id] ? resourceWrapper(request.id) : this._status.E_NOTFOUND(request.id);
+            response = WebInspector.networkResources[request.id] ? resourceWrapper(request.id) : this._status.E_NOTFOUND(request.id);
         else
-            response = Object.keys(WebInspector.resources).map(resourceWrapper);
+            response = Object.keys(WebInspector.networkResources).map(resourceWrapper);
         return response;
     },
 
@@ -272,7 +277,7 @@ WebInspector.ExtensionServer.prototype = {
         var ids;
         var response = [];
 
-        function onContentAvailable(id, encoded, content)
+        function onContentAvailable(id, content, encoded)
         {
             var resourceContent = {
                 id: id,
@@ -293,13 +298,12 @@ WebInspector.ExtensionServer.prototype = {
 
         for (var i = 0; i < ids.length; ++i) {
             var id = ids[i];
-            var resource = WebInspector.resources[id];
+            var resource = WebInspector.networkResources[id];
+ 
             if (!resource)
                 response.push(this._status.E_NOTFOUND(id));
-            else {
-                var encode = !WebInspector.Resource.Type.isTextType(resource.type);
-                WebInspector.getEncodedResourceContent(id, encode, onContentAvailable.bind(this, id, encode));
-            }
+            else
+                resource.getContent(onContentAvailable.bind(this, id));
         }
         if (response.length === ids.length)
             this._dispatchCallback(message.requestId, port, response);
@@ -446,8 +450,3 @@ WebInspector.addExtensions = function(extensions)
 }
 
 WebInspector.extensionServer = new WebInspector.ExtensionServer();
-
-WebInspector.getEncodedResourceContent = function(identifier, encode, callback)
-{
-    InspectorBackend.getResourceContent(identifier, encode, callback);
-}

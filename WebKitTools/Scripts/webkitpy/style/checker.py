@@ -116,9 +116,9 @@ _PATH_RULES_SPECIFIER = [
     # API and therefore do not follow the same header including
     # discipline as WebCore.
     (["WebKitTools/WebKitAPITest/",
-      "WebKit/qt/QGVLauncher/"],
+      "WebKitTools/TestWebKitAPI/"],
      ["-build/include",
-      "-readability/streams"]),
+      "-readability/naming"]),
     ([# The EFL APIs use EFL naming style, which includes
       # both lower-cased and camel-cased, underscore-sparated
       # values.
@@ -147,6 +147,24 @@ _PATH_RULES_SPECIFIER = [
       # we don't check for underscores in that directory.
       "/JavaScriptCore/assembler/"],
      ["-readability/naming"]),
+
+    # WebKit2 rules:
+    # WebKit2 doesn't use config.h, and certain directories have other
+    # idiosyncracies.
+    ([# NPAPI has function names with underscores.
+      "WebKit2/WebProcess/Plugins/Netscape"],
+     ["-build/include_order",
+      "-readability/naming"]),
+    ([# The WebKit2 C API has names with underscores and whitespace-aligned
+      # struct members.
+      "WebKit2/UIProcess/API/C/",
+      "WebKit2/WebProcess/InjectedBundle/API/c/"],
+     ["-build/include_order",
+      "-readability/naming",
+      "-whitespace/declaration"]),
+    ([# Nothing in WebKit2 uses config.h.
+      "WebKit2/"],
+     ["-build/include_order"]),
 
     # For third-party Python code, keep only the following checks--
     #

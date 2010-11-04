@@ -417,6 +417,10 @@
 				Name="WebKit2"
 				>
 				<File
+					RelativePath="..\Tests\WebKit2\EvaluateJavaScript.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\FailedLoad.cpp"
 					>
 				</File>
@@ -445,6 +449,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Tests\WebKit2\PreventEmptyUserAgent.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\simple.html"
 					>
 				</File>
@@ -469,6 +477,10 @@
 					>
 					<File
 						RelativePath="..\Tests\WebKit2\win\AltKeyGeneratesWMSysCommand.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\Tests\WebKit2\win\WMCloseCallsUIClientClose.cpp"
 						>
 					</File>
 				</Filter>

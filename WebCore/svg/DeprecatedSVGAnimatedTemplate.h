@@ -28,9 +28,7 @@
 
 namespace WebCore {
    
-    class SVGAngle;
     class SVGElement;
-    class SVGLengthList;
     class SVGNumberList;
     class SVGPreserveAspectRatio;
     class SVGTransformList;
@@ -74,7 +72,7 @@ namespace WebCore {
     struct DeprecatedSVGAnimatedTypeWrapperKeyHash {
         static unsigned hash(const DeprecatedSVGAnimatedTypeWrapperKey& key)
         {
-            return StringImpl::computeHash(reinterpret_cast<const UChar*>(&key), sizeof(DeprecatedSVGAnimatedTypeWrapperKey) / sizeof(UChar));
+            return WTF::StringHasher::createBlobHash<sizeof(DeprecatedSVGAnimatedTypeWrapperKey)>(&key);
         }
 
         static bool equal(const DeprecatedSVGAnimatedTypeWrapperKey& a, const DeprecatedSVGAnimatedTypeWrapperKey& b)
@@ -156,16 +154,9 @@ namespace WebCore {
     }
 
     // Common type definitions, to ease IDL generation.
-    typedef DeprecatedSVGAnimatedTemplate<SVGAngle> SVGAnimatedAngle;
-    typedef DeprecatedSVGAnimatedTemplate<bool> SVGAnimatedBoolean;
-    typedef DeprecatedSVGAnimatedTemplate<int> SVGAnimatedEnumeration;
-    typedef DeprecatedSVGAnimatedTemplate<long> SVGAnimatedInteger;
-    typedef DeprecatedSVGAnimatedTemplate<SVGLength> SVGAnimatedLength;
-    typedef DeprecatedSVGAnimatedTemplate<SVGLengthList*> SVGAnimatedLengthList;
     typedef DeprecatedSVGAnimatedTemplate<float> SVGAnimatedNumber;
     typedef DeprecatedSVGAnimatedTemplate<SVGNumberList*> SVGAnimatedNumberList; 
     typedef DeprecatedSVGAnimatedTemplate<SVGPreserveAspectRatio> SVGAnimatedPreserveAspectRatio;
-    typedef DeprecatedSVGAnimatedTemplate<FloatRect> SVGAnimatedRect;
     typedef DeprecatedSVGAnimatedTemplate<String> SVGAnimatedString;
     typedef DeprecatedSVGAnimatedTemplate<SVGTransformList*> SVGAnimatedTransformList;
 

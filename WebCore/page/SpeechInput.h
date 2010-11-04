@@ -61,14 +61,14 @@ public:
     void unregisterListener(int);
 
     // Methods invoked by the input elements.
-    bool startRecognition(int, const IntRect&);
+    bool startRecognition(int listenerId, const IntRect& elementRect, const AtomicString& language, const String& grammar);
     void stopRecording(int);
     void cancelRecognition(int);
 
     // SpeechInputListener methods.
     virtual void didCompleteRecording(int);
     virtual void didCompleteRecognition(int);
-    virtual void setRecognitionResult(int, const String&);
+    virtual void setRecognitionResult(int, const SpeechInputResultArray&);
 
 private:
     SpeechInputClient* m_client;

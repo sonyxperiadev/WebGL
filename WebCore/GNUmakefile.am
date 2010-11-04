@@ -221,6 +221,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSDOMPlugin.h \
 	DerivedSources/WebCore/JSDOMSelection.cpp \
 	DerivedSources/WebCore/JSDOMSelection.h \
+	DerivedSources/WebCore/JSDOMSettableTokenList.cpp \
+	DerivedSources/WebCore/JSDOMSettableTokenList.h \
 	DerivedSources/WebCore/JSDOMStringList.cpp \
 	DerivedSources/WebCore/JSDOMStringList.h \
 	DerivedSources/WebCore/JSDOMStringMap.cpp \
@@ -726,6 +728,7 @@ webcore_sources += \
 	WebCore/bindings/js/JSEventTarget.h \
 	WebCore/bindings/js/JSExceptionBase.cpp \
 	WebCore/bindings/js/JSExceptionBase.h \
+	WebCore/bindings/js/JSFileReaderCustom.cpp \
 	WebCore/bindings/js/JSGeolocationCustom.cpp \
 	WebCore/bindings/js/JSHistoryCustom.cpp \
 	WebCore/bindings/js/JSHistoryCustom.h \
@@ -1141,6 +1144,7 @@ webcore_sources += \
 	WebCore/dom/ExceptionCode.cpp \
 	WebCore/dom/ExceptionCode.h \
 	WebCore/dom/FragmentScriptingPermission.h \
+	WebCore/dom/IgnoreDestructiveWriteCountIncrementer.h \
 	WebCore/dom/InputElement.cpp \
 	WebCore/dom/InputElement.h \
 	WebCore/dom/HashChangeEvent.h \
@@ -1351,6 +1355,8 @@ webcore_sources += \
 	WebCore/editing/SplitTextNodeContainingElementCommand.cpp \
 	WebCore/editing/SplitTextNodeContainingElementCommand.h \
 	WebCore/editing/TextAffinity.h \
+	WebCore/editing/TextCheckingHelper.cpp \
+	WebCore/editing/TextCheckingHelper.h \
 	WebCore/editing/TextGranularity.h \
 	WebCore/editing/TextIterator.cpp \
 	WebCore/editing/TextIterator.h \
@@ -1415,6 +1421,9 @@ webcore_sources += \
 	WebCore/fileapi/FileList.h \
 	WebCore/fileapi/FileReader.cpp \
 	WebCore/fileapi/FileReader.h \
+	WebCore/fileapi/FileReaderLoader.cpp \
+	WebCore/fileapi/FileReaderLoader.h \
+	WebCore/fileapi/FileReaderLoaderClient.h \
 	WebCore/fileapi/FileReaderSync.cpp \
 	WebCore/fileapi/FileReaderSync.h \
 	WebCore/fileapi/FileStreamProxy.cpp \
@@ -1452,6 +1461,10 @@ webcore_sources += \
 	WebCore/history/PageCache.h \
 	WebCore/html/AsyncImageResizer.cpp \
 	WebCore/html/AsyncImageResizer.h \
+	WebCore/html/BaseButtonInputType.cpp \
+	WebCore/html/BaseButtonInputType.h \
+	WebCore/html/BaseCheckableInputType.cpp \
+	WebCore/html/BaseCheckableInputType.h \
 	WebCore/html/BaseDateAndTimeInputType.cpp \
 	WebCore/html/BaseDateAndTimeInputType.h \
 	WebCore/html/BaseTextInputType.cpp \
@@ -1471,10 +1484,14 @@ webcore_sources += \
 	WebCore/html/canvas/CanvasRenderingContext.h \
 	WebCore/html/canvas/CanvasStyle.cpp \
 	WebCore/html/canvas/CanvasStyle.h \
+	WebCore/html/DOMSettableTokenList.cpp \
+	WebCore/html/DOMSettableTokenList.h \
 	WebCore/html/DOMTokenList.cpp \
 	WebCore/html/DOMTokenList.h \
 	WebCore/html/CheckboxInputType.cpp \
 	WebCore/html/CheckboxInputType.h \
+	WebCore/html/ClassList.cpp \
+	WebCore/html/ClassList.h \
 	WebCore/html/CollectionCache.cpp \
 	WebCore/html/CollectionCache.h \
 	WebCore/html/CollectionType.h \
@@ -2125,6 +2142,8 @@ webcore_sources += \
 	WebCore/page/SpeechInput.cpp \
 	WebCore/page/SpeechInput.h \
 	WebCore/page/SpeechInputListener.h \
+	WebCore/page/SpeechInputResult.cpp \
+	WebCore/page/SpeechInputResult.h \
 	WebCore/page/SuspendableTimer.cpp \
 	WebCore/page/SuspendableTimer.h \
 	WebCore/page/Timing.cpp \
@@ -2173,6 +2192,7 @@ webcore_sources += \
 	WebCore/platform/EventLoop.h \
 	WebCore/platform/FileChooser.cpp \
 	WebCore/platform/FileChooser.h \
+	WebCore/platform/FileMetadata.h \
 	WebCore/platform/FileStreamClient.h \
 	WebCore/platform/FileStream.cpp \
 	WebCore/platform/FileStream.h \
@@ -2371,6 +2391,7 @@ webcore_sources += \
 	WebCore/platform/network/BlobResourceHandle.cpp \
 	WebCore/platform/network/BlobResourceHandle.h \
 	WebCore/platform/network/BlobStorageData.h \
+	WebCore/platform/network/CookieStorage.h \
 	WebCore/platform/network/Credential.cpp \
 	WebCore/platform/network/Credential.h \
 	WebCore/platform/network/DNS.h \
@@ -3007,7 +3028,17 @@ webcore_sources += \
 	WebCore/svg/graphics/SVGImage.h \
 	WebCore/svg/LinearGradientAttributes.h \
 	WebCore/svg/PatternAttributes.h \
+	WebCore/svg/properties/SVGAnimatedListPropertyTearOff.h \
+	WebCore/svg/properties/SVGAnimatedProperty.h \
+	WebCore/svg/properties/SVGAnimatedPropertyDescription.h \
+	WebCore/svg/properties/SVGAnimatedPropertyMacros.h \
 	WebCore/svg/properties/SVGAnimatedPropertySynchronizer.h \
+	WebCore/svg/properties/SVGAnimatedPropertyTearOff.h \
+	WebCore/svg/properties/SVGAnimatedStaticPropertyTearOff.h \
+	WebCore/svg/properties/SVGListPropertyTearOff.h \
+	WebCore/svg/properties/SVGProperty.h \
+	WebCore/svg/properties/SVGPropertyTearOff.h \
+	WebCore/svg/properties/SVGPropertyTraits.h \
 	WebCore/svg/RadialGradientAttributes.h \
 	WebCore/svg/SVGAElement.cpp \
 	WebCore/svg/SVGAElement.h \
@@ -3017,10 +3048,17 @@ webcore_sources += \
 	WebCore/svg/SVGAngle.h \
 	WebCore/svg/SVGAnimateColorElement.cpp \
 	WebCore/svg/SVGAnimateColorElement.h \
+	WebCore/svg/SVGAnimatedAngle.h \
+	WebCore/svg/SVGAnimatedBoolean.h \
+	WebCore/svg/SVGAnimatedEnumeration.h \
+	WebCore/svg/SVGAnimatedInteger.h \
+	WebCore/svg/SVGAnimatedLength.h \
+	WebCore/svg/SVGAnimatedLengthList.h \
 	WebCore/svg/SVGAnimatedPathData.cpp \
 	WebCore/svg/SVGAnimatedPathData.h \
 	WebCore/svg/SVGAnimatedPoints.cpp \
 	WebCore/svg/SVGAnimatedPoints.h \
+	WebCore/svg/SVGAnimatedRect.h \
 	WebCore/svg/SVGAnimateElement.cpp \
 	WebCore/svg/SVGAnimateElement.h \
 	WebCore/svg/SVGAnimateMotionElement.cpp \
@@ -3595,6 +3633,8 @@ webcoregtk_sources += \
 	WebCore/platform/network/soup/SocketStreamError.h \
 	WebCore/platform/network/soup/SocketStreamHandle.h \
 	WebCore/platform/network/soup/SocketStreamHandleSoup.cpp \
+	WebCore/platform/network/soup/SoupURIUtils.cpp \
+	WebCore/platform/network/soup/SoupURIUtils.h \
 	WebCore/platform/network/soup/cache/soup-directory-input-stream.c \
 	WebCore/platform/network/soup/cache/soup-directory-input-stream.h \
 	WebCore/platform/network/soup/cache/soup-http-input-stream.c \

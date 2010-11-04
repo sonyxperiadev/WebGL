@@ -878,6 +878,9 @@ bool WebGLRenderingContext::validateRenderingState(long numElementsRequired)
             return false;
     }
 
+    if (numElementsRequired <= 0)
+        return true;
+
     // Look in each consumed vertex attrib (by the current program) and find the smallest buffer size
     long smallestNumElements = LONG_MAX;
     int numActiveAttribLocations = m_currentProgram->numActiveAttribLocations();
@@ -930,12 +933,20 @@ void WebGLRenderingContext::drawArrays(unsigned long mode, long first, long coun
         return;
     }
 
+    if (!count)
+        return;
+
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         // Ensure we have a valid rendering state
         CheckedInt<int32_t> checkedFirst(first);
         CheckedInt<int32_t> checkedCount(count);
         CheckedInt<int32_t> checkedSum = checkedFirst + checkedCount;
         if (!checkedSum.valid() || !validateRenderingState(checkedSum.value())) {
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+            return;
+        }
+    } else {
+        if (!validateRenderingState(0)) {
             m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
             return;
         }
@@ -975,6 +986,9 @@ void WebGLRenderingContext::drawElements(unsigned long mode, long count, unsigne
         return;
     }
 
+    if (!count)
+        return;
+
     long numElements = 0;
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         // Ensure we have a valid rendering state
@@ -989,6 +1003,11 @@ void WebGLRenderingContext::drawElements(unsigned long mode, long count, unsigne
                 m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
                 return;
             }
+        }
+    } else {
+        if (!validateRenderingState(0)) {
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+            return;
         }
     }
 
@@ -1138,7 +1157,20 @@ void WebGLRenderingContext::generateMipmap(unsigned long target)
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }
+    // generateMipmap won't work properly if minFilter is not NEAREST_MIPMAP_LINEAR
+    // on Mac.  Remove the hack once this driver bug is fixed.
+#if OS(DARWIN)
+    bool needToResetMinFilter = false;
+    if (tex->getMinFilter() != GraphicsContext3D::NEAREST_MIPMAP_LINEAR) {
+        m_context->texParameteri(target, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::NEAREST_MIPMAP_LINEAR);
+        needToResetMinFilter = true;
+    }
+#endif
     m_context->generateMipmap(target);
+#if OS(DARWIN)
+    if (needToResetMinFilter)
+        m_context->texParameteri(target, GraphicsContext3D::TEXTURE_MIN_FILTER, tex->getMinFilter());
+#endif
     tex->generateMipmapLevelInfo();
     cleanupAfterGraphicsCall(false);
 }
@@ -1266,6 +1298,8 @@ WebGLGetInfo WebGLRenderingContext::getFramebufferAttachmentParameter(unsigned l
     WebGLStateRestorer(this, false);
     int type = 0;
     m_context->getFramebufferAttachmentParameteriv(target, attachment, GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
+    if (!type)
+        return WebGLGetInfo();
     int value = 0;
     m_context->getFramebufferAttachmentParameteriv(target, attachment, GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &value);
     switch (type) {

@@ -1,3 +1,188 @@
+2010-10-29  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change BackForwardList clients to use BackForwardListImpl to prepare for further refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=48574
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebbackforwardlist.cpp:
+        (webkit_web_back_forward_list_dispose):
+        (webkit_web_back_forward_list_new_with_web_view):
+        (webkit_web_back_forward_list_go_forward):
+        (webkit_web_back_forward_list_go_back):
+        (webkit_web_back_forward_list_contains_item):
+        (webkit_web_back_forward_list_go_to_item):
+        (webkit_web_back_forward_list_get_forward_list_with_limit):
+        (webkit_web_back_forward_list_get_back_list_with_limit):
+        (webkit_web_back_forward_list_get_back_item):
+        (webkit_web_back_forward_list_get_current_item):
+        (webkit_web_back_forward_list_get_forward_item):
+        (webkit_web_back_forward_list_get_nth_item):
+        (webkit_web_back_forward_list_get_back_length):
+        (webkit_web_back_forward_list_get_forward_length):
+        (webkit_web_back_forward_list_get_limit):
+        (webkit_web_back_forward_list_set_limit):
+        (webkit_web_back_forward_list_add_item):
+        (webkit_web_back_forward_list_clear):
+        (WebKit::core):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_maintains_back_forward_list):
+        (webkit_web_view_get_back_forward_list):
+        Use BackForwardListImpl.
+
+2010-10-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48576
+        Let WebKit2 client know when a frame is a frameset
+
+        Added a blank implementation of the new FrameLoaderClient method.
+
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidBecomeFrameset):
+
+2010-10-29  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Add the GtkScrollablePolicy property to the webview
+        https://bugs.webkit.org/show_bug.cgi?id=48357
+
+        Added the GtkScrollablePolicy properties to the webview widget, it
+        is now required for GtkScrollable widgets in GTK+ 3.x.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (setHorizontalScrollPolicy): Added.
+        (setVerticalScrollPolicy): Added.
+        (getHorizontalScrollPolicy): Added.
+        (getVerticalScrollPolicy): Added.
+        (webkit_web_view_get_property):
+        (webkit_web_view_set_property):
+        (webkit_web_view_class_init):
+
+2010-10-28  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] WebKitWebFrame's load-status is not properly notified to the tests
+        https://bugs.webkit.org/show_bug.cgi?id=48048
+
+        "frame-created" signal must be issued before loading any data,
+        that way clients can correctly capture all the loading related
+        signals for that frame.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createFrame):
+
+2010-10-27  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        getTextAtOffset returns incorrect results if a link includes text and an image
+        https://bugs.webkit.org/show_bug.cgi?id=47365
+
+        New test to make sure this bug is actually fixed.
+
+        * tests/testatk.c:
+        (testWebkitAtkLinksWithInlineImages): New test.
+        (main): Added new test.
+
+2010-10-26  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Implement DumpRenderTreeSupportGtk (similarly to DumpRenderTreeSupportQt idea)
+        https://bugs.webkit.org/show_bug.cgi?id=48199
+
+        Implemented an initial version of the DumpRenderTreeSupportGtk class.
+        The main idea is that it groups together the bodies of many LayoutTestController
+        methods, so they can directly access WebCore features. This way we eliminate the
+        need of adding APIs to WebKitGTK just to expand its test coverage through DRT.
+
+        The DumpRenderTreeSupportGtk class so far includes a getter and setter for the WebKitTabToLinksPreferenceKey
+        property as a sample implementation. Also it makes it possible to unskip fast/events/tab-focus-anchor.html and
+        to fix stderr messages from all 22 spatial-navigation tests in fast/events/spatial-navigation.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::tabsToLinks):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp: Added.
+        (DumpRenderTreeSupportGtk::DumpRenderTreeSupportGtk):
+        (DumpRenderTreeSupportGtk::~DumpRenderTreeSupportGtk):
+        (DumpRenderTreeSupportGtk::setDumpRenderTreeModeEnabled):
+        (DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled): Getter to the WebKitTabToLinksPreferenceKey property.
+        (DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain): Setter to the WebKitTabToLinksPreferenceKey property.
+        (DumpRenderTreeSupportGtk::linksIncludedInFocusChain):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h: Added.
+
+2010-10-26  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Resource tracking failure when trying to move a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=44713
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::transferLoadingResourceFromPage):
+        Empty method.
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2010-10-26  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [Gtk] Layout tables should indicate that they are not data tables via an object attribute
+        https://bugs.webkit.org/show_bug.cgi?id=35422
+
+        New unit test to check the 'layout-guess' attribute in tables.
+
+        * tests/testatk.c:
+        (atkAttributeSetAttributeNameHasValue): New, looks for a attribute
+        with a specific value, by the name of attribute.
+        (atkAttributeSetContainsAttributeName): New, just checks whether
+        an attribute with a specified name is present in the set.
+        (atkAttributeSetAttributeHasValue): Modified to relay on the new
+        function atkAttributeSetAttributeNameHasValue().
+        (testWebkitAtkLayoutAndDataTables): New test.
+        (main): Added the new test.
+
+2010-10-26  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Port to new GtkScrollable interface in GTK+ 3.x
+        https://bugs.webkit.org/show_bug.cgi?id=48202
+
+        Use the new GtkScrollable interface when compiling against GTK+
+        3.x.
+
+        * webkit/webkitwebview.cpp:
+        (setHorizontalAdjustment):
+        (setVerticalAdjustment):
+        (getHorizontalAdjustment):
+        (getVerticalAdjustment):
+        (webkit_web_view_get_property):
+        (webkit_web_view_set_property):
+        (webkit_web_view_class_init):
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit2 needs to pass the current event modifier flags when requesting a new window
+        https://bugs.webkit.org/show_bug.cgi?id=48140
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::createWindow):
+        * WebCoreSupport/ChromeClientGtk.h:
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchCreatePage):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        Add NavigationAction parameter.
+
 2010-10-20  Philippe Normand  <pnormand@igalia.com>
 
         Reviewed by Xan Lopez.

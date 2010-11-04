@@ -33,15 +33,16 @@
 
 #include "TestShell.h"
 #include "WebBindings.h"
+#include "WebCompositionUnderline.h"
 #include "WebFrame.h"
 #include "WebRange.h"
 #include "WebString.h"
+#include "WebVector.h"
 #include "WebView.h"
 #include <wtf/StringExtras.h>
 #include <string>
 
 using namespace WebKit;
-using namespace std;
 
 TestShell* TextInputController::testShell = 0;
 
@@ -66,6 +67,7 @@ TextInputController::TextInputController(TestShell* shell)
     bindMethod("substringFromRange", &TextInputController::substringFromRange);
     bindMethod("unmarkText", &TextInputController::unmarkText);
     bindMethod("validAttributesForMarkedText", &TextInputController::validAttributesForMarkedText);
+    bindMethod("setComposition", &TextInputController::setComposition);
 }
 
 WebFrame* TextInputController::getMainFrame()
@@ -167,9 +169,10 @@ void TextInputController::markedRange(const CppArgumentList&, CppVariant* result
         return;
 
     WebRange range = mainFrame->markedRange();
-    char buffer[30];
-    snprintf(buffer, 30, "%d,%d", range.startOffset(), range.endOffset());
-    result->set(string(buffer));
+    Vector<int> intArray(2);
+    intArray[0] = range.startOffset();
+    intArray[1] = range.endOffset();
+    result->set(WebBindings::makeIntArray(intArray));
 }
 
 void TextInputController::selectedRange(const CppArgumentList&, CppVariant* result)
@@ -181,9 +184,10 @@ void TextInputController::selectedRange(const CppArgumentList&, CppVariant* resu
         return;
 
     WebRange range = mainFrame->selectionRange();
-    char buffer[30];
-    snprintf(buffer, 30, "%d,%d", range.startOffset(), range.endOffset());
-    result->set(string(buffer));
+    Vector<int> intArray(2);
+    intArray[0] = range.startOffset();
+    intArray[1] = range.endOffset();
+    result->set(WebBindings::makeIntArray(intArray));
 }
 
 void TextInputController::firstRectForCharacterRange(const CppArgumentList& arguments, CppVariant* result)
@@ -231,4 +235,28 @@ void TextInputController::makeAttributedString(const CppArgumentList&, CppVarian
 {
     // FIXME: Implement this.
     result->setNull();
+}
+
+void TextInputController::setComposition(const CppArgumentList& arguments, CppVariant* result)
+{
+    result->setNull();
+
+    WebView* view = getMainFrame() ? getMainFrame()->view() : 0;
+    if (!view)
+        return;
+
+    if (arguments.size() < 1)
+        return;
+
+    // Sends a keydown event with key code = 0xE5 to emulate input method behavior.
+    WebKeyboardEvent keyDown;
+    keyDown.type = WebInputEvent::RawKeyDown;
+    keyDown.modifiers = 0;
+    keyDown.windowsKeyCode = 0xE5; // VKEY_PROCESSKEY
+    keyDown.setKeyIdentifierFromWindowsKeyCode();
+    view->handleInputEvent(keyDown);
+
+    WebVector<WebCompositionUnderline> underlines;
+    WebString text(WebString::fromUTF8(arguments[0].toString()));
+    view->setComposition(text, underlines, 0, text.length());
 }

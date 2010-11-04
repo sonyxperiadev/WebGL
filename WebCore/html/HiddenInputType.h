@@ -43,6 +43,7 @@ private:
     HiddenInputType(HTMLInputElement* element) : InputType(element) { }
     virtual const AtomicString& formControlType() const;
     virtual bool supportsValidation() const;
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const;
 };
 
 } // namespace WebCore

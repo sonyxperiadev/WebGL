@@ -241,7 +241,7 @@ WebInspector.ScriptsPanel.prototype = {
         var script = new WebInspector.Script(sourceID, sourceURL, source, startingLine, errorLine, errorMessage, scriptWorldType);
         this._sourceIDMap[sourceID] = script;
 
-        var resource = WebInspector.resourceURLMap[sourceURL];
+        var resource = WebInspector.resourceForURL(sourceURL);
         if (resource) {
             if (resource.finished) {
                 // Resource is finished, bind the script right away.
@@ -289,7 +289,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         var sourceFrame;
         if (breakpoint.url) {
-            var resource = WebInspector.resourceURLMap[breakpoint.url];
+            var resource = WebInspector.resourceForURL(breakpoint.url);
             if (resource && resource.finished)
                 sourceFrame = this._sourceFrameForScriptOrResource(resource);
         }
@@ -570,9 +570,22 @@ WebInspector.ScriptsPanel.prototype = {
     _sourceFrameForScriptOrResource: function(scriptOrResource)
     {
         if (scriptOrResource instanceof WebInspector.Resource)
-            return WebInspector.panels.resources.sourceFrameForResource(scriptOrResource);
+            return this._sourceFrameForResource(scriptOrResource);
         if (scriptOrResource instanceof WebInspector.Script)
             return this.sourceFrameForScript(scriptOrResource);
+    },
+
+    _sourceFrameForResource: function(resource)
+    {
+        var view = WebInspector.ResourceManager.resourceViewForResource(resource);
+        if (!view)
+            return null;
+
+        if (!view.setupSourceFrameIfNeeded)
+            return null;
+
+        view.setupSourceFrameIfNeeded();
+        return view.sourceFrame;
     },
 
     _showScriptOrResource: function(scriptOrResource, options)
@@ -585,9 +598,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         var view;
         if (scriptOrResource instanceof WebInspector.Resource) {
-            if (!WebInspector.panels.resources)
-                return null;
-            view = WebInspector.panels.resources.resourceViewForResource(scriptOrResource);
+            view = WebInspector.ResourceManager.resourceViewForResource(scriptOrResource);
             view.headersVisible = false;
         } else if (scriptOrResource instanceof WebInspector.Script)
             view = this.scriptViewForScript(scriptOrResource);

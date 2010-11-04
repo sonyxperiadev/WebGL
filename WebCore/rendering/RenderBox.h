@@ -155,6 +155,9 @@ public:
     void addOverflowFromChild(RenderBox* child, const IntSize& delta);
     void clearLayoutOverflow();
 
+    void blockDirectionOverflow(bool isLineVertical, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
+                                int& logicalTopVisualOverflow, int& logicalBottomVisualOverflow);
+
     int contentWidth() const { return clientWidth() - paddingLeft() - paddingRight(); }
     int contentHeight() const { return clientHeight() - paddingTop() - paddingBottom(); }
     int contentLogicalWidth() const { return style()->isHorizontalWritingMode() ? contentWidth() : contentHeight(); }
@@ -281,7 +284,7 @@ public:
 
     bool stretchesToViewport() const
     {
-        return document()->inQuirksMode() && style()->logicalHeight().isAuto() && !isFloatingOrPositioned() && (isRoot() || isBody()) && !isWritingModeRoot();
+        return document()->inQuirksMode() && style()->logicalHeight().isAuto() && !isFloatingOrPositioned() && (isRoot() || isBody());
     }
 
     virtual IntSize intrinsicSize() const { return IntSize(); }
@@ -374,9 +377,16 @@ public:
     virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
     virtual int baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
+=======
+    enum FlippingAdjustment { ChildToParentFlippingAdjustment, ParentToChildFlippingAdjustment };
+    void adjustForFlippedBlocksWritingMode(RenderBox* child, IntPoint&, FlippingAdjustment);
+    int convertFromFlippedWritingMode(int position);
+    IntSize locationOffsetIncludingFlipping();
+>>>>>>> webkit.org at r70949
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

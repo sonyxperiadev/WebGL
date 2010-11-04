@@ -41,7 +41,7 @@ public:
     void initialize(WKBundleRef);
 
     void dumpTestNames();
-    void initializeTestNamed(const std::string&);
+    void initializeTestNamed(WKBundleRef bundle, const std::string&);
 
     typedef InjectedBundleTest* (*CreateInjectedBundleTestFunction)(const std::string&);
     void registerCreateInjectedBundleTestFunction(const std::string&, CreateInjectedBundleTestFunction);

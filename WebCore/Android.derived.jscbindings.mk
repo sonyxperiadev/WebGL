@@ -204,6 +204,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/fileapi/%.cpp : $(intermediates)/
 # HTML
 GEN := \
     $(intermediates)/html/JSDOMFormData.h \
+    $(intermediates)/html/JSDOMSettableTokenList.h \
     $(intermediates)/html/JSDOMTokenList.h \
     $(intermediates)/html/JSDataGridColumn.h \
     $(intermediates)/html/JSDataGridColumnList.h \

@@ -210,7 +210,7 @@
     || defined(_ARM_)
 #define WTF_CPU_ARM 1
 
-#if defined(__ARMEB__)
+#if defined(__ARMEB__) || (COMPILER(RVCT) && defined(__BIG_ENDIAN))
 #define WTF_CPU_BIG_ENDIAN 1
 
 #elif !defined(__ARM_EABI__) \
@@ -562,11 +562,6 @@
 
 #define _INC_ASSERT    /* disable "assert.h" */
 #define assert(x)
-
-/* _countof is only included in CE6; for CE5 we need to define it ourself */
-#ifndef _countof
-#define _countof(x) (sizeof(x) / sizeof((x)[0]))
-#endif
 
 #endif  /* OS(WINCE) && !PLATFORM(QT) */
 
@@ -1079,6 +1074,7 @@
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 0
 #endif
+<<<<<<< HEAD
 
 /* Accelerated compositing */
 #if !defined(BUILDING_ON_TIGER)
@@ -1096,17 +1092,13 @@
 
 #if PLATFORM(QT)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
+=======
+>>>>>>> webkit.org at r70949
 #endif
 
-/* FIXME: Defining ENABLE_3D_RENDERING here isn't really right, but it's always used with
-   with WTF_USE_ACCELERATED_COMPOSITING, and it allows the feature to be turned on and
-   off in one place. */
-#if PLATFORM(WIN) && !OS(WINCE)
-#include "QuartzCorePresent.h"
-#if QUARTZCORE_PRESENT
+/* Accelerated compositing */
+#if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER)) || PLATFORM(IOS) || PLATFORM(QT) || (PLATFORM(WIN) && !OS(WINCE) &&!defined(WIN_CAIRO))
 #define WTF_USE_ACCELERATED_COMPOSITING 1
-#define ENABLE_3D_RENDERING 1
-#endif
 #endif
 
 #if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)) || PLATFORM(IOS)

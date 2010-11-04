@@ -68,7 +68,9 @@ BEGIN {
         &parsePatch
         &pathRelativeToSVNRepositoryRootForPath
         &prepareParsedPatch
+        &removeEOL
         &runPatchCommand
+        &scmMoveOrRenameFile
         &scmToggleExecutableBit
         &setChangeLogDateAndReviewer
         &svnRevisionForDirectory
@@ -412,6 +414,7 @@ sub canonicalizePath($)
 sub removeEOL($)
 {
     my ($line) = @_;
+    return "" unless $line;
 
     $line =~ s/[\r\n]+$//g;
     return $line;

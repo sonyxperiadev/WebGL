@@ -42,7 +42,7 @@
 
 #include "AXObjectCache.h"
 #include "AbstractDatabase.h"
-#include "BackForwardList.h"
+#include "BackForwardListImpl.h"
 #include "Cache.h"
 #include "ChromeClientGtk.h"
 #include "ClipboardUtilitiesGtk.h"
@@ -196,12 +196,25 @@ enum {
     PROP_CUSTOM_ENCODING,
     PROP_ICON_URI,
     PROP_IM_CONTEXT,
+#ifdef GTK_API_VERSION_2
     PROP_VIEW_MODE
+#else
+    PROP_VIEW_MODE,
+    PROP_HADJUSTMENT,
+    PROP_VADJUSTMENT,
+    PROP_HSCROLL_POLICY,
+    PROP_VSCROLL_POLICY
+#endif
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
 
+#ifdef GTK_API_VERSION_2
 G_DEFINE_TYPE(WebKitWebView, webkit_web_view, GTK_TYPE_CONTAINER)
+#else
+G_DEFINE_TYPE_WITH_CODE(WebKitWebView, webkit_web_view, GTK_TYPE_CONTAINER,
+                        G_IMPLEMENT_INTERFACE(GTK_TYPE_SCROLLABLE, 0))
+#endif
 
 static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GParamSpec* pspec, WebKitWebView* webView);
 static void webkit_web_view_set_window_features(WebKitWebView* webView, WebKitWebWindowFeatures* webWindowFeatures);
@@ -385,6 +398,65 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
     return webkit_web_view_forward_context_menu_event(WEBKIT_WEB_VIEW(widget), event);
 }
 
+#ifndef GTK_API_VERSION_2
+static void setHorizontalAdjustment(WebKitWebView* webView, GtkAdjustment* adjustment)
+{
+    if (!core(webView))
+        return;
+
+    webView->priv->horizontalAdjustment = adjustment;
+    FrameView* view = core(webkit_web_view_get_main_frame(webView))->view();
+    if (!view)
+        return;
+    view->setHorizontalAdjustment(adjustment);
+}
+
+static void setVerticalAdjustment(WebKitWebView* webView, GtkAdjustment* adjustment)
+{
+    if (!core(webView))
+        return;
+
+    webView->priv->verticalAdjustment = adjustment;
+    FrameView* view = core(webkit_web_view_get_main_frame(webView))->view();
+    if (!view)
+        return;
+    view->setVerticalAdjustment(adjustment);
+}
+
+static GtkAdjustment* getHorizontalAdjustment(WebKitWebView* webView)
+{
+    return webView->priv->horizontalAdjustment.get();
+}
+
+static GtkAdjustment* getVerticalAdjustment(WebKitWebView* webView)
+{
+    return webView->priv->verticalAdjustment.get();
+}
+
+static void setHorizontalScrollPolicy(WebKitWebView* webView, GtkScrollablePolicy policy)
+{
+    webView->priv->horizontalScrollingPolicy = policy;
+    gtk_widget_queue_resize(GTK_WIDGET(webView));
+}
+
+static void setVerticalScrollPolicy(WebKitWebView* webView, GtkScrollablePolicy policy)
+{
+    webView->priv->verticalScrollingPolicy = policy;
+    gtk_widget_queue_resize(GTK_WIDGET(webView));
+}
+
+static GtkScrollablePolicy getHorizontalScrollPolicy(WebKitWebView* webView)
+{
+    return webView->priv->horizontalScrollingPolicy;
+}
+
+static GtkScrollablePolicy getVerticalScrollPolicy(WebKitWebView* webView)
+{
+    return webView->priv->verticalScrollingPolicy;
+}
+
+#endif
+
 static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec)
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
@@ -444,6 +516,20 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
     case PROP_VIEW_MODE:
         g_value_set_enum(value, webkit_web_view_get_view_mode(webView));
         break;
+#ifndef GTK_API_VERSION_2
+    case PROP_HADJUSTMENT:
+        g_value_set_object(value, getHorizontalAdjustment(webView));
+        break;
+    case PROP_VADJUSTMENT:
+        g_value_set_object(value, getVerticalAdjustment(webView));
+        break;
+    case PROP_HSCROLL_POLICY:
+        g_value_set_enum(value, getHorizontalScrollPolicy(webView));
+        break;
+    case PROP_VSCROLL_POLICY:
+        g_value_set_enum(value, getVerticalScrollPolicy(webView));
+        break;
+#endif
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     }
@@ -478,6 +564,20 @@ static void webkit_web_view_set_property(GObject* object, guint prop_id, const G
     case PROP_VIEW_MODE:
         webkit_web_view_set_view_mode(webView, static_cast<WebKitWebViewViewMode>(g_value_get_enum(value)));
         break;
+#ifndef GTK_API_VERSION_2
+    case PROP_HADJUSTMENT:
+        setHorizontalAdjustment(webView, static_cast<GtkAdjustment*>(g_value_get_object(value)));
+        break;
+    case PROP_VADJUSTMENT:
+        setVerticalAdjustment(webView, static_cast<GtkAdjustment*>(g_value_get_object(value)));
+        break;
+    case PROP_HSCROLL_POLICY:
+        setHorizontalScrollPolicy(webView, static_cast<GtkScrollablePolicy>(g_value_get_enum(value)));
+        break;
+    case PROP_VSCROLL_POLICY:
+        setVerticalScrollPolicy(webView, static_cast<GtkScrollablePolicy>(g_value_get_enum(value)));
+        break;
+#endif
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     }
@@ -908,6 +1008,7 @@ static void webkit_web_view_realize(GtkWidget* widget)
     gtk_im_context_set_client_window(priv->imContext.get(), window);
 }
 
+#ifdef GTK_API_VERSION_2
 static void webkit_web_view_set_scroll_adjustments(WebKitWebView* webView, GtkAdjustment* hadj, GtkAdjustment* vadj)
 {
     if (!core(webView))
@@ -921,6 +1022,7 @@ static void webkit_web_view_set_scroll_adjustments(WebKitWebView* webView, GtkAd
         return;
     view->setGtkAdjustments(hadj, vadj);
 }
+#endif
 
 static void webkit_web_view_container_add(GtkContainer* container, GtkWidget* widget)
 {
@@ -2525,6 +2627,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     /*
      * make us scrollable (e.g. addable to a GtkScrolledWindow)
      */
+#ifdef GTK_API_VERSION_2
     webViewClass->set_scroll_adjustments = webkit_web_view_set_scroll_adjustments;
     GTK_WIDGET_CLASS(webViewClass)->set_scroll_adjustments_signal = g_signal_new("set-scroll-adjustments",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -2534,6 +2637,12 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             webkit_marshal_VOID__OBJECT_OBJECT,
             G_TYPE_NONE, 2,
             GTK_TYPE_ADJUSTMENT, GTK_TYPE_ADJUSTMENT);
+#else
+    g_object_class_override_property(objectClass, PROP_HADJUSTMENT, "hadjustment");
+    g_object_class_override_property(objectClass, PROP_VADJUSTMENT, "vadjustment");
+    g_object_class_override_property(objectClass, PROP_HSCROLL_POLICY, "hscroll-policy");
+    g_object_class_override_property(objectClass, PROP_VSCROLL_POLICY, "vscroll-policy");
+#endif
 
     /*
      * Key bindings
@@ -3322,7 +3431,7 @@ void webkit_web_view_set_maintains_back_forward_list(WebKitWebView* webView, gbo
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    core(webView)->backForwardList()->setEnabled(flag);
+    static_cast<BackForwardListImpl*>(core(webView)->backForwardList())->setEnabled(flag);
 }
 
 /**
@@ -3337,7 +3446,7 @@ void webkit_web_view_set_maintains_back_forward_list(WebKitWebView* webView, gbo
 WebKitWebBackForwardList* webkit_web_view_get_back_forward_list(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-    if (!core(webView) || !core(webView)->backForwardList()->enabled())
+    if (!core(webView) || !static_cast<BackForwardListImpl*>(core(webView)->backForwardList())->enabled())
         return 0;
     return webView->priv->backForwardList.get();
 }

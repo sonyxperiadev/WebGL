@@ -112,7 +112,7 @@ public:
     virtual void dispatchDidFinishLoad();
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
-    virtual WebCore::Frame* dispatchCreatePage();
+    virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
     virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction function, const WTF::String& mime_type, const WebCore::ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction function, const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, PassRefPtr<WebCore::FormState> form_state, const WTF::String& frame_name);
@@ -169,6 +169,7 @@ public:
     virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
+    virtual void dispatchDidBecomeFrameset(bool);
     virtual bool canCachePage() const;
     virtual void download(
         WebCore::ResourceHandle*, const WebCore::ResourceRequest&,
@@ -180,6 +181,7 @@ public:
         const WTF::String& referrer, bool allowsScrolling,
         int marginWidth, int marginHeight);
     virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
     virtual PassRefPtr<WebCore::Widget> createPlugin(
         const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&,
         const Vector<WTF::String>&, const Vector<WTF::String>&,

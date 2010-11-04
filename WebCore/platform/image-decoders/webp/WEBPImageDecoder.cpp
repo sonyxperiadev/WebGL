@@ -86,14 +86,15 @@ bool WEBPImageDecoder::decode(bool onlySize)
         return true;
     if (!WebPGetInfo(dataBytes, dataSize, &width, &height))
         return setFailed();
+    if (!ImageDecoder::isSizeAvailable() && !setSize(width, height))
+        return setFailed();
     if (onlySize)
-        return setSize(width, height) || setFailed();
+        return true;
 
     // FIXME: Add support for progressive decoding.
     if (!isAllDataReceived())
         return true;
-    if (m_frameBufferCache.isEmpty())
-        return true;
+    ASSERT(!m_frameBufferCache.isEmpty());
     RGBA32Buffer& buffer = m_frameBufferCache[0];
     if (buffer.status() == RGBA32Buffer::FrameEmpty) {
         ASSERT(width == size().width());
@@ -103,8 +104,8 @@ bool WEBPImageDecoder::decode(bool onlySize)
     }
     const int stride = width * bytesPerPixel;
     Vector<uint8_t> rgb;
-    rgb.reserveCapacity(height * stride);
-    if (!WebPDecodeBGRInto(dataBytes, dataSize, &rgb[0], height * stride, stride))
+    rgb.resize(height * stride);
+    if (!WebPDecodeBGRInto(dataBytes, dataSize, rgb.data(), rgb.size(), stride))
         return setFailed();
     // FIXME: remove this data copy.
     for (int y = 0; y < height; ++y) {

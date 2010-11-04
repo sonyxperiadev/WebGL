@@ -43,11 +43,8 @@ namespace WebCore {
 using namespace HTMLNames;
 using namespace std;
 
-// FIXME: Number values should be in the range of IEEE 754 single-precision
-// floating point number.
-// http://www.whatwg.org/specs/web-apps/current-work/multipage/common-microsyntaxes.html#real-numbers
-static const double numberDefaultMinimum = -DBL_MAX;
-static const double numberDefaultMaximum = DBL_MAX;
+static const double numberDefaultMinimum = -FLT_MAX;
+static const double numberDefaultMaximum = FLT_MAX;
 
 static const double numberDefaultStep = 1.0;
 static const double numberStepScaleFactor = 1.0;
@@ -67,8 +64,16 @@ double NumberInputType::valueAsNumber() const
     return parseToDouble(element()->value(), numeric_limits<double>::quiet_NaN());
 }
 
-void NumberInputType::setValueAsNumber(double newValue, ExceptionCode&) const
+void NumberInputType::setValueAsNumber(double newValue, ExceptionCode& ec) const
 {
+    if (newValue < numberDefaultMinimum) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    if (newValue > numberDefaultMaximum) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
     element()->setValue(serialize(newValue));
 }
 
@@ -116,12 +121,17 @@ bool NumberInputType::stepMismatch(const String& value, double step) const
     if (isinf(doubleValue))
         return false;
     // double's fractional part size is DBL_MAN_DIG-bit. If the current value
-    // is greater than step*2^DBL_MANT_DIG, the following fmod() makes no sense.
+    // is greater than step*2^DBL_MANT_DIG, the following computation for
+    // remainder makes no sense.
     if (doubleValue / pow(2.0, DBL_MANT_DIG) > step)
         return false;
-    double remainder = fmod(doubleValue, step);
-    // Accepts errors in lower 7-bit.
-    double acceptableError = step / pow(2.0, DBL_MANT_DIG - 7);
+    // The computation follows HTML5 4.10.7.2.10 `The step attribute' :
+    // ... that number subtracted from the step base is not an integral multiple
+    // of the allowed value step, the element is suffering from a step mismatch.
+    double remainder = fabs(doubleValue - step * round(doubleValue / step));
+    // Accepts erros in lower fractional part which IEEE 754 single-precision
+    // can't represent.
+    double acceptableError = step / pow(2.0, FLT_MANT_DIG);
     return acceptableError < remainder && remainder < (step - acceptableError);
 }
 

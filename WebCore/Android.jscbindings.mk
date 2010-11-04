@@ -88,10 +88,15 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMFormDataCustom.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
+<<<<<<< HEAD
 	bindings/js/JSDOMMimeTypeArrayCustom.cpp \
 	bindings/js/JSDOMPluginArrayCustom.cpp \
 	bindings/js/JSDOMPluginCustom.cpp \
 	bindings/js/JSDOMStringMapCustom.cpp \
+=======
+	bindings/js/JSDOMSettableTokenList.cpp \
+	bindings/js/JSDOMTokenList.cpp \
+>>>>>>> webkit.org at r70949
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
@@ -110,7 +115,11 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \
 	bindings/js/JSExceptionBase.cpp \
+<<<<<<< HEAD
 	bindings/js/JSFloat32ArrayCustom.cpp \
+=======
+	bindings/js/JSFileReaderCustom.cpp \
+>>>>>>> webkit.org at r70949
 	bindings/js/JSGeolocationCustom.cpp \
 	bindings/js/JSHTMLAllCollectionCustom.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \

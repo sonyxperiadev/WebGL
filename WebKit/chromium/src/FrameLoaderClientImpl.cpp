@@ -812,11 +812,11 @@ void FrameLoaderClientImpl::dispatchDidFirstVisuallyNonEmptyLayout()
         m_webFrame->client()->didFirstVisuallyNonEmptyLayout(m_webFrame);
 }
 
-Frame* FrameLoaderClientImpl::dispatchCreatePage()
+Frame* FrameLoaderClientImpl::dispatchCreatePage(const NavigationAction& action)
 {
     struct WindowFeatures features;
     Page* newPage = m_webFrame->frame()->page()->chrome()->createWindow(
-        m_webFrame->frame(), FrameLoadRequest(), features);
+        m_webFrame->frame(), FrameLoadRequest(), features, action);
 
     // Make sure that we have a valid disposition.  This should have been set in
     // the preceeding call to dispatchDecidePolicyForNewWindowAction.
@@ -1342,6 +1342,10 @@ void FrameLoaderClientImpl::transitionToCommittedForNewPage()
     makeDocumentView();
 }
 
+void FrameLoaderClientImpl::dispatchDidBecomeFrameset(bool)
+{
+}
+
 bool FrameLoaderClientImpl::canCachePage() const
 {
     // Since we manage the cache, always report this page as non-cacheable to
@@ -1383,6 +1387,11 @@ void FrameLoaderClientImpl::didTransferChildFrameToNewDocument(Page*)
     // Replace the client since the old client may be destroyed when the
     // previous page is closed.
     m_webFrame->setClient(newParent->client());
+}
+
+void FrameLoaderClientImpl::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+    notImplemented();
 }
 
 PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(

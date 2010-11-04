@@ -260,7 +260,6 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
         updateBeforeAfterContent(BEFORE);
         updateBeforeAfterContent(AFTER);
     }
-    updateFirstLetter();
 }
 
 void RenderBlock::updateBeforeAfterContent(PseudoId pseudoId)
@@ -2284,8 +2283,10 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
             }
         }
 
+        IntPoint childPoint(tx, ty);
+        adjustForFlippedBlocksWritingMode(child, childPoint, ParentToChildFlippingAdjustment);
         if (!child->hasSelfPaintingLayer() && !child->isFloating())
-            child->paint(info, tx, ty);
+            child->paint(info, childPoint.x(), childPoint.y());
 
         // Check for page-break-after: always, and if it's set, break and bail.
         bool checkAfterAlways = !childrenInline() && (usePrintRect && child->style()->pageBreakAfter() == PBALWAYS);
@@ -2418,18 +2419,19 @@ void RenderBlock::paintFloats(PaintInfo& paintInfo, int tx, int ty, bool preserv
         if (r->m_shouldPaint && !r->m_renderer->hasSelfPaintingLayer()) {
             PaintInfo currentPaintInfo(paintInfo);
             currentPaintInfo.phase = preservePhase ? paintInfo.phase : PaintPhaseBlockBackground;
-            int currentTX = tx + r->left() - r->m_renderer->x() + r->m_renderer->marginLeft();
-            int currentTY = ty + r->top() - r->m_renderer->y() + r->m_renderer->marginTop();
-            r->m_renderer->paint(currentPaintInfo, currentTX, currentTY);
+            IntPoint childPoint(tx + r->left() + r->m_renderer->marginLeft() - r->m_renderer->x(),
+                                ty + r->top() + r->m_renderer->marginTop() - r->m_renderer->y());
+            adjustForFlippedBlocksWritingMode(r->m_renderer, childPoint, ParentToChildFlippingAdjustment);
+            r->m_renderer->paint(currentPaintInfo, childPoint.x(), childPoint.y());
             if (!preservePhase) {
                 currentPaintInfo.phase = PaintPhaseChildBlockBackgrounds;
-                r->m_renderer->paint(currentPaintInfo, currentTX, currentTY);
+                r->m_renderer->paint(currentPaintInfo, childPoint.x(), childPoint.y());
                 currentPaintInfo.phase = PaintPhaseFloat;
-                r->m_renderer->paint(currentPaintInfo, currentTX, currentTY);
+                r->m_renderer->paint(currentPaintInfo, childPoint.x(), childPoint.y());
                 currentPaintInfo.phase = PaintPhaseForeground;
-                r->m_renderer->paint(currentPaintInfo, currentTX, currentTY);
+                r->m_renderer->paint(currentPaintInfo, childPoint.x(), childPoint.y());
                 currentPaintInfo.phase = PaintPhaseOutline;
-                r->m_renderer->paint(currentPaintInfo, currentTX, currentTY);
+                r->m_renderer->paint(currentPaintInfo, childPoint.x(), childPoint.y());
             }
         }
     }
@@ -4052,14 +4054,10 @@ int RenderBlock::getClearDelta(RenderBox* child, int yPos)
     // We also clear floats if we are too big to sit on the same line as a float (and wish to avoid floats by default).
     int result = clearSet ? max(0, bottom - yPos) : 0;
     if (!result && child->avoidsFloats()) {
-        int availableWidth = availableLogicalWidth();
-        if (child->minPreferredLogicalWidth() > availableWidth)
-            return 0;
-
         int y = yPos;
         while (true) {
             int widthAtY = availableLogicalWidthForLine(y, false);
-            if (widthAtY == availableWidth)
+            if (widthAtY == availableLogicalWidth())
                 return y - yPos;
 
             int oldChildY = child->y();

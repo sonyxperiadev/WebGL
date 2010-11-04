@@ -77,7 +77,7 @@ public:
 
     ~InspectorResourceAgent();
 
-    void identifierForInitialRequest(unsigned long identifier, const KURL&, DocumentLoader*, bool isMainResource);
+    void identifierForInitialRequest(unsigned long identifier, const KURL&, DocumentLoader*);
     void willSendRequest(unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
     void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, DocumentLoader* laoder, const ResourceResponse&);
@@ -97,8 +97,8 @@ public:
 #endif
 
     // Called from frontend 
-    void cachedResources(RefPtr<InspectorArray>*);
-    void resourceContent(unsigned long frameID, const String& url, String* content);
+    void cachedResources(RefPtr<InspectorObject>*);
+    void resourceContent(unsigned long frameID, const String& url, bool base64Encode, String* content);
 
 private:
     InspectorResourceAgent(Page* page, InspectorFrontend* frontend);

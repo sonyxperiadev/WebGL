@@ -41,7 +41,7 @@
 
 namespace WebCore {
 
-DirectoryEntry::DirectoryEntry(DOMFileSystemBase* fileSystem, const String& fullPath)
+DirectoryEntry::DirectoryEntry(PassRefPtr<DOMFileSystemBase> fileSystem, const String& fullPath)
     : Entry(fileSystem, fullPath)
 {
 }
@@ -55,21 +55,21 @@ void DirectoryEntry::getFile(const String& path, PassRefPtr<Flags> flags, PassRe
 {
     RefPtr<ErrorCallback> errorCallback(errorCallbackRef);
     if (!m_fileSystem->getFile(this, path, flags, successCallback, errorCallback))
-        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(INVALID_MODIFICATION_ERR));
+        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(FileError::INVALID_MODIFICATION_ERR));
 }
 
 void DirectoryEntry::getDirectory(const String& path, PassRefPtr<Flags> flags, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallbackRef)
 {
     RefPtr<ErrorCallback> errorCallback(errorCallbackRef);
     if (!m_fileSystem->getDirectory(this, path, flags, successCallback, errorCallback))
-        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(INVALID_MODIFICATION_ERR));
+        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(FileError::INVALID_MODIFICATION_ERR));
 }
 
 void DirectoryEntry::removeRecursively(PassRefPtr<VoidCallback> successCallback, PassRefPtr<ErrorCallback> errorCallbackRef) const
 {
     RefPtr<ErrorCallback> errorCallback(errorCallbackRef);
     if (!m_fileSystem->removeRecursively(this, successCallback, errorCallback))
-        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(INVALID_MODIFICATION_ERR));
+        filesystem()->scheduleCallback(errorCallback.release(), FileError::create(FileError::INVALID_MODIFICATION_ERR));
 }
 
 }

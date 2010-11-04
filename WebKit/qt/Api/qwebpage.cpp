@@ -33,69 +33,71 @@
 #include "qwebsettings.h"
 #include "qwebkitversion.h"
 
-#include "Chrome.h"
-#include "ContextMenuController.h"
-#include "Frame.h"
-#include "FrameTree.h"
-#include "FrameLoader.h"
-#include "FrameLoaderClientQt.h"
-#include "FrameView.h"
-#include "FormState.h"
 #include "ApplicationCacheStorage.h"
+#include "BackForwardListImpl.h"
+#include "Cache.h"
+#include "Chrome.h"
 #include "ChromeClientQt.h"
 #include "ContextMenu.h"
 #include "ContextMenuClientQt.h"
+#include "ContextMenuController.h"
 #include "DeviceMotionClientQt.h"
 #include "DeviceOrientationClientQt.h"
 #include "DocumentLoader.h"
 #include "DragClientQt.h"
 #include "DragController.h"
 #include "DragData.h"
-#include "EditorClientQt.h"
-#include "SchemeRegistry.h"
-#include "SecurityOrigin.h"
-#include "Settings.h"
-#include "Page.h"
-#include "Pasteboard.h"
-#include "FrameLoader.h"
-#include "FrameLoadRequest.h"
-#include "KURL.h"
-#include "Logging.h"
-#include "Image.h"
-#include "InspectorClientQt.h"
-#include "InspectorController.h"
-#include "FocusController.h"
 #include "Editor.h"
-#include "Scrollbar.h"
-#include "NetworkingContext.h"
-#include "PlatformKeyboardEvent.h"
-#include "PlatformWheelEvent.h"
-#include "PluginDatabase.h"
-#include "ProgressTracker.h"
-#include "RefPtr.h"
-#include "RenderTextControl.h"
-#include "TextIterator.h"
-#include "HashMap.h"
+#include "EditorClientQt.h"
+#include "FocusController.h"
+#include "FormState.h"
+#include "Frame.h"
+#include "FrameLoadRequest.h"
+#include "FrameLoader.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClientQt.h"
+#include "FrameTree.h"
+#include "FrameView.h"
+#include "GeolocationPermissionClientQt.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HashMap.h"
 #include "HitTestResult.h"
+#include "Image.h"
+#include "InspectorClientQt.h"
+#include "InspectorController.h"
 #include "InspectorServerQt.h"
-#include "WindowFeatures.h"
-#include "WebPlatformStrategies.h"
+#include "KURL.h"
 #include "LocalizedStrings.h"
-#include "Cache.h"
-#include "runtime/InitializeThreading.h"
-#include "PageGroup.h"
-#include "GeolocationPermissionClientQt.h"
-#include "NotificationPresenterClientQt.h"
-#include "PageClientQt.h"
-#include "PlatformTouchEvent.h"
-#include "WorkerThread.h"
-#include "wtf/Threading.h"
+#include "Logging.h"
 #include "MIMETypeRegistry.h"
+#include "NavigationAction.h"
+#include "NetworkingContext.h"
+#include "NotificationPresenterClientQt.h"
+#include "Page.h"
+#include "PageClientQt.h"
+#include "PageGroup.h"
+#include "Pasteboard.h"
+#include "PlatformKeyboardEvent.h"
+#include "PlatformTouchEvent.h"
+#include "PlatformWheelEvent.h"
+#include "PluginDatabase.h"
 #include "PluginDatabase.h"
 #include "PluginPackage.h"
+#include "ProgressTracker.h"
+#include "RefPtr.h"
+#include "RenderTextControl.h"
+#include "SchemeRegistry.h"
+#include "Scrollbar.h"
+#include "SecurityOrigin.h"
+#include "Settings.h"
+#include "TextIterator.h"
+#include "WebPlatformStrategies.h"
+#include "WindowFeatures.h"
+#include "WorkerThread.h"
+#include "runtime/InitializeThreading.h"
+#include "wtf/Threading.h"
 
 #include <QApplication>
 #include <QBasicTimer>
@@ -311,7 +313,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
 
     settings = new QWebSettings(page->settings());
 
-    history.d = new QWebHistoryPrivate(page->backForwardList());
+    history.d = new QWebHistoryPrivate(static_cast<WebCore::BackForwardListImpl*>(page->backForwardList()));
     memset(actions, 0, sizeof(actions));
 
     PageGroup::setShouldTrackVisitedLinks(true);
@@ -323,6 +325,11 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
 
 QWebPagePrivate::~QWebPagePrivate()
 {
+    if (inspector && inspectorIsInternalOnly) {
+        // Since we have to delete an internal inspector,
+        // call setInspector(0) directly to prevent potential crashes
+        setInspector(0);
+    }
 #ifndef QT_NO_CONTEXTMENU
     delete currentContextMenu;
 #endif
@@ -332,6 +339,9 @@ QWebPagePrivate::~QWebPagePrivate()
     delete settings;
     delete page;
     
+    if (inspector)
+        inspector->setPage(0);
+
 #if ENABLE(NOTIFICATIONS)
     NotificationPresenterClientQt::notificationPresenter()->removeClient();
 #endif
@@ -1008,7 +1018,6 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
 {
     WebCore::Frame *frame = page->focusController()->focusedOrMainFrame();
     WebCore::Editor *editor = frame->editor();
-    QInputMethodEvent::Attribute selection(QInputMethodEvent::Selection, 0, 0, QVariant());
 
     if (!editor->canEdit()) {
         ev->ignore();
@@ -1016,13 +1025,8 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
     }
 
     RenderObject* renderer = 0;
-    RenderTextControl* renderTextControl = 0;
-
     if (frame->selection()->rootEditableElement())
         renderer = frame->selection()->rootEditableElement()->shadowAncestorNode()->renderer();
-
-    if (renderer && renderer->isTextControl())
-        renderTextControl = toRenderTextControl(renderer);
 
     Vector<CompositionUnderline> underlines;
     bool hasSelection = false;
@@ -1048,8 +1052,21 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
             break;
         }
         case QInputMethodEvent::Selection: {
-            selection = a;
             hasSelection = true;
+            // A selection in the inputMethodEvent is always reflected in the visible text
+            if (renderer && renderer->node())
+                setSelectionRange(renderer->node(), qMin(a.start, (a.start + a.length)), qMax(a.start, (a.start + a.length)));
+
+            if (!ev->preeditString().isEmpty()) {
+                editor->setComposition(ev->preeditString(), underlines,
+                                      (a.length < 0) ? a.start + a.length : a.start,
+                                      (a.length < 0) ? a.start : a.start + a.length);
+            } else {
+                // If we are in the middle of a composition, an empty pre-edit string and a selection of zero
+                // cancels the current composition
+                if (editor->hasComposition() && (a.start + a.length == 0))
+                    editor->setComposition(QString(), underlines, 0, 0);
+            }
             break;
         }
         }
@@ -1057,22 +1074,8 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
 
     if (!ev->commitString().isEmpty())
         editor->confirmComposition(ev->commitString());
-    else {
-        // 1. empty preedit with a selection attribute, and start/end of 0 cancels composition
-        // 2. empty preedit with a selection attribute, and start/end of non-0 updates selection of current preedit text
-        // 3. populated preedit with a selection attribute, and start/end of 0 or non-0 updates selection of supplied preedit text
-        // 4. otherwise event is updating supplied pre-edit text
-        QString preedit = ev->preeditString();
-        if (hasSelection) {
-            QString text = (renderTextControl) ? QString(renderTextControl->text()) : QString();
-            if (preedit.isEmpty() && selection.start + selection.length > 0)
-                preedit = text;
-            editor->setComposition(preedit, underlines,
-                                   (selection.length < 0) ? selection.start + selection.length : selection.start,
-                                   (selection.length < 0) ? selection.start : selection.start + selection.length);
-        } else if (!preedit.isEmpty())
-            editor->setComposition(preedit, underlines, preedit.length(), 0);
-    }
+    else if (!hasSelection && !ev->preeditString().isEmpty())
+        editor->setComposition(ev->preeditString(), underlines, 0, ev->preeditString().length());
 
     ev->accept();
 }
@@ -1329,9 +1332,8 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
             if (renderTextControl) {
                 QString text = renderTextControl->text();
                 RefPtr<Range> range = editor->compositionRange();
-                if (range) {
+                if (range)
                     text.remove(range->startPosition().offsetInContainerNode(), TextIterator::rangeLength(range.get()));
-                }
                 return QVariant(text);
             }
             return QVariant();
@@ -1760,14 +1762,6 @@ QWebPage::~QWebPage()
     FrameLoader *loader = d->mainFrame->d->frame->loader();
     if (loader)
         loader->detachFromParent();
-    if (d->inspector) {
-        // Since we have to delete an internal inspector,
-        // call setInspector(0) directly to prevent potential crashes
-        if (d->inspectorIsInternalOnly)
-            d->setInspector(0);
-        else
-            d->inspector->setPage(0);
-    }
     delete d;
 }
 
@@ -1850,7 +1844,7 @@ void QWebPage::setView(QWidget* view)
     }
 
     if (view)
-        d->client = new PageClientQWidget(view);
+        d->client = new PageClientQWidget(view, this);
 }
 
 /*!
@@ -2089,8 +2083,9 @@ static void openNewWindow(const QUrl& url, WebCore::Frame* frame)
 {
     if (Page* oldPage = frame->page()) {
         WindowFeatures features;
+        NavigationAction action;
         if (Page* newPage = oldPage->chrome()->createWindow(frame,
-                frameLoadRequest(url, frame), features))
+                frameLoadRequest(url, frame), features, action))
             newPage->chrome()->show();
     }
 }
@@ -2292,6 +2287,9 @@ static QSize queryDeviceSizeForScreenContainingWidget(const QWidget* widget)
     automatically. For testing purposes the size can be overridden by setting two
     environment variables QTWEBKIT_DEVICE_WIDTH and QTWEBKIT_DEVICE_HEIGHT, which
     both needs to be set.
+
+    An invalid instance will be returned in the case an empty size is passed to the
+    method.
 */
 
 QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& availableSize) const
@@ -2300,6 +2298,9 @@ QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& av
     static int deviceDPI = 160;
 
     ViewportAttributes result;
+
+     if (availableSize.isEmpty())
+         return result; // Returns an invalid instance.
 
     int deviceWidth = getintenv("QTWEBKIT_DEVICE_WIDTH");
     int deviceHeight = getintenv("QTWEBKIT_DEVICE_HEIGHT");
@@ -2823,6 +2824,7 @@ bool QWebPage::event(QEvent *ev)
 #endif
     case QEvent::InputMethod:
         d->inputMethodEvent(static_cast<QInputMethodEvent*>(ev));
+        break;
     case QEvent::ShortcutOverride:
         d->shortcutOverrideEvent(static_cast<QKeyEvent*>(ev));
         break;

@@ -383,6 +383,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Tests\NullNPPGetValuePointer.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\Tests\PassDifferentNPPStruct.cpp"
 				>
 			</File>
@@ -395,6 +399,10 @@
 				>
 				<File
 					RelativePath="..\Tests\win\GetValueNetscapeWindow.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\win\NPNInvalidateRectInvalidatesWindow.cpp"
 					>
 				</File>
 				<File

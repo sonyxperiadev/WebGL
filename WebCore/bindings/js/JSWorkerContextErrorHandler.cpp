@@ -86,16 +86,16 @@ void JSWorkerContextErrorHandler::handleEvent(ScriptExecutionContext* scriptExec
         MarkedArgumentBuffer args;
         args.append(jsString(exec, errorEvent->message()));
         args.append(jsString(exec, errorEvent->filename()));
-        args.append(jsNumber(exec, errorEvent->lineno()));
+        args.append(jsNumber(errorEvent->lineno()));
 
-        JSGlobalData* globalData = globalObject->globalData();
-        DynamicGlobalObjectScope globalObjectScope(exec, globalData->dynamicGlobalObject ? globalData->dynamicGlobalObject : globalObject);    
+        JSGlobalData& globalData = globalObject->globalData();
+        DynamicGlobalObjectScope globalObjectScope(exec, globalData.dynamicGlobalObject ? globalData.dynamicGlobalObject : globalObject);
 
         JSValue thisValue = globalObject->toThisObject(exec);
 
-        globalData->timeoutChecker.start();
+        globalData.timeoutChecker.start();
         JSValue returnValue = JSC::call(exec, jsFunction, callType, callData, thisValue, args);
-        globalData->timeoutChecker.stop();
+        globalData.timeoutChecker.stop();
 
         globalObject->setCurrentEvent(savedEvent);
 

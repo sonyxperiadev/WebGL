@@ -69,7 +69,6 @@
         'ENABLE_ORIENTATION_EVENTS=0',
         'ENABLE_PROGRESS_TAG=1',
         'ENABLE_RUBY=1',
-        'ENABLE_SANDBOX=1',
         'ENABLE_SHARED_WORKERS=1',
         'ENABLE_SVG=1',
         'ENABLE_SVG_ANIMATION=1',
@@ -80,6 +79,7 @@
         'ENABLE_TOUCH_EVENTS=1',
         'ENABLE_V8_SCRIPT_DEBUG_SERVER=1',
         'ENABLE_VIDEO=1',
+        'ENABLE_WEB_AUDIO=0',
         'ENABLE_WEB_SOCKETS=1',
         'ENABLE_WEB_TIMING=1',
         'ENABLE_WORKERS=1',
@@ -88,6 +88,7 @@
         'ENABLE_XSLT=1',
         'WTF_USE_ACCELERATED_COMPOSITING=1',
         'WTF_USE_WEBP=1',
+        'WTF_USE_WEBKIT_IMAGE_DECODERS=1',
       ],
 
       'use_accelerated_compositing%': 1,

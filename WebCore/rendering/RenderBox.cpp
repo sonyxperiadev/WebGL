@@ -309,19 +309,29 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
         }
     }
 
+    bool isBodyRenderer = isBody();
+    bool isRootRenderer = isRoot();
+
     // Set the text color if we're the body.
-    if (isBody())
+    if (isBodyRenderer)
         document()->setTextColor(style()->visitedDependentColor(CSSPropertyColor));
-    else if (isRoot() && (!oldStyle || oldStyle->writingMode() != style()->writingMode() || oldStyle->direction() != style()->direction())) {
-        // Propagate the new block flow and direction up to the RenderView.
-        // FIXME: WinIE seems to propagate from the <body> as well.  We may want to consider doing that at some point.
+    
+    if ((isRootRenderer || isBodyRenderer) && (!oldStyle || oldStyle->writingMode() != style()->writingMode() || oldStyle->direction() != style()->direction())) {
+        // Propagate the new writing mode and direction up to the RenderView.
         RenderView* viewRenderer = view();
         RenderStyle* viewStyle = viewRenderer->style();
-        if (viewStyle->writingMode() != style()->writingMode() || viewStyle->direction() != style()->direction()) {
-            viewStyle->setWritingMode(style()->writingMode());
+        if (isRootRenderer || !document()->directionSetOnDocumentElement()) {
             viewStyle->setDirection(style()->direction());
-            viewRenderer->setNeedsLayoutAndPrefWidthsRecalc();
+            if (isBodyRenderer)
+                document()->documentElement()->renderer()->style()->setDirection(style()->direction());
         }
+        
+        if (isRootRenderer || !document()->writingModeSetOnDocumentElement()) {
+            viewStyle->setWritingMode(style()->writingMode());
+            if (isBodyRenderer)
+                document()->documentElement()->renderer()->style()->setWritingMode(style()->writingMode());
+        }
+        setNeedsLayoutAndPrefWidthsRecalc();
     }
 }
 
@@ -3241,6 +3251,53 @@ int RenderBox::baselinePosition(bool /*firstLine*/, LineDirectionMode direction,
     if (isReplaced())
         return direction == HorizontalLine ? m_marginTop + height() + m_marginBottom : m_marginRight + width() + m_marginLeft;
     return 0;
+}
+
+void RenderBox::blockDirectionOverflow(bool isLineVertical, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
+                                       int& logicalTopVisualOverflow, int& logicalBottomVisualOverflow)
+{
+    if (isLineVertical) {
+        logicalTopLayoutOverflow = leftLayoutOverflow();
+        logicalBottomLayoutOverflow = rightLayoutOverflow();
+        logicalTopVisualOverflow = leftVisualOverflow();
+        logicalBottomVisualOverflow = rightVisualOverflow();
+    } else {
+        logicalTopLayoutOverflow = topLayoutOverflow();
+        logicalBottomLayoutOverflow = bottomLayoutOverflow();
+        logicalTopVisualOverflow = topVisualOverflow();
+        logicalBottomVisualOverflow = bottomVisualOverflow();
+    }
+}
+
+void RenderBox::adjustForFlippedBlocksWritingMode(RenderBox* child, IntPoint& point, FlippingAdjustment adjustment)
+{
+    if (!style()->isFlippedBlocksWritingMode())
+        return;
+    
+    // The child is going to add in its x() and y(), so we have to make sure it ends up in
+    // the right place.
+    if (style()->isHorizontalWritingMode())
+        point.move(0, height() - child->height() - child->y() - (adjustment == ParentToChildFlippingAdjustment ? child->y() : 0));
+    else
+        point.move(width() - child->width() - child->x() - (adjustment == ParentToChildFlippingAdjustment ? child->x() : 0), 0);
+}
+
+int RenderBox::convertFromFlippedWritingMode(int logicalPosition)
+{
+    if (!style()->isFlippedBlocksWritingMode())
+        return logicalPosition;
+    return logicalHeight() - logicalPosition;
+}
+
+IntSize RenderBox::locationOffsetIncludingFlipping()
+{
+    if (!parent() || !parent()->isBox())
+        return locationOffset();
+    
+    RenderBox* parent = parentBox();
+    IntPoint localPoint(x(), y());
+    parent->adjustForFlippedBlocksWritingMode(this, localPoint, ChildToParentFlippingAdjustment);
+    return IntSize(localPoint.x(), localPoint.y());
 }
 
 } // namespace WebCore

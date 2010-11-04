@@ -38,6 +38,7 @@
 #include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "DOMSelection.h"
+#include "DOMSettableTokenList.h"
 #include "DOMStringList.h"
 #include "DOMTimer.h"
 #include "DOMTokenList.h"
@@ -730,13 +731,13 @@ void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSyste
         return;
 
     if (!AsyncFileSystem::isAvailable() || !document->securityOrigin()->canAccessFileSystem()) {
-        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(SECURITY_ERR));
+        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::SECURITY_ERR));
         return;
     }
 
     AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
     if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent) {
-        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(INVALID_MODIFICATION_ERR));
+        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::INVALID_MODIFICATION_ERR));
         return;
     }
 
@@ -1270,8 +1271,8 @@ PassRefPtr<CSSRuleList> DOMWindow::getMatchedCSSRules(Element* elt, const String
     if (!m_frame)
         return 0;
 
-    Document* doc = m_frame->document();
-    return doc->styleSelector()->styleRulesForElement(elt, authorOnly);
+    Settings* settings = m_frame->settings();
+    return m_frame->document()->styleSelector()->styleRulesForElement(elt, authorOnly, false, settings && settings->crossOriginCheckInGetMatchedCSSRulesDisabled() ? AllCSSRules : SameOriginCSSRulesOnly);
 }
 
 PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, const WebKitPoint* p) const

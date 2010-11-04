@@ -1,3 +1,771 @@
+2010-10-29  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION: r69429-r69611: Crash in JSC::Interpreter::privateExecute
+        https://bugs.webkit.org/show_bug.cgi?id=47573
+
+        I think the interpreter portion of this was introduced by
+        an incorrect but silent merge when I updated prior to committing.
+        The JIT change is basically just a correctness fix, but it is
+        needed to prevent the testcase from asserting in debug builds.
+
+        The basic problem is incorrectly setting the activation object
+        on an arguments object.  The crash was due to us setting a null
+        activation in the interpreter, in the jit we were setting the
+        activation of a strict mode arguments object.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * wtf/Platform.h:
+
+2010-10-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Adam Roben and David Kilzer.
+
+        Fix and cleanup of build systems
+        https://bugs.webkit.org/show_bug.cgi?id=48342
+
+        * Configurations/FeatureDefines.xcconfig: Add missing ENABLE_FULLSCREEN_API
+
+2010-10-28  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Darin Adler.
+
+        Include stddef.h unconditionally in Assertions.h
+        https://bugs.webkit.org/show_bug.cgi?id=48573
+
+        There is no reason to have stddef.h include be MSVC-only.
+
+        * wtf/Assertions.h:
+
+2010-10-28  Herczeg Zoltan  <zherczeg@webkit.org>
+
+        Rubber stamped by Csaba Osztrogonác.
+
+        Try to fix interpreter build.
+
+        Needed parentheses around assignment to avoid GCC warning after
+        http://trac.webkit.org/changeset/70703
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-10-28  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Csaba Osztrogonác.
+
+        resetAssertionMatches() is an unused function in YARR Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=48503
+
+        The resetAssertionMatches() function is removed from YARR Interpreter
+        because it's never called.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::resetMatches):
+
+2010-10-28  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Wrong instruction form for BKPT
+        https://bugs.webkit.org/show_bug.cgi?id=48427
+
+        One '0' is missing from BKPT instruction.
+        Thanks for Jacob Bramley for reporting this error.
+
+        * assembler/ARMAssembler.h:
+
+2010-10-28  Xan Lopez  <xlopez@igalia.com>
+
+        Try to fix Snow Leopard build.
+
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::testPrototype):
+
+2010-10-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        Do not have two different asCell APIs in JSValue
+        https://bugs.webkit.org/show_bug.cgi?id=47979
+
+        Remove JSCell* asCell(JSValue) in favor of only using
+        JSValue::asCell().
+
+        * API/APICast.h:
+        (toRef):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::testPrototype):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/GetterSetter.h:
+        (JSC::asGetterSetter):
+        * runtime/JSByteArray.h:
+        (JSC::asByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::getCallData):
+        (JSC::JSCell::getConstructData):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::appendValueInConstructAndIncrementLength):
+        (JSC::asString):
+        * runtime/JSValue.h:
+        * runtime/Operations.cpp:
+        (JSC::jsIsObjectType):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        * runtime/Protect.h:
+        (JSC::gcProtect):
+        (JSC::gcUnprotect):
+
+2010-10-27  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Oliver Hunt.
+
+        Support emit_op_mod() for MIPS on JSVALUE32_64
+        https://bugs.webkit.org/show_bug.cgi?id=46511
+
+        This patch uses MIPS div instructions for op_mod to improve performance.
+
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_mod):
+
+2010-10-27  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build correction.
+
+        * wtf/Platform.h: Make sure ACCELERATED_COMPOSITING is
+        turned off in the WinCairo port.  This isn't supported (yet.)
+
+2010-10-27  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Chris Marrin.
+
+        Add ENABLE_WEB_AUDIO feature enable flag (initially disabled) to build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=48279
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-10-27  Brian Weinstein  <bweinstein@apple.com>
+
+        Windows build fix.
+
+        * jit/JITStubs.cpp:
+        (JSC::jitThrow):
+
+2010-10-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 48365 - Remove output parameters from JITStackFrame
+
+        The JIT stub functions presently use the stackframe to provide a couple of additional return values.
+          * In the case of uncaught exceptions the exception value is returned on the stackframe.exception property.
+          * In the case of caught exceptions the updated value for the callFrame register is returned on the stackframe.callFrame property.
+
+        Change exception returns such that exceptions are always returned on JSGlobalData::exception.
+        Change op_catch such that the new CallFrame value is returned from op_throw / vm_throw in regT0.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/CachedCall.h:
+        (JSC::CachedCall::CachedCall):
+        (JSC::CachedCall::call):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::exception):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::callEval):
+        (JSC::Interpreter::Interpreter):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::prepareForRepeatCall):
+        (JSC::Interpreter::privateExecute):
+        * interpreter/Interpreter.h:
+        * jit/JITCode.h:
+        (JSC::JITCode::execute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_catch):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_catch):
+        * jit/JITStubs.cpp:
+        (JSC::ctiTrampoline):
+        (JSC::jitThrow):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+        * runtime/CallData.cpp:
+        (JSC::call):
+        * runtime/Completion.cpp:
+        (JSC::evaluate):
+        * runtime/ConstructData.cpp:
+        (JSC::construct):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createErrorForInvalidGlobalAssignment):
+        (JSC::throwOutOfMemoryError):
+        (JSC::throwStackOverflowError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::globalFuncEval):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncReplace):
+
+2010-10-27  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48060
+        Speed up op_jeq_null and op_jneq_null.
+
+        For both opcodes the NullTag and UndefinedTag are checked to control the
+        jump. These values can be simply checked by AboveOrEqual or Below
+        condition if they are the two highest unsigned integers from JSValue's
+        Tag field.
+
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_jeq_null):
+        (JSC::JIT::emit_op_jneq_null):
+        * runtime/JSValue.h:
+
+2010-10-25  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41948
+        REGRESSION(r60392): Registerfile can be unwound too far following an exception
+        
+        SunSpider reports no change.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::throwException): Walk the stack to calculate the high
+        water mark currently in use. It's not safe to assume that the current
+        CallFrame's high water mark is the highest high water mark because
+        calls do not always set up at the end of a CallFrame. A large caller
+        CallFrame can encompass a small callee CallFrame.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall): Make sure to set a 0 CodeBlock
+        in the CallFrame of a host call, like the Interpreter does, instead of
+        leaving the CodeBlock field uninitialized. The backtracing code requires
+        a valid CodeBlock field in each CallFrame.
+
+2010-10-27  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Add cmn to branch32(reg, imm) on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=48062
+
+        The conditional comparison can be done with cmn if the imm value is
+        negative and can fit into the cmn instruction.
+
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::branch32):
+
+2010-10-26  Oliver Hunt  <oliver@apple.com>
+
+        Interpreter build fix.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-10-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove exec and globalData arguments from jsNumber
+        https://bugs.webkit.org/show_bug.cgi?id=48270
+
+        Remove the now unused exec and globalData arguments from jsNumber
+        and mechanically update all users of jsNumber.
+
+        * API/JSValueRef.cpp:
+        (JSValueMakeNumber):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitLoad):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ArrayNode::emitBytecode):
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_mod):
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_mod):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_jfalse):
+        (JSC::JIT::emit_op_jtrue):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (functionRun):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncPop):
+        (JSC::arrayProtoFuncPush):
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+        (JSC::arrayProtoFuncIndexOf):
+        (JSC::arrayProtoFuncLastIndexOf):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        * runtime/CachedTranscendentalFunction.h:
+        (JSC::CachedTranscendentalFunction::operator()):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        (JSC::dateParse):
+        (JSC::dateNow):
+        (JSC::dateUTC):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncGetFullYear):
+        (JSC::dateProtoFuncGetUTCFullYear):
+        (JSC::dateProtoFuncGetMonth):
+        (JSC::dateProtoFuncGetUTCMonth):
+        (JSC::dateProtoFuncGetDate):
+        (JSC::dateProtoFuncGetUTCDate):
+        (JSC::dateProtoFuncGetDay):
+        (JSC::dateProtoFuncGetUTCDay):
+        (JSC::dateProtoFuncGetHours):
+        (JSC::dateProtoFuncGetUTCHours):
+        (JSC::dateProtoFuncGetMinutes):
+        (JSC::dateProtoFuncGetUTCMinutes):
+        (JSC::dateProtoFuncGetSeconds):
+        (JSC::dateProtoFuncGetUTCSeconds):
+        (JSC::dateProtoFuncGetMilliSeconds):
+        (JSC::dateProtoFuncGetUTCMilliseconds):
+        (JSC::dateProtoFuncGetTimezoneOffset):
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        (JSC::dateProtoFuncGetYear):
+        * runtime/Error.cpp:
+        (JSC::addErrorSourceInfo):
+        (JSC::addErrorDivotInfo):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSByteArray.h:
+        (JSC::JSByteArray::getIndex):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::lengthGetter):
+        (JSC::JSFunction::getOwnPropertyDescriptor):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::globalFuncParseInt):
+        (JSC::globalFuncParseFloat):
+        * runtime/JSNumberCell.h:
+        (JSC::JSValue::JSValue):
+        (JSC::jsNaN):
+        (JSC::JSValue::toJSNumber):
+        * runtime/JSONObject.cpp:
+        (JSC::unwrapBoxedPrimitive):
+        (JSC::PropertyNameForFunctionCall::value):
+        (JSC::JSONStringify):
+        * runtime/JSString.cpp:
+        (JSC::JSString::getStringPropertyDescriptor):
+        * runtime/JSString.h:
+        (JSC::JSString::getStringPropertySlot):
+        * runtime/JSValue.h:
+        (JSC::jsDoubleNumber):
+        (JSC::jsNumber):
+        (JSC::jsNaN):
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::toJSNumber):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        (JSC::mathProtoFuncAbs):
+        (JSC::mathProtoFuncACos):
+        (JSC::mathProtoFuncASin):
+        (JSC::mathProtoFuncATan):
+        (JSC::mathProtoFuncATan2):
+        (JSC::mathProtoFuncCeil):
+        (JSC::mathProtoFuncCos):
+        (JSC::mathProtoFuncExp):
+        (JSC::mathProtoFuncFloor):
+        (JSC::mathProtoFuncLog):
+        (JSC::mathProtoFuncMax):
+        (JSC::mathProtoFuncMin):
+        (JSC::mathProtoFuncPow):
+        (JSC::mathProtoFuncRandom):
+        (JSC::mathProtoFuncRound):
+        (JSC::mathProtoFuncSin):
+        (JSC::mathProtoFuncSqrt):
+        (JSC::mathProtoFuncTan):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::numberConstructorNaNValue):
+        (JSC::numberConstructorNegInfinity):
+        (JSC::numberConstructorPosInfinity):
+        (JSC::numberConstructorMaxValue):
+        (JSC::numberConstructorMinValue):
+        (JSC::constructWithNumberConstructor):
+        (JSC::callNumberConstructor):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        * runtime/Operations.cpp:
+        (JSC::jsAddSlowCase):
+        * runtime/Operations.h:
+        (JSC::jsAdd):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        (JSC::RegExpMatchesArray::fillArrayInstance):
+        * runtime/RegExpObject.cpp:
+        (JSC::regExpObjectLastIndex):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        (JSC::stringProtoFuncReplace):
+        (JSC::stringProtoFuncCharCodeAt):
+        (JSC::stringProtoFuncIndexOf):
+        (JSC::stringProtoFuncLastIndexOf):
+        (JSC::stringProtoFuncSearch):
+        (JSC::stringProtoFuncLocaleCompare):
+
+2010-10-25  David Tapuska  <dtapuska@rim.com>
+
+        Reviewed by David Kilzer.
+
+        Enable VFP if our compiler settings indicated we had a hardware
+        VFP.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46096
+
+        * assembler/MacroAssemblerARM.cpp:
+        (JSC::isVFPPresent):
+
+2010-10-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70451.
+        http://trac.webkit.org/changeset/70451
+        https://bugs.webkit.org/show_bug.cgi?id=48249
+
+        Broke set-unloaded-frame-location.html under Qt (Requested by
+        caseq on #webkit).
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/TextPosition.h: Removed.
+
+2010-10-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Replace _countof with WTF_ARRAY_LENGTH
+        https://bugs.webkit.org/show_bug.cgi?id=48229
+
+        * wtf/Platform.h:
+
+2010-10-25  Peter Rybin  <peter.rybin@gmail.com>
+
+        Reviewed by Adam Barth.
+
+        HTML parser should provide script column position within HTML document to JavaScript engine
+        https://bugs.webkit.org/show_bug.cgi?id=45271
+
+        Adds TextPosition* classes -- a structure that stores line/column/generation
+        level coordinates inside text document. Adds *BasedNumber classes -- typesafe int
+        wrappers that emphasize whether int number is used as zero-based or
+        one-based.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/TextPosition.h: Added.
+        (WTF::TextPosition::TextPosition):
+        (WTF::TextPosition::minimumPosition):
+        (WTF::TextPosition::belowRangePosition):
+        (WTF::ZeroBasedNumber::fromZeroBasedInt):
+        (WTF::ZeroBasedNumber::ZeroBasedNumber):
+        (WTF::ZeroBasedNumber::zeroBasedInt):
+        (WTF::ZeroBasedNumber::base):
+        (WTF::ZeroBasedNumber::belowBase):
+        (WTF::OneBasedNumber::fromOneBasedInt):
+        (WTF::OneBasedNumber::OneBasedNumber):
+        (WTF::OneBasedNumber::oneBasedInt):
+        (WTF::OneBasedNumber::convertAsZeroBasedInt):
+        (WTF::OneBasedNumber::convertToZeroBased):
+        (WTF::OneBasedNumber::base):
+        (WTF::OneBasedNumber::belowBase):
+        (WTF::toZeroBasedTextPosition):
+        (WTF::toOneBasedTextPosition):
+        (WTF::ZeroBasedNumber::convertToOneBased):
+
+2010-10-24  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by David Kilzer.
+
+        Check endianness with __BIG_ENDIAN in RVCT.
+        https://bugs.webkit.org/show_bug.cgi?id=46122
+
+        RVCT defines __BIG_ENDIAN if compiling for a big-endian target.
+
+        * wtf/Platform.h:
+
+2010-10-24  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Dave Kilzer.
+
+        Removed empty directories.
+
+        * JavaScriptCore: Removed.
+        * JavaScriptCore/runtime: Removed.
+
+2010-10-24  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed, fix typo of last build fix.
+
+        * wtf/DateMath.cpp:
+
+2010-10-24  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed build fix for chromium.
+
+        * wtf/DateMath.cpp: Added missing include.
+
+2010-10-24  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Add WTF_ARRAY_LENGTH macro to WTF
+        https://bugs.webkit.org/show_bug.cgi?id=32828
+
+        Unify the different implementations and usages.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * runtime/DatePrototype.cpp:
+        (JSC::formatLocaleDate):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::appendQuotedString):
+        (JSC::Stringifier::toJSON):
+        (JSC::Stringifier::appendStringifiedValue):
+        * runtime/UString.cpp:
+        (JSC::UString::number):
+        * wtf/DateMath.cpp:
+        (WTF::parseDateFromNullTerminatedCharacters):
+        * wtf/StdLibExtras.h:
+
+2010-10-24  Dirk Schulze  <krit@webkit.org>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Filter example Chiseled from SVG Wow! is slow
+        https://bugs.webkit.org/show_bug.cgi?id=48174
+
+        Added 'using WTF::ByteArray;' at the end of ByteArray.h
+
+        * wtf/ByteArray.h:
+
+2010-10-24  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Inline WTF::bitwise_cast and fix style
+        https://bugs.webkit.org/show_bug.cgi?id=48208
+
+        * wtf/StdLibExtras.h:
+        (WTF::bitwise_cast):
+        (WTF::bitCount):
+
+2010-10-23  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Sam Weinig.
+
+        Unify globalData APIs
+        https://bugs.webkit.org/show_bug.cgi?id=47969
+
+        Make JSGlobalObject::globalData return a reference and adapt
+        callers. This unifies the API with the existing
+        CallFrame::globalData, which also returns a reference.
+
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * interpreter/CallFrame.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::dumpRegisters):
+        * jsc.cpp:
+        (runWithScripts):
+        * parser/JSParser.cpp:
+        (JSC::jsParse):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+        * runtime/Error.cpp:
+        (JSC::createError):
+        (JSC::createEvalError):
+        (JSC::createRangeError):
+        (JSC::createReferenceError):
+        (JSC::createSyntaxError):
+        (JSC::createTypeError):
+        (JSC::createURIError):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructFunction):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::~JSGlobalObject):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::globalData):
+
+2010-10-23  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Unreviewed, rolling out r70369.
+        http://trac.webkit.org/changeset/70369
+        https://bugs.webkit.org/show_bug.cgi?id=47974
+
+        Caused weird artifacts in expected results.
+
+        * wtf/Platform.h:
+
+2010-10-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Crashes randomly in cairo_scaled_font_destroy
+        https://bugs.webkit.org/show_bug.cgi?id=46794
+
+        Make PlatformRefPtr aware of hashTableDeletedValue. When PlatformRefPtr
+        goes away this should probably be handled in the future via some special
+        hooks in RefCounted (or its contained type).
+
+        * wtf/PlatformRefPtr.h:
+        (WTF::PlatformRefPtr::~PlatformRefPtr):
+        (WTF::PlatformRefPtr::clear):
+        (WTF::::operator):
+
+2010-10-22  Adam Roben  <aroben@apple.com>
+
+        Remove the QuartzCorePresent.h mechanism
+
+        This header was used to detect whether QuartzCore headers were present
+        on the system. Everyone should have these headers now so we no longer
+        need to detect.
+
+        Reviewed by Sam Weinig.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/build-generated-files.sh: Remove
+        code to generate QuartzCorePresent.h.
+
+        * wtf/Platform.h: Stop including QuartzCorePresent.h on Windows and
+        collapse all USE_ACCELERATED_COMPOSITING settings into one #ifdef.
+
+2010-10-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r70290.
+        http://trac.webkit.org/changeset/70290
+        https://bugs.webkit.org/show_bug.cgi?id=48111
+
+        Undelete Android build files.
+
+        * Android.mk: Added.
+
+2010-10-22  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        JSC interpreter regressions after r69940
+        https://bugs.webkit.org/show_bug.cgi?id=47839
+
+        Wrong "if": It should test whether the result exists,
+        and not the opposite. It is an interpreter bug, hence
+        the bots does not capture it.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveBase):
+
+2010-10-21  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by David Levin.
+
+        Remove Android build system
+        https://bugs.webkit.org/show_bug.cgi?id=48111
+
+        * Android.mk: Removed.
+
+2010-10-21  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Add a String constructor which takes AECHAR*
+        https://bugs.webkit.org/show_bug.cgi?id=45043
+
+        Add String(const AECHAR*) constructor for convenience.
+
+        * wtf/text/WTFString.h:
+
+2010-10-21  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Use GCharsetConverter instead of g_iconv in TextCodecGtk
+        https://bugs.webkit.org/show_bug.cgi?id=47896
+
+        * wtf/gobject/GTypedefs.h:
+
+2010-10-21  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r70174.
+        http://trac.webkit.org/changeset/70174
+        https://bugs.webkit.org/show_bug.cgi?id=41948
+
+        This patch reverts a change that causes
+        http/tests/xmlhttprequest/origin-whitelisting-removal.html to crash.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::throwException):
+
 2010-10-20  Simon Fraser  <simon.fraser@apple.com>
 
         Fix the EFL build.

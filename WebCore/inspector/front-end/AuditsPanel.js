@@ -130,8 +130,8 @@ WebInspector.AuditsPanel.prototype = {
     _executeAudit: function(categories, resultCallback)
     {
         var resources = [];
-        for (var id in WebInspector.resources)
-            resources.push(WebInspector.resources[id]);
+        for (var id in WebInspector.networkResources)
+            resources.push(WebInspector.networkResources[id]);
 
         var rulesRemaining = 0;
         for (var i = 0; i < categories.length; ++i)
@@ -205,8 +205,8 @@ WebInspector.AuditsPanel.prototype = {
     {
         this._resourceTrackingCallback = callback;
 
-        if (!WebInspector.panels.resources.resourceTrackingEnabled) {
-            InspectorBackend.enableResourceTracking(false);
+        if (WebInspector.panels.resources && !WebInspector.panels.resources.resourceTrackingEnabled) {
+            WebInspector.panels.resources.toggleResourceTracking(false);
             this._updateLauncherViewControls(true);
         } else
             InspectorBackend.reloadPage();
@@ -256,7 +256,7 @@ WebInspector.AuditsPanel.prototype = {
     show: function()
     {
         WebInspector.Panel.prototype.show.call(this);
-        this._updateLauncherViewControls(WebInspector.panels.resources.resourceTrackingEnabled);
+        this._updateLauncherViewControls(!WebInspector.panels.resources || WebInspector.panels.resources.resourceTrackingEnabled);
     },
 
     reset: function()

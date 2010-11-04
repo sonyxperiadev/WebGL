@@ -36,11 +36,12 @@
 #include "DirectoryReaderSync.h"
 #include "EntrySync.h"
 #include "FileEntrySync.h"
+#include "FileException.h"
 #include "SyncCallbackHelper.h"
 
 namespace WebCore {
 
-DirectoryEntrySync::DirectoryEntrySync(DOMFileSystemBase* fileSystem, const String& fullPath)
+DirectoryEntrySync::DirectoryEntrySync(PassRefPtr<DOMFileSystemBase> fileSystem, const String& fullPath)
     : EntrySync(fileSystem, fullPath)
 {
 }
@@ -55,7 +56,7 @@ PassRefPtr<FileEntrySync> DirectoryEntrySync::getFile(const String& path, PassRe
     ec = 0;
     EntrySyncCallbackHelper helper(m_fileSystem->asyncFileSystem());
     if (!m_fileSystem->getFile(this, path, flags, helper.successCallback(), helper.errorCallback())) {
-        ec = INVALID_MODIFICATION_ERR;
+        ec = FileException::INVALID_MODIFICATION_ERR;
         return 0;
     }
     return static_pointer_cast<FileEntrySync>(helper.getResult(ec));
@@ -66,7 +67,7 @@ PassRefPtr<DirectoryEntrySync> DirectoryEntrySync::getDirectory(const String& pa
     ec = 0;
     EntrySyncCallbackHelper helper(m_fileSystem->asyncFileSystem());
     if (!m_fileSystem->getDirectory(this, path, flags, helper.successCallback(), helper.errorCallback())) {
-        ec = INVALID_MODIFICATION_ERR;
+        ec = FileException::INVALID_MODIFICATION_ERR;
         return 0;
     }
     return static_pointer_cast<DirectoryEntrySync>(helper.getResult(ec));
@@ -77,7 +78,7 @@ void DirectoryEntrySync::removeRecursively(ExceptionCode& ec)
     ec = 0;
     VoidSyncCallbackHelper helper(m_fileSystem->asyncFileSystem());
     if (!m_fileSystem->removeRecursively(this, helper.successCallback(), helper.errorCallback())) {
-        ec = INVALID_MODIFICATION_ERR;
+        ec = FileException::INVALID_MODIFICATION_ERR;
         return;
     }
     helper.getResult(ec);

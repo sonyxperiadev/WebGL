@@ -273,6 +273,11 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE layerTreeAsText(BSTR*);
 
+    virtual HRESULT STDMETHODCALLTYPE hasSpellingMarker(
+        /* [in] */ UINT from,
+        /* [in] */ UINT length,
+        /* [retval][out] */ BOOL *result);
+
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
         /* [retval][out] */ BOOL* result);
@@ -371,6 +376,7 @@ public:
     WebCore::KURL url() const;
 
     WebView* webView() const;
+    void setWebView(WebView*);
 
     COMPtr<IAccessible> accessible() const;
 

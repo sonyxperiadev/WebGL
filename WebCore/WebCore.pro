@@ -403,6 +403,7 @@ v8 {
         bindings/v8/custom/V8InjectedScriptHostCustom.cpp \
         bindings/v8/custom/V8InspectorFrontendHostCustom.cpp \
         bindings/v8/custom/V8CustomEventListener.cpp \
+        bindings/v8/custom/V8DOMSettableTokenListCustom.cpp \
         bindings/v8/custom/V8DOMStringMapCustom.cpp \
         bindings/v8/custom/V8DOMTokenListCustom.cpp
 
@@ -419,6 +420,7 @@ v8 {
         bindings/v8/custom/V8ElementCustom.cpp \
         bindings/v8/custom/V8EventCustom.cpp \
         bindings/v8/custom/V8EventSourceConstructor.cpp \
+        bindings/v8/custom/V8FileReaderCustom.cpp \
         bindings/v8/custom/V8HTMLAllCollectionCustom.cpp
 
     contains(DEFINES, ENABLE_VIDEO=1) {
@@ -518,6 +520,7 @@ v8 {
         bindings/js/JSEventSourceCustom.cpp \
         bindings/js/JSEventTarget.cpp \
         bindings/js/JSExceptionBase.cpp \
+        bindings/js/JSFileReaderCustom.cpp \
         bindings/js/JSGeolocationCustom.cpp \
         bindings/js/JSHistoryCustom.cpp \
         bindings/js/JSHTMLAppletElementCustom.cpp \
@@ -814,6 +817,7 @@ SOURCES += \
     editing/SplitElementCommand.cpp \
     editing/SplitTextNodeCommand.cpp \
     editing/SplitTextNodeContainingElementCommand.cpp \
+    editing/TextCheckingHelper.cpp \
     editing/TextIterator.cpp \
     editing/TypingCommand.cpp \
     editing/UnlinkCommand.cpp \
@@ -827,6 +831,7 @@ SOURCES += \
     fileapi/File.cpp \
     fileapi/FileList.cpp \
     fileapi/FileReader.cpp \
+    fileapi/FileReaderLoader.cpp \
     fileapi/FileReaderSync.cpp \
     fileapi/FileStreamProxy.cpp \
     fileapi/FileThread.cpp \
@@ -839,14 +844,18 @@ SOURCES += \
     history/qt/HistoryItemQt.cpp \
     history/PageCache.cpp \
     html/AsyncImageResizer.cpp \
+    html/BaseButtonInputType.cpp \
+    html/BaseCheckableInputType.cpp \
     html/BaseDateAndTimeInputType.cpp \
     html/BaseTextInputType.cpp \
     html/ButtonInputType.cpp \
     html/CheckboxInputType.cpp \
+    html/ClassList.cpp \
     html/CollectionCache.cpp \
     html/ColorInputType.cpp \
     html/DOMDataGridDataSource.cpp \
     html/DOMFormData.cpp \
+    html/DOMSettableTokenList.cpp \
     html/DOMTokenList.cpp \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
@@ -1730,6 +1739,8 @@ HEADERS += \
     fileapi/FileException.h \
     fileapi/FileList.h \
     fileapi/FileReader.h \
+    fileapi/FileReaderLoader.h \
+    fileapi/FileReaderLoaderClient.h \
     fileapi/FileReaderSync.h \
     fileapi/FileStreamProxy.h \
     fileapi/FileThread.h \
@@ -1749,12 +1760,14 @@ HEADERS += \
     html/canvas/CanvasRenderingContext.h \
     html/canvas/CanvasRenderingContext2D.h \
     html/canvas/CanvasStyle.h \
+    html/ClassList.h \
     html/CollectionCache.h \
     html/DataGridColumn.h \
     html/DataGridColumnList.h \
     html/DateComponents.h \
     html/DOMDataGridDataSource.h \
     html/DOMFormData.h \
+    html/DOMSettableTokenList.h \
     html/DOMTokenList.h \
     html/FormDataList.h \
     html/FTPDirectoryDocument.h \
@@ -1999,6 +2012,7 @@ HEADERS += \
     page/SpeechInput.h \
     page/SpeechInputClient.h \
     page/SpeechInputListener.h \
+    page/SpeechInputResult.h \
     page/WindowFeatures.h \
     page/WorkerNavigator.h \
     page/XSSAuditor.h \
@@ -2070,7 +2084,6 @@ HEADERS += \
     platform/graphics/Pattern.h \
     platform/graphics/Pen.h \
     platform/graphics/qt/FontCustomPlatformData.h \
-    platform/graphics/qt/GraphicsLayerQt.h \
     platform/graphics/qt/ImageDecoderQt.h \
     platform/graphics/qt/StillImageQt.h \
     platform/graphics/qt/TransparencyLayer.h \
@@ -2103,6 +2116,7 @@ HEADERS += \
     platform/network/BlobRegistryImpl.h \
     platform/network/BlobResourceHandle.h \
     platform/network/BlobStorageData.h \
+    platform/network/CookieStorage.h \
     platform/network/Credential.h \
     platform/network/FormDataBuilder.h \
     platform/network/FormData.h \
@@ -2343,13 +2357,30 @@ HEADERS += \
     svg/graphics/filters/SVGFilterBuilder.h \
     svg/graphics/filters/SVGFilter.h \
     svg/graphics/SVGImage.h \
+    svg/properties/SVGAnimatedListPropertyTearOff.h \
+    svg/properties/SVGAnimatedProperty.h \
+    svg/properties/SVGAnimatedPropertyDescription.h \
+    svg/properties/SVGAnimatedPropertyMacros.h \
     svg/properties/SVGAnimatedPropertySynchronizer.h \
+    svg/properties/SVGAnimatedPropertyTearOff.h \
+    svg/properties/SVGAnimatedStaticPropertyTearOff.h \
+    svg/properties/SVGListPropertyTearOff.h \
+    svg/properties/SVGProperty.h \
+    svg/properties/SVGPropertyTearOff.h \
+    svg/properties/SVGPropertyTraits.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
     svg/SVGAnimateColorElement.h \
+    svg/SVGAnimatedAngle.h \
+    svg/SVGAnimatedBoolean.h \
+    svg/SVGAnimatedEnumeration.h \
+    svg/SVGAnimatedInteger.h \
+    svg/SVGAnimatedLength.h \
+    svg/SVGAnimatedLengthList.h \
     svg/SVGAnimatedPathData.h \
     svg/SVGAnimatedPoints.h \
+    svg/SVGAnimatedRect.h \
     svg/SVGAnimateElement.h \
     svg/SVGAnimateMotionElement.h \
     svg/SVGAnimateTransformElement.h \
@@ -2593,7 +2624,6 @@ SOURCES += \
     platform/graphics/qt/FloatRectQt.cpp \
     platform/graphics/qt/GradientQt.cpp \
     platform/graphics/qt/GraphicsContextQt.cpp \
-    platform/graphics/qt/GraphicsLayerQt.cpp \
     platform/graphics/qt/IconQt.cpp \
     platform/graphics/qt/ImageBufferQt.cpp \
     platform/graphics/qt/ImageDecoderQt.cpp \
@@ -3016,7 +3046,8 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/Metadata.h \
         fileapi/MetadataCallback.h \
         platform/AsyncFileSystem.h \
-        platform/AsyncFileSystemCallbacks.h
+        platform/AsyncFileSystemCallbacks.h \
+        platform/FileMetadata.h
 
     SOURCES += \
         bindings/js/JSDirectoryEntryCustom.cpp \
@@ -3092,6 +3123,7 @@ contains(DEFINES, ENABLE_SHARED_WORKERS=1) {
 contains(DEFINES, ENABLE_INPUT_SPEECH=1) {
     SOURCES += \
         page/SpeechInput.cpp \
+        page/SpeechInputResult.cpp \
         rendering/RenderInputSpeech.cpp
 }
 
@@ -3804,6 +3836,29 @@ win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
         SOURCES += \
             plugins/win/PaintHooks.asm
     }
+}
+
+# Uncomment this to enable Texture Mapper.
+# CONFIG += texmap
+
+contains(CONFIG, texmap) {
+    DEFINES += WTF_USE_TEXTURE_MAPPER=1
+    HEADERS += \
+        platform/graphics/texmap/TextureMapper.h \
+        platform/graphics/texmap/TextureMapperPlatformLayer.h
+
+    SOURCES += \
+        platform/graphics/qt/TextureMapperQt.cpp \
+        platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
+
+    contains(QT_CONFIG, opengl) {
+        QT += opengl
+        HEADERS += platform/graphics/opengl/TextureMapperGL.h
+        SOURCES += platform/graphics/opengl/TextureMapperGL.cpp
+    }
+} else {
+    HEADERS += platform/graphics/qt/GraphicsLayerQt.h
+    SOURCES += platform/graphics/qt/GraphicsLayerQt.cpp
 }
 
 symbian {

@@ -198,6 +198,8 @@ JIT::Label JIT::privateCompileCTINativeCall(JSGlobalData* globalData, bool isCon
     int executableOffsetToFunction = isConstruct ? OBJECT_OFFSETOF(NativeExecutable, m_constructor) : OBJECT_OFFSETOF(NativeExecutable, m_function);
 
     Label nativeCallThunk = align();
+    
+    emitPutImmediateToCallFrameHeader(0, RegisterFile::CodeBlock);
 
 #if CPU(X86_64)
     // Load caller frame's scope chain into this callframe so that whatever we call can
@@ -711,7 +713,7 @@ void JIT::emit_op_jfalse(Instruction* currentInstruction)
     unsigned target = currentInstruction[2].u.operand;
     emitGetVirtualRegister(currentInstruction[1].u.operand, regT0);
 
-    addJump(branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsNumber(m_globalData, 0)))), target);
+    addJump(branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsNumber(0)))), target);
     Jump isNonZero = emitJumpIfImmediateInteger(regT0);
 
     addJump(branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsBoolean(false)))), target);
@@ -831,7 +833,7 @@ void JIT::emit_op_jtrue(Instruction* currentInstruction)
     unsigned target = currentInstruction[2].u.operand;
     emitGetVirtualRegister(currentInstruction[1].u.operand, regT0);
 
-    Jump isZero = branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsNumber(m_globalData, 0))));
+    Jump isZero = branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsNumber(0))));
     addJump(emitJumpIfImmediateInteger(regT0), target);
 
     addJump(branchPtr(Equal, regT0, ImmPtr(JSValue::encode(jsBoolean(true)))), target);
@@ -1062,7 +1064,10 @@ void JIT::emit_op_push_new_scope(Instruction* currentInstruction)
 void JIT::emit_op_catch(Instruction* currentInstruction)
 {
     killLastResultRegister(); // FIXME: Implicitly treat op_catch as a labeled statement, and remove this line of code.
-    peek(callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof (void*));
+    move(regT0, callFrameRegister);
+    peek(regT3, OBJECT_OFFSETOF(struct JITStackFrame, globalData) / sizeof(void*));
+    loadPtr(Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception)), regT0);
+    storePtr(ImmPtr(JSValue::encode(JSValue())), Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception)));
     emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
 
@@ -1284,7 +1289,7 @@ void JIT::emit_op_create_this(Instruction* currentInstruction)
 
 void JIT::emit_op_profile_will_call(Instruction* currentInstruction)
 {
-    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof (void*));
+    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof(void*));
     Jump noProfiler = branchTestPtr(Zero, Address(regT1));
 
     JITStubCall stubCall(this, cti_op_profile_will_call);
@@ -1296,7 +1301,7 @@ void JIT::emit_op_profile_will_call(Instruction* currentInstruction)
 
 void JIT::emit_op_profile_did_call(Instruction* currentInstruction)
 {
-    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof (void*));
+    peek(regT1, OBJECT_OFFSETOF(JITStackFrame, enabledProfilerReference) / sizeof(void*));
     Jump noProfiler = branchTestPtr(Zero, Address(regT1));
 
     JITStubCall stubCall(this, cti_op_profile_did_call);

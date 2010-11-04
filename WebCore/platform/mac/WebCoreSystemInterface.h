@@ -48,7 +48,6 @@ typedef struct _NSRect NSRect;
 @class NSFont;
 @class NSImage;
 @class NSMenu;
-@class NSMutableArray;
 @class NSMutableURLRequest;
 @class NSString;
 @class NSTextFieldCell;
@@ -132,6 +131,7 @@ extern void (*wkQTMovieSetShowClosedCaptions)(QTMovie*, BOOL);
 extern void (*wkQTMovieSelectPreferredAlternates)(QTMovie*);
 extern void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 extern void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
+extern void (*wkSetCookieStoragePrivateBrowsingEnabled)(BOOL);
 extern void (*wkSetDragImage)(NSImage*, NSPoint offset);
 extern void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 extern void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
@@ -171,10 +171,8 @@ extern BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
 extern BOOL (*wkUseSharedMediaUI)();
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-extern NSMutableArray *(*wkNoteOpenPanelFiles)(NSArray *);
 extern void* wkGetHyphenationLocationBeforeIndex;
 #else
-extern void* wkNoteOpenPanelFiles;
 extern CFIndex (*wkGetHyphenationLocationBeforeIndex)(CFStringRef string, CFIndex index);
 #endif
 

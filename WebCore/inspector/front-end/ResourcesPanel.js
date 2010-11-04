@@ -30,7 +30,7 @@
 WebInspector.ResourcesPanel = function()
 {
     WebInspector.Panel.call(this, "resources");
-
+    this.resourceURLMap = {};
     this._items = [];
     this._staleItems = [];
 
@@ -439,26 +439,22 @@ WebInspector.ResourcesPanel.prototype = {
         this.element.appendChild(this.panelEnablerView.element);
 
         this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
-        this.enableToggleButton.addEventListener("click", this._toggleResourceTracking.bind(this), false);
+        this.enableToggleButton.addEventListener("click", this.toggleResourceTracking.bind(this), false);
     },
 
     _createStatusbarButtons: function()
     {
         this.largerResourcesButton = new WebInspector.StatusBarButton(WebInspector.UIString("Use small resource rows."), "resources-larger-resources-status-bar-item");
 
-        WebInspector.applicationSettings.addEventListener("loaded", this._settingsLoaded, this);
-        this.largerResourcesButton.addEventListener("click", this._toggleLargerResources.bind(this), false);
-        this.sortingSelectElement = document.createElement("select");
-        this.sortingSelectElement.className = "status-bar-item";
-        this.sortingSelectElement.addEventListener("change", this._changeSortingFunction.bind(this), false);
-    },
-
-    _settingsLoaded: function()
-    {
         this.largerResourcesButton.toggled = WebInspector.applicationSettings.resourcesLargeRows;
         if (!WebInspector.applicationSettings.resourcesLargeRows)
             this._setLargerResources(WebInspector.applicationSettings.resourcesLargeRows);
         this._loadSortOptions();
+
+        this.largerResourcesButton.addEventListener("click", this._toggleLargerResources.bind(this), false);
+        this.sortingSelectElement = document.createElement("select");
+        this.sortingSelectElement.className = "status-bar-item";
+        this.sortingSelectElement.addEventListener("change", this._changeSortingFunction.bind(this), false);
     },
 
     _loadSortOptions: function()
@@ -557,7 +553,7 @@ WebInspector.ResourcesPanel.prototype = {
             var resource = this._resources[i];
             if (!resource._itemsTreeElement || !resource._itemsTreeElement.selectable)
                 continue;
-            var resourceView = this.resourceViewForResource(resource);
+            var resourceView = WebInspector.ResourceManager.resourceViewForResource(resource);
             if (!resourceView.performSearch || resourceView === visibleView)
                 continue;
             views.push(resourceView);
@@ -752,10 +748,12 @@ WebInspector.ResourcesPanel.prototype = {
             this.sortingSelectElement.addStyleClass("hidden");
             this.panelEnablerView.visible = true;
         }
+        this.resourceURLMap = {};
     },
 
     addResource: function(resource)
     {
+        this.resourceURLMap[resource.url] = resource;
         this._resources.push(resource);
     },
 
@@ -770,6 +768,7 @@ WebInspector.ResourcesPanel.prototype = {
         resource.errors = 0;
 
         delete resource._resourcesView;
+        delete this.resourceURLMap[resource.url];
     },
 
     addMessageToResource: function(resource, msg)
@@ -789,7 +788,7 @@ WebInspector.ResourcesPanel.prototype = {
         if (!this.currentQuery && resource._itemsTreeElement)
             resource._itemsTreeElement.updateErrorsAndWarnings();
 
-        var view = this.resourceViewForResource(resource);
+        var view = WebInspector.ResourceManager.resourceViewForResource(resource);
         if (view.addMessage)
             view.addMessage(msg);
     },
@@ -823,10 +822,10 @@ WebInspector.ResourcesPanel.prototype = {
         if (!resource || !resource._resourcesView)
             return;
 
-        if (this._resourceViewIsConsistentWithCategory(resource, resource._resourcesView))
+        if (WebInspector.ResourceManager.resourceViewTypeMatchesResource(resource, resource._resourcesView))
             return;
+        var newView = WebInspector.ResourceManager.createResourceView(resource);
 
-        var newView = this._createResourceView(resource);
         if (!this.currentQuery && resource._itemsTreeElement)
             resource._itemsTreeElement.updateErrorsAndWarnings();
 
@@ -868,7 +867,7 @@ WebInspector.ResourcesPanel.prototype = {
         if (this.visibleResource && this.visibleResource._resourcesView)
             this.visibleResource._resourcesView.hide();
 
-        var view = this.resourceViewForResource(resource);
+        var view = WebInspector.ResourceManager.resourceViewForResource(resource);
         view.headersVisible = true;
         view.show(this.viewsContainerElement);
 
@@ -907,32 +906,6 @@ WebInspector.ResourcesPanel.prototype = {
             this._lastSelectedGraphTreeElement.select(true);
 
         this.updateSidebarWidth();
-    },
-
-    resourceViewForResource: function(resource)
-    {
-        if (!resource)
-            return null;
-        if (!resource._resourcesView)
-            resource._resourcesView = this._createResourceView(resource);
-        return resource._resourcesView;
-    },
-
-    sourceFrameForResource: function(resource)
-    {
-        var view = this.resourceViewForResource(resource);
-        if (!view)
-            return null;
-
-        if (!view.setupSourceFrameIfNeeded)
-            return null;
-
-        // Setting up the source frame requires that we be attached.
-        if (!this.element.parentNode)
-            this.attach();
-
-        view.setupSourceFrameIfNeeded();
-        return view.sourceFrame;
     },
 
     _sortResourcesIfNeeded: function()
@@ -1068,40 +1041,6 @@ WebInspector.ResourcesPanel.prototype = {
         this.calculator = this.summaryBar.calculator = selectedOption.calculator;
     },
 
-    _resourceViewIsConsistentWithCategory: function(resource, resourceView)
-    {
-        switch (resource.category) {
-            case WebInspector.resourceCategories.documents:
-            case WebInspector.resourceCategories.stylesheets:
-            case WebInspector.resourceCategories.scripts:
-            case WebInspector.resourceCategories.xhr:
-                return resourceView.__proto__ === WebInspector.SourceView.prototype;
-            case WebInspector.resourceCategories.images:
-                return resourceView.__proto__ === WebInspector.ImageView.prototype;
-            case WebInspector.resourceCategories.fonts:
-                return resourceView.__proto__ === WebInspector.FontView.prototype;
-            default:
-                return resourceView.__proto__ === WebInspector.ResourceView.prototype;
-        }
-    },
-
-    _createResourceView: function(resource)
-    {
-        switch (resource.category) {
-            case WebInspector.resourceCategories.documents:
-            case WebInspector.resourceCategories.stylesheets:
-            case WebInspector.resourceCategories.scripts:
-            case WebInspector.resourceCategories.xhr:
-                return new WebInspector.SourceView(resource);
-            case WebInspector.resourceCategories.images:
-                return new WebInspector.ImageView(resource);
-            case WebInspector.resourceCategories.fonts:
-                return new WebInspector.FontView(resource);
-            default:
-                return new WebInspector.ResourceView(resource);
-        }
-    },
-
     setSidebarWidth: function(width)
     {
         if (this.visibleResource) {
@@ -1126,10 +1065,10 @@ WebInspector.ResourcesPanel.prototype = {
     {
         if (this._resourceTrackingEnabled)
             return;
-        this._toggleResourceTracking(this.panelEnablerView.alwaysEnabled);
+        this.toggleResourceTracking(this.panelEnablerView.alwaysEnabled);
     },
 
-    _toggleResourceTracking: function(optionalAlways)
+    toggleResourceTracking: function(optionalAlways)
     {
         function callback(newState) {
             if (newState)
@@ -1142,7 +1081,7 @@ WebInspector.ResourcesPanel.prototype = {
             this.largerResourcesButton.visible = false;
             this.sortingSelectElement.visible = false;
             WebInspector.resources = {};
-            WebInspector.resourceURLMap = {};
+            this.resourceURLMap = {};
             InspectorBackend.setResourceTrackingEnabled(false, true, callback);
         } else {
             this.largerResourcesButton.visible = true;
@@ -1723,7 +1662,15 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
         if (this.resource.category === WebInspector.resourceCategories.images) {
             var previewImage = document.createElement("img");
             previewImage.className = "image-resource-icon-preview";
-            previewImage.src = this.resource.url;
+
+            function onResourceContent()
+            {
+                previewImage.src = this.resource.contentURL;
+            }
+            if (Preferences.useDataURLForResourceImageIcons)
+                this.resource.getContent(onResourceContent.bind(this));
+            else
+                previewImage.src = this.resource.url;
 
             this.iconElement = document.createElement("div");
             this.iconElement.className = "icon";

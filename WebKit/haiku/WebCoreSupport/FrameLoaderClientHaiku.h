@@ -151,6 +151,8 @@ namespace WebCore {
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
 
+        virtual void dispatchDidBecomeFrameset(bool);
+
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
@@ -199,7 +201,7 @@ namespace WebCore {
 
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
-        virtual Frame* dispatchCreatePage();
+        virtual Frame* dispatchCreatePage(const NavigationAction&);
         virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction,
                                                      const String&,
                                                      const ResourceRequest&);
@@ -222,6 +224,7 @@ namespace WebCore {
                                               HTMLFrameOwnerElement*, const String& referrer,
                                               bool allowsScrolling, int marginWidth, int marginHeight);
         virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const ResourceRequest&, WebCore::Page*);
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&,
                                                 const Vector<String>&, const Vector<String>&, const String&,
                                                 bool loadManually);

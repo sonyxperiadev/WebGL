@@ -1,3 +1,2085 @@
+2010-10-29  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtTestBrowser: Add keyboard shortcut to toggle full screen (F11)
+        https://bugs.webkit.org/show_bug.cgi?id=48695
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::createChrome):
+
+2010-10-29  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtTestBrowser: Fix uninitialized read in FpsTimer
+        https://bugs.webkit.org/show_bug.cgi?id=48675
+
+        FpsTimer::m_timer was never initialized and passed to QObject::killTimer()
+        on startup with in -graphicsbased mode.
+
+        * QtTestBrowser/fpstimer.cpp:
+        (FpsTimer::FpsTimer):
+        (FpsTimer::numFrames):
+        (FpsTimer::stop):
+        (FpsTimer::timerEvent):
+        * QtTestBrowser/fpstimer.h:
+
+2010-10-29  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        new-run-webkit-tests: change TestResults to be serializable
+
+        In preparation for changing new-run-webkit-tests from
+        multithreaded to multiprocess, we need to make sure the data
+        going between the threads is easily serialized over a socket.
+
+        This change adds serialization/pickling for the TestResults and
+        TestFailure objects (using cPickle).
+
+        The TestFailure objects included a "has_wdiff" flag for Text
+        results, but the flag wasn't being used, so I've removed it,
+        simplifying the state to basically a set of enum objects with
+        associated methods.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48616
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_results.py: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/test_results_unittest.py:Added. 
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+2010-10-29  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: need to provide separate dashboard results for GPU tests
+        https://bugs.webkit.org/show_bug.cgi?id=48687
+
+        Modify the steps to upload the JSON files to the dashboards so
+        that the GPU tests don't conflict with the regular tests on a
+        port. We do this by modifying the --builder-name parameter to
+        append " - GPU", which should cause the app to treat the results
+        as a completely new builder. This is a little non-obvious, but
+        keeps us from having to restructure the app.
+
+        * Scripts/webkitpy/layout_tests/port/chromium_gpu.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_gpu_unittest.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-29  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] add debug logging to help diagnose flakiness dashboard issues
+        https://bugs.webkit.org/show_bug.cgi?id=48657
+
+        The appengine app thinks it's getting empty files uploaded. Add some logging
+        to see if new-run-webkit-tests agrees.
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-29  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [Chromium/DRT] Add master-name flag to new-run-webkit-tests.
+        https://bugs.webkit.org/show_bug.cgi?id=48649
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg: Added flag.
+
+2010-10-29  Nicolas Dufresne  <nicolas.dufresne@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        Enable popup window in GtkLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=48335
+
+        The GtkLauncher application does not support opening new window when
+        a link with "target=_blank" is clicked or similar call to
+        window.open(). Instead, GtkLauncher does nothing which breaks
+        navigation of some websites.
+
+        * GtkLauncher/main.c:
+        (activate_uri_entry_cb):
+        (update_title):
+        (link_hover_cb):
+        (notify_title_cb):
+        (notify_load_status_cb):
+        (notify_progress_cb):
+        (destroy_cb):
+        (go_back_cb):
+        (go_forward_cb):
+        (create_web_view_cb):
+        (web_view_ready_cb):
+        (close_web_view_cb):
+        (create_browser):
+        (create_statusbar):
+        (create_toolbar):
+        (create_window):
+        (main):
+
+2010-10-29  Adam Roben  <aroben@apple.com>
+
+        Teach check-webkit-style about WebKit2's idiosyncracies
+
+        Fixes <http://webkit.org/b/48638> Style bot complains about a number
+        of WebKit2 conventions
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/webkitpy/style/checker.py: Excluded some rules for various
+        WebKit2-related files. Also updated the excluded rules for
+        WebKitAPITest to match the current code.
+
+2010-10-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Adam Roben and David Kilzer.
+
+        Fix and cleanup of build systems
+        https://bugs.webkit.org/show_bug.cgi?id=48342
+
+        * Scripts/build-webkit:
+         - Remove unnecessary ENABLE_SANDBOX option.
+         - Add ENABLE_FULLSCREEN_API option.
+
+2010-10-28  Adam Roben  <aroben@apple.com>
+
+        Switch the Windows WebKit2 bot to the Release configuration
+
+        We only have one machine testing WebKit2 on Windows right now, and
+        Debug is just too slow for it to keep up.
+
+        Fixes (hopefully!) <http://webkit.org/b/48615> Windows WebKit2 bot is
+        always way behind
+
+        Reviewed by Jon Honeycutt.
+
+        * BuildSlaveSupport/build.webkit.org-config/config.json:
+
+2010-10-29  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Added a second parameter to setMockSpeechInputResult for
+        the language used in speech input.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockSpeechInputResultCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+
+2010-10-28  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] add a result-small.json file for the test dashboard
+        https://bugs.webkit.org/show_bug.cgi?id=48547
+
+        Output both a results.json file and a results-small.json file.
+        The dashboard will load results-small.json by default so it loads faster.
+
+        * TestResultServer/model/jsonresults.py:
+        * TestResultServer/model/jsonresults_unittest.py:
+        Added a bunch of sys.path hackery. Unforunately, this uses hardcoded
+        paths. That obviously needs to be fixed, but at least this way it
+        clearly documents what paths are necessary.
+
+2010-10-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch upload calls changed_files more often than it should
+        https://bugs.webkit.org/show_bug.cgi?id=48567
+
+        Passing changed_files around everywhere isn't a very elegant solution
+        but it's the one we have for the moment.  I think keeping an explicit
+        cache on Checkout (or making StepState() a real class) is a better
+        long-term option.
+
+        Previously bug_id_for_this_commit was calling changed_files and the
+        result was never getting cached on the state.  Now we're explicitly
+        caching the result on the state and passing that to the bug_id_for_this_commit call.
+
+        I looked into building unit tests for this.  Doing so would require
+        using a real Checkout object with a MockSCM and overriding the appropriate
+        calls on SCM to count how often we're stating the file system.
+        That's a useful set of tests to build for a separate change.
+
+        * Scripts/webkitpy/common/checkout/api.py:
+        * Scripts/webkitpy/tool/commands/download.py:
+        * Scripts/webkitpy/tool/commands/upload.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-10-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Make suggest-reviewers slightly faster
+        https://bugs.webkit.org/show_bug.cgi?id=48562
+
+        Add @memoized to one more common call.
+
+        * Scripts/webkitpy/common/checkout/api.py:
+
+2010-10-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch suggest-reviewers -g 260550a6e30b7bf34f16bdb4a5396cf26264fc1c is still very slow
+        https://bugs.webkit.org/show_bug.cgi?id=48536
+
+        This patch makes it about 40 seconds faster, but it still
+        takes 1:40.  This will require more refinement.
+
+        The suggested reviewers list appears to be the same.
+
+        I think the next step may be to have it stop the search after
+        5 reviewers are found.  We never want to suggest 30 people.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+         - Using --remove-empty to theoretically stop lookups past
+           when a file is removed.  I'm not entirely clear that the option
+           does what it says it does.  Example:
+           git log --pretty=format:%H -5 --remove-empty -- /Projects/WebKit/WebCore/platform/wx/SearchPopupMenuWx.h
+           returns only one commit
+           vs.
+           git log --pretty=format:%H -5 -- /Projects/WebKit/WebCore/platform/wx/SearchPopupMenuWx.h
+           which returns 5.  I was not aware that wx files were ever removed from the repository?
+
+2010-10-28  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Support FileSystem in chromium DRT
+        https://bugs.webkit.org/show_bug.cgi?id=47643
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::openFileSystem): Added.
+        * DumpRenderTree/chromium/WebViewHost.h:
+        (WebViewHost::openFileSystem): Added.
+
+2010-10-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WKURLRefs should be allowed to be null
+        <rdar://problem/8575621>
+        https://bugs.webkit.org/show_bug.cgi?id=48535
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKit2/PageLoadBasic.cpp:
+        (TestWebKitAPI::didStartProvisionalLoadForFrame):
+        (TestWebKitAPI::didCommitLoadForFrame):
+        (TestWebKitAPI::didFinishLoadForFrame):
+        Test that URLs are null pointers when unset.
+
+2010-10-28  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        AX: multi select group option does not handle setting of AXSelectedChildren correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48464
+
+        Add support for querying information about selected children to DRT, including:
+           selectedChildAtIndex
+           selectedChildrenCount
+           setSelectedChild
+
+        * DumpRenderTree/AccessibilityUIElement.cpp:
+        (selectedChildAtIndexCallback):
+        (setSelectedChildCallback):
+        (selectedChildrenCountCallback):
+        (AccessibilityUIElement::setSelectedChild):
+        (AccessibilityUIElement::selectedChildrenCount):
+        (AccessibilityUIElement::selectedChildAtIndex):
+        (AccessibilityUIElement::getJSClass):
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * DumpRenderTree/mac/AccessibilityUIElementMac.mm:
+        (AccessibilityUIElement::selectedChildAtIndex):
+        (AccessibilityUIElement::selectedChildrenCount):
+        (AccessibilityUIElement::setSelectedChild):
+
+2010-10-27  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Add WebKit2 API for window feature getter/setters
+        <rdar://problem/8590373>
+        https://bugs.webkit.org/show_bug.cgi?id=48496
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+        * MiniBrowser/win/BrowserView.cpp:
+        (BrowserView::create):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        (WTR::TestController::initialize):
+
+2010-10-28  Søren Gjesse  <sgjesse@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Added support for the DumpRenderTree flags --multiple-loads and --js-flags to the Python test runner.
+        https://bugs.webkit.org/show_bug.cgi?id=48236
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-28  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] WebKitWebFrame's load-status is not properly notified to the tests
+        https://bugs.webkit.org/show_bug.cgi?id=48048
+
+        DRT now listens to WebKitWebFrame load-status signals for each
+        created frame instead of the load-status signal of the
+        WebKitWebView that only notifies about changes in the main frame.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (webViewLoadFinished):
+        (webFrameLoadStatusNotified):
+        (frameCreatedCallback):
+        (createWebView):
+        (main):
+
+2010-10-28  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] fix textInputController.{selectedRange,markedRange}
+        https://bugs.webkit.org/show_bug.cgi?id=48487
+
+        * DumpRenderTree/chromium/TextInputController.cpp:
+        (TextInputController::markedRange): Return arrays of ints, rather than a string
+        (TextInputController::selectedRange): Ditto.
+
+2010-10-27  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] add a master-name flag to new-run-webkit-tests
+        https://bugs.webkit.org/show_bug.cgi?id=48488
+
+        The test results server now allows adding a master name to
+        the uploaded files. This lets us distinguish bots that have
+        the same name, but are on different masters.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-28  Adam Roben  <aroben@apple.com>
+
+        Don't append a newline to the test output if the frame has no document
+        element in WebKitTestRunner
+
+        Fixes <http://webkit.org/b/48526> Extra trailing newline when running
+        plugins/document-open.html in WebKitTestRunner
+
+        Reviewed by Anders Carlsson.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::toJS): Added. Turns a UTF-8 C string into a JSStringRef.
+        (WTR::hasDocumentElement): Added. Uses the JSC API to figure out
+        whether the frame has a document element.
+        (WTR::dumpFrameText): Match DRT by bailing (rather than appending an
+        empty string and a newline) if the frame has no document element.
+
+2010-10-28  Adam Roben  <aroben@apple.com>
+
+        Skip npn-invalidate-rect-invalidates-window.html on headless XP
+        machines
+
+        TestNetscapePlugIn never receives a WM_PAINT message on headless XP
+        machines, so this test times out. Fixing the test is covered by
+        <http://webkit.org/b/48333>.
+
+        * Scripts/old-run-webkit-tests: Skip
+        npn-invalidate-rect-invalidates-window.html on Windows if accelerated
+        compositing support is disabled, which likely means we're on a headless
+        XP machine.
+
+2010-10-28  Kimmo Kinnunen  <kimmok@iki.fi>
+
+        Adding myself as a committer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-10-27  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch suggest-reviewers -g 260550a6e30b7bf34f16bdb4a5396cf26264fc1c is very slow
+        https://bugs.webkit.org/show_bug.cgi?id=48500
+
+        This doesn't fix the problem, but it makes things slightly better.
+        Each git svn find-rev call takes about .25 seconds on my desktop.
+        This patch uses a new memoized class to avoid those calls when possible.
+
+        The real slowness is still git log on some files, like:
+        git log --pretty=format:%H -5 -- /Projects/WebKit/WebCore/platform/wx/SearchPopupMenuWx.h
+        I'm not yet sure how to make the pathological git logs better.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/memoized.py: Added.
+        * Scripts/webkitpy/common/memoized_unittest.py: Added.
+
+2010-10-27  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        EWS bots should not use --quiet when running build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=48482
+
+        --quiet is only correct when the sub-process does the error reporting.
+        In the case of _can_build() the parent process is reporting the error.
+        We'd like the full build log at queues.webkit.org so someone can look
+        at the log and understand why the EWS is failing to build trunk.
+
+        * Scripts/webkitpy/layout_tests/port/chromium_win_unittest.py:
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-10-27  Brian Weinstein  <bweinstein@apple.com>
+
+        More Windows build fixage. Rename a variable that was named string.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::hasPrefix):
+
+2010-10-27  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Make the test results server store which master the bot is on
+        https://bugs.webkit.org/show_bug.cgi?id=48478
+
+        The chromium bots recently changed so that there are multiple slaves with
+        the same name on different masters. Up till now, the test results server
+        assumed slave names were unique. Adds a master field to the file in order
+        to distinguish.
+
+        Also, for files that currently lack a master or testtype, set them appropriately.
+
+        * TestResultServer/handlers/testfilehandler.py:
+        * TestResultServer/index.yaml:
+        * TestResultServer/model/jsonresults.py:
+        * TestResultServer/model/testfile.py:
+        * TestResultServer/templates/showfilelist.html:
+        * TestResultServer/templates/uploadform.html:
+
+2010-10-26  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support layoutTestController.dumpBackForwardList
+        https://bugs.webkit.org/show_bug.cgi?id=42322
+        rdar://problem/8193631
+
+        WebKitTestRunner needs to support layoutTestController.clearBackForwardList
+        https://bugs.webkit.org/show_bug.cgi?id=42333
+        rdar://problem/8193643
+
+        * WebKitTestRunner/Configurations/InjectedBundle.xcconfig:
+        Renamed the product to WebKitTestRunnerInjectedBundle to avoid
+        name conflicts in the build directory.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added dumpBackForwardList and clearBackForwardList.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::InjectedBundle): Removed initialization of m_mainPage.
+        (WTR::InjectedBundle::didCreatePage): Removed unneeded underscore.
+        (WTR::InjectedBundle::willDestroyPage): Ditto.
+        (WTR::InjectedBundle::didReceiveMessage): Ditto.
+        (WTR::InjectedBundle::initialize): Ditto.
+        (WTR::InjectedBundle::didCreatePage): Changed code to use m_pages
+        instead of m_mainPage and m_otherPages.
+        (WTR::InjectedBundle::willDestroyPage): Ditto.
+        (WTR::InjectedBundle::page): Ditto.
+        (WTR::InjectedBundle::beginTesting): Ditto.
+        (WTR::InjectedBundle::done): Ditto.
+        (WTR::InjectedBundle::closeOtherPages): Ditto.
+        (WTR::InjectedBundle::dumpBackForwardListsForAllPages): Added.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h: Changed
+        page function to longer be inline, and pageCount function
+        to use m_pages. Added dumpBackForwardListsForAllPages, and
+        removed some underscores. Replaced m_mainPage and m_otherPageas
+        with m_pages.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::adoptWK): Added.
+        (WTR::hasPrefix): Added.
+        (WTR::InjectedBundlePage::reset): Added code to set up
+        m_previousTestBackForwardListItem.
+        (WTR::InjectedBundlePage::dump): Added code to call
+        dumpBackForwardListsForAllPages.
+        (WTR::compareByTargetName): Added.
+        (WTR::dumpBackForwardListItem): Added.
+        (WTR::InjectedBundlePage::dumpBackForwardList): Added.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Added
+        dumpBackForwardList and m_previousTestBackForwardListItem.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController): Initialize
+        m_shouldDumpBackForwardListsForAllWindows to false.
+        (WTR::LayoutTestController::clearBackForwardList): Added.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        Added dumpBackForwardList, clearBackForwardList,
+        shouldDumpBackForwardListsForAllWindows, and
+        m_shouldDumpBackForwardListsForAllWindows.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize): Set up
+        didReceiveSynchronousMessageFromInjectedBundle.
+        (WTR::TestController::didReceiveSynchronousMessageFromInjectedBundle):
+        Added.
+        * WebKitTestRunner/TestController.h: Ditto.
+
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::didReceiveSynchronousMessageFromInjectedBundle):
+        Added.
+        * WebKitTestRunner/TestInvocation.h: Ditto.
+
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+        Renamed bundle to WebKitTestRunnerInjectedBundle (see above).
+        * WebKitTestRunner/mac/TestControllerMac.mm:
+        (WTR::TestController::initializeInjectedBundlePath): Ditto.
+
+2010-10-27  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Chris Marrin.
+
+        Add ENABLE_WEB_AUDIO feature enable flag (initially disabled) to build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=48279
+
+        * Scripts/build-webkit:
+
+2010-10-27  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.
+
+        build-webkit should collect Visual Studio Express logs and display them
+        https://bugs.webkit.org/show_bug.cgi?id=39199
+
+        It turns out my previous patch wasn't actually working on the win-ews
+        machine.  So I've fixed my mistakes from before.
+
+        * Scripts/build-webkit:
+         - Windows VSE builds change the CWD while building.  Why?  Who knows.
+        * Scripts/print-vse-failure-logs:
+         - windows VSE builds don't use Debug/Release as I expected, so I've
+           moved off of --configuration to --top-level and added the /obj
+           optimization while I was there.
+
+2010-10-27  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Unreviewed, rolling out r70674.
+        http://trac.webkit.org/changeset/70674
+        https://bugs.webkit.org/show_bug.cgi?id=48053
+
+        Broke Chromium Windows build.
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-25  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Anders Carlsson.
+
+        compile TestNetscapePlugIn on chromium linux
+        https://bugs.webkit.org/show_bug.cgi?id=48274
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NP_Initialize): On Linux, plugin funcs are set in initialize.
+        (NPP_New): Mark the plugin as windowless.
+        (NPP_GetValue): Handle mime type values.
+        (NP_GetMIMEDescription):
+        (NP_GetValue):
+        * DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders/WebKit/npapi.h: define TRUE and FALSE, which are in webkit's npapi.h.
+        * DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders/WebKit/npfunctions.h: Pull in npapi.h to get TRUE/FALSE (matches webkit's npfunctions.h)
+
+2010-10-27  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Remove contentSizeChanged callbacks as it is no longer
+        part of the public UIClient.
+
+        Make WKPageContentsSizeChangedCallback be a private API
+        https://bugs.webkit.org/show_bug.cgi?id=48409
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+        * MiniBrowser/win/BrowserView.cpp:
+        (BrowserView::create):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        (WTR::TestController::initialize):
+
+2010-10-27  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Ojan Vafai.
+
+        Make http locking default in NRWT.
+        https://bugs.webkit.org/show_bug.cgi?id=48053
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-27  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Tony Chang.
+
+        [NRWT] Fix http lock on Windows platform
+        https://bugs.webkit.org/show_bug.cgi?id=48321
+
+        * Scripts/webkitpy/layout_tests/port/http_lock.py:
+
+2010-10-27  Satish Sampath  <satish@chromium.org>
+
+        Unreviewed, rolling out r70665.
+        http://trac.webkit.org/changeset/70665
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        Need to address Alexey's review comments.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockSpeechInputResultCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+
+2010-10-27  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Added a second parameter to setMockSpeechInputResult for
+        the language used in speech input.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockSpeechInputResultCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+
+2010-10-27  Adam Roben  <aroben@apple.com>
+
+        Reset TestNetscapePlugIn's NPP_GetValue pointer when
+        NullNPPGetValuePointer finishes running
+
+        Fixes <http://webkit.org/b/48435> REGRESSION (r70655): Many plugins
+        tests are failing on Qt
+
+        Reviewed by Anders Carlsson.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp:
+        (PluginTest::NPP_Destroy):
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h:
+        Added a do-nothing NPP_Destroy implementation.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/NullNPPGetValuePointer.cpp:
+        (NullNPPGetValuePointer::NullNPPGetValuePointer): Save the original
+        NPP_GetValue pointer in m_originalNPPGetValuePointer so we can restore
+        it later.
+        (NullNPPGetValuePointer::NPP_Destroy): Added. Restores the original
+        NPP_GetValue pointer so it can be used in other tests.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NPP_Destroy):
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_destroy_instance):
+        Call through to the PluginTest when NPP_Destroy is called.
+
+2010-10-26  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit2 shouldn't try to send an empty user agent
+        https://bugs.webkit.org/show_bug.cgi?id=48397
+        
+        Add a test that when we set our custom user agent to an empty string, we don't send
+        an empty user agent.
+
+        * TestWebKitAPI/Tests/WebKit2/PreventEmptyUserAgent.cpp: Added.
+        (TestWebKitAPI::didRunJavaScript): Make sure that the result of navigator.userAgent isn't empty.
+        (TestWebKitAPI::TEST): Set our custom user agent to the empty string, and run navigator.userAgent.
+        
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj: Add the new file.
+        * TestWebKitAPI/win/TestWebKitAPI.vcproj: Ditto.
+
+2010-10-27  Adam Roben  <aroben@apple.com>
+
+        Check in file I forgot in r70653
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (NP_Initialize): Save the NPPluginFuncs struct the browser passed to us
+        so we can be naughty and modify it later.
+
+2010-10-27  Adam Roben  <aroben@apple.com>
+
+        Test that WebKit doesn't crash if the plugin passes 0 for its
+        NPP_GetValue pointer
+
+        Test for <http://webkit.org/b/48433> Crash in
+        NetscapePlugin::shouldLoadSrcURL when using Shockwave Director 10.3 in
+        WebKit2 on Windows
+
+        Reviewed by Eric Carlson.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+        * GNUmakefile.am:
+        Added NullNPPGetValuePointer.cpp.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.h:
+        Set up a place to store the NPPluginFuncs struct the browser passed to us.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/NullNPPGetValuePointer.cpp: Added.
+        (NullNPPGetValuePointer::NullNPPGetValuePointer): Null out the
+        NPP_GetValue pointer we passed to the browser to simulate a plugin that
+        doesn't implement NPP_GetValue.
+        (NullNPPGetValuePointer::NPP_GetValue): Print an error message. If this
+        function is called, it means that WebKit has changed in a way that
+        makes this test invalid.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NP_GetEntryPoints): Save the NPPluginFuncs struct the browser passed
+        to us so we can be naughty and modify it later.
+
+2010-10-27  Ademar de Souza Reis Jr  <ademar.reis@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        Remove references to ancient QGVLauncher and QtLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=48430
+
+        QtTestBrowser substitutes both and has checks enabled.
+
+        * Scripts/webkitpy/style/checker.py: remove references
+        * Scripts/webkitpy/style/checker_unittest.py: ditto
+
+2010-10-27  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Ojan Vafai.
+
+        [NRWT] Don't use image hash when it's no need in single test mode.
+        https://bugs.webkit.org/show_bug.cgi?id=48326
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+
+2010-10-27  David Kilzer  <ddkilzer@apple.com>
+
+        Fix leak of CFMutableDictionaryRef in createXMLStringFromWebArchiveData()
+
+        Reviewed by Adam Roben.
+
+        Follow-up fix for: <https://bugs.webkit.org/show_bug.cgi?id=48278>
+
+        * DumpRenderTree/cf/WebArchiveDumpSupport.cpp:
+        (createXMLStringFromWebArchiveData): Use RetainPtr<> to fix a
+        leak introduced in r70613.
+
+2010-10-27  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [NRWT] Add platform specific baseline search paths for Qt port
+        https://bugs.webkit.org/show_bug.cgi?id=48428
+
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+
+2010-10-27  Adam Roben  <aroben@apple.com>
+
+        Catch exceptions when checking if we're inside a git working directory
+
+        Fixes <http://webkit.org/b/48420> REGRESSION (r70562): test-webkitpy
+        fails on systems without git installed
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/webkitpy/common/net/credentials.py:
+        (Credentials._credentials_from_git): Put the call to
+        Git.in_working_directory inside the try/except since it, too, attempts
+        to execute git and thus will throw on systems that don't have git
+        installed.
+
+2010-10-27  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by David Kilzer.
+
+        Convert DumpRenderTree webarchive code to CoreFoundation
+        https://bugs.webkit.org/show_bug.cgi?id=48278
+
+        CFPropertyListCreateWithData and CFPropertyListCreateData are only available in 10.6+.
+        Replace CFPropertyListCreateWithData by a combination of CFReadStreamCreateWithBytesNoCopy and CFPropertyListCreateFromStream.
+        Replace CFPropertyListCreateData by CFPropertyListCreateXMLData.
+
+        These changes are wrapped in BUILDING_ON_LEOPARD, as the methods are deprecated on 10.6+.
+
+        * DumpRenderTree/cf/WebArchiveDumpSupport.cpp:
+        (createXMLStringFromWebArchiveData):
+
+2010-10-26  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Remove the absolute path used to include DumpRenderTreeSupportGtk.h from LayoutTestController.h
+
+        It turns out this is rather unneeded since WebKitTools/GNUMakefile.am has WebKit/gtk/ in its include
+        path, and then we can just do #include "WebCoreSupport/DumpRenderTreeSupportGtk.h"
+
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+
+2010-10-26  David Kilzer  <ddkilzer@apple.com>
+
+        Rename WebArchiveDumpSupport.mm to WebArchiveDumpSupport.cpp
+
+        Reviewed by Adam Roben.
+
+        Part 4 of 4: <http://webkit.org/b/48278> Convert DumpRenderTree webarchive code to CoreFoundation
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        Updated for file moves and renames.
+        * DumpRenderTree/cf/WebArchiveDumpSupport.cpp: Renamed from DumpRenderTree/mac/WebArchiveDumpSupport.mm.
+        * DumpRenderTree/cf/WebArchiveDumpSupport.h: Renamed from DumpRenderTree/mac/WebArchiveDumpSupport.h.
+
+2010-10-26  David Kilzer  <ddkilzer@apple.com>
+
+        Convert WebArchiveDumpSupport.mm from NS objects to CF types
+
+        Reviewed by Adam Roben.
+
+        Part 3 of 4: <http://webkit.org/b/48278> Convert DumpRenderTree webarchive code to CoreFoundation
+
+        In order to share WebArchive code between the Mac and Windows
+        ports, the code in WebArchiveDumpSupport.mm was converted from
+        Cocoa to C++ using CoreFoundation (CF) types.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (dump): Renamed serializeWebArchiveToXML() to
+        createXMLStringFromWebArchiveData() and added HardAutorelease()
+        to prevent leaks.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.h:
+        (createXMLStringFromWebArchiveData): Renamed from
+        serializeWebArchiveToXML().  Changed to use CF types.
+        (createCFURLResponseFromResponseData): Renamed from
+        unarchiveNSURLResponseFromResponseData().  Changed to use CF
+        types for its parameter and return type.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.mm: Replaced use of
+        NS objects with CF types.  It will be renamed to *.cpp in a
+        future commit.
+        (convertMIMEType): Changed to use case-insensitive string
+        comparisons.
+        (convertWebResourceDataToString):
+        (normalizeHTTPResponseHeaderFields):
+        (normalizeWebResourceURL):
+        (convertWebResourceResponseToDictionary):
+        (compareResourceURLs):
+        (createXMLStringFromWebArchiveData):
+        * DumpRenderTree/mac/WebArchiveDumpSupportMac.mm:
+        (createCFURLResponseFromResponseData): Renamed from
+        unarchiveNSURLResponseFromResponseData().  Changed to use CF
+        types for its parameter and return type.
+
+2010-10-26  David Kilzer  <ddkilzer@apple.com>
+
+        Extract use of NSKeyedUnarchiver from WebArchiveDumpSupport.mm
+
+        Reviewed by Adam Roben.
+
+        Part 2 of 4: <http://webkit.org/b/48278> Convert DumpRenderTree webarchive code to CoreFoundation
+
+        There is no equivalent to NSKeyedUnarchiver in CoreFoundation,
+        so extract it into a platform-specific source file.
+
+        * DumpRenderTree/mac/WebArchiveDumpSupport.h:
+        (unarchiveNSURLResponseFromResponseData): Added declaration.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.mm:
+        (convertWebResourceResponseToDictionary): Extracted code to
+        unarchiveNSURLResponseFromResponseData() in
+        WebArchiveDumpSupportMac.mm.  Updated logic to return early if
+        nil is returned from unarchiveNSURLResponseFromResponseData().
+        * DumpRenderTree/mac/WebArchiveDumpSupportMac.mm:
+        (unarchiveNSURLResponseFromResponseData): Added.  Extracted
+        code from convertWebResourceResponseToDictionary() in
+        WebArchiveDumpSupport.mm.
+
+2010-10-26  David Kilzer  <ddkilzer@apple.com>
+
+        Extract call to -[WebHTMLRepresentation supportedNonImageMIMETypes] from WebArchiveDumpSupport.mm
+
+        Reviewed by Adam Roben.
+
+        Part 1 of 4: <http://webkit.org/b/48278> Convert DumpRenderTree webarchive code to CoreFoundation
+
+        The call to -[WebHTMLRepresentation supportedNonImageMIMETypes]
+        is not cross-platform between Mac and Windows, so extract it
+        into a platform-specific source file.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj: Added
+        WebArchiveDumpSupportMac.mm to the project.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.h:
+        (supportedNonImageMIMETypes): Added declaration.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.mm:
+        (convertWebResourceDataToString): Replaced call to
+        -[WebHTMLRepresentation supportedNonImageMIMETypes] with
+        supportedNonImageMIMETypes().
+        * DumpRenderTree/mac/WebArchiveDumpSupportMac.mm: Added.
+        (supportedNonImageMIMETypes): Added.  Extracted from
+        WebArchiveDumpSupport.mm.
+
+2010-10-26  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Implement DumpRenderTreeSupportGtk (similarly to DumpRenderTreeSupportQt idea)
+        https://bugs.webkit.org/show_bug.cgi?id=48199
+
+        Implements support to WebKitTabToLinksPreferenceKey through LayoutTestController::overridePreference.
+        The corresponding DumpRenderTreeSupportGtk method is called in the DRT context only.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues):
+        (createWebView):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::overridePreference):
+
+2010-10-26  Ariya Hidayat  <ariya@sencha.com>
+
+        Unreviewed, change the order of my emails for bugzilla autocompletion.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-10-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        build-webkit should collect Visual Studio Express logs and display them
+        https://bugs.webkit.org/show_bug.cgi?id=39199
+
+        * Scripts/build-webkit:
+        * Scripts/print-vse-failure-logs: Added.
+        * Scripts/webkitdirs.pm:
+
+2010-10-26  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48224> build-webkit: add support for --meter-tag switch
+
+        Reviewed by Csaba Osztrogonác.
+
+        * Scripts/build-webkit: Added support for --meter-tag switch.
+        It should have been added with r60820.
+
+2010-10-26  Ademar de Souza Reis Jr.  <ademar.reis@openbossa.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        check-webkit-style fails on operator+=, operator-=, ... methods
+        https://bugs.webkit.org/show_bug.cgi?id=48258
+
+        * Scripts/webkitpy/style/checkers/cpp.py: Added exceptions
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py: Added unit-tests
+
+2010-10-26  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        remove DEFER support from new-run-webkit-tests
+        https://bugs.webkit.org/show_bug.cgi?id=48387
+
+        DEFER was needed when we were trying to ship Chrome beta.
+        Now it's just extra complication.
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/style/checkers/test_expectations_unittest.py:
+
+2010-10-26  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Adding import with_statement to fix python 2.5.
+
+        Teach webkit-patch how to read credentials from the environment
+        https://bugs.webkit.org/show_bug.cgi?id=48275
+
+        * Scripts/webkitpy/common/net/credentials_unittest.py:
+         - import with_statement to fix python 2.5.
+
+2010-10-26  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48375
+        <rdar://problem/8392724> Need delegate calls in PageLoaderClient to indicate if we have
+        loaded insecure content
+
+        Updated for WebKit2 changes.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (didDisplayInsecureContentForFrame):
+        (didRunInsecureContentForFrame):
+        (-[BrowserWindowController awakeFromNib]):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::didDisplayInsecureContentForFrame):
+        (WTR::InjectedBundlePage::didRunInsecureContentForFrame):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize):
+
+2010-10-26  Adam Roben  <aroben@apple.com>
+
+        Clear up confusion between "3D rendering" and "accelerated compositing"
+
+        WebKit has no software-based 3D rendering implementation, so 3D
+        rendering can only be enabled when accelerated compositing is. But DRT
+        was falsely reporting that 3D rendering was available on machines that
+        don't support accelerated compositing, leading to much confusion.
+
+        Reviewed by Darin Adler.
+
+        Fixes <http://webkit.org/b/48370> REGRESSION (r70540): Many
+        transforms/3d tests are failing on the XP bots
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (main): When ENABLE(3D_RENDERING) is turned on, only report that 3D
+        rendering is available when acclerated compositing is also available.
+
+        * Scripts/old-run-webkit-tests: Skip tests that use the
+        -webkit-transform-3d media query when 3D rendering is disabled,
+        rather than when accelerated compositing is disabled.
+
+2010-10-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        Remove rietveld code now that it's unused
+        https://bugs.webkit.org/show_bug.cgi?id=48359
+
+        Was cool that we added this support, but now that it's
+        not used it makes little sense to keep it around.
+        We can always restore this code from SVN if we need it.
+
+        * Scripts/webkitpy/common/config/__init__.py:
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/common/net/bugzilla_unittest.py:
+        * Scripts/webkitpy/common/net/rietveld.py: Removed.
+        * Scripts/webkitpy/common/net/rietveld_unittest.py: Removed.
+        * Scripts/webkitpy/thirdparty/__init__.py:
+        * Scripts/webkitpy/tool/commands/download.py:
+        * Scripts/webkitpy/tool/commands/download_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/main.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/__init__.py:
+        * Scripts/webkitpy/tool/steps/postcodereview.py: Removed.
+
+2010-10-26  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        pageDidScroll callback should be on the UI process client rather than (or in addition to) the web process client
+        https://bugs.webkit.org/show_bug.cgi?id=48366
+        <rdar://problem/8595202>
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        (WTR::TestController::initialize):
+
+2010-10-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Tony Chang.
+
+        Teach webkit-patch how to read credentials from the environment
+        https://bugs.webkit.org/show_bug.cgi?id=48275
+
+        This makes it possible for svn users to have their bugzilla credentials
+        stored in their environment instead of typing them every time.
+
+        We need this for making it easy to run the win-ews bot (which currently
+        uses svn instead of git).
+
+        * Scripts/webkitpy/common/net/credentials.py:
+        * Scripts/webkitpy/common/net/credentials_unittest.py:
+
+2010-10-26  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        Input Method inserts conversion candidates unexpectedly
+        https://bugs.webkit.org/show_bug.cgi?id=46868
+
+        Adds setComposition() to TextInputController to make DRT emulate
+        an input method behavior.
+
+        * DumpRenderTree/chromium/TextInputController.cpp:
+        (TextInputController::TextInputController):
+        (TextInputController::setComposition): Added.
+        * DumpRenderTree/chromium/TextInputController.h:
+
+2010-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Support layoutTestController.layerTreeAsText in WebKitTestRunner
+        https://bugs.webkit.org/show_bug.cgi?id=42145
+        
+        Implement layerTreeAsText() in WebKitTestRunner.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::layerTreeAsText):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+
+2010-10-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch rollout produces incorrect patch when using svn move
+        https://bugs.webkit.org/show_bug.cgi?id=48244
+
+        We need to flush our caches when we modify the working copy.
+
+        * Scripts/webkitpy/tool/steps/revertrevision.py:
+
+2010-10-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        commit-queue flaky test message can list the same author more than once
+        https://bugs.webkit.org/show_bug.cgi?id=48268
+
+        tonikitoo reported to me over IRC this morning that he's seen
+        the commit-queue report flaky tests with author lists like:
+        "adam, adam and adam", suggesting we're not uniquing authors
+        before writing the message.
+
+        I fixed the uniquing and added a bunch more unit testing.
+
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-10-26  Adam Roben  <aroben@apple.com>
+
+        Pull in the FeatureDefines*.vsprops files when building DRT
+
+        This ensures that various ENABLE() macros will get set correctly.
+        (Prior to r70320 we were picking up the ENABLE(3D_RENDERING) flag
+        through wtf/Platform.h.)
+
+        Fixes <http://webkit.org/b/48343> REGRESSION (r70320): DumpRenderTree
+        says 3D_RENDERING is disabled even when it is enabled
+
+        Reviewed by Ada Chan.
+
+        * DumpRenderTree/win/DumpRenderTree.vcproj: Added
+        FeaturesDefines*.vsprops to all configurations.
+
+        * DumpRenderTree/win/DumpRenderTreeWin.h: Touched to force a rebuild.
+
+2010-10-26  Søren Gjesse  <sgjesse@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added options --multiple-loads and --js-flags to chromium DumpRenderTree. The option --multiple-loads=X
+        is used to have DumpRenderTree load each test it runs X times. To be able to have more fine-grained control
+        of how the JavaScript engine behaves for each load the flag --js-flags can specify a list of flag-sets like this
+
+          --js-flags="--xxx,--noxxx --yyy,--noyyy"
+
+        First load will run with --xxx, the second with --yyy and the third without any (the 'no' prefix is handled by
+        V8 to turn off the flag).
+
+        The changes to the Python test runner will be in a separate change.
+
+
+        * DumpRenderTree/chromium/DumpRenderTree.cpp:
+        (runTest):
+        (main):
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::TestShell):
+        (TestShell::runFileTest):
+        (TestShell::testFinished):
+        * DumpRenderTree/chromium/TestShell.h:
+        (TestShell::loadCount):
+        (TestShell::setLoadCount):
+        (TestShell::javaScriptFlagsForLoad):
+        (TestShell::setJavaScriptFlags):
+        (TestShell::setDumpWhenFinished):
+
+2010-10-26  Adam Roben  <aroben@apple.com>
+
+        Skip more tests that depend on accelerated compositing when accelerated
+        compositing is disabled
+
+        Fixes <http://webkit.org/b/48329> Some tests fail when accelerated
+        compositing is disabled
+
+        Reviewed by John Sullivan.
+
+        * Scripts/old-run-webkit-tests: Added more tests to skip when
+        accelerated compositing is disable. The tests all have output that
+        changes depending on whether accelerated compositing is enabled.
+
+2010-10-25  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch should clean up svn locks when passed --force-clean
+        https://bugs.webkit.org/show_bug.cgi?id=48269
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+
+2010-10-25  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add a pageDidScroll BundleUIClient callback
+        https://bugs.webkit.org/show_bug.cgi?id=48260
+        <rdar://problem/8531159>
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+
+2010-10-25  Johnny Ding  <jnd@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Dump the gesture status of frame in frame load callbacks in DumpRenderTree
+        by adding a new method dumpUserGestureInFrameLoadCallbacks.
+        Now only dump the gesture status in "DidStartProvisionalLoad" callback.
+        https://bugs.webkit.org/show_bug.cgi?id=47849
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (dumpUserGestureInFrameLoadCallbacksCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::dumpUserGestureInFrameLoadCallbacks):
+        (LayoutTestController::setDumpUserGestureInFrameLoadCallbacks):
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::dumpUserGestureInFrameLoadCallbacks):
+        (LayoutTestController::reset):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        (LayoutTestController::shouldDumpUserGestureInFrameLoadCallbacks):
+        (LayoutTestController::setShouldDumpUserGestureInFrameLoadCallbacks):
+        * DumpRenderTree/chromium/TestShell.h:
+        (TestShell::shouldDumpUserGestureInFrameLoadCallbacks):
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::didStartProvisionalLoad):
+        (WebViewHost::printFrameUserGestureStatus):
+        * DumpRenderTree/chromium/WebViewHost.h:
+        * DumpRenderTree/mac/FrameLoadDelegate.mm:
+        (-[WebFrame _drt_printFrameUserGestureStatus]):
+        (-[FrameLoadDelegate webView:didStartProvisionalLoadForFrame:]):
+        (-[FrameLoadDelegate webView:didCommitLoadForFrame:]):
+        (-[FrameLoadDelegate webView:didFailProvisionalLoadWithError:forFrame:]):
+        (-[FrameLoadDelegate webView:didFinishLoadForFrame:]):
+        (-[FrameLoadDelegate webView:didFailLoadWithError:forFrame:]):
+        (-[FrameLoadDelegate webView:windowScriptObjectAvailable:]):
+        (-[FrameLoadDelegate webView:didReceiveTitle:forFrame:]):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::dumpUserGestureInFrameLoadCallbacks):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
+2010-10-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70442.
+        http://trac.webkit.org/changeset/70442
+        https://bugs.webkit.org/show_bug.cgi?id=48248
+
+        http locking doesn't work on Windows (Requested by Ossy on
+        #webkit).
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-25  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Ojan Vafai.
+
+        Make http locking default in NRWT.
+        https://bugs.webkit.org/show_bug.cgi?id=48053
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-10-25  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48185> build-webkit: add support for --progress-tag switch
+        (Re-landing r70413 after Qt minimal buildfix: r70440.)
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * Scripts/build-webkit: Added support for --progress-tag switch.
+        It should have been added with r57051.
+
+2010-10-24  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        webkit-patch upload fails when the patch removes a file
+        https://bugs.webkit.org/show_bug.cgi?id=48187
+
+        We need to use "--" to separate file names from the rest of the
+        command.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+
+2010-10-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70413.
+        http://trac.webkit.org/changeset/70413
+        https://bugs.webkit.org/show_bug.cgi?id=48210
+
+        It broke Qt minimal build (Requested by Ossy on #webkit).
+
+        * Scripts/build-webkit:
+
+2010-10-24  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt][QtTestBrowser] Toggle use of QGraphicsView messes up the menu
+        https://bugs.webkit.org/show_bug.cgi?id=48141
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::init):
+        (LauncherWindow::initializeView):
+        (LauncherWindow::toggleWebView):
+
+2010-10-24  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by David Kilzer.
+
+        Fix Perl uninitialized warnings in VCSUtils::svnStatus()
+        and VCSUtils::removeEOL().
+        https://bugs.webkit.org/show_bug.cgi?id=48196
+
+        VCSUtils::svnStatus() concatenates the output of svn status with
+        a new line character and svn status may return no output (say for
+        a file that has not been added, deleted, or modified). We should
+        only concatenate the output of svn status if there is some.
+
+        Also, VCSUtils::removeEOL() should ensure that its argument
+        is initialized before performing a string substitution.
+
+        * Scripts/VCSUtils.pm:
+          - Modified removeEOL() to return "" if its argument is undefined.
+          - Exported removeEOL() so that it can be tested. 
+        * Scripts/webkitperl/VCSUtils_unittest/removeEOL.pl: Added.
+
+2010-10-24  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48185> build-webkit: add support for --progress-tag switch
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * Scripts/build-webkit: Added support for --progress-tag switch.
+        It should have been added with r57051.
+
+2010-10-24  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48184> build-webkit: reformat support variables for better maintainability
+
+        Reviewed by Daniel Bates.
+
+        * Scripts/build-webkit: Alphabetized the @features array based
+        on the name of the feature.  Reformatted the list of support
+        variables so that they match the order of @features, and so that
+        each has its own line.  This makes it easy to add new variables
+        in the correct order.
+
+2010-10-23  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        EWS never removes invalid patch ids
+        https://bugs.webkit.org/show_bug.cgi?id=48173
+
+        This is just sticking another finger in the dam.
+        However this adds more unit testing which will help
+        us make sure we're always releasing patches once we
+        redesign the release_patch API and call these from
+        a more central place.
+
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+         - Added the ability to request invalid patches.
+           Log a warning message to make sure we don't ever have
+           tests use invalid patch fetches by mistake.
+
+2010-10-23  Dan Bernstein  <mitz@apple.com>
+
+        Build fix. Add stub implementations for required NSDraggingInfo methods.
+
+        * DumpRenderTree/mac/DumpRenderTreeDraggingInfo.mm:
+        (-[DumpRenderTreeDraggingInfo draggingFormation]):
+        (-[DumpRenderTreeDraggingInfo setDraggingFormation:]):
+        (-[DumpRenderTreeDraggingInfo animatesToDestination]):
+        (-[DumpRenderTreeDraggingInfo setAnimatesToDestination:]):
+        (-[DumpRenderTreeDraggingInfo numberOfValidItemsForDrop]):
+        (-[DumpRenderTreeDraggingInfo setNumberOfValidItemsForDrop:]):
+        (-[DumpRenderTreeDraggingInfo enumerateDraggingItemsWithOptions:forView:classes:searchOptions:usingBlock:]):
+
+2010-10-23  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48186> Remove unneeded WebHTMLRepresentationInternal.h header
+
+        Reviewed by Sam Weinig.
+
+        The only method defined in WebHTMLRepresentationInternal.h is
+        also defined in WebHTMLRepresentation.h, so use that instead.
+
+        * DumpRenderTree/mac/InternalHeaders/WebKit/WebHTMLRepresentationInternal.h: Removed.
+        * DumpRenderTree/mac/WebArchiveDumpSupport.mm: Switched to use
+        WebHTMLRepresentation.h.
+
+2010-10-23  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70367.
+        http://trac.webkit.org/changeset/70367
+        https://bugs.webkit.org/show_bug.cgi?id=48176
+
+        It made 8-10 tests crash on Qt bot (Requested by Ossy on
+        #webkit).
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setCustomPolicyDelegateCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setCustomPolicyDelegate):
+        * DumpRenderTree/mac/PolicyDelegate.h:
+        * DumpRenderTree/mac/PolicyDelegate.mm:
+        (-[PolicyDelegate webView:decidePolicyForNavigationAction:request:frame:decisionListener:]):
+        (-[PolicyDelegate setPermissive:]):
+        (-[PolicyDelegate setControllerToNotifyDone:]):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+
+2010-10-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        EWS never releases patches which fail to apply
+        https://bugs.webkit.org/show_bug.cgi?id=48171
+
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+
+2010-10-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.
+
+        Make the EWS queues restart themselves more often.
+        This matches the commit-queue.
+
+        * EWSTools/start-queue.sh:
+
+2010-10-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        commit-queue should not pass --quiet to subcommands now that the parent command does the reporting
+        https://bugs.webkit.org/show_bug.cgi?id=48165
+
+        * Scripts/webkitpy/tool/bot/commitqueuetask.py:
+        * Scripts/webkitpy/tool/bot/commitqueuetask_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-10-22  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Adding myself as a committer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-10-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Barth and Darin Adler.
+
+        Using the decidePolicyForMIMEType delegate message in an asynchronous manner does not work
+        https://bugs.webkit.org/show_bug.cgi?id=48014
+        <rdar://problem/8202716>
+        
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setCustomPolicyDelegateCallback):
+        Add callIgnoreInDecidePolicyForMIMETypeAfterOneSecond argument.
+
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        Add callIgnoreInDecidePolicyForMIMETypeAfterOneSecond argument.
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setCustomPolicyDelegate):
+        Add callIgnoreInDecidePolicyForMIMETypeAfterOneSecond argument.
+
+        * DumpRenderTree/mac/PolicyDelegate.h:
+        * DumpRenderTree/mac/PolicyDelegate.mm:
+        (-[PolicyDelegate webView:decidePolicyForMIMEType:request:frame:decisionListener:]):
+        If _callIgnoreInDecidePolicyForMIMETypeAfterOneSecond is true, call [listener ignore] after one second.
+
+        (-[PolicyDelegate setCallIgnoreInDecidePolicyForMIMETypeAfterOneSecond:]):
+        Update _callIgnoreInDecidePolicyForMIMETypeAfterOneSecond.
+        
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        Add callIgnoreInDecidePolicyForMIMETypeAfterOneSecond argument.
+
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        Add callIgnoreInDecidePolicyForMIMETypeAfterOneSecond argument.
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Rename the InjectedBundle for TestWebKitAPI to InjectedBundleTestWebKitAPI.bundle
+
+        * TestWebKitAPI/Configurations/InjectedBundle.xcconfig:
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/mac/PlatformUtilitiesMac.mm:
+        (TestWebKitAPI::Util::createInjectedBundlePath):
+
+2010-10-22  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        test-webkitpy fails when passed -v (or any other option)
+
+        Fix port/base_unittest to pass an explicit list of arguments
+        rather than accidentally picking up sys.argv.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48071
+
+        * Scripts/webkitpy/layout_tests/port/base_unittest.py:
+
+2010-10-22  Brian Weinstein  <bweinstein@apple.com>
+
+        Windows build fix. Update the createNewPage callback to account for the new
+        arguments.
+
+        * MiniBrowser/win/BrowserView.cpp:
+        (createNewPage):
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit2 needs to pass the current event modifier flags when requesting a new window
+        https://bugs.webkit.org/show_bug.cgi?id=48140
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (createNewPage):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        Update for new signature for the WKPageCreateNewPageCallback.
+
+2010-10-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Just adding a test case.
+
+        The style-queue was not recognizing new patches.  It turns
+        out I had fixed this in an earlier change, but just not
+        deployed to queues.webkit.org.  As part of investigating why it
+        was broken, I wrote a test for my previous change which I'm now landing.
+
+        * QueueStatusServer/model/queues_unittest.py:
+
+2010-10-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        EWS does not need to process obsolete patches
+        https://bugs.webkit.org/show_bug.cgi?id=48093
+
+        This was an easy change, but to test it I had to pipe
+        real Attachment objects into the queue testing system.
+        Doing so revealed a whole bunch of bugs in our unit tests,
+        which I fixed as part of this patch.
+
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+         - This is the actual code change.  This will not reduce the
+           backlog in the EWS queues much, but it will make rejections
+           much quicker for obsolete patches or closed bugs.
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+         - Test my new code.
+         - Used a real attachment object and got rid of MockPatch
+         - Shared code between the mac-ews and cr-mac-ews tests.
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+         - Can't use MockPatch anymore.
+         - Removing MockPatch found more bugs here!
+        * Scripts/webkitpy/tool/commands/queuestest.py:
+        * Scripts/webkitpy/tool/commands/sheriffbot_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+         - MockBugzilla should not be a "Mock" object.  Right now tool.bugs()
+           is allowed, but wrong.  Making it not a Mock will make tool.bugs() correctly fail.
+
+2010-10-22  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70301.
+        http://trac.webkit.org/changeset/70301
+        https://bugs.webkit.org/show_bug.cgi?id=48126
+
+        "Lang attribute layout tests failing" (Requested by satish on
+        #webkit).
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockSpeechInputResultCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+
+2010-10-22  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Added a second parameter to setMockSpeechInputResult for
+        the language used in speech input.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockSpeechInputResultCallback):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockSpeechInputResult):
+
+2010-10-21  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Kent Tamura.
+
+        [Win][DRT] should have LayoutTestController.hasSpellingMarker()
+        https://bugs.webkit.org/show_bug.cgi?id=47885
+
+        - Implemented LayoutTestController.hasSpellingMarker(),
+        - Added fake spellcheck implementation.
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (main):
+        * DumpRenderTree/win/EditingDelegate.cpp:
+        (indexOfFirstWordCharacter):
+        (wordLength):
+        (EditingDelegate::checkSpellingOfString):
+        * DumpRenderTree/win/EditingDelegate.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::hasSpellingMarker):
+
+2010-10-21  Mihai Parparita  <mihaip@chromium.org>
+
+        Unreviewed. Re-enable test that was mistakenly disabled by r67974.
+
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests_unittest.py:
+
+2010-10-21  Mihai Parparita  <mihaip@chromium.org>
+
+        Unreviewed fix for rebaseline-chromium-webkit-tests.
+
+        Port.diff_image no longer has a tolerance parameter. Also, use
+        get_option('tolerance') which is safer if the options object doesn't
+        define a tolerance attribute (it doesn't for the one used in
+        rebaseline_chromium_webkit_tests).
+
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+
+2010-10-21  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add support for --tolerance in NRWT
+        https://bugs.webkit.org/show_bug.cgi?id=47959
+        
+        Add support for the --tolerance flag in NRWT. The Port.diff_image
+        signature shouldn't need a tolerance parameter (it's not set per test),
+        just have ports that use it (currently only WebKitPort) read it from 
+        the options object.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-10-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add --suggest-reviewers option to upload to auto-suggest reviewers for your patch
+        https://bugs.webkit.org/show_bug.cgi?id=48088
+
+        This is a first-pass.  Works, but we'll eventually
+        turn this on by default, refine the suggestion algorithm
+        and possibly move it to a different place in the upload step order.
+
+        * Scripts/webkitpy/common/checkout/api.py:
+        * Scripts/webkitpy/tool/commands/download_unittest.py:
+        * Scripts/webkitpy/tool/commands/upload.py:
+        * Scripts/webkitpy/tool/commands/upload_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/__init__.py:
+        * Scripts/webkitpy/tool/steps/options.py:
+
+2010-10-21  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [GTK] Segfault while testing accessibility/iframe-bastardization.html
+        https://bugs.webkit.org/show_bug.cgi?id=30123
+
+        Check m_element before actually using it to get the parent.
+
+        * DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp:
+        (AccessibilityUIElement::parentElement): Add an extra check to
+        make sure m_element points to a valid value before actually using
+        it to get the parent. Also, assert ATK_IS_OBJECT(m_element).
+
+2010-10-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Crash evaluating JavaScript string that throws an exception
+        https://bugs.webkit.org/show_bug.cgi?id=48092
+        <rdar://problem/8487657>
+
+        Add a test that evaluates a JavaScript string that throws an exception and check that 
+        the callback is called.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKit2/EvaluateJavaScript.cpp: Added.
+        (TestWebKitAPI::didRunJavaScript):
+        (TestWebKitAPI::WebKit2_EvaluateJavaScript):
+        * TestWebKitAPI/win/TestWebKitAPI.vcproj:
+
+2010-10-21  Adam Roben  <aroben@apple.com>
+
+        Test that the plugin's HWND is invalidated when NPN_InvalidateRect is
+        called
+
+        Test for <http://webkit.org/b/48086> <rdar://problem/8482944>
+        Silverlight doesn't repaint in WebKit2
+
+        Reviewed by Anders Carlsson.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp:
+        (PluginTest::NPN_InvalidateRect): Added. Calls through to the browser.
+        (executeScript): Added. Asks the browser to evaluate the script.
+
+        (PluginTest::waitUntilDone):
+        (PluginTest::notifyDone):
+        Added. Calls through to layoutTestController.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h: Added
+        * NPN_InvalidateRect and waitUntilDone/notifyDone.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/win/NPNInvalidateRectInvalidatesWindow.cpp: Added.
+        (TemporaryWindowMover::moveSucceeded):
+        (TemporaryWindowMover::TemporaryWindowMover):
+        (TemporaryWindowMover::~TemporaryWindowMover):
+        This class moves a window on-screen and shows it, then moves it back and hides it.
+
+        (NPNInvalidateRectInvalidatesWindow::NPNInvalidateRectInvalidatesWindow):
+        Initialize our members.
+        (NPNInvalidateRectInvalidatesWindow::~NPNInvalidateRectInvalidatesWindow):
+        Delete our window mover if it hasn't been deleted already.
+        (NPNInvalidateRectInvalidatesWindow::NPP_SetWindow): Subclass the
+        plugin HWND and move the test harness window on screen.
+        (NPNInvalidateRectInvalidatesWindow::wndProc): Call through to onPaint
+        when we get a WM_PAINT message.
+        (NPNInvalidateRectInvalidatesWindow::onPaint): Do the test and tell
+        LayoutTestController we're done.
+        (NPNInvalidateRectInvalidatesWindow::testInvalidateRect): Validate
+        ourselves, invalidate our lower-right quadrant via NPN_InvalidateRect,
+        then check that our HWND's invalid region is the rect that we
+        invalidated.
+
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * Added NPNInvalidateRectInvalidatesWindow.
+
+2010-10-21  Daniel Bates  <dbates@rim.com>
+
+        Add Git-support to do-file-rename
+        https://bugs.webkit.org/show_bug.cgi?id=48015
+
+        Fix tools. Export function scmMoveOrRenameFile so that it can be called from
+        do-file-rename and do-webcore-rename. I inadvertently left this out of the patch.
+
+        * Scripts/VCSUtils.pm:
+
+2010-10-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        mac-ews is not properly releasing patches
+        https://bugs.webkit.org/show_bug.cgi?id=48076
+
+        mac-ews overrides process_work_item, so it was not calling
+        release_work_item like the default process_work_item would.
+        To fix this I made all the status-reporting methods just
+        release the patch.  I expect we'll iterate on this design further.
+
+        * Scripts/webkitpy/common/net/statusserver.py:
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-10-18  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] mathml flaky tests after adding SystemFonts to the theme
+        https://bugs.webkit.org/show_bug.cgi?id=47727
+
+        The Fontconfig setup in the GTK+ now specifically checks for and
+        loads the STIX fonts for MathML tests.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (initializeFonts): Add hooks for loading the STIX fonts specifically.
+
+2010-10-20  Adam Roben  <aroben@apple.com>
+
+        Test that the UI client gets notified when WKView receives a WM_CLOSE
+        message
+
+        Test for <http://webkit.org/b/48044> <rdar://problem/8488446> Pressing
+        Ctrl+W when viewing a full-page PDF destroys the WKView but doesn't
+        close its parent window
+
+        Reviewed by Jon Honeycutt.
+
+        * TestWebKitAPI/Tests/WebKit2/win/WMCloseCallsUIClientClose.cpp: Added.
+        (TestWebKitAPI::close): Record that this function was called.
+        (TestWebKitAPI::WebKit2_WMCloseCallsUIClientClose): Create a WKView,
+        send it a WM_CLOSE message, and test that the UI client's close
+        callback got called. Note that this will hang if the bug is
+        reintroduced; <http://webkit.org/b/48043> covers making TestWebKitAPI
+        able to handle hangs.
+
+        * TestWebKitAPI/win/TestWebKitAPI.vcproj: Added the new test.
+
+2010-10-20  Adam Roben  <aroben@apple.com>
+
+        Make prepare-ChangeLog much faster when using git
+
+        This change also seems to make it detect renames better in some cases.
+
+        Fixes <http://webkit.org/b/48040> prepare-ChangeLog is slow when using
+        git
+
+        Reviewed by David Kilzer.
+
+        * Scripts/prepare-ChangeLog:
+        (statusCommand):
+        (createPatchCommand):
+        Use "-M -C" instead of "-C -C -M" to tell git-diff to detect renames
+        and copies. The two "-C"s were making it read many more files than were
+        necessary.
+
+2010-10-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Null frame passed when running alert from UserScript run at document start
+        <rdar://problem/8573809>
+        https://bugs.webkit.org/show_bug.cgi?id=48036
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/InjectedBundleController.cpp:
+        (TestWebKitAPI::InjectedBundleController::didReceiveMessage):
+        (TestWebKitAPI::InjectedBundleController::initializeTestNamed):
+        * TestWebKitAPI/InjectedBundleController.h:
+        * TestWebKitAPI/InjectedBundleTest.h:
+        (TestWebKitAPI::InjectedBundleTest::initialize):
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKit2/DocumentStartUserScriptAlertCrash.cpp: Added.
+        (TestWebKitAPI::runJavaScriptAlert):
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKit2/DocumentStartUserScriptAlertCrash_Bundle.cpp: Added.
+        (TestWebKitAPI::DocumentStartUserScriptAlertCrashTest::DocumentStartUserScriptAlertCrashTest):
+        (TestWebKitAPI::DocumentStartUserScriptAlertCrashTest::initialize):
+        Add test for invoking an alert during a UserScript run at document start.
+
+2010-10-21  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        TestNetscapePlugIn: Actually call NPP_SetWindow on Unix
+
+        We were just returning NPERR_NO_ERROR previously.
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_set_window):
+
+2010-10-21  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48051> Move macros from DumpRenderTreeMac.h to config.h
+
+        Reviewed by Adam Roben.
+
+        * DumpRenderTree/config.h: Moved macros to here...
+        * DumpRenderTree/mac/DumpRenderTreeMac.h: ...from here.
+        Addresses a FIXME comment from r28419.
+
+2010-10-21  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48047> Fix warnings found by check-Xcode-source-file-types
+
+        Reviewed by Adam Roben.
+
+        Fixes the following warnings:
+
+            WARNING: Incorrect file type 'sourcecode.cpp.objcpp' for file 'PixelDumpSupport.cpp'.
+            WARNING: Incorrect file type 'sourcecode.cpp.objcpp' for file 'LayoutTestController.cpp'.
+            WARNING: Incorrect file type 'sourcecode.cpp.objcpp' for file 'WorkQueue.cpp'.
+            WARNING: Incorrect file type 'sourcecode.cpp.objcpp' for file 'cg/PixelDumpSupportCG.cpp'.
+            WARNING: Incorrect file type 'sourcecode.cpp.objcpp' for file 'GCController.cpp'.
+            5 issues found for WebKitTools/DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        Removed explicit file type for *.cpp files above to make them
+        match other C++ source files.  This exposed the fact that
+        DumpRenderTreeMac.h was not safe to include in C++ source, which
+        caused PixelDumpSupport.cpp and PixelDumpSupportCG.cpp to fail
+        to build.
+        * DumpRenderTree/PixelDumpSupport.cpp: Adjusted header order.
+        * DumpRenderTree/mac/DumpRenderTreeMac.h: Made safe to include
+        in C++ source files.  Included CoreFoundation/CoreFoundation.h
+        to make sure all CF types were defined.  Removed CFStringRef
+        typedef.
+
+2010-10-21  Adam Roben  <aroben@apple.com>
+
+        Attempt to fix plugins/pass-different-npp-struct.html on GTK.
+
+        See <http://webkit.org/b/47690>.
+
+        * GNUmakefile.am: Added PassDifferentNPPStruct.cpp.
+
+2010-10-21  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [NRWT] Set ImageDiff path on Qt port
+        https://bugs.webkit.org/show_bug.cgi?id=48052
+
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+
+2010-10-21  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Don't CC authors of flaky tests
+        https://bugs.webkit.org/show_bug.cgi?id=48038
+
+        Some authors found this too annoying.  We'll look for another way to
+        close the flaky test loop.
+
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-10-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        commit-queue should run run-webkit-tests with --no-new-test-results
+        https://bugs.webkit.org/show_bug.cgi?id=47998
+
+        * Scripts/webkitpy/tool/steps/runtests.py:
+        * Scripts/webkitpy/tool/steps/steps_unittest.py:
+
+2010-10-21  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Ojan Vafai.
+
+        [NRWT] Get child process number from an environment variable
+        https://bugs.webkit.org/show_bug.cgi?id=47981
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
 2010-10-20  David Kilzer  <ddkilzer@apple.com>
 
         <http://webkit.org/b/47754> New script to verify explicit source file types in Xcode project files
@@ -30,8 +2112,8 @@
 
         Reviewed by Adam Roben.
 
-        https://bugs.webkit.org/show_bug.cgi?id=48027
         Add ability to test injected bundle API using TestWebKitAPI
+        https://bugs.webkit.org/show_bug.cgi?id=48027
 
         * TestWebKitAPI/InjectedBundleController.cpp: Added.
         * TestWebKitAPI/InjectedBundleController.h: Added.
@@ -218,7 +2300,7 @@
         * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
         (LayoutTestController::setMockSpeechInputResult):
 
-2010-10-19  Leandro Gracia Gil  <leandrogracia@google.com>
+2010-10-20  Leandro Gracia Gil  <leandrogracia@google.com>
 
         Reviewed by Jeremy Orlow.
 

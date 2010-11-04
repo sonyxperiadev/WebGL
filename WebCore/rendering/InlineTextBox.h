@@ -127,7 +127,7 @@ public:
     bool containsCaretOffset(int offset) const; // false for offset after line break
 
     // Needs to be public, so the static paintTextWithShadows() function can use it.
-    static FloatSize applyShadowToGraphicsContext(GraphicsContext*, const ShadowData*, const FloatRect& textRect, bool stroked, bool opaque);
+    static FloatSize applyShadowToGraphicsContext(GraphicsContext*, const ShadowData*, const FloatRect& textRect, bool stroked, bool opaque, bool vertical);
 
 private:
     InlineTextBox* m_prevTextBox; // The previous box that also uses our RenderObject
@@ -140,19 +140,19 @@ private:
                       // denote no truncation (the whole run paints) and full truncation (nothing paints at all).
 
 protected:
-    void paintCompositionBackground(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&, int startPos, int endPos);
-    void paintDocumentMarkers(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&, bool background);
-    void paintCompositionUnderline(GraphicsContext*, int tx, int ty, const CompositionUnderline&);
+    void paintCompositionBackground(GraphicsContext*, const IntPoint& boxOrigin, RenderStyle*, const Font&, int startPos, int endPos);
+    void paintDocumentMarkers(GraphicsContext*, const IntPoint& boxOrigin, RenderStyle*, const Font&, bool background);
+    void paintCompositionUnderline(GraphicsContext*, const IntPoint& boxOrigin, const CompositionUnderline&);
 #if PLATFORM(MAC)
     void paintCustomHighlight(int tx, int ty, const AtomicString& type);
 #endif
 
 private:
-    void paintDecoration(GraphicsContext*, int tx, int ty, int decoration, const ShadowData*);
-    void paintSelection(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&);
-    void paintSpellingOrGrammarMarker(GraphicsContext*, int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&, bool grammar);
-    void paintTextMatchMarker(GraphicsContext*, int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&);
-    void computeRectForReplacementMarker(int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&);
+    void paintDecoration(GraphicsContext*, const IntPoint& boxOrigin, int decoration, const ShadowData*);
+    void paintSelection(GraphicsContext*, const IntPoint& boxOrigin, RenderStyle*, const Font&);
+    void paintSpellingOrGrammarMarker(GraphicsContext*, const IntPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&, bool grammar);
+    void paintTextMatchMarker(GraphicsContext*, const IntPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&);
+    void computeRectForReplacementMarker(const DocumentMarker&, RenderStyle*, const Font&);
 };
 
 inline RenderText* InlineTextBox::textRenderer() const

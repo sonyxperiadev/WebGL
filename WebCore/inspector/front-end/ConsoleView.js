@@ -48,7 +48,7 @@ WebInspector.ConsoleView = function(drawer)
     this.promptElement.className = "source-code";
     this.promptElement.addEventListener("keydown", this._promptKeyDown.bind(this), true);
     this.prompt = new WebInspector.TextPrompt(this.promptElement, this.completions.bind(this), ExpressionStopCharacters + ".");
-    WebInspector.applicationSettings.addEventListener("loaded", this._settingsLoaded, this);
+    this.prompt.history = WebInspector.applicationSettings.consoleHistory;
 
     this.topGroup = new WebInspector.ConsoleGroup(null, 0);
     this.messagesElement.insertBefore(this.topGroup.element, this.promptElement);
@@ -102,11 +102,6 @@ WebInspector.ConsoleView = function(drawer)
 }
 
 WebInspector.ConsoleView.prototype = {
-    _settingsLoaded: function()
-    {
-        this.prompt.history = WebInspector.applicationSettings.consoleHistory;
-    },
-    
     _updateFilter: function(e)
     {
         var isMac = WebInspector.isMac();
@@ -225,11 +220,15 @@ WebInspector.ConsoleView.prototype = {
             this._incrementErrorWarningCount(msg);
 
             // Add message to the resource panel
-            if (msg.url in WebInspector.resourceURLMap) {
-                msg.resource = WebInspector.resourceURLMap[msg.url];
-                if (WebInspector.panels.resources)
-                    WebInspector.panels.resources.addMessageToResource(msg.resource, msg);
-            }
+            if (!Preferences.networkPanelEnabled) {
+                var resource = WebInspector.resourceForURL(msg.url);
+                if (resource) {
+                    msg.resource = resource;
+                    if (WebInspector.panels.resources)
+                        WebInspector.panels.resources.addMessageToResource(msg.resource, msg);
+                }
+            } else
+                WebInspector.resourceManager.addConsoleMessage(msg);
 
             this.commandSincePreviousMessage = false;
             this.previousMessage = msg;
@@ -303,6 +302,8 @@ WebInspector.ConsoleView.prototype = {
     {
         if (WebInspector.panels.resources)
             WebInspector.panels.resources.clearMessages();
+        if (WebInspector.resourceManager)
+            WebInspector.resourceManager.clearConsoleMessages();
 
         this.messages = [];
 
@@ -678,7 +679,7 @@ WebInspector.ConsoleMessage.prototype = {
             case WebInspector.ConsoleMessage.MessageType.Trace:
             case WebInspector.ConsoleMessage.MessageType.UncaughtException:
                 var ol = document.createElement("ol");
-                ol.addStyleClass("stack-trace");
+                ol.className = "outline-disclosure";
                 var treeOutline = new TreeOutline(ol);
                 var messageText;
                 if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)

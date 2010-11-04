@@ -841,6 +841,11 @@ public:
 
     DocumentMarkerController* markers() const { return m_markers.get(); }
 
+    bool directionSetOnDocumentElement() const { return m_directionSetOnDocumentElement; }
+    bool writingModeSetOnDocumentElement() const { return m_writingModeSetOnDocumentElement; }
+    void setDirectionSetOnDocumentElement(bool b) { m_directionSetOnDocumentElement = b; }
+    void setWritingModeSetOnDocumentElement(bool b) { m_writingModeSetOnDocumentElement = b; }
+
     bool execCommand(const String& command, bool userInterface = false, const String& value = String());
     bool queryCommandEnabled(const String& command);
     bool queryCommandIndeterm(const String& command);
@@ -1043,9 +1048,6 @@ public:
     void webkitDidExitFullScreenForElement(Element*);
 #endif
 
-    bool writeDisabled() const { return m_writeDisabled; }
-    void setWriteDisabled(bool flag) { m_writeDisabled = flag; }
-
     // Used to allow element that loads data without going through a FrameLoader to delay the 'load' event.
     void incrementLoadEventDelayCount() { ++m_loadEventDelayCount; }
     void decrementLoadEventDelayCount();
@@ -1063,6 +1065,8 @@ protected:
 
 
 private:
+    friend class IgnoreDestructiveWriteCountIncrementer;
+
     void detachParser();
 
     typedef void (*ArgumentsCallback)(const String& keyString, const String& valueString, Document*, void* data);
@@ -1220,8 +1224,8 @@ private:
     bool m_containsValidityStyleRules;
     bool m_updateFocusAppearanceRestoresSelection;
 
-    // http://www.whatwg.org/specs/web-apps/current-work/#write-neutralised
-    bool m_writeDisabled;
+    // http://www.whatwg.org/specs/web-apps/current-work/#ignore-destructive-writes-counter
+    unsigned m_ignoreDestructiveWriteCount;
 
     String m_title;
     String m_rawTitle;
@@ -1353,6 +1357,9 @@ private:
     Timer<Document> m_loadEventDelayTimer;
 
     ViewportArguments m_viewportArguments;
+    
+    bool m_directionSetOnDocumentElement;
+    bool m_writingModeSetOnDocumentElement;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

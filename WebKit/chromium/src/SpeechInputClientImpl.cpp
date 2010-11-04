@@ -32,14 +32,20 @@
 #include "SpeechInputClientImpl.h"
 
 #include "PlatformString.h"
+#include "SpeechInputListener.h"
 #include "WebSpeechInputController.h"
 #include "WebString.h"
 #include "WebViewClient.h"
-#include "page/SpeechInputListener.h"
+#include <wtf/PassOwnPtr.h>
 
 #if ENABLE(INPUT_SPEECH)
 
 namespace WebKit {
+
+PassOwnPtr<SpeechInputClientImpl> SpeechInputClientImpl::create(WebViewClient* client)
+{
+    return adoptPtr(new SpeechInputClientImpl(client));
+}
 
 SpeechInputClientImpl::SpeechInputClientImpl(WebViewClient* web_view_client)
     : m_controller(web_view_client ? web_view_client->speechInputController(this) : 0)
@@ -56,10 +62,10 @@ void SpeechInputClientImpl::setListener(WebCore::SpeechInputListener* listener)
     m_listener = listener;
 }
 
-bool SpeechInputClientImpl::startRecognition(int requestId, const WebCore::IntRect& elementRect)
+bool SpeechInputClientImpl::startRecognition(int requestId, const WebCore::IntRect& elementRect, const AtomicString& language, const String& grammar)
 {
     ASSERT(m_listener);
-    return m_controller->startRecognition(requestId, elementRect);
+    return m_controller->startRecognition(requestId, elementRect, language, grammar);
 }
 
 void SpeechInputClientImpl::stopRecording(int requestId)
@@ -86,10 +92,13 @@ void SpeechInputClientImpl::didCompleteRecognition(int requestId)
     m_listener->didCompleteRecognition(requestId);
 }
 
-void SpeechInputClientImpl::setRecognitionResult(int requestId, const WebString& result)
+void SpeechInputClientImpl::setRecognitionResult(int requestId, const WebSpeechInputResultArray& results)
 {
     ASSERT(m_listener);
-    m_listener->setRecognitionResult(requestId, result);
+    WebCore::SpeechInputResultArray webcoreResults(results.size());
+    for (size_t i = 0; i < results.size(); ++i)
+        webcoreResults[i] = results[i];
+    m_listener->setRecognitionResult(requestId, webcoreResults);
 }
 
 } // namespace WebKit

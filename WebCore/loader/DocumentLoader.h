@@ -48,6 +48,7 @@ namespace WebCore {
     class Frame;
     class FrameLoader;
     class MainResourceLoader;
+    class Page;
     class ResourceLoader;
     class SchedulePair;
     class SharedBuffer;
@@ -199,7 +200,9 @@ namespace WebCore {
         void removePlugInStreamLoader(ResourceLoader*);
 
         void subresourceLoaderFinishedLoadingOnePart(ResourceLoader*);
-        
+
+        void transferLoadingResourcesFromPage(Page*);
+
         void setDeferMainResourceDataLoad(bool defer) { m_deferMainResourceDataLoad = defer; }
         bool deferMainResourceDataLoad() const { return m_deferMainResourceDataLoad; }
         

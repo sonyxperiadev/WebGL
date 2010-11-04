@@ -131,25 +131,25 @@ static PassRefPtr<IDBKey> fetchKeyFromKeyPath(SerializedScriptValue* value, cons
     return keys[0].release();
 }
 
-static bool putObjectStoreData(SQLiteDatabase& db, IDBKey* key, SerializedScriptValue* value, int64_t objectStoreId, int64_t* dataRowId)
+static bool putObjectStoreData(SQLiteDatabase& db, IDBKey* key, SerializedScriptValue* value, int64_t objectStoreId, int64_t& dataRowId)
 {
-    String sql = *dataRowId != -1 ? "UPDATE ObjectStoreData SET keyString = ?, keyDate = ?, keyNumber = ?, value = ? WHERE id = ?"
-                                  : "INSERT INTO ObjectStoreData (keyString, keyDate, keyNumber, value, objectStoreId) VALUES (?, ?, ?, ?, ?)";
+    String sql = dataRowId != IDBObjectStoreBackendImpl::InvalidId ? "UPDATE ObjectStoreData SET keyString = ?, keyDate = ?, keyNumber = ?, value = ? WHERE id = ?"
+                                                                   : "INSERT INTO ObjectStoreData (keyString, keyDate, keyNumber, value, objectStoreId) VALUES (?, ?, ?, ?, ?)";
     SQLiteStatement query(db, sql);
     if (query.prepare() != SQLResultOk)
         return false;
     key->bindWithNulls(query, 1);
     query.bindText(4, value->toWireString());
-    if (*dataRowId != -1)
-        query.bindInt(5, *dataRowId);
+    if (dataRowId != IDBDatabaseBackendImpl::InvalidId)
+        query.bindInt64(5, dataRowId);
     else
         query.bindInt64(5, objectStoreId);
 
     if (query.step() != SQLResultDone)
         return false;
 
-    if (*dataRowId == -1)
-        *dataRowId = db.lastInsertRowID();
+    if (dataRowId == IDBDatabaseBackendImpl::InvalidId)
+        dataRowId = db.lastInsertRowID();
 
     return true;
 }
@@ -238,8 +238,8 @@ void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<
 
     // Before this point, don't do any mutation.  After this point, rollback the transaction in case of error.
 
-    int64_t dataRowId = isExistingValue ? getQuery.getColumnInt(0) : -1;
-    if (!putObjectStoreData(objectStore->sqliteDatabase(), key.get(), value.get(), objectStore->id(), &dataRowId)) {
+    int64_t dataRowId = isExistingValue ? getQuery.getColumnInt(0) : InvalidId;
+    if (!putObjectStoreData(objectStore->sqliteDatabase(), key.get(), value.get(), objectStore->id(), dataRowId)) {
         // FIXME: The Indexed Database specification does not have an error code dedicated to I/O errors.
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Error writing data to stable storage."));
         transaction->abort();
@@ -394,11 +394,14 @@ void IDBObjectStoreBackendImpl::openCursor(PassRefPtr<IDBKeyRange> prpRange, uns
 
 void IDBObjectStoreBackendImpl::openCursorInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKeyRange> range, unsigned short tmpDirection, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<IDBTransactionBackendInterface> transaction)
 {
+    bool leftBound = range && (range->flags() & IDBKeyRange::LEFT_BOUND || range->flags() == IDBKeyRange::SINGLE);
+    bool rightBound = range && (range->flags() & IDBKeyRange::RIGHT_BOUND || range->flags() == IDBKeyRange::SINGLE);
+
     // Several files depend on this order of selects.
     String sql = "SELECT id, keyString, keyDate, keyNumber, value FROM ObjectStoreData WHERE ";
-    if (range->flags() & IDBKeyRange::LEFT_BOUND || range->flags() == IDBKeyRange::SINGLE)
+    if (leftBound)
         sql += range->left()->leftCursorWhereFragment(range->leftWhereClauseComparisonOperator());
-    if (range->flags() & IDBKeyRange::RIGHT_BOUND || range->flags() == IDBKeyRange::SINGLE)
+    if (rightBound)
         sql += range->right()->rightCursorWhereFragment(range->rightWhereClauseComparisonOperator());
     sql += "objectStoreId = ? ORDER BY ";
 
@@ -413,9 +416,9 @@ void IDBObjectStoreBackendImpl::openCursorInternal(ScriptExecutionContext*, Pass
     ASSERT_UNUSED(ok, ok); // FIXME: Better error handling?
 
     int currentColumn = 1;
-    if (range->flags() & IDBKeyRange::LEFT_BOUND || range->flags() == IDBKeyRange::SINGLE)
+    if (leftBound)
         currentColumn += range->left()->bind(*query, currentColumn);
-    if (range->flags() & IDBKeyRange::RIGHT_BOUND || range->flags() == IDBKeyRange::SINGLE)
+    if (rightBound)
         currentColumn += range->right()->bind(*query, currentColumn);
     query->bindInt64(currentColumn, objectStore->id());
 

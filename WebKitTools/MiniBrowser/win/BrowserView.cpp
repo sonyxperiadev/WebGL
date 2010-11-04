@@ -39,7 +39,7 @@ BrowserView::BrowserView()
 
 // UI Client Callbacks
 
-static WKPageRef createNewPage(WKPageRef page, const void* clientInfo)
+static WKPageRef createNewPage(WKPageRef page, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void* clientInfo)
 {
     BrowserWindow* browserWindow = BrowserWindow::create();
     browserWindow->createWindow(0, 0, 800, 600);
@@ -78,10 +78,6 @@ static void mouseDidMoveOverElement(WKPageRef page, WKEventModifiers modifiers, 
 {
 }
 
-static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRef frame, const void *clientInfo)
-{
-}
-
 void BrowserView::create(RECT webViewRect, BrowserWindow* parentWindow)
 {
     assert(!m_webView);
@@ -109,8 +105,20 @@ void BrowserView::create(RECT webViewRect, BrowserWindow* parentWindow)
         runJavaScriptPrompt,
         setStatusText,
         mouseDidMoveOverElement,
-        contentsSizeChanged,
-        0               /* didNotHandleKeyEvent */
+        0,          /* didNotHandleKeyEvent */
+        0,          /* toolbarsAreVisible */
+        0,          /* setToolbarsAreVisible */
+        0,          /* menuBarIsVisible */
+        0,          /* setMenuBarIsVisible */
+        0,          /* statusBarIsVisible */
+        0,          /* setStatusBarIsVisible */
+        0,          /* isResizable */
+        0,          /* setIsResizable */
+        0,          /* getWindowFrame */
+        0,          /* setWindowFrame */
+        0,          /* runBeforeUnloadConfirmPanel */
+        0,          /* didDraw */
+        0           /* pageDidScroll */
     };
 
     WKPageSetPageUIClient(WKViewGetPage(m_webView), &uiClient);

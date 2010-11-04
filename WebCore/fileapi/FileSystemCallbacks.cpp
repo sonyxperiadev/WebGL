@@ -43,9 +43,9 @@
 #include "EntryArray.h"
 #include "EntryCallback.h"
 #include "ErrorCallback.h"
-#include "ExceptionCode.h"
 #include "FileEntry.h"
 #include "FileError.h"
+#include "FileMetadata.h"
 #include "FileSystemCallback.h"
 #include "FileWriter.h"
 #include "FileWriterCallback.h"
@@ -77,7 +77,7 @@ void FileSystemCallbacksBase::didOpenFileSystem(const String&, PassOwnPtr<AsyncF
     ASSERT_NOT_REACHED();
 }
 
-void FileSystemCallbacksBase::didReadMetadata(double)
+void FileSystemCallbacksBase::didReadMetadata(const FileMetadata&)
 {
     // Each subclass must implement an appropriate one.
     ASSERT_NOT_REACHED();
@@ -104,19 +104,19 @@ void FileSystemCallbacksBase::didCreateFileWriter(PassOwnPtr<AsyncFileWriter>, l
 void FileSystemCallbacksBase::didFail(int code)
 {
     if (m_errorCallback) {
-        m_errorCallback->handleEvent(FileError::create(code).get());
+        m_errorCallback->handleEvent(FileError::create(static_cast<FileError::ErrorCode>(code)).get());
         m_errorCallback.clear();
     }
 }
 
 // EntryCallbacks -------------------------------------------------------------
 
-PassOwnPtr<EntryCallbacks> EntryCallbacks::create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystemBase* fileSystem, const String& expectedPath, bool isDirectory)
+PassOwnPtr<EntryCallbacks> EntryCallbacks::create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DOMFileSystemBase> fileSystem, const String& expectedPath, bool isDirectory)
 {
     return adoptPtr(new EntryCallbacks(successCallback, errorCallback, fileSystem, expectedPath, isDirectory));
 }
 
-EntryCallbacks::EntryCallbacks(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystemBase* fileSystem, const String& expectedPath, bool isDirectory)
+EntryCallbacks::EntryCallbacks(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DOMFileSystemBase> fileSystem, const String& expectedPath, bool isDirectory)
     : FileSystemCallbacksBase(errorCallback)
     , m_successCallback(successCallback)
     , m_fileSystem(fileSystem)
@@ -138,12 +138,12 @@ void EntryCallbacks::didSucceed()
 
 // EntriesCallbacks -----------------------------------------------------------
 
-PassOwnPtr<EntriesCallbacks> EntriesCallbacks::create(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DirectoryReaderBase* directoryReader, const String& basePath)
+PassOwnPtr<EntriesCallbacks> EntriesCallbacks::create(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DirectoryReaderBase> directoryReader, const String& basePath)
 {
     return adoptPtr(new EntriesCallbacks(successCallback, errorCallback, directoryReader, basePath));
 }
 
-EntriesCallbacks::EntriesCallbacks(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DirectoryReaderBase* directoryReader, const String& basePath)
+EntriesCallbacks::EntriesCallbacks(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DirectoryReaderBase> directoryReader, const String& basePath)
     : FileSystemCallbacksBase(errorCallback)
     , m_successCallback(successCallback)
     , m_directoryReader(directoryReader)
@@ -205,10 +205,10 @@ MetadataCallbacks::MetadataCallbacks(PassRefPtr<MetadataCallback> successCallbac
 {
 }
 
-void MetadataCallbacks::didReadMetadata(double modificationTime)
+void MetadataCallbacks::didReadMetadata(const FileMetadata& metadata)
 {
     if (m_successCallback)
-        m_successCallback->handleEvent(Metadata::create(modificationTime).get());
+        m_successCallback->handleEvent(Metadata::create(metadata.modificationTime).get());
     m_successCallback.clear();
 }
 

@@ -27,6 +27,7 @@
 #include "FontSelector.h"
 #include "RenderArena.h"
 #include "RenderObject.h"
+#include "ScaleTransformOperation.h"
 #include "StyleImage.h"
 #include <wtf/StdLibExtras.h>
 #include <algorithm>
@@ -242,6 +243,19 @@ RenderStyle* RenderStyle::addCachedPseudoStyle(PassRefPtr<RenderStyle> pseudo)
     m_cachedPseudoStyles->append(pseudo);
 
     return result;
+}
+
+void RenderStyle::removeCachedPseudoStyle(PseudoId pid)
+{
+    if (!m_cachedPseudoStyles)
+        return;
+    for (size_t i = 0; i < m_cachedPseudoStyles->size(); ++i) {
+        RenderStyle* pseudoStyle = m_cachedPseudoStyles->at(i).get();
+        if (pseudoStyle->styleType() == pid) {
+            m_cachedPseudoStyles->remove(i);
+            return;
+        }
+    }
 }
 
 bool RenderStyle::inheritedNotEqual(const RenderStyle* other) const
@@ -678,6 +692,17 @@ void RenderStyle::applyTransform(TransformationMatrix& transform, const IntSize&
     if (applyTransformOrigin) {
         transform.translate3d(-transformOriginX().calcFloatValue(borderBoxSize.width()), -transformOriginY().calcFloatValue(borderBoxSize.height()), -transformOriginZ());
     }
+}
+
+void RenderStyle::setPageScaleTransform(float scale)
+{
+    if (scale == 1)
+        return;
+    TransformOperations transform;
+    transform.operations().append(ScaleTransformOperation::create(scale, scale, ScaleTransformOperation::SCALE));
+    setTransform(transform);
+    setTransformOriginX(Length(0, Fixed));
+    setTransformOriginY(Length(0, Fixed));
 }
 
 void RenderStyle::setTextShadow(ShadowData* val, bool add)

@@ -150,6 +150,8 @@
                 'public/WebEditingAction.h',
                 'public/WebElement.h',
                 'public/WebExceptionCode.h',
+                'public/WebExternalPopupMenu.h',
+                'public/WebExternalPopupMenuClient.h',
                 'public/WebFileChooserCompletion.h',
                 'public/WebFileChooserParams.h',
                 'public/WebFileError.h',
@@ -255,6 +257,7 @@
                 'public/WebSpeechInputController.h',
                 'public/WebSpeechInputControllerMock.h',
                 'public/WebSpeechInputListener.h',
+                'public/WebSpeechInputResult.h',
                 'public/WebStorageArea.h',
                 'public/WebStorageEventDispatcher.h',
                 'public/WebStorageNamespace.h',
@@ -325,6 +328,8 @@
                 'src/EditorClientImpl.h',
                 'src/EventListenerWrapper.cpp',
                 'src/EventListenerWrapper.h',
+                'src/ExternalPopupMenu.cpp',
+                'src/ExternalPopupMenu.h',
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/FrameNetworkingContextImpl.h',
@@ -514,6 +519,7 @@
                 'src/WebSharedWorkerImpl.h',
                 'src/WebSpeechInputControllerMockImpl.cpp',
                 'src/WebSpeechInputControllerMockImpl.h',
+                'src/WebSpeechInputResult.cpp',
                 'src/WebStorageAreaImpl.cpp',
                 'src/WebStorageAreaImpl.h',
                 'src/WebStorageEventDispatcherImpl.cpp',
@@ -875,6 +881,9 @@
                     'sources/': [
                         ['exclude', 'Win\\.cpp$'],
                     ],
+                    'dependencies': [
+                        'TestNetscapePlugIn',
+                    ],
                     'actions': [
                         {
                             'action_name': 'repack_locale',
@@ -902,7 +911,6 @@
                     'dependencies': [
                         'copy_mesa',
                         'LayoutTestHelper',
-                        'TestNetscapePlugIn',
                     ],
                     'mac_bundle_resources': [
                         '<(ahem_path)',
@@ -957,6 +965,11 @@
                         ['exclude', '(Gtk|Linux)\\.cpp$']
                     ]
                 }],
+                ['inside_chromium_build==0', {
+                    'dependencies': [
+                        '<(chromium_src_dir)/webkit/support/setup_third_party.gyp:third_party_headers',
+                    ]
+                }],
             ],
         },
     ], # targets
@@ -967,6 +980,54 @@
                 'type': 'executable',
                 'sources': ['../../WebKitTools/DumpRenderTree/chromium/LayoutTestHelperWin.cpp'],
             }],
+        }, {  # OS!="win"
+            'targets': [
+                {
+                    'target_name': 'TestNetscapePlugIn',
+                    'type': 'loadable_module',
+                    'sources': [ '<@(test_plugin_files)' ],
+                    'dependencies': [
+                        '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
+                    ],
+                    'include_dirs': [
+                        '<(chromium_src_dir)',
+                        '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn',
+                        '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders',
+                    ],
+
+                    'conditions': [
+                        ['OS=="mac"', {
+                            'mac_bundle': 1,
+                            # It would be nice to name this
+                            # TestNetscapePlugIn, but that name is already
+                            # used by the fork of this plugin in Chromium.
+                            'product_name': 'WebKitTestNetscapePlugIn',
+                            'product_extension': 'plugin',
+                            'link_settings': {
+                                'libraries': [
+                                    '$(SDKROOT)/System/Library/Frameworks/Carbon.framework',
+                                    '$(SDKROOT)/System/Library/Frameworks/Cocoa.framework',
+                                    '$(SDKROOT)/System/Library/Frameworks/QuartzCore.framework',
+                                ]
+                            },
+                            'xcode_settings': {
+                                'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
+                                # This is a temporary fork of
+                                # DRT/TestNetscapePlugIn/mac/Info.plist.  Once
+                                # we get rid of our forked plugin in the
+                                # chromium repo, we can share the same
+                                # Info.plist.
+                                'INFOPLIST_FILE': '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/Info.plist',
+                            },
+                        }],
+                        ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+                            'cflags': [
+                                '-fvisibility=default',
+                            ],
+                        }],
+                    ],
+                },
+            ],
         }],
         ['OS=="mac"', {
             'targets': [
@@ -989,42 +1050,6 @@
                         'files': ['<(PRODUCT_DIR)/osmesa.so'],
                     }],
                 },
-                {
-                    'target_name': 'TestNetscapePlugIn',
-                    'type': 'loadable_module',
-                    'sources': [ '<@(test_plugin_files)' ],
-                    'dependencies': [
-                        '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
-                    ],
-                    'include_dirs': [
-                        '<(chromium_src_dir)',
-                        '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn',
-                        '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders',
-                    ],
-
-                    # Mac specific stuff.
-                    'mac_bundle': 1,
-                    # It would be nice to name this TestNetscapePlugIn, but
-                    # that name is already used by the fork of this plugin in
-                    # Chromium.
-                    'product_name': 'WebKitTestNetscapePlugIn',
-                    'product_extension': 'plugin',
-                    'link_settings': {
-                        'libraries': [
-                            '$(SDKROOT)/System/Library/Frameworks/Carbon.framework',
-                            '$(SDKROOT)/System/Library/Frameworks/Cocoa.framework',
-                            '$(SDKROOT)/System/Library/Frameworks/QuartzCore.framework',
-                        ]
-                    },
-                    'xcode_settings': {
-                        'GCC_SYMBOLS_PRIVATE_EXTERN': 'NO',
-                        # This is a temporary fork of
-                        # DRT/TestNetscapePlugIn/mac/Info.plist.  Once we get
-                        # rid of our forked plugin in the chromium repo, we
-                        # can share the same Info.plist.
-                        'INFOPLIST_FILE': '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/Info.plist',
-                    },
-                }
             ],
         }],
     ], # conditions
