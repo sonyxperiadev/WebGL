@@ -136,7 +136,8 @@ void TilesManager::paintTexturesDefault()
 #else
             canvas->drawARGB(255, 255, 255, 255);
 #endif // DEBUG
-            texture->producerUpdate(textureInfo);
+            PaintingInfo info;
+            texture->producerUpdate(0, textureInfo, info);
         }
     }
 }
@@ -185,9 +186,9 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         }
     }
     if (farthestTexture && farthestTexture->acquire(owner)) {
+        farthestTexture->setUsedLevel(0);
         XLOG("farthest texture, getAvailableTexture(%x) => texture %x (level %d)",
              owner, farthestTexture, farthestTexture->usedLevel());
-        farthestTexture->setUsedLevel(0);
         return farthestTexture;
     }
 

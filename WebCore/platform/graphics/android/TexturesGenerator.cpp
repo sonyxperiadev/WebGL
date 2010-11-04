@@ -53,13 +53,10 @@ void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
 {
     android::Mutex::Autolock lock(mRequestedPixmapsLock);
     for (unsigned int i = 0; i < mRequestedPixmaps.size(); i++) {
-        TileSet** s = &mRequestedPixmaps[i];
-        // A similar set is already in the queue. The newer set may have additional
-        // dirty tiles so delete the existing set and replace it with the new one.
-        if (*s && **s == *set) {
-            TileSet* oldSet = *s;
-            *s = set;
-            delete oldSet;
+        TileSet* s = mRequestedPixmaps[i];
+        if (s && *s == *set) {
+            // Similar set already in the queue
+            delete set;
             return;
         }
     }

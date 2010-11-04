@@ -95,9 +95,8 @@ class LayerAndroid;
 // get the GL textures from an existing pool, and reuse them.
 //
 // The way we do it is that when we call TiledPage::prepare(), we group the
-// tiles we need (i.e. in the viewport and dirty) into a TilesSet and call
-// BaseTile::reserveTexture() for each tile (which ensures there is a specific
-// GL textures backing the BaseTiles).
+// tiles we need into a TilesSet, call TilesSet::reserveTextures() (which
+// associates the GL textures to the BaseTiles).
 //
 // reserveTexture() will ask the TilesManager for a texture. The allocation
 // mechanism goal is to (in order):
@@ -105,22 +104,8 @@ class LayerAndroid;
 // - prefers to allocate textures that are as far from the viewport as possible
 // - prefers to allocate textures that are used by different TiledPages
 //
-// Note that to compute the distance of each tile from the viewport, each time
-// we prepare() a TiledPage. Also during each prepare() we compute which tiles
-// are dirty based on the info we have received from webkit.
-//
-// BaseTile Invalidation
-// ------------------
-//
-// We do not want to redraw a tile if the tile is up-to-date. A tile is
-// considered to be dirty an in need of redrawing in the following cases
-//  - the tile has acquires a new texture
-//  - webkit invalidates all or part of the tiles contents
-//
-// To handle the case of webkit invalidation we store two ids (counters) of the
-// pictureSets in the tile.  The first id (A) represents the pictureSet used to
-// paint the tile and the second id (B) represents the pictureSet in which the
-// tile was invalidated by webkit. Thus, if A < B then tile is dirty.
+// Note that to compute the distance of tiles, each time we prepare() a
+// TiledPage, we compute the distance of the tiles in it from the viewport.
 //
 // Painting scheduling
 // -------------------
@@ -170,7 +155,7 @@ public:
     int originalTilesPosY() const { return m_originalTilesPosY; }
     void setOriginalTilesPosY(int pos) { m_originalTilesPosY = pos; }
 
-    int paintBaseLayerContent(SkCanvas* canvas);
+    void paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, IntRect& rect);
     void setExtra(android::DrawExtra* extra, LayerAndroid* navLayer);
     void resetExtra(bool repaint);
@@ -191,6 +176,7 @@ public:
     int firstTileY() const { return m_firstTileY; }
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
+    SkRect& invalidatedRect() { return m_invalidatedRect; }
 
 private:
 
@@ -221,6 +207,7 @@ private:
     android::Mutex m_baseLayerLock;
     BaseLayerAndroid* m_baseLayer;
     unsigned int m_currentPictureCounter;
+    SkRect m_invalidatedRect;
     bool m_usePageA;
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;

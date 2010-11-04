@@ -50,6 +50,11 @@ public:
     TextureInfo* consumerLock();
     void consumerRelease();
 
+protected:
+    bool equalsIdTextureA(GLuint id) { return id == m_textureA.getSourceTextureId(); }
+    bool equalsIdTextureB(GLuint id) { return id == m_textureB.getSourceTextureId(); }
+    bool isTextureAReadable() { return getReadableTexture() == &m_textureA; }
+
 private:
     SharedTexture* getReadableTexture();
     SharedTexture* getWriteableTexture();

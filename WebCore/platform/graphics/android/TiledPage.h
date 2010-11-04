@@ -30,13 +30,11 @@
 
 #include "BaseTile.h"
 #include "SkCanvas.h"
-#include "SkRegion.h"
 #include "TileSet.h"
 
 namespace WebCore {
 
 class GLWebViewState;
-class IntRect;
 
 typedef std::pair<int, int> TileKey;
 typedef HashMap<TileKey, BaseTile*> TileMap;
@@ -70,17 +68,15 @@ public:
     void draw(float transparency, SkRect& viewport, int firstTileX, int firstTileY);
 
     // used by individual tiles to generate the bitmap for their tile
-    int paintBaseLayerContent(SkCanvas*);
+    void paintBaseLayerContent(SkCanvas*);
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
 
     float scale() const { return m_scale; }
     void setScale(float scale) { m_scale = scale; m_invScale = 1 / scale; }
 
-    void invalidateRect(const IntRect& invalRect, const int pictureCount);
-
 private:
-    void updateTileState(int firstTileX, int firstTileY);
+    void setTileLevels(int firstTileX, int firstTileY);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
 
     BaseTile* getBaseTile(int x, int y);
@@ -90,13 +86,6 @@ private:
     float m_scale;
     float m_invScale;
     GLWebViewState* m_glWebViewState;
-
-    // used to identify the tiles that have been invalidated (marked dirty) since
-    // the last time updateTileState() has been called. The region is stored in
-    // terms of the (x,y) coordinates used to determine the location of the tile
-    // within the page, not in content/view pixel coordinates.
-    SkRegion m_invalRegion;
-    int m_latestPictureInval;
 };
 
 } // namespace WebCore
