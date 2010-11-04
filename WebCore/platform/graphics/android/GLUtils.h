@@ -59,6 +59,7 @@ public:
     // Texture utilities
     static EGLContext createBackgroundContext(EGLContext sharedContext);
     static void deleteTexture(GLuint* texture);
+    static GLuint createSampleColorTexture(int r, int g, int b);
     static GLuint createSampleTexture();
     static void createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter = GL_LINEAR);
     static void updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter = GL_LINEAR);

@@ -485,13 +485,18 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     SkPicture picture;
     IntRect rect(0, 0, 0, 0);
     bool allowSame = false;
+    m_glWebViewState->resetRings();
     if (extra) {
-        LayerAndroid mainPicture(m_navPictureUI);
-        PictureSet* content = m_baseLayer->content();
-        SkCanvas* canvas = picture.beginRecording(content->width(),
-            content->height());
-        extra->draw(canvas, &mainPicture, &rect);
-        picture.endRecording();
+        if (extra == &m_ring) {
+            m_glWebViewState->setRings(m_ring.rings());
+        } else {
+            LayerAndroid mainPicture(m_navPictureUI);
+            PictureSet* content = m_baseLayer->content();
+            SkCanvas* canvas = picture.beginRecording(content->width(),
+                content->height());
+            extra->draw(canvas, &mainPicture, &rect);
+            picture.endRecording();
+        }
     } else if (extras == DrawExtrasCursorRing && m_ring.m_isButton) {
         const CachedFrame* cachedFrame;
         const CachedNode* cachedCursor = root->currentCursor(&cachedFrame);

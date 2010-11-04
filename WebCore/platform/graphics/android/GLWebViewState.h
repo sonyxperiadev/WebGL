@@ -179,6 +179,11 @@ public:
                       bool isPictureAfterFirstLayout);
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
+    void paintExtras();
+
+    void setRings(Vector<IntRect>& rings);
+    void resetRings();
+    void drawFocusRing(IntRect& rect);
 
     TiledPage* sibling(TiledPage* page);
     TiledPage* frontPage();
@@ -283,6 +288,9 @@ private:
     double m_delayTimes[MAX_MEASURES_PERF];
     bool m_measurePerfs;
 #endif
+    bool m_displayRings;
+    Vector<IntRect> m_rings;
+    int m_focusRingTexture;
 };
 
 } // namespace WebCore
