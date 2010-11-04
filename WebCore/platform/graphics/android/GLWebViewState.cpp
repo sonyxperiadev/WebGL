@@ -81,7 +81,6 @@ GLWebViewState::GLWebViewState()
     , m_extra(0)
     , m_navLayer(0)
 {
-    m_invalidatedRect.setEmpty();
     m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
     m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
 #ifdef DEBUG_COUNT
@@ -108,8 +107,13 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
     m_navLayer = 0;
     if (m_baseLayer) {
         m_baseLayer->setGLWebViewState(this);
-        m_invalidatedRect.set(rect);
         m_currentPictureCounter++;
+
+        if (!rect.isEmpty()) {
+            // find which tiles fall within the invalRect and mark them as dirty
+            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
+            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+        }
     }
 }
 
@@ -132,7 +136,7 @@ void GLWebViewState::resetExtra(bool repaint)
     m_navLayer = 0;
 }
 
-void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
+int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (m_baseLayer) {
@@ -140,6 +144,7 @@ void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
         if (m_extra && m_navLayer)
             m_extra->draw(canvas, m_navLayer);
     }
+    return m_currentPictureCounter;
 }
 
 void GLWebViewState::scheduleUpdate(const double& currentTime, float scale)
