@@ -5603,7 +5603,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         if (m_style->setFontDescription(fontDescription))
             m_fontDirty = true;
         return;
-<<<<<<< HEAD
+    }
 
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
@@ -5749,9 +5749,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     }
 #endif
 
-=======
-    }
->>>>>>> webkit.org at r70949
 #if ENABLE(SVG)
     default:
         // Try the SVG properties

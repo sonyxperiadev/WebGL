@@ -292,13 +292,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/CSSPreloadScanner.cpp \
 	html/ColorInputType.cpp \
 	html/DOMFormData.cpp \
-<<<<<<< HEAD
-	html/DOMTokenList.cpp \
-	html/DateComponents.cpp \
-=======
 	html/DOMSettableTokenList.cpp \
 	html/DOMTokenList.cpp \
->>>>>>> webkit.org at r70949
+	html/DateComponents.cpp \
 	html/DateInputType.cpp \
 	html/DateTimeInputType.cpp \
 	html/DateTimeLocalInputType.cpp \

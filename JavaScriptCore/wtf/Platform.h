@@ -1074,29 +1074,13 @@
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 0
 #endif
-<<<<<<< HEAD
+#endif
 
 /* Accelerated compositing */
-#if !defined(BUILDING_ON_TIGER)
-#define WTF_USE_ACCELERATED_COMPOSITING 1
-#endif
-#endif
-
 #if PLATFORM(ANDROID) && !defined WTF_USE_ACCELERATED_COMPOSITING
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
-#if PLATFORM(IOS)
-#define WTF_USE_ACCELERATED_COMPOSITING 1
-#endif
-
-#if PLATFORM(QT)
-#define WTF_USE_ACCELERATED_COMPOSITING 1
-=======
->>>>>>> webkit.org at r70949
-#endif
-
-/* Accelerated compositing */
 #if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER)) || PLATFORM(IOS) || PLATFORM(QT) || (PLATFORM(WIN) && !OS(WINCE) &&!defined(WIN_CAIRO))
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif

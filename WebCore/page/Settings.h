@@ -400,15 +400,13 @@ namespace WebCore {
         void setHyperlinkAuditingEnabled(bool flag) { m_hyperlinkAuditingEnabled = flag; }
         bool hyperlinkAuditingEnabled() const { return m_hyperlinkAuditingEnabled; }
 
-<<<<<<< HEAD
+        void setCrossOriginCheckInGetMatchedCSSRulesDisabled(bool flag) { m_crossOriginCheckInGetMatchedCSSRulesDisabled = flag; }
+        bool crossOriginCheckInGetMatchedCSSRulesDisabled() const { return m_crossOriginCheckInGetMatchedCSSRulesDisabled; }
+
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
         bool autoFillEnabled() { return m_autoFillEnabled; }
 #endif
-=======
-        void setCrossOriginCheckInGetMatchedCSSRulesDisabled(bool flag) { m_crossOriginCheckInGetMatchedCSSRulesDisabled = flag; }
-        bool crossOriginCheckInGetMatchedCSSRulesDisabled() const { return m_crossOriginCheckInGetMatchedCSSRulesDisabled; }
->>>>>>> webkit.org at r70949
 
     private:
         Page* m_page;
@@ -535,16 +533,14 @@ namespace WebCore {
         bool m_interactiveFormValidation: 1;
         bool m_usePreHTML5ParserQuirks: 1;
         bool m_hyperlinkAuditingEnabled : 1;
-<<<<<<< HEAD
+        bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
+
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
 #if ENABLE(WEB_AUTOFILL)
         bool m_autoFillEnabled: 1;
 #endif
-=======
-        bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
->>>>>>> webkit.org at r70949
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

@@ -377,16 +377,14 @@ public:
     virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
     virtual int baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
-<<<<<<< HEAD
-#ifdef ANDROID_LAYOUT
-    int getVisibleWidth() const { return m_visibleWidth; }
-#endif
-=======
     enum FlippingAdjustment { ChildToParentFlippingAdjustment, ParentToChildFlippingAdjustment };
     void adjustForFlippedBlocksWritingMode(RenderBox* child, IntPoint&, FlippingAdjustment);
     int convertFromFlippedWritingMode(int position);
     IntSize locationOffsetIncludingFlipping();
->>>>>>> webkit.org at r70949
+
+#ifdef ANDROID_LAYOUT
+    int getVisibleWidth() const { return m_visibleWidth; }
+#endif
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

@@ -161,16 +161,13 @@ Settings::Settings(Page* page)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
-<<<<<<< HEAD
+    , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
->>>>>>> webkit.org at r70949
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
