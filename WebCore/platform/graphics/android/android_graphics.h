@@ -56,6 +56,7 @@ public:
     virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     void setIsButton(const CachedNode* );
     bool setup();
+    WTF::Vector<IntRect>& rings() { return m_rings; }
 private:
     friend class WebView;
     WebViewCore* m_viewImpl; // copy for convenience
