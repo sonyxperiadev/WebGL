@@ -281,6 +281,7 @@ sub GenerateHeader
     push(@headerContent, "\ntemplate<typename PODType> class V8SVGPODTypeWrapper;\n") if $podType;
     push(@headerContent, "\ntemplate<typename PropertyType> class SVGPropertyTearOff;\n") if $svgPropertyType;
     push(@headerContent, "\ntemplate<typename PropertyType> class SVGListPropertyTearOff;\n") if $svgListPropertyType;
+    push(@headerContent, "\nclass FloatRect;\n") if $svgPropertyType && $svgPropertyType eq "FloatRect";
     push(@headerContent, "\nclass $className {\n");
 
     my $nativeType = GetNativeTypeForConversions($dataNode, $interfaceName);
@@ -926,6 +927,7 @@ END
         push(@implContentDecls, "    return toV8(static_cast<$svgNativeType*>($result));\n");
     } elsif ($codeGenerator->IsSVGTypeNeedingTearOff($attrType) and not $implClassName =~ /List$/) {
         $implIncludes{"V8$attrType.h"} = 1;
+        $implIncludes{"SVGPropertyTearOff.h"} = 1;
         my $svgNativeType = $codeGenerator->GetSVGTypeNeedingTearOff($attrType);
         push(@implContentDecls, "    return toV8(WTF::getPtr(${svgNativeType}::create($result)));\n");
     } elsif ($attrIsPodType) {
