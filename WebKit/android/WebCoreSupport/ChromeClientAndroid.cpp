@@ -143,7 +143,7 @@ void ChromeClientAndroid::takeFocus(FocusDirection) { notImplemented(); }
 void ChromeClientAndroid::focusedNodeChanged(Node*) { notImplemented(); }
 
 Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
-        const WindowFeatures& features)
+        const WindowFeatures& features, const NavigationAction&)
 {
     ASSERT(frame);
 #ifdef ANDROID_MULTIPLE_WINDOWS

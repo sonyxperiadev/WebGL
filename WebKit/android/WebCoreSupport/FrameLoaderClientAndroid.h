@@ -97,7 +97,7 @@ namespace android {
         virtual void dispatchDidFirstLayout();
         virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-        virtual Frame* dispatchCreatePage();
+        virtual Frame* dispatchCreatePage(const NavigationAction&);
         virtual void dispatchShow();
 
         virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String& MIMEType, const ResourceRequest&);
@@ -174,11 +174,14 @@ namespace android {
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
 
+        virtual void dispatchDidBecomeFrameset(bool isFrameSet);
+
         virtual bool canCachePage() const;
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
 
         virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
         virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long identifier, DocumentLoader*, const ResourceRequest&, Page* oldPage);
         virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool loadManually);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
