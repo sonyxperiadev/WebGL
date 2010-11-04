@@ -26,6 +26,7 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -44,7 +45,7 @@ public:
 
     SkTypeface* typeface() const { return m_typeface; }
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode );
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation, FontRenderingMode);
 
     static bool supportsFormat(const String&);
 private:
