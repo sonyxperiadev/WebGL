@@ -57,10 +57,6 @@
 #include "Settings.h"
 #include "WebGLRenderingContext.h"
 
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-#include "GraphicsLayerAndroid.h"
-#endif
-
 using namespace std;
 
 namespace WebCore {
@@ -883,20 +879,6 @@ IntRect RenderLayerBacking::contentsBox() const
     } else
 #endif
         contentsRect = toRenderBox(renderer())->contentBoxRect();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (m_owningLayer->hasOverflowScroll()) {
-        // Update the contents rect to have the width and height of the entire
-        // contents.  This rect is only used by the platform GraphicsLayer and
-        // the position of the rectangle is ignored.  Use the layer's scroll
-        // width/height (which contain the padding).
-        RenderBox* box = toRenderBox(renderer());
-        int outline = box->view()->maximalOutlineSize() << 1;
-        contentsRect.setWidth(box->borderLeft() + box->borderRight() +
-                              m_owningLayer->scrollWidth() + outline);
-        contentsRect.setHeight(box->borderTop() + box->borderBottom() +
-                               m_owningLayer->scrollHeight() + outline);
-    }
-#endif
 
     IntSize contentOffset = contentOffsetInCompostingLayer();
     contentsRect.move(contentOffset);
@@ -1116,10 +1098,10 @@ void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& co
     // can compute and cache clipRects.
     IntRect enclosingBBox = compositedBounds();
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (m_owningLayer->hasOverflowScroll()) {
-        enclosingBBox.setSize(contentsBox().size());
-        enclosingBBox.setLocation(m_compositedBounds.location());
-    }
+    // If we encounter a scrollable layer, layers inside the scrollable layer
+    // will need their entire content recorded.
+    if (m_owningLayer->hasOverflowParent())
+        enclosingBBox.setSize(clip.size());
 #endif
 
     IntRect clipRect(clip);

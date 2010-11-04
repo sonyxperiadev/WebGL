@@ -53,12 +53,8 @@ WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
     const CachedLayer* cachedLayer = layer(node);
     const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
     const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
-    if (aLayer) {
-        IntRect rrect = cachedLayer->adjustBounds(rootLayer, rect);
-        if (!aLayer->contentIsScrollable())
-            rrect.move(-mViewBounds.x(), -mViewBounds.y());
-        return rrect;
-    }
+    if (aLayer)
+        return cachedLayer->adjustBounds(rootLayer, rect);
 #endif
     return rect;
 }
@@ -74,12 +70,8 @@ WebCore::IntRect CachedFrame::unadjustBounds(const CachedNode* node,
         const CachedLayer* cachedLayer = layer(node);
         const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
         const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
-        if (aLayer) {
-            IntRect rrect = cachedLayer->unadjustBounds(rootLayer, rect);
-            if (!aLayer->contentIsScrollable())
-                rrect.move(mViewBounds.x(), mViewBounds.y());
-            return rrect;
-        }
+        if (aLayer)
+            return cachedLayer->unadjustBounds(rootLayer, rect);
     }
 #endif
     return rect;

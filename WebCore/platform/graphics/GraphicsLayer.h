@@ -82,6 +82,12 @@ class LayerChromium;
 typedef LayerChromium PlatformLayer;
 typedef void* NativeLayer;
 }
+#elif PLATFORM(ANDROID)
+namespace WebCore {
+class LayerAndroid;
+typedef LayerAndroid PlatformLayer;
+typedef void* NativeLayer;
+}
 #else
 typedef void* PlatformLayer;
 typedef void* NativeLayer;

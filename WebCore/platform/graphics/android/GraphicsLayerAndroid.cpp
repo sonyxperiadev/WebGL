@@ -120,7 +120,9 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_translateY(0),
     m_currentTranslateX(0),
     m_currentTranslateY(0),
-    m_currentPosition(0, 0)
+    m_currentPosition(0, 0),
+    m_foregroundLayer(0),
+    m_foregroundClipLayer(0)
 {
     m_contentLayer = new LayerAndroid(true);
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
@@ -134,6 +136,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 GraphicsLayerAndroid::~GraphicsLayerAndroid()
 {
     m_contentLayer->unref();
+    SkSafeUnref(m_foregroundLayer);
+    SkSafeUnref(m_foregroundClipLayer);
     gDebugGraphicsLayerAndroidInstances--;
 }
 
@@ -162,8 +166,8 @@ bool GraphicsLayerAndroid::setChildren(const Vector<GraphicsLayer*>& children)
 void GraphicsLayerAndroid::addChild(GraphicsLayer* childLayer)
 {
 #ifndef NDEBUG
-    const char* n = (static_cast<GraphicsLayerAndroid*>(childLayer))->m_name.latin1().data();
-    LOG("(%x) addChild: %x (%s)", this, childLayer, n);
+    const String& name = childLayer->name();
+    LOG("(%x) addChild: %x (%s)", this, childLayer, name.latin1().data());
 #endif
     GraphicsLayer::addChild(childLayer);
     m_needsSyncChildren = true;
@@ -206,15 +210,7 @@ bool GraphicsLayerAndroid::replaceChild(GraphicsLayer* oldChild, GraphicsLayer* 
 void GraphicsLayerAndroid::removeFromParent()
 {
     LOG("(%x) removeFromParent()", this);
-    if (m_parent)
-        static_cast<GraphicsLayerAndroid*>(m_parent)->needsSyncChildren();
     GraphicsLayer::removeFromParent();
-    m_needsSyncChildren = true;
-    askForSync();
-}
-
-void GraphicsLayerAndroid::needsSyncChildren()
-{
     m_needsSyncChildren = true;
     askForSync();
 }
@@ -353,6 +349,19 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
     if (m_contentLayer->isRootLayer())
         return;
     if (m_drawsContent) {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        RenderLayer* layer = renderLayerFromClient(m_client);
+        if (layer && layer->hasOverflowScroll() && !m_foregroundLayer) {
+            m_foregroundLayer = new LayerAndroid(false);
+            m_foregroundLayer->setContentScrollable(true);
+            m_foregroundClipLayer = new LayerAndroid(false);
+            m_foregroundClipLayer->setMasksToBounds(true);
+
+            m_foregroundClipLayer->addChild(m_foregroundLayer);
+            m_contentLayer->addChild(m_foregroundClipLayer);
+        }
+#endif
+
         m_haveContents = true;
         setNeedsDisplay();
     }
@@ -440,18 +449,42 @@ bool GraphicsLayerAndroid::repaint()
         // with SkPicture, we request the entire layer's content.
         IntRect layerBounds(0, 0, m_size.width(), m_size.height());
 
-        if (m_contentsRect.width() > m_size.width() ||
-                m_contentsRect.height() > m_size.height()) {
+        if (m_foregroundLayer) {
             PaintingPhase phase(this);
             // Paint the background into a separate context.
             phase.set(GraphicsLayerPaintBackground);
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
+
+            RenderLayer* layer = renderLayerFromClient(m_client);
+            // Construct the foreground layer and draw.
+            RenderBox* box = layer->renderBox();
+            int outline = box->view()->maximalOutlineSize();
+            IntRect contentsRect(0, 0,
+                                 box->borderLeft() + box->borderRight() + layer->scrollWidth(),
+                                 box->borderTop() + box->borderBottom() + layer->scrollHeight());
+            contentsRect.inflate(outline);
+            // Update the foreground layer size.
+            m_foregroundLayer->setSize(contentsRect.width(), contentsRect.height());
             // Paint everything else into the main recording canvas.
             phase.clear(GraphicsLayerPaintBackground);
-            if (!paintContext(m_contentLayer->foregroundContext(),
-                              m_contentsRect))
+            if (!paintContext(m_foregroundLayer->recordContext(), contentsRect))
                 return false;
+
+            // Construct the clip layer for masking the contents.
+            IntRect clip = layer->renderer()->absoluteBoundingBoxRect();
+            // absoluteBoundingBoxRect does not include the outline so we need
+            // to offset the position.
+            int x = box->borderLeft() + outline;
+            int y = box->borderTop() + outline;
+            int width = clip.width() - box->borderLeft() - box->borderRight();
+            int height = clip.height() - box->borderTop() - box->borderBottom();
+            m_foregroundClipLayer->setPosition(x, y);
+            m_foregroundClipLayer->setSize(width, height);
+
+            // Need to offset the foreground layer by the clip layer in order
+            // for the contents to be in the correct position.
+            m_foregroundLayer->setPosition(-x, -y);
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
@@ -468,24 +501,6 @@ bool GraphicsLayerAndroid::repaint()
 
         m_needsRepaint = false;
         m_invalidatedRects.clear();
-
-        RenderLayer* layer = renderLayerFromClient(m_client);
-        // Use the absolute bounds of the renderer instead of the layer's
-        // bounds because the layer will add in the outline.  What we want
-        // is the content bounds inside the outline.
-        FloatRect clip = layer->renderer()->absoluteBoundingBoxRect();
-        // Move the clip local to the layer position.
-        clip.setLocation(FloatPoint(0, 0));
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (layer->hasOverflowScroll()) {
-            // If this is a scrollable layer, inset the clip by the border.
-            RenderBox* box = layer->renderBox();
-            clip.move(box->borderLeft(), box->borderTop());
-            clip.setWidth(clip.width() - box->borderLeft() - box->borderRight());
-            clip.setHeight(clip.height() - box->borderTop() - box->borderBottom());
-        }
-#endif
-        m_contentLayer->setForegroundClip(clip);
 
         return true;
     }
@@ -511,7 +526,7 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
 void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
     for (unsigned int i = 0; i < m_children.size(); i++) {
-        GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
+        GraphicsLayer* layer = m_children[i];
         if (layer) {
             FloatRect childrenRect(m_position.x() + m_translateX + rect.x(),
                                    m_position.y() + m_translateY + rect.y(),
@@ -548,16 +563,6 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 
     m_needsRepaint = true;
     askForSync();
-
-    if (!m_client)
-        return;
-
-    // Update the layers on the UI
-    RenderLayer* renderLayer = renderLayerFromClient(m_client);
-    if (renderLayer) {
-        FrameView* frameView = renderLayer->root()->renderer()->view()->frameView();
-        PlatformBridge::updateLayers(frameView);
-    }
 }
 
 void GraphicsLayerAndroid::pauseDisplay(bool state)
@@ -862,7 +867,7 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
 {
     LOG("platformLayer");
-    return (PlatformLayer*) m_contentLayer;
+    return m_contentLayer;
 }
 
 #ifndef NDEBUG
@@ -884,6 +889,9 @@ void GraphicsLayerAndroid::setZPosition(float position)
 
 void GraphicsLayerAndroid::askForSync()
 {
+    if (!m_client)
+        return;
+
     if (m_client)
         m_client->notifySyncRequired(this);
 }
@@ -892,10 +900,10 @@ void GraphicsLayerAndroid::syncChildren()
 {
     if (m_needsSyncChildren) {
         m_contentLayer->removeChildren();
-        for (unsigned int i = 0; i < m_children.size(); i++) {
-            m_contentLayer->addChild(
-                (static_cast<GraphicsLayerAndroid*>(m_children[i]))->contentLayer());
-        }
+        if (m_foregroundClipLayer)
+            m_contentLayer->addChild(m_foregroundClipLayer);
+        for (unsigned int i = 0; i < m_children.size(); i++)
+            m_contentLayer->addChild(m_children[i]->platformLayer());
         m_needsSyncChildren = false;
     }
 }
@@ -904,8 +912,7 @@ void GraphicsLayerAndroid::syncMask()
 {
     if (m_needsSyncMask) {
         if (m_maskLayer) {
-            GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_maskLayer);
-            LayerAndroid* mask = reinterpret_cast<LayerAndroid*>(layer->platformLayer());
+            LayerAndroid* mask = m_maskLayer->platformLayer();
             m_contentLayer->setMaskLayer(mask);
         } else
             m_contentLayer->setMaskLayer(0);
@@ -929,10 +936,8 @@ void GraphicsLayerAndroid::syncPositionState()
 
 void GraphicsLayerAndroid::syncCompositingState()
 {
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
-        layer->syncCompositingState();
-    }
+    for (unsigned int i = 0; i < m_children.size(); i++)
+        m_children[i]->syncCompositingState();
 
     syncChildren();
     syncMask();
@@ -944,10 +949,8 @@ void GraphicsLayerAndroid::syncCompositingState()
 
 void GraphicsLayerAndroid::notifyClientAnimationStarted()
 {
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
-        layer->notifyClientAnimationStarted();
-    }
+    for (unsigned int i = 0; i < m_children.size(); i++)
+        static_cast<GraphicsLayerAndroid*>(m_children[i])->notifyClientAnimationStarted();
 
     if (m_needsNotifyClient) {
         if (client())

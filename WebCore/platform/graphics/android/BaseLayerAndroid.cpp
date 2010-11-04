@@ -92,7 +92,10 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
     android::Mutex::Autolock lock(m_drawLock);
 #endif
     m_content.set(src);
-    setSize(src.width(), src.height());
+    // FIXME: We cannot set the size of the base layer because it will screw up
+    // the matrix used.  We need to fix matrix computation for the base layer
+    // and then we can set the size.
+    // setSize(src.width(), src.height());
 }
 
 void BaseLayerAndroid::setExtra(SkPicture& src)

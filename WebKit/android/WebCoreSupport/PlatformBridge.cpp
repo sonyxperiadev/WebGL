@@ -184,12 +184,6 @@ void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool c
     webViewCore->updateTextfield(nodePtr, changeToPassword, text);
 }
 
-void PlatformBridge::updateLayers(FrameView* frameView)
-{
-    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
-    webViewCore->layersDraw();
-}
-
 int PlatformBridge::lowMemoryUsageMB()
 {
     return MemoryUsage::lowMemoryUsageMb();
