@@ -488,9 +488,13 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
     notImplemented();
 }
 
+#endif
+
+namespace WebCore {
+
 void setCookieStoragePrivateBrowsingEnabled(bool)
 {
     notImplemented();
 }
 
-#endif
+} // namespace WebCore
