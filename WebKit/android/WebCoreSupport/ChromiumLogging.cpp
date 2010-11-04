@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,23 +24,45 @@
  */
 
 #include "config.h"
-#include "ResourceRequest.h"
+#include "ChromiumLogging.h"
 
-namespace WebCore {
+#include "ChromiumIncludes.h"
 
-unsigned initializeMaximumHTTPConnectionCountPerHost()
-{
-#if USE(CHROME_NETWORK_STACK)
-    // The chromium network stack already handles limiting the number of
-    // parallel requests per host, so there's no need to do it here.  Therefore,
-    // this is set to a high value that should never be hit in practice.
-    return 10000;
-#else
-    // This is used by the loader to control the number of parallel load
-    // requests. Our java framework has 4 threads that can each pipeline up to
-    // 5 requests. Use 20 as a maximum number.
-    return 20;
-#endif
+#include <cutils/log.h>
+#include <string>
+
+namespace android {
+
+bool logMessageHandler(int severity, const std::string& str) {
+    int androidSeverity = ANDROID_LOG_VERBOSE;
+    switch(severity) {
+    case logging::LOG_FATAL:
+        androidSeverity = ANDROID_LOG_FATAL;
+        break;
+    case logging::LOG_ERROR_REPORT:
+    case logging::LOG_ERROR:
+        androidSeverity = ANDROID_LOG_ERROR;
+        break;
+    case logging::LOG_WARNING:
+        androidSeverity = ANDROID_LOG_WARN;
+        break;
+    default:
+        androidSeverity = ANDROID_LOG_VERBOSE;
+        break;
+    }
+    android_printLog(androidSeverity, "chromium", "%s", str.c_str());
+    return false;
 }
 
-} // namespace WebCore
+void initChromiumLogging()
+{
+    static Lock loggingLock;
+    AutoLock aLock(loggingLock);
+    static bool loggingStarted = false;
+    if (!loggingStarted) {
+        logging::SetLogMessageHandler(logMessageHandler);
+        loggingStarted = true;
+    }
+}
+
+} // namespace android

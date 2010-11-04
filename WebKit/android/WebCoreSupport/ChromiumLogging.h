@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,24 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "ResourceRequest.h"
+#ifndef ChromiumLogging_h
+#define ChromiumLogging_h
 
-namespace WebCore {
+namespace android {
 
-unsigned initializeMaximumHTTPConnectionCountPerHost()
-{
-#if USE(CHROME_NETWORK_STACK)
-    // The chromium network stack already handles limiting the number of
-    // parallel requests per host, so there's no need to do it here.  Therefore,
-    // this is set to a high value that should never be hit in practice.
-    return 10000;
-#else
-    // This is used by the loader to control the number of parallel load
-    // requests. Our java framework has 4 threads that can each pipeline up to
-    // 5 requests. Use 20 as a maximum number.
-    return 20;
-#endif
+// Sends chromium logs to logcat
+//
+// This only calls into chromium once, but can be called multiple times.
+// It should be called before any other calls into external/chromium.
+void initChromiumLogging();
 }
 
-} // namespace WebCore
+#endif

@@ -38,6 +38,7 @@ fast/xpath
 http/conf
 http/tests/appcache
 http/tests/resources
+http/tests/ssl
 platform/android
 platform/android-v8
 storage
