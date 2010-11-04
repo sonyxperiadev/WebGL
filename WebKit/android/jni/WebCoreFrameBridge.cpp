@@ -33,6 +33,7 @@
 #include "Cache.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
+#include "ChromiumLogging.h"
 #include "ContextMenuClientAndroid.h"
 #include "DeviceMotionClientAndroid.h"
 #include "DeviceOrientationClientAndroid.h"
@@ -959,6 +960,11 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
 static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAssetManager, jobject historyList)
 {
     ScriptController::initializeThreading();
+
+#if USE(CHROME_NETWORK_STACK)
+    // Initialize chromium logging, needs to be done before any chromium code is called
+    initChromiumLogging();
+#endif
 
 #ifdef ANDROID_INSTRUMENT
 #if USE(V8)

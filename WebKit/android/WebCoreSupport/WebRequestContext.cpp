@@ -27,6 +27,7 @@
 #include "WebRequestContext.h"
 
 #include "ChromiumIncludes.h"
+#include "ChromiumLogging.h"
 #include "JNIUtility.h"
 #include "WebCoreJni.h"
 #include "WebUrlLoaderClient.h"
@@ -193,6 +194,9 @@ WebRequestContext* WebRequestContext::getPrivateBrowsingContext()
 
 WebRequestContext* WebRequestContext::get(bool isPrivateBrowsing)
 {
+    // Initialize chromium logging, needs to be done before any chromium code is called
+    initChromiumLogging();
+
     return isPrivateBrowsing ? getPrivateBrowsingContext() : getRegularContext();
 }
 
