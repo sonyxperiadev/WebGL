@@ -34,6 +34,7 @@
 #include "KeyGeneratorClient.h"
 #include "PluginView.h"
 #include "Settings.h"
+#include "WebCookieJar.h"
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
 #include "npruntime.h"
@@ -72,7 +73,7 @@ void PlatformBridge::setCookies(const Document* document, const KURL& url, const
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    WebRequestContext::get(isPrivateBrowsing)->cookie_store()->SetCookie(cookieGurl, cookieValue);
+    WebCookieJar::get(isPrivateBrowsing)->cookieStore()->SetCookie(cookieGurl, cookieValue);
 #else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
@@ -87,7 +88,7 @@ String PlatformBridge::cookies(const Document* document, const KURL& url)
 #if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    std::string cookies = WebRequestContext::get(isPrivateBrowsing)->cookie_store()->GetCookies(cookieGurl);
+    std::string cookies = WebCookieJar::get(isPrivateBrowsing)->cookieStore()->GetCookies(cookieGurl);
     String cookieString(cookies.c_str());
     return cookieString;
 #else
@@ -103,7 +104,7 @@ bool PlatformBridge::cookiesEnabled(const Document* document)
 {
 #if USE(CHROME_NETWORK_STACK)
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    return WebRequestContext::get(isPrivateBrowsing)->allowCookies();
+    return WebCookieJar::get(isPrivateBrowsing)->allowCookies();
 #else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)

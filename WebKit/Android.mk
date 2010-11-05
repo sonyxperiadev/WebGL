@@ -35,6 +35,7 @@ ifeq ($(HTTP_STACK),chrome)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/ChromiumLogging.cpp \
 	android/WebCoreSupport/WebCache.cpp \
+	android/WebCoreSupport/WebCookieJar.cpp \
 	android/WebCoreSupport/WebUrlLoader.cpp \
 	android/WebCoreSupport/WebUrlLoaderClient.cpp \
 	android/WebCoreSupport/WebRequest.cpp \

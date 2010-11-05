@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include "ChromiumIncludes.h"
+#include "WebCookieJar.h"
 #include "WebRequestContext.h"
 #include "WebCoreJni.h"
 #include <JNIHelp.h>
@@ -63,8 +64,8 @@ static bool acceptCookie(JNIEnv*, jobject)
     // This is a static method which gets the cookie policy for all WebViews. We
     // always apply the same configuration to the contexts for both regular and
     // private browsing, so expect the same result here.
-    bool regularAcceptCookies = WebRequestContext::get(false)->allowCookies();
-    ASSERT(regularAcceptCookies == WebRequestContext::get(true)->allowCookies());
+    bool regularAcceptCookies = WebCookieJar::get(false)->allowCookies();
+    ASSERT(regularAcceptCookies == WebCookieJar::get(true)->allowCookies());
     return regularAcceptCookies;
 #else
     // The Android HTTP stack is implemented Java-side.
@@ -79,7 +80,7 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
     GURL gurl(jstringToStdString(env, url));
     CookieOptions options;
     options.set_include_httponly();
-    std::string cookies = WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
+    std::string cookies = WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
     return cookies.empty() ? 0 : env->NewStringUTF(cookies.c_str());
 #else
     // The Android HTTP stack is implemented Java-side.
@@ -91,7 +92,7 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
 static bool hasCookies(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    return !WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetAllCookies().empty();
+    return !WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetAllCookies().empty();
 #else
     // The Android HTTP stack is implemented Java-side.
     ASSERT_NOT_REACHED();
@@ -102,13 +103,13 @@ static bool hasCookies(JNIEnv*, jobject)
 static void removeAllCookie(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies
     // for such contexts are cleared up when we're done with them.
     // TODO: Consider adding an optimisation to not create the context if it
     // doesn't already exist.
-    WebRequestContext::get(true)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
 #endif
 }
 
@@ -116,15 +117,15 @@ static void removeExpiredCookie(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
     // This simply forces a GC. The getters delete expired cookies so won't return expired cookies anyway.
-    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->GetAllCookies();
-    WebRequestContext::get(true)->cookie_store()->GetCookieMonster()->GetAllCookies();
+    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetAllCookies();
+    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->GetAllCookies();
 #endif
 }
 
-static void removeSessionCookies(WebRequestContext* context)
+static void removeSessionCookies(WebCookieJar* cookieJar)
 {
 #if USE(CHROME_NETWORK_STACK)
-  CookieMonster* cookieMonster = context->cookie_store()->GetCookieMonster();
+  CookieMonster* cookieMonster = cookieJar->cookieStore()->GetCookieMonster();
   CookieMonster::CookieList cookies = cookieMonster->GetAllCookies();
   for (CookieMonster::CookieList::const_iterator iter = cookies.begin(); iter != cookies.end(); ++iter) {
     if (iter->IsSessionCookie())
@@ -136,8 +137,8 @@ static void removeSessionCookies(WebRequestContext* context)
 static void removeSessionCookie(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-  removeSessionCookies(WebRequestContext::get(false));
-  removeSessionCookies(WebRequestContext::get(true));
+  removeSessionCookies(WebCookieJar::get(false));
+  removeSessionCookies(WebCookieJar::get(true));
 #endif
 }
 
@@ -147,8 +148,8 @@ static void setAcceptCookie(JNIEnv*, jobject, jboolean accept)
     // This is a static method which configures the cookie policy for all
     // WebViews, so we configure the contexts for both regular and private
     // browsing.
-    WebRequestContext::get(false)->setAllowCookies(accept);
-    WebRequestContext::get(true)->setAllowCookies(accept);
+    WebCookieJar::get(false)->setAllowCookies(accept);
+    WebCookieJar::get(true)->setAllowCookies(accept);
 #endif
 }
 
@@ -159,7 +160,7 @@ static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
     std::string line(jstringToStdString(env, value));
     CookieOptions options;
     options.set_include_httponly();
-    WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->SetCookieWithOptions(gurl, line, options);
+    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->SetCookieWithOptions(gurl, line, options);
 #endif
 }
 
