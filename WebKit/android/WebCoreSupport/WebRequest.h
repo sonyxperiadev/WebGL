@@ -61,7 +61,7 @@ public:
 
     // Optional, but if used has to be called before start
     void appendBytesToUpload(Vector<char>* data);
-    void appendFileToUpload(std::string filename);
+    void appendFileToUpload(const std::string& filename);
 
     void start(bool isPrivateBrowsing);
     void cancel();
