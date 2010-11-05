@@ -184,6 +184,9 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_lastDxTime = 0;
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
+#if USE(ACCELERATED_COMPOSITING)
+    m_glWebViewState = 0;
+#endif
 }
 
 ~WebView()
@@ -195,13 +198,10 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
         m_javaGlue.m_obj = 0;
     }
 #if USE(ACCELERATED_COMPOSITING)
-    // We remove the base layer from glWebViewState
-    // as we are about to destroy it, while the
-    // glWebViewState destructor will be called just after.
-    // If we do not remove it here, we risk having BaseTiles
-    // trying to paint using a deallocated base layer.
-    IntRect rect;
-    m_glWebViewState.setBaseLayer(0, rect);
+    // We must remove the m_glWebViewState prior to deleting m_baseLayer. If we
+    // do not remove it here, we risk having BaseTiles trying to paint using a
+    // deallocated base layer.
+    delete m_glWebViewState;
 #endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
@@ -416,6 +416,9 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     if (!m_baseLayer)
         return false;
 
+    if (!m_glWebViewState)
+        m_glWebViewState = new GLWebViewState();
+
 #if 0
     m_glWebViewState.resetExtra(false);
 #endif
@@ -445,20 +448,20 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
             ;
     }
 
-    unsigned int pic = m_glWebViewState.currentPictureCounter();
+    unsigned int pic = m_glWebViewState->currentPictureCounter();
+
 #if 0
     if (extra) {
         LayerAndroid* mainPicture = new LayerAndroid(m_navPictureUI);
-        m_glWebViewState.setExtra(extra, mainPicture);
+        m_glWebViewState->setExtra(extra, mainPicture);
     } else {
-        m_glWebViewState.resetExtra(true);
+        m_glWebViewState->resetExtra(true);
     }
 #endif
-
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
     bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
-    if (ret || m_glWebViewState.currentPictureCounter() != pic)
+    if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
 #endif
     return false;
@@ -1289,7 +1292,8 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    m_glWebViewState.setBaseLayer(layer, rect);
+    if (m_glWebViewState)
+        m_glWebViewState->setBaseLayer(layer, rect);
 #endif
 
     if (layer) {
@@ -1345,7 +1349,7 @@ private: // local state for WebView
     CursorRing m_ring;
     BaseLayerAndroid* m_baseLayer;
 #if USE(ACCELERATED_COMPOSITING)
-    GLWebViewState m_glWebViewState;
+    GLWebViewState* m_glWebViewState;
 #endif
 }; // end of WebView class
 
