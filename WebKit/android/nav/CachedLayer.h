@@ -32,6 +32,7 @@
 class SkPicture;
 
 namespace WebCore {
+    class FloatPoint;
     class LayerAndroid;
 }
 
@@ -52,6 +53,7 @@ public:
     IntRect unadjustBounds(const LayerAndroid* root,
                            const IntRect& bounds) const;
     int cachedNodeIndex() const { return mCachedNodeIndex; }
+    FloatPoint getGlobalPosition(const LayerAndroid* ) const;
     const LayerAndroid* layer(const LayerAndroid* root) const;
     IntRect localBounds(const LayerAndroid* root, const IntRect& bounds) const;
     SkPicture* picture(const LayerAndroid* root) const;

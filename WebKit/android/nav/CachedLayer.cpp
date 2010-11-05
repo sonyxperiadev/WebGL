@@ -55,7 +55,7 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
 
     // Next, add in the new position of the layer (could be different due to a
     // fixed position layer).
-    const FloatPoint& position = aLayer->getPosition();
+    FloatPoint position = getGlobalPosition(aLayer);
     temp.move(position.x(), position.y());
 
     // Add in any layer translation.
@@ -71,12 +71,13 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
     // Finally, clip the result to the foreground (this includes the object's
     // border which does not scroll).
     IntRect clip(aLayer->foregroundClip());
-    clip.move(position.x(), position.y());
-    result.intersect(clip);
+    if (!clip.isEmpty()) {
+        clip.move(position.x(), position.y());
+        result.intersect(clip);
+    }
 
-    DBG_NAV_LOGD("root=%p aLayer=%p [%d]"
-        " bounds=(%d,%d,w=%d,h=%d) trans=(%g,%g)"
-        " pos=(%f,%f)"
+    DBG_NAV_LOGV("root=%p aLayer=%p [%d]"
+        " bounds=(%d,%d,w=%d,h=%d) trans=(%g,%g) pos=(%f,%f)"
         " offset=(%d,%d) clip=(%d,%d,w=%d,h=%d)"
         " scroll=(%d,%d) origScroll=(%d,%d)"
         " result=(%d,%d,w=%d,h=%d)",
@@ -100,7 +101,8 @@ IntRect CachedLayer::unadjustBounds(const LayerAndroid* root,
 
     IntRect temp = bounds;
     // Remove the new position (i.e. fixed position elements).
-    const FloatPoint& position = aLayer->getPosition();
+    FloatPoint position = getGlobalPosition(aLayer);
+
     temp.move(-position.x(), -position.y());
 
     // Remove any layer translation.
@@ -116,7 +118,32 @@ IntRect CachedLayer::unadjustBounds(const LayerAndroid* root,
 
     // Move the bounds by the original scroll.
     temp.move(-mScrollOffset.x(), -mScrollOffset.y());
+    DBG_NAV_LOGD("root=%p aLayer=%p [%d]"
+        " bounds=(%d,%d,w=%d,h=%d) trans=(%g,%g) pos=(%f,%f)"
+        " offset=(%d,%d)"
+        " scroll=(%d,%d) origScroll=(%d,%d)"
+        " result=(%d,%d,w=%d,h=%d)",
+        root, aLayer, aLayer->uniqueId(),
+        bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+        translation.x(), translation.y(), position.x(), position.y(),
+        mOffset.x(), mOffset.y(),
+        SkScalarRound(scroll.fX), SkScalarRound(scroll.fY),
+        mScrollOffset.x(), mScrollOffset.y(),
+        temp.x(), temp.y(), temp.width(), temp.height());
     return temp;
+}
+
+FloatPoint CachedLayer::getGlobalPosition(const LayerAndroid* aLayer) const
+{
+    SkPoint result = aLayer->getPosition();
+    const SkLayer* parent = aLayer->getParent();
+    while (parent) {
+        result += parent->getPosition();
+        DBG_NAV_LOGV("result=(%g,%g) parent=%p [%d]", result.fX, result.fY,
+            parent, ((LayerAndroid*) parent)->uniqueId());
+        parent = parent->getParent();
+    }
+    return result;
 }
 
 const LayerAndroid* CachedLayer::layer(const LayerAndroid* root) const
@@ -139,7 +166,14 @@ IntRect CachedLayer::localBounds(const LayerAndroid* root,
     temp.move(mScrollOffset.x(), mScrollOffset.y());
 
     const LayerAndroid* aLayer = layer(root);
+    FloatPoint position;
     if (aLayer) {
+        const LayerAndroid* parent = static_cast<const LayerAndroid*>
+            (aLayer->getParent());
+        if (parent) {
+            position = getGlobalPosition(parent);
+            temp.move(-position.x(), -position.y());
+        }
         // Move the bounds by the scroll position of the layer.
         const SkPoint& scroll = aLayer->scrollPosition();
         temp.move(SkScalarToFloat(-scroll.fX), SkScalarToFloat(-scroll.fY));
@@ -147,13 +181,26 @@ IntRect CachedLayer::localBounds(const LayerAndroid* root,
         // Clip by the layer's foreground bounds.  Since the bounds have
         // already be moved local to the layer, no need to move the foreground
         // clip.
-        temp.intersect(IntRect(aLayer->foregroundClip()));
+        IntRect foregroundClip(aLayer->foregroundClip());
+        if (!foregroundClip.isEmpty())
+            temp.intersect(foregroundClip);
     }
 
-    DBG_NAV_LOGD("bounds=(%d,%d,w=%d,h=%d) offset=(%d,%d)"
-            " result=(%d,%d,w=%d,h=%d)", bounds.x(), bounds.y(),
-            bounds.width(), bounds.height(), mOffset.x(), mOffset.y(),
-            temp.x(), temp.y(), temp.width(), temp.height());
+#if DEBUG_NAV_UI
+    const FloatPoint& translation = aLayer->translation();
+    SkPoint scroll = SkPoint::Make(0,0);
+    if (aLayer) scroll = aLayer->scrollPosition();
+    DBG_NAV_LOGD("aLayer=%p [%d] bounds=(%d,%d,w=%d,h=%d) offset=(%d,%d)"
+        " scrollOffset=(%d,%d) position=(%g,%g) result=(%d,%d,w=%d,h=%d)"
+        " scroll=(%d,%d) trans=(%g,%g)",
+        aLayer, aLayer ? aLayer->uniqueId() : 0,
+        bounds.x(), bounds.y(), bounds.width(), bounds.height(), 
+        mOffset.x(), mOffset.y(),
+        mScrollOffset.x(), mScrollOffset.y(), position.x(), position.y(),
+        temp.x(), temp.y(), temp.width(), temp.height(),
+        scroll.fX, scroll.fY,
+        translation.x(), translation.y());
+#endif
 
     return temp;
 }
@@ -189,10 +236,14 @@ CachedLayer* CachedLayer::Debug::base() const {
 void CachedLayer::Debug::print() const
 {
     CachedLayer* b = base();
-    DUMP_NAV_LOGD("    // int mCachedNodeIndex=%d;", b->mCachedNodeIndex);
-    DUMP_NAV_LOGD(" LayerAndroid* mLayer=%p;", b->mLayer);
-    DUMP_NAV_LOGD(" int mOffset=(%d, %d);", b->mOffset.x(), b->mOffset.y());
-    DUMP_NAV_LOGD(" int mUniqueId=%p;\n", b->mUniqueId);
+    DUMP_NAV_LOGD("    // int mCachedNodeIndex=%d;\n", b->mCachedNodeIndex);
+    DUMP_NAV_LOGD("    // LayerAndroid* mLayer=%p;\n", b->mLayer);
+    DUMP_NAV_LOGD("    // int mOffset=(%d, %d);\n",
+        b->mOffset.x(), b->mOffset.y());
+    DUMP_NAV_LOGD("    // int mScrollOffset=(%d, %d);\n",
+        b->mScrollOffset.x(), b->mScrollOffset.y());
+    DUMP_NAV_LOGD("    // int mUniqueId=%p;\n", b->mUniqueId);
+    DUMP_NAV_LOGD("%s\n", "");
 }
 
 #endif
@@ -206,9 +257,20 @@ void CachedLayer::Debug::printLayerAndroid(const LayerAndroid* layer)
     ++spaces;
     SkRect bounds;
     layer->bounds(&bounds);
-    DUMP_NAV_LOGX("%.*s layer=%p [%d] (%g,%g,%g,%g) picture=%p clipped=%s",
+    DUMP_NAV_LOGD("%.*s layer=%p [%d] (%g,%g,%g,%g)"
+        " position=(%g,%g) translation=(%g,%g)  anchor=(%g,%g)"
+        " matrix=(%g,%g) childMatrix=(%g,%g)"
+        " foregroundLocation=(%g,%g)"
+        " picture=%p clipped=%s\n",
         spaces, "                   ", layer, layer->uniqueId(),
         bounds.fLeft, bounds.fTop, bounds.width(), bounds.height(),
+        layer->getPosition().fX, layer->getPosition().fY,
+        layer->translation().fX, layer->translation().fY,
+        layer->getAnchorPoint().fX, layer->getAnchorPoint().fY,
+        layer->getMatrix().getTranslateX(), layer->getMatrix().getTranslateY(),
+        layer->getChildrenMatrix().getTranslateX(),
+        layer->getChildrenMatrix().getTranslateY(),
+        layer->scrollPosition().fX, layer->scrollPosition().fY,
         layer->picture(), layer->m_haveClip ? "true" : "false");
     for (int i = 0; i < layer->countChildren(); i++)
         printLayerAndroid(layer->getChild(i));

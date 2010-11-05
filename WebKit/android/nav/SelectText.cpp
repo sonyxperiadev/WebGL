@@ -1305,11 +1305,11 @@ void SelectText::drawSelectionPointer(SkCanvas* canvas)
         getSelectionCaret(&path);
     else
         getSelectionArrow(&path);
+    SkPixelXorXfermode xorMode(SK_ColorWHITE);
     SkPaint paint;
     paint.setAntiAlias(true);
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setColor(SK_ColorBLACK);
-    SkPixelXorXfermode xorMode(SK_ColorWHITE);
     if (m_extendSelection)
         paint.setXfermode(&xorMode);
     else

@@ -27,6 +27,7 @@
 #include "android_graphics.h"
 #include "CachedHistory.h"
 #include "CachedInput.h"
+#include "CachedLayer.h"
 #include "CachedNode.h"
 #include "FindCanvas.h"
 #include "FloatRect.h"
@@ -1205,6 +1206,11 @@ void CachedRoot::draw(FindCanvas& canvas) const
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     const CachedFrame** framePtr, int* x, int* y, bool checkForHidden) const
 {
+#if DEBUG_NAV_UI
+    DBG_NAV_LOGD("rect=(%d,%d,w=%d,h=%d) xy=(%d,%d)", rect.x(), rect.y(),
+        rect.width(), rect.height(), *x, *y);
+    if (mRootLayer) CachedLayer::Debug::printRootLayerAndroid(mRootLayer);
+#endif
     int best = INT_MAX;
     bool inside = false;
     (const_cast<CachedRoot*>(this))->resetClippedOut();
@@ -1212,8 +1218,8 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     const CachedNode* directHit = NULL;
     const CachedNode* node = findBestAt(rect, &best, &inside, &directHit,
         &directHitFramePtr, framePtr, x, y, checkForHidden);
-    DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
-        node == NULL ? NULL : node->nodePointer());
+    DBG_NAV_LOGD("node=%d (%p) xy=(%d,%d)", node == NULL ? 0 : node->index(),
+        node == NULL ? NULL : node->nodePointer(), *x, *y);
     if (node == NULL) {
         node = findBestHitAt(rect, framePtr, x, y);
         DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
@@ -1840,6 +1846,7 @@ void CachedRoot::Debug::print() const
     b->mHistory->mDebug.print(b);
     DUMP_NAV_LOGD("// int mMaxXScroll=%d, mMaxYScroll=%d;\n",
         b->mMaxXScroll, b->mMaxYScroll);
+    CachedLayer::Debug::printRootLayerAndroid(b->mRootLayer);
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     if (gNavCacheLogFile)
         fclose(gNavCacheLogFile);
