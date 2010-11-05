@@ -26,8 +26,9 @@
 
 #include "config.h"
 #include "FontCache.h"
-#include "FontPlatformData.h"
+
 #include "Font.h"
+#include "FontPlatformData.h"
 #include "NotImplemented.h"
 #include "SimpleFontData.h"
 #include "SkPaint.h"
@@ -73,8 +74,8 @@ static char* AtomicStringToUTF8String(const AtomicString& utf16)
     SkASSERT(sizeof(uint16_t) == sizeof(utf16.characters()[0]));
     const uint16_t* uni = (uint16_t*)utf16.characters();
 
-    size_t bytes = SkUTF16_ToUTF8(uni, utf16.length(), NULL);
-    char*  utf8 = (char*)sk_malloc_throw(bytes + 1);
+    size_t bytes = SkUTF16_ToUTF8(uni, utf16.length(), 0);
+    char* utf8 = (char*)sk_malloc_throw(bytes + 1);
 
     (void)SkUTF16_ToUTF8(uni, utf16.length(), utf8);
     utf8[bytes] = 0;
