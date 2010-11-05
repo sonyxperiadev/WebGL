@@ -243,7 +243,9 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
 
     // Set all the default settings the Browser normally uses.
     Settings* s = frame->settings();
+#ifdef ANDROID_LAYOUT
     s->setLayoutAlgorithm(Settings::kLayoutNormal); // Normal layout for now
+#endif
     s->setStandardFontFamily("sans-serif");
     s->setFixedFontFamily("monospace");
     s->setSansSerifFontFamily("sans-serif");
@@ -259,7 +261,9 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     s->setDefaultTextEncodingName("latin1");
     s->setPluginsEnabled(false);
     s->setShrinksStandaloneImagesToFit(false);
+#ifdef ANDROID_LAYOUT
     s->setUseWideViewport(false);
+#endif
 
     // Finally, load the actual data
     ResourceRequest req(url);
