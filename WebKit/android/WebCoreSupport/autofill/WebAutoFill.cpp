@@ -194,13 +194,15 @@ void WebAutoFill::setProfile(int id, const string16& fullName, const string16& e
 
 void WebAutoFill::clearProfiles()
 {
-   // For now Chromium only ever knows about one profile, so we can just
-   // remove it by unique id. If we support multiple profiles in the future
-   // we need to remove them all here.
-   int uniqueProfileId = mAutoFillProfile->unique_id();
-   if (uniqueProfileId != NO_PROFILE_SET)
-       mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(uniqueProfileId);
-   mAutoFillProfile.set(0);
+    if (!mAutoFillProfile)
+        return;
+    // For now Chromium only ever knows about one profile, so we can just
+    // remove it by unique id. If we support multiple profiles in the future
+    // we need to remove them all here.
+    int uniqueProfileId = mAutoFillProfile->unique_id();
+    if (uniqueProfileId != NO_PROFILE_SET)
+        mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(uniqueProfileId);
+    mAutoFillProfile.set(0);
 }
 
 }
