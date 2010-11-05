@@ -55,17 +55,17 @@
 // second page used when scaling.
 // In our case, we use 300x300 textures. On the tablet, this equals to
 // at least 24 (6 * 4) textures, hence 48.
-#define DEFAULT_TEXTURES_ALLOCATION 48
-#define DEFAULT_TEXTURE_SIZE_WIDTH 300
-#define DEFAULT_TEXTURE_SIZE_HEIGHT 300
+#define MAX_TEXTURE_ALLOCATION 48
+#define TILE_WIDTH 300
+#define TILE_HEIGHT 300
 
 namespace WebCore {
 
 TilesManager::TilesManager()
     : m_generatorReady(false)
 {
-    m_textures.reserveCapacity(DEFAULT_TEXTURES_ALLOCATION);
-    for (int i = 0; i < DEFAULT_TEXTURES_ALLOCATION; i++) {
+    m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    for (int i = 0; i < MAX_TEXTURE_ALLOCATION; i++) {
         BackedDoubleBufferedTexture* texture = new BackedDoubleBufferedTexture(
             tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
@@ -217,14 +217,19 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     return 0;
 }
 
-float TilesManager::tileWidth() const
+int TilesManager::maxTextureCount()
 {
-    return DEFAULT_TEXTURE_SIZE_WIDTH;
+    return MAX_TEXTURE_ALLOCATION;
 }
 
-float TilesManager::tileHeight() const
+float TilesManager::tileWidth()
 {
-    return DEFAULT_TEXTURE_SIZE_HEIGHT;
+    return TILE_WIDTH;
+}
+
+float TilesManager::tileHeight()
+{
+    return TILE_HEIGHT;
 }
 
 TilesManager* TilesManager::instance()
