@@ -121,14 +121,15 @@ bool GLUtils::isEGLImageSupported() {
     const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
     const char* glExtensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
 
-    return strstr(eglExtensions, "EGL_KHR_image_base") &&
+    return eglExtensions && glExtensions &&
+           strstr(eglExtensions, "EGL_KHR_image_base") &&
            strstr(eglExtensions, "EGL_KHR_gl_texture_2D_image") &&
            strstr(glExtensions, "GL_OES_EGL_image");
 }
 
 bool GLUtils::isEGLFenceSyncSupported() {
     const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
-    return strstr(eglExtensions, "EGL_KHR_fence_sync");
+    return eglExtensions && strstr(eglExtensions, "EGL_KHR_fence_sync");
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
