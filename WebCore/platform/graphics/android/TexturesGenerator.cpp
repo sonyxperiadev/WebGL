@@ -115,11 +115,19 @@ status_t TexturesGenerator::readyToRun()
 
 bool TexturesGenerator::threadLoop()
 {
-    XLOG("threadLoop, waiting for signal");
-    m_newRequestLock.lock();
-    m_newRequestCond.wait(m_newRequestLock);
-    m_newRequestLock.unlock();
-    XLOG("threadLoop, got signal");
+    mRequestedPixmapsLock.lock();
+
+    if (!mRequestedPixmaps.size()) {
+        XLOG("threadLoop, waiting for signal");
+        m_newRequestLock.lock();
+        mRequestedPixmapsLock.unlock();
+        m_newRequestCond.wait(m_newRequestLock);
+        m_newRequestLock.unlock();
+        XLOG("threadLoop, got signal");
+    } else {
+        XLOG("threadLoop going as we already have something in the queue");
+        mRequestedPixmapsLock.unlock();
+    }
 
     m_currentSet = 0;
     bool stop = false;
