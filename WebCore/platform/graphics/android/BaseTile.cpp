@@ -72,6 +72,9 @@ BaseTile::BaseTile(TiledPage* page, int x, int y)
     , m_y(y)
     , m_texture(0)
     , m_scale(1)
+    , m_dirty(true)
+    , m_lastDirtyPicture(0)
+    , m_lastPaintedPicture(0)
 {
 #ifdef DEBUG_COUNT
     gBaseTileCount++;
@@ -80,6 +83,7 @@ BaseTile::BaseTile(TiledPage* page, int x, int y)
 
 BaseTile::~BaseTile()
 {
+    setUsedLevel(-1);
 #ifdef DEBUG_COUNT
     gBaseTileCount--;
 #endif
@@ -90,26 +94,43 @@ BaseTile::~BaseTile()
 void BaseTile::reserveTexture()
 {
     BackedDoubleBufferedTexture* texture = TilesManager::instance()->getAvailableTexture(this);
-    // We update atomically, so paintBitmap() can see the correct value
-    android_atomic_acquire_store((int32_t)texture, (int32_t*)&m_texture);
-    XLOG("%x (%d, %d) reserveTexture res: %x...", this, x(), y(), m_texture);
+
+    android::AutoMutex lock(m_atomicSync);
+    if (m_texture != texture) {
+        m_lastPaintedPicture = 0;
+        m_dirty = true;
+    }
+    m_texture = texture;
 }
 
 void BaseTile::removeTexture()
 {
     XLOG("%x removeTexture res: %x...", this, m_texture);
     // We update atomically, so paintBitmap() can see the correct value
-    android_atomic_acquire_store(0, (int32_t*)&m_texture);
+    android::AutoMutex lock(m_atomicSync);
+    m_texture = 0;
 }
 
 void BaseTile::setScale(float scale)
 {
+    android::AutoMutex lock(m_atomicSync);
+    if (m_scale != scale)
+        m_dirty = true;
     m_scale = scale;
-    // FIXME: the following two lines force a memory barrier which causes
-    // m_scale to be observable on other cores. We should replace this
-    // with a dedicated system function if/when available.
-    int32_t tempValue = 0;
-    android_atomic_acquire_load(&tempValue);
+}
+
+void BaseTile::markAsDirty(int unsigned pictureCount)
+{
+    android::AutoMutex lock(m_atomicSync);
+    m_lastDirtyPicture = pictureCount;
+    if (m_lastPaintedPicture < m_lastDirtyPicture)
+        m_dirty = true;
+}
+
+bool BaseTile::isDirty()
+{
+    android::AutoMutex lock(m_atomicSync);
+    return m_dirty;
 }
 
 void BaseTile::setUsedLevel(int usedLevel)
@@ -120,12 +141,12 @@ void BaseTile::setUsedLevel(int usedLevel)
 
 void BaseTile::draw(float transparency, SkRect& rect)
 {
+    // No need to mutex protect reads of m_texture as it is only written to by
+    // the consumer thread.
     if (!m_texture) {
         XLOG("%x (%d, %d) trying to draw, but no m_texture!", this, x(), y());
         return;
     }
-
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
 
     TextureInfo* textureInfo = m_texture->consumerLock();
     if (!textureInfo) {
@@ -134,57 +155,53 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
-    if (m_texture->consumerTextureSimilar(info)) {
+    m_atomicSync.lock();
+    bool isTexturePainted = m_lastPaintedPicture;
+    m_atomicSync.unlock();
+
+    if (isTexturePainted)
         TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
                                                      transparency);
-    }
 
     m_texture->consumerRelease();
 }
 
-bool BaseTile::isBitmapReady()
+bool BaseTile::isTileReady()
 {
     if (!m_texture)
         return false;
     if (m_texture->owner() != this)
         return false;
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
-    return m_texture->consumerTextureUpToDate(info);
+
+    android::AutoMutex lock(m_atomicSync);
+    return !m_dirty;
 }
 
 // This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
+
+    // We acquire the values below atomically. This ensures that we are reading
+    // values correctly across cores. Further, once we have these values they
+    // can be updated by other threads without consequence.
+    m_atomicSync.lock();
+    bool dirty = m_dirty;
+    BackedDoubleBufferedTexture* texture = m_texture;
+    float scale = m_scale;
+    m_atomicSync.unlock();
+
+    if(!dirty || !texture)
+        return;
+
     const int x = m_x;
     const int y = m_y;
     TiledPage* tiledPage = m_page;
 
-    // We acquire the texture atomically. Once we have it, we
-    // can continue with it, and m_texture can be updated without
-    // consequences.
-    BackedDoubleBufferedTexture* texture = reinterpret_cast<BackedDoubleBufferedTexture*>(
-        android_atomic_release_load((int32_t*)&m_texture));
-
-    // The loading of m_texture forces the execution of a memory barrier,
-    // which ensures that we are observing the most recent value of m_scale
-    // written by another core.
-    float scale = m_scale;
-
-    if (!texture)
-        return;
-
     TextureInfo* textureInfo = texture->producerLock();
 
-    // at this point we can safely check the ownership
-    // (if the texture got transferred to another BaseTile
-    // under us)
+    // at this point we can safely check the ownership (if the texture got
+    // transferred to another BaseTile under us)
     if (texture->owner() != this || texture->usedLevel() > 1) {
-        texture->producerRelease();
-        return;
-    }
-
-    PaintingInfo info(x, y, tiledPage->glWebViewState());
-    if (texture->consumerTextureUpToDate(info)) {
         texture->producerRelease();
         return;
     }
@@ -203,7 +220,7 @@ void BaseTile::paintBitmap()
     canvas->scale(scale, scale);
     canvas->translate(-x * w, -y * h);
 
-    tiledPage->paintBaseLayerContent(canvas);
+    unsigned int pictureCount = tiledPage->paintBaseLayerContent(canvas);
 
     canvas->restore();
 
@@ -219,7 +236,13 @@ void BaseTile::paintBitmap()
     canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
 #endif
 
-    texture->producerUpdate(this, textureInfo, info);
+    texture->producerUpdate(textureInfo);
+
+    m_atomicSync.lock();
+    m_lastPaintedPicture = pictureCount;
+    if (m_lastPaintedPicture >= m_lastDirtyPicture)
+        m_dirty = false;
+    m_atomicSync.unlock();
 }
 
 } // namespace WebCore

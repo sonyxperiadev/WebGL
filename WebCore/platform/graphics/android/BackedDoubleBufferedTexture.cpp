@@ -56,28 +56,27 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 
 TextureInfo* BackedDoubleBufferedTexture::producerLock()
 {
-    m_varLock.lock();
+    m_busyLock.lock();
     m_busy = true;
-    m_varLock.unlock();
+    m_busyLock.unlock();
     return DoubleBufferedTexture::producerLock();
 }
 
 void BackedDoubleBufferedTexture::producerRelease()
 {
     DoubleBufferedTexture::producerRelease();
-    android::Mutex::Autolock lock(m_varLock);
+    android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
 }
 
 void BackedDoubleBufferedTexture::producerReleaseAndSwap()
 {
     DoubleBufferedTexture::producerReleaseAndSwap();
-    android::Mutex::Autolock lock(m_varLock);
+    android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
 }
 
-void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
-        TextureInfo* textureInfo, PaintingInfo& info)
+void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
     // no need to upload a texture since the bitmap is empty
     if (!m_bitmap.width() && !m_bitmap.height()) {
@@ -93,32 +92,7 @@ void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
         textureInfo->m_height = m_bitmap.height();
     }
 
-    m_varLock.lock();
-    // set the painting information for this texture
-    if (equalsIdTextureA(textureInfo->m_textureId))
-        m_paintingInfoA = info;
-    else if (equalsIdTextureB(textureInfo->m_textureId))
-        m_paintingInfoB = info;
-    m_varLock.unlock();
-
     producerReleaseAndSwap();
-}
-
-// Compare the current texture displayed with some PaintingInfo.
-bool BackedDoubleBufferedTexture::consumerTextureUpToDate(PaintingInfo& info)
-{
-    android::Mutex::Autolock lock(m_varLock);
-    if (isTextureAReadable())
-        return info == m_paintingInfoA;
-    return info == m_paintingInfoB;
-}
-
-bool BackedDoubleBufferedTexture::consumerTextureSimilar(PaintingInfo& info)
-{
-    android::Mutex::Autolock lock(m_varLock);
-    if (isTextureAReadable())
-        return info.similar(m_paintingInfoA);
-    return info.similar(m_paintingInfoB);
 }
 
 bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
@@ -128,7 +102,7 @@ bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
 
     // if the writable texture is busy (i.e. currently being written to) then we
     // can't change the owner out from underneath that texture
-    android::Mutex::Autolock lock(m_varLock);
+    android::Mutex::Autolock lock(m_busyLock);
     if (!m_busy) {
         if (m_owner)
             m_owner->removeTexture();

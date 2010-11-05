@@ -56,10 +56,8 @@ int TileSet::count()
 }
 #endif
 
-TileSet::TileSet(int id, int firstTileX, int firstTileY, int rows, int cols)
-    : m_id(id)
-    , m_firstTileX(firstTileX)
-    , m_firstTileY(firstTileY)
+TileSet::TileSet(TiledPage* tiledPage, int rows, int cols)
+    : m_tiledPage(tiledPage)
     , m_nbRows(rows)
     , m_nbCols(cols)
 {
@@ -77,35 +75,11 @@ TileSet::~TileSet()
 
 bool TileSet::operator==(const TileSet& set)
 {
-    return m_id == set.m_id
-           && m_firstTileX == set.m_firstTileX
-           && m_firstTileY == set.m_firstTileY
+    return m_tiledPage == set.m_tiledPage
            && m_nbRows == set.m_nbRows
            && m_nbCols == set.m_nbCols;
 }
 
-
-void TileSet::reserveTextures()
-{
-#ifdef DEBUG
-    if (m_tiles.size()) {
-        TiledPage* page = m_tiles[0]->page();
-        XLOG("reserveTextures (%d tiles) for page %x (sibling: %x)", m_tiles.size(), page, page->sibling());
-        TilesManager::instance()->printTextures();
-    }
-#endif // DEBUG
-
-    for (unsigned int i = 0; i < m_tiles.size(); i++)
-        m_tiles[i]->reserveTexture();
-
-#ifdef DEBUG
-    if (m_tiles.size()) {
-        TiledPage* page = m_tiles[0]->page();
-        XLOG(" DONE reserveTextures (%d tiles) for page %x (sibling: %x)", m_tiles.size(), page, page->sibling());
-        TilesManager::instance()->printTextures();
-    }
-#endif // DEBUG
-}
 
 void TileSet::paint()
 {

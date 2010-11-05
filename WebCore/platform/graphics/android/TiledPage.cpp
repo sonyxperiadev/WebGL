@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
+#include "IntRect.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -64,6 +65,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_scale(1)
     , m_invScale(1)
     , m_glWebViewState(state)
+    , m_latestPictureInval(0)
 {
 #ifdef DEBUG_COUNT
     gTilePageCount++;
@@ -94,6 +96,24 @@ BaseTile* TiledPage::getBaseTile(int x, int y)
     return m_baseTiles.get(key);
 }
 
+void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureCount)
+{
+    // Given the current scale level we need to mark the appropriate tiles as dirty
+    TilesManager* manager = TilesManager::instance();
+    const float invTileContentWidth = m_scale / manager->tileWidth();
+    const float invTileContentHeight = m_scale / manager->tileHeight();
+
+    const int firstDirtyTileX = static_cast<int>(floorf(inval.x() * invTileContentWidth));
+    const int firstDirtyTileY = static_cast<int>(floorf(inval.y() * invTileContentHeight));
+    const int lastDirtyTileX = static_cast<int>(ceilf(inval.right() * invTileContentWidth));
+    const int lastDirtyTileY = static_cast<int>(ceilf(inval.bottom() * invTileContentHeight));
+
+    // We defer marking the tile as dirty until the next time we need to prepare
+    // to draw.
+    m_invalRegion.op(firstDirtyTileX, firstDirtyTileY, lastDirtyTileX, lastDirtyTileY, SkRegion::kUnion_Op);
+    m_latestPictureInval = pictureCount;
+}
+
 void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set)
 {
     if (y < 0)
@@ -119,11 +139,16 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         }
         tile = m_baseTiles.get(key);
         tile->setScale(m_scale);
-        set->add(tile);
+
+        // ensure there is a texture associated with the tile and then check to
+        // see if the texture is dirty and in need of repainting
+        tile->reserveTexture();
+        if(tile->isDirty())
+            set->add(tile);
     }
 }
 
-void TiledPage::setTileLevels(int firstTileX, int firstTileY)
+void TiledPage::updateTileState(int firstTileX, int firstTileY)
 {
     if (!m_glWebViewState)
         return;
@@ -138,6 +163,11 @@ void TiledPage::setTileLevels(int firstTileX, int firstTileY)
         if(!tile)
             continue;
 
+        // if the tile is in the dirty region then we must invalidate it
+        if (m_invalRegion.contains(tile->x(), tile->y()))
+            tile->markAsDirty(m_latestPictureInval);
+
+        // set the used level of the tile (e.g. distance from the viewport)
         int dx = 0;
         int dy = 0;
 
@@ -156,6 +186,10 @@ void TiledPage::setTileLevels(int firstTileX, int firstTileY)
         XLOG("setTileLevel tile: %x, fxy(%d, %d), level: %d", tile, firstTileX, firstTileY, d);
         tile->setUsedLevel(d);
     }
+
+    // clear the invalidated region as all tiles within that region have now
+    // been marked as dirty.
+    m_invalRegion.setEmpty();
 }
 
 void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firstTileY)
@@ -163,10 +197,13 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
     if (!m_glWebViewState)
         return;
 
+    // update the tiles distance from the viewport
+    updateTileState(firstTileX, firstTileY);
+
     int nbTilesWidth = m_glWebViewState->nbTilesWidth();
     int nbTilesHeight = m_glWebViewState->nbTilesHeight();
 
-    TileSet* highResSet = new TileSet(m_id, firstTileX, firstTileY, nbTilesHeight, nbTilesWidth);
+    TileSet* highResSet = new TileSet(this, nbTilesHeight, nbTilesWidth);
 
     // We chose to display tiles depending on the scroll direction:
     if (goingDown) {
@@ -177,23 +214,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
         for (int i = 0; i < nbTilesHeight; i++)
             prepareRow(goingLeft, nbTilesWidth, firstTileX, startingTileY - i, highResSet);
     }
-
-    // update the tiles distance from the viewport
-    setTileLevels(firstTileX, firstTileY);
-
-
-#ifdef DEBUG
-    XLOG("+++ BEFORE RESERVE TEXTURES (%d x %d) at (%d, %d), TiledPage %x",
-         nbTilesWidth, nbTilesHeight, firstTileX, firstTileY, this);
-    TilesManager::instance()->printTextures();
-#endif // DEBUG
-    highResSet->reserveTextures();
-
-#ifdef DEBUG
-    TilesManager::instance()->printTextures();
-    XLOG("--- AFTER RESERVE TEXTURES (%d x %d) at (%d, %d), TiledPage %x",
-         nbTilesWidth, nbTilesHeight, firstTileX, firstTileY, this);
-#endif // DEBUG
 
     // schedulePaintForTileSet will take ownership of the highResSet here,
     // so no delete necessary.
@@ -213,7 +233,7 @@ bool TiledPage::ready(int firstTileX, int firstTileY)
             int x = j + firstTileX;
             int y = i + firstTileY;
             BaseTile* t = getBaseTile(x, y);
-            if (!t || !t->isBitmapReady())
+            if (!t || !t->isTileReady())
                 return false;
         }
     }
@@ -260,10 +280,11 @@ void TiledPage::draw(float transparency, SkRect& viewport, int firstTileX, int f
 #endif // DEBUG
 }
 
-void TiledPage::paintBaseLayerContent(SkCanvas* canvas)
+unsigned int TiledPage::paintBaseLayerContent(SkCanvas* canvas)
 {
     if (m_glWebViewState)
-        m_glWebViewState->paintBaseLayerContent(canvas);
+        return m_glWebViewState->paintBaseLayerContent(canvas);
+    return 0;
 }
 
 TiledPage* TiledPage::sibling()
