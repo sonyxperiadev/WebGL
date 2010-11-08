@@ -24,7 +24,6 @@ fast/dom/HTMLTableSectionElement
 fast/dom/Node
 fast/dom/NodeList
 fast/dom/Selection
-fast/dom/StyleSheet
 fast/dom/Text
 fast/dom/TreeWalker
 fast/dom/beforeload
