@@ -130,7 +130,7 @@ void WebRequest::finish(bool success)
     m_urlLoader = 0;
 }
 
-void WebRequest::appendFileToUpload(std::string filename)
+void WebRequest::appendFileToUpload(const std::string& filename)
 {
     // AppendFileToUpload is only valid before calling start
     ASSERT(m_loadState == Created, "appendFileToUpload called on a WebRequest not in CREATED state: (%s)", m_url.c_str());

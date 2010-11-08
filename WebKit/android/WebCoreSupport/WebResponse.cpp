@@ -36,6 +36,9 @@ namespace android {
 WebResponse::WebResponse(URLRequest* request)
     : m_httpStatusCode(0)
 {
+    // The misleadingly-named os_error() is actually a net::Error enum constant.
+    m_error = net::Error(request->status().os_error());
+
     m_url = request->url().spec();
     m_host = request->url().HostNoBrackets();
     request->GetMimeType(&m_mime);
@@ -57,9 +60,9 @@ WebResponse::WebResponse(URLRequest* request)
 }
 
 WebResponse::WebResponse(const string &url, const string &mimeType, long long expectedSize, const string &encoding, int httpStatusCode)
-    : m_encoding(encoding)
+    : m_error(net::OK)
+    , m_encoding(encoding)
     , m_httpStatusCode(httpStatusCode)
-    , m_httpStatusText("")
     , m_expectedSize(expectedSize)
     , m_mime(mimeType)
     , m_url(url)
@@ -81,8 +84,7 @@ WebCore::ResourceResponse WebResponse::createResourceResponse()
 
 WebCore::ResourceError WebResponse::createResourceError()
 {
-    // TODO: Last parameter is a localized string, get the correct one from android
-    WebCore::ResourceError error(m_host.c_str(), m_httpStatusCode, m_url.c_str(), m_httpStatusText.c_str());
+    WebCore::ResourceError error(m_host.c_str(), ToWebViewClientError(m_error), m_url.c_str(), net::ErrorToString(m_error));
     return error;
 }
 

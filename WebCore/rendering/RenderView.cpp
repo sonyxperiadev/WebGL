@@ -39,7 +39,7 @@
 #include "RenderLayerCompositor.h"
 #endif
 
-#ifdef ANDROID_LAYOUT
+#if defined(ANDROID_LAYOUT) || defined(ANDROID_FIXED_ELEMENTS)
 #include "Settings.h"
 #endif
 

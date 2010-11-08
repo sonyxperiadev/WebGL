@@ -36,42 +36,6 @@ namespace WebCore {
 
 class BaseTile;
 
-class PaintingInfo {
-public:
-    PaintingInfo() : m_x(-1), m_y(-1), m_webview(0), m_picture(0) { }
-    PaintingInfo(int x, int y, GLWebViewState* webview)
-        : m_x(x)
-        , m_y(y)
-        , m_webview(webview)
-        , m_picture(0)
-    {
-        if(webview)
-            m_picture = webview->currentPictureCounter();
-    }
-    bool operator==(const PaintingInfo& info)
-    {
-        return m_webview == info.m_webview
-            && m_x == info.m_x
-            && m_y == info.m_y
-            && m_picture == info.m_picture;
-    }
-    bool similar(const PaintingInfo& info)
-    {
-        return m_webview == info.m_webview
-            && m_x == info.m_x
-            && m_y == info.m_y;
-    }
-    void setPosition(int x, int y) { m_x = x; m_y = y; }
-    void setGLWebViewState(GLWebViewState* webview) { m_webview = webview; }
-    void setPictureUsed(unsigned int picture) { m_picture = picture; }
-
-private:
-    int m_x;
-    int m_y;
-    GLWebViewState* m_webview;
-    unsigned int m_picture;
-};
-
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
 class BackedDoubleBufferedTexture : public DoubleBufferedTexture {
 public:
@@ -88,7 +52,7 @@ public:
 
     // updates the texture with current bitmap and releases (and if needed also
     // swaps) the texture.
-    void producerUpdate(BaseTile* painter, TextureInfo* textureInfo, PaintingInfo& info);
+    void producerUpdate(TextureInfo* textureInfo);
 
     // The level can be one of the following values:
     //  * -1 for an unused texture.
@@ -107,11 +71,7 @@ public:
     BaseTile* owner() { return m_owner; } // only used by the consumer thread
     SkCanvas* canvas() { return m_canvas; } // only used by the producer thread
 
-    // checks to see if the current readable texture equals the provided PaintingInfo
-    bool consumerTextureUpToDate(PaintingInfo& info);
-    // checks to see if the current readable texture is similar to the provided PaintingInfo
-    bool consumerTextureSimilar(PaintingInfo& info);
-
+    // This is to be only used for debugging on the producer thread
     bool busy() { return m_busy; }
 
 private:
@@ -120,12 +80,13 @@ private:
     int m_usedLevel;
     BaseTile* m_owner;
 
-    //The following values are shared among threads and use m_varLock to stay synced
-    PaintingInfo m_paintingInfoA;
-    PaintingInfo m_paintingInfoB;
+    // This values signals that the texture is currently in use by the consumer.
+    // This allows us to prevent the owner of the texture from changing while the
+    // consumer is holding a lock on the texture.
     bool m_busy;
-
-    android::Mutex m_varLock;
+    // We mutex protect the reads/writes of m_busy to ensure that we are reading
+    // the most up-to-date value even across processors in an SMP system.
+    android::Mutex m_busyLock;
 };
 
 } // namespace WebCore

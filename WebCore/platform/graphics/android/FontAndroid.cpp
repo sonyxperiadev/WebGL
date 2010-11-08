@@ -304,44 +304,19 @@ static int truncateFixedPointToInteger(HB_Fixed value)
 // can call |reset| to start over again.
 class TextRunWalker {
 public:
-    TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
-        : m_font(font)
-        , m_startingX(startingX)
-        , m_run(getNormalizedTextRun(run, m_normalizedRun, m_normalizedBuffer))
-        , m_iterateBackwards(m_run.rtl())
-        , m_wordSpacingAdjustment(0)
-        , m_padding(0)
-        , m_padPerWordBreak(0)
-        , m_padError(0)
-        , m_letterSpacing(0)
-    {
-        // Do not use |run| inside this constructor. Use |m_run| instead.
+    TextRunWalker(const TextRun&, unsigned, const Font*);
+    ~TextRunWalker();
 
-        memset(&m_item, 0, sizeof(m_item));
-        // We cannot know, ahead of time, how many glyphs a given script run
-        // will produce. We take a guess that script runs will not produce more
-        // than twice as many glyphs as there are code points plus a bit of
-        // padding and fallback if we find that we are wrong.
-        createGlyphArrays((m_run.length() + 2) * 2);
-
-        m_item.log_clusters = new unsigned short[m_run.length()];
-
-        m_item.face = 0;
-        m_item.font = allocHarfbuzzFont();
-
-        m_item.item.bidiLevel = m_run.rtl();
-
-        m_item.string = m_run.characters();
-        m_item.stringLength = m_run.length();
-        reset();
-    }
-
-    ~TextRunWalker()
-    {
-        fastFree(m_item.font);
-        deleteGlyphArrays();
-        delete[] m_item.log_clusters;
-    }
+    bool isWordBreak(unsigned, bool);
+    // setPadding sets a number of pixels to be distributed across the TextRun.
+    // WebKit uses this to justify text.
+    void setPadding(int);
+    void reset();
+    void setBackwardsIteration(bool);
+    // Advance to the next script run, returning false when the end of the
+    // TextRun has been reached.
+    bool nextScriptRun();
+    float widthOfFullRun();
 
     // setWordSpacingAdjustment sets a delta (in pixels) which is applied at
     // each word break in the TextRun.
@@ -364,401 +339,58 @@ public:
     // setWordAndLetterSpacing calls setWordSpacingAdjustment() and
     // setLetterSpacingAdjustment() to override m_wordSpacingAdjustment
     // and m_letterSpacing.
-    void setWordAndLetterSpacing(int wordSpacingAdjustment,
-                                 int letterSpacingAdjustment) {
-        setWordSpacingAdjustment(wordSpacingAdjustment);
-        setLetterSpacingAdjustment(letterSpacingAdjustment);
-    }
-
-    bool isWordBreak(unsigned i, bool isRTL)
-    {
-        if (isRTL)
-            return i != m_item.stringLength - 1
-                && isCodepointSpace(m_item.string[i])
-                && !isCodepointSpace(m_item.string[i + 1]);
-
-        return i && isCodepointSpace(m_item.string[i])
-            && !isCodepointSpace(m_item.string[i - 1]);
-    }
-
-    // setPadding sets a number of pixels to be distributed across the TextRun.
-    // WebKit uses this to justify text.
-    void setPadding(int padding)
-    {
-        m_padding = padding;
-        if (!m_padding)
-            return;
-
-        // If we have padding to distribute, then we try to give an equal
-        // amount to each space. The last space gets the smaller amount, if
-        // any.
-        unsigned numWordBreaks = 0;
-        bool isRTL = m_iterateBackwards;
-
-        for (unsigned i = 0; i < m_item.stringLength; i++) {
-            if (isWordBreak(i, isRTL))
-                numWordBreaks++;
-        }
-
-        if (numWordBreaks)
-            m_padPerWordBreak = m_padding / numWordBreaks;
-        else
-            m_padPerWordBreak = 0;
-    }
-
-    void reset()
-    {
-        if (m_iterateBackwards)
-            m_indexOfNextScriptRun = m_run.length() - 1;
-        else
-            m_indexOfNextScriptRun = 0;
-        m_offsetX = m_startingX;
-    }
+    void setWordAndLetterSpacing(int wordSpacingAdjustment, int letterSpacingAdjustment);
 
     // Set the x offset for the next script run. This affects the values in
     // |xPositions|
-    void setXOffsetToZero()
-    {
-        m_offsetX = 0;
-    }
-
-    bool rtl() const
-    {
-        return m_run.rtl();
-    }
-
-    void setBackwardsIteration(bool isBackwards)
-    {
-        m_iterateBackwards = isBackwards;
-        reset();
-    }
-
-    // Advance to the next script run, returning false when the end of the
-    // TextRun has been reached.
-    bool nextScriptRun()
-    {
-        if (m_iterateBackwards) {
-            // In right-to-left mode we need to render the shaped glyph backwards and
-            // also render the script runs themselves backwards. So given a TextRun:
-            //    AAAAAAACTTTTTTT   (A = Arabic, C = Common, T = Thai)
-            // we render:
-            //    TTTTTTCAAAAAAA
-            // (and the glyphs in each A, C and T section are backwards too)
-            if (!hb_utf16_script_run_prev(&m_numCodePoints, &m_item.item,
-                m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
-                return false;
-        } else {
-            if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item,
-                m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
-                return false;
-
-            // It is actually wrong to consider script runs at all in this code.
-            // Other WebKit code (e.g. Mac) segments complex text just by finding
-            // the longest span of text covered by a single font.
-            // But we currently need to call hb_utf16_script_run_next anyway to fill
-            // in the harfbuzz data structures to e.g. pick the correct script's shaper.
-            // So we allow that to run first, then do a second pass over the range it
-            // found and take the largest subregion that stays within a single font.
-            const FontData* glyphData = m_font->glyphDataForCharacter(
-                m_item.string[m_item.item.pos], false, false).fontData;
-            int endOfRun;
-            for (endOfRun = 1; endOfRun < static_cast<int>(m_item.item.length); ++endOfRun) {
-                const FontData* nextGlyphData = m_font->glyphDataForCharacter(
-                    m_item.string[m_item.item.pos + endOfRun], false, false).fontData;
-                if (nextGlyphData != glyphData)
-                    break;
-            }
-            m_item.item.length = endOfRun;
-            m_indexOfNextScriptRun = m_item.item.pos + endOfRun;
-        }
-
-        setupFontForScriptRun();
-        shapeGlyphs();
-        setGlyphXPositions(rtl());
-        return true;
-    }
-
-    const uint16_t* glyphs() const
-    {
-        return m_glyphs16;
-    }
+    void setXOffsetToZero() { m_offsetX = 0; }
+    bool rtl() const { return m_run.rtl(); }
+    const uint16_t* glyphs() const { return m_glyphs16; }
 
     // Return the length of the array returned by |glyphs|
-    unsigned length() const
-    {
-        return m_item.num_glyphs;
-    }
+    unsigned length() const { return m_item.num_glyphs; }
 
     // Return the x offset for each of the glyphs. Note that this is translated
     // by the current x offset and that the x offset is updated for each script
     // run.
-    const SkScalar* xPositions() const
-    {
-        return m_xPositions;
-    }
+    const SkScalar* xPositions() const { return m_xPositions; }
 
     // Get the advances (widths) for each glyph.
-    const HB_Fixed* advances() const
-    {
-        return m_item.advances;
-    }
+    const HB_Fixed* advances() const { return m_item.advances; }
 
     // Return the width (in px) of the current script run.
-    unsigned width() const
-    {
-        return m_pixelWidth;
-    }
+    unsigned width() const { return m_pixelWidth; }
 
     // Return the cluster log for the current script run. For example:
-    //   script run: f i a n c Ã©  (fi gets ligatured)
+    //   script run: f i a n c é  (fi gets ligatured)
     //   log clutrs: 0 0 1 2 3 4
     // So, for each input code point, the log tells you which output glyph was
     // generated for it.
-    const unsigned short* logClusters() const
-    {
-        return m_item.log_clusters;
-    }
+    const unsigned short* logClusters() const { return m_item.log_clusters; }
 
     // return the number of code points in the current script run
-    unsigned numCodePoints() const
-    {
-        return m_numCodePoints;
-    }
+    unsigned numCodePoints() const { return m_numCodePoints; }
 
-    const FontPlatformData* fontPlatformDataForScriptRun()
-    {
+    const FontPlatformData* fontPlatformDataForScriptRun() {
         return reinterpret_cast<FontPlatformData*>(m_item.font->userData);
     }
 
-    float widthOfFullRun()
-    {
-        float widthSum = 0;
-        while (nextScriptRun())
-            widthSum += width();
-
-        return widthSum;
-    }
-
 private:
-    const TextRun& getNormalizedTextRun(const TextRun& originalRun,
-        OwnPtr<TextRun>& normalizedRun, OwnArrayPtr<UChar>& normalizedBuffer)
-    {
-        // Normalize the text run in three ways:
-        // 1) Convert the |originalRun| to NFC normalized form if combining diacritical marks
-        // (U+0300..) are used in the run. This conversion is necessary since most OpenType
-        // fonts (e.g., Arial) don't have substitution rules for the diacritical marks in
-        // their GSUB tables.
-        //
-        // Note that we don't use the icu::Normalizer::isNormalized(UNORM_NFC) API here since
-        // the API returns FALSE (= not normalized) for complex runs that don't require NFC
-        // normalization (e.g., Arabic text). Unless the run contains the diacritical marks,
-        // Harfbuzz will do the same thing for us using the GSUB table.
-        // 2) Convert spacing characters into plain spaces, as some fonts will provide glyphs
-        // for characters like '\n' otherwise.
-        // 3) Convert mirrored characters such as parenthesis for rtl text.
-
-        // Convert to NFC form if the text has diacritical marks.
-        icu::UnicodeString normalizedString;
-        UErrorCode error = U_ZERO_ERROR;
-
-        for (int16_t i = 0; i < originalRun.length(); ++i) {
-            UChar ch = originalRun[i];
-            if (::ublock_getCode(ch) == UBLOCK_COMBINING_DIACRITICAL_MARKS) {
-                icu::Normalizer::normalize(icu::UnicodeString(originalRun.characters(),
-                                           originalRun.length()), UNORM_NFC, 0 /* no options */,
-                                           normalizedString, error);
-                if (U_FAILURE(error))
-                    return originalRun;
-                break;
-            }
-        }
-
-        // Normalize space and mirror parenthesis for rtl text.
-        int normalizedBufferLength;
-        const UChar* sourceText;
-        if (normalizedString.isEmpty()) {
-            normalizedBufferLength = originalRun.length();
-            sourceText = originalRun.characters();
-        } else {
-            normalizedBufferLength = normalizedString.length();
-            sourceText = normalizedString.getBuffer();
-        }
-
-        normalizedBuffer.set(new UChar[normalizedBufferLength + 1]);
-
-        normalizeSpacesAndMirrorChars(sourceText, originalRun.rtl(), normalizedBuffer.get(),
-                                      normalizedBufferLength);
-
-        normalizedRun.set(new TextRun(originalRun));
-        normalizedRun->setText(normalizedBuffer.get(), normalizedBufferLength);
-        return *normalizedRun;
-    }
-
-    void setupFontForScriptRun()
-    {
-        const FontData* fontData = m_font->glyphDataForCharacter(
-            m_item.string[m_item.item.pos], false, false).fontData;
-        const FontPlatformData& platformData =
-            fontData->fontDataForCharacter(' ')->platformData();
-        m_item.face = platformData.harfbuzzFace();
-        void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
-        m_item.font->userData = opaquePlatformData;
-    }
-
-    HB_FontRec* allocHarfbuzzFont()
-    {
-        HB_FontRec* font =
-            reinterpret_cast<HB_FontRec*>(fastMalloc(sizeof(HB_FontRec)));
-        memset(font, 0, sizeof(HB_FontRec));
-        font->klass = &harfbuzzSkiaClass;
-        font->userData = 0;
-        // The values which harfbuzzSkiaClass returns are already scaled to
-        // pixel units, so we just set all these to one to disable further
-        // scaling.
-        font->x_ppem = 1;
-        font->y_ppem = 1;
-        font->x_scale = 1;
-        font->y_scale = 1;
-
-        return font;
-    }
-
-    void deleteGlyphArrays()
-    {
-        delete[] m_item.glyphs;
-        delete[] m_item.attributes;
-        delete[] m_item.advances;
-        delete[] m_item.offsets;
-        delete[] m_glyphs16;
-        delete[] m_xPositions;
-    }
-
-    void createGlyphArrays(int size)
-    {
-        m_item.glyphs = new HB_Glyph[size];
-        m_item.attributes = new HB_GlyphAttributes[size];
-        m_item.advances = new HB_Fixed[size];
-        m_item.offsets = new HB_FixedPoint[size];
-
-        m_glyphs16 = new uint16_t[size];
-        m_xPositions = new SkScalar[size];
-
-        m_item.num_glyphs = size;
-        m_glyphsArraySize = size;  // Save the GlyphArrays size.
-    }
-
-    void resetGlyphArrays()
-    {
-        int size = m_glyphsArraySize;
-
-        // All the types here don't have pointers. It is safe to reset to
-        // zero unless Harfbuzz breaks the compatibility in the future.
-        memset(m_item.glyphs, 0, size * sizeof(m_item.glyphs[0]));
-        memset(m_item.attributes, 0, size * sizeof(m_item.attributes[0]));
-        memset(m_item.advances, 0, size * sizeof(m_item.advances[0]));
-        memset(m_item.offsets, 0, size * sizeof(m_item.offsets[0]));
-        memset(m_glyphs16, 0, size * sizeof(m_glyphs16[0]));
-        memset(m_xPositions, 0, size * sizeof(m_xPositions[0]));
-
-        // Reset the array limit becuase HB_ShapeItem() overrides the
-        // m_item.num_glyphs.
-        m_item.num_glyphs = size;
-    }
-
-    void shapeGlyphs()
-    {
-        resetGlyphArrays();
-        while (!HB_ShapeItem(&m_item)) {
-            // We overflowed our arrays. Resize and retry.
-            // HB_ShapeItem fills in m_item.num_glyphs with the needed size.
-            deleteGlyphArrays();
-            createGlyphArrays(m_item.num_glyphs << 1);
-            resetGlyphArrays();
-        }
-    }
-
-    void setGlyphXPositions(bool isRTL)
-    {
-        int position = 0;
-        // logClustersIndex indexes logClusters for the first (or last when
-        // RTL) codepoint of the current glyph.  Each time we advance a glyph
-        // we skip over all the codepoints that contributed to the current
-        // glyph.
-        unsigned logClustersIndex = isRTL && m_item.num_glyphs ? m_item.num_glyphs - 1 : 0;
-
-        for (unsigned iter = 0; iter < m_item.num_glyphs; ++iter) {
-            // Glyphs are stored in logical order, but for layout purposes we
-            // always go left to right.
-            int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
-
-            m_glyphs16[i] = m_item.glyphs[i];
-            int offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
-            m_xPositions[i] = SkIntToScalar(m_offsetX + position + offsetX);
-
-            int advance = truncateFixedPointToInteger(m_item.advances[i]);
-            // The first half of the conjunction works around the case where
-            // output glyphs aren't associated with any codepoints by the
-            // clusters log.
-            if (logClustersIndex < m_item.item.length
-                && isWordBreak(m_item.item.pos + logClustersIndex, isRTL)) {
-                advance += m_wordSpacingAdjustment;
-
-                if (m_padding > 0) {
-                    int toPad = roundf(m_padPerWordBreak + m_padError);
-                    m_padError += m_padPerWordBreak - toPad;
-
-                    if (m_padding < toPad)
-                        toPad = m_padding;
-                    m_padding -= toPad;
-                    advance += toPad;
-                }
-            }
-
-            // TODO We would like to add m_letterSpacing after each cluster, but
-            // I don't know where the cluster information is. This is typically
-            // fine for Roman languages, but breaks more complex languages
-            // terribly.
-            // advance += m_letterSpacing;
-
-            if (isRTL) {
-                while (logClustersIndex > 0 && logClusters()[logClustersIndex] == i)
-                    logClustersIndex--;
-            } else {
-                while (logClustersIndex < m_item.item.length && logClusters()[logClustersIndex] == i)
-                    logClustersIndex++;
-            }
-
-            position += advance;
-        }
-        m_pixelWidth = position;
-        m_offsetX += m_pixelWidth;
-    }
+    void setupFontForScriptRun();
+    HB_FontRec* allocHarfbuzzFont();
+    void deleteGlyphArrays();
+    void createGlyphArrays(int);
+    void resetGlyphArrays();
+    void shapeGlyphs();
+    void setGlyphXPositions(bool);
 
     static void normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
-        UChar* destination, int length)
-    {
-        int position = 0;
-        bool error = false;
-        // Iterate characters in source and mirror character if needed.
-        while (position < length) {
-            UChar32 character;
-            int nextPosition = position;
-            U16_NEXT(source, nextPosition, length, character);
-            if (Font::treatAsSpace(character))
-                character = ' ';
-            else if (rtl)
-                character = u_charMirror(character);
-            U16_APPEND(destination, position, length, character, error);
-            ASSERT(!error);
-            position = nextPosition;
-        }
-    }
+        UChar* destination, int length);
+    static const TextRun& getNormalizedTextRun(const TextRun& originalRun,
+        OwnPtr<TextRun>& normalizedRun, OwnArrayPtr<UChar>& normalizedBuffer);
 
-    static bool isCodepointSpace(HB_UChar16 c)
-    {
-        // This matches the logic in RenderBlock::findNextLineBreak.
-        return c == ' ' || c == '\t';
-    }
+    // This matches the logic in RenderBlock::findNextLineBreak
+    static bool isCodepointSpace(HB_UChar16 c) { return c == ' ' || c == '\t'; }
 
     const Font* const m_font;
     HB_ShaperItem m_item;
@@ -769,7 +401,7 @@ private:
     unsigned m_offsetX; // Offset in pixels to the start of the next script run.
     unsigned m_pixelWidth; // Width (in px) of the current script run.
     unsigned m_numCodePoints; // Code points in current script run.
-    unsigned m_glyphsArraySize; // Current size of all the Harfbuzz arrays.
+    unsigned m_glyphsArrayCapacity; // Current size of all the Harfbuzz arrays.
 
     OwnPtr<TextRun> m_normalizedRun;
     OwnArrayPtr<UChar> m_normalizedBuffer; // A buffer for normalized run.
@@ -785,6 +417,373 @@ private:
     unsigned m_letterSpacing; // pixels to be added after each glyph.
 };
 
+
+TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
+    : m_font(font)
+    , m_startingX(startingX)
+    , m_offsetX(m_startingX)
+    , m_run(getNormalizedTextRun(run, m_normalizedRun, m_normalizedBuffer))
+    , m_iterateBackwards(m_run.rtl())
+    , m_wordSpacingAdjustment(0)
+    , m_padding(0)
+    , m_padPerWordBreak(0)
+    , m_padError(0)
+    , m_letterSpacing(0)
+{
+    // Do not use |run| inside this constructor. Use |m_run| instead.
+
+    memset(&m_item, 0, sizeof(m_item));
+    // We cannot know, ahead of time, how many glyphs a given script run
+    // will produce. We take a guess that script runs will not produce more
+    // than twice as many glyphs as there are code points plus a bit of
+    // padding and fallback if we find that we are wrong.
+    createGlyphArrays((m_run.length() + 2) * 2);
+
+    m_item.log_clusters = new unsigned short[m_run.length()];
+
+    m_item.face = 0;
+    m_item.font = allocHarfbuzzFont();
+
+    m_item.item.bidiLevel = m_run.rtl();
+
+    m_item.string = m_run.characters();
+    m_item.stringLength = m_run.length();
+
+    reset();
+}
+
+TextRunWalker::~TextRunWalker()
+{
+    fastFree(m_item.font);
+    deleteGlyphArrays();
+    delete[] m_item.log_clusters;
+}
+
+bool TextRunWalker::isWordBreak(unsigned index, bool isRTL)
+{
+    if (!isRTL)
+        return index && isCodepointSpace(m_item.string[index])
+            && !isCodepointSpace(m_item.string[index - 1]);
+    return index != m_item.stringLength - 1 && isCodepointSpace(m_item.string[index])
+        && !isCodepointSpace(m_item.string[index + 1]);
+}
+
+// setPadding sets a number of pixels to be distributed across the TextRun.
+// WebKit uses this to justify text.
+void TextRunWalker::setPadding(int padding)
+{
+    m_padding = padding;
+    if (!m_padding)
+        return;
+
+    // If we have padding to distribute, then we try to give an equal
+    // amount to each space. The last space gets the smaller amount, if
+    // any.
+    unsigned numWordBreaks = 0;
+    bool isRTL = m_iterateBackwards;
+
+    for (unsigned i = 0; i < m_item.stringLength; i++) {
+        if (isWordBreak(i, isRTL))
+            numWordBreaks++;
+    }
+
+    if (numWordBreaks)
+        m_padPerWordBreak = m_padding / numWordBreaks;
+    else
+        m_padPerWordBreak = 0;
+}
+
+void TextRunWalker::reset()
+{
+    if (m_iterateBackwards)
+        m_indexOfNextScriptRun = m_run.length() - 1;
+    else
+        m_indexOfNextScriptRun = 0;
+    m_offsetX = m_startingX;
+}
+
+void TextRunWalker::setBackwardsIteration(bool isBackwards)
+{
+    m_iterateBackwards = isBackwards;
+    reset();
+}
+
+// Advance to the next script run, returning false when the end of the
+// TextRun has been reached.
+bool TextRunWalker::nextScriptRun()
+{
+    if (m_iterateBackwards) {
+        // In right-to-left mode we need to render the shaped glyph backwards and
+        // also render the script runs themselves backwards. So given a TextRun:
+        //    AAAAAAACTTTTTTT   (A = Arabic, C = Common, T = Thai)
+        // we render:
+        //    TTTTTTCAAAAAAA
+        // (and the glyphs in each A, C and T section are backwards too)
+        if (!hb_utf16_script_run_prev(&m_numCodePoints, &m_item.item, m_run.characters(),
+            m_run.length(), &m_indexOfNextScriptRun))
+            return false;
+    } else {
+        if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(),
+            m_run.length(), &m_indexOfNextScriptRun))
+            return false;
+
+        // It is actually wrong to consider script runs at all in this code.
+        // Other WebKit code (e.g. Mac) segments complex text just by finding
+        // the longest span of text covered by a single font.
+        // But we currently need to call hb_utf16_script_run_next anyway to fill
+        // in the harfbuzz data structures to e.g. pick the correct script's shaper.
+        // So we allow that to run first, then do a second pass over the range it
+        // found and take the largest subregion that stays within a single font.
+        const FontData* glyphData = m_font->glyphDataForCharacter(
+           m_item.string[m_item.item.pos], false, false).fontData;
+        unsigned endOfRun;
+        for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
+            const FontData* nextGlyphData = m_font->glyphDataForCharacter(
+                m_item.string[m_item.item.pos + endOfRun], false, false).fontData;
+            if (nextGlyphData != glyphData)
+                break;
+        }
+        m_item.item.length = endOfRun;
+        m_indexOfNextScriptRun = m_item.item.pos + endOfRun;
+    }
+
+    setupFontForScriptRun();
+    shapeGlyphs();
+    setGlyphXPositions(rtl());
+
+    return true;
+}
+
+float TextRunWalker::widthOfFullRun()
+{
+    float widthSum = 0;
+    while (nextScriptRun())
+        widthSum += width();
+
+    return widthSum;
+}
+
+void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
+                                            int letterSpacingAdjustment)
+{
+    setWordSpacingAdjustment(wordSpacingAdjustment);
+    setLetterSpacingAdjustment(letterSpacingAdjustment);
+}
+
+void TextRunWalker::setupFontForScriptRun()
+{
+    const FontData* fontData = m_font->glyphDataForCharacter(
+        m_item.string[m_item.item.pos], false, false).fontData;
+    const FontPlatformData& platformData =
+        fontData->fontDataForCharacter(' ')->platformData();
+    m_item.face = platformData.harfbuzzFace();
+    void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
+    m_item.font->userData = opaquePlatformData;
+}
+
+HB_FontRec* TextRunWalker::allocHarfbuzzFont()
+{
+    HB_FontRec* font = reinterpret_cast<HB_FontRec*>(fastMalloc(sizeof(HB_FontRec)));
+    memset(font, 0, sizeof(HB_FontRec));
+    font->klass = &harfbuzzSkiaClass;
+    font->userData = 0;
+    // The values which harfbuzzSkiaClass returns are already scaled to
+    // pixel units, so we just set all these to one to disable further
+    // scaling.
+    font->x_ppem = 1;
+    font->y_ppem = 1;
+    font->x_scale = 1;
+    font->y_scale = 1;
+
+    return font;
+}
+
+void TextRunWalker::deleteGlyphArrays()
+{
+    delete[] m_item.glyphs;
+    delete[] m_item.attributes;
+    delete[] m_item.advances;
+    delete[] m_item.offsets;
+    delete[] m_glyphs16;
+    delete[] m_xPositions;
+}
+
+void TextRunWalker::createGlyphArrays(int size)
+{
+    m_item.glyphs = new HB_Glyph[size];
+    m_item.attributes = new HB_GlyphAttributes[size];
+    m_item.advances = new HB_Fixed[size];
+    m_item.offsets = new HB_FixedPoint[size];
+
+    m_glyphs16 = new uint16_t[size];
+    m_xPositions = new SkScalar[size];
+
+    m_item.num_glyphs = size;
+    m_glyphsArrayCapacity = size; // Save the GlyphArrays size.
+}
+
+void TextRunWalker::resetGlyphArrays()
+{
+    int size = m_item.num_glyphs;
+    // All the types here don't have pointers. It is safe to reset to
+    // zero unless Harfbuzz breaks the compatibility in the future.
+    memset(m_item.glyphs, 0, size * sizeof(m_item.glyphs[0]));
+    memset(m_item.attributes, 0, size * sizeof(m_item.attributes[0]));
+    memset(m_item.advances, 0, size * sizeof(m_item.advances[0]));
+    memset(m_item.offsets, 0, size * sizeof(m_item.offsets[0]));
+    memset(m_glyphs16, 0, size * sizeof(m_glyphs16[0]));
+    memset(m_xPositions, 0, size * sizeof(m_xPositions[0]));
+}
+
+void TextRunWalker::shapeGlyphs()
+{
+    // HB_ShapeItem() resets m_item.num_glyphs. If the previous call to
+    // HB_ShapeItem() used less space than was available, the capacity of
+    // the array may be larger than the current value of m_item.num_glyphs.
+    // So, we need to reset the num_glyphs to the capacity of the array.
+    m_item.num_glyphs = m_glyphsArrayCapacity;
+    resetGlyphArrays();
+    while (!HB_ShapeItem(&m_item)) {
+        // We overflowed our arrays. Resize and retry.
+        // HB_ShapeItem fills in m_item.num_glyphs with the needed size.
+        deleteGlyphArrays();
+        createGlyphArrays(m_item.num_glyphs << 1);
+        resetGlyphArrays();
+    }
+}
+
+void TextRunWalker::setGlyphXPositions(bool isRTL)
+{
+    int position = 0;
+    // logClustersIndex indexes logClusters for the first (or last when
+    // RTL) codepoint of the current glyph.  Each time we advance a glyph,
+    // we skip over all the codepoints that contributed to the current
+    // glyph.
+    unsigned logClustersIndex = isRTL && m_item.num_glyphs ? m_item.num_glyphs - 1 : 0;
+
+    for (unsigned iter = 0; iter < m_item.num_glyphs; ++iter) {
+        // Glyphs are stored in logical order, but for layout purposes we
+        // always go left to right.
+        int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
+
+        m_glyphs16[i] = m_item.glyphs[i];
+        int offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
+        m_xPositions[i] = SkIntToScalar(m_offsetX + position + offsetX);
+
+        int advance = truncateFixedPointToInteger(m_item.advances[i]);
+        // The first half of the conjunction works around the case where
+        // output glyphs aren't associated with any codepoints by the
+        // clusters log.
+        if (logClustersIndex < m_item.item.length
+            && isWordBreak(m_item.item.pos + logClustersIndex, isRTL)) {
+            advance += m_wordSpacingAdjustment;
+
+            if (m_padding > 0) {
+                int toPad = roundf(m_padPerWordBreak + m_padError);
+                m_padError += m_padPerWordBreak - toPad;
+
+                if (m_padding < toPad)
+                    toPad = m_padding;
+                m_padding -= toPad;
+                advance += toPad;
+            }
+        }
+
+        // TODO We would like to add m_letterSpacing after each cluster, but I
+        // don't know where the cluster information is. This is typically
+        // fine for Roman languages, but breaks more complex languages
+        // terribly.
+        // advance += m_letterSpacing;
+
+        if (isRTL) {
+            while (logClustersIndex > 0 && logClusters()[logClustersIndex] == i)
+                logClustersIndex--;
+        } else {
+            while (logClustersIndex < m_item.item.length
+                   && logClusters()[logClustersIndex] == i)
+                logClustersIndex++;
+        }
+
+        position += advance;
+    }
+
+    m_pixelWidth = position;
+    m_offsetX += m_pixelWidth;
+}
+
+void TextRunWalker::normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
+    UChar* destination, int length)
+{
+    int position = 0;
+    bool error = false;
+    // Iterate characters in source and mirror character if needed.
+    while (position < length) {
+        UChar32 character;
+        int nextPosition = position;
+        U16_NEXT(source, nextPosition, length, character);
+        if (Font::treatAsSpace(character))
+            character = ' ';
+        else if (rtl)
+            character = u_charMirror(character);
+        U16_APPEND(destination, position, length, character, error);
+        ASSERT(!error);
+        position = nextPosition;
+    }
+}
+
+const TextRun& TextRunWalker::getNormalizedTextRun(const TextRun& originalRun,
+    OwnPtr<TextRun>& normalizedRun, OwnArrayPtr<UChar>& normalizedBuffer)
+{
+    // Normalize the text run in three ways:
+    // 1) Convert the |originalRun| to NFC normalized form if combining diacritical marks
+    // (U+0300..) are used in the run. This conversion is necessary since most OpenType
+    // fonts (e.g., Arial) don't have substitution rules for the diacritical marks in
+    // their GSUB tables.
+    //
+    // Note that we don't use the icu::Normalizer::isNormalized(UNORM_NFC) API here since
+    // the API returns FALSE (= not normalized) for complex runs that don't require NFC
+    // normalization (e.g., Arabic text). Unless the run contains the diacritical marks,
+    // Harfbuzz will do the same thing for us using the GSUB table.
+    // 2) Convert spacing characters into plain spaces, as some fonts will provide glyphs
+    // for characters like '\n' otherwise.
+    // 3) Convert mirrored characters such as parenthesis for rtl text.
+
+    // Convert to NFC form if the text has diacritical marks.
+    icu::UnicodeString normalizedString;
+    UErrorCode error = U_ZERO_ERROR;
+
+    for (int16_t i = 0; i < originalRun.length(); ++i) {
+        UChar ch = originalRun[i];
+        if (::ublock_getCode(ch) == UBLOCK_COMBINING_DIACRITICAL_MARKS) {
+            icu::Normalizer::normalize(icu::UnicodeString(originalRun.characters(),
+                                       originalRun.length()), UNORM_NFC, 0 /* no options */,
+                                       normalizedString, error);
+            if (U_FAILURE(error))
+                return originalRun;
+            break;
+        }
+    }
+
+    // Normalize space and mirror parenthesis for rtl text.
+    int normalizedBufferLength;
+    const UChar* sourceText;
+    if (normalizedString.isEmpty()) {
+        normalizedBufferLength = originalRun.length();
+        sourceText = originalRun.characters();
+    } else {
+        normalizedBufferLength = normalizedString.length();
+        sourceText = normalizedString.getBuffer();
+    }
+
+    normalizedBuffer.set(new UChar[normalizedBufferLength + 1]);
+
+    normalizeSpacesAndMirrorChars(sourceText, originalRun.rtl(), normalizedBuffer.get(),
+                                  normalizedBufferLength);
+
+    normalizedRun.set(new TextRun(originalRun));
+    normalizedRun->setText(normalizedBuffer.get(), normalizedBufferLength);
+    return *normalizedRun;
+}
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
     const FloatPoint& point, int height, int from, int to) const

@@ -27,6 +27,7 @@
 #include "CachedHistory.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "LayerAndroid.h"
 
 #include "CachedFrame.h"
 
@@ -39,10 +40,22 @@ namespace android {
 WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
     const WebCore::IntRect& rect) const
 {
-    DBG_NAV_LOGD("node=%p [%d] rect=(%d,%d,w=%d,h=%d)",
-        node, node->index(), rect.x(), rect.y(), rect.width(), rect.height());
+    DBG_NAV_LOGV("node=%p [%d] rect=(%d,%d,w=%d,h=%d) view=(%d,%d,w=%d,h=%d)"
+        " local=(%d,%d,w=%d,h=%d) root=(%d,%d,w=%d,h=%d)",
+        node, node->index(), rect.x(), rect.y(), rect.width(), rect.height(),
+        mViewBounds.x(), mViewBounds.y(),
+        mViewBounds.width(), mViewBounds.height(),
+        mLocalViewBounds.x(), mLocalViewBounds.y(),
+        mLocalViewBounds.width(), mLocalViewBounds.height(),
+        mRoot->mViewBounds.x(), mRoot->mViewBounds.y(),
+        mRoot->mViewBounds.width(), mRoot->mViewBounds.height());
 #if USE(ACCELERATED_COMPOSITING)
-    return layer(node)->adjustBounds(mRoot->rootLayer(), rect);
+    const CachedLayer* cachedLayer = layer(node);
+    const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
+    IntRect rrect = cachedLayer->adjustBounds(rootLayer, rect);
+    if (!cachedLayer->layer(rootLayer)->contentIsScrollable())
+        rrect.move(-mViewBounds.x(), -mViewBounds.y());
+    return rrect;
 #else
     return rect;
 #endif
@@ -55,8 +68,14 @@ WebCore::IntRect CachedFrame::unadjustBounds(const CachedNode* node,
     const WebCore::IntRect& rect) const
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (node->isInLayer())
-        return layer(node)->unadjustBounds(mRoot->rootLayer(), rect);
+    if (node->isInLayer()) {
+        const CachedLayer* cachedLayer = layer(node);
+        const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
+        IntRect rrect = cachedLayer->unadjustBounds(rootLayer, rect);
+        if (!cachedLayer->layer(rootLayer)->contentIsScrollable())
+            rrect.move(mViewBounds.x(), mViewBounds.y());
+        return rrect;
+    }
 #endif
     return rect;
 }
@@ -391,21 +410,27 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
         bool checkForHidden = checkForHiddenStart;
         for (size_t part = 0; part < parts; part++) {
             WebCore::IntRect testRect = test->ring(this, part);
-            if (test->isInLayer()) {
-                DBG_NAV_LOGD("[%d] intersects=%ss testRect=(%d,%d,w=%d,h=%d)"
-                    " rect=(%d,%d,w=%d,h=%d)", test->index(),
-                    testRect.intersects(rect) ? "true" : "false",
-                    testRect.x(), testRect.y(), testRect.width(), testRect.height(),
-                    rect.x(), rect.y(), rect.width(), rect.height());
-            }
             if (testRect.intersects(rect)) {
-                if (checkForHidden && mRoot->maskIfHidden(&testData) == true)
+#if DEBUG_NAV_UI
+                if (test->isInLayer()) {
+                    DBG_NAV_LOGD("[%d] intersects=%s testRect=(%d,%d,w=%d,h=%d)"
+                        " rect=(%d,%d,w=%d,h=%d)", test->index(),
+                        testRect.intersects(rect) ? "true" : "false",
+                        testRect.x(), testRect.y(),
+                        testRect.width(), testRect.height(),
+                        rect.x(), rect.y(), rect.width(), rect.height());
+                }
+#endif
+                if (checkForHidden && mRoot->maskIfHidden(&testData) == true) {
+                    DBG_NAV_LOGD("hidden [%d]", test->index());
                     break;
+                }
                 checkForHidden = false;
                 testRect.intersect(testData.mouseBounds());
                 if (testRect.contains(center)) {
                     // We have a direct hit.
                     if (*directHit == NULL) {
+                        DBG_NAV_LOGD("direct hit 1 [%d]", test->index());
                         *directHit = test;
                         *directHitFramePtr = this;
                         IntRect r(center, IntSize(0, 0));
@@ -413,6 +438,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                         *x = r.x();
                         *y = r.y();
                     } else {
+                        DBG_NAV_LOGD("direct hit 2 [%d]", test->index());
                         // We have hit another one before
                         const CachedNode* d = *directHit;
                         if (d->bounds(this).contains(testRect)) {
@@ -428,6 +454,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                     // calculate the distances, or check the other parts
                     break;
                 }
+                DBG_NAV_LOGD("indirect hit [%d]", test->index());
                 WebCore::IntRect both = rect;
                 int smaller = testRect.width() < testRect.height() ?
                     testRect.width() : testRect.height();

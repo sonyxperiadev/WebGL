@@ -36,6 +36,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
+#include <utils/threads.h>
 
 namespace WebCore {
 
@@ -69,11 +70,14 @@ public:
     void reserveTexture();
     void removeTexture();
     void setUsedLevel(int);
-    bool isBitmapReady();
+    bool isTileReady();
     void draw(float transparency, SkRect& rect);
 
     // the only thread-safe function called by the background thread
     void paintBitmap();
+
+    void markAsDirty(const unsigned int pictureCount);
+    bool isDirty();
 
     float scale() const { return m_scale; }
     void setScale(float scale);
@@ -89,9 +93,25 @@ private:
     int m_x;
     int m_y;
 
-    // these variables can be updated throughout the lifetime of the object
+    // The remaining variables can be updated throughout the lifetime of the object
     BackedDoubleBufferedTexture* m_texture;
     float m_scale;
+    // used to signal that the that the tile is out-of-date and needs to be redrawn
+    bool m_dirty;
+    // stores the id of the latest picture from webkit that caused this tile to
+    // become dirty. A tile is no longer dirty when it has been painted with a
+    // picture that is newer than this value.
+    unsigned int m_lastDirtyPicture;
+    // stores the id of the latest picture painted to the tile. If the id is 0
+    // then we know that the picture has not yet been painted an there is nothing
+    // to display (dirty or otherwise).
+    unsigned int m_lastPaintedPicture;
+
+    // This mutex serves two purposes. (1) It ensures that certain operations
+    // happen atomically and (2) it makes sure those operations are synchronized
+    // across all threads and cores.
+    android::Mutex m_atomicSync;
+
 };
 
 } // namespace WebCore

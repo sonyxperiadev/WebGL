@@ -23,57 +23,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebResponse_h
-#define WebResponse_h
+#ifndef WebViewClientError_h
+#define WebViewClientError_h
 
 #include "ChromiumIncludes.h"
-#include "KURL.h"
-#include "WebViewClientError.h"
-
-#include <map>
-#include <string>
-
-namespace WebCore {
-class ResourceResponse;
-class ResourceError;
-}
-
-class URLRequest;
 
 namespace android {
 
-class WebResponse {
-
-public:
-    WebResponse() {}
-    WebResponse(URLRequest*);
-    WebResponse(const std::string &url, const std::string &mimeType, long long expectedSize, const std::string &encoding, int httpStatusCode);
-
-    const std::string& getUrl() const;
-    void setUrl(const std::string&);
-
-    const std::string& getMimeType() const;
-    bool getHeader(const std::string& header, std::string* result) const;
-    long long getExpectedSize() const;
-
-    // The create() methods create WebCore objects. They must only be called on the WebKit thread.
-    WebCore::KURL createKurl();
-    WebCore::ResourceResponse createResourceResponse();
-    WebCore::ResourceError createResourceError();
-
-private:
-    net::Error m_error;
-    std::string m_encoding;
-    int m_httpStatusCode;
-    std::string m_host;
-    std::string m_httpStatusText;
-    long long m_expectedSize;
-    std::string m_mime;
-    std::string m_url;
-
-    std::map<std::string, std::string> m_headerFields;
+// This enum must be kept in sync with WebViewClient.java
+enum WebViewClientError {
+    /** Generic error */
+    ERROR_UNKNOWN = -1,
+    /** Server or proxy hostname lookup failed */
+    ERROR_HOST_LOOKUP = -2,
+    /** Unsupported authentication scheme (not basic or digest) */
+    ERROR_UNSUPPORTED_AUTH_SCHEME = -3,
+    /** User authentication failed on server */
+    ERROR_AUTHENTICATION = -4,
+    /** User authentication failed on proxy */
+    ERROR_PROXY_AUTHENTICATION = -5,
+    /** Failed to connect to the server */
+    ERROR_CONNECT = -6,
+    /** Failed to read or write to the server */
+    ERROR_IO = -7,
+    /** Connection timed out */
+    ERROR_TIMEOUT = -8,
+    /** Too many redirects */
+    ERROR_REDIRECT_LOOP = -9,
+    /** Unsupported URI scheme */
+    ERROR_UNSUPPORTED_SCHEME = -10,
+    /** Failed to perform SSL handshake */
+    ERROR_FAILED_SSL_HANDSHAKE = -11,
+    /** Malformed URL */
+    ERROR_BAD_URL = -12,
+    /** Generic file error */
+    ERROR_FILE = -13,
+    /** File not found */
+    ERROR_FILE_NOT_FOUND = -14,
+    /** Too many requests during this load */
+    ERROR_TOO_MANY_REQUESTS = -15,
 };
+
+// Get the closest WebViewClient match to the given Chrome error code.
+WebViewClientError ToWebViewClientError(net::Error);
 
 } // namespace android
 
-#endif
+#endif // WebViewClientError_h

@@ -1265,7 +1265,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 cachedInput.init();
                 cachedInput.setFormPointer(input->form());
                 cachedInput.setIsTextField(true);
-                cachedInput.setIsTextArea(false);
                 exported = input->value().threadsafeCopy();
                 cachedInput.setMaxLength(input->maxLength());
                 cachedInput.setTypeFromElement(input);
@@ -1282,7 +1281,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
             cachedInput.setFormPointer(area->form());
             cachedInput.setIsTextArea(true);
-            cachedInput.setIsTextField(false);
             exported = area->value().threadsafeCopy();
         } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
