@@ -873,6 +873,11 @@ public:
     void incDOMTreeVersion() { ++m_domTreeVersion; }
     unsigned domTreeVersion() const { return m_domTreeVersion; }
 
+#ifdef ANDROID_STYLE_VERSION
+    void incStyleVersion() { ++m_styleVersion; }
+    unsigned styleVersion() const { return m_styleVersion; }
+#endif
+
     void setDocType(PassRefPtr<DocumentType>);
 
 #if ENABLE(XPATH)
@@ -1164,6 +1169,9 @@ private:
     mutable RefPtr<Element> m_documentElement;
 
     unsigned m_domTreeVersion;
+#ifdef ANDROID_STYLE_VERSION
+    unsigned m_styleVersion;
+#endif
     
     HashSet<NodeIterator*> m_nodeIterators;
     HashSet<Range*> m_ranges;

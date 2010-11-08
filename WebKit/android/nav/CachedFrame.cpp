@@ -52,13 +52,15 @@ WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
 #if USE(ACCELERATED_COMPOSITING)
     const CachedLayer* cachedLayer = layer(node);
     const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
-    IntRect rrect = cachedLayer->adjustBounds(rootLayer, rect);
-    if (!cachedLayer->layer(rootLayer)->contentIsScrollable())
-        rrect.move(-mViewBounds.x(), -mViewBounds.y());
-    return rrect;
-#else
-    return rect;
+    const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
+    if (aLayer) {
+        IntRect rrect = cachedLayer->adjustBounds(rootLayer, rect);
+        if (!aLayer->contentIsScrollable())
+            rrect.move(-mViewBounds.x(), -mViewBounds.y());
+        return rrect;
+    }
 #endif
+    return rect;
 }
 
 // This is for nodes inside a layer.  It takes an IntRect that has been
@@ -71,10 +73,13 @@ WebCore::IntRect CachedFrame::unadjustBounds(const CachedNode* node,
     if (node->isInLayer()) {
         const CachedLayer* cachedLayer = layer(node);
         const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
-        IntRect rrect = cachedLayer->unadjustBounds(rootLayer, rect);
-        if (!cachedLayer->layer(rootLayer)->contentIsScrollable())
-            rrect.move(mViewBounds.x(), mViewBounds.y());
-        return rrect;
+        const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
+        if (aLayer) {
+            IntRect rrect = cachedLayer->unadjustBounds(rootLayer, rect);
+            if (!aLayer->contentIsScrollable())
+                rrect.move(mViewBounds.x(), mViewBounds.y());
+            return rrect;
+        }
     }
 #endif
     return rect;
