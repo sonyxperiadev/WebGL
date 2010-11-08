@@ -2835,9 +2835,11 @@ tryNextCheckType:
                 while ((index = exported->find(',', index)) >= 0)
                     exported->replace(index, 1, escapedComma);
                 } break;
-            case EMAIL_CACHEDNODETYPE:
+            case EMAIL_CACHEDNODETYPE: {
+                String encoded = WebCore::encodeWithURLEscapeSequences(*exported);
+                exported->swap(encoded);
                 exported->insert(WTF::String("mailto:"), 0);
-                break;
+                } break;
             case PHONE_CACHEDNODETYPE:
                 exported->insert(WTF::String("tel:"), 0);
                 break;
@@ -2853,9 +2855,13 @@ noTextMatch:
 
 bool CacheBuilder::IsMailboxChar(UChar ch)
 {
-    static const unsigned body[] = {0x03ff6000, 0x87fffffe, 0x07fffffe}; // 0-9 . - A-Z _ a-z
+    // According to http://en.wikipedia.org/wiki/Email_address
+    // ! # $ % & ' * + - . / 0-9 = ?
+    // A-Z ^ _
+    // ` a-z { | } ~
+    static const unsigned body[] = {0xa3ffecfa, 0xc7fffffe, 0x7fffffff};
     ch -= 0x20;
-    if (ch > 'z' - 0x20)
+    if (ch > '~' - 0x20)
         return false;
     return (body[ch >> 5] & 1 << (ch & 0x1f)) != 0;
 }
