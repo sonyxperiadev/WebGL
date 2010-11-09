@@ -585,7 +585,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
         return;
 
     JNIEnv* env = getJNIEnv();
-    WTF::String urlString(url.string());
+    const WTF::String& urlString = url.string();
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
     jobject favicon = NULL;
@@ -650,7 +650,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = loader->loadType();
-    WTF::String urlString(url.string());
+    const WTF::String& urlString = url.string();
     jstring urlStr = WtfStringToJstring(env, urlString);
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadFinished, urlStr,
             (int)loadType, isMainFrame);
@@ -784,7 +784,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    WTF::String urlStr(url.string());
+    const WTF::String& urlStr = url.string();
     JNIEnv* env = getJNIEnv();
     jstring jUrlStr = WtfStringToJstring(env, urlStr);
 
@@ -802,14 +802,14 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     // always handle "POST" in place
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
-    WebCore::KURL requestUrl = request.url();
+    const WebCore::KURL& requestUrl = request.url();
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
     if (!mUserInitiatedAction && !isUserGesture &&
             (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
             WebCore::protocolIsJavaScript(requestUrl.string())))
         return true;
-    WTF::String url(request.url().string());
+    const WTF::String& url = requestUrl.string();
     // Empty urls should not be sent to java
     if (url.isEmpty())
         return true;

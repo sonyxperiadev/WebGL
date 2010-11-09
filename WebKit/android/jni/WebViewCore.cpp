@@ -675,7 +675,8 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         // as domTreeVersion only increment, we can just check the sum to see
         // whether we need to update the frame cache
         for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
-            latestVersion += frame->document()->domTreeVersion();
+            const Document* doc = frame->document();
+            latestVersion += doc->domTreeVersion() + doc->styleVersion();
         }
     }
     DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"

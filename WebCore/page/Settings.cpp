@@ -160,11 +160,11 @@ Settings::Settings(Page* page)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
-#if ENABLE(WEB_AUTOFILL)
-    , m_autoFillEnabled(false)
-#endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
+#endif
+#if ENABLE(WEB_AUTOFILL)
+    , m_autoFillEnabled(false)
 #endif
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
