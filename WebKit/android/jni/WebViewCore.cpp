@@ -73,6 +73,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
+#include "MemoryUsage.h"
 #include "Navigator.h"
 #include "Node.h"
 #include "NodeList.h"
@@ -237,6 +238,8 @@ struct WebViewCoreFields {
     jfieldID    m_viewportDensityDpi;
     jfieldID    m_webView;
     jfieldID    m_drawIsPaused;
+    jfieldID    m_lowMemoryUsageMb;
+    jfieldID    m_highMemoryUsageMb;
 } gWebViewCoreFields;
 
 // ----------------------------------------------------------------------------
@@ -392,6 +395,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
+
+    MemoryUsage::setLowMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_lowMemoryUsageMb));
+    MemoryUsage::setHighMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_highMemoryUsageMb));
 
     WebViewCore::addInstance(this);
 
@@ -4169,6 +4175,8 @@ int registerWebViewCore(JNIEnv* env)
             "mDrawIsPaused", "Z");
     LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
+    gWebViewCoreFields.m_lowMemoryUsageMb = env->GetFieldID(widget, "mLowMemoryUsageThresholdMb", "I");
+    gWebViewCoreFields.m_highMemoryUsageMb = env->GetFieldID(widget, "mHighMemoryUsageThresholdMb", "I");
 
     gWebViewCoreStaticMethods.m_isSupportedMediaMimeType =
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");
