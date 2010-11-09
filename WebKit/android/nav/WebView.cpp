@@ -885,7 +885,7 @@ void selectBestAt(const WebCore::IntRect& rect)
 {
     const CachedFrame* frame;
     int rx, ry;
-    CachedRoot* root = getFrameCache(DontAllowNewer);
+    CachedRoot* root = getFrameCache(AllowNewer);
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
 
     if (!node) {

@@ -202,6 +202,9 @@
 // apple-touch-icon support in <link> tags
 #define ANDROID_APPLE_TOUCH_ICON
 
+// track changes to the style that may change what is drawn
+#define ANDROID_STYLE_VERSION
+
 // Enable prefetching when specified via the rel element of <link> elements.
 #define ENABLE_LINK_PREFETCH 1
 

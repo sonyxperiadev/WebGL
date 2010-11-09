@@ -930,6 +930,9 @@ void Element::recalcStyle(StyleChange change)
 #endif
 
     if ((change > NoChange || needsStyleRecalc())) {
+#ifdef ANDROID_STYLE_VERSION
+        document()->incStyleVersion();
+#endif
         if (hasRareData())
             rareData()->resetComputedStyle();
     }
