@@ -830,6 +830,8 @@ public:
             if (VERBOSE_LOGGING) DBG_NAV_LOGD("full == mEnd full=(%d,%d,r=%d,b=%d)",
                 full.fLeft, full.fTop, full.fRight, full.fBottom);
             mCapture = false;
+            if (full == mStart)
+                addLastToRegion();
         }
         return false;
     }
