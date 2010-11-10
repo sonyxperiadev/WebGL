@@ -98,7 +98,7 @@ static void closeOtherPage(WKPageRef page, const void* clientInfo)
     delete view;
 }
 
-static WKPageRef createOtherPage(WKPageRef oldPage, const void*)
+static WKPageRef createOtherPage(WKPageRef oldPage, WKDictionaryRef, WKEventModifiers, WKEventMouseButton, const void*)
 {
     PlatformWebView* view = new PlatformWebView(WKPageGetPageNamespace(oldPage));
     WKPageRef newPage = view->page();
@@ -116,12 +116,20 @@ static WKPageRef createOtherPage(WKPageRef oldPage, const void*)
         0, // runJavaScriptPrompt
         0, // setStatusText
         0, // mouseDidMoveOverElement
-        0, // contentsSizeChanged
         0, // didNotHandleKeyEvent
+        0, // toolbarsAreVisible
+        0, // setToolbarsAreVisible
+        0, // menuBarIsVisible
+        0, // setMenuBarIsVisible
+        0, // statusBarIsVisible
+        0, // setStatusBarIsVisible
+        0, // isResizable
+        0, // setIsResizable
         getWindowFrameOtherPage,
         setWindowFrameOtherPage,
         0, // runBeforeUnloadConfirmPanel
-        0 // didDraw
+        0, // didDraw
+        0  // pageDidScroll
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
 
@@ -181,7 +189,7 @@ void TestController::initialize(int argc, const char* argv[])
         0,
         this,
         didReceiveMessageFromInjectedBundle,
-        0
+        didReceiveSynchronousMessageFromInjectedBundle
     };
     WKContextSetInjectedBundleClient(m_context.get(), &injectedBundleClient);
 
@@ -201,12 +209,20 @@ void TestController::initialize(int argc, const char* argv[])
         0, // runJavaScriptPrompt
         0, // setStatusText
         0, // mouseDidMoveOverElement
-        0, // contentsSizeChanged
         0, // didNotHandleKeyEvent
+        0, // toolbarsAreVisible
+        0, // setToolbarsAreVisible
+        0, // menuBarIsVisible
+        0, // setMenuBarIsVisible
+        0, // statusBarIsVisible
+        0, // setStatusBarIsVisible
+        0, // isResizable
+        0, // setIsResizable
         getWindowFrameMainPage,
         setWindowFrameMainPage,
         0, // runBeforeUnloadConfirmPanel
-        0 // didDraw
+        0, // didDraw
+        0  // pageDidScroll
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient);
 
@@ -224,6 +240,8 @@ void TestController::initialize(int argc, const char* argv[])
         0, // didFirstLayoutForFrame
         0, // didFirstVisuallyNonEmptyLayoutForFrame
         0, // didRemoveFrameFromHierarchy
+        0, // didDisplayInsecureContentForFrame
+        0, // didRunInsecureContentForFrame
         0, // didStartProgress
         0, // didChangeProgress
         0, // didFinishProgress
@@ -312,9 +330,19 @@ void TestController::didReceiveMessageFromInjectedBundle(WKContextRef context, W
     static_cast<TestController*>(const_cast<void*>(clientInfo))->didReceiveMessageFromInjectedBundle(messageName, messageBody);
 }
 
+void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKContextRef context, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData, const void* clientInfo)
+{
+    *returnData = static_cast<TestController*>(const_cast<void*>(clientInfo))->didReceiveSynchronousMessageFromInjectedBundle(messageName, messageBody).leakRef();
+}
+
 void TestController::didReceiveMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
 {
     m_currentInvocation->didReceiveMessageFromInjectedBundle(messageName, messageBody);
+}
+
+WKRetainPtr<WKTypeRef> TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
+{
+    return m_currentInvocation->didReceiveSynchronousMessageFromInjectedBundle(messageName, messageBody);
 }
 
 // WKPageLoaderClient

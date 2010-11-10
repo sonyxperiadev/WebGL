@@ -426,7 +426,7 @@ void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
         frameLoadDelegatePrivate->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
 }
 
-Frame* WebFrameLoaderClient::dispatchCreatePage()
+Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction&)
 {
     WebView* webView = m_webFrame->webView();
 
@@ -714,6 +714,10 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     core(m_webFrame)->createView(IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
 }
 
+void WebFrameLoaderClient::dispatchDidBecomeFrameset(bool)
+{
+}
+
 bool WebFrameLoaderClient::canCachePage() const
 {
     return true;
@@ -729,6 +733,15 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& url, const Strin
 }
 
 void WebFrameLoaderClient::didTransferChildFrameToNewDocument(Page*)
+{
+    Frame* coreFrame = core(m_webFrame);
+    ASSERT(coreFrame);
+    WebView* webView = kit(coreFrame->page());
+    if (m_webFrame->webView() != webView)
+        m_webFrame->setWebView(webView);
+}
+
+void WebFrameLoaderClient::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
 {
 }
 

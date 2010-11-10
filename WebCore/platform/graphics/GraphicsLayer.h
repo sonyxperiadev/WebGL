@@ -40,6 +40,10 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
+#if USE(TEXTURE_MAPPER)
+#include "texmap/TextureMapperPlatformLayer.h"
+#endif
+
 #if PLATFORM(MAC)
 #ifdef __OBJC__
 @class WebLayer;
@@ -57,11 +61,21 @@ typedef WKCACFLayer PlatformLayer;
 typedef void* NativeLayer;
 }
 #elif PLATFORM(QT)
+#if USE(TEXTURE_MAPPER)
+namespace WebCore {
+class TextureMapperPlatformLayer;
+typedef TextureMapperPlatformLayer PlatformLayer;
+typedef TextureMapperPlatformLayer* NativeLayer;
+};
+#else
 QT_BEGIN_NAMESPACE
-class QGraphicsItem;
+class QGraphicsObject;
 QT_END_NAMESPACE
-typedef QGraphicsItem PlatformLayer;
-typedef QGraphicsItem* NativeLayer;
+namespace WebCore {
+typedef QGraphicsObject PlatformLayer;
+typedef QGraphicsObject* NativeLayer;
+}
+#endif
 #elif PLATFORM(CHROMIUM)
 namespace WebCore {
 class LayerChromium;

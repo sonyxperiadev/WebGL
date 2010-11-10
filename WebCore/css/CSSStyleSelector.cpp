@@ -702,6 +702,8 @@ void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleI
 
     for (CSSRuleData* d = rules->first(); d; d = d->next()) {
         CSSStyleRule* rule = d->rule();
+        if (m_checker.m_sameOriginOnly && !m_checker.m_document->securityOrigin()->canRequest(rule->baseURL()))
+            continue; 
         if (checkSelector(d->selector())) {
             // If the rule has no properties to apply, then ignore it in the non-debug mode.
             CSSMutableStyleDeclaration* decl = rule->declaration();
@@ -817,6 +819,10 @@ inline void CSSStyleSelector::initElement(Element* e)
         m_element = e;
         m_styledElement = m_element && m_element->isStyledElement() ? static_cast<StyledElement*>(m_element) : 0;
         m_elementLinkState = m_checker.determineLinkState(m_element);
+        if (e && e == e->document()->documentElement()) {
+            e->document()->setDirectionSetOnDocumentElement(false);
+            e->document()->setWritingModeSetOnDocumentElement(false);
+        }
     }
 }
 
@@ -884,6 +890,7 @@ CSSStyleSelector::SelectorChecker::SelectorChecker(Document* document, bool stri
     : m_document(document)
     , m_strictParsing(strictParsing)
     , m_collectRulesOnly(false)
+    , m_sameOriginOnly(false)
     , m_pseudoStyle(NOPSEUDO)
     , m_documentIsHTML(document->isHTMLDocument())
     , m_matchVisitedPseudoClass(false)
@@ -1105,13 +1112,23 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForDocument(Document* document)
     documentStyle->setDisplay(BLOCK);
     documentStyle->setVisuallyOrdered(document->visuallyOrdered());
     documentStyle->setZoom(frame ? frame->pageZoomFactor() : 1);
+    documentStyle->setPageScaleTransform(frame ? frame->pageScaleFactor() : 1);
     
     Element* docElement = document->documentElement();
-    if (docElement && docElement->renderer()) {
-        // Use the direction and block-flow of the document element to set the
-        // viewport's direction and block-flow.
-        documentStyle->setWritingMode(docElement->renderer()->style()->writingMode());
-        documentStyle->setDirection(docElement->renderer()->style()->direction());
+    RenderObject* docElementRenderer = docElement ? docElement->renderer() : 0;
+    if (docElementRenderer) {
+        // Use the direction and writing-mode of the body to set the
+        // viewport's direction and writing-mode unless the property is set on the document element.
+        // If there is no body, then use the document element.
+        RenderObject* bodyRenderer = document->body() ? document->body()->renderer() : 0;
+        if (bodyRenderer && !document->writingModeSetOnDocumentElement())
+            documentStyle->setWritingMode(bodyRenderer->style()->writingMode());
+        else
+            documentStyle->setWritingMode(docElementRenderer->style()->writingMode());
+        if (bodyRenderer && !document->directionSetOnDocumentElement())
+            documentStyle->setDirection(bodyRenderer->style()->direction());
+        else
+            documentStyle->setDirection(docElementRenderer->style()->direction());
     }
 
     FontDescription fontDescription;
@@ -1866,12 +1883,12 @@ void CSSStyleSelector::cacheBorderAndBackground()
     }
 }
 
-PassRefPtr<CSSRuleList> CSSStyleSelector::styleRulesForElement(Element* e, bool authorOnly, bool includeEmptyRules)
+PassRefPtr<CSSRuleList> CSSStyleSelector::styleRulesForElement(Element* e, bool authorOnly, bool includeEmptyRules, CSSRuleFilter filter)
 {
-    return pseudoStyleRulesForElement(e, NOPSEUDO, authorOnly, includeEmptyRules);
+    return pseudoStyleRulesForElement(e, NOPSEUDO, authorOnly, includeEmptyRules, filter);
 }
 
-PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e, PseudoId pseudoId, bool authorOnly, bool includeEmptyRules)
+PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e, PseudoId pseudoId, bool authorOnly, bool includeEmptyRules, CSSRuleFilter filter)
 {
     if (!e || !e->document()->haveStylesheetsLoaded())
         return 0;
@@ -1894,13 +1911,17 @@ PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e,
     }
 
     if (m_matchAuthorAndUserStyles) {
+        m_checker.m_sameOriginOnly = (filter == SameOriginCSSRulesOnly);
+
         // Check the rules in author sheets.
         int firstAuthorRule = -1, lastAuthorRule = -1;
         matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule, includeEmptyRules);
+
+        m_checker.m_sameOriginOnly = false;
     }
 
     m_checker.m_collectRulesOnly = false;
-    
+   
     return m_ruleList.release();
 }
 
@@ -3224,6 +3245,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyDirection:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(direction, Direction)
+        if (!isInherit && !isInitial && m_element && m_element == m_element->document()->documentElement())
+            m_element->document()->setDirectionSetOnDocumentElement(true);
         return;
     case CSSPropertyDisplay:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(display, Display)
@@ -5571,9 +5594,16 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 #endif 
 
     // CSS Text Layout Module Level 3: Vertical writing support
-    case CSSPropertyWebkitWritingMode:
+    case CSSPropertyWebkitWritingMode: {
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(writingMode, WritingMode)
+        if (!isInherit && !isInitial && m_element && m_element == m_element->document()->documentElement())
+            m_element->document()->setWritingModeSetOnDocumentElement(true);
+        FontDescription fontDescription = m_style->fontDescription();
+        fontDescription.setOrientation(m_style->isHorizontalWritingMode() ? Horizontal : Vertical);
+        if (m_style->setFontDescription(fontDescription))
+            m_fontDirty = true;
         return;
+    }
 
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
@@ -6972,10 +7002,12 @@ void CSSStyleSelector::loadPendingImages()
             case CSSPropertyCursor: {
                 if (CursorList* cursorList = m_style->cursors()) {
                     for (size_t i = 0; i < cursorList->size(); ++i) {
-                        CursorData& currentCursor = (*cursorList)[i];
-                        if (currentCursor.image()->isPendingImage()) {
-                            CSSImageValue* imageValue = static_cast<StylePendingImage*>(currentCursor.image())->cssImageValue();
-                            currentCursor.setImage(imageValue->cachedImage(cachedResourceLoader));
+                        CursorData& currentCursor = cursorList->at(i);
+                        if (StyleImage* image = currentCursor.image()) {
+                            if (image->isPendingImage()) {
+                                CSSImageValue* imageValue = static_cast<StylePendingImage*>(image)->cssImageValue();
+                                currentCursor.setImage(imageValue->cachedImage(cachedResourceLoader));
+                            }
                         }
                     }
                 }

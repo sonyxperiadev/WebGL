@@ -31,6 +31,7 @@
 #include "CSSParser.h"
 #include "CSSSelectorList.h"
 #include "CSSStyleSelector.h"
+#include "ClassList.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
 #include "DOMTokenList.h"
@@ -52,13 +53,13 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
-#include "SVGStyledLocatableElement.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
 #include <wtf/text/CString.h>
 
 #if ENABLE(SVG)
+#include "SVGElement.h"
 #include "SVGNames.h"
 #endif
 
@@ -457,6 +458,41 @@ int Element::scrollHeight() const
     return 0;
 }
 
+IntRect Element::boundsInWindowSpace() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+
+    FrameView* view = document()->view();
+    if (!view)
+        return IntRect();
+
+    Vector<FloatQuad> quads;
+#if ENABLE(SVG)
+    if (isSVGElement() && renderer()) {
+        // Get the bounding rectangle from the SVG model.
+        const SVGElement* svgElement = static_cast<const SVGElement*>(this);
+        FloatRect localRect;
+        if (svgElement->boundingBox(localRect))
+            quads.append(renderer()->localToAbsoluteQuad(localRect));
+    } else
+#endif
+    {
+        // Get the bounding rectangle from the box model.
+        if (renderBoxModelObject())
+            renderBoxModelObject()->absoluteQuads(quads);
+    }
+
+    if (quads.isEmpty())
+        return IntRect();
+
+    IntRect result = quads[0].enclosingBoundingBox();
+    for (size_t i = 1; i < quads.size(); ++i)
+        result.unite(quads[i].enclosingBoundingBox());
+
+    result = view->contentsToWindow(result);
+    return result;
+}
+
 PassRefPtr<ClientRectList> Element::getClientRects() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
@@ -488,15 +524,12 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
 
     Vector<FloatQuad> quads;
 #if ENABLE(SVG)
-    if (isSVGElement()) {
+    if (isSVGElement() && renderer()) {
         // Get the bounding rectangle from the SVG model.
         const SVGElement* svgElement = static_cast<const SVGElement*>(this);
-        if (svgElement->isStyledLocatable()) {
-            if (renderer()) {
-                const FloatRect& localRect = static_cast<const SVGStyledLocatableElement*>(svgElement)->getBBox();
-                quads.append(renderer()->localToAbsoluteQuad(localRect));
-            }
-        }
+        FloatRect localRect;
+        if (svgElement->boundingBox(localRect))
+            quads.append(renderer()->localToAbsoluteQuad(localRect));
     } else
 #endif
     {
@@ -517,9 +550,7 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
         result.move(-visibleContentRect.x(), -visibleContentRect.y());
     }
 
-    if (renderBoxModelObject())
-        adjustIntRectForAbsoluteZoom(result, renderBoxModelObject());
-
+    adjustIntRectForAbsoluteZoom(result, renderer());
     return ClientRect::create(result);
 }
 
@@ -1588,7 +1619,7 @@ DOMTokenList* Element::classList()
 {
     ElementRareData* data = ensureRareData();
     if (!data->m_classList)
-        data->m_classList = DOMTokenList::create(this);
+        data->m_classList = ClassList::create(this);
     return data->m_classList.get();
 }
 
@@ -1680,5 +1711,38 @@ void Element::webkitRequestFullScreen(unsigned short flags)
     document()->webkitRequestFullScreenForElement(this, flags);
 }
 #endif    
+
+SpellcheckAttributeState Element::spellcheckAttributeState() const
+{
+    if (!hasAttribute(HTMLNames::spellcheckAttr))
+        return SpellcheckAttributeDefault;
+
+    const AtomicString& value = getAttribute(HTMLNames::spellcheckAttr);
+    if (equalIgnoringCase(value, "true") || equalIgnoringCase(value, ""))
+        return SpellcheckAttributeTrue;
+    if (equalIgnoringCase(value, "false"))
+        return SpellcheckAttributeFalse;
+
+    return SpellcheckAttributeDefault;
+}
+
+bool Element::isSpellCheckingEnabled() const
+{
+    const Element* element = this;
+    while (element) {
+        switch (element->spellcheckAttributeState()) {
+        case SpellcheckAttributeTrue:
+            return true;
+        case SpellcheckAttributeFalse:
+            return false;
+        case SpellcheckAttributeDefault:
+            break;
+        }
+
+        element = element->parentElement();
+    }
+
+    return true;
+}
 
 } // namespace WebCore

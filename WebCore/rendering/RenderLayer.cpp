@@ -524,8 +524,13 @@ void RenderLayer::setHasVisibleContent(bool b)
         RenderBoxModelObject* repaintContainer = renderer()->containerForRepaint();
         m_repaintRect = renderer()->clippedOverflowRectForRepaint(repaintContainer);
         m_outlineBox = renderer()->outlineBoundsForRepaint(repaintContainer);
-        if (!isNormalFlowOnly())
-            dirtyStackingContextZOrderLists();
+        if (!isNormalFlowOnly()) {
+            for (RenderLayer* sc = stackingContext(); sc; sc = sc->stackingContext()) {
+                sc->dirtyZOrderLists();
+                if (sc->hasVisibleContent())
+                    break;
+            }
+        }
     }
     if (parent())
         parent()->childVisibilityChanged(m_hasVisibleContent);
@@ -672,7 +677,7 @@ void RenderLayer::updateLayerPosition()
                 setHeight(box->bottomLayoutOverflow());
         }
         
-        localPoint += box->locationOffset();
+        localPoint += box->locationOffsetIncludingFlipping();
     }
 
     // Clear our cached clip rect information.
@@ -686,13 +691,13 @@ void RenderLayer::updateLayerPosition()
             if (curr->isBox() && !curr->isTableRow()) {
                 // Rows and cells share the same coordinate space (that of the section).
                 // Omit them when computing our xpos/ypos.
-                localPoint += toRenderBox(curr)->locationOffset();
+                localPoint += toRenderBox(curr)->locationOffsetIncludingFlipping();
             }
             curr = curr->parent();
         }
         if (curr->isBox() && curr->isTableRow()) {
             // Put ourselves into the row coordinate space.
-            localPoint -= toRenderBox(curr)->locationOffset();
+            localPoint -= toRenderBox(curr)->locationOffsetIncludingFlipping();
         }
     }
     
@@ -2472,7 +2477,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
     if (paintingRoot && !renderer()->isDescendantOf(paintingRoot))
         paintingRootForRenderer = paintingRoot;
 
-    if (overlapTestRequests)
+    if (overlapTestRequests && isSelfPaintingLayer())
         performOverlapTests(*overlapTestRequests, layerBounds);
 
     // We want to paint our layer, but only if we intersect the damage rect.

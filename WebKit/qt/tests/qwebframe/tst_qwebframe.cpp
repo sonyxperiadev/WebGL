@@ -602,8 +602,8 @@ private slots:
     void setHtmlWithJSAlert();
     void ipv6HostEncoding();
     void metaData();
-#if !defined(Q_WS_MAEMO_5)
-    // as maemo 5 does not use QComboBoxes to implement the popups
+#if !defined(Q_WS_MAEMO_5) && !defined(Q_OS_SYMBIAN)
+    // as maemo 5 && symbian do not use QComboBoxes to implement the popups
     // this test does not make sense for it.
     void popupFocus();
 #endif
@@ -2585,7 +2585,7 @@ void tst_QWebFrame::metaData()
     QCOMPARE(metaData.value("nonexistant"), QString());
 }
 
-#if !defined(Q_WS_MAEMO_5)
+#if !defined(Q_WS_MAEMO_5) && !defined(Q_OS_SYMBIAN)
 void tst_QWebFrame::popupFocus()
 {
     QWebView view;
@@ -2603,9 +2603,11 @@ void tst_QWebFrame::popupFocus()
                  "    </body>"
                  "</html>");
     view.resize(400, 100);
+    // Call setFocus before show to work around http://bugreports.qt.nokia.com/browse/QTBUG-14762
+    view.setFocus();
     view.show();
     QTest::qWaitForWindowShown(&view);
-    view.setFocus();
+    view.activateWindow();
     QTRY_VERIFY(view.hasFocus());
 
     // open the popup by clicking. check if focus is on the popup
@@ -2618,7 +2620,7 @@ void tst_QWebFrame::popupFocus()
 
     // hide the popup and check if focus is on the page
     combo->hidePopup();
-    QTRY_VERIFY(view.hasFocus() && !combo->view()->hasFocus()); // Focus should be back on the WebView
+    QTRY_VERIFY(view.hasFocus()); // Focus should be back on the WebView
 }
 #endif
 
@@ -2629,6 +2631,7 @@ void tst_QWebFrame::inputFieldFocus()
     view.resize(400, 100);
     view.show();
     QTest::qWaitForWindowShown(&view);
+    view.activateWindow();
     view.setFocus();
     QTRY_VERIFY(view.hasFocus());
 

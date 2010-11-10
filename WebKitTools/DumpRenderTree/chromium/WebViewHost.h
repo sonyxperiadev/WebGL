@@ -192,6 +192,7 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
     virtual void didDisplayInsecureContent(WebKit::WebFrame*);
     virtual void didRunInsecureContent(WebKit::WebFrame*, const WebKit::WebSecurityOrigin&);
     virtual bool allowScript(WebKit::WebFrame*, bool enabledPerSettings);
+    virtual void openFileSystem(WebKit::WebFrame*, WebKit::WebFileSystem::Type, long long size, bool create, WebKit::WebFileSystemCallbacks*);
 
 private:
     LayoutTestController* layoutTestController() const;
@@ -219,6 +220,9 @@ private:
 
     // Dumping a frame to the console.
     void printFrameDescription(WebKit::WebFrame*);
+
+    // Dumping the user gesture status to the console.
+    void printFrameUserGestureStatus(WebKit::WebFrame*, const char*);
 
     bool hasWindow() const { return m_hasWindow; }
     void resetScrollRect();

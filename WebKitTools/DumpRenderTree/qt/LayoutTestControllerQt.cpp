@@ -73,6 +73,7 @@ void LayoutTestController::reset()
 
     DumpRenderTreeSupportQt::dumpEditingCallbacks(false);
     DumpRenderTreeSupportQt::dumpFrameLoader(false);
+    DumpRenderTreeSupportQt::dumpUserGestureInFrameLoader(false);
     DumpRenderTreeSupportQt::dumpResourceLoadCallbacks(false);
     DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes(false);
     DumpRenderTreeSupportQt::setDeferMainResourceDataLoad(true);
@@ -244,6 +245,11 @@ void LayoutTestController::dumpEditingCallbacks()
 void LayoutTestController::dumpFrameLoadCallbacks()
 {
     DumpRenderTreeSupportQt::dumpFrameLoader(true);
+}
+
+void LayoutTestController::dumpUserGestureInFrameLoadCallbacks()
+{
+    DumpRenderTreeSupportQt::dumpUserGestureInFrameLoader(true);
 }
 
 void LayoutTestController::dumpResourceLoadCallbacks()
@@ -759,7 +765,7 @@ void LayoutTestController::setMockGeolocationPosition(double latitude, double lo
     DumpRenderTreeSupportQt::setMockGeolocationPosition(latitude, longitude, accuracy);
 }
 
-void LayoutTestController::setMockSpeechInputResult(const QString& result)
+void LayoutTestController::setMockSpeechInputResult(const QString& result, const QString& language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.

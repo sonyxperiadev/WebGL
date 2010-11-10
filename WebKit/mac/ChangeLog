@@ -1,3 +1,312 @@
+2010-10-29  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change BackForwardList clients to use BackForwardListImpl to prepare for further refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=48574
+
+        * History/WebBackForwardList.mm:
+        Use BackForwardListImpl.
+
+2010-10-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Comment for usesDocumentViews explains it backwards. This flag is true in ToT, and we do
+        create views for subframes.
+
+        * WebView/WebViewData.h: Double negation is better than a lie.
+
+2010-10-27  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Full screen video in Safari (still) exits full-screen if you switch to another 
+        app on a multi-display system.
+        https://bugs.webkit.org/show_bug.cgi?id=47364
+        <rdar://problem/8382299>
+        
+        The FullScreen window does not technically close when it deactivates, but the 
+        two NSWindows that make up the FullScreen feature should not hide when deactivated.
+        
+        * WebView/WebVideoFullscreenController.mm:
+        (createBackgroundFullscreenWindow): Do not set hidesOnDeactivate.
+        (-[WebVideoFullscreenWindow initWithContentRect:styleMask:backing:defer:]): Ditto.
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindow initWithContentRect:styleMask:backing:defer:]): Ditto.
+
+2010-10-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48576
+        Let WebKit2 client know when a frame is a frameset
+
+        Added a blank implementation of the new FrameLoaderClient method.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidBecomeFrameset):
+
+2010-10-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Adam Roben and David Kilzer.
+
+        Fix and cleanup of build systems
+        https://bugs.webkit.org/show_bug.cgi?id=48342
+
+        * Configurations/FeatureDefines.xcconfig: Remove unnecessary ENABLE_SANDBOX.
+
+2010-10-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        LLVM compiler build fix
+
+        * Misc/WebDownload.mm:
+        (-[WebDownload initWithRequest:delegate:]): Changed the delegate type from id to
+        id<NSURLDownloadDelegate> to match the method signature in NSURLDownload.
+
+2010-10-28  Ivan Krstić  <ike@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Remove unused experimental proxied panel interface.
+        <rdar://problem/7237059>
+
+        * Plugins/Hosted/NetscapePluginHostManager.h:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::hostForPlugin):
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        (WebKit::NetscapePluginHostManager::instantiatePlugin):
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        * Plugins/Hosted/WebKitPluginClient.defs:
+        * Plugins/Hosted/WebKitPluginHost.defs:
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebPreferencesPrivate.h:
+
+2010-10-27  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Improve memSize calculation in [WebView _setCacheModel]
+        https://bugs.webkit.org/show_bug.cgi?id=48484
+
+        * WebView/WebView.mm:
+        (roundUpToPowerOf2): Added. Utility function to calculate the nearest power of 2.
+        (+[WebView _setCacheModel:]): Update memSize calculation to set it to the next
+        bigger power of 2. Also update WebCore cache settings.
+
+2010-10-26  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support layoutTestController.dumpBackForwardList
+        https://bugs.webkit.org/show_bug.cgi?id=42322
+        rdar://problem/8193631
+
+        WebKitTestRunner needs to support layoutTestController.clearBackForwardList
+        https://bugs.webkit.org/show_bug.cgi?id=42333
+        rdar://problem/8193643
+
+        * History/WebBackForwardList.mm:
+        (core): Return BackForwardListImpl.
+        (kit): Take BackForwardListImpl.
+        (-[WebBackForwardList initWithBackForwardList:]): Use BackForwardListImpl.
+        (-[WebBackForwardList dealloc]): Ditto.
+        (-[WebBackForwardList finalize]): Ditto.
+        (-[WebBackForwardList description]): Ditto.
+        (-[WebBackForwardList setPageCacheSize:]): Ditto.
+        (-[WebBackForwardList pageCacheSize]): Ditto.
+        * History/WebBackForwardListInternal.h: Ditto.
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView keyDown:]): Ditto.
+        * WebView/WebView.mm:
+        (-[WebView initWithCoder:]): Ditto.
+        (-[WebView encodeWithCoder:]): Ditto.
+        (-[WebView backForwardList]): Ditto.
+        (-[WebView setMaintainsBackForwardList:]): Ditto.
+
+2010-10-27  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Chris Marrin.
+
+        Add ENABLE_WEB_AUDIO feature enable flag (initially disabled) to build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=48279
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-10-27  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=48385 Add WebKit 
+        SPI to scale a WebView
+        -and corresponding-
+        <rdar://problem/8107667>
+
+        This patch adds SPI to Mac WebKit that scales the page by the given 
+        scale factor.
+
+        * WebView/WebView.mm:
+        (-[WebView _scaleWebView:]):
+        (-[WebView _viewScaleFactor]):
+        * WebView/WebViewPrivate.h:
+
+2010-10-27  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r70335): Incorrect article layout in Safari Reader
+        https://bugs.webkit.org/show_bug.cgi?id=48436
+
+        * Misc/WebKitVersionChecks.h: Added WEBKIT_FIRST_VERSION_WITH_GET_MATCHED_CSS_RULES_RESTRICTIONS.
+        * WebView/WebView.mm:
+        (-[WebView _needsUnrestrictedGetMatchedCSSRules]): Added. Returns YES for Safari linked against
+        versions of WebKit that did not have the cross-origin restrictions in getMatchedCSSRules().
+        (-[WebView _preferencesChangedNotification:]): Call Settings::setCrossOriginCheckInGetMatchedCSSRulesDisabled()
+        based on the above.
+
+2010-10-18  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Safari fullscreen media element tickles when it should not.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=47861
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController updatePowerAssertions]):
+
+2010-10-26  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Resource tracking failure when trying to move a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=44713
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::didTransferChildFrameToNewDocument):
+        Empty method.
+        (WebFrameLoaderClient::transferLoadingResourceFromPage):
+        Update resource tracking for a resource load that has been transferred
+        to a new page.
+
+2010-10-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove exec and globalData arguments from jsNumber
+        https://bugs.webkit.org/show_bug.cgi?id=48270
+
+        Mechanical removal of exec parameter to jsNumber
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::demarshalValueFromArray):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::numberValue):
+
+2010-10-24  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Expose HitTestResult::absoluteMediaURL() via WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=48219
+
+        * Misc/WebElementDictionary.mm:
+        (+[WebElementDictionary initializeLookupTable]): Map WebElementMediaURLKey to
+        _absoluteMediaURL.
+        (-[WebElementDictionary _absoluteMediaURL]): Added. Returns absoluteMediaURL().
+        * WebKit.exp: Export WebElementMediaURLKey.
+        * WebView/WebView.mm: Define WebElementMediaURLKey.
+        * WebView/WebViewPrivate.h: Declare WebElementMediaURLKey.
+
+2010-10-24  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Removed deprecated methods from the WebHTMLHighlighter private protocol.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::customHighlightRect): Call -highlightRectForLine:representedNode:
+        unconditionally.
+        (WebChromeClient::paintCustomHighlight): Call
+        -paintHighlightForBox:onLine:behindText:entireLine:representedNode: unconditionally.
+        * WebView/WebHTMLViewPrivate.h:
+
+2010-10-23  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Sam Weinig.
+
+        Unify globalData APIs
+        https://bugs.webkit.org/show_bug.cgi?id=47969
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::evaluate):
+        (WebKit::NetscapePluginInstanceProxy::invoke):
+        (WebKit::NetscapePluginInstanceProxy::invokeDefault):
+        (WebKit::NetscapePluginInstanceProxy::construct):
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame evaluateWebScript:]):
+
+2010-10-23  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/48186> Remove unneeded WebHTMLRepresentationInternal.h header
+
+        Reviewed by Sam Weinig.
+
+        The only method defined in WebHTMLRepresentationInternal.h is
+        also defined in WebHTMLRepresentation.h, so use that instead.
+
+        * WebView/WebHTMLRepresentationInternal.h: Removed.
+
+2010-10-23  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48083
+        <rdar://problem/8489082> Need WebKit2 API for private browsing (48083)
+
+        * WebCoreSupport/WebSystemInterface.mm: (InitWebCoreSystemInterface): Initialize the new method.
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit2 needs to pass the current event modifier flags when requesting a new window
+        https://bugs.webkit.org/show_bug.cgi?id=48140
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::createWindow):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchCreatePage):
+        Add NavigationAction parameter.
+
+2010-10-21  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        WebKit shouldn't load a plug-in based on file extension if a MIME type
+        is specified.
+        https://bugs.webkit.org/show_bug.cgi?id=48046
+
+        If a MIME type is specified in an object or embed element, and that MIME
+        type isn't supported by an installed plug-in, WebKit shouldn't attempt
+        to find a plug-in based on the file extension of the url attribute.
+        Doing so can lead to cases where a plug-in is loaded that can't handle
+        resources of the MIME type specified by the author.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::createPlugin): Only check for a pluginPackage by
+        extension if MIME type is the empty string.
+
 2010-10-20  Simon Fraser  <simon.fraser@apple.com>
 
         Reviewed by Dan Bernstein.

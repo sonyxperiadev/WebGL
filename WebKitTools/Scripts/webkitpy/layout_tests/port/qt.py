@@ -31,6 +31,7 @@
 import logging
 import os
 import signal
+import sys
 
 import webkit
 
@@ -45,6 +46,17 @@ class QtPort(WebKitPort):
     def __init__(self, **kwargs):
         kwargs.setdefault('port_name', 'qt')
         WebKitPort.__init__(self, **kwargs)
+
+    def baseline_search_path(self):
+        port_names = []
+        if sys.platform == 'linux2':
+            port_names.append("qt-linux")
+        elif sys.platform in ('win32', 'cygwin'):
+            port_names.append("qt-win")
+        elif sys.platform == 'darwin':
+            port_names.append("qt-mac")
+        port_names.append("qt")
+        return map(self._webkit_baseline_path, port_names)
 
     def _tests_for_other_platforms(self):
         # FIXME: This list could be dynamic based on platform name and
@@ -91,6 +103,9 @@ class QtPort(WebKitPort):
 
     def _path_to_driver(self):
         return self._build_path('bin/DumpRenderTree')
+
+    def _path_to_image_diff(self):
+        return self._build_path('bin/ImageDiff')
 
     def _path_to_webcore_library(self):
         return self._build_path('lib/libQtWebKit.so')

@@ -180,6 +180,7 @@
 		</Configuration>
 		<Configuration
 			Name="Debug_Cairo|Win32"
+			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="4"
 			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;.\WebCoreCommon.vsprops;.\WebCoreCairo.vsprops;.\WebCoreCURL.vsprops"
 			CharacterSet="1"
@@ -3956,6 +3957,62 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMSelection.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMSettableTokenList.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMSettableTokenList.h"
 				>
 			</File>
 			<File
@@ -24263,6 +24320,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\platform\FileMetadata.h"
+				>
+			</File>
+			<File
 				RelativePath="..\platform\FileStream.cpp"
 				>
 			</File>
@@ -25811,10 +25872,42 @@
 					<File
 						RelativePath="..\platform\graphics\win\GraphicsLayerCACF.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\GraphicsLayerCACF.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\IconWin.cpp"
@@ -25899,18 +25992,82 @@
 					<File
 						RelativePath="..\platform\graphics\win\MediaPlayerPrivateFullscreenWindow.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\MediaPlayerPrivateFullscreenWindow.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\MediaPlayerPrivateQuickTimeVisualContext.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\MediaPlayerPrivateQuickTimeVisualContext.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\MediaPlayerPrivateQuickTimeWin.cpp"
@@ -26047,50 +26204,242 @@
 					<File
 						RelativePath="..\platform\graphics\win\WebLayer.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WebLayer.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WebTiledLayer.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WebTiledLayer.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFContextFlusher.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFContextFlusher.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFLayer.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFLayer.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFLayerRenderer.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCACFLayerRenderer.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCAImageQueue.cpp"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\win\WKCAImageQueue.h"
 						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
 					</File>
 				</Filter>
 				<Filter
@@ -27526,6 +27875,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\network\CookieStorage.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\network\Credential.cpp"
 					>
 				</File>
@@ -27743,6 +28096,50 @@
 								Name="VCCustomBuildTool"
 							/>
 						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\network\cf\CookieJarCFNet.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\network\cf\CookieStorageCFNet.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\network\cf\CookieStorageCFNet.h"
+						>
 					</File>
 					<File
 						RelativePath="..\platform\network\cf\CredentialStorageCFNet.cpp"
@@ -28076,66 +28473,6 @@
 				<Filter
 					Name="win"
 					>
-					<File
-						RelativePath="..\platform\network\win\CookieJarCFNetWin.cpp"
-						>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="..\platform\network\win\CookieStorageWin.cpp"
-						>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="..\platform\network\win\CookieStorageWin.h"
-						>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
 					<File
 						RelativePath="..\platform\network\win\NetworkStateNotifierWin.cpp"
 						>
@@ -42171,6 +42508,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\IgnoreDestructiveWriteCountIncrementer.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\InputElement.cpp"
 				>
 				<FileConfiguration
@@ -47619,6 +47960,62 @@
 				>
 			</File>
 			<File
+				RelativePath="..\editing\TextCheckingHelper.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\editing\TextCheckingHelper.h"
+				>
+			</File>
+			<File
 				RelativePath="..\editing\TextGranularity.h"
 				>
 			</File>
@@ -48035,6 +48432,22 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\BaseButtonInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BaseButtonInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BaseCheckableInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BaseCheckableInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\BaseDateAndTimeInputType.cpp"
 				>
 			</File>
@@ -48136,6 +48549,14 @@
 			</File>
 			<File
 				RelativePath="..\html\CheckboxInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ClassList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ClassList.h"
 				>
 			</File>
 			<File
@@ -48303,6 +48724,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\DOMSettableTokenList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DOMSettableTokenList.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\DOMTokenList.cpp"
 				>
 			</File>
@@ -48424,6 +48853,18 @@
 			</File>
 			<File
 				RelativePath="..\fileapi\FileReader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReaderLoader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReaderLoader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReaderLoaderClient.h"
 				>
 			</File>
 			<File
@@ -55970,6 +56411,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSFileReaderCustom.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSGeolocationCustom.cpp"
 					>
 					<FileConfiguration
@@ -61199,11 +61644,39 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGAnimatedAngle.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedBoolean.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedEnumeration.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedInteger.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedLength.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedLengthList.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGAnimatedPathData.h"
 				>
 			</File>
 			<File
 				RelativePath="..\svg\SVGAnimatedPoints.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedRect.h"
 				>
 			</File>
 			<File
@@ -62226,7 +62699,47 @@
 				Name="properties"
 				>
 				<File
-    				RelativePath="..\svg\properties\SVGAnimatedPropertySynchronizer.h"
+					RelativePath="..\svg\properties\SVGAnimatedListPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedProperty.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedPropertyDescription.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedPropertyMacros.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedPropertySynchronizer.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGAnimatedStaticPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGListPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGProperty.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGPropertyTraits.h"
 					>
 				</File>
 			</Filter>

@@ -207,6 +207,7 @@ SET(WebCore_IDL_FILES
     html/DataGridColumn.idl
     html/DataGridColumnList.idl
     html/DOMFormData.idl
+    html/DOMSettableTokenList.idl
     html/DOMTokenList.idl
     html/HTMLAllCollection.idl
     html/HTMLAnchorElement.idl
@@ -619,6 +620,7 @@ SET(WebCore_SOURCES
     bindings/js/JSEventSourceCustom.cpp
     bindings/js/JSEventTarget.cpp
     bindings/js/JSExceptionBase.cpp
+    bindings/js/JSFileReaderCustom.cpp
     bindings/js/JSGeolocationCustom.cpp
     bindings/js/JSHistoryCustom.cpp
     bindings/js/JSIDBAnyCustom.cpp
@@ -924,6 +926,7 @@ SET(WebCore_SOURCES
     editing/SplitElementCommand.cpp
     editing/SplitTextNodeCommand.cpp
     editing/SplitTextNodeContainingElementCommand.cpp
+    editing/TextCheckingHelper.cpp
     editing/TextIterator.cpp
     editing/TypingCommand.cpp
     editing/UnlinkCommand.cpp
@@ -949,14 +952,18 @@ SET(WebCore_SOURCES
     history/PageCache.cpp
 
     html/AsyncImageResizer.cpp
+    html/BaseButtonInputType.cpp
+    html/BaseCheckableInputType.cpp
     html/BaseDateAndTimeInputType.cpp
     html/BaseTextInputType.cpp
     html/ButtonInputType.cpp
     html/CheckboxInputType.cpp
+    html/ClassList.cpp
     html/CollectionCache.cpp
     html/ColorInputType.cpp
     html/DOMDataGridDataSource.cpp
     html/DOMFormData.cpp
+    html/DOMSettableTokenList.cpp
     html/DOMTokenList.cpp
     html/DataGridColumn.cpp
     html/DataGridColumnList.cpp
@@ -1590,6 +1597,7 @@ SET(WebCore_SOURCES
 IF (ENABLE_BLOB)
     LIST(APPEND WebCore_SOURCES
         fileapi/FileReader.cpp
+        fileapi/FileReaderLoader.cpp
         fileapi/FileThread.cpp
         fileapi/FileStreamProxy.cpp
         platform/FileStream.cpp

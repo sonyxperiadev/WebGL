@@ -69,6 +69,7 @@ from layout_package import json_layout_results_generator
 from layout_package import printing
 from layout_package import test_expectations
 from layout_package import test_failures
+from layout_package import test_results
 from layout_package import test_results_uploader
 from test_types import image_diff
 from test_types import text_diff
@@ -457,7 +458,7 @@ class TestRunner:
             # subtracted out of self._test_files, above), but we stub out the
             # results here so the statistics can remain accurate.
             for test in skip_chunk:
-                result = dump_render_tree_thread.TestResult(test,
+                result = test_results.TestResult(test,
                     failures=[], test_run_time=0, total_time_for_all_diffs=0,
                     time_for_diffs=0)
                 result.type = test_expectations.SKIP
@@ -852,7 +853,7 @@ class TestRunner:
         """Update the summary and print results with any completed tests."""
         while True:
             try:
-                result = self._result_queue.get_nowait()
+                result = test_results.TestResult.loads(self._result_queue.get_nowait())
             except Queue.Empty:
                 return
 
@@ -950,7 +951,12 @@ class TestRunner:
         _log.info("Uploading JSON files for builder: %s",
                    self._options.builder_name)
 
-        attrs = [("builder", self._options.builder_name)]
+        attrs = [("builder", self._options.builder_name), ("testtype", "layout-tests")]
+        # FIXME: master_name should be required if test_results_server is set.
+        # Throw an error if master_name isn't set.
+        if self._options.master_name:
+            attrs.append(("master", self._options.master_name))
+
         json_files = ["expectations.json"]
         if self._options.upload_full_results:
             json_files.append("results.json")
@@ -959,6 +965,13 @@ class TestRunner:
 
         files = [(file, os.path.join(self._options.results_directory, file))
             for file in json_files]
+
+        # FIXME: Remove this. This is temporary debug logging.
+        if self._options.builder_name.startswith("Webkit Linux"):
+            for filename in files:
+                _log.debug(filename[1])
+                with codecs.open(filename[1], "r") as results_file:
+                    _log.debug("%s:\n%s" % (filename[0], results_file.read()))
 
         uploader = test_results_uploader.TestResultsUploader(
             self._options.test_results_server)
@@ -1011,16 +1024,13 @@ class TestRunner:
         tests = self._expectations.get_tests_with_result_type(result_type)
         now = result_summary.tests_by_timeline[test_expectations.NOW]
         wontfix = result_summary.tests_by_timeline[test_expectations.WONTFIX]
-        defer = result_summary.tests_by_timeline[test_expectations.DEFER]
 
         # We use a fancy format string in order to print the data out in a
         # nicely-aligned table.
-        fmtstr = ("Expect: %%5d %%-8s (%%%dd now, %%%dd defer, %%%dd wontfix)"
-                  % (self._num_digits(now), self._num_digits(defer),
-                  self._num_digits(wontfix)))
+        fmtstr = ("Expect: %%5d %%-8s (%%%dd now, %%%dd wontfix)"
+                  % (self._num_digits(now), self._num_digits(wontfix)))
         self._printer.print_expected(fmtstr %
-            (len(tests), result_type_str, len(tests & now),
-             len(tests & defer), len(tests & wontfix)))
+            (len(tests), result_type_str, len(tests & now), len(tests & wontfix)))
 
     def _num_digits(self, num):
         """Returns the number of digits needed to represent the length of a
@@ -1241,12 +1251,7 @@ class TestRunner:
                      (passed, total, pct_passed))
         self._printer.print_actual("")
         self._print_result_summary_entry(result_summary,
-            test_expectations.NOW, "Tests to be fixed for the current release")
-
-        self._printer.print_actual("")
-        self._print_result_summary_entry(result_summary,
-            test_expectations.DEFER,
-            "Tests we'll fix in the future if they fail (DEFER)")
+            test_expectations.NOW, "Tests to be fixed")
 
         self._printer.print_actual("")
         self._print_result_summary_entry(result_summary,
@@ -1301,7 +1306,8 @@ class TestRunner:
             page += u"<p><a href='%s'>%s</a><br />\n" % (test_url, test_name)
             test_failures = failures.get(test_file, [])
             for failure in test_failures:
-                page += u"&nbsp;&nbsp;%s<br/>" % failure.result_html_output(test_name)
+                page += (u"&nbsp;&nbsp;%s<br/>" %
+                         failure.result_html_output(test_name))
             page += "</p>\n"
         page += "</body></html>\n"
         return page
@@ -1436,7 +1442,8 @@ def _set_up_derived_options(port_obj, options):
 
     if not options.child_processes:
         # FIXME: Investigate perf/flakiness impact of using cpu_count + 1.
-        options.child_processes = str(port_obj.default_child_processes())
+        options.child_processes = os.environ.get("WEBKIT_TEST_CHILD_PROCESSES",
+                                                 str(port_obj.default_child_processes()))
 
     if not options.configuration:
         options.configuration = port_obj.default_configuration()
@@ -1515,6 +1522,10 @@ def parse_args(args=None):
             default=False, help="create a dialog on DumpRenderTree startup"),
         optparse.make_option("--gp-fault-error-box", action="store_true",
             default=False, help="enable Windows GP fault error box"),
+        optparse.make_option("--multiple-loads",
+            type="int", help="turn on multiple loads of each test"),
+        optparse.make_option("--js-flags",
+            type="string", help="JavaScript flags to pass to tests"),
         optparse.make_option("--nocheck-sys-deps", action="store_true",
             default=False,
             help="Don't check the system dependencies (themes)"),
@@ -1561,8 +1572,9 @@ def parse_args(args=None):
             dest="pixel_tests", help="Enable pixel-to-pixel PNG comparisons"),
         optparse.make_option("--no-pixel-tests", action="store_false",
             dest="pixel_tests", help="Disable pixel-to-pixel PNG comparisons"),
-        # old-run-webkit-tests allows a specific tolerance: --tolerance t
-        # Ignore image differences less than this percentage (default: 0.1)
+        optparse.make_option("--tolerance",
+            help="Ignore image differences less than this percentage (some "
+                "ports may ignore this option)", type="float"),
         optparse.make_option("--results-directory",
             default="layout-test-results",
             help="Output results directory source dir, relative to Debug or "
@@ -1686,6 +1698,7 @@ def parse_args(args=None):
 
     # FIXME: Move these into json_results_generator.py
     results_json_options = [
+        optparse.make_option("--master-name", help="The name of the buildbot master."),
         optparse.make_option("--builder-name", default="DUMMY_BUILDER_NAME",
             help=("The name of the builder shown on the waterfall running "
                   "this script e.g. WebKit.")),

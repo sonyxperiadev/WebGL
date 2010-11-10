@@ -49,7 +49,6 @@
 #include "IntRect.h"
 #include "LayerRendererChromium.h"
 #include "NotificationPresenterImpl.h"
-#include "SpeechInputClientImpl.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 
@@ -74,6 +73,7 @@ class AutoFillPopupMenuClient;
 class ContextMenuClientImpl;
 class DeviceOrientationClientProxy;
 class DragScrollTimer;
+class SpeechInputClientImpl;
 class WebAccessibilityObject;
 class WebDevToolsAgentClient;
 class WebDevToolsAgentPrivate;
@@ -273,6 +273,10 @@ public:
     // load.
     void didCommitLoad(bool* isNewNavigation);
 
+    // Returns true if popup menus should be rendered by the browser, false if
+    // they should be rendered by WebKit (which is the default).
+    static bool useExternalPopupMenus();
+
     bool contextMenuAllowed() const
     {
         return m_contextMenuAllowed;
@@ -406,6 +410,7 @@ private:
     void updateRootLayerContents(const WebCore::IntRect&);
     void doComposite();
     void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
+    void reallocateRenderer();
 #endif
 
     WebViewClient* m_client;
@@ -543,7 +548,7 @@ private:
     static const WebInputEvent* m_currentInputEvent;
 
 #if ENABLE(INPUT_SPEECH)
-    SpeechInputClientImpl m_speechInputClient;
+    OwnPtr<SpeechInputClientImpl> m_speechInputClient;
 #endif
     // If we attempt to fetch the on-screen GraphicsContext3D before
     // the compositor has been turned on, we need to instantiate it

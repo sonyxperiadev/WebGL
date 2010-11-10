@@ -22,6 +22,8 @@
 
 #if ENABLE(SVG)
 #include "RenderObject.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
 #include "SVGStyledLocatableElement.h"
@@ -55,15 +57,15 @@ namespace WebCore {
 
         virtual bool selfHasRelativeLengths() const;
 
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::maskUnitsAttr, int, MaskUnits, maskUnits)
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::maskContentUnitsAttr, int, MaskContentUnits, maskContentUnits)
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::xAttr, SVGLength, X, x)
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::yAttr, SVGLength, Y, y)
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::widthAttr, SVGLength, Width, width)
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::heightAttr, SVGLength, Height, height)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskUnitsAttr, int, MaskUnits, maskUnits)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskContentUnitsAttr, int, MaskContentUnits, maskContentUnits)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::heightAttr, SVGLength, Height, height)
 
         // SVGExternalResourcesRequired
-        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 }

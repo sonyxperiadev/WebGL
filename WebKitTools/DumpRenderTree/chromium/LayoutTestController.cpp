@@ -94,6 +94,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("dumpDatabaseCallbacks", &LayoutTestController::dumpDatabaseCallbacks);
     bindMethod("dumpEditingCallbacks", &LayoutTestController::dumpEditingCallbacks);
     bindMethod("dumpFrameLoadCallbacks", &LayoutTestController::dumpFrameLoadCallbacks);
+    bindMethod("dumpUserGestureInFrameLoadCallbacks", &LayoutTestController::dumpUserGestureInFrameLoadCallbacks);
     bindMethod("dumpResourceLoadCallbacks", &LayoutTestController::dumpResourceLoadCallbacks);
     bindMethod("dumpResourceResponseMIMETypes", &LayoutTestController::dumpResourceResponseMIMETypes);
     bindMethod("dumpSelectionRect", &LayoutTestController::dumpSelectionRect);
@@ -285,6 +286,12 @@ void LayoutTestController::dumpBackForwardList(const CppArgumentList&, CppVarian
 void LayoutTestController::dumpFrameLoadCallbacks(const CppArgumentList&, CppVariant* result)
 {
     m_dumpFrameLoadCallbacks = true;
+    result->setNull();
+}
+
+void LayoutTestController::dumpUserGestureInFrameLoadCallbacks(const CppArgumentList&, CppVariant* result)
+{
+    m_dumpUserGestureInFrameLoadCallbacks = true;
     result->setNull();
 }
 
@@ -522,6 +529,7 @@ void LayoutTestController::reset()
     m_dumpAsText = false;
     m_dumpEditingCallbacks = false;
     m_dumpFrameLoadCallbacks = false;
+    m_dumpUserGestureInFrameLoadCallbacks = false;
     m_dumpResourceLoadCallbacks = false;
     m_dumpResourceResponseMIMETypes = false;
     m_dumpBackForwardList = false;
@@ -1526,10 +1534,10 @@ void LayoutTestController::abortModal(const CppArgumentList& arguments, CppVaria
 void LayoutTestController::setMockSpeechInputResult(const CppArgumentList& arguments, CppVariant* result)
 {
     result->setNull();
-    if (arguments.size() < 1 || !arguments[0].isString())
+    if (arguments.size() < 2 || !arguments[0].isString() || !arguments[1].isString())
         return;
 
-    m_speechInputControllerMock->setMockRecognitionResult(cppVariantToWebString(arguments[0]));
+    m_speechInputControllerMock->setMockRecognitionResult(cppVariantToWebString(arguments[0]), cppVariantToWebString(arguments[1]));
 }
 
 WebKit::WebSpeechInputController* LayoutTestController::speechInputController(WebKit::WebSpeechInputListener* listener)

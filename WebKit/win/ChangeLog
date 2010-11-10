@@ -1,3 +1,151 @@
+2010-10-29  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change BackForwardList clients to use BackForwardListImpl to prepare for further refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=48574
+
+        * WebBackForwardList.cpp:
+        (backForwardListWrappers):
+        (WebBackForwardList::WebBackForwardList):
+        (WebBackForwardList::createInstance):
+        * WebBackForwardList.h:
+        * WebView.cpp:
+        (WebView::backForwardList):
+        Use BackForwardListImpl.
+
+2010-10-29  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * WebKitPrefix.h: Touched to force a rebuild.
+
+2010-10-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48576
+        Let WebKit2 client know when a frame is a frameset
+
+        Added a blank implementation of the new FrameLoaderClient method.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::dispatchDidBecomeFrameset):
+
+2010-10-26  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build fix.
+
+        * WebView.cpp: Conditionalize includes for CFNetwork-specific
+        Cookie implementation.
+        * WebView.h: Conditionalize includes for ACCELERATED_COMPOSITION.
+        WinCairo doesn't use CoreAnimation.
+
+2010-10-26  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Resource tracking failure when trying to move a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=44713
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::transferLoadingResourceFromPage):
+        Empty method.
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2010-10-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Replace _countof with WTF_ARRAY_LENGTH
+        https://bugs.webkit.org/show_bug.cgi?id=48229
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (isPreInspectElementTagSafari):
+        * WebView.cpp:
+        (WebView::interpretKeyEvent):
+
+2010-10-24  Dan Bernstein  <mitz@apple.com>
+
+        Build fix.
+
+        * Interfaces/WebKit.idl: Touched.
+
+2010-10-24  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Expose HitTestResult::absoluteMediaURL() via WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=48219
+
+        * Interfaces/IWebView.idl: Added WebElementMediaURLKey.
+        * WebElementPropertyBag.cpp:
+        (WebElementPropertyBag::Read): Map WebElementMediaURLKey to absoluteMediaURL().
+
+2010-10-22  Andy Estes  <aestes@apple.com>
+
+        Fix the Windows build.
+
+        * WebCookieManagerCFNet.cpp: Rename CookieStorageWin.h to CookieStorageCFNet.h.
+        * WebView.cpp: Ditto.
+
+2010-10-22  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        Windows client needs updating when live iframe element is moved between pages
+        https://bugs.webkit.org/show_bug.cgi?id=46915
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didTransferChildFrameToNewDocument):
+        Update WebView in WebFrame to match that of the current page.
+        * WebFrame.cpp:
+        (WebFrame::setWebView):
+        Added.
+        * WebFrame.h:
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Fix windows build.
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit2 needs to pass the current event modifier flags when requesting a new window
+        https://bugs.webkit.org/show_bug.cgi?id=48140
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::createWindow):
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::dispatchCreatePage):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        Add NavigationAction parameter.
+
+2010-10-21 MORITA Hajime  <morrita@google.com>
+
+        Unreviewed, touched it to fix the build.
+
+        * Interfaces/WebKit.idl:
+
+2010-10-21  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Kent Tamura.
+
+        [Win][DRT] should have LayoutTestController.hasSpellingMarker()
+        https://bugs.webkit.org/show_bug.cgi?id=47885
+
+        Added IWebFramePrivate::hasSpellingMarker() and impelmented it for
+        LayoutTestController.
+
+        * Interfaces/IWebFramePrivate.idl:
+        * WebFrame.cpp:
+        (WebFrame::hasSpellingMarker):
+        * WebFrame.h:
+
 2010-10-20  Dumitru Daniliuc  <dumi@chromium.org>
 
         Reviewed by David Levin.

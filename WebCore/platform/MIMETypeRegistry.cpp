@@ -337,7 +337,10 @@ static MediaMIMETypeMap& mediaMIMETypeMap()
 
         // CoreAudio File
         { "audio/x-caf", "caf" },
-        { "audio/x-gsm", "gsm" }
+        { "audio/x-gsm", "gsm" },
+
+        // ADPCM
+        { "audio/x-wav", "wav" }
     };
 
     DEFINE_STATIC_LOCAL(MediaMIMETypeMap, mediaMIMETypeForExtensionMap, ());
@@ -355,7 +358,7 @@ static MediaMIMETypeMap& mediaMIMETypeMap()
 
             // If there is a system specific type for this extension, add it as the first type so
             // getMediaMIMETypeForExtension will always return it.
-            String systemType = MIMETypeRegistry::getMIMETypeForExtension(pairs[ndx].type);
+            String systemType = MIMETypeRegistry::getMIMETypeForExtension(pairs[ndx].extension);
             if (!systemType.isEmpty() && pairs[ndx].type != systemType)
                 synonyms->append(systemType);
             synonyms->append(pairs[ndx].type);

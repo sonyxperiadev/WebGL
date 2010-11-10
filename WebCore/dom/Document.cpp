@@ -62,6 +62,7 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HashChangeEvent.h"
@@ -381,7 +382,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     , m_frameElementsShouldIgnoreScrolling(false)
     , m_containsValidityStyleRules(false)
     , m_updateFocusAppearanceRestoresSelection(false)
-    , m_writeDisabled(false)
+    , m_ignoreDestructiveWriteCount(0)
     , m_title("")
     , m_rawTitle("")
     , m_titleSetExplicitly(false)
@@ -425,6 +426,8 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
 #endif
     , m_loadEventDelayCount(0)
     , m_loadEventDelayTimer(this, &Document::loadEventDelayTimerFired)
+    , m_directionSetOnDocumentElement(false)
+    , m_writingModeSetOnDocumentElement(false)
 {
     m_document = this;
 
@@ -2178,10 +2181,8 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
         printf("Beginning a document.write at %d\n", elapsedTime());
 #endif
 
-    // If the insertion point is undefined and the Document has the
-    // "write-neutralised" flag set, then abort these steps.
     bool hasInsertionPoint = m_parser && m_parser->hasInsertionPoint();
-    if (!hasInsertionPoint && writeDisabled())
+    if (!hasInsertionPoint && m_ignoreDestructiveWriteCount)
         return;
 
     if (!hasInsertionPoint)
@@ -3924,6 +3925,9 @@ void Document::documentDidBecomeActive()
     if (renderer())
         renderView()->didMoveOnscreen();
 #endif
+
+    ASSERT(m_frame);
+    m_frame->loader()->client()->dispatchDidBecomeFrameset(isFrameSet());
 }
 
 void Document::registerForDocumentActivationCallbacks(Element* e)

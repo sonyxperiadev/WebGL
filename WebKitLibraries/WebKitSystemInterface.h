@@ -60,6 +60,8 @@ void WKDisableCGDeferredUpdates(void);
 Class WKNSURLProtocolClassForRequest(NSURLRequest *request);
 void WKSetNSURLRequestShouldContentSniff(NSMutableURLRequest *request, BOOL shouldContentSniff);
 
+void WKSetCookieStoragePrivateBrowsingEnabled(BOOL enabled);
+
 unsigned WKGetNSAutoreleasePoolCount(void);
 
 void WKAdvanceDefaultButtonPulseAnimation(NSButtonCell *button);
@@ -150,6 +152,11 @@ void WKClearGlyphVector(WKGlyphVectorRef glyphs);
 int WKGetGlyphVectorNumGlyphs(WKGlyphVectorRef glyphVector);
 ATSLayoutRecord *WKGetGlyphVectorFirstRecord(WKGlyphVectorRef glyphVector);
 size_t WKGetGlyphVectorRecordSize(WKGlyphVectorRef glyphVector);
+#endif
+
+CTLineRef WKCreateCTLineWithUniCharProvider(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*);
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+CTTypesetterRef WKCreateCTTypesetterWithUniCharProviderAndOptions(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*, CFDictionaryRef options);
 #endif
 
 #ifndef __LP64__
@@ -288,6 +295,12 @@ uint32_t WKCARemoteLayerClientGetClientId(WKCARemoteLayerClientRef);
 void WKCARemoteLayerClientSetLayer(WKCARemoteLayerClientRef, CALayer *);
 CALayer *WKCARemoteLayerClientGetLayer(WKCARemoteLayerClientRef);
 
+typedef struct __WKWindowBounceAnimationContext *WKWindowBounceAnimationContextRef;
+
+WKWindowBounceAnimationContextRef WKWindowBounceAnimationContextCreate(NSWindow *window);
+void WKWindowBounceAnimationContextDestroy(WKWindowBounceAnimationContextRef context);
+void WKWindowBounceAnimationSetAnimationProgress(WKWindowBounceAnimationContextRef context, double animationProgress);
+
 #if defined(__x86_64__)
 #import <mach/mig.h>
 
@@ -316,7 +329,6 @@ void WKWindowSetScaledFrame(NSWindow *window, NSRect scaleFrame, NSRect nonScale
 #endif
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-NSMutableArray *WKNoteOpenPanelFiles(NSArray *paths);
 void WKSyncSurfaceToView(NSView *view);
 #endif
 

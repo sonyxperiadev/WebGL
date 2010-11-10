@@ -29,6 +29,7 @@
 #include "InjectedBundlePage.h"
 #include "JSLayoutTestController.h"
 #include "StringFunctions.h"
+#include <WebKit2/WKBundleBackForwardList.h>
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
@@ -85,6 +86,7 @@ PassRefPtr<LayoutTestController> LayoutTestController::create()
 LayoutTestController::LayoutTestController()
     : m_whatToDump(RenderTree)
     , m_shouldDumpAllFrameScrollPositions(false)
+    , m_shouldDumpBackForwardListsForAllWindows(false)
     , m_shouldAllowEditing(true)
     , m_shouldCloseExtraWindows(false)
     , m_dumpEditingCallbacks(false)
@@ -146,6 +148,13 @@ bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef anima
     // FIXME: If this is needed only for the main frame, then why is the function on WKBundleFrame instead of WKBundlePage?
     WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
     return WKBundleFramePauseAnimationOnElementWithId(mainFrame, toWK(animationName).get(), toWK(elementId).get(), time);
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    WKRetainPtr<WKStringRef> text(AdoptWK, WKBundleFrameCopyLayerTreeAsText(mainFrame));
+    return toJS(text);
 }
 
 void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart, bool allFrames)
@@ -231,6 +240,11 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 unsigned LayoutTestController::windowCount()
 {
     return InjectedBundle::shared().pageCount();
+}
+
+void LayoutTestController::clearBackForwardList()
+{
+    WKBundleBackForwardListClear(WKBundlePageGetBackForwardList(InjectedBundle::shared().page()->page()));
 }
 
 // Object Creation

@@ -23,6 +23,7 @@
 
 #if ENABLE(SVG)
 #include "Gradient.h"
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGStyledElement.h"
 #include "SVGTransformList.h"
@@ -48,15 +49,15 @@ namespace WebCore {
 
         virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-        DECLARE_ANIMATED_PROPERTY(SVGGradientElement, SVGNames::spreadMethodAttr, int, SpreadMethod, spreadMethod)
-        DECLARE_ANIMATED_PROPERTY(SVGGradientElement, SVGNames::gradientUnitsAttr, int, GradientUnits, gradientUnits)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::spreadMethodAttr, int, SpreadMethod, spreadMethod)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::gradientUnitsAttr, int, GradientUnits, gradientUnits)
         DECLARE_ANIMATED_PROPERTY(SVGGradientElement, SVGNames::gradientTransformAttr, SVGTransformList*, GradientTransform, gradientTransform)
 
         // SVGURIReference
         DECLARE_ANIMATED_PROPERTY(SVGGradientElement, XLinkNames::hrefAttr, String, Href, href)
 
         // SVGExternalResourcesRequired
-        DECLARE_ANIMATED_PROPERTY(SVGGradientElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

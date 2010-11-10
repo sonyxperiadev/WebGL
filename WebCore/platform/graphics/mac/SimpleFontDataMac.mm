@@ -277,6 +277,11 @@ void SimpleFontData::platformInit()
 #else
         m_xHeight = m_platformData.font() ? [m_platformData.font() xHeight] : 0;
 #endif
+        // CGFontGetXHeight() returns a wrong value for "Apple Symbols" font (a float close to 0, but not strictly 0).
+        // The following code makes a guess for m_xHeight in that case.
+        // The int cast is a workaround for the "almost" zero value returned by CGFontGetXHeight().
+        if (!static_cast<int>(m_xHeight) && fAscent)
+            m_xHeight = 2 * fAscent / 3;
     }
 }
     
@@ -417,11 +422,9 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 {
     FloatRect boundingBox;
 #ifndef BUILDING_ON_TIGER
-    CGRect box;
-    CGFontGetGlyphBBoxes(platformData().cgFont(), &glyph, 1, &box);
-    float pointSize = platformData().m_size;
-    CGFloat scale = pointSize / unitsPerEm();
-    boundingBox = CGRectApplyAffineTransform(box, CGAffineTransformMakeScale(scale, -scale));
+    boundingBox = CTFontGetBoundingRectsForGlyphs(m_platformData.ctFont(),
+                    m_platformData.orientation() == Vertical ? kCTFontVerticalOrientation : kCTFontHorizontalOrientation, &glyph, 0, 1);
+    boundingBox.setY(-boundingBox.bottom());
 #else
     // FIXME: Custom fonts don't have NSFonts, so this function doesn't compute correct bounds for these on Tiger.
     if (!m_platformData.font())
@@ -437,14 +440,18 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    NSFont* font = platformData().font();
-    float pointSize = platformData().m_size;
-    CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
     CGSize advance;
-    if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
-        LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
-        advance.width = 0;
-    }
+    if (m_platformData.orientation() == Horizontal) {
+        NSFont* font = platformData().font();
+        float pointSize = platformData().m_size;
+        CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
+        if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
+            LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
+            advance.width = 0;
+        }
+    } else
+        CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), kCTFontVerticalOrientation, &glyph, &advance, 1);
+
     return advance.width + m_syntheticBoldOffset;
 }
 

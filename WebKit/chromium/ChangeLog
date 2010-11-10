@@ -1,3 +1,703 @@
+2010-10-29  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change BackForwardList clients to use BackForwardListImpl to prepare for further refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=48574
+
+        * src/BackForwardListClientImpl.h: Use BackForwardListImpl.h.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl): Cast to BackForwardList* before calling setClient.
+
+2010-10-28  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by ap.
+
+        [Chrome] Fix an appcache regression introduced in r69226
+        https://bugs.webkit.org/show_bug.cgi?id=48592
+        Provide a noop method body ApplicationCacheHost::maybeLoadMainResourceForRedirect.
+
+        * src/ApplicationCacheHost.cpp:
+        (WebCore::ApplicationCacheHost::maybeLoadMainResourceForRedirect):
+
+2010-10-29  Aaron Colwell  <acolwell@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Fix globalAlpha support when using drawImage() to copy a video frame
+        to a 2D canvas context.
+        https://bugs.webkit.org/show_bug.cgi?id=48094
+
+        This fix applies the globalAlpha value to the canvas before passing it
+        down to the lower layers that don't have access to the graphics
+        context. This makes sure that any drawing on the canvas will have the
+        proper global alpha value applied.
+
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::paint):
+
+2010-10-29  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48576
+        Let WebKit2 client know when a frame is a frameset
+
+        Added a blank implementation of the new FrameLoaderClient method.
+
+        * src/FrameLoaderClientImpl.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidBecomeFrameset):
+
+2010-10-29  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: add close button to network view, make tests pass
+        for resource manager on all ports.
+        https://bugs.webkit.org/show_bug.cgi?id=48628
+
+        * src/js/Tests.js:
+
+2010-10-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Adam Roben and David Kilzer.
+
+        Fix and cleanup of build systems
+        https://bugs.webkit.org/show_bug.cgi?id=48342
+
+        * features.gypi: Remove unnecessary ENABLE_SANDBOX.
+
+2010-10-29  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Patch the current speech input implementation to use the nearest
+        language tag. The language is now passed to the startRecognition
+        methods so that language-specific recognition could be used. Also added
+        a second parameter to setMockSpeechInputResult for the language used in
+        speech recognition.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        This is the 2nd of a 4-sided patch in Chromium and WebKit. For more
+        details see http://codereview.chromium.org/3615005/show,
+        http://codereview.chromium.org/3595018/show and
+        https://bugs.webkit.org/show_bug.cgi?id=47420.
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * public/WebSpeechInputControllerMock.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::create):
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-10-28  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel, Peter Kasting, and Darin Fisher.
+        (Eric reviewed the CoreGraphics interactions, Peter reviewed the image
+        decoder interaction, and Darin Fisher SGTMed the policy decision.)
+
+        [chromium] Chromium Mac should use WebKit's image decoders
+        https://bugs.webkit.org/show_bug.cgi?id=47974
+
+        Enable WebKit's image decoders.
+
+        * features.gypi:
+
+2010-10-28  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        [Chromium] History related tests REGRESSED after r70723
+        https://bugs.webkit.org/show_bug.cgi?id=48513
+
+        Since r70723 made BackForwardList::currentItem no longer be virtual,
+        we were not reaching the implementation in Chromium's 
+        BackForwardListClientImpl, and for Chromium currentItem is not the same
+        as itemAtIndex(0).
+        
+        The fix is to make itemAtIndex(0) have the currentItem() behavior, which
+        lets us keep currentItem as non-virtual (and remove its implementation
+        from the Chromium side).
+        
+        This also switches Chromium to use the default implementation of 
+        backItem() and forwardItem() (vs. the old stubs that just had
+        ASSERT_NOT_REACHED) since they're actually reacheable with Chromium
+        code thanks to the calls in FrameLoader::checkDidPerformFirstNavigation.
+
+        * src/BackForwardListClientImpl.cpp:
+        (WebKit::BackForwardListClientImpl::itemAtIndex):
+        * src/BackForwardListClientImpl.h:
+
+2010-10-28  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Support FileSystem in chromium DRT
+        https://bugs.webkit.org/show_bug.cgi?id=47643
+        Update the chromium DEPS to pick up corresponding webkit_support change.
+        Also add a temporary glue implementation with FIXME comment to
+        WebFrameClient::openFileSystem.
+
+        * DEPS:
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::openFileSystem):
+
+2010-10-28  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Remove obsolete public/API methods in chromium port
+        https://bugs.webkit.org/show_bug.cgi?id=48504
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+
+2010-10-27  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Metadata queries should return full file info, not just modification time
+        https://bugs.webkit.org/show_bug.cgi?id=48098
+
+        * src/AssertMatchingEnums.cpp: Ensure WebFileInfo and FileMetadata use the same values for file/directory indicators.
+        * src/WebFileSystemCallbacksImpl.cpp:
+        (WebKit::WebFileSystemCallbacksImpl::didReadMetadata): Pass through the new information.
+
+2010-10-27  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] WebGL does not work with the compositor in test_shell
+        https://bugs.webkit.org/show_bug.cgi?id=48470
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::resolveMultisampledFramebuffer):
+         - Properly restore the draw framebuffer after resolving.
+        (WebKit::WebGraphicsContext3DDefaultImpl::prepareTexture):
+         - Make the context current before calling resolveMultisampledFramebuffer.
+
+2010-10-27  Stuart Morgan  <stuartmorgan@chromium.org>
+
+        Reviewed by David Levin.
+
+        Include caps lock state when converting NSEvent modifiers to
+        WebInputEvent
+
+        https://bugs.webkit.org/show_bug.cgi?id=47917
+
+        * src/mac/WebInputEventFactory.mm:
+        (WebKit::modifiersFromEvent):
+
+2010-10-27  Chris Rogers  <crogers@google.com>
+
+        Reviewed by James Robinson.
+
+        Add ENABLE_WEB_AUDIO feature enable flag (initially disabled) for Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=48465
+
+        * features.gypi:
+
+2010-10-25  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Anders Carlsson.
+
+        compile TestNetscapePlugIn on chromium linux
+        https://bugs.webkit.org/show_bug.cgi?id=48274
+
+        * WebKit.gyp: Enable compilation of TestNetscapePlugIn on Linux.
+
+2010-10-27  Satish Sampath  <satish@chromium.org>
+
+        Unreviewed, rolling out r70665.
+        http://trac.webkit.org/changeset/70665
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        Need to address Alexey's review comments.
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * public/WebSpeechInputControllerMock.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-10-27  ZHenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Must enable GL_POINT_SPRITE in GraphicsContext3D implementations
+        https://bugs.webkit.org/show_bug.cgi?id=45908
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Enable for chromium --in-process-webgl port.
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+
+2010-10-27  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Patch the current speech input implementation to use the nearest
+        language tag. The language is now passed to the startRecognition
+        methods so that language-specific recognition could be used. Also added
+        a second parameter to setMockSpeechInputResult for the language used in
+        speech recognition.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        This is the 2nd of a 4-sided patch in Chromium and WebKit. For more
+        details see http://codereview.chromium.org/3615005/show and
+        http://codereview.chromium.org/3595018/show. The last of the 4 patches
+        depends also on the language tag validation provided by this patch:
+        https://bugs.webkit.org/show_bug.cgi?id=48225.
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * public/WebSpeechInputControllerMock.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::create):
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-10-26  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by David Levin.
+
+        Fix compile when ACCELERATED_COMPOSITING flag is not set
+        https://bugs.webkit.org/show_bug.cgi?id=48373
+
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::~WebMediaPlayerClientImpl):
+        (WebKit::WebMediaPlayerClientImpl::readyStateChanged):
+        (WebKit::WebMediaPlayerClientImpl::load):
+        * src/WebMediaPlayerClientImpl.h:
+
+2010-10-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        Rolling in r70512 again.
+        
+        spellcheck='' should be the same as spellcheck="true"
+        https://bugs.webkit.org/show_bug.cgi?id=25539
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::shouldSpellcheckByDefault):
+
+2010-10-26  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Resource tracking failure when trying to move a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=44713
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::transferLoadingResourceFromPage):
+        Empty method.
+        * src/FrameLoaderClientImpl.h:
+
+2010-10-26  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add a 'grammar' attribute for speech input.
+        https://bugs.webkit.org/show_bug.cgi?id=48339
+
+        To differentiate between various types of speech input, we add a 'x-webkit-grammar' attribute to a
+        speech enabled input element. This is passed without validation to the speech recognizer. Typical values
+        could be "builtin:search", "builtin:dictation" and even an externally hosted SRGS grammar XML file URI.
+        It is up to the recognizer to interpret the value and use it as an aid in recognition.
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+
+2010-10-26  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        IndexedDB: update stale comments referring to WebIndexedDatabase.
+        https://bugs.webkit.org/show_bug.cgi?id=48325
+
+        WebIndexedDatabase was renamed to WebIDBFactory in
+        http://trac.webkit.org/changeset/64344, but some comments referring to
+        it were left unchanged.
+
+        * public/WebIDBCursor.h:
+        * public/WebIDBDatabase.h:
+        * public/WebIDBDatabaseError.h:
+        * public/WebIDBIndex.h:
+        * public/WebIDBObjectStore.h:
+        * public/WebIDBTransaction.h:
+        * src/WebIDBDatabaseImpl.h:
+
+2010-10-22  Stephen White  <senorblanco@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Implement copy-texture-to-parent-texture API for WebGraphicsContext3DDefaultImpl.
+        https://bugs.webkit.org/show_bug.cgi?id=48152
+        
+        This allows the in-process implementation to do accelerated canvas and
+        accelerated compositing together.  It requires some changes landed
+        in chromium 63528, so this patch also rolls chromium DEPS to 63722
+        (current LKGR).
+
+        Covered by fast/canvas/arc360.html, and many more when run with
+        --accelerated-compositing and --accelerated-2d-canvas.
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::WebGraphicsContext3DDefaultImpl):
+        Add member vars to save the currently-bound texture and for the
+        texture-to-texture FBO.
+        (WebKit::WebGraphicsContext3DDefaultImpl::~WebGraphicsContext3DDefaultImpl):
+        Delete the texture-to-texture FBO on destruction.
+
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        Generate the texture-to-texture FBO.
+        (WebKit::WebGraphicsContext3DDefaultImpl::supportsCopyTextureToParentTextureCHROMIUM):
+        Check for support of the glGetTexLevelParameteriv function (required
+        for this implementation).
+        (WebKit::WebGraphicsContext3DDefaultImpl::copyTextureToParentTextureCHROMIUM):
+        Implement the extension:  bind the FBO, bind the child texture, then
+        do a glCopyTexImage2D() into the parent texture.
+        (WebKit::WebGraphicsContext3DDefaultImpl::bindTexture):
+        Record the newly-bound texture in m_boundTexture.
+        * src/WebGraphicsContext3DDefaultImpl.h:
+        Add the two new member variables.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::graphicsContext3D):
+        Make sure the graphics context is reshaped to the correct size on all
+        platforms.
+
+2010-10-26  Alexey Marinichev  <amarinichev@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [chromium] Check getGraphicsResetStatusARB and reinitialize the
+        renderer in an error is returned.
+        https://bugs.webkit.org/show_bug.cgi?id=47848
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::composite): added getGraphicsResetStatusARB check
+        (WebKit::WebViewImpl::reallocateRenderer): added
+        * src/WebViewImpl.h:
+
+2010-10-26  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Andreas Kling.
+
+        Valgrind failure in GraphicsContext3DInternal::reshape
+        https://bugs.webkit.org/show_bug.cgi?id=48284
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::WebGraphicsContext3DDefaultImpl):
+
+2010-10-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Fix IndexedDB crashes
+        https://bugs.webkit.org/show_bug.cgi?id=48266
+
+        Make WebIDBObjectStoreImpl match the way that WebIDBIndexImpl passes
+        in cursor parameters (which is the correct way). KeyRange knows how
+        to convert itself to a WebCore type--even if the value is null.
+
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::openCursor):
+
+2010-10-26  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Remove obsolete public/API methods in chromium port.
+        https://bugs.webkit.org/show_bug.cgi?id=48330
+
+        * public/WebSpeechInputListener.h:
+
+2010-10-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Quota for IndexedDB should be per origin not per database
+        https://bugs.webkit.org/show_bug.cgi?id=48064
+
+        * public/WebIDBFactory.h:
+        * public/WebSecurityOrigin.h:
+        * src/WebIDBFactory.cpp:
+        (WebKit::WebIDBFactory::databaseFileName):
+        * src/WebSecurityOrigin.cpp:
+        (WebKit::WebSecurityOrigin::get):
+
+2010-10-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70512.
+        http://trac.webkit.org/changeset/70512
+        https://bugs.webkit.org/show_bug.cgi?id=48314
+
+        crashes many tests (Requested by inferno-sec on #webkit).
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::shouldSpellcheckByDefault):
+
+2010-10-25  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        spellcheck='' should be the same as spellcheck="true"
+        https://bugs.webkit.org/show_bug.cgi?id=25539
+
+        Followed API rename in WebCore.
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::shouldSpellcheckByDefault):
+
+2010-10-25  Satish Sampath  <satish@chromium.org>
+
+        Unreviewed, fix for a build break caused by my earlier patch.
+
+        * public/WebSpeechInputListener.h:
+        (WebKit::WebSpeechInputListener::setRecognitionResult): Explicitly invoking the correct constructor.
+
+2010-10-21  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Allow embedder to pass on all the speech recognition results to the input element.
+        https://bugs.webkit.org/show_bug.cgi?id=48068
+
+        * WebKit.gyp: Added new files
+        * public/WebSpeechInputListener.h:
+        * public/WebSpeechInputResult.h: Added, wrapper around WebCore::SpeechInputResult
+        (WebKit::WebSpeechInputResult::WebSpeechInputResult):
+        (WebKit::WebSpeechInputResult::~WebSpeechInputResult):
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::setRecognitionResult): Accepts an array instead of a single string.
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setRecognitionResult):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebSpeechInputResult.cpp: Added.
+        (WebKit::WebSpeechInputResult::reset):
+        (WebKit::WebSpeechInputResult::WebSpeechInputResult):
+        (WebKit::WebSpeechInputResult::set):
+        (WebKit::WebSpeechInputResult::operator PassRefPtr<WebCore::SpeechInputResult>):
+
+2010-10-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70451.
+        http://trac.webkit.org/changeset/70451
+        https://bugs.webkit.org/show_bug.cgi?id=48249
+
+        Broke set-unloaded-frame-location.html under Qt (Requested by
+        caseq on #webkit).
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::executeScript):
+        (WebKit::WebFrameImpl::executeScriptInIsolatedWorld):
+        (WebKit::WebFrameImpl::executeScriptAndReturnValue):
+
+2010-10-25  Peter Rybin  <peter.rybin@gmail.com>
+
+        Reviewed by Adam Barth.
+
+        HTML parser should provide script column position within HTML document to JavaScript engine
+        https://bugs.webkit.org/show_bug.cgi?id=45271
+
+        Replaces script line number with TextPosition structure.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::executeScript):
+        (WebKit::WebFrameImpl::executeScriptInIsolatedWorld):
+        (WebKit::WebFrameImpl::executeScriptAndReturnValue):
+
+2010-10-20  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Renumber FileError/FileException error codes per latest File API spec changes
+        https://bugs.webkit.org/show_bug.cgi?id=47936
+
+        * public/WebFileError.h:
+        * src/AssertMatchingEnums.cpp:
+        * src/AsyncFileWriterChromium.cpp:
+        (WebCore::AsyncFileWriterChromium::didFail):
+
+2010-10-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70361.
+        http://trac.webkit.org/changeset/70361
+        https://bugs.webkit.org/show_bug.cgi?id=48217
+
+        Chromium tests NoInitialAutocompleteForReadOnly and
+        InitialAutocomplete don't complete (Requested by yuzo on
+        #webkit).
+
+        * public/WebDocument.h:
+
+2010-10-22  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Turning on the Autocomplete implementation on the Chromium side.
+        https://bugs.webkit.org/show_bug.cgi?id=41283
+
+        * public/WebDocument.h:
+
+2010-10-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit2 needs to pass the current event modifier flags when requesting a new window
+        https://bugs.webkit.org/show_bug.cgi?id=48140
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+        * src/ChromeClientImpl.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchCreatePage):
+        * src/FrameLoaderClientImpl.h:
+        Add NavigationAction parameter.
+
+2010-10-22  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r70301.
+        http://trac.webkit.org/changeset/70301
+        https://bugs.webkit.org/show_bug.cgi?id=48126
+
+        "Lang attribute layout tests failing" (Requested by satish on
+        #webkit).
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * public/WebSpeechInputControllerMock.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-10-22  Leandro Gracia Gil  <leandrogracia@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Patch the current speech input implementation to use and validate the
+        nearest language tag. The language is now passed to the startRecognition
+        methods so that language-specific recognition could be used. Also added
+        a second parameter to setMockSpeechInputResult for the language used in
+        speech recognition.
+        https://bugs.webkit.org/show_bug.cgi?id=47089
+
+        This is the 2nd of a 4-sided patch in Chromium and WebKit. For more
+        details see http://codereview.chromium.org/3615005/show and
+        http://codereview.chromium.org/3595018/show.
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+        * public/WebSpeechInputControllerMock.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::create):
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-10-21  Yuzo Fujishima  <yuzo@google.com>
+
+        Unreviewed build fix attempt for Chromium Linux Debug Clang
+
+        * public/WebExternalPopupMenu.h:
+
+2010-10-21  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] roll chromium DEPS to include forwarding headers refactor
+        https://bugs.webkit.org/show_bug.cgi?id=48097
+
+        * DEPS: Roll chromium forward to include new forwarding headers script
+        * WebKit.gyp: This dependency always existed, it's just exposed now
+            that the header files are in a different include dir.
+
+2010-10-21  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium: use dedicated event listener type in EventListenerWrapper.
+        https://bugs.webkit.org/show_bug.cgi?id=48059
+
+        * src/EventListenerWrapper.cpp:
+        (WebKit::EventListenerWrapper::EventListenerWrapper):
+
+2010-10-21  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Adding an API that allows external
+        popup menus, without the use of WebCore::PopupMenuChromium.
+        Once this is hooked up in Chromium, the plan is to remove
+        entirely the external case from PopupMenuChromium.
+        https://bugs.webkit.org/show_bug.cgi?id=46016
+
+        * WebKit.gyp:
+        * public/WebExternalPopupMenu.h: Added.
+        * public/WebExternalPopupMenuClient.h: Added.
+        * public/WebMenuItemInfo.h:
+        (WebKit::WebMenuItemInfo::WebMenuItemInfo):
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createExternalPopupMenu):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createPopupMenu):
+        * src/ExternalPopupMenu.cpp: Added.
+        * src/ExternalPopupMenu.h: Added.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::setUseExternalPopupMenus):
+        (WebKit::WebViewImpl::useExternalPopupMenus):
+        * src/WebViewImpl.h:
+
 2010-10-20  Sheriff Bot  <webkit.review.bot@gmail.com>
 
         Unreviewed, rolling out r70165.
@@ -66,10 +766,10 @@
         (WebKit::WebViewImpl::WebViewImpl):
         * src/WebViewImpl.h:
 
-2010-10-19  Leandro Gracia Gil  <leandrogracia@google.com>
+2010-10-20  Leandro Gracia Gil  <leandrogracia@google.com>
 
         Reviewed by Jeremy Orlow.
- 
+
         Patch the current speech input implementation to use and validate the
         nearest language tag. The language is now passed to the startRecognition
         methods so that language-specific recognition could be used. Also added

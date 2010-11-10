@@ -44,7 +44,7 @@ void FontPlatformData::loadFont(NSFont* nsFont, float, NSFont*& outNSFont, CGFon
 }
 #endif  // PLATFORM(MAC)
 
-FontPlatformData::FontPlatformData(NSFont *nsFont, bool syntheticBold, bool syntheticOblique)
+FontPlatformData::FontPlatformData(NSFont *nsFont, bool syntheticBold, bool syntheticOblique, FontOrientation orientation)
     : m_syntheticBold(syntheticBold)
     , m_syntheticOblique(syntheticOblique)
     , m_font(nsFont)
@@ -63,6 +63,26 @@ FontPlatformData::FontPlatformData(NSFont *nsFont, bool syntheticBold, bool synt
     CGFontRef cgFont = 0;
     loadFont(nsFont, m_size, m_font, cgFont, m_atsuFontID);
     
+    if (orientation == Vertical) {
+        // Ignore vertical orientation when the font doesn't support vertical metrics.
+        // The check doesn't look neat but this is what AppKit does for vertical writing...
+        RetainPtr<CFArrayRef> tableTags(AdoptCF, CTFontCopyAvailableTables(ctFont(), kCTFontTableOptionExcludeSynthetic));
+        CFIndex numTables = CFArrayGetCount(tableTags.get());
+        bool found = false;
+        for (CFIndex index = 0; index < numTables; ++index) {
+            CTFontTableTag tag = (CTFontTableTag)(uintptr_t)CFArrayGetValueAtIndex(tableTags.get(), index);
+            if (tag == kCTFontTableVhea || tag == kCTFontTableVORG) {
+                found = true;
+                break;
+            }
+        }
+
+        if (found == false)
+            orientation = Horizontal;
+    }
+
+    m_orientation = orientation;
+
     if (m_font)
         CFRetain(m_font);
 
@@ -83,9 +103,8 @@ FontPlatformData::FontPlatformData(const FontPlatformData& f)
     m_cgFont = f.m_cgFont;
     m_atsuFontID = f.m_atsuFontID;
     m_isColorBitmapFont = f.m_isColorBitmapFont;
-#if USE(CORE_TEXT)
+    m_orientation = f.m_orientation;
     m_CTFont = f.m_CTFont;
-#endif
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
     m_inMemoryFont = f.m_inMemoryFont;
 #endif
@@ -112,9 +131,8 @@ const FontPlatformData& FontPlatformData::operator=(const FontPlatformData& f)
         CFRelease(m_font);
     m_font = f.m_font;
     m_isColorBitmapFont = f.m_isColorBitmapFont;
-#if USE(CORE_TEXT)
+    m_orientation = f.m_orientation;
     m_CTFont = f.m_CTFont;
-#endif
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
     m_inMemoryFont = f.m_inMemoryFont;
 #endif
@@ -157,9 +175,7 @@ void FontPlatformData::setFont(NSFont *font)
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     m_isColorBitmapFont = CTFontGetSymbolicTraits(toCTFontRef(m_font)) & kCTFontColorGlyphsTrait;
 #endif
-#if USE(CORE_TEXT)
     m_CTFont = 0;
-#endif
 }
 
 bool FontPlatformData::roundsGlyphAdvances() const
@@ -169,10 +185,9 @@ bool FontPlatformData::roundsGlyphAdvances() const
 
 bool FontPlatformData::allowsLigatures() const
 {
-    return ![[m_font coveredCharacterSet] characterIsMember:'a'];
+    return m_orientation == Horizontal && ![[m_font coveredCharacterSet] characterIsMember:'a'];
 }
 
-#if USE(CORE_TEXT)
 CTFontRef FontPlatformData::ctFont() const
 {
     if (m_font)
@@ -181,13 +196,13 @@ CTFontRef FontPlatformData::ctFont() const
         m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_cgFont.get(), m_size, 0, 0));
     return m_CTFont.get();
 }
-#endif // USE(CORE_TEXT)
 
 #ifndef NDEBUG
 String FontPlatformData::description() const
 {
     RetainPtr<CFStringRef> cgFontDescription(AdoptCF, CFCopyDescription(cgFont()));
-    return String(cgFontDescription.get()) + " " + String::number(m_size) + (m_syntheticBold ? " synthetic bold" : "") + (m_syntheticOblique ? " synthetic oblique" : "");
+    return String(cgFontDescription.get()) + " " + String::number(m_size)
+            + (m_syntheticBold ? " synthetic bold" : "") + (m_syntheticOblique ? " synthetic oblique" : "") + (m_orientation ? " vertical orientation" : "");
 }
 #endif
 

@@ -34,6 +34,17 @@
 #include "EditorInsertAction.h"
 #include "SelectionController.h"
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+// Some platforms provide UI for suggesting autocorrection.
+#define SUPPORT_AUTOCORRECTION_PANEL 1
+// Some platforms use spelling and autocorrection markers to provide visual cue.
+// On such platform, if word with marker is edited, we need to remove the marker.
+#define REMOVE_MARKERS_UPON_EDITING 1
+#else
+#define SUPPORT_AUTOCORRECTION_PANEL 0
+#define REMOVE_MARKERS_UPON_EDITING 0
+#endif /* #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD) */
+
 #if PLATFORM(MAC) && !defined(__OBJC__)
 class NSDictionary;
 typedef int NSWritingDirection;
@@ -207,7 +218,7 @@ public:
     Vector<String> guessesForMisspelledSelection();
     Vector<String> guessesForUngrammaticalSelection();
     Vector<String> guessesForMisspelledOrUngrammaticalSelection(bool& misspelled, bool& ungrammatical);
-    bool spellCheckingEnabledInFocusedNode() const;
+    bool isSpellCheckingEnabledInFocusedNode() const;
     void markMisspellingsAfterTypingToPosition(const VisiblePosition&);
     void markMisspellings(const VisibleSelection&, RefPtr<Range>& firstMisspellingRange);
     void markBadGrammar(const VisibleSelection&);
@@ -362,6 +373,7 @@ public:
 #endif
 
     bool selectionStartHasSpellingMarkerFor(int from, int length) const;
+    void removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemoveIfSelectionAtWordBoundary);
 
 private:
     Frame* m_frame;
@@ -392,6 +404,7 @@ private:
     void replaceSelectionWithText(const String&, bool selectReplacement, bool smartReplace);
     void writeSelectionToPasteboard(Pasteboard*);
     void revealSelectionAfterEditingOperation();
+    void markMisspellingsOrBadGrammar(const VisibleSelection&, bool checkSpelling, RefPtr<Range>& firstMisspellingRange);
 
     void selectComposition();
     void confirmComposition(const String&, bool preserveSelection);

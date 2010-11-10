@@ -111,7 +111,7 @@ private:
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-    virtual WebCore::Frame* dispatchCreatePage();
+    virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
     virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction,
@@ -175,6 +175,8 @@ private:
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void dispatchDidBecomeFrameset(bool);
+
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const WTF::String& MIMEType) const;
     virtual bool canShowMIMETypeAsHTML(const WTF::String& MIMEType) const;
@@ -194,6 +196,7 @@ private:
     virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WTF::String& name, WebCore::HTMLFrameOwnerElement*,
                                         const WTF::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
     virtual void didTransferChildFrameToNewDocument(WebCore::Page* oldPage);
+    virtual void transferLoadingResourceFromPage(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page* oldPage);
     virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WTF::String>&,
                                           const Vector<WTF::String>&, const WTF::String&, bool);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);

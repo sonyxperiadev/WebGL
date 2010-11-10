@@ -1,3 +1,87 @@
+2010-10-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Adam Roben and David Kilzer.
+
+        Fix and cleanup of build systems
+        https://bugs.webkit.org/show_bug.cgi?id=48342
+
+        Remove unnecessary ENABLE_SANDBOX.
+        Add missing features to converge to FeatureDefines.xcconfig.
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2010-10-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Added UniCharProvider-based ways to create a CTTypeSetter and a CTLine, to be used in an
+        upcoming ComplexTextController patch.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-10-28  Ivan Krstić  <ike@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Remove unused experimental proxied panel interface.
+        <rdar://problem/7237059>
+
+        * WebKitSystemInterface.h:
+
+2010-10-27  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Find indicators do not bounce
+        https://bugs.webkit.org/show_bug.cgi?id=48490
+        <rdar://problem/8564276>
+
+        Add bounce animation context functions.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-10-26  Adam Roben  <aroben@apple.com>
+
+        Fix duplicate vsprops name
+
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops: Renamed to
+        "FeatureDefinesCairo" to match the filename.
+
+2010-10-23  Alexey Proskuryakov  <ap@apple.com>
+
+        Windows build fix.
+
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib:
+        
+2010-10-23  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48083
+        <rdar://problem/8489082> Need WebKit2 API for private browsing (48083)
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib:
+        Updated WebKitSystemInterface with necessary methods.
+
+2010-10-22  Adam Roben  <aroben@apple.com>
+
+        Turn on ENABLE_3D_RENDERING on all Windows builds
+
+        Reviewed by Sam Weinig.
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+
 2010-10-20  Adam Roben  <aroben@apple.com>
 
         Windows build fix

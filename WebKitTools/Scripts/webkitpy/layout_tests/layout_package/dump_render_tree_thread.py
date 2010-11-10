@@ -51,6 +51,7 @@ import time
 import traceback
 
 import test_failures
+import test_results
 
 _log = logging.getLogger("webkitpy.layout_tests.layout_package."
                          "dump_render_tree_thread")
@@ -133,8 +134,8 @@ def _process_output(port, options, test_info, test_types, test_args,
             time.time() - start_diff_time)
 
     total_time_for_all_diffs = time.time() - start_diff_time
-    return TestResult(test_info.filename, failures, test_run_time,
-                      total_time_for_all_diffs, time_for_diffs)
+    return test_results.TestResult(test_info.filename, failures, test_run_time,
+                                   total_time_for_all_diffs, time_for_diffs)
 
 
 def _pad_timeout(timeout):
@@ -152,16 +153,11 @@ def _milliseconds_to_seconds(msecs):
     return float(msecs) / 1000.0
 
 
-class TestResult(object):
-
-    def __init__(self, filename, failures, test_run_time,
-                 total_time_for_all_diffs, time_for_diffs):
-        self.failures = failures
-        self.filename = filename
-        self.test_run_time = test_run_time
-        self.time_for_diffs = time_for_diffs
-        self.total_time_for_all_diffs = total_time_for_all_diffs
-        self.type = test_failures.determine_result_type(failures)
+def _image_hash(test_info, test_args, options):
+    """Returns the image hash of the test if it's needed, otherwise None."""
+    if (test_args.new_baseline or test_args.reset_results or not options.pixel_tests):
+        return None
+    return test_info.image_hash()
 
 
 class SingleTestThread(threading.Thread):
@@ -196,10 +192,11 @@ class SingleTestThread(threading.Thread):
         self._driver = self._port.create_driver(self._test_args.png_path,
                                                 self._options)
         self._driver.start()
+        image_hash = _image_hash(test_info, self._test_args, self._options)
         start = time.time()
         crash, timeout, actual_checksum, output, error = \
             self._driver.run_test(test_info.uri.strip(), test_info.timeout,
-                                  test_info.image_hash())
+                                  image_hash)
         end = time.time()
         self._test_result = _process_output(self._port, self._options,
             test_info, self._test_types, self._test_args,
@@ -256,8 +253,8 @@ class TestShellThread(WatchableThread):
           options: command line options argument from optparse
           filename_list_queue: A thread safe Queue class that contains lists
               of tuples of (filename, uri) pairs.
-          result_queue: A thread safe Queue class that will contain tuples of
-              (test, failure lists) for the test results.
+          result_queue: A thread safe Queue class that will contain
+              serialized TestResult objects.
           test_types: A list of TestType objects to run the test output
               against.
           test_args: A TestArguments object to pass to each TestType.
@@ -441,7 +438,7 @@ class TestShellThread(WatchableThread):
             else:
                 _log.debug("%s %s passed" % (self.getName(),
                            self._port.relative_test_filename(filename)))
-            self._result_queue.put(result)
+            self._result_queue.put(result.dumps())
 
             if batch_size > 0 and batch_count > batch_size:
                 # Bounce the shell and reset count.
@@ -497,9 +494,8 @@ class TestShellThread(WatchableThread):
             failures = []
             _log.error('Cannot get results of test: %s' %
                        test_info.filename)
-            result = TestResult(test_info.filename, failures=[],
-                                test_run_time=0, total_time_for_all_diffs=0,
-                                time_for_diffs=0)
+            result = test_results.TestResult(test_info.filename, failures=[],
+                test_run_time=0, total_time_for_all_diffs=0, time_for_diffs=0)
 
         return result
 
@@ -509,20 +505,14 @@ class TestShellThread(WatchableThread):
         Args:
           test_info: Object containing the test filename, uri and timeout
 
-        Returns:
-          A list of TestFailure objects describing the error.
-
+        Returns: a TestResult object.
         """
         self._ensure_dump_render_tree_is_running()
         # The pixel_hash is used to avoid doing an image dump if the
         # checksums match, so it should be set to a blank value if we
         # are generating a new baseline.  (Otherwise, an image from a
         # previous run will be copied into the baseline.)
-        image_hash = test_info.image_hash()
-        if (image_hash and
-            (self._test_args.new_baseline or self._test_args.reset_results or
-            not self._options.pixel_tests)):
-            image_hash = ""
+        image_hash = _image_hash(test_info, self._test_args, self._options)
         start = time.time()
 
         thread_timeout = _milliseconds_to_seconds(

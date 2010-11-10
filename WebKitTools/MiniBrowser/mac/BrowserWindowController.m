@@ -305,6 +305,16 @@ static void didRemoveFrameFromHierarchy(WKPageRef page, WKFrameRef frame, WKType
     LOG(@"didRemoveFrameFromHierarchy");
 }
 
+static void didDisplayInsecureContentForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
+{
+    LOG(@"didDisplayInsecureContentForFrame");
+}
+
+static void didRunInsecureContentForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
+{
+    LOG(@"didRunInsecureContentForFrame");
+}
+
 static void didStartProgress(WKPageRef page, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didStartProgress];
@@ -361,7 +371,7 @@ static void decidePolicyForMIMEType(WKPageRef page, WKStringRef MIMEType, WKURLR
 
 #pragma mark UI Client Callbacks
 
-static WKPageRef createNewPage(WKPageRef page, const void* clientInfo)
+static WKPageRef createNewPage(WKPageRef page, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton button, const void* clientInfo)
 {
     LOG(@"createNewPage");
     BrowserWindowController *controller = [[BrowserWindowController alloc] initWithPageNamespace:WKPageGetPageNamespace(page)];
@@ -479,11 +489,6 @@ static void mouseDidMoveOverElement(WKPageRef page, WKEventModifiers modifiers, 
     LOG(@"mouseDidMoveOverElement");
 }
 
-static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRef frame, const void *clientInfo)
-{
-    LOG(@"contentsSizeChanged");
-}
-
 static WKRect getWindowFrame(WKPageRef page, const void* clientInfo)
 {
     NSRect rect = [[(BrowserWindowController *)clientInfo window] frame];
@@ -547,6 +552,8 @@ static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKF
         didFirstLayoutForFrame,
         didFirstVisuallyNonEmptyLayoutForFrame,
         didRemoveFrameFromHierarchy,
+        didDisplayInsecureContentForFrame,
+        didRunInsecureContentForFrame,
         didStartProgress,
         didChangeProgress,
         didFinishProgress,
@@ -577,12 +584,20 @@ static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKF
         runJavaScriptPrompt,
         setStatusText,
         mouseDidMoveOverElement,
-        contentsSizeChanged,
         0,          /* didNotHandleKeyEvent */
+        0,          /* toolbarsAreVisible */
+        0,          /* setToolbarsAreVisible */
+        0,          /* menuBarIsVisible */
+        0,          /* setMenuBarIsVisible */
+        0,          /* statusBarIsVisible */
+        0,          /* setStatusBarIsVisible */
+        0,          /* isResizable */
+        0,          /* setIsResizable */
         getWindowFrame,
         setWindowFrame,
         runBeforeUnloadConfirmPanel,
-        0          /* didDraw */
+        0,          /* didDraw */
+        0           /* pageDidScroll */
     };
     WKPageSetPageUIClient(_webView.pageRef, &uiClient);
 }

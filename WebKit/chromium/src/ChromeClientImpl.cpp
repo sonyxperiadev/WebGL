@@ -40,6 +40,7 @@
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "ExternalPopupMenu.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
@@ -51,6 +52,7 @@
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "IntRect.h"
+#include "NavigationAction.h"
 #include "Node.h"
 #include "NotificationPresenterImpl.h"
 #include "Page.h"
@@ -251,7 +253,7 @@ void ChromeClientImpl::focusedNodeChanged(Node* node)
 }
 
 Page* ChromeClientImpl::createWindow(
-    Frame* frame, const FrameLoadRequest& r, const WindowFeatures& features)
+    Frame* frame, const FrameLoadRequest& r, const WindowFeatures& features, const NavigationAction&)
 {
     if (!m_webView->client())
         return 0;
@@ -833,6 +835,9 @@ bool ChromeClientImpl::selectItemWritingDirectionIsNatural()
 
 PassRefPtr<PopupMenu> ChromeClientImpl::createPopupMenu(PopupMenuClient* client) const
 {
+    if (WebViewImpl::useExternalPopupMenus())
+        return adoptRef(new ExternalPopupMenu(client, m_webView->client()));
+    
     return adoptRef(new PopupMenuChromium(client));
 }
 

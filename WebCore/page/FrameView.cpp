@@ -509,8 +509,6 @@ void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, Scrollbar
                 hMode = ScrollbarAlwaysOff;
 #endif
             } else if (body->hasTagName(bodyTag)) {
-                if (!m_firstLayout && m_size.height() != layoutHeight() && body->renderer()->enclosingBox()->stretchesToViewport())
-                    body->renderer()->setChildNeedsLayout(true);
                 // It's sufficient to just check the X overflow,
                 // since it's illegal to have visible in only one direction.
                 RenderObject* o = rootRenderer->style()->overflowX() == OVISIBLE && document->documentElement()->hasTagName(htmlTag) ? body->renderer() : rootRenderer;
@@ -770,8 +768,17 @@ void FrameView::layout(bool allowSubtree)
 
         m_size = IntSize(layoutWidth(), layoutHeight());
 
-        if (oldSize != m_size)
+        if (oldSize != m_size) {
             m_doFullRepaint = true;
+            if (!m_firstLayout) {
+                RenderBox* rootRenderer = document->documentElement() ? document->documentElement()->renderBox() : 0;
+                RenderBox* bodyRenderer = rootRenderer && document->body() ? document->body()->renderBox() : 0;
+                if (bodyRenderer && bodyRenderer->stretchesToViewport())
+                    bodyRenderer->setChildNeedsLayout(true);
+                else if (rootRenderer && rootRenderer->stretchesToViewport())
+                    rootRenderer->setChildNeedsLayout(true);
+            }
+        }
     }
 
     RenderLayer* layer = root->enclosingLayer();
@@ -1018,6 +1025,23 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
 
     // the number of fixed objects exceed the threshold, we cannot use the fast path
     return false;
+}
+
+void FrameView::scrollContentsSlowPath(const IntRect& updateRect)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderPart* frameRenderer = m_frame->ownerRenderer()) {
+        if (frameRenderer->containerForRepaint()) {
+            IntRect rect(frameRenderer->borderLeft() + frameRenderer->paddingLeft(),
+                         frameRenderer->borderTop() + frameRenderer->paddingTop(),
+                         visibleWidth(), visibleHeight());
+            frameRenderer->repaintRectangle(rect);
+            return;
+        }
+    }
+#endif
+
+    ScrollView::scrollContentsSlowPath(updateRect);
 }
 
 // Note that this gets called at painting time.

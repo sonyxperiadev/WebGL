@@ -244,6 +244,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/SplitElementCommand.cpp \
 	editing/SplitTextNodeCommand.cpp \
 	editing/SplitTextNodeContainingElementCommand.cpp \
+	editing/TextCheckingHelper.cpp \
 	editing/TextIterator.cpp \
 	editing/TypingCommand.cpp \
 	editing/UnlinkCommand.cpp \
@@ -269,6 +270,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/FileEntrySync.cpp \
 	fileapi/FileList.cpp \
 	fileapi/FileReader.cpp \
+	fileapi/FileReaderLoader.cpp \
 	fileapi/FileStreamProxy.cpp \
 	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \
@@ -283,14 +285,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/android/HistoryItemAndroid.cpp \
 	\
 	html/AsyncImageResizer.cpp \
+	html/BaseButtonInputType.cpp \
+	html/BaseCheckableInputType.cpp \
 	html/BaseDateAndTimeInputType.cpp \
 	html/BaseTextInputType.cpp \
 	html/ButtonInputType.cpp \
 	html/CheckboxInputType.cpp \
+	html/ClassList.cpp \
 	html/CollectionCache.cpp \
 	html/parser/CSSPreloadScanner.cpp \
 	html/ColorInputType.cpp \
 	html/DOMFormData.cpp \
+	html/DOMSettableTokenList.cpp \
 	html/DOMTokenList.cpp \
 	html/DateComponents.cpp \
 	html/DateInputType.cpp \
@@ -462,6 +468,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/SpatialNavigation.cpp \
 	page/SpeechInput.cpp \
+	page/SpeechInputResult.cpp \
 	page/SuspendableTimer.cpp \
 	page/Timing.cpp \
 	page/UserContentURLPattern.cpp \
@@ -627,6 +634,7 @@ endif
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/skia/FloatPointSkia.cpp \
 	platform/graphics/skia/FloatRectSkia.cpp \
+	platform/graphics/skia/GlyphPageTreeNodeSkia.cpp \
 	platform/graphics/skia/IntPointSkia.cpp \
 	platform/graphics/skia/IntRectSkia.cpp \
 	platform/graphics/skia/NativeImageSkia.cpp \
@@ -924,6 +932,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBObjectStore.cpp \
 	storage/IDBObjectStoreBackendImpl.cpp \
 	storage/IDBRequest.cpp \
+	storage/IDBSQLiteDatabase.cpp \
 	storage/IDBSuccessEvent.cpp \
 	storage/IDBTimeoutEvent.cpp \
 	storage/IDBTransaction.cpp \

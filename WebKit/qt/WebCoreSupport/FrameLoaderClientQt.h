@@ -120,7 +120,7 @@ public:
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-    virtual WebCore::Frame* dispatchCreatePage();
+    virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
     virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const WTF::String&, const WebCore::ResourceRequest&);
@@ -193,12 +193,15 @@ public:
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void dispatchDidBecomeFrameset(bool);
+
     virtual bool canCachePage() const;
     virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
     virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
     virtual void redirectDataToPlugin(Widget* pluginWidget);
 
@@ -233,6 +236,7 @@ public:
     virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
     static bool dumpFrameLoaderCallbacks;
+    static bool dumpUserGestureInFrameLoaderCallbacks;
     static bool dumpResourceLoadCallbacks;
     static bool dumpResourceResponseMIMETypes;
     static QString dumpResourceLoadCallbacksPath;

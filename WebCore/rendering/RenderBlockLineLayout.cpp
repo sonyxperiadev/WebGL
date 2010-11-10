@@ -215,6 +215,7 @@ InlineFlowBox* RenderBlock::createLineBoxes(RenderObject* obj, bool firstLine)
             ASSERT(newBox->isInlineFlowBox());
             parentBox = static_cast<InlineFlowBox*>(newBox);
             parentBox->setFirstLineStyleBit(firstLine);
+            parentBox->setIsVertical(!style()->isHorizontalWritingMode());
             constructedNewBox = true;
         }
 
@@ -1013,7 +1014,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 trailingFloatsLineBox->setConstructed();
                 GlyphOverflowAndFallbackFontsMap textBoxDataMap;
                 trailingFloatsLineBox->alignBoxesInBlockDirection(logicalHeight(), textBoxDataMap);
-                trailingFloatsLineBox->setBlockDirectionOverflowPositions(logicalHeight(), bottomLayoutOverflow, logicalHeight(), bottomVisualOverflow, 0);
+                trailingFloatsLineBox->setBlockDirectionOverflowPositions(logicalHeight(), bottomLayoutOverflow, logicalHeight(), bottomVisualOverflow);
                 trailingFloatsLineBox->setBlockLogicalHeight(logicalHeight());
             }
             if (lastFloat) {

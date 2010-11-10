@@ -96,7 +96,6 @@ public:
     void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, int tx, int ty, int w, int h, CompositeOperator = CompositeSourceOver);
     void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, int tx, int ty, int w, int h, CompositeOperator = CompositeSourceOver);
     void paintBoxShadow(GraphicsContext*, RenderStyle*, ShadowStyle, int tx, int ty, int w, int h);
-    virtual void paintTextDecorations(PaintInfo&, int tx, int ty, bool paintedChildren = false);
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
 
@@ -175,32 +174,43 @@ public:
     void checkConsistency() const;
     void setHasBadChildList();
 
+    // Line visual and layout overflow are in the coordinate space of the block.  This means that - unlike other unprefixed uses of the words
+    // top/right/bottom/left in the code - these aren't purely physical directions.  For horizontal-tb and vertical-lr they will match physical
+    // directions, but for horizontal-bt and vertical-rl, the top/bottom and left/right respectively are inverted when compared to
+    // their physical counterparts.
     int topVisibleOverflow() const { return std::min(topLayoutOverflow(), topVisualOverflow()); }
     int bottomVisibleOverflow() const { return std::max(bottomLayoutOverflow(), bottomVisualOverflow()); }
     int leftVisibleOverflow() const { return std::min(leftLayoutOverflow(), leftVisualOverflow()); }
     int rightVisibleOverflow() const { return std::max(rightLayoutOverflow(), rightVisualOverflow()); }
-    IntRect visibleOverflowRect() const { return m_overflow ? m_overflow->visibleOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight());  }
+    int logicalTopVisibleOverflow() const { return std::min(logicalTopLayoutOverflow(), logicalTopVisualOverflow()); }
+    int logicalBottomVisibleOverflow() const { return std::max(logicalBottomLayoutOverflow(), logicalBottomVisualOverflow()); }
+
+    IntRect visibleOverflowRect() const { return m_overflow ? m_overflow->visibleOverflowRect() : IntRect(m_x, m_y, width(), height());  }
 
     int topLayoutOverflow() const { return m_overflow ? m_overflow->topLayoutOverflow() : m_y; }
     int bottomLayoutOverflow() const { return m_overflow ? m_overflow->bottomLayoutOverflow() : m_y + logicalHeight(); }
     int leftLayoutOverflow() const { return m_overflow ? m_overflow->leftLayoutOverflow() : m_x; }
     int rightLayoutOverflow() const { return m_overflow ? m_overflow->rightLayoutOverflow() : m_x + m_logicalWidth; }
-    IntRect layoutOverflowRect() const { return m_overflow ? m_overflow->layoutOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight()); }
+    IntRect layoutOverflowRect() const { return m_overflow ? m_overflow->layoutOverflowRect() : IntRect(m_x, m_y, width(), height()); }
     int logicalLeftLayoutOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? leftLayoutOverflow() : topLayoutOverflow(); }
     int logicalRightLayoutOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? rightLayoutOverflow() : bottomLayoutOverflow(); }
-    
+    int logicalTopLayoutOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? topVisualOverflow() : leftVisualOverflow(); }
+    int logicalBottomLayoutOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? bottomLayoutOverflow() : rightLayoutOverflow(); }
+
     int topVisualOverflow() const { return m_overflow ? m_overflow->topVisualOverflow() : m_y; }
     int bottomVisualOverflow() const { return m_overflow ? m_overflow->bottomVisualOverflow() : m_y + logicalHeight(); }
     int leftVisualOverflow() const { return m_overflow ? m_overflow->leftVisualOverflow() : m_x; }
     int rightVisualOverflow() const { return m_overflow ? m_overflow->rightVisualOverflow() : m_x + m_logicalWidth; }
-    IntRect visualOverflowRect() const { return m_overflow ? m_overflow->visualOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight()); }
+    IntRect visualOverflowRect() const { return m_overflow ? m_overflow->visualOverflowRect() : IntRect(m_x, m_y, width(), height()); }
     int logicalLeftVisualOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? leftVisualOverflow() : topVisualOverflow(); }
     int logicalRightVisualOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? rightVisualOverflow() : bottomVisualOverflow(); }
-    
+    int logicalTopVisualOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? topVisualOverflow() : leftVisualOverflow(); }
+    int logicalBottomVisualOverflow() const { return renderer()->style()->isHorizontalWritingMode() ? bottomVisualOverflow() : rightVisualOverflow(); }
+
     void setInlineDirectionOverflowPositions(int logicalLeftLayoutOverflow, int logicalRightLayoutOverflow,
                                              int logicalLeftVisualOverflow, int logicalRightVisualOverflow);
     void setBlockDirectionOverflowPositions(int logicalTopLayoutOverflow, int logicalBottomLayoutOverflow,
-                                            int logicalTopVisualOverflow, int logicalBottomVisualOverflow, int boxLogicalHeight);
+                                            int logicalTopVisualOverflow, int logicalBottomVisualOverflow);
 
 protected:
     OwnPtr<RenderOverflow> m_overflow;
@@ -230,8 +240,8 @@ inline void InlineFlowBox::setInlineDirectionOverflowPositions(int logicalLeftLa
             && logicalLeftVisualOverflow == logicalLeft() && logicalRightVisualOverflow == logicalRight())
             return;
         
-        int width = isVertical() ? m_renderer->style(m_firstLine)->font().height() : logicalWidth();
-        int height = isVertical() ? logicalWidth() : m_renderer->style(m_firstLine)->font().height();
+        int width = isVertical() ? logicalHeight() : logicalWidth();
+        int height = isVertical() ? logicalWidth() : logicalHeight();
         
         m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, width, height)));   
     }
@@ -249,18 +259,31 @@ inline void InlineFlowBox::setInlineDirectionOverflowPositions(int logicalLeftLa
     }
 }
 
-inline void InlineFlowBox::setBlockDirectionOverflowPositions(int topLayoutOverflow, int bottomLayoutOverflow, int topVisualOverflow, int bottomVisualOverflow, int boxHeight)
+inline void InlineFlowBox::setBlockDirectionOverflowPositions(int logicalTopLayoutOverflow, int logicalBottomLayoutOverflow,
+                                                              int logicalTopVisualOverflow, int logicalBottomVisualOverflow)
 {
     if (!m_overflow) {
-        if (topLayoutOverflow == m_y && bottomLayoutOverflow == m_y + boxHeight && topVisualOverflow == m_y && bottomVisualOverflow == m_y + boxHeight)
+        if (logicalTopLayoutOverflow == logicalTop() && logicalBottomLayoutOverflow == logicalBottom()
+            && logicalTopVisualOverflow == logicalTop() && logicalBottomVisualOverflow == logicalBottom())
             return;
-        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, m_logicalWidth, boxHeight)));
+            
+        int width = isVertical() ? logicalHeight() : logicalWidth();
+        int height = isVertical() ? logicalWidth() : logicalHeight();
+        
+        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, width, height)));
     }
 
-    m_overflow->setTopLayoutOverflow(topLayoutOverflow);
-    m_overflow->setBottomLayoutOverflow(bottomLayoutOverflow);
-    m_overflow->setTopVisualOverflow(topVisualOverflow); 
-    m_overflow->setBottomVisualOverflow(bottomVisualOverflow);  
+    if (!isVertical()) {
+        m_overflow->setTopLayoutOverflow(logicalTopLayoutOverflow);
+        m_overflow->setBottomLayoutOverflow(logicalBottomLayoutOverflow);
+        m_overflow->setTopVisualOverflow(logicalTopVisualOverflow); 
+        m_overflow->setBottomVisualOverflow(logicalBottomVisualOverflow);
+    } else {
+        m_overflow->setLeftLayoutOverflow(logicalTopLayoutOverflow);
+        m_overflow->setRightLayoutOverflow(logicalBottomLayoutOverflow);
+        m_overflow->setLeftVisualOverflow(logicalTopVisualOverflow); 
+        m_overflow->setRightVisualOverflow(logicalBottomVisualOverflow);
+    }
 }
 
 #ifdef NDEBUG

@@ -22,11 +22,7 @@
 #define DeprecatedSVGAnimatedPropertyTraits_h
 
 #if ENABLE(SVG)
-#include "FloatRect.h"
 #include "PlatformString.h"
-#include "SVGAngle.h"
-#include "SVGLength.h"
-#include "SVGLengthList.h"
 #include "SVGNumberList.h"
 #include "SVGPreserveAspectRatio.h"
 #include "SVGTransformList.h"
@@ -35,78 +31,6 @@ namespace WebCore {
 
 template<typename Type>
 struct DeprecatedSVGAnimatedPropertyTraits : public Noncopyable { };
-
-// SVGAnimatedAngle
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<SVGAngle> : public Noncopyable {
-    typedef const SVGAngle& PassType;
-    typedef SVGAngle ReturnType;
-    typedef SVGAngle StoredType;
-
-    static ReturnType null() { return SVGAngle(); }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return type.valueAsString(); }
-};
-
-// SVGAnimatedBoolean
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<bool> : public Noncopyable {
-    typedef const bool& PassType;
-    typedef bool ReturnType;
-    typedef bool StoredType;
-
-    static ReturnType null() { return false; }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return type ? "true" : "false"; }
-};
-
-// SVGAnimatedEnumeration
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<int> : public Noncopyable {
-    typedef const int& PassType;
-    typedef int ReturnType;
-    typedef int StoredType;
-
-    static ReturnType null() { return 0; }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return String::number(type); }
-};
-
-// SVGAnimatedInteger
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<long> : public Noncopyable {
-    typedef const long& PassType;
-    typedef long ReturnType;
-    typedef long StoredType;
-
-    static ReturnType null() { return 0l; }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return String::number(type); }
-};
-
-// SVGAnimatedLength
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<SVGLength> : public Noncopyable {
-    typedef const SVGLength& PassType;
-    typedef SVGLength ReturnType;
-    typedef SVGLength StoredType;
-
-    static ReturnType null() { return SVGLength(); }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return type.valueAsString(); }
-};
-
-// SVGAnimatedLengthList
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<SVGLengthList*> : public Noncopyable {
-    typedef SVGLengthList* PassType;
-    typedef SVGLengthList* ReturnType;
-    typedef RefPtr<SVGLengthList> StoredType;
-
-    static ReturnType null() { return 0; }
-    static ReturnType toReturnType(const StoredType& type) { return type.get(); }
-    static String toString(PassType type) { return type ? type->valueAsString() : String(); }
-};
 
 // SVGAnimatedNumber
 template<>
@@ -142,18 +66,6 @@ struct DeprecatedSVGAnimatedPropertyTraits<SVGPreserveAspectRatio> : public Nonc
     static ReturnType null() { return SVGPreserveAspectRatio(); }
     static ReturnType toReturnType(const StoredType& type) { return type; }
     static String toString(PassType type) { return type.valueAsString(); }
-};
-
-// SVGAnimatedRect
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<FloatRect> : public Noncopyable {
-    typedef const FloatRect& PassType;
-    typedef FloatRect ReturnType;
-    typedef FloatRect StoredType;
-
-    static ReturnType null() { return FloatRect(); }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return String::format("%f %f %f %f", type.x(), type.y(), type.width(), type.height()); }
 };
 
 // SVGAnimatedString

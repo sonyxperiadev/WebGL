@@ -175,6 +175,8 @@ namespace WebCore {
         //  - Application Cache
         //  - Back/Forward Page History
         //  - Page Search Results
+        //  - HTTP Cookies
+        //  - Plug-ins (that support NPNVprivateModeBool)
         void setPrivateBrowsingEnabled(bool);
         bool privateBrowsingEnabled() const { return m_privateBrowsingEnabled; }
 
@@ -398,6 +400,9 @@ namespace WebCore {
         void setHyperlinkAuditingEnabled(bool flag) { m_hyperlinkAuditingEnabled = flag; }
         bool hyperlinkAuditingEnabled() const { return m_hyperlinkAuditingEnabled; }
 
+        void setCrossOriginCheckInGetMatchedCSSRulesDisabled(bool flag) { m_crossOriginCheckInGetMatchedCSSRulesDisabled = flag; }
+        bool crossOriginCheckInGetMatchedCSSRulesDisabled() const { return m_crossOriginCheckInGetMatchedCSSRulesDisabled; }
+
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
         bool autoFillEnabled() { return m_autoFillEnabled; }
@@ -528,6 +533,8 @@ namespace WebCore {
         bool m_interactiveFormValidation: 1;
         bool m_usePreHTML5ParserQuirks: 1;
         bool m_hyperlinkAuditingEnabled : 1;
+        bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
+
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif

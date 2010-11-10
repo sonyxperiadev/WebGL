@@ -36,10 +36,10 @@ namespace JSC {
         friend class JSGlobalData;
     public:
         bool canAccessIndex(unsigned i) { return i < m_storage->length(); }
-        JSValue getIndex(ExecState* exec, unsigned i)
+        JSValue getIndex(ExecState*, unsigned i)
         {
             ASSERT(canAccessIndex(i));
-            return jsNumber(exec, m_storage->data()[i]);
+            return jsNumber(m_storage->data()[i]);
         }
 
         void setIndex(unsigned i, int value)
@@ -106,7 +106,7 @@ namespace JSC {
     JSByteArray* asByteArray(JSValue value);
     inline JSByteArray* asByteArray(JSValue value)
     {
-        return static_cast<JSByteArray*>(asCell(value));
+        return static_cast<JSByteArray*>(value.asCell());
     }
 
     inline bool isJSByteArray(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsByteArrayVPtr; }

@@ -85,7 +85,7 @@ void SpeechInput::didCompleteRecognition(int listenerId)
         m_listeners.get(listenerId)->didCompleteRecognition(listenerId);
 }
 
-void SpeechInput::setRecognitionResult(int listenerId, const String& result)
+void SpeechInput::setRecognitionResult(int listenerId, const SpeechInputResultArray& result)
 {
     // Don't assert if not present as the element might have been removed by the page while
     // this event was on the way.
@@ -93,10 +93,10 @@ void SpeechInput::setRecognitionResult(int listenerId, const String& result)
         m_listeners.get(listenerId)->setRecognitionResult(listenerId, result);
 }
 
-bool SpeechInput::startRecognition(int listenerId, const IntRect& elementRect)
+bool SpeechInput::startRecognition(int listenerId, const IntRect& elementRect, const AtomicString& language, const String& grammar)
 {
     ASSERT(m_listeners.contains(listenerId));
-    return m_client->startRecognition(listenerId, elementRect);
+    return m_client->startRecognition(listenerId, elementRect, language, grammar);
 }
 
 void SpeechInput::stopRecording(int listenerId)

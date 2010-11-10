@@ -285,6 +285,7 @@ public:
     virtual bool isSlider() const { return false; }
     virtual bool isControl() const { return false; }
     virtual bool isList() const { return false; }
+    virtual bool isAccessibilityTable() const { return false; }
     virtual bool isDataTable() const { return false; }
     virtual bool isTableRow() const { return false; }
     virtual bool isTableColumn() const { return false; }
@@ -392,7 +393,6 @@ public:
     virtual String ariaLabeledByAttribute() const { return String(); }
     virtual String ariaDescribedByAttribute() const { return String(); }
     virtual String accessibilityDescription() const { return String(); }
-    virtual PassRefPtr<Range> ariaSelectedTextDOMRange() const { return 0; }
 
     virtual AXObjectCache* axObjectCache() const { return 0; }
     AXID axObjectID() const { return m_id; }

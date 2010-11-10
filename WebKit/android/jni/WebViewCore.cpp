@@ -1923,7 +1923,6 @@ void WebViewCore::setSelection(int start, int end)
     WebCore::RenderObject* renderer = focus->renderer();
     if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
         return;
-    WebCore::RenderTextControl* rtc = static_cast<WebCore::RenderTextControl*>(renderer);
     if (start > end) {
         int temp = start;
         start = end;
@@ -1934,7 +1933,7 @@ void WebViewCore::setSelection(int start, int end)
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
             m_mainFrame->editor()->client());
     client->setUiGeneratedSelectionChange(true);
-    rtc->setSelectionRange(start, end);
+    setSelectionRange(focus, start, end);
     client->setUiGeneratedSelectionChange(false);
     WebCore::Frame* focusedFrame = focus->document()->frame();
     bool isPasswordField = false;

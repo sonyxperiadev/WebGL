@@ -44,6 +44,15 @@ struct WebMenuItemInfo {
         Group,
         Separator,
     };
+
+    WebMenuItemInfo() 
+        : type(Option)
+        , action(0)
+        , enabled(false)
+        , checked(false)
+    {
+    }
+
     WebString label;
     Type type;
     unsigned action;

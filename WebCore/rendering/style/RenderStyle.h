@@ -325,6 +325,7 @@ public:
 
     RenderStyle* getCachedPseudoStyle(PseudoId) const;
     RenderStyle* addCachedPseudoStyle(PassRefPtr<RenderStyle>);
+    void removeCachedPseudoStyle(PseudoId);
 
     const PseudoStyleCache* cachedPseudoStyles() const { return m_cachedPseudoStyles.get(); }
 
@@ -641,6 +642,7 @@ public:
     void getTextShadowHorizontalExtent(int& left, int& right) const { getShadowHorizontalExtent(textShadow(), left, right); }
     void getTextShadowVerticalExtent(int& top, int& bottom) const { getShadowVerticalExtent(textShadow(), top, bottom); }
     void getTextShadowInlineDirectionExtent(int& logicalLeft, int& logicalRight) { getShadowInlineDirectionExtent(textShadow(), logicalLeft, logicalRight); }
+    void getTextShadowBlockDirectionExtent(int& logicalTop, int& logicalBottom) { getShadowBlockDirectionExtent(textShadow(), logicalTop, logicalBottom); }
 
     float textStrokeWidth() const { return rareInheritedData->textStrokeWidth; }
     ColorSpace colorSpace() const { return static_cast<ColorSpace>(rareInheritedData->colorSpace); }
@@ -660,6 +662,7 @@ public:
     void getBoxShadowHorizontalExtent(int& left, int& right) const { getShadowHorizontalExtent(boxShadow(), left, right); }
     void getBoxShadowVerticalExtent(int& top, int& bottom) const { getShadowVerticalExtent(boxShadow(), top, bottom); }
     void getBoxShadowInlineDirectionExtent(int& logicalLeft, int& logicalRight) { getShadowInlineDirectionExtent(boxShadow(), logicalLeft, logicalRight); }
+    void getBoxShadowBlockDirectionExtent(int& logicalTop, int& logicalBottom) { getShadowBlockDirectionExtent(boxShadow(), logicalTop, logicalBottom); }
 
     StyleReflection* boxReflect() const { return rareNonInheritedData->m_boxReflect.get(); }
     EBoxSizing boxSizing() const { return m_box->boxSizing(); }
@@ -711,6 +714,7 @@ public:
 
     enum ApplyTransformOrigin { IncludeTransformOrigin, ExcludeTransformOrigin };
     void applyTransform(TransformationMatrix&, const IntSize& borderBoxSize, ApplyTransformOrigin = IncludeTransformOrigin) const;
+    void setPageScaleTransform(float);
 
     bool hasMask() const { return rareNonInheritedData->m_mask.hasImage() || rareNonInheritedData->m_maskBoxImage.hasImage(); }
     // End CSS3 Getters
@@ -752,6 +756,7 @@ public:
     WritingMode writingMode() const { return static_cast<WritingMode>(inherited_flags.m_writingMode); }
     bool isHorizontalWritingMode() const { return writingMode() == TopToBottomWritingMode || writingMode() == BottomToTopWritingMode; }
     bool isFlippedLinesWritingMode() const { return writingMode() == LeftToRightWritingMode || writingMode() == BottomToTopWritingMode; }
+    bool isFlippedBlocksWritingMode() const { return writingMode() == RightToLeftWritingMode || writingMode() == BottomToTopWritingMode; }
 
     ESpeak speak() { return static_cast<ESpeak>(rareInheritedData->speak); }
 
@@ -1326,6 +1331,10 @@ private:
     void getShadowInlineDirectionExtent(const ShadowData* shadow, int& logicalLeft, int& logicalRight) const
     {
         return isHorizontalWritingMode() ? getShadowHorizontalExtent(shadow, logicalLeft, logicalRight) : getShadowVerticalExtent(shadow, logicalLeft, logicalRight);
+    }
+    void getShadowBlockDirectionExtent(const ShadowData* shadow, int& logicalTop, int& logicalBottom) const
+    {
+        return isHorizontalWritingMode() ? getShadowVerticalExtent(shadow, logicalTop, logicalBottom) : getShadowHorizontalExtent(shadow, logicalTop, logicalBottom);
     }
 
     // Color accessors are all private to make sure callers use visitedDependentColor instead to access them.

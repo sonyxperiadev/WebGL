@@ -51,6 +51,7 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
     , m_dumpDatabaseCallbacks(false)
     , m_dumpEditingCallbacks(false)
     , m_dumpFrameLoadCallbacks(false)
+    , m_dumpUserGestureInFrameLoadCallbacks(false)
     , m_dumpHistoryDelegateCallbacks(false)
     , m_dumpResourceLoadCallbacks(false)
     , m_dumpResourceResponseMIMETypes(false)
@@ -164,6 +165,13 @@ static JSValueRef dumpFrameLoadCallbacksCallback(JSContextRef context, JSObjectR
 {
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setDumpFrameLoadCallbacks(true);
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef dumpUserGestureInFrameLoadCallbacksCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setDumpUserGestureInFrameLoadCallbacks(true);
     return JSValueMakeUndefined(context);
 }
 
@@ -1070,14 +1078,17 @@ static JSValueRef setMockGeolocationErrorCallback(JSContextRef context, JSObject
 
 static JSValueRef setMockSpeechInputResultCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-    if (argumentCount < 1)
+    if (argumentCount < 2)
         return JSValueMakeUndefined(context);
 
     JSRetainPtr<JSStringRef> result(Adopt, JSValueToStringCopy(context, arguments[0], exception));
     ASSERT(!*exception);
 
+    JSRetainPtr<JSStringRef> language(Adopt, JSValueToStringCopy(context, arguments[1], exception));
+    ASSERT(!*exception);
+
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
-    controller->setMockSpeechInputResult(result.get());
+    controller->setMockSpeechInputResult(result.get(), language.get());
 
     return JSValueMakeUndefined(context);
 }
@@ -1889,6 +1900,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "dumpDatabaseCallbacks", dumpDatabaseCallbacksCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "dumpEditingCallbacks", dumpEditingCallbacksCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "dumpFrameLoadCallbacks", dumpFrameLoadCallbacksCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "dumpUserGestureInFrameLoadCallbacks", dumpUserGestureInFrameLoadCallbacksCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },        
         { "dumpResourceLoadCallbacks", dumpResourceLoadCallbacksCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "dumpResourceResponseMIMETypes", dumpResourceResponseMIMETypesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "dumpSelectionRect", dumpSelectionRectCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

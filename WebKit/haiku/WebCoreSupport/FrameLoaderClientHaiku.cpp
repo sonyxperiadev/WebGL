@@ -645,7 +645,7 @@ void FrameLoaderClientHaiku::dispatchDidFailLoad(const ResourceError&)
     notImplemented();
 }
 
-Frame* FrameLoaderClientHaiku::dispatchCreatePage()
+Frame* FrameLoaderClientHaiku::dispatchCreatePage(const WebCore::NavigationAction&)
 {
     notImplemented();
     return false;
@@ -742,6 +742,10 @@ PassRefPtr<Frame> FrameLoaderClientHaiku::createFrame(const KURL& url, const Str
 }
 
 void FrameLoaderClientHaiku::didTransferChildFrameToNewDocument(Page*)
+{
+}
+
+void FrameLoaderClientHaiku::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
 {
 }
 
@@ -851,6 +855,10 @@ void FrameLoaderClientHaiku::transitionToCommittedForNewPage()
 
     if (HTMLFrameOwnerElement* owner = m_frame->ownerElement())
         m_frame->view()->setScrollbarModes(owner->scrollingMode(), owner->scrollingMode());
+}
+
+void FrameLoaderClientHaiku::dispatchDidBecomeFrameset(bool)
+{
 }
 
 } // namespace WebCore

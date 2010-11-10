@@ -91,7 +91,7 @@ namespace WebKit {
         virtual void dispatchDidFirstLayout();
         virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-        virtual WebCore::Frame* dispatchCreatePage();
+        virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
         virtual void dispatchShow();
 
         virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction, const WTF::String& MIMEType, const WebCore::ResourceRequest&);
@@ -115,6 +115,7 @@ namespace WebKit {
         virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WTF::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
                                    const WTF::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
         virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
         virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const WTF::Vector<WTF::String>&, const WTF::Vector<WTF::String>&, const WTF::String&, bool);
         virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
         virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const WTF::Vector<WTF::String>& paramNames, const WTF::Vector<WTF::String>& paramValues);
@@ -179,6 +180,8 @@ namespace WebKit {
         virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
+
+        virtual void dispatchDidBecomeFrameset(bool);
 
         virtual bool canCachePage() const;
         virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);

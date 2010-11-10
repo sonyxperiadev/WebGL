@@ -198,6 +198,8 @@ JIT::Label JIT::privateCompileCTINativeCall(JSGlobalData* globalData, bool isCon
 
     Label nativeCallThunk = align();
 
+    emitPutImmediateToCallFrameHeader(0, RegisterFile::CodeBlock);
+
 #if CPU(X86)
     // Load caller frame's scope chain into this callframe so that whatever we call can
     // get to its global data.
@@ -311,6 +313,8 @@ JIT::CodePtr JIT::privateCompileCTINativeCall(PassRefPtr<ExecutablePool> executa
 {
     Call nativeCall;
     Label nativeCallThunk = align();
+
+    emitPutImmediateToCallFrameHeader(0, RegisterFile::CodeBlock);
 
 #if CPU(X86)
     // Load caller frame's scope chain into this callframe so that whatever we call can
@@ -923,11 +927,8 @@ void JIT::emit_op_jeq_null(Instruction* currentInstruction)
     // Now handle the immediate cases - undefined & null
     isImmediate.link(this);
 
-    set32(Equal, regT1, Imm32(JSValue::NullTag), regT2);
-    set32(Equal, regT1, Imm32(JSValue::UndefinedTag), regT1);
-    or32(regT2, regT1);
-
-    addJump(branchTest32(NonZero, regT1), target);
+    ASSERT((JSValue::UndefinedTag + 1 == JSValue::NullTag) && !(JSValue::NullTag + 1));
+    addJump(branch32(AboveOrEqual, regT1, Imm32(JSValue::UndefinedTag)), target);
 
     wasNotImmediate.link(this);
 }
@@ -950,11 +951,8 @@ void JIT::emit_op_jneq_null(Instruction* currentInstruction)
     // Now handle the immediate cases - undefined & null
     isImmediate.link(this);
 
-    set32(Equal, regT1, Imm32(JSValue::NullTag), regT2);
-    set32(Equal, regT1, Imm32(JSValue::UndefinedTag), regT1);
-    or32(regT2, regT1);
-
-    addJump(branchTest32(Zero, regT1), target);
+    ASSERT((JSValue::UndefinedTag + 1 == JSValue::NullTag) && !(JSValue::NullTag + 1));
+    addJump(branch32(Below, regT1, Imm32(JSValue::UndefinedTag)), target);
 
     wasNotImmediate.link(this);
 }
@@ -1388,15 +1386,17 @@ void JIT::emit_op_push_new_scope(Instruction* currentInstruction)
 
 void JIT::emit_op_catch(Instruction* currentInstruction)
 {
-    unsigned exception = currentInstruction[1].u.operand;
-
-    // This opcode only executes after a return from cti_op_throw.
-
-    // cti_op_throw may have taken us to a call frame further up the stack; reload
-    // the call frame pointer to adjust.
-    peek(callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof(void*));
+    // cti_op_throw returns the callFrame for the handler.
+    move(regT0, callFrameRegister);
 
     // Now store the exception returned by cti_op_throw.
+    loadPtr(Address(stackPointerRegister, OBJECT_OFFSETOF(struct JITStackFrame, globalData)), regT3);
+    load32(Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception) + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0);
+    load32(Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1);
+    store32(Imm32(JSValue().payload()), Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception) + OBJECT_OFFSETOF(JSValue, u.asBits.payload)));
+    store32(Imm32(JSValue().tag()), Address(regT3, OBJECT_OFFSETOF(JSGlobalData, exception) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)));
+
+    unsigned exception = currentInstruction[1].u.operand;
     emitStore(exception, regT1, regT0);
     map(m_bytecodeOffset + OPCODE_LENGTH(op_catch), exception, regT1, regT0);
 }

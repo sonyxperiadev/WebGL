@@ -73,6 +73,7 @@ void InitWebCoreSystemInterface(void)
     INIT(SetCGFontRenderingMode);
     INIT(SetCONNECTProxyAuthorizationForStream);
     INIT(SetCONNECTProxyForStream);
+    INIT(SetCookieStoragePrivateBrowsingEnabled);
     INIT(SetDragImage);
     INIT(SetNSURLConnectionDefersCallbacks);
     INIT(SetNSURLRequestShouldContentSniff);
@@ -111,10 +112,6 @@ void InitWebCoreSystemInterface(void)
     INIT(InitializeGlyphVector);
     INIT(ReleaseStyleGroup);
     INIT(SupportsMultipartXMixedReplace);
-#endif
-
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    INIT(NoteOpenPanelFiles);
 #endif
 
 #if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)

@@ -70,6 +70,7 @@ class HTMLFormElement;
 class IconLoader;
 class NavigationAction;
 class NetworkingContext;
+class Page;
 class ProtectionSpace;
 class ResourceError;
 class ResourceLoader;
@@ -136,6 +137,7 @@ public:
     bool isLoadingMainResource() const { return m_isLoadingMainResource; }
     bool isLoading() const;
     bool frameHasLoaded() const;
+    void transferLoadingResourcesFromPage(Page*);
 
     int numPendingOrLoadingRequests(bool recurse) const;
     String referrer() const;
@@ -368,11 +370,11 @@ private:
     void setLoadType(FrameLoadType);
 
     static void callContinueLoadAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
-    static void callContinueLoadAfterNewWindowPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
+    static void callContinueLoadAfterNewWindowPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, const NavigationAction&, bool shouldContinue);
     static void callContinueFragmentScrollAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
 
     void continueLoadAfterNavigationPolicy(const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
-    void continueLoadAfterNewWindowPolicy(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
+    void continueLoadAfterNewWindowPolicy(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, const NavigationAction&, bool shouldContinue);
     void continueFragmentScrollAfterNavigationPolicy(const ResourceRequest&, bool shouldContinue);
 
     bool shouldScrollToAnchor(bool isFormSubmission, FrameLoadType, const KURL&);

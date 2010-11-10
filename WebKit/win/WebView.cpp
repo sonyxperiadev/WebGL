@@ -67,13 +67,12 @@
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/BString.h>
-#include <WebCore/BackForwardList.h>
+#include <WebCore/BackForwardListImpl.h>
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/Cache.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/ContextMenu.h>
 #include <WebCore/ContextMenuController.h>
-#include <WebCore/CookieStorageWin.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/Document.h>
 #include <WebCore/DragController.h>
@@ -148,6 +147,7 @@
 #if USE(CFNETWORK)
 #include <CFNetwork/CFURLCachePriv.h>
 #include <CFNetwork/CFURLProtocolPriv.h>
+#include <WebCore/CookieStorageCFNet.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h> 
 #endif
 
@@ -1833,10 +1833,10 @@ const char* WebView::interpretKeyEvent(const KeyboardEvent* evt)
         keyDownCommandsMap = new HashMap<int, const char*>;
         keyPressCommandsMap = new HashMap<int, const char*>;
 
-        for (unsigned i = 0; i < _countof(keyDownEntries); i++)
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyDownEntries); ++i)
             keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
 
-        for (unsigned i = 0; i < _countof(keyPressEntries); i++)
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyPressEntries); ++i)
             keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
     }
 
@@ -2870,13 +2870,14 @@ HRESULT STDMETHODCALLTYPE WebView::focusedFrame(
 
     return webFrame->QueryInterface(IID_IWebFrame, (void**) frame);
 }
+
 HRESULT STDMETHODCALLTYPE WebView::backForwardList( 
     /* [out][retval] */ IWebBackForwardList** list)
 {
     if (!m_useBackForwardList)
         return E_FAIL;
  
-    *list = WebBackForwardList::createInstance(m_page->backForwardList());
+    *list = WebBackForwardList::createInstance(static_cast<WebCore::BackForwardListImpl*>(m_page->backForwardList()));
 
     return S_OK;
 }

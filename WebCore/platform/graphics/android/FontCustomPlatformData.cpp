@@ -46,7 +46,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
 }
 
 FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic,
-    FontRenderingMode mode)
+    FontOrientation, FontRenderingMode)
 {
     // turn bold/italic into fakeBold/fakeItalic
     if (m_typeface != NULL) {

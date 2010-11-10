@@ -1085,13 +1085,13 @@ static bool isChildTypeAllowed(Node* newParent, Node* child)
     if (child->nodeType() != Node::DOCUMENT_FRAGMENT_NODE) {
         if (!newParent->childTypeAllowed(child->nodeType()))
             return false;
+        return true;
     }
     
     for (Node *n = child->firstChild(); n; n = n->nextSibling()) {
         if (!newParent->childTypeAllowed(n->nodeType()))
             return false;
     }
-
     return true;
 }
 
@@ -2992,7 +2992,7 @@ void Node::defaultEventHandler(Event* event)
             if (Frame* frame = document()->frame())
                 frame->eventHandler()->defaultTextInputEventHandler(static_cast<TextEvent*>(event));
 #if ENABLE(PAN_SCROLLING)
-    } else if (eventType == eventNames().mousedownEvent) {
+    } else if (eventType == eventNames().mousedownEvent && event->isMouseEvent()) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         if (mouseEvent->button() == MiddleButton) {
             if (enclosingLinkEventParentOrSelf())

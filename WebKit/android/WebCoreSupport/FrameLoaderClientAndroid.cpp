@@ -411,7 +411,7 @@ void FrameLoaderClientAndroid::dispatchDidFirstVisuallyNonEmptyLayout()
     notImplemented();
 }
 
-Frame* FrameLoaderClientAndroid::dispatchCreatePage() {
+Frame* FrameLoaderClientAndroid::dispatchCreatePage(const NavigationAction&) {
     ASSERT(m_frame);
 #ifdef ANDROID_MULTIPLE_WINDOWS
     if (m_frame->settings() && m_frame->settings()->supportMultipleWindows())
@@ -926,6 +926,10 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     m_webFrame->transitionToCommitted(m_frame);
 }
 
+void FrameLoaderClientAndroid::dispatchDidBecomeFrameset(bool)
+{
+}
+
 bool FrameLoaderClientAndroid::canCachePage() const {
     return true;
 }
@@ -1242,6 +1246,11 @@ void FrameLoaderClientAndroid::didTransferChildFrameToNewDocument(WebCore::Page*
         m_webFrame = chromeClient->webFrame();
         Retain(m_webFrame);
     }
+}
+
+void FrameLoaderClientAndroid::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+    notImplemented();
 }
 
 // This function is used by the <OBJECT> element to determine the type of

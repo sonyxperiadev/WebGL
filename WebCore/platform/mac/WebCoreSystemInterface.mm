@@ -67,6 +67,7 @@ void (*wkQTMovieSetShowClosedCaptions)(QTMovie*, BOOL);
 void (*wkQTMovieSelectPreferredAlternates)(QTMovie*);
 void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
+void (*wkSetCookieStoragePrivateBrowsingEnabled)(BOOL);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
 void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint point);
@@ -113,9 +114,7 @@ BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
 #endif
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-NSMutableArray *(*wkNoteOpenPanelFiles)(NSArray *);
 void* wkGetHyphenationLocationBeforeIndex;
 #else
-void* wkNoteOpenPanelFiles;
 CFIndex (*wkGetHyphenationLocationBeforeIndex)(CFStringRef string, CFIndex index);
 #endif

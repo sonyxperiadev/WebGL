@@ -110,7 +110,7 @@
 #import <JavaScriptCore/JSValueRef.h>
 #import <WebCore/AbstractDatabase.h>
 #import <WebCore/ApplicationCacheStorage.h>
-#import <WebCore/BackForwardList.h>
+#import <WebCore/BackForwardListImpl.h>
 #import <WebCore/Cache.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/CSSComputedStyleDeclaration.h>
@@ -144,6 +144,7 @@
 #import <WebCore/PageGroup.h>
 #import <WebCore/PlatformMouseEvent.h>
 #import <WebCore/ProgressTracker.h>
+#import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -403,6 +404,7 @@ NSString *WebElementLinkLabelKey =          @"WebElementLinkLabel";
 NSString *WebElementLinkTargetFrameKey =    @"WebElementTargetFrame";
 NSString *WebElementLinkTitleKey =          @"WebElementLinkTitle";
 NSString *WebElementLinkURLKey =            @"WebElementLinkURL";
+NSString *WebElementMediaURLKey =           @"WebElementMediaURL";
 NSString *WebElementSpellingToolTipKey =    @"WebElementSpellingToolTip";
 NSString *WebElementTitleKey =              @"WebElementTitle";
 NSString *WebElementLinkIsLiveKey =         @"WebElementLinkIsLive";
@@ -1397,6 +1399,12 @@ static bool fastDocumentTeardownEnabled()
         || [[self preferences] usePreHTML5ParserQuirks];
 }
 
+- (BOOL)_needsUnrestrictedGetMatchedCSSRules
+{
+    static bool needsUnrestrictedGetMatchedCSSRules = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_GET_MATCHED_CSS_RULES_RESTRICTIONS) && applicationIsSafari();
+    return needsUnrestrictedGetMatchedCSSRules;
+}
+
 - (void)_preferencesChangedNotification:(NSNotification *)notification
 {
     WebPreferences *preferences = (WebPreferences *)[notification object];
@@ -1495,6 +1503,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
     settings->setHyperlinkAuditingEnabled([preferences hyperlinkAuditingEnabled]);
     settings->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
+    settings->setCrossOriginCheckInGetMatchedCSSRulesDisabled([self _needsUnrestrictedGetMatchedCSSRules]);
 
     // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
     [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
@@ -2617,6 +2626,24 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     SchemeRegistry::registerURLSchemeAsSecure(scheme);
 }
 
+- (void)_scaleWebView:(float)scale
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return;
+
+    coreFrame->scalePage(scale);
+}
+
+- (float)_viewScaleFactor
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return 1;
+
+    return coreFrame->pageScaleFactor();
+}
+
 @end
 
 @implementation _WebSafeForwarder
@@ -2979,7 +3006,7 @@ static bool needsWebViewInitThreadWorkaround()
 
         LOG(Encoding, "FrameName = %@, GroupName = %@, useBackForwardList = %d\n", frameName, groupName, (int)useBackForwardList);
         [result _commonInitializationWithFrameName:frameName groupName:groupName usesDocumentViews:YES];
-        [result page]->backForwardList()->setEnabled(useBackForwardList);
+        static_cast<BackForwardListImpl*>([result page]->backForwardList())->setEnabled(useBackForwardList);
         result->_private->allowsUndo = allowsUndo;
         if (preferences)
             [result setPreferences:preferences];
@@ -3003,7 +3030,7 @@ static bool needsWebViewInitThreadWorkaround()
     // Restore the subviews we set aside.
     _subviews = originalSubviews;
 
-    BOOL useBackForwardList = _private->page && _private->page->backForwardList()->enabled();
+    BOOL useBackForwardList = _private->page && static_cast<BackForwardListImpl*>(_private->page->backForwardList())->enabled();
     if ([encoder allowsKeyedCoding]) {
         [encoder encodeObject:[[self mainFrame] name] forKey:@"FrameName"];
         [encoder encodeObject:[self groupName] forKey:@"GroupName"];
@@ -3314,16 +3341,17 @@ static bool needsWebViewInitThreadWorkaround()
 {
     if (!_private->page)
         return nil;
-    if (!_private->page->backForwardList()->enabled())
+    BackForwardListImpl* list = static_cast<BackForwardListImpl*>(_private->page->backForwardList());
+    if (!list->enabled())
         return nil;
-    return kit(_private->page->backForwardList());
+    return kit(list);
 }
 
 - (void)setMaintainsBackForwardList:(BOOL)flag
 {
     if (!_private->page)
         return;
-    _private->page->backForwardList()->setEnabled(flag);
+    static_cast<BackForwardListImpl*>(_private->page->backForwardList())->setEnabled(flag);
 }
 
 - (BOOL)goBack
@@ -5280,6 +5308,11 @@ static WebFrameView *containingFrameView(NSView *view)
 
 @implementation WebView (WebFileInternal)
 
+static inline uint64_t roundUpToPowerOf2(uint64_t num)
+{
+    return powf(2.0, ceilf(log2f(num)));
+}
+
 + (void)_setCacheModel:(WebCacheModel)cacheModel
 {
     if (s_didSetCacheModel && cacheModel == s_cacheModel)
@@ -5289,9 +5322,7 @@ static WebFrameView *containingFrameView(NSView *view)
     if (!nsurlCacheDirectory)
         nsurlCacheDirectory = NSHomeDirectory();
 
-    // As a fudge factor, use 1000 instead of 1024, in case the reported byte 
-    // count doesn't align exactly to a megabyte boundary.
-    uint64_t memSize = WebMemorySize() / 1024 / 1000;
+    static uint64_t memSize = roundUpToPowerOf2(WebMemorySize() / 1024 / 1024);
     unsigned long long diskFreeSize = WebVolumeFreeSize(nsurlCacheDirectory) / 1024 / 1000;
     NSURLCache *nsurlCache = [NSURLCache sharedURLCache];
 
@@ -5311,10 +5342,10 @@ static WebFrameView *containingFrameView(NSView *view)
         pageCacheCapacity = 0;
 
         // Object cache capacities (in bytes)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 128 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 96 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
         else if (memSize >= 512)
@@ -5343,10 +5374,10 @@ static WebFrameView *containingFrameView(NSView *view)
             pageCacheCapacity = 0;
 
         // Object cache capacities (in bytes)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 128 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 96 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
         else if (memSize >= 512)
@@ -5395,10 +5426,10 @@ static WebFrameView *containingFrameView(NSView *view)
         // (Testing indicates that value / MB depends heavily on content and
         // browsing pattern. Even growth above 128MB can have substantial 
         // value / MB for some content / browsing patterns.)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 192 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 128 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 512)

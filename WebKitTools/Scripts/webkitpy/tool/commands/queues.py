@@ -38,7 +38,7 @@ from datetime import datetime
 from optparse import make_option
 from StringIO import StringIO
 
-from webkitpy.common.net.bugzilla import CommitterValidator
+from webkitpy.common.net.bugzilla import CommitterValidator, Attachment
 from webkitpy.common.net.layouttestresults import path_for_layout_test, LayoutTestResults
 from webkitpy.common.net.statusserver import StatusServer
 from webkitpy.common.system.executive import ScriptError
@@ -47,7 +47,7 @@ from webkitpy.tool.commands.stepsequence import StepSequenceErrorHandler
 from webkitpy.tool.bot.commitqueuetask import CommitQueueTask, CommitQueueTaskDelegate
 from webkitpy.tool.bot.feeders import CommitQueueFeeder, EWSFeeder
 from webkitpy.tool.bot.queueengine import QueueEngine, QueueEngineDelegate
-from webkitpy.tool.grammar import pluralize
+from webkitpy.tool.grammar import pluralize, join_with_separators
 from webkitpy.tool.multicommandtool import Command, TryAgain
 
 
@@ -87,6 +87,11 @@ class AbstractQueue(Command, QueueEngineDelegate):
         if self._options.port:
             webkit_patch_args += ["--port=%s" % self._options.port]
         webkit_patch_args.extend(args)
+        # FIXME: There is probably no reason to use run_and_throw_if_fail anymore.
+        # run_and_throw_if_fail was invented to support tee'd output
+        # (where we write both to a log file and to the console at once),
+        # but the queues don't need live-progress, a dump-of-output at the
+        # end should be sufficient.
         return self._tool.executive.run_and_throw_if_fail(webkit_patch_args)
 
     def _log_directory(self):
@@ -196,24 +201,40 @@ class AbstractPatchQueue(AbstractQueue):
     def _update_status(self, message, patch=None, results_file=None):
         return self._tool.status_server.update_status(self.name, message, patch, results_file)
 
-    def _fetch_next_work_item(self):
-        return self._tool.status_server.next_work_item(self.name)
+    def _next_patch(self):
+        patch_id = self._tool.status_server.next_work_item(self.name)
+        if not patch_id:
+            return None
+        patch = self._tool.bugs.fetch_attachment(patch_id)
+        if not patch:
+            # FIXME: Using a fake patch because release_work_item has the wrong API.
+            # We also don't really need to release the lock (although that's fine),
+            # mostly we just need to remove this bogus patch from our queue.
+            # If for some reason bugzilla is just down, then it will be re-fed later.
+            patch = Attachment({'id': patch_id}, None)
+            self._release_work_item(patch)
+            return None
+        return patch
 
     def _release_work_item(self, patch):
         self._tool.status_server.release_work_item(self.name, patch)
 
     def _did_pass(self, patch):
         self._update_status(self._pass_status, patch)
+        self._release_work_item(patch)
 
     def _did_fail(self, patch):
         self._update_status(self._fail_status, patch)
+        self._release_work_item(patch)
 
     def _did_retry(self, patch):
         self._update_status(self._retry_status, patch)
+        self._release_work_item(patch)
 
     def _did_error(self, patch, reason):
         message = "%s: %s" % (self._error_status, reason)
         self._update_status(message, patch)
+        self._release_work_item(patch)
 
     def work_item_log_path(self, patch):
         return os.path.join(self._log_directory(), "%s.log" % patch.bug_id())
@@ -229,10 +250,7 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskD
         self.committer_validator = CommitterValidator(self._tool.bugs)
 
     def next_work_item(self):
-        patch_id = self._fetch_next_work_item()
-        if not patch_id:
-            return None
-        return self._tool.bugs.fetch_attachment(patch_id)
+        return self._next_patch()
 
     def should_proceed_with_work_item(self, patch):
         patch_text = "rollout patch" if patch.is_rollout() else "patch"
@@ -251,7 +269,6 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskD
             validator = CommitterValidator(self._tool.bugs)
             validator.reject_patch_from_commit_queue(patch.id(), self._error_message_for_bug(task.failure_status_id, e))
             self._did_fail(patch)
-        self._release_work_item(patch)
 
     def _error_message_for_bug(self, status_id, script_error):
         if not script_error.output:
@@ -297,13 +314,17 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskD
     def _author_emails_for_tests(self, flaky_tests):
         test_paths = map(path_for_layout_test, flaky_tests)
         commit_infos = self._tool.checkout().recent_commit_infos_for_files(test_paths)
-        return [commit_info.author().bugzilla_email() for commit_info in commit_infos if commit_info.author()]
+        return set([commit_info.author().bugzilla_email() for commit_info in commit_infos if commit_info.author()])
 
     def report_flaky_tests(self, patch, flaky_tests):
-        authors = self._author_emails_for_tests(flaky_tests)
-        cc_explaination = "  The author(s) of the test(s) have been CCed on this bug." if authors else ""
-        message = "The %s encountered the following flaky tests while processing attachment %s:\n\n%s\n\nPlease file bugs against the tests.%s  The commit-queue is continuing to process your patch." % (self.name, patch.id(), "\n".join(flaky_tests), cc_explaination)
-        self._tool.bugs.post_comment_to_bug(patch.bug_id(), message, cc=authors)
+        message = "The %s encountered the following flaky tests while processing attachment %s:" % (self.name, patch.id())
+        message += "\n\n%s\n\n" % ("\n".join(flaky_tests))
+        message += "Please file bugs against the tests.  "
+        author_emails = self._author_emails_for_tests(flaky_tests)
+        if author_emails:
+            message += "These tests were authored by %s.  " % (join_with_separators(sorted(author_emails)))
+        message += "The commit-queue is continuing to process your patch."
+        self._tool.bugs.post_comment_to_bug(patch.bug_id(), message)
 
     # StepSequenceErrorHandler methods
 
@@ -327,52 +348,6 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskD
         raise TryAgain()
 
 
-# FIXME: All the Rietveld code is no longer used and should be deleted.
-class RietveldUploadQueue(AbstractPatchQueue, StepSequenceErrorHandler):
-    name = "rietveld-upload-queue"
-
-    def __init__(self):
-        AbstractPatchQueue.__init__(self)
-
-    # AbstractPatchQueue methods
-
-    def next_work_item(self):
-        patch_id = self._tool.bugs.queries.fetch_first_patch_from_rietveld_queue()
-        if patch_id:
-            return patch_id
-        self._update_status("Empty queue")
-
-    def should_proceed_with_work_item(self, patch):
-        self._update_status("Uploading patch", patch)
-        return True
-
-    def process_work_item(self, patch):
-        try:
-            self.run_webkit_patch(["post-attachment-to-rietveld", "--force-clean", "--non-interactive", "--parent-command=rietveld-upload-queue", patch.id()])
-            self._did_pass(patch)
-            return True
-        except ScriptError, e:
-            if e.exit_code != QueueEngine.handled_error_code:
-                self._did_fail(patch)
-            raise e
-
-    @classmethod
-    def _reject_patch(cls, tool, patch_id):
-        tool.bugs.set_flag_on_attachment(patch_id, "in-rietveld", "-")
-
-    def handle_unexpected_error(self, patch, message):
-        log(message)
-        self._reject_patch(self._tool, patch.id())
-
-    # StepSequenceErrorHandler methods
-
-    @classmethod
-    def handle_script_error(cls, tool, state, script_error):
-        log(script_error.message_with_output())
-        cls._update_status_for_script_error(tool, state, script_error)
-        cls._reject_patch(tool, state["patch"].id())
-
-
 class AbstractReviewQueue(AbstractPatchQueue, StepSequenceErrorHandler):
     """This is the base-class for the EWS queues and the style-queue."""
     def __init__(self, options=None):
@@ -387,10 +362,7 @@ class AbstractReviewQueue(AbstractPatchQueue, StepSequenceErrorHandler):
         AbstractPatchQueue.begin_work_queue(self)
 
     def next_work_item(self):
-        patch_id = self._fetch_next_work_item()
-        if not patch_id:
-            return None
-        return self._tool.bugs.fetch_attachment(patch_id)
+        return self._next_patch()
 
     def should_proceed_with_work_item(self, patch):
         raise NotImplementedError("subclasses must implement")
@@ -404,9 +376,11 @@ class AbstractReviewQueue(AbstractPatchQueue, StepSequenceErrorHandler):
         except ScriptError, e:
             if e.exit_code != QueueEngine.handled_error_code:
                 self._did_fail(patch)
+            else:
+                # The subprocess handled the error, but won't have released the patch, so we do.
+                # FIXME: We need to simplify the rules by which _release_work_item is called.
+                self._release_work_item(patch)
             raise e
-        finally:
-            self._release_work_item(patch)
 
     def handle_unexpected_error(self, patch, message):
         log(message)

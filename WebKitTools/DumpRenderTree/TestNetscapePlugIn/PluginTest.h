@@ -55,11 +55,13 @@ public:
     virtual ~PluginTest();
 
     // NPP functions.
+    virtual NPError NPP_Destroy(NPSavedData**);
     virtual NPError NPP_DestroyStream(NPStream* stream, NPReason reason);
     virtual NPError NPP_GetValue(NPPVariable, void* value);
     virtual NPError NPP_SetWindow(NPP, NPWindow*);
 
     // NPN functions.
+    void NPN_InvalidateRect(NPRect* invalidRect);
     NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name);
     NPIdentifier NPN_GetIntIdentifier(int32_t intid);
     NPError NPN_GetValue(NPNVariable, void* value);
@@ -87,6 +89,9 @@ protected:
     NPP m_npp;
 
     const std::string& identifier() const { return m_identifier; }
+
+    void waitUntilDone();
+    void notifyDone();
 
     // NPObject helper template.
     template<typename T> struct Object : NPObject {

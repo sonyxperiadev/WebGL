@@ -36,6 +36,7 @@
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
 #include "CookieJar.h"
+#include "CookieStorage.h"
 #include "Cursor.h"
 #include "Database.h"
 #include "DocumentFragment.h"
@@ -488,3 +489,12 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
 }
 
 #endif
+
+namespace WebCore {
+
+void setCookieStoragePrivateBrowsingEnabled(bool)
+{
+    notImplemented();
+}
+
+} // namespace WebCore

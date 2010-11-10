@@ -1453,6 +1453,9 @@ void FrameLoader::load(DocumentLoader* newDocumentLoader)
 
 void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType type, PassRefPtr<FormState> prpFormState)
 {
+    // Retain because dispatchBeforeLoadEvent may release the last reference to it.
+    RefPtr<Frame> protect(m_frame);
+
     ASSERT(m_client->hasWebView());
 
     // Unfortunately the view must be non-nil, this is ultimately due
@@ -1759,6 +1762,13 @@ bool FrameLoader::isLoading() const
 bool FrameLoader::frameHasLoaded() const
 {
     return m_stateMachine.committedFirstRealDocumentLoad() || (m_provisionalDocumentLoader && !m_stateMachine.creatingInitialEmptyDocument()); 
+}
+
+void FrameLoader::transferLoadingResourcesFromPage(Page* oldPage)
+{
+    ASSERT(oldPage != m_frame->page());
+    if (isLoading())
+        activeDocumentLoader()->transferLoadingResourcesFromPage(oldPage);
 }
 
 void FrameLoader::setDocumentLoader(DocumentLoader* loader)
@@ -2994,20 +3004,20 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
 }
 
 void FrameLoader::callContinueLoadAfterNewWindowPolicy(void* argument,
-    const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName, bool shouldContinue)
+    const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName, const NavigationAction& action, bool shouldContinue)
 {
     FrameLoader* loader = static_cast<FrameLoader*>(argument);
-    loader->continueLoadAfterNewWindowPolicy(request, formState, frameName, shouldContinue);
+    loader->continueLoadAfterNewWindowPolicy(request, formState, frameName, action, shouldContinue);
 }
 
 void FrameLoader::continueLoadAfterNewWindowPolicy(const ResourceRequest& request,
-    PassRefPtr<FormState> formState, const String& frameName, bool shouldContinue)
+    PassRefPtr<FormState> formState, const String& frameName, const NavigationAction& action, bool shouldContinue)
 {
     if (!shouldContinue)
         return;
 
     RefPtr<Frame> frame = m_frame;
-    RefPtr<Frame> mainFrame = m_client->dispatchCreatePage();
+    RefPtr<Frame> mainFrame = m_client->dispatchCreatePage(action);
     if (!mainFrame)
         return;
 
@@ -3134,7 +3144,7 @@ void FrameLoader::checkDidPerformFirstNavigation()
     if (!page)
         return;
 
-    if (!m_didPerformFirstNavigation && page->backForwardList()->entries().size() == 1) {
+    if (!m_didPerformFirstNavigation && page->backForwardList()->currentItem() && !page->backForwardList()->backItem() && !page->backForwardList()->forwardItem()) {
         m_didPerformFirstNavigation = true;
         m_client->didPerformFirstNavigation();
     }
@@ -3506,7 +3516,8 @@ Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLoadReque
     if (!oldPage)
         return 0;
 
-    Page* page = oldPage->chrome()->createWindow(openerFrame, requestWithReferrer, features);
+    NavigationAction action;
+    Page* page = oldPage->chrome()->createWindow(openerFrame, requestWithReferrer, features, action);
     if (!page)
         return 0;
 

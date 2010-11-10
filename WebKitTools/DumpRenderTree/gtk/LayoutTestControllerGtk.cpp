@@ -34,6 +34,7 @@
 #include "LayoutTestController.h"
 
 #include "DumpRenderTree.h"
+#include "WebCoreSupport/DumpRenderTreeSupportGtk.h"
 #include "WorkQueue.h"
 #include "WorkQueueItem.h"
 #include <JavaScriptCore/JSRetainPtr.h>
@@ -500,7 +501,7 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     setGeolocationPermissionCommon(allow);
 }
 
-void LayoutTestController::setMockSpeechInputResult(JSStringRef result)
+void LayoutTestController::setMockSpeechInputResult(JSStringRef result, JSStringRef language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.
@@ -683,10 +684,13 @@ void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value
     else if (g_str_equal(originalName.get(), "WebKitUsesPageCachePreferenceKey"))
         propertyName = "enable-page-cache";
     else if (g_str_equal(originalName.get(), "WebKitPluginsEnabled"))
-         propertyName = "enable-plugins";
+        propertyName = "enable-plugins";
     else if (g_str_equal(originalName.get(), "WebKitHyperlinkAuditingEnabled"))
-         propertyName = "enable-hyperlink-auditing";
-    else {
+        propertyName = "enable-hyperlink-auditing";
+    else if (g_str_equal(originalName.get(), "WebKitTabToLinksPreferenceKey")) {
+        DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(!g_ascii_strcasecmp(valueAsString.get(), "true") || !g_ascii_strcasecmp(valueAsString.get(), "1"));
+        return;
+    } else {
         fprintf(stderr, "LayoutTestController::overridePreference tried to override "
                 "unknown preference '%s'.\n", originalName.get());
         return;

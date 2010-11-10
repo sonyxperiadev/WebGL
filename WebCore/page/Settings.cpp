@@ -28,6 +28,7 @@
 
 #include "BackForwardList.h"
 #include "CachedResourceLoader.h"
+#include "CookieStorage.h"
 #include "DOMTimer.h"
 #include "Database.h"
 #include "Frame.h"
@@ -160,11 +161,12 @@ Settings::Settings(Page* page)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
-#ifdef ANDROID_PLUGINS
-    , m_pluginsOnDemand(false)
-#endif
+    , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
+#endif
+#ifdef ANDROID_PLUGINS
+    , m_pluginsOnDemand(false)
 #endif
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
@@ -341,6 +343,9 @@ void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
     if (m_privateBrowsingEnabled == privateBrowsingEnabled)
         return;
 
+    // FIXME: We can only enable cookie private browsing mode globally, so it's misleading to have it as a per-page setting.
+    setCookieStoragePrivateBrowsingEnabled(privateBrowsingEnabled);
+
     m_privateBrowsingEnabled = privateBrowsingEnabled;
     m_page->privateBrowsingStateChanged();
 }
@@ -448,9 +453,10 @@ void Settings::setUsesPageCache(bool usesPageCache)
         
     m_usesPageCache = usesPageCache;
     if (!m_usesPageCache) {
-        HistoryItemVector& historyItems = m_page->backForwardList()->entries();
-        for (unsigned i = 0; i < historyItems.size(); i++)
-            pageCache()->remove(historyItems[i].get());
+        int first = -m_page->backForwardList()->backListCount();
+        int last = m_page->backForwardList()->forwardListCount();
+        for (int i = first; i <= last; i++)
+            pageCache()->remove(m_page->backForwardList()->itemAtIndex(i));
         pageCache()->releaseAutoreleasedPagesNow();
     }
 }

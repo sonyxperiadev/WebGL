@@ -697,7 +697,7 @@ void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
         CallFrameLoadDelegate(implementations->didFirstVisuallyNonEmptyLayoutInFrameFunc, webView, @selector(webView:didFirstVisuallyNonEmptyLayoutInFrame:), m_webFrame.get());
 }
 
-Frame* WebFrameLoaderClient::dispatchCreatePage()
+Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction&)
 {
     WebView *currentWebView = getWebView(m_webFrame.get());
     NSDictionary *features = [[NSDictionary alloc] init];
@@ -1253,6 +1253,10 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     }
 }
 
+void WebFrameLoaderClient::dispatchDidBecomeFrameset(bool)
+{
+}
+
 RetainPtr<WebFramePolicyListener> WebFrameLoaderClient::setUpPolicyListener(FramePolicyFunction function)
 {
     // FIXME: <rdar://5634381> We need to support multiple active policy listeners.
@@ -1385,11 +1389,16 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& url, const Strin
 
 void WebFrameLoaderClient::didTransferChildFrameToNewDocument(Page* oldPage)
 {
-    if (oldPage == core(m_webFrame.get())->page())
-        return;
+}
 
-    // Update resource tracking now that frame is in a different page.
-    // TODO(jennb): update resource tracking [bug 44713]
+void WebFrameLoaderClient::transferLoadingResourceFromPage(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request, Page* oldPage)
+{
+    ASSERT(oldPage != core(m_webFrame.get())->page());
+    ASSERT(![getWebView(m_webFrame.get()) _objectForIdentifier:identifier]);
+
+    assignIdentifierToInitialRequest(identifier, loader, request);
+
+    [kit(oldPage) _removeObjectForIdentifier:identifier];
 }
 
 ObjectContentType WebFrameLoaderClient::objectContentType(const KURL& url, const String& mimeType)
@@ -1629,7 +1638,7 @@ PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& size, HTMLP
     }
     
     NSString *extension = [[pluginURL path] pathExtension];
-    if (!pluginPackage && [extension length] != 0) {
+    if (!pluginPackage && [extension length] && ![MIMEType length]) {
         pluginPackage = [webView _pluginForExtension:extension];
         if (pluginPackage) {
             NSString *newMIMEType = [pluginPackage MIMETypeForExtension:extension];

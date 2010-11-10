@@ -379,8 +379,8 @@ namespace JSC {
         void appendValueInConstructAndIncrementLength(ExecState* exec, unsigned& index, JSValue v)
         {
             if (v.isString()) {
-                ASSERT(asCell(v)->isString());
-                JSString* s = static_cast<JSString*>(asCell(v));
+                ASSERT(v.asCell()->isString());
+                JSString* s = static_cast<JSString*>(v.asCell());
                 ASSERT(s->fiberCount() == 1);
                 appendStringInConstruct(index, s);
                 m_length += s->length();
@@ -451,8 +451,8 @@ namespace JSC {
 
     inline JSString* asString(JSValue value)
     {
-        ASSERT(asCell(value)->isString());
-        return static_cast<JSString*>(asCell(value));
+        ASSERT(value.asCell()->isString());
+        return static_cast<JSString*>(value.asCell());
     }
 
     inline JSString* jsEmptyString(JSGlobalData* globalData)
@@ -559,7 +559,7 @@ namespace JSC {
     ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
     {
         if (propertyName == exec->propertyNames().length) {
-            slot.setValue(jsNumber(exec, m_length));
+            slot.setValue(jsNumber(m_length));
             return true;
         }
 

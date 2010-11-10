@@ -165,6 +165,10 @@ void FrameLoaderClientWinCE::didTransferChildFrameToNewDocument(Page*)
 {
 }
 
+void FrameLoaderClientWinCE::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+}
+
 void FrameLoaderClientWinCE::redirectDataToPlugin(Widget* pluginWidget)
 {
     ASSERT(!m_pluginView);
@@ -557,7 +561,7 @@ bool FrameLoaderClientWinCE::canCachePage() const
     return true;
 }
 
-Frame* FrameLoaderClientWinCE::dispatchCreatePage()
+Frame* FrameLoaderClientWinCE::dispatchCreatePage(const NavigationAction&)
 {
     notImplemented();
     return 0;
@@ -624,6 +628,10 @@ void FrameLoaderClientWinCE::transitionToCommittedForNewPage()
 
     if (m_frame->ownerRenderer())
         m_frame->ownerRenderer()->setWidget(frameView);
+}
+
+void FrameLoaderClientWinCE::dispatchDidBecomeFrameset(bool)
+{
 }
 
 PassRefPtr<WebCore::FrameNetworkingContext> FrameLoaderClientWinCE::createNetworkingContext()

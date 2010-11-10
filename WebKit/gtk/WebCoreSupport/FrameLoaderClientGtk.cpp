@@ -592,13 +592,14 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
     if (!childFrame->page())
         return 0;
 
+    g_signal_emit_by_name(webView, "frame-created", kitFrame);
+
     childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
         return 0;
 
-    g_signal_emit_by_name(webView, "frame-created", kitFrame);
     return childFrame.release();
 }
 
@@ -617,6 +618,10 @@ void FrameLoaderClient::didTransferChildFrameToNewDocument(WebCore::Page*)
         m_frame->priv->webView = parentWebView;
 
     ASSERT(core(getViewFromFrame(m_frame)) == coreFrame->page());
+}
+
+void FrameLoaderClient::transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*)
+{
 }
 
 void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
@@ -1200,7 +1205,7 @@ bool FrameLoaderClient::canCachePage() const
     return true;
 }
 
-Frame* FrameLoaderClient::dispatchCreatePage()
+Frame* FrameLoaderClient::dispatchCreatePage(const NavigationAction&)
 {
     WebKitWebView* webView = getViewFromFrame(m_frame);
     WebKitWebView* newWebView = 0;
@@ -1306,6 +1311,10 @@ void FrameLoaderClient::transitionToCommittedForNewPage()
         return;
 
     postCommitFrameViewSetup(m_frame, frame->view(), true);
+}
+
+void FrameLoaderClient::dispatchDidBecomeFrameset(bool)
+{
 }
 
 PassRefPtr<FrameNetworkingContext> FrameLoaderClient::createNetworkingContext()

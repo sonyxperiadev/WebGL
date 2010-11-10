@@ -36,6 +36,7 @@ import shutil
 
 from webkitpy.common.system.executive import Executive, run_command, ScriptError
 from webkitpy.common.system.deprecated_logging import error, log
+from webkitpy.common.memoized import memoized
 
 
 def find_checkout_root():
@@ -319,7 +320,6 @@ class SVN(SCM):
 
     def __init__(self, cwd):
         SCM.__init__(self, cwd)
-        self.cached_version = None
         self._bogus_dir = None
 
     @staticmethod
@@ -369,16 +369,20 @@ class SVN(SCM):
         find_output = self.run(find_args, cwd=home_directory, error_handler=Executive.ignore_error).rstrip()
         return find_output and os.path.isfile(os.path.join(home_directory, find_output))
 
+    @memoized
     def svn_version(self):
-        if not self.cached_version:
-            self.cached_version = self.run(['svn', '--version', '--quiet'])
-        
-        return self.cached_version
+        return self.run(['svn', '--version', '--quiet'])
 
     def working_directory_is_clean(self):
         return self.run(["svn", "diff"], cwd=self.checkout_root, decode_output=False) == ""
 
     def clean_working_directory(self):
+        # Make sure there are no locks lying around from a previously aborted svn invocation.
+        # This is slightly dangerous, as it's possible the user is running another svn process
+        # on this checkout at the same time.  However, it's much more likely that we're running
+        # under windows and svn just sucks (or the user interrupted svn and it failed to clean up).
+        self.run(["svn", "cleanup"], cwd=self.checkout_root)
+
         # svn revert -R is not as awesome as git reset --hard.
         # It will leave added files around, causing later svn update
         # calls to fail on the bots.  We make this mirror git reset --hard
@@ -432,6 +436,7 @@ class SVN(SCM):
 
     def revisions_changing_file(self, path, limit=5):
         revisions = []
+        # svn log will exit(1) (and thus self.run will raise) if the path does not exist.
         log_command = ['svn', 'log', '--quiet', '--limit=%s' % limit, path]
         for line in self.run(log_command, cwd=self.checkout_root).splitlines():
             match = re.search('^r(?P<revision>\d+) ', line)
@@ -565,6 +570,7 @@ class SVN(SCM):
         dir, base = os.path.split(path)
         return self.run(['svn', 'pget', pname, base], cwd=dir).encode('utf-8').rstrip("\n")
 
+
 # All git-specific logic should go here.
 class Git(SCM):
     def __init__(self, cwd):
@@ -667,7 +673,8 @@ class Git(SCM):
         return self._changes_files_for_commit(commit_id)
 
     def revisions_changing_file(self, path, limit=5):
-        commit_ids = self.run(["git", "log", "--pretty=format:%H", "-%s" % limit, path]).splitlines()
+        # git rev-list head --remove-empty --limit=5 -- path would be equivalent.
+        commit_ids = self.run(["git", "log", "--remove-empty", "--pretty=format:%H", "-%s" % limit, "--", path]).splitlines()
         return filter(lambda revision: revision, map(self.svn_revision_from_git_commit, commit_ids))
 
     def conflicted_files(self):
@@ -696,20 +703,28 @@ class Git(SCM):
         # FIXME: This should probably use cwd=self.checkout_root
         return self.run(['git', 'diff', '--binary', "--no-ext-diff", "--full-index", "-M", self.merge_base(git_commit), "--"] + changed_files, decode_output=False)
 
-    @classmethod
-    def git_commit_from_svn_revision(cls, revision):
-        # FIXME: This should probably use cwd=self.checkout_root
-        git_commit = run_command(['git', 'svn', 'find-rev', 'r%s' % revision]).rstrip()
-        # git svn find-rev always exits 0, even when the revision is not found.
-        if not git_commit:
-            raise ScriptError(message='Failed to find git commit for revision %s, your checkout likely needs an update.' % revision)
-        return git_commit
+    def _run_git_svn_find_rev(self, arg):
+        # git svn find-rev always exits 0, even when the revision or commit is not found.
+        return self.run(['git', 'svn', 'find-rev', arg], cwd=self.checkout_root).rstrip()
 
-    def svn_revision_from_git_commit(self, commit_id):
+    def _string_to_int_or_none(self, string):
         try:
-            return int(self.run(['git', 'svn', 'find-rev', commit_id]).rstrip())
+            return int(string)
         except ValueError, e:
             return None
+
+    @memoized
+    def git_commit_from_svn_revision(self, svn_revision):
+        git_commit = self._run_git_svn_find_rev('r%s' % svn_revision)
+        if not git_commit:
+            # FIXME: Alternatively we could offer to update the checkout? Or return None?
+            raise ScriptError(message='Failed to find git commit for revision %s, your checkout likely needs an update.' % svn_revision)
+        return git_commit
+
+    @memoized
+    def svn_revision_from_git_commit(self, git_commit):
+        svn_revision = self._run_git_svn_find_rev(git_commit)
+        return self._string_to_int_or_none(svn_revision)
 
     def contents_at_revision(self, path, revision):
         """Returns a byte array (str()) containing the contents

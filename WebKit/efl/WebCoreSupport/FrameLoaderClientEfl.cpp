@@ -384,6 +384,10 @@ void FrameLoaderClientEfl::didTransferChildFrameToNewDocument(Page*)
 {
 }
 
+void FrameLoaderClientEfl::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+}
+
 void FrameLoaderClientEfl::redirectDataToPlugin(Widget* pluginWidget)
 {
     ASSERT(!m_pluginView);
@@ -860,7 +864,7 @@ bool FrameLoaderClientEfl::canCachePage() const
     return false;
 }
 
-Frame* FrameLoaderClientEfl::dispatchCreatePage()
+Frame* FrameLoaderClientEfl::dispatchCreatePage(const NavigationAction&)
 {
     if (!m_view)
         return 0;
@@ -917,6 +921,10 @@ void FrameLoaderClientEfl::transitionToCommittedForNewPage()
 
     if (m_frame == ewk_view_frame_main_get(m_view))
         ewk_view_frame_main_cleared(m_view);
+}
+
+void FrameLoaderClientEfl::dispatchDidBecomeFrameset(bool)
+{
 }
 
 PassRefPtr<FrameNetworkingContext> FrameLoaderClientEfl::createNetworkingContext()
