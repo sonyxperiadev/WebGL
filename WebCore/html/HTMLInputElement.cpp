@@ -338,7 +338,7 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
 
     if (deprecatedInputType() == RADIO) {
         // When using Spatial Navigation, every radio button should be focusable.
-        if (document()->frame() && document()->frame()->settings() && document()->frame()->settings()->isSpatialNavigationEnabled())
+        if (isSpatialNavigationEnabled(document()->frame()))
             return true;
 
         // Never allow keyboard tabbing to leave you in the same radio group.  Always

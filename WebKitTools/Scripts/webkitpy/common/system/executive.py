@@ -33,6 +33,7 @@ try:
 except ImportError:
     multiprocessing = None
 
+import ctypes
 import errno
 import logging
 import os
@@ -44,6 +45,7 @@ import sys
 import time
 
 from webkitpy.common.system.deprecated_logging import tee
+from webkitpy.python24 import versioning
 
 
 _log = logging.getLogger("webkitpy.common.system")
@@ -103,13 +105,8 @@ class Executive(object):
 
     def _run_command_with_teed_output(self, args, teed_output):
         args = map(unicode, args)  # Popen will throw an exception if args are non-strings (like int())
-        if sys.platform == 'cygwin':
-            # Cygwin's Python's os.execv doesn't support unicode command
-            # arguments, and neither does Cygwin's execv itself.
-            # FIXME: Using UTF-8 here will confuse Windows-native commands
-            # which will expect arguments to be encoded using the current code
-            # page.
-            args = [arg.encode('utf-8') for arg in args]
+        args = map(self._encode_argument_if_needed, args)
+
         child_process = subprocess.Popen(args,
                                          stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT,
@@ -148,9 +145,8 @@ class Executive(object):
         child_output = child_out_file.getvalue()
         child_out_file.close()
 
-        # We assume the child process output utf-8
         if decode_output:
-            child_output = child_output.decode("utf-8")
+            child_output = child_output.decode(self._child_process_encoding())
 
         if exit_code:
             raise ScriptError(script_args=args,
@@ -204,6 +200,55 @@ class Executive(object):
                     _log.warn("Called kill_process with a non-existant pid %s" % pid)
                     return
                 raise
+
+    def _win32_check_running_pid(self):
+
+        class PROCESSENTRY32(ctypes.Structure):
+            _fields_ = [("dwSize", ctypes.c_ulong),
+                        ("cntUsage", ctypes.c_ulong),
+                        ("th32ProcessID", ctypes.c_ulong),
+                        ("th32DefaultHeapID", ctypes.c_ulong),
+                        ("th32ModuleID", ctypes.c_ulong),
+                        ("cntThreads", ctypes.c_ulong),
+                        ("th32ParentProcessID", ctypes.c_ulong),
+                        ("pcPriClassBase", ctypes.c_ulong),
+                        ("dwFlags", ctypes.c_ulong),
+                        ("szExeFile", ctypes.c_char * 260)]
+
+        CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot
+        Process32First = ctypes.windll.kernel32.Process32First
+        Process32Next = ctypes.windll.kernel32.Process32Next
+        CloseHandle = ctypes.windll.kernel32.CloseHandle
+        TH32CS_SNAPPROCESS = 0x00000002  # win32 magic number
+        hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        pe32 = PROCESSENTRY32()
+        pe32.dwSize = ctypes.sizeof(PROCESSENTRY32)
+        result = False
+        if not Process32First(hProcessSnap, ctypes.byref(pe32)):
+            _log.debug("Failed getting first process.")
+            CloseHandle(hProcessSnap)
+            return result
+        while True:
+            if pe32.th32ProcessID == pid:
+                result = True
+                break
+            if not Process32Next(hProcessSnap, ctypes.byref(pe32)):
+                break
+        CloseHandle(hProcessSnap)
+        return result
+
+    def check_running_pid(self, pid):
+        """Return True if pid is alive, otherwise return False."""
+        if sys.platform in ('darwin', 'linux2', 'cygwin'):
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError:
+                return False
+        elif sys.platform == 'win32':
+            return self._win32_check_running_pid()
+
+        assert(False)
 
     def _windows_image_name(self, process_name):
         name, extension = os.path.splitext(process_name)
@@ -260,7 +305,7 @@ class Executive(object):
         # for an example of a regresion caused by passing a unicode string directly.
         # FIXME: We may need to encode differently on different platforms.
         if isinstance(input, unicode):
-            input = input.encode("utf-8")
+            input = input.encode(self._child_process_encoding())
         return (subprocess.PIPE, input)
 
     def _command_for_printing(self, args):
@@ -288,13 +333,8 @@ class Executive(object):
         assert(isinstance(args, list) or isinstance(args, tuple))
         start_time = time.time()
         args = map(unicode, args)  # Popen will throw an exception if args are non-strings (like int())
-        if sys.platform == 'cygwin':
-            # Cygwin's Python's os.execv doesn't support unicode command
-            # arguments, and neither does Cygwin's execv itself.
-            # FIXME: Using UTF-8 here will confuse Windows-native commands
-            # which will expect arguments to be encoded using the current code
-            # page.
-            args = [arg.encode('utf-8') for arg in args]
+        args = map(self._encode_argument_if_needed, args)
+
         stdin, string_to_communicate = self._compute_stdin(input)
         stderr = subprocess.STDOUT if return_stderr else None
 
@@ -305,9 +345,11 @@ class Executive(object):
                                    cwd=cwd,
                                    close_fds=self._should_close_fds())
         output = process.communicate(string_to_communicate)[0]
+
         # run_command automatically decodes to unicode() unless explicitly told not to.
         if decode_output:
-            output = output.decode("utf-8")
+            output = output.decode(self._child_process_encoding())
+
         # wait() is not threadsafe and can throw OSError due to:
         # http://bugs.python.org/issue1731717
         exit_code = process.wait()
@@ -324,3 +366,34 @@ class Executive(object):
                                        cwd=cwd)
             (error_handler or self.default_error_handler)(script_error)
         return output
+
+    def _child_process_encoding(self):
+        # Win32 Python 2.x uses CreateProcessA rather than CreateProcessW
+        # to launch subprocesses, so we have to encode arguments using the
+        # current code page.
+        if sys.platform == 'win32' and versioning.compare_version(sys, '3.0')[0] < 0:
+            return 'mbcs'
+        # All other platforms use UTF-8.
+        # FIXME: Using UTF-8 on Cygwin will confuse Windows-native commands
+        # which will expect arguments to be encoded using the current code
+        # page.
+        return 'utf-8'
+
+    def _should_encode_child_process_arguments(self):
+        # Cygwin's Python's os.execv doesn't support unicode command
+        # arguments, and neither does Cygwin's execv itself.
+        if sys.platform == 'cygwin':
+            return True
+
+        # Win32 Python 2.x uses CreateProcessA rather than CreateProcessW
+        # to launch subprocesses, so we have to encode arguments using the
+        # current code page.
+        if sys.platform == 'win32' and versioning.compare_version(sys, '3.0')[0] < 0:
+            return True
+
+        return False
+
+    def _encode_argument_if_needed(self, argument):
+        if not self._should_encode_child_process_arguments():
+            return argument
+        return argument.encode(self._child_process_encoding())

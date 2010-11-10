@@ -203,6 +203,8 @@ WebCore::EditingBehaviorType core(WebKitEditingBehavior behavior)
             return WebCore::EditingMacBehavior;
         case WebKitEditingWinBehavior:
             return WebCore::EditingWindowsBehavior;
+        case WebKitEditingUnixBehavior:
+            return WebCore::EditingUnixBehavior;
     }
     ASSERT_NOT_REACHED();
     return WebCore::EditingMacBehavior;
@@ -1134,12 +1136,8 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     Frame* frame = core(self);
     if (!frame)
         return;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return;
-
-    controller->suspendAnimations(frame->document());
+        
+    frame->animation()->suspendAnimations();
 }
 
 - (void) _resumeAnimations
@@ -1148,11 +1146,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!frame)
         return;
 
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return;
-
-    controller->resumeAnimations(frame->document());
+    frame->animation()->resumeAnimations();
 }
 
 - (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
@@ -1406,7 +1400,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     Frame* coreFrame = _private->coreFrame;
     if (!coreFrame)
         return nil;
-    return coreFrame->tree()->name();
+    return coreFrame->tree()->uniqueName();
 }
 
 - (WebFrameView *)frameView

@@ -76,6 +76,10 @@ const Platform3DObject NullPlatform3DObject = 0;
 namespace WebCore {
 class CanvasRenderingContext;
 class DrawingBuffer;
+class Extensions3D;
+#if PLATFORM(MAC)
+class Extensions3DOpenGL;
+#endif
 class HostWindow;
 class Image;
 class ImageData;
@@ -347,8 +351,6 @@ public:
         VERTEX_ATTRIB_ARRAY_NORMALIZED = 0x886A,
         VERTEX_ATTRIB_ARRAY_POINTER = 0x8645,
         VERTEX_ATTRIB_ARRAY_BUFFER_BINDING = 0x889F,
-        IMPLEMENTATION_COLOR_READ_TYPE = 0x8B9A,
-        IMPLEMENTATION_COLOR_READ_FORMAT = 0x8B9B,
         COMPILE_STATUS = 0x8B81,
         INFO_LOG_LENGTH = 0x8B84,
         SHADER_SOURCE_LENGTH = 0x8B88,
@@ -401,19 +403,7 @@ public:
         // WebGL-specific enums
         UNPACK_FLIP_Y_WEBGL = 0x9240,
         UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241,
-
-        // GL_EXT_texture_format_BGRA8888
-        BGRA_EXT = 0x80E1,
-
-        // GL_CHROMIUM_map_sub (enums inherited from GL_ARB_vertex_buffer_object)
-        READ_ONLY = 0x88B8,
-        WRITE_ONLY = 0x88B9,
-
-        // GL_ARB_robustness enums
-        GUILTY_CONTEXT_RESET_ARB = 0x8253,
-        INNOCENT_CONTEXT_RESET_ARB = 0x8254,
-        UNKNOWN_CONTEXT_RESET_ARB = 0x8255
-
+        CONTEXT_LOST_WEBGL = 0x9242,
     };
 
     // Context creation attributes.
@@ -424,6 +414,7 @@ public:
             , stencil(false)
             , antialias(true)
             , premultipliedAlpha(true)
+            , canRecoverFromContextLoss(true)
         {
         }
 
@@ -432,6 +423,7 @@ public:
         bool stencil;
         bool antialias;
         bool premultipliedAlpha;
+        bool canRecoverFromContextLoss;
     };
 
     enum RenderStyle {
@@ -540,34 +532,36 @@ public:
     // uploading. This enum must be public because it is accessed
     // by non-member functions.
     enum SourceDataFormat {
-        kSourceFormatRGBA8 = 0,
-        kSourceFormatRGBA16Little,
-        kSourceFormatRGBA16Big,
-        kSourceFormatRGB8,
-        kSourceFormatRGB16Little,
-        kSourceFormatRGB16Big,
-        kSourceFormatBGRA8,
-        kSourceFormatBGRA16Little,
-        kSourceFormatBGRA16Big,
-        kSourceFormatARGB8,
-        kSourceFormatARGB16Little,
-        kSourceFormatARGB16Big,
-        kSourceFormatRGBA5551,
-        kSourceFormatRGBA4444,
-        kSourceFormatRGB565,
-        kSourceFormatR8,
-        kSourceFormatR16Little,
-        kSourceFormatR16Big,
-        kSourceFormatRA8,
-        kSourceFormatRA16Little,
-        kSourceFormatRA16Big,
-        kSourceFormatAR8,
-        kSourceFormatAR16Little,
-        kSourceFormatAR16Big,
-        kSourceFormatA8,
-        kSourceFormatA16Little,
-        kSourceFormatA16Big,
-        kSourceFormatNumFormats
+        SourceFormatRGBA8 = 0,
+        SourceFormatRGBA16Little,
+        SourceFormatRGBA16Big,
+        SourceFormatRGB8,
+        SourceFormatRGB16Little,
+        SourceFormatRGB16Big,
+        SourceFormatBGR8,
+        SourceFormatBGRA8,
+        SourceFormatBGRA16Little,
+        SourceFormatBGRA16Big,
+        SourceFormatARGB8,
+        SourceFormatARGB16Little,
+        SourceFormatARGB16Big,
+        SourceFormatABGR8,
+        SourceFormatRGBA5551,
+        SourceFormatRGBA4444,
+        SourceFormatRGB565,
+        SourceFormatR8,
+        SourceFormatR16Little,
+        SourceFormatR16Big,
+        SourceFormatRA8,
+        SourceFormatRA16Little,
+        SourceFormatRA16Big,
+        SourceFormatAR8,
+        SourceFormatAR16Little,
+        SourceFormatAR16Big,
+        SourceFormatA8,
+        SourceFormatA16Little,
+        SourceFormatA16Big,
+        SourceFormatNumFormats
     };
 
     //----------------------------------------------------------------------
@@ -786,22 +780,11 @@ public:
     // getError in the order they were added.
     void synthesizeGLError(unsigned long error);
 
-    // EXT_texture_format_BGRA8888
-    bool supportsBGRA();
-
-    // GL_CHROMIUM_map_sub
-    bool supportsMapSubCHROMIUM();
-    void* mapBufferSubDataCHROMIUM(unsigned target, int offset, int size, unsigned access);
-    void unmapBufferSubDataCHROMIUM(const void*);
-    void* mapTexSubImage2DCHROMIUM(unsigned target, int level, int xoffset, int yoffset, int width, int height, unsigned format, unsigned type, unsigned access);
-    void unmapTexSubImage2DCHROMIUM(const void*);
-
-    // GL_CHROMIUM_copy_texture_to_parent_texture
-    bool supportsCopyTextureToParentTextureCHROMIUM();
-    void copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture);
-
-    // GL_ARB_robustness
-    int getGraphicsResetStatusARB();
+    // Support for extensions. Returns a non-null object, though not
+    // all methods it contains may necessarily be supported on the
+    // current hardware. Must call Extensions3D::supports() to
+    // determine this.
+    Extensions3D* getExtensions();
 
   private:
     GraphicsContext3D(Attributes attrs, HostWindow* hostWindow, bool renderDirectlyToHostWindow);
@@ -832,9 +815,9 @@ public:
     // pixel packing. FIXME: kAlphaDoUnmultiply is lossy and must
     // be removed.
     enum AlphaOp {
-        kAlphaDoNothing = 0,
-        kAlphaDoPremultiply = 1,
-        kAlphaDoUnmultiply = 2
+        AlphaDoNothing = 0,
+        AlphaDoPremultiply = 1,
+        AlphaDoUnmultiply = 2
     };
 
     // Helper for getImageData which implements packing of pixel
@@ -871,6 +854,8 @@ public:
     HashMap<Platform3DObject, ShaderSourceEntry> m_shaderSourceMap;
 
     ANGLEWebKitBridge m_compiler;
+
+    OwnPtr<Extensions3DOpenGL> m_extensions;
 
     Attributes m_attrs;
     Vector<Vector<float> > m_vertexArray;

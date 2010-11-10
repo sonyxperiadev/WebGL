@@ -81,6 +81,7 @@
 #include "RenderInline.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptArguments.h"
 #include "ScriptCallStack.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
@@ -102,16 +103,16 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-#include "InspectorResource.h"
-#endif
-
 #if ENABLE(DATABASE)
 #include "Database.h"
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "InspectorApplicationCacheAgent.h"
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+#include "InspectorFileSystemAgent.h"
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -143,8 +144,6 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_openingFrontend(false)
     , m_cssStore(new InspectorCSSStore(this))
     , m_mainResourceIdentifier(0)
-    , m_loadEventTime(-1.0)
-    , m_domContentEventTime(-1.0)
     , m_expiredConsoleMessageCount(0)
     , m_groupLevel(0)
     , m_previousMessage(0)
@@ -169,10 +168,6 @@ InspectorController::~InspectorController()
     ASSERT(!m_client);
     ASSERT(!m_inspectedPage);
     ASSERT(!m_highlightedNode);
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    deleteAllValues(m_frameResources);
-#endif
 
     releaseFrontendLifetimeAgents();
 
@@ -229,13 +224,6 @@ bool InspectorController::searchingForNodeInPage() const
     return m_state->getBoolean(InspectorState::searchingForNode);
 }
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-bool InspectorController::resourceTrackingEnabled() const
-{
-    return m_state->getBoolean(InspectorState::resourceTrackingEnabled);
-}
-#endif
-
 void InspectorController::getInspectorState(RefPtr<InspectorObject>* state)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -250,6 +238,10 @@ void InspectorController::restoreInspectorStateFromCookie(const String& inspecto
     m_state->restoreFromInspectorCookie(inspectorStateCookie);
     if (m_state->getBoolean(InspectorState::timelineProfilerEnabled))
         startTimelineProfiler();
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    if (m_state->getBoolean(InspectorState::userInitiatedProfiling))
+        startUserInitiatedProfiling();
+#endif    
 }
 
 void InspectorController::inspect(Node* node)
@@ -298,6 +290,17 @@ void InspectorController::highlightDOMNode(long nodeId)
         highlight(node);
 }
 
+void InspectorController::highlightFrame(unsigned long frameId)
+{
+    Frame* mainFrame = m_inspectedPage->mainFrame();
+    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext(mainFrame)) {
+        if (reinterpret_cast<uintptr_t>(frame) == frameId && frame->ownerElement()) {
+            highlight(frame->ownerElement());
+            return;
+        }
+    }
+}
+
 void InspectorController::hideHighlight()
 {
     if (!enabled())
@@ -325,13 +328,12 @@ void InspectorController::setConsoleMessagesEnabled(bool enabled)
         m_consoleMessages[i]->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
 }
 
-void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, ScriptCallStack* callStack, const String& message)
+void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack)
 {
     if (!enabled())
         return;
 
-    bool storeStackTrace = type == TraceMessageType || type == UncaughtExceptionMessageType || type == AssertMessageType;
-    addConsoleMessage(new ConsoleMessage(source, type, level, message, callStack, m_groupLevel, storeStackTrace));
+    addConsoleMessage(new ConsoleMessage(source, type, level, message, arguments, callStack, m_groupLevel));
 }
 
 void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
@@ -377,11 +379,11 @@ void InspectorController::clearConsoleMessages()
         m_frontend->consoleMessagesCleared();
 }
 
-void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack, bool collapsed)
+void InspectorController::startGroup(PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack, bool collapsed)
 {
     ++m_groupLevel;
 
-    addConsoleMessage(new ConsoleMessage(source, collapsed ? StartGroupCollapsedMessageType : StartGroupMessageType, LogMessageLevel, String(), callStack, m_groupLevel));
+    addConsoleMessage(new ConsoleMessage(JSMessageSource, collapsed ? StartGroupCollapsedMessageType : StartGroupMessageType, LogMessageLevel, "", arguments, callStack, m_groupLevel));
 }
 
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL)
@@ -481,10 +483,7 @@ void InspectorController::connectFrontend()
     releaseFrontendLifetimeAgents();
     m_frontend = new InspectorFrontend(m_client);
     m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend.get());
-
-#if !LEGACY_RESOURCE_TRACKING_ENABLED
     m_resourceAgent = InspectorResourceAgent::create(m_inspectedPage, m_frontend.get());
-#endif
 
 #if ENABLE(DATABASE)
     m_storageAgent = InspectorStorageAgent::create(m_frontend.get());
@@ -500,6 +499,10 @@ void InspectorController::connectFrontend()
     m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_frontend.get());
 #endif
 
+#if ENABLE(FILE_SYSTEM)
+    m_fileSystemAgent = InspectorFileSystemAgent::create(this, m_frontend.get());
+#endif
+    
     if (!InspectorInstrumentation::hasFrontends())
         ScriptController::setCaptureCallStackForUncaughtExceptions(true);
     InspectorInstrumentation::frontendCreated();
@@ -509,7 +512,7 @@ void InspectorController::reuseFrontend()
 {
     connectFrontend();
     restoreDebugger();
-    restoreProfiler();
+    restoreProfiler(ProfilerRestoreResetAgent);
 }
 
 void InspectorController::show()
@@ -568,6 +571,7 @@ void InspectorController::disconnectFrontend()
     bool debuggerWasEnabled = debuggerEnabled();
     disableDebugger();
     m_attachDebuggerWhenShown = debuggerWasEnabled;
+    clearNativeBreakpoints();
 #endif
     setSearchingForNode(false);
     unbindAllResources();
@@ -577,7 +581,7 @@ void InspectorController::disconnectFrontend()
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     m_profilerAgent->setFrontend(0);
-    m_profilerAgent->stopUserInitiatedProfiling();
+    m_profilerAgent->stopUserInitiatedProfiling(true);
 #endif
 
     releaseFrontendLifetimeAgents();
@@ -586,9 +590,7 @@ void InspectorController::disconnectFrontend()
 
 void InspectorController::releaseFrontendLifetimeAgents()
 {
-#if !LEGACY_RESOURCE_TRACKING_ENABLED
     m_resourceAgent.clear();
-#endif
 
     // m_domAgent is RefPtr. Remove DOM listeners first to ensure that there are
     // no references to the DOM agent from the DOM tree.
@@ -604,6 +606,12 @@ void InspectorController::releaseFrontendLifetimeAgents()
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     m_applicationCacheAgent.clear();
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    if (m_fileSystemAgent)
+        m_fileSystemAgent->stop(); 
+        m_fileSystemAgent.clear();
 #endif
 }
 
@@ -622,17 +630,6 @@ void InspectorController::populateScriptObjects()
     if (m_profilerAgent->enabled())
         m_frontend->profilerWasEnabled();
 #endif
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    ResourcesMap::iterator resourcesEnd = m_resources.end();
-    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
-        it->second->updateScriptObject(m_frontend.get());
-#endif
-
-    if (m_domContentEventTime != -1.0)
-        m_frontend->domContentEventFired(m_domContentEventTime);
-    if (m_loadEventTime != -1.0)
-        m_frontend->loadEventFired(m_loadEventTime);
 
     m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
@@ -663,7 +660,7 @@ void InspectorController::populateScriptObjects()
     m_pendingEvaluateTestCommands.clear();
 
     restoreDebugger();
-    restoreProfiler();
+    restoreProfiler(ProfilerRestoreNoAction);
 }
 
 void InspectorController::restoreDebugger()
@@ -679,24 +676,20 @@ void InspectorController::restoreDebugger()
 #endif
 }
 
-void InspectorController::restoreProfiler()
+void InspectorController::restoreProfiler(ProfilerRestoreAction action)
 {
     ASSERT(m_frontend);
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     m_profilerAgent->setFrontend(m_frontend.get());
     if (!ScriptProfiler::isProfilerAlwaysEnabled() && m_state->getBoolean(InspectorState::profilerAlwaysEnabled))
         enableProfiler();
+    if (action == ProfilerRestoreResetAgent)
+        m_profilerAgent->resetState();
 #endif
 }
 
 void InspectorController::unbindAllResources()
 {
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    ResourcesMap::iterator resourcesEnd = m_resources.end();
-    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
-        it->second->releaseScriptObject(0);
-#endif
-    
 #if ENABLE(DATABASE)
     DatabaseResourcesMap::iterator databasesEnd = m_databaseResources.end();
     for (DatabaseResourcesMap::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it)
@@ -711,36 +704,13 @@ void InspectorController::unbindAllResources()
         m_timelineAgent->reset();
 }
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-void InspectorController::pruneResources(ResourcesMap* resourceMap, DocumentLoader* loaderToKeep)
-{
-    ASSERT_ARG(resourceMap, resourceMap);
-
-    ResourcesMap mapCopy(*resourceMap);
-    ResourcesMap::iterator end = mapCopy.end();
-    for (ResourcesMap::iterator it = mapCopy.begin(); it != end; ++it) {
-        InspectorResource* resource = (*it).second.get();
-        if (resource == m_mainResource)
-            continue;
-
-        if (!loaderToKeep || !resource->isSameLoader(loaderToKeep)) {
-            removeResource(resource);
-            if (m_frontend)
-                resource->releaseScriptObject(m_frontend.get());
-        }
-    }
-}
-#endif
-
 void InspectorController::didCommitLoad(DocumentLoader* loader)
 {
     if (!enabled())
         return;
 
-#if !LEGACY_RESOURCE_TRACKING_ENABLED
     if (m_resourceAgent)
         m_resourceAgent->didCommitLoad(loader);
-#endif
     
     ASSERT(m_inspectedPage);
 
@@ -758,13 +728,11 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         if (m_debuggerAgent)
             m_debuggerAgent->clearForPageNavigation();
 
-        m_nativeBreakpoints.clear();
-        m_eventListenerBreakpoints.clear();
-        m_XHRBreakpoints.clear();
-        m_lastBreakpointId = 0;
+        clearNativeBreakpoints();
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+        m_profilerAgent->stopUserInitiatedProfiling(true);
         m_profilerAgent->resetState();
 #endif
 
@@ -788,32 +756,11 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 #endif
 
         if (m_frontend) {
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-            if (!loader->frameLoader()->isLoadingFromCachedPage()) {
-                ASSERT(m_mainResource && m_mainResource->isSameLoader(loader));
-                // We don't add the main resource until its load is committed. This is
-                // needed to keep the load for a user-entered URL from showing up in the
-                // list of resources for the page they are navigating away from.
-                m_mainResource->updateScriptObject(m_frontend.get());
-            } else {
-                // Pages loaded from the page cache are committed before
-                // m_mainResource is the right resource for this load, so we
-                // clear it here. It will be re-assigned in
-                // identifierForInitialRequest.
-                m_mainResource = 0;
-            }
-#endif
             m_mainResourceIdentifier = 0;
             m_frontend->didCommitLoad();
             m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
         }
     }
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    for (Frame* frame = loader->frame(); frame; frame = frame->tree()->traverseNext(loader->frame()))
-        if (ResourcesMap* resourceMap = m_frameResources.get(frame))
-            pruneResources(resourceMap, loader);
-#endif
 }
 
 void InspectorController::frameDetachedFromParent(Frame* rootFrame)
@@ -821,105 +768,19 @@ void InspectorController::frameDetachedFromParent(Frame* rootFrame)
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    for (Frame* frame = rootFrame; frame; frame = frame->tree()->traverseNext(rootFrame))
-        if (ResourcesMap* resourceMap = m_frameResources.get(frame))
-            removeAllResources(resourceMap);
-#else
     if (m_resourceAgent)
         m_resourceAgent->frameDetachedFromParent(rootFrame);
-#endif
 }
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-void InspectorController::addResource(InspectorResource* resource)
-{
-    m_resources.set(resource->identifier(), resource);
-    m_knownResources.add(resource->requestURL());
-
-    Frame* frame = resource->frame();
-    if (!frame)
-        return;
-    ResourcesMap* resourceMap = m_frameResources.get(frame);
-    if (resourceMap)
-        resourceMap->set(resource->identifier(), resource);
-    else {
-        resourceMap = new ResourcesMap;
-        resourceMap->set(resource->identifier(), resource);
-        m_frameResources.set(frame, resourceMap);
-    }
-}
-
-void InspectorController::removeResource(InspectorResource* resource)
-{
-    m_resources.remove(resource->identifier());
-    String requestURL = resource->requestURL();
-    if (!requestURL.isNull())
-        m_knownResources.remove(requestURL);
-
-    Frame* frame = resource->frame();
-    if (!frame)
-        return;
-    ResourcesMap* resourceMap = m_frameResources.get(frame);
-    if (!resourceMap) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    resourceMap->remove(resource->identifier());
-    if (resourceMap->isEmpty()) {
-        m_frameResources.remove(frame);
-        delete resourceMap;
-    }
-}
-
-InspectorResource* InspectorController::getTrackedResource(unsigned long identifier)
-{
-    if (!enabled())
-        return 0;
-
-    if (resourceTrackingEnabled())
-        return m_resources.get(identifier).get();
-
-    bool isMainResource = m_mainResource && m_mainResource->identifier() == identifier;
-    if (isMainResource)
-        return m_mainResource.get();
-
-    return 0;
-}
-#endif
 
 void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader, const CachedResource* cachedResource)
 {
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    // If the resource URL is already known, we don't need to add it again since this is just a cached load.
-    if (m_knownResources.contains(cachedResource->url()))
-        return;
-
-    ASSERT(m_inspectedPage);
-    bool isMainResource = isMainResourceLoader(loader, KURL(ParsedURLString, cachedResource->url()));
     ensureSettingsLoaded();
-    if (!isMainResource && !resourceTrackingEnabled())
-        return;
 
-    RefPtr<InspectorResource> resource = InspectorResource::createCached(m_inspectedPage->progress()->createUniqueIdentifier(), loader, cachedResource);
-
-    if (isMainResource) {
-        m_mainResource = resource;
-        resource->markMainResource();
-    }
-
-    addResource(resource.get());
-
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didLoadResourceFromMemoryCache(loader, cachedResource);
-#endif
 }
 
 void InspectorController::identifierForInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -932,27 +793,10 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
     if (isMainResource)
         m_mainResourceIdentifier = identifier;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-
     ensureSettingsLoaded();
-    if (!isMainResource && !resourceTrackingEnabled())
-        return;
 
-    RefPtr<InspectorResource> resource = InspectorResource::create(identifier, loader, request.url());
-
-    if (isMainResource) {
-        m_mainResource = resource;
-        resource->markMainResource();
-    }
-
-    addResource(resource.get());
-
-    if (m_frontend && loader->frameLoader()->isLoadingFromCachedPage() && resource == m_mainResource)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->identifierForInitialRequest(identifier, request.url(), loader);
-#endif
 }
 
 void InspectorController::mainResourceFiredDOMContentEvent(DocumentLoader* loader, const KURL& url)
@@ -960,11 +804,10 @@ void InspectorController::mainResourceFiredDOMContentEvent(DocumentLoader* loade
     if (!enabled() || !isMainResourceLoader(loader, url))
         return;
 
-    m_domContentEventTime = currentTime();
     if (m_timelineAgent)
         m_timelineAgent->didMarkDOMContentEvent();
     if (m_frontend)
-        m_frontend->domContentEventFired(m_domContentEventTime);
+        m_frontend->domContentEventFired(currentTime());
 }
 
 void InspectorController::mainResourceFiredLoadEvent(DocumentLoader* loader, const KURL& url)
@@ -972,11 +815,10 @@ void InspectorController::mainResourceFiredLoadEvent(DocumentLoader* loader, con
     if (!enabled() || !isMainResourceLoader(loader, url))
         return;
 
-    m_loadEventTime = currentTime();
     if (m_timelineAgent)
         m_timelineAgent->didMarkLoadEvent();
     if (m_frontend)
-        m_frontend->loadEventFired(m_loadEventTime);
+        m_frontend->loadEventFired(currentTime());
 }
 
 bool InspectorController::isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl)
@@ -1000,40 +842,8 @@ void InspectorController::willSendRequest(unsigned long identifier, ResourceRequ
     if (m_timelineAgent)
         m_timelineAgent->willSendResourceRequest(identifier, isMainResource, request);
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-
-    if (!redirectResponse.isNull()) {
-        // Redirect may have empty URL and we'd like to not crash with invalid HashMap entry.
-        // See http/tests/misc/will-send-request-returns-null-on-redirect.html
-        if (!request.url().isEmpty()) {
-            resource->endTiming(0);
-            resource->updateResponse(redirectResponse);
-
-            // We always store last redirect by the original id key. Rest of the redirects are stored within the last one.
-            unsigned long id = m_inspectedPage->progress()->createUniqueIdentifier();
-            RefPtr<InspectorResource> withRedirect = resource->appendRedirect(id, request.url());
-            removeResource(resource.get());
-            addResource(withRedirect.get());
-            if (isMainResource) {
-                m_mainResource = withRedirect;
-                withRedirect->markMainResource();
-            }
-            resource = withRedirect;
-        }
-    }
-
-    resource->startTiming();
-    resource->updateRequest(request);
-
-    if (resource != m_mainResource && m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->willSendRequest(identifier, request, redirectResponse);
-#endif
 }
 
 void InspectorController::markResourceAsCached(unsigned long identifier)
@@ -1041,13 +851,8 @@ void InspectorController::markResourceAsCached(unsigned long identifier)
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    if (RefPtr<InspectorResource> resource = getTrackedResource(identifier))
-        resource->markAsCached();
-#else
     if (m_resourceAgent)
         m_resourceAgent->markResourceAsCached(identifier);
-#endif
 }
 
 void InspectorController::didReceiveResponse(unsigned long identifier, DocumentLoader* loader, const ResourceResponse& response)
@@ -1055,18 +860,8 @@ void InspectorController::didReceiveResponse(unsigned long identifier, DocumentL
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    if (RefPtr<InspectorResource> resource = getTrackedResource(identifier)) {
-        resource->updateResponse(response);
-
-        if (resource != m_mainResource && m_frontend)
-            resource->updateScriptObject(m_frontend.get());
-    }
-    UNUSED_PARAM(loader);
-#else
     if (m_resourceAgent)
         m_resourceAgent->didReceiveResponse(identifier, loader, response);
-#endif
 
     if (response.httpStatusCode() >= 400) {
         String message = makeString("Failed to load resource: the server responded with a status of ", String::number(response.httpStatusCode()), " (", response.httpStatusText(), ')');
@@ -1079,19 +874,8 @@ void InspectorController::didReceiveContentLength(unsigned long identifier, int 
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-
-    resource->addLength(lengthReceived);
-
-    if (resource != m_mainResource && m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didReceiveContentLength(identifier, lengthReceived);
-#endif
 }
 
 void InspectorController::didFinishLoading(unsigned long identifier, double finishTime)
@@ -1102,20 +886,8 @@ void InspectorController::didFinishLoading(unsigned long identifier, double fini
     if (m_timelineAgent)
         m_timelineAgent->didFinishLoadingResource(identifier, false, finishTime);
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-
-    resource->endTiming(finishTime);
-
-    // No need to mute this event for main resource since it happens after did commit load.
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didFinishLoading(identifier, finishTime);
-#endif
 }
 
 void InspectorController::didFailLoading(unsigned long identifier, const ResourceError& error)
@@ -1131,21 +903,8 @@ void InspectorController::didFailLoading(unsigned long identifier, const Resourc
             message += ": " + error.localizedDescription();
         addMessageToConsole(OtherMessageSource, LogMessageType, ErrorMessageLevel, message, 0, error.failingURL());
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-
-    resource->markFailed(error.localizedDescription());
-    resource->endTiming(0);
-
-    // No need to mute this event for main resource since it happens after did commit load.
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didFailLoading(identifier, error);
-#endif
 }
 
 void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber)
@@ -1156,22 +915,8 @@ void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identi
     if (m_state->getBoolean(InspectorState::monitoringXHR))
         addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, "XHR finished loading: \"" + url + "\".", sendLineNumber, sendURL);
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    if (!resourceTrackingEnabled())
-        return;
-
-    InspectorResource* resource = m_resources.get(identifier).get();
-    if (!resource)
-        return;
-
-    resource->setOverrideContent(sourceString, InspectorResource::XHR);
-
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
-        m_resourceAgent->setOverrideContent(identifier, sourceString, InspectorResource::XHR);
-#endif
+        m_resourceAgent->setOverrideContent(identifier, sourceString, "XHR");
 }
 
 void InspectorController::scriptImported(unsigned long identifier, const String& sourceString)
@@ -1179,56 +924,8 @@ void InspectorController::scriptImported(unsigned long identifier, const String&
     if (!enabled())
         return;
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    if (!resourceTrackingEnabled())
-        return;
-
-    InspectorResource* resource = m_resources.get(identifier).get();
-    if (!resource)
-        return;
-
-    resource->setOverrideContent(sourceString, InspectorResource::Script);
-
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
-        m_resourceAgent->setOverrideContent(identifier, sourceString, InspectorResource::Script);
-#endif
-}
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-void InspectorController::setResourceTrackingEnabled(bool enable)
-{
-    if (!enabled())
-        return;
-
-    ASSERT(m_inspectedPage);
-    m_state->setBoolean(InspectorState::resourceTrackingEnabled, enable);
-}
-#endif
-
-void InspectorController::setResourceTrackingEnabled(bool enable, bool always, bool* newState)
-{
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    *newState = enable;
-
-    if (always)
-        m_state->setBoolean(InspectorState::resourceTrackingAlwaysEnabled, enable);
-
-    if (resourceTrackingEnabled() == enable)
-        return;
-
-    ASSERT(m_inspectedPage);
-    m_state->setBoolean(InspectorState::resourceTrackingEnabled, enable);
-
-    if (enable)
-        reloadPage();
-#else
-    UNUSED_PARAM(enable);
-    UNUSED_PARAM(always);
-    UNUSED_PARAM(newState);
-#endif
+        m_resourceAgent->setOverrideContent(identifier, sourceString, "Script");
 }
 
 void InspectorController::ensureSettingsLoaded()
@@ -1238,9 +935,6 @@ void InspectorController::ensureSettingsLoaded()
     m_settingsLoaded = true;
 
     m_state->loadFromSettings();
-
-    if (m_state->getBoolean(InspectorState::resourceTrackingAlwaysEnabled))
-        m_state->setBoolean(InspectorState::resourceTrackingEnabled, true);
 }
 
 void InspectorController::startTimelineProfiler()
@@ -1553,67 +1247,27 @@ void InspectorController::didCreateWebSocket(unsigned long identifier, const KUR
         return;
     ASSERT(m_inspectedPage);
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = InspectorResource::createWebSocket(identifier, requestURL, documentURL);
-    addResource(resource.get());
-
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didCreateWebSocket(identifier, requestURL);
     UNUSED_PARAM(documentURL);
-#endif
 }
 
 void InspectorController::willSendWebSocketHandshakeRequest(unsigned long identifier, const WebSocketHandshakeRequest& request)
 {
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-    resource->startTiming();
-    resource->updateWebSocketRequest(request);
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->willSendWebSocketHandshakeRequest(identifier, request);
-#endif
 }
 
 void InspectorController::didReceiveWebSocketHandshakeResponse(unsigned long identifier, const WebSocketHandshakeResponse& response)
 {
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-    // Calling resource->markResponseReceivedTime() here makes resources bar chart confusing, because
-    // we cannot apply the "latency + download" model of regular resources to WebSocket connections.
-    // FIXME: Design a new UI for bar charts of WebSocket resources, and record timing here.
-    resource->updateWebSocketResponse(response);
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didReceiveWebSocketHandshakeResponse(identifier, response);
-#endif
 }
 
 void InspectorController::didCloseWebSocket(unsigned long identifier)
 {
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
-
-    resource->endTiming(0);
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
-#else
     if (m_resourceAgent)
         m_resourceAgent->didCloseWebSocket(identifier);
-#endif
 }
 #endif // ENABLE(WEB_SOCKETS)
 
@@ -1651,6 +1305,7 @@ void InspectorController::startUserInitiatedProfiling()
     if (!enabled())
         return;
     m_profilerAgent->startUserInitiatedProfiling();
+    m_state->setBoolean(InspectorState::userInitiatedProfiling, true);
 }
 
 void InspectorController::stopUserInitiatedProfiling()
@@ -1658,6 +1313,7 @@ void InspectorController::stopUserInitiatedProfiling()
     if (!enabled())
         return;
     m_profilerAgent->stopUserInitiatedProfiling();
+    m_state->setBoolean(InspectorState::userInitiatedProfiling, false);
 }
 
 bool InspectorController::profilerEnabled() const
@@ -1801,6 +1457,14 @@ String InspectorController::findXHRBreakpoint(const String& url)
             return it->first;
     }
     return "";
+}
+
+void InspectorController::clearNativeBreakpoints()
+{
+    m_nativeBreakpoints.clear();
+    m_eventListenerBreakpoints.clear();
+    m_XHRBreakpoints.clear();
+    m_lastBreakpointId = 0;
 }
 #endif
 
@@ -2155,22 +1819,6 @@ void InspectorController::removeAllScriptsToEvaluateOnLoad()
 void InspectorController::setInspectorExtensionAPI(const String& source)
 {
     m_inspectorExtensionAPI = source;
-}
-
-void InspectorController::getResourceContent(unsigned long identifier, bool encode, String* content)
-{
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> resource = m_resources.get(identifier);
-    if (!resource) {
-        *content = String();
-        return;
-    }
-    *content = encode ? resource->sourceBytes() : resource->sourceString();
-#else
-    UNUSED_PARAM(identifier);
-    UNUSED_PARAM(encode);
-    UNUSED_PARAM(content);
-#endif
 }
 
 void InspectorController::reloadPage()

@@ -171,7 +171,7 @@ namespace WebCore {
         //  - HTML5/DOM Storage
         //  - Icon Database
         //  - Console Messages
-        //  - Cache
+        //  - MemoryCache
         //  - Application Cache
         //  - Back/Forward Page History
         //  - Page Search Results
@@ -197,6 +197,9 @@ namespace WebCore {
 
         void setShouldPrintBackgrounds(bool);
         bool shouldPrintBackgrounds() const { return m_shouldPrintBackgrounds; }
+
+        void setShouldDelegateScrolling(bool);
+        bool shouldDelegateScrolling() const { return m_shouldDelegateScrolling; }
 
         void setTextAreasAreResizable(bool);
         bool textAreasAreResizable() const { return m_textAreasAreResizable; }
@@ -486,6 +489,7 @@ namespace WebCore {
         bool m_javaScriptCanOpenWindowsAutomatically : 1;
         bool m_javaScriptCanAccessClipboard : 1;
         bool m_shouldPrintBackgrounds : 1;
+        bool m_shouldDelegateScrolling : 1;
         bool m_textAreasAreResizable : 1;
 #if ENABLE(DASHBOARD_SUPPORT)
         bool m_usesDashboardBackwardCompatibilityMode : 1;

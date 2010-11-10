@@ -45,7 +45,7 @@ var Preferences = {
     onlineDetectionEnabled: true,
     nativeInstrumentationEnabled: false,
     resourceExportEnabled: false,
-    networkPanelEnabled: false,
+    fileSystemEnabled: false,
     useDataURLForResourceImageIcons: true
 }
 
@@ -64,11 +64,15 @@ WebInspector.Settings = function()
     this.installApplicationSetting("lastActivePanel", "elements");
 
     this.installProjectSetting("breakpoints", {});
+    this.installProjectSetting("nativeBreakpoints", []);
 }
 
 WebInspector.Settings.prototype = {
     installApplicationSetting: function(key, defaultValue)
     {
+        if (key in this)
+            return;
+
         this.__defineGetter__(key, this._get.bind(this, key, defaultValue));
         this.__defineSetter__(key, this._set.bind(this, key));
     },
@@ -77,6 +81,14 @@ WebInspector.Settings.prototype = {
     {
         this.__defineGetter__(key, this._getProjectSetting.bind(this, key, defaultValue));
         this.__defineSetter__(key, this._setProjectSetting.bind(this, key));
+    },
+
+    inspectedURLChanged: function(url)
+    {
+        var fragmentIndex = url.indexOf("#");
+        if (fragmentIndex !== -1)
+            url = url.substring(0, fragmentIndex);
+        this._inspectedURL = url;
     },
 
     _get: function(key, defaultValue)
@@ -108,11 +120,7 @@ WebInspector.Settings.prototype = {
 
     _formatProjectKey: function(key)
     {
-        var url = this._mainResourceURL;
-        var fragmentIndex = url.indexOf("#");
-        if (fragmentIndex !== -1)
-            url = url.substring(0, fragmentIndex);
-        return key + "." + url;
+        return key + ":" + this._inspectedURL;
     }
 }
 

@@ -46,7 +46,6 @@ module core {
         [notify] void domContentEventFired(out double time);
         [notify] void inspectedURLChanged(out String url);
         [notify] void loadEventFired(out double time);
-        [notify] void removeResource(out unsigned long identifier);
         [notify] void reset();
         [notify] void resetProfilesPanel();
         [notify] void setChildNodes(out long parentId, out Array nodes);
@@ -56,7 +55,6 @@ module core {
         [notify] void timelineProfilerWasStarted();
         [notify] void timelineProfilerWasStopped();
         [notify] void updateFocusedNode(out long nodeId);
-        [notify] void updateResource(out Value resource);
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         [notify] void addProfileHeader(out Object header);
@@ -100,8 +98,6 @@ module core {
 
         [handler=Controller] void setMonitoringXHREnabled(in boolean enable, out boolean newState);
 
-        [handler=Controller] void setResourceTrackingEnabled(in boolean enabled, in boolean always, out boolean newState);
-        [handler=Controller] void getResourceContent(in unsigned long identifier, in boolean encode, out String content);
         [handler=Controller] void reloadPage();
 
         [handler=Controller] void startTimelineProfiler();
@@ -118,7 +114,7 @@ module core {
         [notify] void didFailLoading(out long identifier, out double time, out String localizedDescription);
         [notify] void didLoadResourceFromMemoryCache(out double time, out Object resource);
         [notify] void setOverrideContent(out long identifier, out String sourceString, out String type);
-        [notify] void didCommitLoadForFrame(out unsigned long parentFrameId, out Object loader);
+        [notify] void didCommitLoadForFrame(out Object frame, out Object loader);
         [notify] void frameDetachedFromParent(out unsigned long frameId);
 
         [notify] void didCreateWebSocket(out unsigned long identifier, out String requestURL);
@@ -153,8 +149,8 @@ module core {
         [handler=Controller] void enableProfiler(in boolean always);
         [handler=Controller] void disableProfiler(in boolean always);
 
-        [handler=Profiler] void startProfiling();
-        [handler=Profiler] void stopProfiling();
+        [handler=Controller] void startProfiling();
+        [handler=Controller] void stopProfiling();
 
         [handler=Profiler] void getProfileHeaders(out Array headers);
         [handler=Profiler] void getProfile(in String type, in unsigned long uid, out Object profile);
@@ -196,6 +192,9 @@ module core {
         [handler=Controller] void hideDOMNodeHighlight();
         [handler=Controller] void openInInspectedWindow(in String url);
 
+        [handler=Controller] void highlightFrame(in unsigned long frameId);
+        [handler=Controller] void hideFrameHighlight();
+
         [handler=DOM] void getStyles(in long nodeId, in boolean authOnly, out Value styles);
         [handler=DOM] void getAllStyles(out Array styles);
         [handler=DOM] void getInlineStyle(in long nodeId, out Value style);
@@ -215,6 +214,14 @@ module core {
 
 #if defined(ENABLE_OFFLINE_WEB_APPLICATIONS) && ENABLE_OFFLINE_WEB_APPLICATIONS
         [handler=ApplicationCache] void getApplicationCaches(out Value applicationCaches);
+#endif
+
+#if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
+        [handler=FileSystem] void getFileSystemPathAsync(in unsigned int type, in String origin);
+        [handler=FileSystem] void revealFolderInOS(in String path);
+        [notify] void didGetFileSystemPath(out String root, out int type, out String origin);
+        [notify] void didGetFileSystemError(out int type, out String origin);
+        [notify] void didGetFileSystemDisabled();
 #endif
 
         [handler=Backend] void releaseWrapperObjectGroup(in long injectedScriptId, in String objectGroup);

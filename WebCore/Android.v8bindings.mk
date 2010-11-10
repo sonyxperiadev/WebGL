@@ -54,9 +54,14 @@ LOCAL_SRC_FILES += \
 	bindings/v8/NPV8Object.cpp \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
+<<<<<<< HEAD
 	bindings/v8/ScriptCachedFrameData.cpp \
 	bindings/v8/ScriptCallFrame.cpp \
 	bindings/v8/ScriptCallStack.cpp \
+=======
+	bindings/v8/ScriptArray.cpp \
+	bindings/v8/ScriptCallStackFactory.cpp \
+>>>>>>> webkit.org at r71558
 	bindings/v8/ScriptController.cpp \
 	bindings/v8/ScriptEventListener.cpp \
 	bindings/v8/ScriptFunctionCall.cpp \
@@ -145,6 +150,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8HTMLInputElementCustom.cpp \
 	bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
+	bindings/v8/custom/V8HTMLOutputElementCustom.cpp \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
 	bindings/v8/custom/V8Int16ArrayCustom.cpp \

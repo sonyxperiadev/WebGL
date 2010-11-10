@@ -1206,10 +1206,17 @@ void AnimationBase::fireAnimationEventsIfNeeded()
     }
 }
 
-void AnimationBase::updatePlayState(bool run)
+void AnimationBase::updatePlayState(EAnimPlayState playState)
 {
-    if (paused() == run || isNew())
-        updateStateMachine(run ? AnimationStateInputPlayStateRunning : AnimationStateInputPlayStatePaused, -1);
+    // When we get here, we can have one of 4 desired states: running, paused, suspended, paused & suspended.
+    // The state machine can be in one of two states: running, paused.
+    // Set the state machine to the desired state.
+    bool pause = playState == AnimPlayStatePaused || m_compAnim->suspended();
+    
+    if (pause == paused() && !isNew())
+        return;
+    
+    updateStateMachine(pause ?  AnimationStateInputPlayStatePaused : AnimationStateInputPlayStateRunning, -1);
 }
 
 double AnimationBase::timeToNextService()

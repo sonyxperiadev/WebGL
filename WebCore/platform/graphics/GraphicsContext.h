@@ -40,7 +40,6 @@
 #if PLATFORM(CG)
 typedef struct CGContext PlatformGraphicsContext;
 #elif PLATFORM(CAIRO)
-#include "PlatformRefPtrCairo.h"
 namespace WebCore {
 class ContextShadow;
 }
@@ -260,7 +259,6 @@ namespace WebCore {
 
         void clearRect(const FloatRect&);
 
-        void strokeRect(const FloatRect&);
         void strokeRect(const FloatRect&, float lineWidth);
 
         void drawImage(Image*, ColorSpace styleColorSpace, const IntPoint&, CompositeOperator = CompositeSourceOver);
@@ -289,7 +287,6 @@ namespace WebCore {
         void addRoundedRectClip(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
         void addInnerRoundedRectClip(const IntRect&, int thickness);
         void clipOut(const IntRect&);
-        void clipOutEllipseInRect(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
         void clipPath(WindRule);
         void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias = true);
@@ -355,7 +352,6 @@ namespace WebCore {
         void rotate(float angleInRadians);
         void translate(const FloatSize& size) { translate(size.width(), size.height()); }
         void translate(float x, float y);
-        IntPoint origin();
 
         void setURLForRect(const KURL&, const IntRect&);
 
@@ -434,7 +430,6 @@ namespace WebCore {
         bool inTransparencyLayer() const;
         PlatformPath* currentPath();
         void pushTransparencyLayerInternal(const QRect &rect, qreal opacity, QPixmap& alphaMask);
-        QPen pen();
         static QPainter::CompositionMode toQtCompositionMode(CompositeOperator op);
 #endif
 

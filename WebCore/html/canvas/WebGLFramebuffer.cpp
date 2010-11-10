@@ -32,7 +32,42 @@
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
+namespace {
+
+    // This function is only for depth/stencil/depth_stencil attachment.
+    // Currently we assume these attachments are all renderbuffers.
+    unsigned long getInternalFormat(WebGLObject* buffer)
+    {
+        ASSERT(buffer && buffer->isRenderbuffer());
+        return (reinterpret_cast<WebGLRenderbuffer*>(buffer))->getInternalFormat();
+    }
+
+    bool isUninitialized(WebGLObject* attachedObject)
+    {
+        if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()
+            && !(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isInitialized())
+            return true;
+        return false;
+    }
+
+    void setInitialized(WebGLObject* attachedObject)
+    {
+        if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer())
+            (reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->setInitialized();
+    }
+
+    bool isValid(WebGLObject* attachedObject)
+    {
+        if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()) {
+            if (!(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isValid())
+                return false;
+        }
+        return true;
+    }
+
+} // anonymous namespace
+
 PassRefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLFramebuffer(ctx));
@@ -66,7 +101,24 @@ void WebGLFramebuffer::setAttachment(unsigned long attachment, WebGLObject* atta
     default:
         return;
     }
-    initializeRenderbuffers();
+}
+
+WebGLObject* WebGLFramebuffer::getAttachment(unsigned long attachment) const
+{
+    if (!object())
+        return 0;
+    switch (attachment) {
+    case GraphicsContext3D::COLOR_ATTACHMENT0:
+        return m_colorAttachment.get();
+    case GraphicsContext3D::DEPTH_ATTACHMENT:
+        return m_depthAttachment.get();
+    case GraphicsContext3D::STENCIL_ATTACHMENT:
+        return m_stencilAttachment.get();
+    case GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT:
+        return m_depthStencilAttachment.get();
+    default:
+        return 0;
+    }
 }
 
 void WebGLFramebuffer::removeAttachment(WebGLObject* attachment)
@@ -83,25 +135,9 @@ void WebGLFramebuffer::removeAttachment(WebGLObject* attachment)
         m_depthStencilAttachment = 0;
     else
         return;
-    initializeRenderbuffers();
 }
 
-void WebGLFramebuffer::onBind()
-{
-    initializeRenderbuffers();
-}
-
-void WebGLFramebuffer::onAttachedObjectChange(WebGLObject* object)
-{
-    // Currently object == 0 is not considered, but this might change if the
-    // lifespan of WebGLObject changes.
-    if (object
-        && (object == m_colorAttachment.get() || object == m_depthAttachment.get()
-            || object == m_stencilAttachment.get() || object == m_depthStencilAttachment.get()))
-        initializeRenderbuffers();
-}
-
-unsigned long WebGLFramebuffer::getColorBufferFormat()
+unsigned long WebGLFramebuffer::getColorBufferFormat() const
 {
     if (object() && m_colorAttachment && m_colorAttachment->object()) {
         if (m_colorAttachment->isRenderbuffer()) {
@@ -119,6 +155,38 @@ unsigned long WebGLFramebuffer::getColorBufferFormat()
     return 0;
 }
 
+bool WebGLFramebuffer::isIncomplete(bool checkInternalFormat) const
+{
+    unsigned int count = 0;
+    if (isDepthAttached()) {
+        if (checkInternalFormat && getInternalFormat(m_depthAttachment.get()) != GraphicsContext3D::DEPTH_COMPONENT16)
+            return true;
+        count++;
+    }
+    if (isStencilAttached()) {
+        if (checkInternalFormat && getInternalFormat(m_stencilAttachment.get()) != GraphicsContext3D::STENCIL_INDEX8)
+            return true;
+        count++;
+    }
+    if (isDepthStencilAttached()) {
+        if (checkInternalFormat && getInternalFormat(m_depthStencilAttachment.get()) != GraphicsContext3D::DEPTH_STENCIL)
+            return true;
+        if (!isValid(m_depthStencilAttachment.get()))
+            return true;
+        count++;
+    }
+    if (count > 1)
+        return true;
+    return false;
+}
+
+bool WebGLFramebuffer::onAccess()
+{
+    if (isIncomplete(true))
+        return false;
+    return initializeRenderbuffers();
+}
+
 void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
 {
     if (!isDeleted())
@@ -129,24 +197,11 @@ void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
     m_depthStencilAttachment = 0;
 }
 
-bool WebGLFramebuffer::isUninitialized(WebGLObject* attachedObject)
+bool WebGLFramebuffer::initializeRenderbuffers()
 {
-    if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()
-        && !(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isInitialized())
-        return true;
-    return false;
-}
-
-void WebGLFramebuffer::setInitialized(WebGLObject* attachedObject)
-{
-    if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer())
-        (reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->setInitialized();
-}
-
-void WebGLFramebuffer::initializeRenderbuffers()
-{
-    if (!object())
-        return;
+    ASSERT(object());
+    if (!isColorAttached())
+        return false;
     bool initColor = false, initDepth = false, initStencil = false;
     unsigned long mask = 0;
     if (isUninitialized(m_colorAttachment.get())) {
@@ -167,13 +222,13 @@ void WebGLFramebuffer::initializeRenderbuffers()
         mask |= (GraphicsContext3D::DEPTH_BUFFER_BIT | GraphicsContext3D::STENCIL_BUFFER_BIT);
     }
     if (!initColor && !initDepth && !initStencil)
-        return;
+        return true;
 
     // We only clear un-initialized renderbuffers when they are ready to be
     // read, i.e., when the framebuffer is complete.
     GraphicsContext3D* g3d = context()->graphicsContext3D();
     if (g3d->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER) != GraphicsContext3D::FRAMEBUFFER_COMPLETE)
-        return;
+        return false;
 
     float colorClearValue[] = {0, 0, 0, 0}, depthClearValue = 0;
     int stencilClearValue = 0;
@@ -237,6 +292,7 @@ void WebGLFramebuffer::initializeRenderbuffers()
         if (initStencil)
             setInitialized(m_stencilAttachment.get());
     }
+    return true;
 }
 
 }

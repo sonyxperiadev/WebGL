@@ -392,10 +392,6 @@ module html {
         const unsigned int VERTEX_ATTRIB_ARRAY_POINTER        = 0x8645;
         const unsigned int VERTEX_ATTRIB_ARRAY_BUFFER_BINDING = 0x889F;
 
-        /* Read Format */
-        const unsigned int IMPLEMENTATION_COLOR_READ_TYPE   = 0x8B9A;
-        const unsigned int IMPLEMENTATION_COLOR_READ_FORMAT = 0x8B9B;
-
         /* Shader Source */
         const unsigned int COMPILE_STATUS                 = 0x8B81;
         const unsigned int INFO_LOG_LENGTH                = 0x8B84;
@@ -463,6 +459,7 @@ module html {
         /* WebGL-specific enums */
         const unsigned int UNPACK_FLIP_Y_WEBGL            = 0x9240;
         const unsigned int UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241;
+        const unsigned int CONTEXT_LOST_WEBGL             = 0x9242;
 
         [StrictTypeChecking] void         activeTexture(in unsigned long texture) raises(DOMException);
         [StrictTypeChecking] void         attachShader(in WebGLProgram program, in WebGLShader shader) raises(DOMException);
@@ -551,18 +548,18 @@ module html {
         [StrictTypeChecking, Custom] void getParameter();
         // any getProgramParameter(in WebGLProgram program, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getProgramParameter();
-        [StrictTypeChecking] DOMString getProgramInfoLog(in WebGLProgram program) raises(DOMException);
+        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString getProgramInfoLog(in WebGLProgram program) raises(DOMException);
         // any getRenderbufferParameter(in unsigned long target, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getRenderbufferParameter();
         // any getShaderParameter(in WebGLShader shader, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getShaderParameter() raises(DOMException);
 
-        [StrictTypeChecking] DOMString    getShaderInfoLog(in WebGLShader shader) raises(DOMException);
+        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString    getShaderInfoLog(in WebGLShader shader) raises(DOMException);
 
         // TBD
         // void glGetShaderPrecisionFormat (GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision);
 
-        [StrictTypeChecking] DOMString    getShaderSource(in WebGLShader shader) raises(DOMException);
+        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString    getShaderSource(in WebGLShader shader) raises(DOMException);
 
         // any getTexParameter(in unsigned long target, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getTexParameter();
@@ -579,6 +576,7 @@ module html {
 
         [StrictTypeChecking] void         hint(in unsigned long target, in unsigned long mode);
         [StrictTypeChecking] boolean      isBuffer(in WebGLBuffer buffer);
+        [StrictTypeChecking] boolean      isContextLost();
         [StrictTypeChecking] boolean      isEnabled(in unsigned long cap);
         [StrictTypeChecking] boolean      isFramebuffer(in WebGLFramebuffer framebuffer);
         [StrictTypeChecking] boolean      isProgram(in WebGLProgram program);

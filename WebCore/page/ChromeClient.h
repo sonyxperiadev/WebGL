@@ -94,6 +94,7 @@ namespace WebCore {
         virtual void takeFocus(FocusDirection) = 0;
 
         virtual void focusedNodeChanged(Node*) = 0;
+        virtual void focusedFrameChanged(Frame*) = 0;
 
         // The Frame pointer provides the ChromeClient with context about which
         // Frame wants to create the new Page.  Also, the newly created window
@@ -140,6 +141,9 @@ namespace WebCore {
         virtual void invalidateContentsAndWindow(const IntRect&, bool) = 0;
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool) = 0;
         virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
+#if ENABLE(TILED_BACKING_STORE)
+        virtual void delegatedScrollRequested(const IntSize&) = 0;
+#endif
         virtual IntPoint screenToWindow(const IntPoint&) const = 0;
         virtual IntRect windowToScreen(const IntRect&) const = 0;
         virtual PlatformPageClient platformPageClient() const = 0;
@@ -268,6 +272,10 @@ namespace WebCore {
         virtual bool selectItemWritingDirectionIsNatural() = 0;
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
+
+#if ENABLE(CONTEXT_MENUS)
+        virtual void showContextMenu() = 0;
+#endif
 
         virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
 

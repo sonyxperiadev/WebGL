@@ -87,6 +87,13 @@ void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, con
     m_client->scroll(scrollDelta, rectToScroll, clipRect);
 }
 
+#if ENABLE(TILED_BACKING_STORE)
+void Chrome::delegatedScrollRequested(const IntSize& scrollDelta)
+{
+    m_client->delegatedScrollRequested(scrollDelta);
+}
+#endif
+
 IntPoint Chrome::screenToWindow(const IntPoint& point) const
 {
     return m_client->screenToWindow(point);
@@ -161,6 +168,11 @@ void Chrome::takeFocus(FocusDirection direction) const
 void Chrome::focusedNodeChanged(Node* node) const
 {
     m_client->focusedNodeChanged(node);
+}
+
+void Chrome::focusedFrameChanged(Frame* frame) const
+{
+    m_client->focusedFrameChanged(frame);
 }
 
 Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features, const NavigationAction& action) const
@@ -501,5 +513,12 @@ PassRefPtr<SearchPopupMenu> Chrome::createSearchPopupMenu(PopupMenuClient* clien
 {
     return m_client->createSearchPopupMenu(client);
 }
+
+#if ENABLE(CONTEXT_MENUS)
+void Chrome::showContextMenu()
+{
+    m_client->showContextMenu();
+}
+#endif
 
 } // namespace WebCore

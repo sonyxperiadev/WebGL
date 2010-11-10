@@ -314,6 +314,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
+	html/HTMLOutputElement.cpp \
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLTableRowsCollection.cpp \
 	html/HTMLViewSourceDocument.cpp \
@@ -343,6 +344,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/TimeInputType.cpp \
 	html/TimeRanges.cpp \
 	html/URLInputType.cpp \
+	html/ValidationMessage.cpp \
 	html/ValidityState.cpp \
 	html/WeekInputType.cpp \
 	\
@@ -379,17 +381,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/TextDocumentParser.cpp \
 	html/parser/TextViewSourceParser.cpp \
 	\
-	loader/Cache.cpp \
-	loader/CachedCSSStyleSheet.cpp \
-	loader/CachedFont.cpp \
-	loader/CachedImage.cpp \
-	loader/CachedResource.cpp \
-	loader/CachedResourceClientWalker.cpp \
-	loader/CachedResourceHandle.cpp \
-	loader/CachedScript.cpp \
+	loader/cache/CachedCSSStyleSheet.cpp \
+	loader/cache/CachedFont.cpp \
+	loader/cache/CachedImage.cpp \
+	loader/cache/CachedResource.cpp \
+	loader/cache/CachedResourceClientWalker.cpp \
+	loader/cache/CachedResourceHandle.cpp \
+	loader/cache/CachedScript.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
-	loader/CachedResourceLoader.cpp \
+	loader/cache/CachedResourceLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
 	loader/DocumentWriter.cpp \
@@ -424,6 +425,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/appcache/ApplicationCacheStorage.cpp \
 	loader/appcache/DOMApplicationCache.cpp \
 	loader/appcache/ManifestParser.cpp \
+	\
+	loader/cache/MemoryCache.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconLoader.cpp \
@@ -529,6 +532,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/GeolocationServiceAndroid.cpp \
 	platform/android/GeolocationServiceBridge.cpp \
 	platform/android/KeyEventAndroid.cpp \
+	platform/android/LanguageAndroid.cpp \
 	platform/android/LocalizedStringsAndroid.cpp \
 	platform/android/PlatformTouchEventAndroid.cpp \
 	platform/android/PlatformTouchPointAndroid.cpp \
@@ -970,7 +974,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGAnimateMotionElement.cpp \
 	svg/SVGAnimateTransformElement.cpp \
 	svg/SVGAnimatedPathData.cpp \
-	svg/SVGAnimatedPoints.cpp \
 	svg/SVGAnimationElement.cpp \
 	svg/SVGCircleElement.cpp \
 	svg/SVGClipPathElement.cpp \

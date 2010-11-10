@@ -41,6 +41,10 @@ public:
 
     void setScrollbar(Scrollbar* scrollbar) { m_scrollbar = scrollbar; }
 
+    Scrollbar* scrollbar() const { return m_scrollbar.get(); }
+
+    virtual bool isAccessibilityScrollbar() const { return true; }
+
     virtual AccessibilityRole roleValue() const { return ScrollBarRole; }
 
     virtual float valueForRange() const;
@@ -56,7 +60,7 @@ private:
     virtual IntRect elementRect() const { ASSERT_NOT_REACHED(); return IntRect(); }
     virtual AccessibilityObject* parentObject() const { ASSERT_NOT_REACHED(); return 0; }
 
-    Scrollbar* m_scrollbar;
+    RefPtr<Scrollbar> m_scrollbar;
 };
 
 } // namespace WebCore

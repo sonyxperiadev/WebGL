@@ -33,6 +33,7 @@
 
 #include "Chrome.h"
 #include "ChromeClientImpl.h"
+#include "PluginLayerChromium.h"
 #include "WebClipboard.h"
 #include "WebCursorInfo.h"
 #include "WebDataSourceImpl.h"
@@ -275,6 +276,25 @@ void WebPluginContainerImpl::invalidateRect(const WebRect& rect)
     invalidateRect(static_cast<IntRect>(rect));
 }
 
+void WebPluginContainerImpl::scrollRect(int dx, int dy, const WebRect& rect)
+{
+    Widget* parentWidget = parent();
+    if (parentWidget->isFrameView()) {
+        FrameView* parentFrameView = static_cast<FrameView*>(parentWidget);
+        if (!parentFrameView->isOverlapped()) {
+            IntRect damageRect = convertToContainingWindow(static_cast<IntRect>(rect));
+            IntSize scrollDelta(dx, dy);
+            // scroll() only uses the second rectangle, clipRect, and ignores the first
+            // rectangle.
+            parent()->hostWindow()->scroll(scrollDelta, damageRect, damageRect);
+            return;
+        }
+    }
+
+    // Use slow scrolling instead.
+    invalidateRect(rect);
+}
+
 void WebPluginContainerImpl::reportGeometry()
 {
     if (!parent())
@@ -285,6 +305,14 @@ void WebPluginContainerImpl::reportGeometry()
     calculateGeometry(frameRect(), windowRect, clipRect, cutOutRects);
 
     m_webPlugin->updateGeometry(windowRect, clipRect, cutOutRects, isVisible());
+}
+
+void WebPluginContainerImpl::commitBackingTexture()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (platformLayer())
+        platformLayer()->setNeedsDisplay();
+#endif
 }
 
 void WebPluginContainerImpl::clearScriptObjects()
@@ -393,7 +421,32 @@ void WebPluginContainerImpl::willDestroyPluginLoadObserver(WebPluginLoadObserver
     m_pluginLoadObservers.remove(pos);
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+WebCore::LayerChromium* WebPluginContainerImpl::platformLayer() const
+{
+    // FIXME: In the event of a context lost, the texture needs to be recreated on the compositor's
+    // context and rebound to the platform layer here.
+    unsigned backingTextureId = m_webPlugin->getBackingTextureId();
+    if (!backingTextureId)
+        return 0;
+
+    m_platformLayer->setTextureId(backingTextureId);
+
+    return m_platformLayer.get();
+}
+#endif
+
 // Private methods -------------------------------------------------------------
+
+WebPluginContainerImpl::WebPluginContainerImpl(WebCore::HTMLPlugInElement* element, WebPlugin* webPlugin)
+    : WebCore::PluginViewBase(0)
+    , m_element(element)
+    , m_webPlugin(webPlugin)
+#if USE(ACCELERATED_COMPOSITING)
+    , m_platformLayer(PluginLayerChromium::create(0))
+#endif
+{
+}
 
 WebPluginContainerImpl::~WebPluginContainerImpl()
 {

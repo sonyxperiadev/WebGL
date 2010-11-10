@@ -39,7 +39,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(ProjectDir)..\..\TestNetscapePlugin&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
 				PreprocessorDefinitions="_USRDLL;TESTNETSCAPEPLUGIN_EXPORTS;snprintf=_snprintf"
 				DisableSpecificWarnings="4819"
 			/>
@@ -55,6 +55,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="Msimg32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix)\np$(ProjectName)$(WebKitConfigSuffix).dll"
 				ModuleDefinitionFile="TestNetscapePlugin$(WebKitConfigSuffix).def"
 			/>
@@ -109,7 +110,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(ProjectDir)..\..\TestNetscapePlugin&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
 				PreprocessorDefinitions="_USRDLL;TESTNETSCAPEPLUGIN_EXPORTS;snprintf=_snprintf"
 				DisableSpecificWarnings="4819"
 			/>
@@ -125,6 +126,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="Msimg32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix)\np$(ProjectName)$(WebKitConfigSuffix).dll"
 				ModuleDefinitionFile="TestNetscapePlugin$(WebKitConfigSuffix).def"
 			/>
@@ -178,7 +180,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(ProjectDir)..\..\TestNetscapePlugin&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
 				PreprocessorDefinitions="_USRDLL;TESTNETSCAPEPLUGIN_EXPORTS;snprintf=_snprintf"
 				RuntimeLibrary="3"
 				DisableSpecificWarnings="4819"
@@ -195,6 +197,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="Msimg32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix)\np$(ProjectName)$(WebKitConfigSuffix).dll"
 				ModuleDefinitionFile="TestNetscapePlugin$(WebKitConfigSuffix).def"
 			/>
@@ -248,7 +251,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(ProjectDir)..\..\TestNetscapePlugin&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
 				PreprocessorDefinitions="_USRDLL;TESTNETSCAPEPLUGIN_EXPORTS;snprintf=_snprintf"
 				DisableSpecificWarnings="4819"
 			/>
@@ -264,6 +267,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="Msimg32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix)\np$(ProjectName)$(WebKitConfigSuffix).dll"
 				ModuleDefinitionFile="TestNetscapePlugin$(WebKitConfigSuffix).def"
 			/>
@@ -317,7 +321,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(ProjectDir)..\..\TestNetscapePlugin&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
 				PreprocessorDefinitions="_USRDLL;TESTNETSCAPEPLUGIN_EXPORTS;snprintf=_snprintf"
 				RuntimeLibrary="3"
 				DisableSpecificWarnings="4819"
@@ -334,6 +338,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="Msimg32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix)\np$(ProjectName)$(WebKitConfigSuffix).dll"
 				ModuleDefinitionFile="TestNetscapePlugin$(WebKitConfigSuffix).def"
 			/>
@@ -375,6 +380,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Tests\EvaluateJSAfterRemovingPluginElement.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\Tests\NPRuntimeObjectFromDestroyedPlugin.cpp"
 				>
 			</File>
@@ -398,6 +407,10 @@
 				Name="win"
 				>
 				<File
+					RelativePath="..\Tests\win\DrawsGradient.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\win\GetValueNetscapeWindow.cpp"
 					>
 				</File>
@@ -409,7 +422,23 @@
 					RelativePath="..\Tests\win\WindowGeometryInitializedBeforeSetWindow.cpp"
 					>
 				</File>
+				<File
+					RelativePath="..\Tests\win\WindowRegionIsSetToClipRect.cpp"
+					>
+				</File>
 			</Filter>
+		</Filter>
+		<Filter
+			Name="win"
+			>
+			<File
+				RelativePath=".\WindowedPluginTest.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\WindowedPluginTest.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath="..\main.cpp"

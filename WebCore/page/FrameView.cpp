@@ -358,6 +358,16 @@ void FrameView::setMarginHeight(int h)
     m_margins.setHeight(h);
 }
 
+bool FrameView::delegatesScrolling()
+{
+    ASSERT(m_frame);
+
+    if (parent())
+        return false;
+
+    return m_frame->settings() && m_frame->settings()->shouldDelegateScrolling();
+}
+
 bool FrameView::avoidScrollbarCreation()
 {
     ASSERT(m_frame);
@@ -568,6 +578,37 @@ bool FrameView::hasCompositedContent() const
     return false;
 }
 
+bool FrameView::hasCompositedContentIncludingDescendants() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
+        RenderView* renderView = frame->contentRenderer();
+        RenderLayerCompositor* compositor = renderView ? renderView->compositor() : 0;
+        if (compositor) {
+            if (compositor->inCompositingMode())
+                return true;
+
+            if (!RenderLayerCompositor::allowsIndependentlyCompositedIFrames(this))
+                break;
+        }
+    }
+#endif
+    return false;
+}
+
+bool FrameView::hasCompositingAncestor() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    for (Frame* frame = m_frame->tree()->parent(); frame; frame = frame->tree()->parent()) {
+        if (FrameView* view = frame->view()) {
+            if (view->hasCompositedContent())
+                return true;
+        }
+    }
+#endif
+    return false;
+}
+
 // Sometimes (for plug-ins) we need to eagerly go into compositing mode.
 void FrameView::enterCompositingMode()
 {
@@ -584,10 +625,15 @@ bool FrameView::isEnclosedInCompositingLayer() const
 {
 #if USE(ACCELERATED_COMPOSITING)
     RenderObject* frameOwnerRenderer = m_frame->ownerRenderer();
-    return frameOwnerRenderer && frameOwnerRenderer->containerForRepaint();
-#else
-    return false;
+    if (frameOwnerRenderer && frameOwnerRenderer->containerForRepaint())
+        return true;
+
+    if (Frame* parentFrame = m_frame->tree()->parent()) {
+        if (FrameView* parentView = parentFrame->view())
+            return parentView->isEnclosedInCompositingLayer();
+    }
 #endif
+    return false;
 }
 
 bool FrameView::syncCompositingStateRecursive()
@@ -846,7 +892,7 @@ void FrameView::layout(bool allowSubtree)
 #endif
     ASSERT(!root->needsLayout());
 
-    setCanBlitOnScroll(!useSlowRepaints());
+    updateCanBlitOnScrollRecursively();
 
     if (document->hasListenerType(Document::OVERFLOWCHANGED_LISTENER))
         updateOverflowStatus(layoutWidth() < contentsWidth(),
@@ -927,24 +973,48 @@ void FrameView::adjustMediaTypeForPrinting(bool printing)
 
 bool FrameView::useSlowRepaints() const
 {
-    return m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || m_isOverlapped || !m_contentIsOpaque;
+    if (m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || m_isOverlapped || !m_contentIsOpaque)
+        return true;
+
+    if (Frame* parentFrame = m_frame->tree()->parent()) {
+        if (FrameView* parentView = parentFrame->view())
+            return parentView->useSlowRepaints();
+    }
+
+    return false;
 }
 
 bool FrameView::useSlowRepaintsIfNotOverlapped() const
 {
-    return m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || !m_contentIsOpaque;
+    if (m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || !m_contentIsOpaque)
+        return true;
+
+    if (Frame* parentFrame = m_frame->tree()->parent()) {
+        if (FrameView* parentView = parentFrame->view())
+            return parentView->useSlowRepaintsIfNotOverlapped();
+    }
+
+    return false;
+}
+
+void FrameView::updateCanBlitOnScrollRecursively()
+{
+    for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
+        if (FrameView* view = frame->view())
+            view->setCanBlitOnScroll(!view->useSlowRepaints());
+    }
 }
 
 void FrameView::setUseSlowRepaints()
 {
     m_useSlowRepaints = true;
-    setCanBlitOnScroll(false);
+    updateCanBlitOnScrollRecursively();
 }
 
 void FrameView::addSlowRepaintObject()
 {
     if (!m_slowRepaintObjectCount)
-        setCanBlitOnScroll(false);
+        updateCanBlitOnScrollRecursively();
     m_slowRepaintObjectCount++;
 }
 
@@ -953,13 +1023,13 @@ void FrameView::removeSlowRepaintObject()
     ASSERT(m_slowRepaintObjectCount > 0);
     m_slowRepaintObjectCount--;
     if (!m_slowRepaintObjectCount)
-        setCanBlitOnScroll(!useSlowRepaints());
+        updateCanBlitOnScrollRecursively();
 }
 
 void FrameView::addFixedObject()
 {
     if (!m_fixedObjectCount && platformWidget())
-        setCanBlitOnScroll(false);
+        updateCanBlitOnScrollRecursively();
     ++m_fixedObjectCount;
 }
 
@@ -968,7 +1038,7 @@ void FrameView::removeFixedObject()
     ASSERT(m_fixedObjectCount > 0);
     --m_fixedObjectCount;
     if (!m_fixedObjectCount)
-        setCanBlitOnScroll(!useSlowRepaints());
+        updateCanBlitOnScrollRecursively();
 }
 
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
@@ -1051,12 +1121,12 @@ void FrameView::setIsOverlapped(bool isOverlapped)
         return;
 
     m_isOverlapped = isOverlapped;
-    setCanBlitOnScroll(!useSlowRepaints());
+    updateCanBlitOnScrollRecursively();
     
 #if USE(ACCELERATED_COMPOSITING)
-    // Overlap can affect compositing tests, so if it changes, we need to trigger
-    // a layer update in the parent document.
-    if (hasCompositedContent()) {
+    if (hasCompositedContentIncludingDescendants()) {
+        // Overlap can affect compositing tests, so if it changes, we need to trigger
+        // a layer update in the parent document.
         if (Frame* parentFrame = m_frame->tree()->parent()) {
             if (RenderView* parentView = parentFrame->contentRenderer()) {
                 RenderLayerCompositor* compositor = parentView->compositor();
@@ -1064,8 +1134,35 @@ void FrameView::setIsOverlapped(bool isOverlapped)
                 compositor->scheduleCompositingLayerUpdate();
             }
         }
+
+        if (RenderLayerCompositor::allowsIndependentlyCompositedIFrames(this)) {
+            // We also need to trigger reevaluation for this and all descendant frames,
+            // since a frame uses compositing if any ancestor is compositing.
+            for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
+                if (RenderView* view = frame->contentRenderer()) {
+                    RenderLayerCompositor* compositor = view->compositor();
+                    compositor->setCompositingLayersNeedRebuild();
+                    compositor->scheduleCompositingLayerUpdate();
+                }
+            }
+        }
     }
-#endif    
+#endif
+}
+
+bool FrameView::isOverlappedIncludingAncestors() const
+{
+    if (isOverlapped())
+        return true;
+
+    if (Frame* parentFrame = m_frame->tree()->parent()) {
+        if (FrameView* parentView = parentFrame->view()) {
+            if (parentView->isOverlapped())
+                return true;
+        }
+    }
+
+    return false;
 }
 
 void FrameView::setContentIsOpaque(bool contentIsOpaque)
@@ -1074,7 +1171,7 @@ void FrameView::setContentIsOpaque(bool contentIsOpaque)
         return;
 
     m_contentIsOpaque = contentIsOpaque;
-    setCanBlitOnScroll(!useSlowRepaints());
+    updateCanBlitOnScrollRecursively();
 }
 
 void FrameView::restoreScrollbar()
@@ -1559,12 +1656,10 @@ void FrameView::setBaseBackgroundColor(Color bc)
 void FrameView::updateBackgroundRecursively(const Color& backgroundColor, bool transparent)
 {
     for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
-        FrameView* view = frame->view();
-        if (!view)
-            continue;
-
-        view->setTransparent(transparent);
-        view->setBaseBackgroundColor(backgroundColor);
+        if (FrameView* view = frame->view()) {
+            view->setTransparent(transparent);
+            view->setBaseBackgroundColor(backgroundColor);
+        }
     }
 }
 

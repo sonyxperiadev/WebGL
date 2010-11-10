@@ -127,6 +127,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSHTMLInputElementCustom.cpp \
 	bindings/js/JSHTMLObjectElementCustom.cpp \
 	bindings/js/JSHTMLOptionsCollectionCustom.cpp \
+	bindings/js/JSHTMLOutputElementCustom.cpp \
 	bindings/js/JSHTMLSelectElementCustom.cpp \
 	bindings/js/JSHistoryCustom.cpp \
 	bindings/js/JSIDBAnyCustom.cpp \
@@ -182,8 +183,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSXSLTProcessorCustom.cpp \
 	bindings/js/ScheduledAction.cpp \
 	bindings/js/ScriptCachedFrameData.cpp \
-	bindings/js/ScriptCallFrame.cpp \
-	bindings/js/ScriptCallStack.cpp \
+	bindings/js/ScriptCallStackFactory.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
 	bindings/js/ScriptEventListener.cpp \

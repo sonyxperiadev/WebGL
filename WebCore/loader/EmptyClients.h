@@ -106,6 +106,7 @@ public:
     virtual void takeFocus(FocusDirection) { }
 
     virtual void focusedNodeChanged(Node*) { }
+    virtual void focusedFrameChanged(Frame*) { }
 
     virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) { return 0; }
     virtual void show() { }
@@ -143,6 +144,10 @@ public:
     virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptyPopupMenu()); }
     virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptySearchPopupMenu()); }
 
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
+#endif
+
     virtual void setStatusbarText(const String&) { }
 
     virtual bool tabsToLinks() const { return false; }
@@ -153,6 +158,9 @@ public:
     virtual void invalidateContentsAndWindow(const IntRect&, bool) { }
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool) {};
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) { }
+#if ENABLE(TILED_BACKING_STORE)
+    virtual void delegatedScrollRequested(const IntSize&) { }
+#endif
 
     virtual IntPoint screenToWindow(const IntPoint& p) const { return p; }
     virtual IntRect windowToScreen(const IntRect& r) const { return r; }
@@ -479,9 +487,9 @@ public:
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
 #endif
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    virtual void showCorrectionPanel(const FloatRect&, const String&, const String&, Editor*) { }
-    virtual void dismissCorrectionPanel(bool) { }
+#if SUPPORT_AUTOCORRECTION_PANEL
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, Editor*) { }
+    virtual void dismissCorrectionPanel(CorrectionWasRejectedOrNot) { }
     virtual bool isShowingCorrectionPanel() { return false; }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }

@@ -59,18 +59,29 @@ NPClass *getTestClass(void)
     return &testClass;
 }
 
+typedef struct {
+    NPObject header;
+    NPObject* testObject;
+} TestObject;
+
 static bool identifiersInitialized = false;
 
-#define ID_OBJECT_POINTER 2
-
 #define NUM_ENUMERATABLE_TEST_IDENTIFIERS 2
-#define NUM_TEST_IDENTIFIERS 3
+
+enum {
+    ID_PROPERTY_FOO = 0,
+    ID_PROPERTY_BAR,
+    ID_PROPERTY_OBJECT_POINTER,
+    ID_PROPERTY_TEST_OBJECT,
+    NUM_TEST_IDENTIFIERS,
+};
 
 static NPIdentifier testIdentifiers[NUM_TEST_IDENTIFIERS];
 static const NPUTF8 *testIdentifierNames[NUM_TEST_IDENTIFIERS] = {
     "foo",
     "bar",
     "objectPointer",
+    "testObject",
 };
 
 #define ID_THROW_EXCEPTION_METHOD   0
@@ -87,20 +98,24 @@ static void initializeIdentifiers(void)
     browser->getstringidentifiers(testMethodIdentifierNames, NUM_METHOD_IDENTIFIERS, testMethodIdentifiers);
 }
 
-static NPObject *testAllocate(NPP /*npp*/, NPClass* /*theClass*/)
+static NPObject* testAllocate(NPP /*npp*/, NPClass* /*theClass*/)
 {
-    NPObject *newInstance = static_cast<NPObject*>(malloc(sizeof(NPObject)));
-    
+    TestObject* newInstance = static_cast<TestObject*>(malloc(sizeof(TestObject)));
+    newInstance->testObject = 0;
+
     if (!identifiersInitialized) {
         identifiersInitialized = true;
         initializeIdentifiers();
     }
-    
-    return newInstance;
+
+    return reinterpret_cast<NPObject*>(newInstance);
 }
 
 static void testDeallocate(NPObject *obj) 
 {
+    TestObject* testObject = reinterpret_cast<TestObject*>(obj);
+    if (testObject->testObject)
+        browser->releaseobject(testObject->testObject);
     free(obj);
 }
 
@@ -134,16 +149,29 @@ static bool testHasProperty(NPObject*, NPIdentifier name)
 
 static bool testGetProperty(NPObject* npobj, NPIdentifier name, NPVariant* result)
 {
-    if (name == testIdentifiers[ID_OBJECT_POINTER]) {
+    if (name == testIdentifiers[ID_PROPERTY_FOO]) {
+        char* mem = static_cast<char*>(browser->memalloc(4));
+        strcpy(mem, "foo");
+        STRINGZ_TO_NPVARIANT(mem, *result);
+        return true;
+    }
+    if (name == testIdentifiers[ID_PROPERTY_OBJECT_POINTER]) {
         int32_t objectPointer = static_cast<int32_t>(reinterpret_cast<long long>(npobj));
 
         INT32_TO_NPVARIANT(objectPointer, *result);
         return true;
     }
+    if (name == testIdentifiers[ID_PROPERTY_TEST_OBJECT]) {
+        TestObject* testObject = reinterpret_cast<TestObject*>(npobj);
+        if (!testObject->testObject)
+            testObject->testObject = browser->createobject(0, &testClass);
+        browser->retainobject(testObject->testObject);
+        OBJECT_TO_NPVARIANT(testObject->testObject, *result);
+        return true;
+    }
     
     return false;
 }
-
 
 static bool testEnumerate(NPObject* /*npobj*/, NPIdentifier **value, uint32_t *count)
 {
@@ -163,5 +191,3 @@ static bool testConstruct(NPObject* npobj, const NPVariant* /*args*/, uint32_t /
     OBJECT_TO_NPVARIANT(npobj, *result);
     return true;
 }
-
-

@@ -199,6 +199,7 @@ void HTMLLinkElement::process()
     if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
+<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_relAttribute.m_isTouchIcon || m_relAttribute.m_isPrecomposedTouchIcon) && m_url.isValid()
         && !m_url.isEmpty() && document()->frame())
@@ -209,6 +210,15 @@ void HTMLLinkElement::process()
 
     if (m_relAttribute.m_isDNSPrefetch && document()->isDNSPrefetchEnabled() && m_url.isValid() && !m_url.isEmpty())
         ResourceHandle::prepareForURL(m_url);
+=======
+    if (m_relAttribute.m_isDNSPrefetch) {
+        Settings* settings = document()->settings();
+        // FIXME: The href attribute of the link element can be in "//hostname" form, and we shouldn't attempt
+        // to complete that as URL <https://bugs.webkit.org/show_bug.cgi?id=48857>.
+        if (settings && settings->dnsPrefetchingEnabled() && m_url.isValid() && !m_url.isEmpty())
+            ResourceHandle::prepareForURL(m_url);
+    }
+>>>>>>> webkit.org at r71558
 
 #if ENABLE(LINK_PREFETCH)
     if (m_relAttribute.m_isLinkPrefetch && m_url.isValid() && document()->frame())

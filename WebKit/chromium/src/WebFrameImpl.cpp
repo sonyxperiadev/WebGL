@@ -486,7 +486,7 @@ WebFrame* WebFrame::fromFrameOwnerElement(const WebElement& element)
 
 WebString WebFrameImpl::name() const
 {
-    return m_frame->tree()->name();
+    return m_frame->tree()->uniqueName();
 }
 
 void WebFrameImpl::setName(const WebString& name)
@@ -986,7 +986,7 @@ WebHistoryItem WebFrameImpl::previousHistoryItem() const
     // only get saved to history when it becomes the previous item.  The caller
     // is expected to query the history item after a navigation occurs, after
     // the desired history item has become the previous entry.
-    return WebHistoryItem(viewImpl()->previousHistoryItem());
+    return WebHistoryItem(m_frame->loader()->history()->previousItem());
 }
 
 WebHistoryItem WebFrameImpl::currentHistoryItem() const

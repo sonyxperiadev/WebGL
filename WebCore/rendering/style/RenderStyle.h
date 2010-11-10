@@ -109,6 +109,7 @@ typedef Vector<RefPtr<RenderStyle>, 4> PseudoStyleCache;
 class RenderStyle: public RefCounted<RenderStyle> {
     friend class AnimationBase; // Used by CSS animations. We can't allow them to animate based off visited colors.
     friend class ApplyStyleCommand; // Editing has to only reveal unvisited info.
+    friend class EditingStyle; // Editing has to only reveal unvisited info.
     friend class CSSStyleSelector; // Sets members directly.
     friend class CSSComputedStyleDeclaration; // Ignores visited styles, so needs to be able to see unvisited info.
     friend class PropertyWrapperMaybeInvalidColor; // Used by CSS animations. We can't allow them to animate based off visited colors.
@@ -403,6 +404,11 @@ public:
     const BorderValue& borderRight() const { return surround->border.right(); }
     const BorderValue& borderTop() const { return surround->border.top(); }
     const BorderValue& borderBottom() const { return surround->border.bottom(); }
+
+    const BorderValue& borderBefore() const;
+    const BorderValue& borderAfter() const;
+    const BorderValue& borderStart() const;
+    const BorderValue& borderEnd() const;
 
     const NinePieceImage& borderImage() const { return surround->border.image(); }
 
@@ -717,6 +723,8 @@ public:
     void setPageScaleTransform(float);
 
     bool hasMask() const { return rareNonInheritedData->m_mask.hasImage() || rareNonInheritedData->m_maskBoxImage.hasImage(); }
+
+    TextCombine textCombine() const { return static_cast<TextCombine>(rareNonInheritedData->m_textCombine); }
     // End CSS3 Getters
 
     // Apple-specific property getter methods
@@ -1069,6 +1077,7 @@ public:
     void setTransformOriginY(Length l) { SET_VAR(rareNonInheritedData.access()->m_transform, m_y, l); }
     void setTransformOriginZ(float f) { SET_VAR(rareNonInheritedData.access()->m_transform, m_z, f); }
     void setSpeak(ESpeak s) { SET_VAR(rareInheritedData, speak, s); }
+    void setTextCombine(TextCombine v) { SET_VAR(rareNonInheritedData, m_textCombine, v); }
     // End CSS3 Setters
 
     // Apple-specific property setters
@@ -1213,6 +1222,7 @@ public:
     static EClear initialClear() { return CNONE; }
     static TextDirection initialDirection() { return LTR; }
     static WritingMode initialWritingMode() { return TopToBottomWritingMode; }
+    static TextCombine initialTextCombine() { return TextCombineNone; }
     static EDisplay initialDisplay() { return INLINE; }
     static EEmptyCell initialEmptyCells() { return SHOW; }
     static EFloat initialFloating() { return FNONE; }
@@ -1360,8 +1370,12 @@ inline int adjustForAbsoluteZoom(int value, const RenderStyle* style)
     if (zoomFactor == 1)
         return value;
     // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
-    if (zoomFactor > 1)
-        value++;
+    if (zoomFactor > 1) {
+        if (value < 0)
+            value--;
+        else 
+            value++;
+    }
 
     return roundForImpreciseConversion<int, INT_MAX, INT_MIN>(value / zoomFactor);
 }

@@ -1330,7 +1330,7 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyWebkitBoxOrdinalGroup:
         validPrimitive = validUnit(value, FInteger | FNonNeg, true);
         break;
-    case CSSPropertyWebkitBoxSizing:
+    case CSSPropertyBoxSizing:
         validPrimitive = id == CSSValueBorderBox || id == CSSValueContentBox;
         break;
     case CSSPropertyWebkitColorCorrection:
@@ -1840,6 +1840,7 @@ bool CSSParser::parseValue(int propId, bool important)
             validPrimitive = true;
         break;
 
+<<<<<<< HEAD
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1877,6 +1878,12 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
+=======
+    case CSSPropertyWebkitTextCombine:
+        if (id == CSSValueNone || id == CSSValueCluster || id == CSSValueUpright)
+            validPrimitive = true;
+        break;
+>>>>>>> webkit.org at r71558
 
 #if ENABLE(SVG)
     default:
@@ -5928,7 +5935,12 @@ static int cssPropertyID(const UChar* propertyName, unsigned length)
         }
 
         if (hasPrefix(buffer, length, "-webkit")) {
-            if (strcmp(buffer, "-webkit-opacity") == 0) {
+            if (!strcmp(buffer, "-webkit-box-sizing")) {
+                // -webkit-box-sizing worked in Safari 4 and earlier.
+                const char* const boxSizing = "box-sizing";
+                name = boxSizing;
+                length = strlen(boxSizing);
+            } else if (!strcmp(buffer, "-webkit-opacity")) {
                 // Honor -webkit-opacity as a synonym for opacity.
                 // This was the only syntax that worked in Safari 1.1, and may be in use on some websites and widgets.
                 const char* const opacity = "opacity";

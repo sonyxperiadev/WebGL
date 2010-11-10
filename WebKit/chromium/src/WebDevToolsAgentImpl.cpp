@@ -177,7 +177,6 @@ WebDevToolsAgentImpl::WebDevToolsAgentImpl(
     , m_client(client)
     , m_webViewImpl(webViewImpl)
     , m_apuAgentEnabled(false)
-    , m_resourceTrackingWasEnabled(false)
     , m_attached(false)
 {
     DebuggerAgentManager::setExposeV8DebuggerProtocol(
@@ -264,20 +263,12 @@ void WebDevToolsAgentImpl::setApuAgentEnabled(bool enabled)
     if (enabled) {
         if (!ic->hasFrontend())
             connectFrontend(true);
-        m_resourceTrackingWasEnabled = ic->resourceTrackingEnabled();
+
         ic->startTimelineProfiler();
-        if (!m_resourceTrackingWasEnabled) {
-            // TODO(knorton): Introduce some kind of agents dependency here so that
-            // user could turn off resource tracking while apu agent is on.
-            ic->setResourceTrackingEnabled(true);
-        }
         m_debuggerAgentImpl->setAutoContinueOnException(true);
-    } else {
+    } else
       ic->stopTimelineProfiler();
-      if (!m_resourceTrackingWasEnabled)
-          ic->setResourceTrackingEnabled(false);
-      m_resourceTrackingWasEnabled = false;
-    }
+
     m_client->runtimePropertyChanged(
         kApuAgentFeatureName,
         enabled ? String("true") : String("false"));

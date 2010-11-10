@@ -27,6 +27,7 @@
 #include "DOMWindow.h"
 
 #include "AbstractDatabase.h"
+#include "BackForwardController.h"
 #include "Base64.h"
 #include "BarInfo.h"
 #include "BeforeUnloadEvent.h"
@@ -873,7 +874,7 @@ void DOMWindow::close()
     Settings* settings = m_frame->settings();
     bool allowScriptsToCloseWindows = settings && settings->allowScriptsToCloseWindows();
 
-    if (!(page->openedByDOM() || page->getHistoryLength() <= 1 || allowScriptsToCloseWindows))
+    if (!(page->openedByDOM() || page->backForward()->count() <= 1 || allowScriptsToCloseWindows))
         return;
 
     if (!m_frame->loader()->shouldClose())

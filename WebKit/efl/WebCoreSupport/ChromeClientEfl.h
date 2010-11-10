@@ -53,6 +53,7 @@ public:
     virtual void takeFocus(FocusDirection);
 
     virtual void focusedNodeChanged(Node*);
+    virtual void focusedFrameChanged(Frame*);
 
     virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&);
     virtual void show();
@@ -113,6 +114,10 @@ public:
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
     virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
+#endif
+
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
 #endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);

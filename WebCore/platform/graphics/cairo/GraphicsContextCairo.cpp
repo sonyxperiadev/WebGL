@@ -46,7 +46,7 @@
 #include "NotImplemented.h"
 #include "Path.h"
 #include "Pattern.h"
-#include "PlatformRefPtrCairo.h"
+#include "RefPtrCairo.h"
 #include "SimpleFontData.h"
 #include <cairo.h>
 #include <math.h>
@@ -766,14 +766,6 @@ void GraphicsContext::translate(float x, float y)
     m_data->translate(x, y);
 }
 
-IntPoint GraphicsContext::origin()
-{
-    cairo_matrix_t matrix;
-    cairo_t* cr = m_data->cr;
-    cairo_get_matrix(cr, &matrix);
-    return IntPoint(static_cast<int>(matrix.x0), static_cast<int>(matrix.y0));
-}
-
 void GraphicsContext::setPlatformFillColor(const Color& col, ColorSpace colorSpace)
 {
     // Cairo contexts can't hold separate fill and stroke colors
@@ -1090,16 +1082,6 @@ void GraphicsContext::clipOut(const IntRect& r)
     cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
     cairo_clip(cr);
     cairo_set_fill_rule(cr, savedFillRule);
-}
-
-void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
-{
-    if (paintingDisabled())
-        return;
-
-    Path p;
-    p.addEllipse(r);
-    clipOut(p);
 }
 
 static inline FloatPoint getPhase(const FloatRect& dest, const FloatRect& tile)

@@ -83,8 +83,9 @@ void TestController::platformInitialize()
 {
 }
 
-void TestController::runUntil(bool& done)
+void TestController::platformRunUntil(bool& done, double)
 {
+    // FIXME: Honor the timeout parameter <http://webkit.org/b/48941>.
     RunUntilConditionLoop::start(done);
     ASSERT(done);
 }
@@ -93,7 +94,7 @@ static bool isExistingLibrary(const QString& path)
 {
 #if OS(WINDOWS) || OS(SYMBIAN)
     const char* librarySuffixes[] = { ".dll" };
-#elif PLATFORM(MAC)
+#elif OS(MAC_OS_X)
     const char* librarySuffixes[] = { ".bundle", ".dylib", ".so" };
 #elif OS(UNIX)
     const char* librarySuffixes[] = { ".so" };

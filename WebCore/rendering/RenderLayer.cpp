@@ -3787,8 +3787,14 @@ void RenderLayer::repaintIncludingNonCompositingDescendants(RenderBoxModelObject
 
 bool RenderLayer::shouldBeNormalFlowOnly() const
 {
-    return (renderer()->hasOverflowClip() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isVideo() || renderer()->isEmbeddedObject() || 
-            renderer()->isRenderIFrame() || renderer()->style()->specifiesColumns())
+    return (renderer()->hasOverflowClip()
+                || renderer()->hasReflection()
+                || renderer()->hasMask()
+                || renderer()->isVideo()
+                || renderer()->isEmbeddedObject()
+                || renderer()->isApplet()
+                || renderer()->isRenderIFrame()
+                || renderer()->style()->specifiesColumns())
             && !renderer()->isPositioned()
             && !renderer()->isRelPositioned()
             && !renderer()->hasTransform()
@@ -3797,11 +3803,22 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::isSelfPaintingLayer() const
 {
+<<<<<<< HEAD
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (hasOverflowScroll())
         return true;
 #endif
     return !isNormalFlowOnly() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isTableRow() || renderer()->isVideo() || renderer()->isEmbeddedObject() || renderer()->isRenderIFrame();
+=======
+    return !isNormalFlowOnly()
+        || renderer()->hasReflection()
+        || renderer()->hasMask()
+        || renderer()->isTableRow()
+        || renderer()->isVideo()
+        || renderer()->isEmbeddedObject()
+        || renderer()->isApplet()
+        || renderer()->isRenderIFrame();
+>>>>>>> webkit.org at r71558
 }
 
 void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle*)

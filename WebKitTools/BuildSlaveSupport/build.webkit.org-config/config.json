@@ -91,7 +91,7 @@
                     {
                       "name": "Windows Release (Build)", "type": "Build", "builddir": "win-release",
                       "platform": "win", "configuration": "release", "architectures": ["i386"],
-                      "triggers": ["win-release-tests"],
+                      "triggers": ["win-release-tests", "win-release-tests-wk2"],
                       "slavenames": ["apple-windows-2", "test-slave"]
                     },
                     {
@@ -102,7 +102,7 @@
                     {
                       "name": "Windows Debug (Build)", "type": "Build", "builddir": "win-debug",
                       "platform": "win", "configuration": "debug", "architectures": ["i386"],
-                      "triggers": ["win-debug-tests", "win-debug-tests-wk2"],
+                      "triggers": ["win-debug-tests"],
                       "slavenames": ["apple-windows-1", "test-slave"]
                     },
                     {
@@ -240,8 +240,8 @@
                     { "type": "Triggerable", "name": "win-debug-tests",
                       "builderNames": ["Windows Debug (Tests)"]
                     },
-                    { "type": "Triggerable", "name": "win-debug-tests-wk2",
-                      "builderNames": ["Windows Debug (WebKit2 Tests)"]
+                    { "type": "Triggerable", "name": "win-release-tests-wk2",
+                      "builderNames": ["Windows Release (WebKit2 Tests)"]
                     }
                   ]
 }

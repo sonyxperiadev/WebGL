@@ -69,17 +69,20 @@ static NSString *createHTTPStyleLanguageCode(NSString *languageCode)
     // Make the string lowercase.
     NSString *lowercaseLanguageCode = [languageCode lowercaseString];
     
+    NSString *httpStyleLanguageCode;
+    
     // Turn a '_' into a '-' if it appears after a 2-letter language code.
-    if ([lowercaseLanguageCode length] < 3 || [lowercaseLanguageCode characterAtIndex:2] != '_')
-        return lowercaseLanguageCode;
-
-    NSMutableString *result = [lowercaseLanguageCode mutableCopy];
-    [result replaceCharactersInRange:NSMakeRange(2, 1) withString:@"-"];
-
+    if ([lowercaseLanguageCode length] >= 3 && [lowercaseLanguageCode characterAtIndex:2] == '_') {
+        NSMutableString *mutableLanguageCode = [lowercaseLanguageCode mutableCopy];
+        [mutableLanguageCode replaceCharactersInRange:NSMakeRange(2, 1) withString:@"-"];
+        httpStyleLanguageCode = mutableLanguageCode;
+    } else
+        httpStyleLanguageCode = [lowercaseLanguageCode retain];
+    
     if (preferredLanguageCode)
         CFRelease(preferredLanguageCode);
 
-    return result;
+    return httpStyleLanguageCode;
 }
 
 String platformDefaultLanguage()

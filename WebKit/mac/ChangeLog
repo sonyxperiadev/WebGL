@@ -1,3 +1,224 @@
+2010-11-08  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Plug-in views should not assume that plugins are RenderEmbeddedObjects
+        https://bugs.webkit.org/show_bug.cgi?id=49196
+        <rdar://problem/8638467>
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView pluginHostDied]):
+
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48685
+        Notify UI process about focused frame
+
+        Added an empty implementation of the new ChromeClient method.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::focusedFrameChanged):
+
+2010-11-08  Anders Carlsson  <andersca@apple.com>
+
+        Build fix.
+
+        * MigrateHeaders.make:
+
+2010-11-08  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Remove use of HIGetScaleFactor
+        https://bugs.webkit.org/show_bug.cgi?id=49186
+        <rdar://problem/8618410>
+
+        Scale factors can vary on a display-by-display basis and it doesn't make sense
+        to compute scale factor event coordinates like this.
+
+        * Plugins/WebNetscapePluginEventHandlerCarbon.mm:
+        (getCarbonEvent):
+
+2010-11-08  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Allow applets to participate in accelerated compositing
+        https://bugs.webkit.org/show_bug.cgi?id=49117
+        <rdar://problem/8625819>
+        
+        If Java is being loaded via the Netscape Plugin API, create a
+        NetscapePluginWidget so that it has an implementation of platformLayer().
+        
+        Also clean up by using early returns.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+
+2010-11-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename Cache to MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=49159
+
+        * Misc/WebCache.mm:
+        (+[WebCache statistics]):
+        * WebCoreSupport/WebDeviceOrientationClient.mm:
+        (WebDeviceOrientationClient::setController):
+        * WebView/WebView.mm:
+
+2010-11-05  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49100
+        ASSERT([self window]) fails in -[WebBaseNetscapePluginView restartTimers]
+
+        * Plugins/WebBaseNetscapePluginView.mm: (-[WebBaseNetscapePluginView restartTimers]):
+        Removed the assertion. Multiple callers provide no guarantee that the plug-in is still alive
+        (see bug comments), and there seems to be no harm in executing this function in that case.
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Move resumeAnimations/suspendAnimations from Frame to AnimationController.
+        https://bugs.webkit.org/show_bug.cgi?id=49073
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _suspendAnimations]):
+        (-[WebFrame _resumeAnimations]):
+
+2010-11-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49008
+        <rdar://problem/7906226> Frequent crashes on mail.yahoo.co.jp
+
+        Callers of NetscapePluginInstanceProxy::waitForReply() are not prepared to be deleted during
+        the call, unless it returns 0. There are two reasons for NetscapePluginInstanceProxy to be
+        deleted during wait:
+        - plugin crashed;
+        - plugin was stopped (e.g. due to a DOM modification performed by another reply that came in
+        while waiting).
+
+        We didn't recognize the latter.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::PluginDestroyDeferrer::~PluginDestroyDeferrer):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        (WebKit::NetscapePluginInstanceProxy::waitForReply):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::didCallPluginFunction):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Make suspendAnimations/resumeAnimations and setCSSAnimations traverse through subframes and remember state
+        https://bugs.webkit.org/show_bug.cgi?id=46945
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _suspendAnimations]):
+        (-[WebFrame _resumeAnimations]):
+
+2010-11-04  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        reversion bubble in WebViews
+        https://bugs.webkit.org/show_bug.cgi?id=47630
+        <rdar://problem/8530960>
+
+        This patch is to add reversion to correction panel. Please see WebCore/ChangeLog for detail.
+
+        * WebCoreSupport/WebEditorClient.h: Adopted new signature of base class method.
+        * WebCoreSupport/WebEditorClient.mm: Adopted new signature of base class method. And code
+          change to use new reversion API in AppKit.
+        (WebEditorClient::WebEditorClient):
+        (WebEditorClient::~WebEditorClient):
+        (WebEditorClient::respondToChangedSelection):
+        (WebEditorClient::showCorrectionPanel):
+        (WebEditorClient::dismissCorrectionPanel):
+        (WebEditorClient::isShowingCorrectionPanel):
+
+2010-11-04  Mike Thole  <mthole@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Title for images should use localized numerals
+        https://bugs.webkit.org/show_bug.cgi?id=49017
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::imageTitle): Use localized numerals on Snow Leopard or newer.
+
+2010-11-02  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Part 1 of 2.
+
+        Substitute FrameTree::uniqueName() for FrameTree::name() in the Mac port. 
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame name]):
+
+2010-11-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7660547> and https://bugs.webkit.org/show_bug.cgi?id=48699
+        Context menu support for WebKit 2.
+
+        * WebCoreSupport/WebChromeClient.h:
+        (WebChromeClient::showContextMenu):
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        No review, rolling out 70971.
+        http://trac.webkit.org/changeset/70971
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Rolling out changeset 70971 <http://trac.webkit.org/changeset/70971> since
+        it caused layout test failures on all bots. In particular, the
+        child count in a generated frame name differs after this patch. We need
+        to look into this further.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame name]):
+
+2010-10-28  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ojan Vafai.
+
+        Needs a "LinuxEditingBehavior", perhaps with a better name
+        https://bugs.webkit.org/show_bug.cgi?id=36627
+
+        Added the corresponding GTK+ setting to WebCore's EditingUnixBehavior: WebKitEditingUnixBehavior.
+
+        * WebView/WebFrame.mm:
+        (core):
+        * WebView/WebPreferencesPrivate.h:
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Modified Mac-port to use FrameTree::uniqueName().
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame name]):
+
 2010-10-29  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

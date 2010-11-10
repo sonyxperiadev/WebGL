@@ -504,16 +504,18 @@ void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* poin
     for (size_t i = 1; i < numPoints; ++i)
         path.lineTo(points[i]);
     path.setFillRule(Qt::WindingFill);
-    m_data->p()->setClipPath(path, Qt::IntersectClip);
-}
-
-QPen GraphicsContext::pen()
-{
-    if (paintingDisabled())
-        return QPen();
 
     QPainter* p = m_data->p();
-    return p->pen();
+
+    bool painterWasAntialiased = p->testRenderHint(QPainter::Antialiasing);
+
+    if (painterWasAntialiased != antialiased)
+        p->setRenderHint(QPainter::Antialiasing, antialiased);
+
+    p->setClipPath(path, Qt::IntersectClip);
+
+    if (painterWasAntialiased != antialiased)
+        p->setRenderHint(QPainter::Antialiasing, painterWasAntialiased);
 }
 
 void GraphicsContext::fillPath()
@@ -733,9 +735,21 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
     QPainter* p = m_data->p();
     if (m_data->hasShadow()) {
-        p->translate(m_data->shadow.offset());
-        p->fillPath(path.platformPath(), QColor(m_data->shadow.m_color));
-        p->translate(-m_data->shadow.offset());
+        ContextShadow* shadow = contextShadow();
+
+        if (shadow->m_type != ContextShadow::BlurShadow) {
+            // We do not need any layer for simple shadow.
+            p->translate(m_data->shadow.offset());
+            p->fillPath(path.platformPath(), QColor(m_data->shadow.m_color));
+            p->translate(-m_data->shadow.offset());
+        } else {
+            QPainter* shadowPainter = shadow->beginShadowLayer(p, rect);
+            if (shadowPainter) {
+                shadowPainter->setCompositionMode(QPainter::CompositionMode_Source);
+                shadowPainter->fillPath(path.platformPath(), QColor(m_data->shadow.m_color));
+                shadow->endShadowLayer(p);
+            }
+        }
     }
     p->fillPath(path.platformPath(), QColor(color));
 }
@@ -1128,14 +1142,6 @@ void GraphicsContext::translate(float x, float y)
     }
 }
 
-IntPoint GraphicsContext::origin()
-{
-    if (paintingDisabled())
-        return IntPoint();
-    const QTransform &transform = m_data->p()->transform();
-    return IntPoint(qRound(transform.dx()), qRound(transform.dy()));
-}
-
 void GraphicsContext::rotate(float radians)
 {
     if (paintingDisabled())
@@ -1182,28 +1188,6 @@ void GraphicsContext::clipOut(const IntRect& rect)
         clipOutRect &= window;
         newClip.addRect(window);
         newClip.addRect(clipOutRect);
-        p->setClipPath(newClip);
-    }
-}
-
-void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    QPainter* p = m_data->p();
-    QPainterPath newClip;
-    newClip.setFillRule(Qt::OddEvenFill);
-    if (p->hasClipping()) {
-        newClip.addRect(m_data->clipBoundingRect());
-        newClip.addEllipse(QRect(rect));
-        p->setClipPath(newClip, Qt::IntersectClip);
-    } else {
-        QRect clipOutRect(rect);
-        QRect window(p->window());
-        clipOutRect &= window;
-        newClip.addRect(window);
-        newClip.addEllipse(clipOutRect);
         p->setClipPath(newClip);
     }
 }

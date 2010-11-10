@@ -29,7 +29,7 @@
 #include "config.h"
 #include "LegacyWebArchive.h"
 
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
@@ -492,7 +492,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
     if (responseURL.isNull())
         responseURL = KURL(ParsedURLString, "");
         
-    PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(utf8Buffer(markupString), responseURL, response.mimeType(), "UTF-8", frame->tree()->name());
+    PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(utf8Buffer(markupString), responseURL, response.mimeType(), "UTF-8", frame->tree()->uniqueName());
 
     Vector<PassRefPtr<LegacyWebArchive> > subframeArchives;
     Vector<PassRefPtr<ArchiveResource> > subresources;
@@ -509,7 +509,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
             if (subframeArchive)
                 subframeArchives.append(subframeArchive);
             else
-                LOG_ERROR("Unabled to archive subframe %s", childFrame->tree()->name().string().utf8().data());
+                LOG_ERROR("Unabled to archive subframe %s", childFrame->tree()->uniqueName().string().utf8().data());
         } else {
             ListHashSet<KURL> subresourceURLs;
             node->getSubresourceURLs(subresourceURLs);

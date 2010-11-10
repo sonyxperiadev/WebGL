@@ -244,6 +244,114 @@
 				>
 			</File>
 		</Filter>
+		<Filter
+			Name="unicode"
+			>
+			<File
+				RelativePath="..\..\wtf\unicode\Collator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\unicode\Unicode.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\unicode\UnicodeMacrosFromICU.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\unicode\UTF8.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\unicode\UTF8.h"
+				>
+			</File>
+			<Filter
+				Name="icu"
+				>
+				<File
+					RelativePath="..\..\wtf\unicode\icu\CollatorICU.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\wtf\unicode\icu\UnicodeIcu.h"
+					>
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="text"
+			>
+			<File
+				RelativePath="..\..\wtf\text\AtomicString.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\AtomicString.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\AtomicStringHash.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\AtomicStringImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\CString.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\CString.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringBuffer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringBuilder.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringConcatenate.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringHash.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringImpl.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringImplBase.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\StringStatics.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\WTFString.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\wtf\text\WTFString.h"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath="..\..\wtf\AlwaysInline.h"
 			>
@@ -265,6 +373,18 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\AVLTree.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\Bitmap.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\BumpPointerAllocator.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\ByteArray.cpp"
 			>
 		</File>
@@ -273,15 +393,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\unicode\Collator.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\unicode\CollatorDefault.cpp"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\unicode\icu\CollatorICU.cpp"
+			RelativePath="..\..\wtf\Complex.h"
 			>
 		</File>
 		<File
@@ -297,7 +409,19 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\DecimalNumber.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DecimalNumber.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Deque.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DisallowCType.h"
 			>
 		</File>
 		<File
@@ -306,14 +430,6 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\dtoa.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\DecimalNumber.cpp"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\DecimalNumber.h"
 			>
 		</File>
 		<File
@@ -337,7 +453,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\FastMallocInternal.h"
+			RelativePath="..\..\wtf\FixedArray.h"
 			>
 		</File>
 		<File
@@ -354,6 +470,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\HashFunctions.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\HashIterators.h"
 			>
 		</File>
 		<File
@@ -389,14 +509,6 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\MD5.cpp"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\MD5.h"
-			>
-		</File>
-		<File
 			RelativePath="..\..\wtf\MainThread.cpp"
 			>
 		</File>
@@ -405,7 +517,19 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\MallocZoneSupport.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\MathExtras.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MD5.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MD5.h"
 			>
 		</File>
 		<File
@@ -413,11 +537,11 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\NonCopyingSort.h"
+			RelativePath="..\..\wtf\Noncopyable.h"
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\Noncopyable.h"
+			RelativePath="..\..\wtf\NonCopyingSort.h"
 			>
 		</File>
 		<File
@@ -425,7 +549,19 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\NullPtr.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\NullPtr.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\OwnArrayPtr.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\OwnArrayPtrCommon.h"
 			>
 		</File>
 		<File
@@ -434,10 +570,6 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\OwnPtr.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\OwnArrayPtrCommon.h"
 			>
 		</File>
 		<File
@@ -473,7 +605,11 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\PtrAndFlags.h"
+			RelativePath="..\..\wtf\PlatformRefPtr.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\PossiblyNull.h"
 			>
 		</File>
 		<File
@@ -497,6 +633,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\RefCountedLeakCounter.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\RefPtr.h"
 			>
 		</File>
@@ -513,11 +653,27 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\SizeLimits.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StaticConstructors.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\StdLibExtras.h"
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\StringExtras.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\StringExtras.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StringHasher.h"
 			>
 		</File>
 		<File
@@ -549,6 +705,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\ThreadingNone.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\ThreadingPrimitives.h"
 			>
 		</File>
@@ -577,91 +737,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\unicode\Unicode.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\unicode\icu\UnicodeIcu.h"
-			>
-		</File>
-		<File
 			RelativePath="..\..\wtf\UnusedParam.h"
-			>
-		</File>
-		<File
- 			RelativePath="..\..\wtf\text\AtomicString.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\AtomicString.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\AtomicStringHash.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\AtomicStringImpl.h"
- 			>
- 		</File>
-		<File
- 			RelativePath="..\..\wtf\text\CString.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\CString.h"
- 			>
- 		</File>
-		<File
- 			RelativePath="..\..\wtf\text\StringStatics.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringBuffer.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringBuilder.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringBuilder.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringConcatenate.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringHash.h"
- 			>
- 		</File>
-		<File
- 			RelativePath="..\..\wtf\text\StringImpl.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\StringImpl.h"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\TextPosition.h"
- 			>
- 		</File>
-		<File
- 			RelativePath="..\..\wtf\text\WTFString.cpp"
- 			>
- 		</File>
- 		<File
- 			RelativePath="..\..\wtf\text\WTFString.h"
- 			>
- 		</File>
- 		<File
-			RelativePath="..\..\wtf\unicode\UTF8.cpp"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\unicode\UTF8.h"
 			>
 		</File>
 		<File
@@ -673,7 +749,15 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\Vector3.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\VectorTraits.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\VMTags.h"
 			>
 		</File>
 		<File

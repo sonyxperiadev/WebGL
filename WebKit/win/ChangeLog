@@ -1,3 +1,213 @@
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Windows build fix.
+
+        * WebCoreSupport/WebChromeClient.h: Added namespace prefix.
+
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48685
+        Notify UI process about focused frame
+
+        Added an empty implementation of the new ChromeClient method.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::focusedFrameChanged):
+        * WebCoreSupport/WebChromeClient.h:
+
+2010-11-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename Cache to MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=49159
+
+        * WebCache.cpp:
+        (WebCache::statistics):
+        * WebFrame.cpp:
+        * WebView.cpp:
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Move resumeAnimations/suspendAnimations from Frame to AnimationController.
+        https://bugs.webkit.org/show_bug.cgi?id=49073
+
+        * WebFrame.cpp:
+        (WebFrame::suspendAnimations):
+        (WebFrame::resumeAnimations):
+
+2010-11-05  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Assertion failure in PluginStream::~PluginStream when running userscripts/user-script-plugin-document.html
+        https://bugs.webkit.org/show_bug.cgi?id=48751
+        <rdar://problem/8615536>
+        
+        Always call committedLoad in WebFrameLoaderClient::finishedLoading, even if we have a manual loader. We were
+        running into a case where we were trying to load an empty plugin document, which uses a manual loader, and
+        PluginStream::didFinishLoading was never being called. The stream was never being stopped, making us fire
+        an assert in the PluginStream destructor.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::finishedLoading):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Make suspendAnimations/resumeAnimations and setCSSAnimations traverse through subframes and remember state
+        https://bugs.webkit.org/show_bug.cgi?id=46945
+
+        * WebFrame.cpp:
+        (WebFrame::suspendAnimations):
+        (WebFrame::resumeAnimations):
+
+2010-11-05  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Replace ARRAYSIZE with WTF_ARRAY_LENGTH
+        https://bugs.webkit.org/show_bug.cgi?id=48903
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::exceededDatabaseQuota):
+        * WebKitDLL.cpp:
+        (DllGetClassObject):
+        * WebView.cpp:
+        (WebView::mouseWheel):
+
+2010-11-02  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Part 1 of 2.
+
+        Substitute FrameTree::uniqueName() for FrameTree::name() in the Apple Windows port.
+
+        * WebFrame.cpp:
+        (WebFrame::name):
+
+2010-11-02  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/8346191> and https://bugs.webkit.org/show_bug.cgi?id=48868
+        Implement IMutableWebRequest::setTimeoutInterval
+
+        * WebMutableURLRequest.cpp:
+        (WebMutableURLRequest::setTimeoutInterval):
+
+2010-11-02  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Set frame name before appending it to the frame tree in the Apple Windows,
+        GTK, and EFL ports
+        https://bugs.webkit.org/show_bug.cgi?id=48806
+
+        Make the frame creation process in the Apple Windows-port consistent
+        with the Mac, Qt, and Haiku ports. In particular, set the name of
+        the new frame before it's appended to the frame tree.
+
+        At this time we cannot test this change since it is being masked by
+        HTMLFrameElementBase::setName() <http://trac.webkit.org/browser/trunk/WebCore/html/HTMLFrameElementBase.cpp?rev=70976#L160>.
+        We'll be able to test this once we fix bug #6751.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::createFrame):
+
+2010-11-01  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        Windows: Update resource tracking when moving a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=48364
+
+        * Interfaces/IWebResourceLoadDelegatePrivate2.idl:Added
+        Added removeIdentifierForRequest.
+        * Interfaces/WebKit.idl:
+        Added IWebResourceLoadDelegatePrivate2.idl.
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::transferLoadingResourceFromPage):
+
+2010-11-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7660547> and https://bugs.webkit.org/show_bug.cgi?id=48699
+        Context menu support for WebKit 2.
+
+        * WebCoreSupport/WebChromeClient.h:
+        (WebChromeClient::showContextMenu):
+
+2010-11-01  Adam Roben  <aroben@apple.com>
+
+        Cancel main resource loads after we hand them off to the media engine
+
+        This is the Windows equivalent of r51104. Clearly this code should be
+        moved to a cross-platform location someday.
+
+        Fixes <http://webkit.org/b/48531> <rdar://problem/8606635> Assertion
+        failure in DocumentLoader::commitData when loading a media document in
+        WebKit1 on Windows
+
+        Reviewed by Dan Bernstein.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::committedLoad): Cancel the main resource load
+        after handing off the load to the media engine. This code originally
+        came from -[WebHTMLRepresentation receivedData:withDataSource:].
+
+        * WebFrame.cpp:
+        (WebFrame::shouldFallBack): Don't fall back when handing the resource
+        load off to the media engine or a plugin. Added error domain checking
+        so that we don't rely on error codes being unique.
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        No review, rolling out 70971.
+        http://trac.webkit.org/changeset/70971
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Rolling out changeset 70971 <http://trac.webkit.org/changeset/70971> since
+        it caused layout test failures on all bots. In particular, the
+        child count in a generated frame name differs after this patch. We need
+        to look into this further.
+
+        * WebFrame.cpp:
+        (WebFrame::name):
+
+2010-10-28  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ojan Vafai.
+
+        Needs a "LinuxEditingBehavior", perhaps with a better name
+        https://bugs.webkit.org/show_bug.cgi?id=36627
+
+        Added the corresponding GTK+ setting to WebCore's EditingUnixBehavior: WebKitEditingUnixBehavior.
+
+        * Interfaces/IWebPreferences.idl:
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Modified Apple Windows-port to use FrameTree::uniqueName().
+
+        * WebFrame.cpp:
+        (WebFrame::name):
+
 2010-10-29  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

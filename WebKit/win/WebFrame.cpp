@@ -55,7 +55,7 @@
 #include "WebView.h"
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
-#include <WebCore/Cache.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/DOMImplementation.h>
@@ -438,7 +438,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::name(
     if (!coreFrame)
         return E_FAIL;
 
-    *frameName = BString(coreFrame->tree()->name()).release();
+    *frameName = BString(coreFrame->tree()->uniqueName()).release();
     return S_OK;
 }
 
@@ -1299,11 +1299,7 @@ HRESULT WebFrame::suspendAnimations()
     if (!frame)
         return E_FAIL;
 
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return E_FAIL;
-
-    controller->suspendAnimations(frame->document());
+    frame->animation()->suspendAnimations();
     return S_OK;
 }
 
@@ -1313,11 +1309,7 @@ HRESULT WebFrame::resumeAnimations()
     if (!frame)
         return E_FAIL;
 
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return E_FAIL;
-
-    controller->resumeAnimations(frame->document());
+    frame->animation()->resumeAnimations();
     return S_OK;
 }
 
@@ -1718,7 +1710,13 @@ ResourceError WebFrame::pluginWillHandleLoadError(const ResourceResponse& respon
 
 bool WebFrame::shouldFallBack(const ResourceError& error)
 {
-    return error.errorCode() != WebURLErrorCancelled;
+    if (error.errorCode() == WebURLErrorCancelled && error.domain() == String(WebURLErrorDomain))
+        return false;
+
+    if (error.errorCode() == WebKitErrorPlugInWillHandleLoad && error.domain() == String(WebKitErrorDomain))
+        return false;
+
+    return true;
 }
 
 COMPtr<WebFramePolicyListener> WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction function)

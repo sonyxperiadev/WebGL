@@ -56,10 +56,10 @@ private:
 
     void requestImageResource();
 
-    DECLARE_ANIMATED_PROPERTY(SVGFEImageElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
+    DECLARE_ANIMATED_PROPERTY_NEW(SVGFEImageElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
 
     // SVGURIReference
-    DECLARE_ANIMATED_PROPERTY(SVGFEImageElement, XLinkNames::hrefAttr, String, Href, href)
+    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEImageElement, XLinkNames::hrefAttr, String, Href, href)
 
     // SVGExternalResourcesRequired
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEImageElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)

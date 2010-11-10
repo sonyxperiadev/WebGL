@@ -23,62 +23,12 @@
 
 #if ENABLE(SVG)
 #include "PlatformString.h"
-#include "SVGNumberList.h"
-#include "SVGPreserveAspectRatio.h"
 #include "SVGTransformList.h"
 
 namespace WebCore {
 
 template<typename Type>
 struct DeprecatedSVGAnimatedPropertyTraits : public Noncopyable { };
-
-// SVGAnimatedNumber
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<float> : public Noncopyable {
-    typedef const float& PassType;
-    typedef float ReturnType;
-    typedef float StoredType;
-
-    static ReturnType null() { return 0.0f; }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return String::number(type); }
-};
-
-// SVGAnimatedNumberList
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<SVGNumberList*> : public Noncopyable {
-    typedef SVGNumberList* PassType;
-    typedef SVGNumberList* ReturnType;
-    typedef RefPtr<SVGNumberList> StoredType;
-
-    static ReturnType null() { return 0; }
-    static ReturnType toReturnType(const StoredType& type) { return type.get(); }
-    static String toString(PassType type) { return type ? type->valueAsString() : String(); }
-};
-
-// SVGAnimatedPreserveAspectRatio
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<SVGPreserveAspectRatio> : public Noncopyable {
-    typedef const SVGPreserveAspectRatio& PassType;
-    typedef SVGPreserveAspectRatio ReturnType;
-    typedef SVGPreserveAspectRatio StoredType;
-
-    static ReturnType null() { return SVGPreserveAspectRatio(); }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return type.valueAsString(); }
-};
-
-// SVGAnimatedString
-template<>
-struct DeprecatedSVGAnimatedPropertyTraits<String> : public Noncopyable {
-    typedef const String& PassType;
-    typedef String ReturnType;
-    typedef String StoredType;
-
-    static ReturnType null() { return String(); }
-    static ReturnType toReturnType(const StoredType& type) { return type; }
-    static String toString(PassType type) { return type; }
-};
 
 // SVGAnimatedTransformList
 template<>

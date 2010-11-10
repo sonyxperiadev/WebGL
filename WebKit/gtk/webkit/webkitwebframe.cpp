@@ -480,7 +480,7 @@ G_CONST_RETURN gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
     if (!coreFrame)
         return "";
 
-    String string = coreFrame->tree()->name();
+    String string = coreFrame->tree()->uniqueName();
     priv->name = g_strdup(string.utf8().data());
     return priv->name;
 }
@@ -1059,11 +1059,7 @@ void webkit_web_frame_suspend_animations(WebKitWebFrame* frame)
     if (!coreFrame)
         return;
 
-    AnimationController* controller = coreFrame->animation();
-    if (!controller)
-        return;
-
-    controller->suspendAnimations(coreFrame->document());
+    coreFrame->animation()->suspendAnimations();
 }
 
 void webkit_web_frame_resume_animations(WebKitWebFrame* frame)
@@ -1072,11 +1068,7 @@ void webkit_web_frame_resume_animations(WebKitWebFrame* frame)
     if (!coreFrame)
         return;
 
-    AnimationController* controller = coreFrame->animation();
-    if (!controller)
-        return;
-
-    controller->resumeAnimations(coreFrame->document());
+    coreFrame->animation()->resumeAnimations();
 }
 
 gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame)

@@ -37,15 +37,19 @@
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "Archive.h"
 #include "ArchiveFactory.h"
+<<<<<<< HEAD
 #endif
 #include "BackForwardList.h"
+=======
+#include "BackForwardController.h"
+>>>>>>> webkit.org at r71558
 #include "BeforeUnloadEvent.h"
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "CachedPage.h"
+#include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
-#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
@@ -65,9 +69,6 @@
 #include "FrameView.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLFormElement.h"
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-#include "HTMLMediaElement.h"
-#endif
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTTPParsers.h"
@@ -82,7 +83,6 @@
 #include "PageCache.h"
 #include "PageGroup.h"
 #include "PageTransitionEvent.h"
-#include "PlaceholderDocument.h"
 #include "PluginData.h"
 #include "PluginDatabase.h"
 #include "PluginDocument.h"
@@ -103,6 +103,10 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLMediaElement.h"
+#endif
 
 #if ENABLE(SHARED_WORKERS)
 #include "SharedWorkerRepository.h"
@@ -937,7 +941,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
     // If we're moving in the back/forward list, we might want to replace the content
     // of this child frame with whatever was there at that point.
     if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType)) {
-        HistoryItem* childItem = parentItem->childItemWithTarget(childFrame->tree()->name());
+        HistoryItem* childItem = parentItem->childItemWithTarget(childFrame->tree()->uniqueName());
         if (childItem) {
             // Use the original URL to ensure we get all the side-effects, such as
             // onLoad handlers, of any redirects that happened. An example of where
@@ -948,8 +952,12 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
         }
     }
 
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->name());
+=======
+    RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());
+>>>>>>> webkit.org at r71558
     
     if (subframeArchive)
         childFrame->loader()->loadArchive(subframeArchive.release());
@@ -1851,7 +1859,7 @@ void FrameLoader::commitProvisionalLoad()
     RefPtr<CachedPage> cachedPage = m_loadingFromCachedPage ? pageCache()->get(history()->provisionalItem()) : 0;
     RefPtr<DocumentLoader> pdl = m_provisionalDocumentLoader;
 
-    LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->name().string().utf8().data(), m_URL.string().utf8().data(), 
+    LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->uniqueName().string().utf8().data(), m_URL.string().utf8().data(), 
         pdl ? pdl->url().string().utf8().data() : "<no provisional DocumentLoader>");
 
     // Check to see if we need to cache the page we are navigating away from into the back/forward cache.
@@ -1899,7 +1907,7 @@ void FrameLoader::commitProvisionalLoad()
         didOpenURL(url);
     }
 
-    LOG(Loading, "WebCoreLoading %s: Finished committing provisional load to URL %s", m_frame->tree()->name().string().utf8().data(), m_URL.string().utf8().data());
+    LOG(Loading, "WebCoreLoading %s: Finished committing provisional load to URL %s", m_frame->tree()->uniqueName().string().utf8().data(), m_URL.string().utf8().data());
 
     if (m_loadType == FrameLoadTypeStandard && m_documentLoader->isClientRedirect())
         history()->updateForClientRedirect();
@@ -1972,30 +1980,28 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
         case FrameLoadTypeBack:
         case FrameLoadTypeBackWMLDeckNotAccessible:
         case FrameLoadTypeIndexedBackForward:
-            if (Page* page = m_frame->page()) {
-                if (page->backForwardList()) {
-                    // If the first load within a frame is a navigation within a back/forward list that was attached
-                    // without any of the items being loaded then we need to update the history in a similar manner as
-                    // for a standard load with the exception of updating the back/forward list (<rdar://problem/8091103>).
-                    if (!m_stateMachine.committedFirstRealDocumentLoad())
-                        history()->updateForStandardLoad(HistoryController::UpdateAllExceptBackForwardList);
+            if (m_frame->page()) {
+                // If the first load within a frame is a navigation within a back/forward list that was attached
+                // without any of the items being loaded then we need to update the history in a similar manner as
+                // for a standard load with the exception of updating the back/forward list (<rdar://problem/8091103>).
+                if (!m_stateMachine.committedFirstRealDocumentLoad())
+                    history()->updateForStandardLoad(HistoryController::UpdateAllExceptBackForwardList);
 
-                    history()->updateForBackForwardNavigation();
+                history()->updateForBackForwardNavigation();
 
-                    // For cached pages, CachedFrame::restore will take care of firing the popstate event with the history item's state object
-                    if (history()->currentItem() && !cachedPage)
-                        m_pendingStateObject = history()->currentItem()->stateObject();
+                // For cached pages, CachedFrame::restore will take care of firing the popstate event with the history item's state object
+                if (history()->currentItem() && !cachedPage)
+                    m_pendingStateObject = history()->currentItem()->stateObject();
 
-                    // Create a document view for this document, or used the cached view.
-                    if (cachedPage) {
-                        DocumentLoader* cachedDocumentLoader = cachedPage->documentLoader();
-                        ASSERT(cachedDocumentLoader);
-                        cachedDocumentLoader->setFrame(m_frame);
-                        m_client->transitionToCommittedFromCachedFrame(cachedPage->cachedMainFrame());
+                // Create a document view for this document, or used the cached view.
+                if (cachedPage) {
+                    DocumentLoader* cachedDocumentLoader = cachedPage->documentLoader();
+                    ASSERT(cachedDocumentLoader);
+                    cachedDocumentLoader->setFrame(m_frame);
+                    m_client->transitionToCommittedFromCachedFrame(cachedPage->cachedMainFrame());
 
-                    } else
-                        m_client->transitionToCommittedForNewPage();
-                }
+                } else
+                    m_client->transitionToCommittedForNewPage();
             }
             break;
 
@@ -2405,7 +2411,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             }
             if (shouldReset && item)
                 if (Page* page = m_frame->page()) {
-                    page->backForwardList()->goToItem(item.get());
+                    page->backForward()->setCurrentItem(item.get());
                     Settings* settings = m_frame->settings();
                     page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : item.get());
                 }
@@ -2426,9 +2432,10 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             m_client->forceLayoutForNonHTML();
              
             // If the user had a scroll point, scroll to it, overriding the anchor point if any.
-            if (Page* page = m_frame->page())
-                if ((isBackForwardLoadType(m_loadType) || m_loadType == FrameLoadTypeReload || m_loadType == FrameLoadTypeReloadFromOrigin) && page->backForwardList())
+            if (m_frame->page()) {
+                if (isBackForwardLoadType(m_loadType) || m_loadType == FrameLoadTypeReload || m_loadType == FrameLoadTypeReloadFromOrigin)
                     history()->restoreScrollPositionAndViewState();
+            }
 
             if (m_stateMachine.creatingInitialEmptyDocument() || !m_stateMachine.committedFirstRealDocumentLoad())
                 return;
@@ -2496,9 +2503,8 @@ void FrameLoader::continueLoadAfterWillSubmitForm()
 
 void FrameLoader::didFirstLayout()
 {
-    if (Page* page = m_frame->page())
-        if (isBackForwardLoadType(m_loadType) && page->backForwardList())
-            history()->restoreScrollPositionAndViewState();
+    if (m_frame->page() && isBackForwardLoadType(m_loadType))
+        history()->restoreScrollPositionAndViewState();
 
     if (m_stateMachine.committedFirstRealDocumentLoad() && !m_stateMachine.isDisplayingInitialEmptyDocument() && !m_stateMachine.firstLayoutDone())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::FirstLayoutDone);
@@ -2614,9 +2620,12 @@ void FrameLoader::detachFromParent()
     RefPtr<Frame> protect(m_frame);
 
     closeURL();
-    stopAllLoaders();
     history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
     detachChildren();
+    // stopAllLoaders() needs to be called after detachChildren(), because detachedChildren()
+    // will trigger the unload event handlers of any child frames, and those event
+    // handlers might start a new subresource load in this frame.
+    stopAllLoaders();
 
 #if ENABLE(INSPECTOR)
     if (Page* page = m_frame->page())
@@ -2963,7 +2972,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
             if (Page* page = m_frame->page()) {
                 Frame* mainFrame = page->mainFrame();
                 if (HistoryItem* resetItem = mainFrame->loader()->history()->currentItem()) {
-                    page->backForwardList()->goToItem(resetItem);
+                    page->backForward()->setCurrentItem(resetItem);
                     Settings* settings = m_frame->settings();
                     page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : resetItem);
                 }
@@ -3144,7 +3153,7 @@ void FrameLoader::checkDidPerformFirstNavigation()
     if (!page)
         return;
 
-    if (!m_didPerformFirstNavigation && page->backForwardList()->currentItem() && !page->backForwardList()->backItem() && !page->backForwardList()->forwardItem()) {
+    if (!m_didPerformFirstNavigation && page->backForward()->currentItem() && !page->backForward()->backItem() && !page->backForward()->forwardItem()) {
         m_didPerformFirstNavigation = true;
         m_client->didPerformFirstNavigation();
     }

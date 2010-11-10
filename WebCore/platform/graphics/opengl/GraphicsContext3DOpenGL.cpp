@@ -33,6 +33,7 @@
 #include "ArrayBufferView.h"
 #include "WebGLObject.h"
 #include "CanvasRenderingContext.h"
+#include "Extensions3DOpenGL.h"
 #include "Float32Array.h"
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
@@ -568,12 +569,7 @@ void GraphicsContext3D::flush()
 void GraphicsContext3D::framebufferRenderbuffer(unsigned long target, unsigned long attachment, unsigned long renderbuffertarget, Platform3DObject buffer)
 {
     makeContextCurrent();
-    GLuint renderbuffer = (GLuint) buffer;
-    if (attachment == DEPTH_STENCIL_ATTACHMENT) {
-        ::glFramebufferRenderbufferEXT(target, DEPTH_ATTACHMENT, renderbuffertarget, renderbuffer);
-        ::glFramebufferRenderbufferEXT(target, STENCIL_ATTACHMENT, renderbuffertarget, renderbuffer);
-    } else
-        ::glFramebufferRenderbufferEXT(target, attachment, renderbuffertarget, renderbuffer);
+    ::glFramebufferRenderbufferEXT(target, attachment, renderbuffertarget, (GLuint) buffer);
 }
 
 void GraphicsContext3D::framebufferTexture2D(unsigned long target, unsigned long attachment, unsigned long textarget, Platform3DObject texture, long level)
@@ -1116,21 +1112,12 @@ void GraphicsContext3D::getFramebufferAttachmentParameteriv(unsigned long target
 
 void GraphicsContext3D::getIntegerv(unsigned long pname, int* value)
 {
-    // Need to emulate IMPLEMENTATION_COLOR_READ_FORMAT/TYPE for GL.  Any valid
-    // combination should work, but GL_RGB/GL_UNSIGNED_BYTE might be the most
-    // useful for desktop WebGL users.
     // Need to emulate MAX_FRAGMENT/VERTEX_UNIFORM_VECTORS and MAX_VARYING_VECTORS
     // because desktop GL's corresponding queries return the number of components
     // whereas GLES2 return the number of vectors (each vector has 4 components).
     // Therefore, the value returned by desktop GL needs to be divided by 4.
     makeContextCurrent();
     switch (pname) {
-    case IMPLEMENTATION_COLOR_READ_FORMAT:
-        *value = GL_RGB;
-        break;
-    case IMPLEMENTATION_COLOR_READ_TYPE:
-        *value = GL_UNSIGNED_BYTE;
-        break;
     case MAX_FRAGMENT_UNIFORM_VECTORS:
         ::glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, value);
         *value /= 4;
@@ -1445,9 +1432,11 @@ void GraphicsContext3D::synthesizeGLError(unsigned long error)
     m_syntheticErrors.add(error);
 }
 
-int GraphicsContext3D::getGraphicsResetStatusARB()
+Extensions3D* GraphicsContext3D::getExtensions()
 {
-    return NO_ERROR;
+    if (!m_extensions)
+        m_extensions = adoptPtr(new Extensions3DOpenGL);
+    return m_extensions.get();
 }
 
 }

@@ -8564,6 +8564,62 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLOutputElement.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLOutputElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLParagraphElement.cpp"
 				>
 				<FileConfiguration
@@ -23672,94 +23728,6 @@
 			Name="loader"
 			>
 			<File
-				RelativePath="..\loader\Cache.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\Cache.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedCSSStyleSheet.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedCSSStyleSheet.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedFont.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedFont.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedImage.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedImage.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResource.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResource.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceClient.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceClientWalker.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceClientWalker.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceHandle.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceHandle.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceLoader.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedResourceLoader.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedScript.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedScript.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedXSLStyleSheet.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachedXSLStyleSheet.h"
-				>
-			</File>
-			<File
-				RelativePath="..\loader\CachePolicy.h"
-				>
-			</File>
-			<File
 				RelativePath="..\loader\CrossOriginAccessControl.cpp"
 				>
 			</File>
@@ -24210,6 +24178,98 @@
 						>
 					</File>
 				</Filter>
+			</Filter>
+			<Filter
+				Name="cache"
+				>
+				<File
+					RelativePath="..\loader\cache\MemoryCache.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\loader\cache\MemoryCache.h"
+					>
+				</File>
+				<File
+        				RelativePath="..\loader\cache\CachedCSSStyleSheet.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedCSSStyleSheet.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedFont.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedFont.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedImage.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedImage.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResource.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResource.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceClient.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceClientWalker.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceClientWalker.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceHandle.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceHandle.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceLoader.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedResourceLoader.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedScript.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedScript.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedXSLStyleSheet.cpp"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachedXSLStyleSheet.h"
+        				>
+        			</File>
+        			<File
+        				RelativePath="..\loader\cache\CachePolicy.h"
+        				>
+        			</File>
 			</Filter>
 		</Filter>
 		<Filter
@@ -27446,7 +27506,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\cairo\PlatformRefPtrCairo.cpp"
+						RelativePath="..\platform\graphics\cairo\RefPtrCairo.cpp"
 						>
 						<FileConfiguration
 							Name="Debug|Win32"
@@ -27482,7 +27542,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\cairo\PlatformRefPtrCairo.h"
+						RelativePath="..\platform\graphics\cairo\RefPtrCairo.h"
 						>
 						<FileConfiguration
 							Name="Debug|Win32"
@@ -41648,6 +41708,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\DocumentTiming.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\DocumentType.cpp"
 				>
 				<FileConfiguration
@@ -45872,6 +45936,10 @@
 				>
 			</File>
 			<File
+			RelativePath="..\editing\CorrectionPanelInfo.h"
+				>
+			</File>
+			<File
 				RelativePath="..\editing\CreateLinkCommand.cpp"
 				>
 				<FileConfiguration
@@ -46222,6 +46290,62 @@
 			<File
 				RelativePath="..\editing\EditingBehaviorTypes.h"
 				>
+			</File>
+			<File
+				RelativePath="..\editing\EditingStyle.h"
+				>
+			</File>
+			<File
+				RelativePath="..\editing\EditingStyle.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\editing\Editor.cpp"
@@ -52044,6 +52168,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLOutputElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLOutputElement.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLParagraphElement.cpp"
 				>
 				<FileConfiguration
@@ -53521,6 +53653,14 @@
 			</File>
 			<File
 				RelativePath="..\html\URLInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ValidationMessage.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ValidationMessage.h"
 				>
 			</File>
 			<File
@@ -57251,6 +57391,58 @@
 					</FileConfiguration>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSHTMLOutputElementCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSHTMLSelectElementCustom.cpp"
 					>
 					<FileConfiguration
@@ -60859,7 +61051,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\bindings\js\ScriptCallFrame.cpp"
+					RelativePath="..\bindings\js\ScriptCallStackFactory.cpp"
 					>
 					<FileConfiguration
 						Name="Debug|Win32"
@@ -60911,63 +61103,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\bindings\js\ScriptCallFrame.h"
-					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\ScriptCallStack.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\bindings\js\ScriptCallStack.h"
+					RelativePath="..\bindings\js\ScriptCallStackFactory.h"
 					>
 				</File>
 				<File
@@ -61668,15 +61804,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGAnimatedNumber.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedNumberList.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGAnimatedPathData.h"
 				>
 			</File>
 			<File
-				RelativePath="..\svg\SVGAnimatedPoints.h"
+				RelativePath="..\svg\SVGAnimatedPreserveAspectRatio.h"
 				>
 			</File>
 			<File
 				RelativePath="..\svg\SVGAnimatedRect.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedString.h"
 				>
 			</File>
 			<File
@@ -62727,6 +62875,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\svg\properties\SVGListProperty.h"
+					>
+				</File>
+				<File
 					RelativePath="..\svg\properties\SVGListPropertyTearOff.h"
 					>
 				</File>
@@ -62740,6 +62892,14 @@
 				</File>
 				<File
 					RelativePath="..\svg\properties\SVGPropertyTraits.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGStaticListPropertyTearOff.h"
+					>
+				</File>
+				<File
+					RelativePath="..\svg\properties\SVGStaticPropertyTearOff.h"
 					>
 				</File>
 			</Filter>
@@ -63009,10 +63169,6 @@
 			</File>
 			<File
 				RelativePath="..\history\BackForwardController.h"
-				>
-			</File>
-			<File
-				RelativePath="..\history\BackForwardControllerClient.h"
 				>
 			</File>
 			<File
@@ -63788,6 +63944,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\inspector\InspectorFileSystemAgent.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorFileSystemAgent.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\inspector\InspectorFrontendClient.h"
 				>
 			</File>
@@ -63821,14 +63985,6 @@
 			</File>
 			<File
 				RelativePath="..\inspector\InspectorProfilerAgent.h"
-				>
-			</File>
-			<File
-				RelativePath="..\inspector\InspectorResource.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\inspector\InspectorResource.h"
 				>
 			</File>
 			<File
@@ -63884,11 +64040,35 @@
 				>
 			</File>
 			<File
+				RelativePath="..\inspector\ScriptArguments.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\ScriptArguments.h"
+				>
+			</File>
+			<File
 				RelativePath="..\inspector\ScriptBreakpoint.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\inspector\ScriptBreakpoint.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\ScriptCallFrame.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\ScriptCallFrame.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\ScriptCallStack.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\ScriptCallStack.h"
 				>
 			</File>
 			<File
@@ -64067,6 +64247,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\inspector\front-end\FileSystemView.js"
+					>
+				</File>
+				<File
 					RelativePath="..\inspector\front-end\FontView.js"
 					>
 				</File>
@@ -64204,10 +64388,6 @@
 				</File>
 				<File
 					RelativePath="..\inspector\front-end\ResourceManager.js"
-					>
-				</File>
-				<File
-					RelativePath="..\inspector\front-end\ResourcesPanel.js"
 					>
 				</File>
 				<File

@@ -215,7 +215,7 @@ InlineFlowBox* RenderBlock::createLineBoxes(RenderObject* obj, bool firstLine)
             ASSERT(newBox->isInlineFlowBox());
             parentBox = static_cast<InlineFlowBox*>(newBox);
             parentBox->setFirstLineStyleBit(firstLine);
-            parentBox->setIsVertical(!style()->isHorizontalWritingMode());
+            parentBox->setIsHorizontal(style()->isHorizontalWritingMode());
             constructedNewBox = true;
         }
 

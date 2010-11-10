@@ -1034,6 +1034,13 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
             if (style->transitions() || style->animations())
                 return false;
 
+#if USE(ACCELERATED_COMPOSITING)
+            // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
+            // See comments in RenderObject::setStyle().
+            if (s->hasTagName(iframeTag) || s->hasTagName(embedTag) || s->hasTagName(objectTag) || s->hasTagName(appletTag))
+                return false;
+#endif
+
             bool classesMatch = true;
             if (s->hasClass()) {
                 const AtomicString& class1 = m_element->fastGetAttribute(classAttr);
@@ -1753,15 +1760,18 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, RenderStyle* parent
              style->display() == TABLE_FOOTER_GROUP || style->display() == TABLE_ROW || style->display() == TABLE_CELL) &&
              style->position() == RelativePosition)
             style->setPosition(StaticPosition);
-        
-        // FIXME: Since we don't support block-flow on either tables or flexible boxes yet, disallow setting
+
+        // writing-mode does not apply to table row groups, table column groups, table rows, and table columns.
+        // FIXME: Table cells should be allowed to be perpendicular or flipped with respect to the table, though.
+        if (style->display() == TABLE_COLUMN || style->display() == TABLE_COLUMN_GROUP || style->display() == TABLE_FOOTER_GROUP
+            || style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW || style->display() == TABLE_ROW_GROUP
+            || style->display() == TABLE_CELL)
+            style->setWritingMode(parentStyle->writingMode());
+
+        // FIXME: Since we don't support block-flow on flexible boxes yet, disallow setting
         // of block-flow to anything other than TopToBottomWritingMode.
-        // https://bugs.webkit.org/show_bug.cgi?id=46417 - Tables support
         // https://bugs.webkit.org/show_bug.cgi?id=46418 - Flexible box support.
-        if (style->writingMode() != TopToBottomWritingMode && (style->display() == TABLE || style->display() == INLINE_TABLE
-            || style->display() == TABLE_HEADER_GROUP || style->display() == TABLE_ROW_GROUP
-            || style->display() == TABLE_FOOTER_GROUP || style->display() == TABLE_ROW || style->display() == TABLE_CELL
-            || style->display() == BOX || style->display() == INLINE_BOX))
+        if (style->writingMode() != TopToBottomWritingMode && (style->display() == BOX || style->display() == INLINE_BOX))
             style->setWritingMode(TopToBottomWritingMode);
     }
 
@@ -3093,7 +3103,8 @@ void CSSStyleSelector::applyPropertyToStyle(int id, CSSValue *value, RenderStyle
     initElement(0);
     initForStyleResolve(0, style);
     m_style = style;
-    applyProperty(id, value);
+    if (value)
+        applyProperty(id, value);
 }
 
 inline bool isValidVisitedLinkProperty(int id)
@@ -4970,7 +4981,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             return; // Error case.
         m_style->setBoxOrdinalGroup((unsigned int)(primitiveValue->getDoubleValue()));
         return;
-    case CSSPropertyWebkitBoxSizing:
+    case CSSPropertyBoxSizing:
         HANDLE_INHERIT_AND_INITIAL(boxSizing, BoxSizing)
         if (!primitiveValue)
             return;
@@ -5605,6 +5616,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 
+<<<<<<< HEAD
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
         if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
@@ -5748,6 +5760,11 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
+=======
+    case CSSPropertyWebkitTextCombine:
+        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
+        return;
+>>>>>>> webkit.org at r71558
 
 #if ENABLE(SVG)
     default:

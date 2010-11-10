@@ -340,14 +340,6 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     m_data->setCompositeOperation(op);
 }
 
-void GraphicsContext::strokeRect(const FloatRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->drawRect(rect, VG_STROKE_PATH);
-}
-
 void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 {
     if (paintingDisabled())
@@ -452,15 +444,6 @@ void GraphicsContext::translate(float dx, float dy)
     m_data->translate(dx, dy);
 }
 
-IntPoint GraphicsContext::origin()
-{
-    if (paintingDisabled())
-        return IntPoint();
-
-    AffineTransform transformation = m_data->transformation();
-    return IntPoint(roundf(transformation.e()), roundf(transformation.f()));
-}
-
 void GraphicsContext::clipOut(const IntRect& rect)
 {
     if (paintingDisabled())
@@ -468,16 +451,6 @@ void GraphicsContext::clipOut(const IntRect& rect)
 
     Path path;
     path.addRect(rect);
-    m_data->clipPath(path, PainterOpenVG::SubtractClip, m_common->state.fillRule);
-}
-
-void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    Path path;
-    path.addEllipse(rect);
     m_data->clipPath(path, PainterOpenVG::SubtractClip, m_common->state.fillRule);
 }
 

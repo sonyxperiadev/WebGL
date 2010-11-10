@@ -1983,8 +1983,12 @@ sub GenerateImplementation
                     my $hasOptionalArguments = 0;
 
                     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
-                        push(@implContent, "    ScriptCallStack callStack(exec, $numParameters);\n");
+                        push(@implContent, "    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(exec, $numParameters));\n");
+                        push(@implContent, "    size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;\n");
+                        push(@implContent, "    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(exec, maxStackSize));\n");
+                        $implIncludes{"ScriptArguments.h"} = 1;
                         $implIncludes{"ScriptCallStack.h"} = 1;
+                        $implIncludes{"ScriptCallStackFactory.h"} = 1;
                     }
 
                     my $callWith = $function->signature->extendedAttributes->{"CallWith"};
@@ -2389,8 +2393,8 @@ sub GenerateImplementationFunctionCall()
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         $functionString .= ", " if $paramIndex;
-        ++$paramIndex;
-        $functionString .= "&callStack";
+        $paramIndex += 2;
+        $functionString .= "scriptArguments.release(), callStack.release()";
     }
 
     if (@{$function->raisesExceptions}) {
@@ -2455,11 +2459,7 @@ my %nativeType = (
     "SerializedScriptValue" => "RefPtr<SerializedScriptValue>",
     "IDBKey" => "RefPtr<IDBKey>",
     "SVGMatrix" => "AffineTransform",
-    "SVGNumber" => "float",
     "SVGPaintType" => "SVGPaint::SVGPaintType",
-    "SVGPreserveAspectRatio" => "SVGPreserveAspectRatio",
-    "SVGPoint" => "FloatPoint",
-    "SVGRect" => "FloatRect",
     "SVGTransform" => "SVGTransform",
     "boolean" => "bool",
     "double" => "double",
@@ -2504,7 +2504,7 @@ sub GetSVGPropertyTypes
         $svgPropertyType = $svgWrappedNativeType;
         $headerIncludes{"$svgWrappedNativeType.h"} = 1;
         $headerIncludes{"SVGAnimatedPropertyTearOff.h"} = 1;
-    } elsif ($svgNativeType =~ /SVGListPropertyTearOff/) {
+    } elsif ($svgNativeType =~ /SVGListPropertyTearOff/ or $svgNativeType =~ /SVGStaticListPropertyTearOff/) {
         $svgListPropertyType = $svgWrappedNativeType;
         $headerIncludes{"$svgWrappedNativeType.h"} = 1;
         $headerIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
@@ -2528,7 +2528,7 @@ sub JSValueToNative
 
     return "$value.toBoolean(exec)" if $type eq "boolean";
     return "$value.toNumber(exec)" if $type eq "double";
-    return "$value.toFloat(exec)" if $type eq "float" or $type eq "SVGNumber";
+    return "$value.toFloat(exec)" if $type eq "float";
     return "$value.toInt32(exec)" if $type eq "long";
     return "$value.toUInt32(exec)" if $type eq "unsigned long" or $type eq "unsigned short";
     return "static_cast<$type>($value.toInteger(exec))" if $type eq "long long" or $type eq "unsigned long long";
@@ -2558,8 +2558,6 @@ sub JSValueToNative
         return "createIDBKeyFromValue(exec, $value)";
     }
 
-    $implIncludes{"FloatPoint.h"} = 1 if $type eq "SVGPoint";
-    $implIncludes{"FloatRect.h"} = 1 if $type eq "SVGRect";
     $implIncludes{"HTMLOptionElement.h"} = 1 if $type eq "HTMLOptionElement";
     $implIncludes{"JSCustomVoidCallback.h"} = 1 if $type eq "VoidCallback";
     $implIncludes{"Event.h"} = 1 if $type eq "Event";
@@ -2681,7 +2679,22 @@ sub NativeToJSValue
         # Convert from abstract SVGProperty to real type, so the right toJS() method can be invoked.
         $value = "static_cast<" . GetNativeType($type) . ">($value)";
     } elsif ($codeGenerator->IsSVGTypeNeedingTearOff($type) and not $implClassName =~ /List$/) {
-        $value = $codeGenerator->GetSVGTypeNeedingTearOff($type) . "::create($value)";
+        my $tearOffType = $codeGenerator->GetSVGTypeNeedingTearOff($type);
+        if ($codeGenerator->IsSVGTypeWithWritablePropertiesNeedingTearOff($type) and $inFunctionCall eq 0 and not defined $signature->extendedAttributes->{"Immutable"}) {
+            $tearOffType =~ s/SVGPropertyTearOff</SVGStaticPropertyTearOff<$implClassName, /;
+            $implIncludes{"SVGStaticPropertyTearOff.h"} = 1;
+
+            my $getter = $value;
+            $getter =~ s/imp->//;
+            $getter =~ s/\(\)//;
+            my $updater = "update" . $codeGenerator->WK_ucfirst($getter);
+            $value = "${tearOffType}::create(imp, $value, &${implClassName}::$updater)";
+        } elsif ($tearOffType =~ /SVGStaticListPropertyTearOff/) {
+            my $extraImp = "GetOwnerElementForType<$implClassName, IsDerivedFromSVGElement<$implClassName>::value>::ownerElement(imp), ";
+            $value = "${tearOffType}::create($extraImp$value)";
+        } elsif (not $tearOffType =~ /SVGPointList/) {
+            $value = "${tearOffType}::create($value)";
+        }
     }
 
     return "toJS(exec, $globalObject, WTF::getPtr($value))";

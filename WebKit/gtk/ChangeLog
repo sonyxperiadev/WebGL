@@ -1,3 +1,341 @@
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48685
+        Notify UI process about focused frame
+
+        Added an empty implementation of the new ChromeClient method.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::focusedFrameChanged):
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-11-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Andreas Kling.
+
+        [GTK] Error page templates are not filled properly
+        https://bugs.webkit.org/show_bug.cgi?id=49148
+
+        Replace a call to makeString with String::format. This was mistakenly
+        changed to makeString in an earlier commit.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidFailLoad):
+
+2010-11-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        * NEWS: update for release.
+
+2010-11-08  Csaba Osztrogonac  <ossy@webkit.org>
+
+        Unreviewed, rolling out r71466.
+        http://trac.webkit.org/changeset/71466
+        https://bugs.webkit.org/show_bug.cgi?id=48865
+
+        It broke layout tests on GTK bots.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::closeWindowSoon):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_init):
+        (webkit_web_view_set_group_name):
+
+2010-11-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename Cache to MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=49159
+
+        * webkit/webkitwebview.cpp:
+
+2010-11-05  Nicolas Dufresne  <nicolas.dufresne@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Link with target name set does not work correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48865
+
+        When a new page is created with a name (target=myFrame), the new
+        mainFrame could not be found because they where not stored in the
+        same PageGroup. As PageGroup are not exposed externally so the
+        simpliest solution is to use a global page group name. This also fixes
+        issue with visited link coloration across pages. After this change the
+        private function webkit_web_view_set_group_name() was no longer used
+        so it was removed completly.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::closeWindowSoon):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_init):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Move resumeAnimations/suspendAnimations from Frame to AnimationController.
+        https://bugs.webkit.org/show_bug.cgi?id=49073
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_suspend_animations):
+        (webkit_web_frame_resume_animations):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Unreviewed.
+
+        Small fix to GTK build
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_suspend_animations):
+        (webkit_web_frame_resume_animations):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Make suspendAnimations/resumeAnimations and setCSSAnimations traverse through subframes and remember state
+        https://bugs.webkit.org/show_bug.cgi?id=46945
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_suspend_animations):
+        (webkit_web_frame_resume_animations):
+
+2010-11-03  Daniel Bates  <dbates@rim.com>
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Part 1 of 2.
+
+        Substitute FrameTree::uniqueName() for FrameTree::name() in the GTK port.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_get_name):
+
+2010-11-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Adam Barth.
+
+        [Cairo] Remove PlatformRefPtrCairo
+        https://bugs.webkit.org/show_bug.cgi?id=48192
+
+        Replace instances of PlatformRefPtr smart pointers that wrap Cairo
+        types with RefPtrs.
+
+        * WebCoreSupport/DragClientGtk.cpp: Use RefPtr instead of PlatformRefPtr.
+        (WebKit::dragIconWindowDrawEventCallback):
+        * WebCoreSupport/DragClientGtk.h: Ditto.
+
+2010-11-02  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Set frame name before appending it to the frame tree in the Apple Windows,
+        GTK, and EFL ports
+        https://bugs.webkit.org/show_bug.cgi?id=48806
+
+        Make the frame creation process in the GTK-port consistent with the
+        Mac, Qt, and Haiku ports. In particular, set the name of the new
+        frame before it's appended to the frame tree.
+
+        At this time we cannot test this change since it is being masked by
+        HTMLFrameElementBase::setName() <http://trac.webkit.org/browser/trunk/WebCore/html/HTMLFrameElementBase.cpp?rev=70976#L160>.
+        We'll be able to test this once we fix bug #6751.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createFrame):
+
+2010-11-01  Jennifer Braithwaite  <jennb@google.com>
+
+        Reviewed by Martin Robinson.
+
+        GTK: Update resource tracking when moving a frame between documents
+        https://bugs.webkit.org/show_bug.cgi?id=48362
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::transferLoadingResourceFromPage):
+        Assign resource id to current web view and remove from former web view.
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_remove_resource):
+        Added.
+
+2010-11-01  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Cleanup needed in testatk.c file
+        https://bugs.webkit.org/show_bug.cgi?id=48759
+
+        Cleanup done in testatk.c, mainly addressing the following issues:
+
+        - Removed any trace of extra main loops in tests, so now we just
+        spin the original main loop in all of them to get the a11y
+        objects.
+
+        - As we no longer use the extra main loops, removed the bail_out
+        function, used along with g_idle_add() to stop those extra loops.
+
+        - As we now spin the loop in every test, created a new function
+        waitForAccessibilityObjects() to write the loop just once.
+
+        - Fixed name in incorrectly named test testWekitAtkTextSelections.
+
+        - Alphabetically sorted the list of includes.
+
+        - Renamed all identifiers to camel Case notation.
+
+        - Declare variables when needed only (instead of declaring all of
+        them at the beginning of the function).
+
+        - Don't declare two variables of the same type in the same line.
+
+        - No more short names like 'obj', 'textObj' or 'alloc'. Use names
+        like 'object', 'textObject' and 'allocation' instead.
+
+        - Fixed indentation.
+
+        - Make sure all comments finish with '.'
+
+        - Replace NULL's with 0's.
+
+        * tests/testatk.c:
+        (waitForAccessibleObjects): New, manually spins the main context
+        to make sure accessible objects are created before continuing.
+        (testGetTextFunction): Fixed this function to be compliant with
+        the WebKit's coding style.
+        (runGetTextTests): Ditto.
+        (testWebkitAtkGetTextAtOffsetForms): Ditto.
+        (testWebkitAtkGetTextAtOffset): Ditto.
+        (testWebkitAtkGetTextAtOffsetNewlines): Ditto.
+        (testWebkitAtkGetTextAtOffsetTextarea): Ditto.
+        (testWebkitAtkGetTextAtOffsetTextInput): Ditto.
+        (testWebkitAtkGetTextInParagraphAndBodySimple): Ditto.
+        (testWebkitAtkGetTextInParagraphAndBodyModerate): Ditto.
+        (testWebkitAtkGetTextInTable): Ditto.
+        (testWebkitAtkGetHeadersInTable): Ditto.
+        (compAtkAttribute): Ditto.
+        (atkAttributeSetAttributeNameHasValue): Ditto.
+        (testWebkitAtkTextAttributes): Ditto.
+        (testWebkitAtkTextSelections): Ditto.
+        (testWebkitAtkGetExtents): Ditto.
+        (testWebkitAtkLayoutAndDataTables): Ditto.
+        (testWebkitAtkLinksWithInlineImages): Ditto.
+        (testWebkitAtkHypertextAndHyperlinks): Ditto.
+        (testWebkitAtkListsOfItems): Ditto.
+        (testWebkitAtkTextChangedNotifications): Ditto.
+        (main): Ditto.
+
+2010-11-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7660547> and https://bugs.webkit.org/show_bug.cgi?id=48699
+        Context menu support for WebKit 2.
+
+        * WebCoreSupport/ChromeClientGtk.h:
+        (WebKit::ChromeClient::showContextMenu):
+
+2010-11-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Pasting markup into Thunderbird compose window produces no text
+        https://bugs.webkit.org/show_bug.cgi?id=43737
+
+        Added a test verifying that the meta tag prefix on markup data exists.
+
+        * tests/testcopyandpaste.c:
+        (load_status_cb): Add a check for the meta tag prefix.
+
+2010-11-01  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] AtkHyperlink needs to be implemented
+        https://bugs.webkit.org/show_bug.cgi?id=33785
+
+        New test to ensure the AtkHypertext/AtkHyperlink stuff works.
+
+        * tests/testatk.c:
+        (testWebkitAtkHypertextAndHyperlinks): New test, checking both the
+        implementation of the AtkHypertext interface, the subclass of the
+        AtkHyperlink abstract class, and the implementation of the
+        AtkAction interface in that subclass.
+        (main): Added the new unit test.
+
+2010-10-30  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Use new width for height APIs in GTK+ 3.x
+        https://bugs.webkit.org/show_bug.cgi?id=48709
+
+        Use the new width for height APIs in GTK+ 3.x, since size-request
+        is deprecated.
+
+        For now we just return the same value for preferred and minimum
+        width/height, which should match the 2.x behavior. Probably we
+        could do something smarter for the minimum values.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_preferred_width): return our preferred width.
+        (webkit_web_view_get_preferred_height): return our preferred height.
+        (webkit_web_view_class_init): hook the new default handlers.
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        No review, rolling out 70971.
+        http://trac.webkit.org/changeset/70971
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Rolling out changeset 70971 <http://trac.webkit.org/changeset/70971> since
+        it caused layout test failures on all bots. In particular, the
+        child count in a generated frame name differs after this patch. We need
+        to look into this further.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_get_name):
+
+2010-10-28  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ojan Vafai.
+
+        Needs a "LinuxEditingBehavior", perhaps with a better name
+        https://bugs.webkit.org/show_bug.cgi?id=36627
+
+        Added the corresponding GTK+ setting to WebCore's EditingUnixBehavior: WEBKIT_EDITING_BEHAVIOR_UNIX.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        * webkit/webkitwebsettings.h:
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Modified GTK-port to use FrameTree::uniqueName().
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_get_name):
+
+2010-10-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Build fix for GTK+ after BackForwardListImpl introduction.
+
+        * webkit/webkitwebbackforwardlist.cpp:
+        (webkit_web_back_forward_list_new_with_web_view):
+
 2010-10-29  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.
