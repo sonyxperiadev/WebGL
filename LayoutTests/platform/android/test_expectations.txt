@@ -96,6 +96,13 @@ dom/xhtml/level3/core/nodegetbaseuri18.xhtml FAIL
 dom/xhtml/level3/core/nodelookupnamespaceuri01.xhtml FAIL
 dom/xhtml/level3/core/nodelookupprefix19.xhtml FAIL
 
+// Expected failures for pixel tests
+fast/encoding/denormalised-voiced-japanese-chars.html FAIL
+fast/encoding/invalid-UTF-8.html FAIL
+fast/encoding/utf-16-big-endian.html FAIL
+fast/encoding/utf-16-little-endian.html FAIL
+fast/encoding/xmacroman-encoding-test.html FAIL
+
 // Expected failures due to DumpRenderTree2 serving tests from http://127.0.0.1
 // rather than file://
 // TODO: Consider checking in Android expected results for these tests, once
