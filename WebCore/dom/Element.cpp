@@ -947,6 +947,17 @@ bool Element::pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderS
     return false;
 }
 
+#ifdef ANDROID_STYLE_VERSION
+static bool displayDiff(const RenderStyle* s1, const RenderStyle* s2)
+{
+    if (!s1 || !s2)
+        return false;
+    return s1->display() != s2->display()
+        || s1->left() != s2->left() || s1->top() != s2->top()
+        || s1->right() != s2->right() || s1->bottom() != s2->bottom();
+}
+#endif
+
 void Element::recalcStyle(StyleChange change)
 {
     // Ref currentStyle in case it would otherwise be deleted when setRenderStyle() is called.
@@ -962,7 +973,9 @@ void Element::recalcStyle(StyleChange change)
 
     if ((change > NoChange || needsStyleRecalc())) {
 #ifdef ANDROID_STYLE_VERSION
-        document()->incStyleVersion();
+        RefPtr<RenderStyle> newStyle = document()->styleSelector()->styleForElement(this);
+        if (displayDiff(currentStyle.get(), newStyle.get()))
+            document()->incStyleVersion();
 #endif
         if (hasRareData())
             rareData()->resetComputedStyle();
