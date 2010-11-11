@@ -191,6 +191,10 @@ bool ChromeClientAndroid::menubarVisible() { notImplemented(); return false; }
 
 void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
 
+#if ENABLE(CONTEXT_MENUS)
+void ChromeClientAndroid::showContextMenu() { notImplemented(); }
+#endif
+
 // This function is called by the JavaScript bindings to print usually an error to
 // a message console. Pass the message to the java side so that the client can
 // handle it as it sees fit.

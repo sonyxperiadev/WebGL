@@ -177,6 +177,10 @@ namespace android {
         virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
         virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 
+#if ENABLE(CONTEXT_MENUS)
+        virtual void showContextMenu();
+#endif
+
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled();
 #endif
