@@ -217,6 +217,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/DeleteFromTextNodeCommand.cpp \
 	editing/DeleteSelectionCommand.cpp \
 	editing/EditCommand.cpp \
+	editing/EditingStyle.cpp \
 	editing/Editor.cpp \
 	editing/EditorCommand.cpp \
 	editing/FormatBlockCommand.cpp \
@@ -380,6 +381,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLViewSourceParser.cpp \
 	html/parser/TextDocumentParser.cpp \
 	html/parser/TextViewSourceParser.cpp \
+	\
+	inspector/InspectorFileSystemAgent.cpp \
+	inspector/ScriptArguments.cpp \
+	inspector/ScriptCallFrame.cpp \
+	inspector/ScriptCallStack.cpp \
 	\
 	loader/cache/CachedCSSStyleSheet.cpp \
 	loader/cache/CachedFont.cpp \
@@ -1144,6 +1150,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 # For XPath
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	xml/NativeXPathNSResolver.cpp \
 	xml/XPathEvaluator.cpp \
 	xml/XPathExpression.cpp \
 	xml/XPathExpressionNode.cpp \
@@ -1158,19 +1165,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XPathStep.cpp \
 	xml/XPathUtil.cpp \
 	xml/XPathValue.cpp \
-	xml/XPathVariableReference.cpp \
-	xml/NativeXPathNSResolver.cpp
+	xml/XPathVariableReference.cpp
 
 # For XSLT
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	loader/cache/CachedXSLStyleSheet.cpp \
+	dom/TransformSourceLibxslt.cpp \
+	xml/XSLImportRule.cpp \
+	xml/XSLStyleSheetLibxslt.cpp \
 	xml/XSLTExtensions.cpp \
 	xml/XSLTProcessorLibxslt.cpp \
 	xml/XSLTProcessor.cpp \
-	xml/XSLTUnicodeSort.cpp \
-	xml/XSLStyleSheetLibxslt.cpp \
-	xml/XSLImportRule.cpp \
-	loader/CachedXSLStyleSheet.cpp \
-	dom/TransformSourceLibxslt.cpp
+	xml/XSLTUnicodeSort.cpp
 
 # For Archive
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
