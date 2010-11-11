@@ -336,7 +336,7 @@ bool CachedResourceLoader::shouldBlockNetworkImage(const String& url) const
     if (!m_blockNetworkImage)
         return false;
 
-    KURL kurl = m_doc->completeURL(url);
+    KURL kurl = m_document->completeURL(url);
     if (kurl.protocolIs("http") || kurl.protocolIs("https"))
         return true;
 
