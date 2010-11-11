@@ -130,13 +130,13 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
     for (int i = 0; i < tilesInRow; i++) {
         int x = firstTileX;
 
-        // If we are goingLeft, we want to schedule the tiles
-        // starting from the left (and to the right if not)
+        // If we are goingLeft, we want to schedule the tiles starting from the
+        // right (and to the left if not). This is because tiles are appended to
+        // the list and the texture uploader goes through the set front to back.
         if (goingLeft)
-          x += i;
+            x += (tilesInRow - 1) - i;
         else
-          x += (tilesInRow - 1) - i;
-
+            x += i;
 
         BaseTile* currentTile = 0;
         BaseTile* availableTile = 0;
@@ -165,13 +165,16 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
     }
 }
 
-void TiledPage::updateTileState(int firstTileX, int firstTileY)
+void TiledPage::updateTileState(const SkIRect& tileBounds)
 {
-    if (!m_glWebViewState)
+    if (!m_glWebViewState || tileBounds.isEmpty())
         return;
 
-    const int nbTilesWidth = m_glWebViewState->nbTilesWidth();
-    const int nbTilesHeight = m_glWebViewState->nbTilesHeight();
+    const int nbTilesWidth = tileBounds.width();
+    const int nbTilesHeight = tileBounds.height();
+
+    const int lastTileX = tileBounds.fRight - 1;
+    const int lastTileY = tileBounds.fBottom - 1;
 
     for (int x = 0; x < m_baseTileSize; x++) {
 
@@ -189,15 +192,15 @@ void TiledPage::updateTileState(int firstTileX, int firstTileY)
         int dx = 0;
         int dy = 0;
 
-        if (firstTileX > tile.x())
-            dx = firstTileX - tile.x();
-        else if (firstTileX + (nbTilesWidth - 1) < tile.x())
-            dx = tile.x() - firstTileX - (nbTilesWidth - 1);
+        if (tileBounds.fLeft > tile.x())
+            dx = tileBounds.fLeft - tile.x();
+        else if (lastTileX < tile.x())
+            dx = tile.x() - lastTileX;
 
-        if (firstTileY > tile.y())
-            dy = firstTileY - tile.y();
-        else if (firstTileY + (nbTilesHeight - 1) < tile.y())
-            dy = tile.y() - firstTileY - (nbTilesHeight - 1);
+        if (tileBounds.fTop > tile.y())
+            dy = tileBounds.fTop - tile.y();
+        else if (lastTileY < tile.y())
+            dy = tile.y() - lastTileY;
 
         int d = std::max(dx, dy);
 
@@ -210,27 +213,60 @@ void TiledPage::updateTileState(int firstTileX, int firstTileY)
     m_invalRegion.setEmpty();
 }
 
-void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firstTileY)
+void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds)
 {
     if (!m_glWebViewState)
         return;
 
     // update the tiles distance from the viewport
-    updateTileState(firstTileX, firstTileY);
+    updateTileState(tileBounds);
 
-    int nbTilesWidth = m_glWebViewState->nbTilesWidth();
-    int nbTilesHeight = m_glWebViewState->nbTilesHeight();
+    int firstTileX = tileBounds.fLeft;
+    int firstTileY = tileBounds.fTop;
+    int nbTilesWidth = tileBounds.width();
+    int nbTilesHeight = tileBounds.height();
+
+    const int lastTileX = tileBounds.fRight - 1;
+    const int lastTileY = tileBounds.fBottom - 1;
+
+    const int baseContentHeight = m_glWebViewState->baseContentHeight();
+    const int baseContentWidth = m_glWebViewState->baseContentWidth();
 
     TileSet* highResSet = new TileSet(this, nbTilesHeight, nbTilesWidth);
 
-    // We chose to display tiles depending on the scroll direction:
+    // PREPARE OFF-SCREEN TILES FOR SMOOTHER SCROLLING
+    // if you are going down and you are not already at the bottom of the page
+    // go ahead and prepare the tiles just off-screen beneath the viewport.
+    if (goingDown && baseContentHeight > lastTileY * TilesManager::tileHeight())
+        nbTilesHeight++;
+    // if you are going up and you are not already at the top of the page go
+    // ahead and prepare the tiles just off-screen above the viewport.
+    else if (!goingDown && firstTileY > 0) {
+        firstTileY--;
+        nbTilesHeight++;
+    }
+    // if you are going right and you are not already at the edge of the page go
+    // ahead and prepare the tiles just off-screen to the right of the viewport.
+    if (!goingLeft && baseContentWidth > lastTileX * TilesManager::tileWidth())
+        nbTilesWidth++;
+    // if you are going left and you are not already at the edge of the page go
+    // ahead and prepare the tiles just off-screen to the left of the viewport.
+    else if (goingLeft && firstTileX > 0) {
+        firstTileX--;
+        nbTilesWidth++;
+    }
+
+
+    // We chose to prepare tiles depending on the scroll direction. Tiles are
+    // appended to the list and the texture uploader goes through the list front
+    // to back. So we append tiles in reverse order because the last additions
+    // to the are processed first.
     if (goingDown) {
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, highResSet);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, lastTileY - i, highResSet);
     } else {
-        int startingTileY = firstTileY + (nbTilesHeight - 1);
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, startingTileY - i, highResSet);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, highResSet);
     }
 
     // schedulePaintForTileSet will take ownership of the highResSet here,
@@ -238,18 +274,13 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
     TilesManager::instance()->schedulePaintForTileSet(highResSet);
 }
 
-bool TiledPage::ready(int firstTileX, int firstTileY)
+bool TiledPage::ready(const SkIRect& tileBounds)
 {
     if (!m_glWebViewState)
         return false;
 
-    int nbTilesWidth = m_glWebViewState->nbTilesWidth();
-    int nbTilesHeight = m_glWebViewState->nbTilesHeight();
-
-    for (int i = 0; i < nbTilesHeight; i++) {
-        for (int j = 0; j < nbTilesWidth; j++) {
-            int x = j + firstTileX;
-            int y = i + firstTileY;
+    for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
+        for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
             BaseTile* t = getBaseTile(x, y);
             if (!t || !t->isTileReady())
                 return false;
@@ -258,7 +289,7 @@ bool TiledPage::ready(int firstTileX, int firstTileY)
     return true;
 }
 
-void TiledPage::draw(float transparency, SkRect& viewport, int firstTileX, int firstTileY)
+void TiledPage::draw(float transparency, SkRect& viewport, const SkIRect& tileBounds)
 {
     if (!m_glWebViewState)
         return;
@@ -266,16 +297,10 @@ void TiledPage::draw(float transparency, SkRect& viewport, int firstTileX, int f
     const float tileWidth = TilesManager::tileWidth() * m_invScale;
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
-    SkIRect viewportTilesRect;
-    viewportTilesRect.fLeft = firstTileX;
-    viewportTilesRect.fTop = firstTileY;
-    viewportTilesRect.fRight = firstTileY + m_glWebViewState->nbTilesWidth() + 1;
-    viewportTilesRect.fBottom = firstTileY + m_glWebViewState->nbTilesHeight() + 1;
-
     XLOG("WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        if(viewportTilesRect.contains(tile.x(), tile.y())) {
+        if(tileBounds.contains(tile.x(), tile.y())) {
 
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;
