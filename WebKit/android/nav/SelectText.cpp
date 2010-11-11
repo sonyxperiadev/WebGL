@@ -1290,8 +1290,12 @@ SelectText::~SelectText()
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
-    if (!m_picture || m_picture != layer->picture())
+    if (m_layerId != layer->uniqueId())
         return;
+    // reset m_picture to match m_layerId
+    m_picture->safeUnref();
+    m_picture = layer->picture();
+    m_picture->safeRef();
     DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d layer [%d]",
         m_extendSelection, m_drawPointer, layer->uniqueId());
     if (m_extendSelection)
@@ -1330,6 +1334,8 @@ void SelectText::drawSelectionPointer(SkCanvas* canvas)
 
 void SelectText::drawSelectionRegion(SkCanvas* canvas)
 {
+    if (!m_picture)
+        return;
     m_selRegion.setEmpty();
     SkIRect ivisBounds = m_visibleRect;
     ivisBounds.join(m_selStart);
@@ -1512,6 +1518,7 @@ void SelectText::reset()
     m_startSelection = false;
     m_picture->safeUnref();
     m_picture = 0;
+    m_layerId = 0;
 }
 
 void SelectText::selectAll()
@@ -1548,7 +1555,7 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
 {
     m_startOffset.set(x, y);
     m_picture->safeUnref();
-    m_picture = root->pictureAt(&x, &y);
+    m_picture = root->pictureAt(&x, &y, &m_layerId);
     if (!m_picture) {
         DBG_NAV_LOG("picture==0");
         return false;
