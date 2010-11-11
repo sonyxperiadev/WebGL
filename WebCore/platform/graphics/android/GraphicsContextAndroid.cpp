@@ -70,7 +70,7 @@ template <typename T> T* deepCopyPtr(const T* src)
 // Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
 
 struct ShadowRec {
-    SkScalar blur; // >=0 means valid shadow
+    SkScalar blur; // >0 means valid shadow
     SkScalar dx;
     SkScalar dy;
     SkColor color;
@@ -149,13 +149,13 @@ public:
 
         bool setupShadowPaint(SkPaint* paint, SkPoint* offset)
         {
-            if (shadow.blur >= 0) {
+            if (shadow.blur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
                 paint->setXfermodeMode(mode);
                 paint->setColor(shadow.color);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(shadow.blur,
-                                     SkBlurMaskFilter::kNormal_BlurStyle))->safeUnref();
+                                     SkBlurMaskFilter::kNormal_BlurStyle))->unref();
                 offset->set(shadow.dx, shadow.dy);
                 return true;
             }
@@ -253,7 +253,7 @@ public:
         paint->setAntiAlias(m_state->useAA);
         paint->setDither(true);
         paint->setXfermodeMode(m_state->mode);
-        if (m_state->shadow.blur >= 0) {
+        if (m_state->shadow.blur > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(m_state->shadow.blur,
                                                         m_state->shadow.dx,
                                                         m_state->shadow.dy,
@@ -943,6 +943,9 @@ void GraphicsContext::setPlatformShadow(const FloatSize& size, float blur, const
 {
     if (paintingDisabled())
         return;
+
+    if (blur <= 0)
+        this->clearPlatformShadow();
 
     SkColor c;
     if (color.isValid())
