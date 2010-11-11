@@ -37,12 +37,8 @@
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "Archive.h"
 #include "ArchiveFactory.h"
-<<<<<<< HEAD
 #endif
-#include "BackForwardList.h"
-=======
 #include "BackForwardController.h"
->>>>>>> webkit.org at r71558
 #include "BeforeUnloadEvent.h"
 #include "MemoryCache.h"
 #include "CachedPage.h"
@@ -952,12 +948,8 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
         }
     }
 
-<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->name());
-=======
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());
->>>>>>> webkit.org at r71558
     
     if (subframeArchive)
         childFrame->loader()->loadArchive(subframeArchive.release());

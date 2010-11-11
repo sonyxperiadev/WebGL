@@ -272,9 +272,6 @@ sub GenerateHeader
     push(@headerContent, "\nnamespace WebCore {\n");
     push(@headerContent, "\ntemplate<typename PODType> class V8SVGPODTypeWrapper;\n") if $podType;
     push(@headerContent, "\ntemplate<typename PropertyType> class SVGPropertyTearOff;\n") if $svgPropertyType;
-<<<<<<< HEAD
-    push(@headerContent, "\ntemplate<typename PropertyType> class SVGListPropertyTearOff;\n") if $svgListPropertyType;
-=======
     if ($svgListPropertyType) {
         if ($svgListPropertyType =~ /SVGStaticListPropertyTearOff/) {
             push(@headerContent, "\ntemplate<typename PropertyType> class SVGStaticListPropertyTearOff;\n");
@@ -282,7 +279,6 @@ sub GenerateHeader
             push(@headerContent, "\ntemplate<typename PropertyType> class SVGListPropertyTearOff;\n");
         }
     }
->>>>>>> webkit.org at r71558
     push(@headerContent, "\nclass FloatRect;\n") if $svgPropertyType && $svgPropertyType eq "FloatRect";
     push(@headerContent, "\nclass $className {\n");
 
@@ -934,10 +930,6 @@ END
     } elsif ($codeGenerator->IsSVGTypeNeedingTearOff($attrType) and not $implClassName =~ /List$/) {
         $implIncludes{"V8$attrType.h"} = 1;
         $implIncludes{"SVGPropertyTearOff.h"} = 1;
-<<<<<<< HEAD
-        my $svgNativeType = $codeGenerator->GetSVGTypeNeedingTearOff($attrType);
-        push(@implContentDecls, "    return toV8(WTF::getPtr(${svgNativeType}::create($result)));\n");
-=======
         my $tearOffType = $codeGenerator->GetSVGTypeNeedingTearOff($attrType);
         if ($codeGenerator->IsSVGTypeWithWritablePropertiesNeedingTearOff($attrType) and not defined $attribute->signature->extendedAttributes->{"Immutable"}) {
             $tearOffType =~ s/SVGPropertyTearOff</SVGStaticPropertyTearOff<$implClassName, /;
@@ -956,7 +948,6 @@ END
         } else {
             push(@implContentDecls, "    return toV8(WTF::getPtr(${tearOffType}::create($result)));\n");
         }
->>>>>>> webkit.org at r71558
     } elsif ($attrIsPodType) {
         $implIncludes{"V8${attrType}.h"} = 1;
         push(@implContentDecls, "    return toV8(wrapper.release().get());\n");

@@ -243,25 +243,19 @@ void RenderTable::computeLogicalWidth()
     setLogicalWidth(max(logicalWidth(), minPreferredLogicalWidth()));
 
     // Finally, with our true width determined, compute our margins for real.
-<<<<<<< HEAD
-    m_marginRight = 0;
-    m_marginLeft = 0;
+    setMarginStart(0);
+    setMarginEnd(0);
 #ifdef ANDROID_LAYOUT
     // in SSR mode, we ignore left/right margin for table
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
         return;
 #endif
-    computeInlineDirectionMargins(cb, availableWidth, width());
-=======
-    setMarginStart(0);
-    setMarginEnd(0);
     if (!hasPerpendicularContainingBlock)
         computeInlineDirectionMargins(cb, availableLogicalWidth, logicalWidth());
     else {
         setMarginStart(style()->marginStart().calcMinValue(availableLogicalWidth));
         setMarginEnd(style()->marginEnd().calcMinValue(availableLogicalWidth));
     }
->>>>>>> webkit.org at r71558
 }
 
 void RenderTable::layout()
@@ -281,12 +275,11 @@ void RenderTable::layout()
 
     initMaxMarginValues();
     
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     bool relayoutChildren = false;
 #endif
 
-    int oldWidth = width();
+    int oldLogicalWidth = logicalWidth();
     computeLogicalWidth();
 
 #ifdef ANDROID_LAYOUT
@@ -318,13 +311,7 @@ void RenderTable::layout()
         }
     }
 #endif
-    if (m_caption && width() != oldWidth)
-=======
-    int oldLogicalWidth = logicalWidth();
-    computeLogicalWidth();
-
     if (m_caption && logicalWidth() != oldLogicalWidth)
->>>>>>> webkit.org at r71558
         m_caption->setNeedsLayout(true, false);
 
     // FIXME: The optimisation below doesn't work since the internal table

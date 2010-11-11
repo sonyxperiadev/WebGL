@@ -1840,7 +1840,11 @@ bool CSSParser::parseValue(int propId, bool important)
             validPrimitive = true;
         break;
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextCombine:
+        if (id == CSSValueNone || id == CSSValueCluster || id == CSSValueUpright)
+            validPrimitive = true;
+        break;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1878,12 +1882,6 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
-=======
-    case CSSPropertyWebkitTextCombine:
-        if (id == CSSValueNone || id == CSSValueCluster || id == CSSValueUpright)
-            validPrimitive = true;
-        break;
->>>>>>> webkit.org at r71558
 
 #if ENABLE(SVG)
     default:

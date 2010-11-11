@@ -5616,7 +5616,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextCombine:
+        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
+        return;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
         if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
@@ -5760,11 +5763,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
-=======
-    case CSSPropertyWebkitTextCombine:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
-        return;
->>>>>>> webkit.org at r71558
 
 #if ENABLE(SVG)
     default:

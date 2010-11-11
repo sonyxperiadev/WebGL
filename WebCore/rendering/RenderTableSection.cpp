@@ -284,7 +284,6 @@ void RenderTableSection::setCellLogicalWidths()
                 endCol++;
             }
             int w = columnPos[endCol] - columnPos[j] - table()->hBorderSpacing();
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             if (table()->isSingleColumn()) {
                 int b = table()->collapseBorders() ?
@@ -292,16 +291,12 @@ void RenderTableSection::setCellLogicalWidths()
                 w = table()->width() - (table()->borderLeft() + table()->borderRight() + b);
             }
 #endif
-            int oldWidth = cell->width();
-#ifdef ANDROID_LAYOUT
-            if (w != oldWidth || (visibleWidth > 0 && visibleWidth != cell->getVisibleWidth())) {
-#else
-            if (w != oldWidth) {
-#endif
-=======
             int oldLogicalWidth = cell->logicalWidth();
+#ifdef ANDROID_LAYOUT
+            if (w != oldLogicalWidth || (visibleWidth > 0 && visibleWidth != cell->getVisibleWidth())) {
+#else
             if (w != oldLogicalWidth) {
->>>>>>> webkit.org at r71558
+#endif
                 cell->setNeedsLayout(true);
                 if (!table()->selfNeedsLayout() && cell->checkForRepaintDuringLayout()) {
                     if (!statePusher.didPush()) {
@@ -311,14 +306,10 @@ void RenderTableSection::setCellLogicalWidths()
                     }
                     cell->repaint();
                 }
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
-                if (w != oldWidth)
+                if (w != oldLogicalWidth)
 #endif
-                cell->updateWidth(w);
-=======
                 cell->updateLogicalWidth(w);
->>>>>>> webkit.org at r71558
             }
         }
     }
@@ -338,7 +329,7 @@ int RenderTableSection::calcRowLogicalHeight()
         int height = 0;
         int spacing = table()->vBorderSpacing();
         for (int r = 0; r < m_gridRows; r++)
-            height += m_grid[r].height.calcMinValue(0) + (m_grid[r].rowRenderer ? spacing : 0);
+            height += m_grid[r].logicalHeight.calcMinValue(0) + (m_grid[r].rowRenderer ? spacing : 0);
         return height;
     }
 #endif

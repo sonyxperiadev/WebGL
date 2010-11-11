@@ -3803,13 +3803,10 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::isSelfPaintingLayer() const
 {
-<<<<<<< HEAD
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (hasOverflowScroll())
         return true;
 #endif
-    return !isNormalFlowOnly() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isTableRow() || renderer()->isVideo() || renderer()->isEmbeddedObject() || renderer()->isRenderIFrame();
-=======
     return !isNormalFlowOnly()
         || renderer()->hasReflection()
         || renderer()->hasMask()
@@ -3818,7 +3815,6 @@ bool RenderLayer::isSelfPaintingLayer() const
         || renderer()->isEmbeddedObject()
         || renderer()->isApplet()
         || renderer()->isRenderIFrame();
->>>>>>> webkit.org at r71558
 }
 
 void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle*)

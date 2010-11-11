@@ -92,18 +92,6 @@ using namespace WebCore;
 /* Completely empty stubs (mostly to allow DRT to run): */
 /********************************************************/
 
-<<<<<<< HEAD
-// This function is used by Javascript to find out what the default language
-// the user has selected. It is used by the JS object Navigator.language
-// I guess this information should be mapped with the Accept-Language: HTTP header.
-String WebCore::platformDefaultLanguage()
-{
-    verifiedOk();
-    return "en";
-}
-
-=======
->>>>>>> webkit.org at r71558
 namespace WebCore {
 
 // This function tells the bridge that a resource was loaded from the cache and thus
