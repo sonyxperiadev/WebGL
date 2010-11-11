@@ -27,7 +27,6 @@
 #define WebRequest_h
 
 #include "ChromiumIncludes.h"
-#include "WebUrlLoaderClient.h"
 #include "wtf/Vector.h"
 
 class MessageLoop;
@@ -44,20 +43,23 @@ enum LoadState {
     Deleted
 };
 
+class UrlInterceptResponse;
 class WebResourceRequest;
 class WebFrame;
+class WebUrlLoaderClient;
 
 // All methods in this class must be called on the io thread
 class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
 public:
     WebRequest(WebUrlLoaderClient*, const WebResourceRequest&);
 
-    // If this is an android specific url we load it with a java input stream
+    // If this is an android specific url or the application wants to load
+    // custom data, we load the data through an input stream.
     // Used for:
     // - file:///android_asset
     // - file:///android_res
     // - content://
-    WebRequest(WebUrlLoaderClient*, const WebResourceRequest&, int inputStream);
+    WebRequest(WebUrlLoaderClient*, const WebResourceRequest&, UrlInterceptResponse* intercept);
 
     // Optional, but if used has to be called before start
     void appendBytesToUpload(Vector<char>* data);
@@ -88,13 +90,13 @@ private:
     virtual ~WebRequest();
     void handleDataURL(GURL);
     void handleBrowserURL(GURL);
-    void handleAndroidURL();
+    void handleInterceptedURL();
     void finish(bool success);
 
     scoped_refptr<WebUrlLoaderClient> m_urlLoader;
     OwnPtr<URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
-    int m_inputStream;
+    scoped_ptr<UrlInterceptResponse> m_interceptResponse;
     bool m_androidUrl;
     std::string m_url;
     std::string m_userAgent;
