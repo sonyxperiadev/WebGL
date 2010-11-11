@@ -28,7 +28,7 @@
 #include "config.h"
 #include "TimeCounter.h"
 
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "KURL.h"
 #include "Node.h"
 #include "SystemTime.h"
