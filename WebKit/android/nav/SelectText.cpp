@@ -423,23 +423,26 @@ public:
          */
         int dx = rect.fLeft + rect.fRight - (mFocusX << 1);
         int dy = top() + bottom() - (mFocusY << 1);
-        int distance = dx * dx + dy * dy;
+        dx = abs(dx);
+        dy = abs(dy);
 #ifdef EXTRA_NOISY_LOGGING
-        if (distance < 500 || abs(distance - mDistance) < 500)
-            DBG_NAV_LOGD("FirstCheck distance=%d mDistance=%d", distance, mDistance);
+        if (dy < 15)
+            DBG_NAV_LOGD("FirstCheck dx/y=(%d, %d) mDx/y=(%d, %d)",
+                dx>>1, dy>>1, mDx>>1, mDy>>1);
 #endif
-        if (mDistance > distance) {
+        if (mDy > dy || (mDy == dy && mDx > dx)) {
             mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
 #ifndef EXTRA_NOISY_LOGGING
-            if (distance < 100) 
+            if (dy < 10 && dx < 10)
 #endif
             {
-                DBG_NAV_LOGD("FirstCheck mBestBounds={%d,%d,r=%d,b=%d} distance=%d",
+                DBG_NAV_LOGD("FirstCheck mBestBounds={%d,%d,r=%d,b=%d} dx/y=(%d, %d)",
                     mBestBounds.fLeft, mBestBounds.fTop,
-                    mBestBounds.fRight, mBestBounds.fBottom, distance >> 2);
+                    mBestBounds.fRight, mBestBounds.fBottom, dx>>1, dy>>1);
             }
-            mDistance = distance;
+            mDx = dx;
+            mDy = dy;
             if (mRecordGlyph)
                 recordGlyph(rec);
         }
@@ -449,7 +452,7 @@ public:
     void reset()
     {
         mBestBounds.setEmpty();
-        mDistance = INT_MAX;
+        mDx = mDy = INT_MAX;
     }
 
     void setRecordGlyph()
@@ -460,7 +463,8 @@ public:
 protected:
     int mBestBase;
     SkIRect mBestBounds;
-    int mDistance;
+    int mDx;
+    int mDy;
     int mFocusX;
     int mFocusY;
     bool mRecordGlyph;
@@ -496,28 +500,30 @@ public:
     {
         int dx = mLeft ? mFocusX - rect.fRight : rect.fLeft - mFocusX;
         int dy = ((top() + bottom()) >> 1) - mFocusY;
+        dx = abs(dx);
+        dy = abs(dy);
         if (mLeft ? mFocusX <= rect.fLeft : mFocusX >= rect.fRight) {
-            if (abs(dx) <= 10 && abs(dy) <= 10) {
+            if (dx <= 10 && dy <= 10) {
                 DBG_NAV_LOGD("EdgeCheck fLeft=%d fRight=%d mFocusX=%d dx=%d dy=%d",
                     rect.fLeft, rect.fRight, mFocusX, dx, dy);
             }
             return false;
         }
-        int distance = dx * dx + dy * dy;
-        if (mDistance > distance) {
+        if (mDy > dy || (mDy == dy && mDx > dx)) {
             if (rec.fLSB == mLastGlyph.fLSB && rec.fRSB == mLastGlyph.fRSB) {
                 DBG_NAV_LOGD("dup rec.fLSB.fX=%g rec.fRSB.fX=%g",
                 SkFixedToScalar(rec.fLSB.fX), SkFixedToScalar(rec.fRSB.fX));
                 return false;
             }
             recordGlyph(rec);
-            mDistance = distance;
+            mDx = dx;
+            mDy = dy;
             mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
-            if (distance <= 100) {
-                DBG_NAV_LOGD("EdgeCheck mBestBounds={%d,%d,r=%d,b=%d} distance=%d",
+            if (dx <= 10 && dy <= 10) {
+                DBG_NAV_LOGD("EdgeCheck mBestBounds={%d,%d,r=%d,b=%d} dx/y=(%d, %d)",
                     mBestBounds.fLeft, mBestBounds.fTop,
-                    mBestBounds.fRight, mBestBounds.fBottom, distance);
+                    mBestBounds.fRight, mBestBounds.fBottom, dx, dy);
             }
         }
         return false;
