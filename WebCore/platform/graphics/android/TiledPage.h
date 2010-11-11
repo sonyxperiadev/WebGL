@@ -38,9 +38,6 @@ namespace WebCore {
 class GLWebViewState;
 class IntRect;
 
-typedef std::pair<int, int> TileKey;
-typedef HashMap<TileKey, BaseTile*> TileMap;
-
 /**
  * The TiledPage represents a map of BaseTiles covering the viewport. Each
  * GLWebViewState contains two TiledPages, one to display the page at the
@@ -83,9 +80,14 @@ private:
     void updateTileState(int firstTileX, int firstTileY);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
 
-    BaseTile* getBaseTile(int x, int y);
+    BaseTile* getBaseTile(int x, int y) const;
 
-    TileMap m_baseTiles;
+    // array of tiles used to compose a page. The tiles are allocated in the
+    // constructor to prevent them from potentially being allocated on the stack
+    BaseTile* m_baseTiles;
+    // stores the number of tiles in the m_baseTiles array. This enables us to
+    // quickly iterate over the array without have to check it's size
+    int m_baseTileSize;
     int m_id;
     float m_scale;
     float m_invScale;

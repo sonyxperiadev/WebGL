@@ -64,8 +64,11 @@ public:
 #ifdef DEBUG_COUNT
     static int count();
 #endif
-    BaseTile(TiledPage* page, int x, int y);
+    BaseTile();
     ~BaseTile();
+
+    void setContents(TiledPage* page, int x, int y);
+    bool isAvailable() const { return !m_texture; }
 
     void reserveTexture();
     void removeTexture();

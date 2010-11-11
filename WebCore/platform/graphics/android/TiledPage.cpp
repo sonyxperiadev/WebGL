@@ -67,41 +67,47 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_glWebViewState(state)
     , m_latestPictureInval(0)
 {
+    // This value must be at least 1 greater than the max number of allowed
+    // textures. This is because prepare() asks for a tile before it reserves
+    // a texture for that tile. If all textures are currently in use by the
+    // page then there will be no available tile and having the extra tile
+    // ensures that this does not happen. After claiming the extra tile the call
+    // to reserveTexture() will cause some other tile in the page to lose it's
+    // texture and become available, thus ensuring that we always have at least
+    // one tile that is available.
+    m_baseTileSize = TilesManager::maxTextureCount() + 1;
+    m_baseTiles = new BaseTile[m_baseTileSize];
+
 #ifdef DEBUG_COUNT
     gTilePageCount++;
 #endif
 }
 
 TiledPage::~TiledPage() {
-    // Stop any pixmap generation
-    if (m_baseTiles.size()) {
-        TilesManager::instance()->removeSetsWithPage(this);
-    }
-    m_glWebViewState = 0;
-    // At this point, we can safely deallocate the BaseTiles, as
-    // there is no more BaseTile painting or scheduled to be painted
-    // by the TextureGenerator, and as we did reset the BaseLayer in GLWebViewState,
-    // in WebView's destructor (so no additional painting can be scheduled)
-    deleteAllValues(m_baseTiles);
+    // In order to delete the page we must ensure that none of its BaseTiles are
+    // currently painting or scheduled to be painted by the TextureGenerator
+    TilesManager::instance()->removeSetsWithPage(this);
+    delete[] m_baseTiles;
 #ifdef DEBUG_COUNT
     gTilePageCount--;
 #endif
 }
 
-BaseTile* TiledPage::getBaseTile(int x, int y)
+BaseTile* TiledPage::getBaseTile(int x, int y) const
 {
-    // if (x,y) is (0,0) the HashMap will treat the key as a null value and will
-    // not store the tile so we increment the key values by 1
-    TileKey key(x+1, y+1);
-    return m_baseTiles.get(key);
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if (tile.x() == x && tile.y() == y && !tile.isAvailable())
+            return &tile;
+    }
+    return 0;
 }
 
 void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureCount)
 {
     // Given the current scale level we need to mark the appropriate tiles as dirty
-    TilesManager* manager = TilesManager::instance();
-    const float invTileContentWidth = m_scale / manager->tileWidth();
-    const float invTileContentHeight = m_scale / manager->tileHeight();
+    const float invTileContentWidth = m_scale / TilesManager::tileWidth();
+    const float invTileContentHeight = m_scale / TilesManager::tileHeight();
 
     const int firstDirtyTileX = static_cast<int>(floorf(inval.x() * invTileContentWidth));
     const int firstDirtyTileY = static_cast<int>(floorf(inval.y() * invTileContentHeight));
@@ -131,20 +137,31 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         else
           x += (tilesInRow - 1) - i;
 
-        TileKey key(x+1, y+1);
-        BaseTile* tile = 0;
-        if (!m_baseTiles.contains(key)) {
-            tile = new BaseTile(this, x, y);
-            m_baseTiles.set(key, tile);
+
+        BaseTile* currentTile = 0;
+        BaseTile* availableTile = 0;
+        for (int j = 0; j < m_baseTileSize; j++) {
+            BaseTile& tile = m_baseTiles[j];
+            if (tile.x() == x && tile.y() == y) {
+                currentTile = &tile;
+                break;
+            }
+            if (!availableTile && tile.isAvailable())
+                availableTile = &tile;
         }
-        tile = m_baseTiles.get(key);
-        tile->setScale(m_scale);
+
+        if (!currentTile) {
+            currentTile = availableTile;
+            currentTile->setContents(this, x, y);
+        }
+
+        currentTile->setScale(m_scale);
 
         // ensure there is a texture associated with the tile and then check to
         // see if the texture is dirty and in need of repainting
-        tile->reserveTexture();
-        if(tile->isDirty())
-            set->add(tile);
+        currentTile->reserveTexture();
+        if(currentTile->isDirty())
+            set->add(currentTile);
     }
 }
 
@@ -156,35 +173,36 @@ void TiledPage::updateTileState(int firstTileX, int firstTileY)
     const int nbTilesWidth = m_glWebViewState->nbTilesWidth();
     const int nbTilesHeight = m_glWebViewState->nbTilesHeight();
 
-    TileMap::const_iterator end = m_baseTiles.end();
-    for (TileMap::const_iterator it = m_baseTiles.begin(); it != end; ++it) {
-        BaseTile* tile = it->second;
+    for (int x = 0; x < m_baseTileSize; x++) {
 
-        if(!tile)
+        BaseTile& tile = m_baseTiles[x];
+
+        // if the tile no longer has a texture then proceed to the next tile
+        if (tile.isAvailable())
             continue;
 
         // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile->x(), tile->y()))
-            tile->markAsDirty(m_latestPictureInval);
+        if (m_invalRegion.contains(tile.x(), tile.y()))
+            tile.markAsDirty(m_latestPictureInval);
 
         // set the used level of the tile (e.g. distance from the viewport)
         int dx = 0;
         int dy = 0;
 
-        if (firstTileX > tile->x())
-            dx = firstTileX - tile->x();
-        else if (firstTileX + (nbTilesWidth - 1) < tile->x())
-            dx = tile->x() - firstTileX - (nbTilesWidth - 1);
+        if (firstTileX > tile.x())
+            dx = firstTileX - tile.x();
+        else if (firstTileX + (nbTilesWidth - 1) < tile.x())
+            dx = tile.x() - firstTileX - (nbTilesWidth - 1);
 
-        if (firstTileY > tile->y())
-            dy = firstTileY - tile->y();
-        else if (firstTileY + (nbTilesHeight - 1) < tile->y())
-            dy = tile->y() - firstTileY - (nbTilesHeight - 1);
+        if (firstTileY > tile.y())
+            dy = firstTileY - tile.y();
+        else if (firstTileY + (nbTilesHeight - 1) < tile.y())
+            dy = tile.y() - firstTileY - (nbTilesHeight - 1);
 
         int d = std::max(dx, dy);
 
         XLOG("setTileLevel tile: %x, fxy(%d, %d), level: %d", tile, firstTileX, firstTileY, d);
-        tile->setUsedLevel(d);
+        tile.setUsedLevel(d);
     }
 
     // clear the invalidated region as all tiles within that region have now
@@ -245,32 +263,28 @@ void TiledPage::draw(float transparency, SkRect& viewport, int firstTileX, int f
     if (!m_glWebViewState)
         return;
 
-    float w = TilesManager::instance()->tileWidth() * m_invScale;
-    float h = TilesManager::instance()->tileHeight() * m_invScale;
-    int nbTilesWidth = m_glWebViewState->nbTilesWidth();
-    int nbTilesHeight = m_glWebViewState->nbTilesHeight();
+    const float tileWidth = TilesManager::tileWidth() * m_invScale;
+    const float tileHeight = TilesManager::tileHeight() * m_invScale;
+
+    SkIRect viewportTilesRect;
+    viewportTilesRect.fLeft = firstTileX;
+    viewportTilesRect.fTop = firstTileY;
+    viewportTilesRect.fRight = firstTileY + m_glWebViewState->nbTilesWidth() + 1;
+    viewportTilesRect.fBottom = firstTileY + m_glWebViewState->nbTilesHeight() + 1;
 
     XLOG("WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
-    for (int i = 0; i < nbTilesHeight; i++) {
-        for (int j = 0; j < nbTilesWidth; j++) {
-            int x = j + firstTileX;
-            int y = i + firstTileY;
-
-            BaseTile* tile = getBaseTile(x, y);
-
-            if (!tile) {
-                XLOG("NO TILE AT %d, %d", x, y);
-                continue;
-            }
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if(viewportTilesRect.contains(tile.x(), tile.y())) {
 
             SkRect rect;
-            rect.fLeft = x * w;
-            rect.fTop = y * h;
-            rect.fRight = rect.fLeft + w;
-            rect.fBottom = rect.fTop + h;
+            rect.fLeft = tile.x() * tileWidth;
+            rect.fTop = tile.y() * tileHeight;
+            rect.fRight = rect.fLeft + tileWidth;
+            rect.fBottom = rect.fTop + tileHeight;
 
             TilesManager::instance()->shader()->setViewport(viewport);
-            tile->draw(transparency, rect);
+            tile.draw(transparency, rect);
         }
     }
 
