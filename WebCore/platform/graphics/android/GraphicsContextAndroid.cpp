@@ -1212,6 +1212,12 @@ void GraphicsContext::strokePath()
     GC2CANVAS(this)->drawPath(*path, paint);
 }
 
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    notImplemented();
+    return InterpolationDefault;
+}
+
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
 {
 #if 0
