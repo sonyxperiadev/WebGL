@@ -976,11 +976,7 @@ const LayerAndroid* scrollableLayer(int x, int y)
     const LayerAndroid* layerRoot = compositeRoot();
     if (!layerRoot)
         return 0;
-    CachedRoot* cachedRoot = getFrameCache(DontAllowNewer);
-    if (!cachedRoot)
-        return 0;
-    SkPicture* picture = cachedRoot->pictureAt(&x, &y);
-    const LayerAndroid* result = layerRoot->find(x, y, picture);
+    const LayerAndroid* result = layerRoot->find(x, y, 0);
     if (result != 0 && result->contentIsScrollable())
         return result;
 #endif
