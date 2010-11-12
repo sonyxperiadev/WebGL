@@ -84,7 +84,7 @@ WebCore::ResourceResponse WebResponse::createResourceResponse()
 
 WebCore::ResourceError WebResponse::createResourceError()
 {
-    WebCore::ResourceError error(m_host.c_str(), ToWebViewClientError(m_error), m_url.c_str(), net::ErrorToString(m_error));
+    WebCore::ResourceError error(m_host.c_str(), ToWebViewClientError(m_error), m_url.c_str(), WTF::String());
     return error;
 }
 
