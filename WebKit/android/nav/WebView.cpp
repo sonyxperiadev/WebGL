@@ -274,21 +274,20 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
         // is selected.
         Container* end = m_viewImpl->m_buttons.end();
         for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
-            WebCore::RenderSkinAndroid::State state;
+            RenderSkinAndroid::State state = RenderSkinAndroid::kNormal;
             if (ptr->matches(cursor)) {
                 cursorIsOnButton = true;
                 // If the WebView is out of focus/window focus, set the state to
                 // normal, but still keep track of the fact that the selected is a
                 // button
-                if (!hasFocus) {
-                    state = WebCore::RenderSkinAndroid::kNormal;
-                } else if (pressed || m_ring.m_isPressed) {
-                    state = WebCore::RenderSkinAndroid::kPressed;
-                } else {
-                    state = WebCore::RenderSkinAndroid::kFocused;
+                if (hasFocus) {
+                    if (pressed || m_ring.m_isPressed)
+                        state = RenderSkinAndroid::kPressed;
+                    else if (SkTime::GetMSecs() < m_ringAnimationEnd
+                        && m_ringAnimationEnd != UINT_MAX) {
+                        state = RenderSkinAndroid::kFocused;
+                    }
                 }
-            } else {
-                state = WebCore::RenderSkinAndroid::kNormal;
             }
             ptr->updateFocusState(state);
         }
