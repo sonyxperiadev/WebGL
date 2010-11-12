@@ -74,6 +74,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
     m_request->set_referrer(webResourceRequest.referrer());
     m_request->set_method(webResourceRequest.method());
+    m_request->set_load_flags(webResourceRequest.loadFlags());
 }
 
 // This is a special URL for Android. Query the Java InputStream

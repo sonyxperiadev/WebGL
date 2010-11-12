@@ -61,6 +61,7 @@
 #include <net/base/data_url.h>
 #include <net/base/host_resolver.h>
 #include <net/base/io_buffer.h>
+#include <net/base/load_flags.h>
 #include <net/base/net_errors.h>
 #include <net/base/mime_util.h>
 #include <net/base/ssl_config_service.h>

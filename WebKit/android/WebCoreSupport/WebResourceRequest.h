@@ -66,12 +66,18 @@ public:
         return m_url;
     }
 
+    int loadFlags() const
+    {
+        return m_loadFlags;
+    }
+
 private:
     std::string m_method;
     std::string m_referrer;
     std::string m_userAgent;
     net::HttpRequestHeaders m_requestHeaders;
     std::string m_url;
+    int m_loadFlags;
 };
 
 } // namespace android
