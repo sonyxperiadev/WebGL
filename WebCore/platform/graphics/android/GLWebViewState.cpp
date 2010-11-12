@@ -217,9 +217,9 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
         return;
 
     m_viewport = viewport;
-    float fnbw = m_viewport.width() * scale / TilesManager::instance()->tileWidth();
+    float fnbw = m_viewport.width() * scale / TilesManager::tileWidth();
     int nbw = static_cast<int>(ceilf(fnbw));
-    float fnbh = m_viewport.height() * scale / TilesManager::instance()->tileHeight();
+    float fnbh = m_viewport.height() * scale / TilesManager::tileHeight();
     int nbh = static_cast<int>(ceilf(fnbh));
     m_nbTilesWidth = nbw + 1;
     m_nbTilesHeight = nbh + 1;
@@ -227,8 +227,8 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
          m_viewport.width(), m_viewport.height(), scale,
          m_nbTilesWidth, m_nbTilesHeight);
-    m_firstTileX = static_cast<int>(m_viewport.fLeft * scale / TilesManager::instance()->tileWidth());
-    m_firstTileY = static_cast<int>(m_viewport.fTop * scale / TilesManager::instance()->tileHeight());
+    m_firstTileX = static_cast<int>(m_viewport.fLeft * scale / TilesManager::tileWidth());
+    m_firstTileY = static_cast<int>(m_viewport.fTop * scale / TilesManager::tileHeight());
 }
 
 } // namespace WebCore

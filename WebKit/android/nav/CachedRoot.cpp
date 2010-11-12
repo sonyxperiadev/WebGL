@@ -1661,7 +1661,7 @@ const CachedNode* CachedRoot::nextTextField(const CachedNode* start,
     return CachedFrame::nextTextField(start, framePtr, &startFound);
 }
 
-SkPicture* CachedRoot::pictureAt(int* xPtr, int* yPtr) const
+SkPicture* CachedRoot::pictureAt(int* xPtr, int* yPtr, int* id) const
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (mRootLayer) {
@@ -1675,13 +1675,18 @@ SkPicture* CachedRoot::pictureAt(int* xPtr, int* yPtr) const
             layer->bounds(&localBounds);
             *xPtr -= localBounds.fLeft;
             *yPtr -= localBounds.fTop;
-            if (picture)
+            if (picture) {
+                if (id)
+                    *id = layer->uniqueId();
                 return picture;
+            }
         }
     }
 #endif
     DBG_NAV_LOGD("root mPicture=%p (%d,%d)", mPicture, mPicture ?
         mPicture->width() : 0, mPicture ? mPicture->height() : 0);
+    if (id)
+        *id = -1;
     return mPicture;
 }
 

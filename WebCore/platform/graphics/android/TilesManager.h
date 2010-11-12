@@ -69,8 +69,9 @@ public:
     void resetTextureUsage(TiledPage* page);
     void paintTexturesDefault();
 
-    float tileWidth() const;
-    float tileHeight() const;
+    static int maxTextureCount();
+    static float tileWidth();
+    static float tileHeight();
 
 private:
 

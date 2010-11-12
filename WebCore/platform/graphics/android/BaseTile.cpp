@@ -66,10 +66,10 @@ int BaseTile::count()
 }
 #endif
 
-BaseTile::BaseTile(TiledPage* page, int x, int y)
-    : m_page(page)
-    , m_x(x)
-    , m_y(y)
+BaseTile::BaseTile()
+    : m_page(0)
+    , m_x(-1)
+    , m_y(-1)
     , m_texture(0)
     , m_scale(1)
     , m_dirty(true)
@@ -90,6 +90,14 @@ BaseTile::~BaseTile()
 }
 
 // All the following functions must be called from the main GL thread.
+
+void BaseTile::setContents(TiledPage* page, int x, int y)
+{
+    android::AutoMutex lock(m_atomicSync);
+    m_page = page;
+    m_x = x;
+    m_y = y;
+}
 
 void BaseTile::reserveTexture()
 {

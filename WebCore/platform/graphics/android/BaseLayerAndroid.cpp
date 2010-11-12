@@ -186,8 +186,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     tiledPage->draw(transparency, viewport, originalTX, originalTY);
 
     bool ret = false;
-    if (!tiledPage->ready(originalTX, originalTY)
-        || m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest)
+    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
+        || !tiledPage->ready(originalTX, originalTY))
       ret = true;
 
     if (doSwap)
