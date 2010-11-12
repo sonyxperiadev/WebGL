@@ -1308,7 +1308,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderStyle* style = nodeRenderer->style();
             if (style) {
                 isUnclipped |= !style->hasAppearance();
-                cachedInput.setTextSize(style->fontSize());
+                cachedInput.setTextSize(style->font().size());
                 cachedInput.setIsRtlText(style->direction() == RTL
                         || style->textAlign() == WebCore::RIGHT
                         || style->textAlign() == WebCore::WEBKIT_RIGHT);
