@@ -60,11 +60,11 @@ public:
     TiledPage* sibling();
 
     // prepare the page for display on the screen
-    void prepare(bool goingDown, bool goingLeft, int firstTileX, int firstTileY);
+    void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds);
     // check to see if the page is ready for display
-    bool ready(int firstTileX, int firstTileY);
+    bool ready(const SkIRect& tileBounds);
     // draw the page on the screen
-    void draw(float transparency, SkRect& viewport, int firstTileX, int firstTileY);
+    void draw(float transparency, SkRect& viewport, const SkIRect& tileBounds);
 
     // used by individual tiles to generate the bitmap for their tile
     unsigned int paintBaseLayerContent(SkCanvas*);
@@ -77,7 +77,7 @@ public:
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
 
 private:
-    void updateTileState(int firstTileX, int firstTileY);
+    void updateTileState(const SkIRect& tileBounds);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
 
     BaseTile* getBaseTile(int x, int y) const;

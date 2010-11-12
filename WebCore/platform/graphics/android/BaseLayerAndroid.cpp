@@ -92,6 +92,7 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
     android::Mutex::Autolock lock(m_drawLock);
 #endif
     m_content.set(src);
+    setSize(src.width(), src.height());
 }
 
 void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
@@ -117,14 +118,12 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
 
     m_glWebViewState->setViewport(viewport, scale);
 
-    int firstTileX = m_glWebViewState->firstTileX();
-    int firstTileY = m_glWebViewState->firstTileY();
+    const SkIRect& viewportTileBounds = m_glWebViewState->viewportTileBounds();
+    XLOG("drawBasePicture, TX: %d, TY: %d scale %.2f", viewportTileBounds.fLeft,
+            viewportTileBounds.fTop, scale);
 
-    XLOG("drawBasePicture, TX: %d, TY: %d scale %.2f", firstTileX, firstTileY, scale);
-    if (scale == m_glWebViewState->currentScale()) {
-        m_glWebViewState->setOriginalTilesPosX(firstTileX);
-        m_glWebViewState->setOriginalTilesPosY(firstTileY);
-    }
+    if (scale == m_glWebViewState->currentScale())
+        m_glWebViewState->setPreZoomBounds(viewportTileBounds);
 
     // If we have a different scale than the current one, we have to
     // decide what to do. The current behaviour is to delay an update,
@@ -148,7 +147,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
 
         // Check if the page is ready...
         if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale
-            && nextTiledPage->ready(firstTileX, firstTileY)) {
+            && nextTiledPage->ready(viewportTileBounds)) {
             m_glWebViewState->setScaleRequestState(GLWebViewState::kReceivedNewScale);
         }
 
@@ -162,8 +161,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
             if (scale < m_glWebViewState->currentScale())
                 newTilesTransparency = 1 - transparency;
 
-            nextTiledPage->draw(newTilesTransparency, viewport,
-                                firstTileX, firstTileY);
+            nextTiledPage->draw(newTilesTransparency, viewport, viewportTileBounds);
 
             // The transition between the two pages is finished, swap them
             if (currentTime > transitionTime) {
@@ -173,21 +171,20 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
             }
         } else {
             // If the page is not ready, schedule it if needed.
-            nextTiledPage->prepare(goingDown, goingLeft, firstTileX, firstTileY);
+            nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
         }
     }
 
     // Display the current page
     TiledPage* tiledPage = m_glWebViewState->frontPage();
     tiledPage->setScale(m_glWebViewState->currentScale());
-    int originalTX = m_glWebViewState->originalTilesPosX();
-    int originalTY = m_glWebViewState->originalTilesPosY();
-    tiledPage->prepare(goingDown, goingLeft, originalTX, originalTY);
-    tiledPage->draw(transparency, viewport, originalTX, originalTY);
+    const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
+    tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
+    tiledPage->draw(transparency, viewport, preZoomBounds);
 
     bool ret = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
-        || !tiledPage->ready(originalTX, originalTY))
+        || !tiledPage->ready(preZoomBounds))
       ret = true;
 
     if (doSwap)
