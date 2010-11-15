@@ -30,13 +30,15 @@
 
 #include <wtf/text/CString.h>
 
+using namespace WebCore;
+
 namespace android {
 
 WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
 {
     // Set the request headers
-    const WebCore::HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
-    for (WebCore::HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+    const HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
+    for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
         const std::string& nameUtf8 = it->first.string().utf8().data();
 
         // Skip over referrer headers found in the header map because we already
@@ -66,6 +68,21 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
     m_userAgent = resourceRequest.httpUserAgent().utf8().data();
 
     m_url = resourceRequest.url().string().utf8().data();
+
+    m_loadFlags = net::LOAD_NORMAL;
+    switch (resourceRequest.cachePolicy()) {
+    case ReloadIgnoringCacheData:
+        m_loadFlags |= net::LOAD_VALIDATE_CACHE;
+        break;
+    case ReturnCacheDataElseLoad:
+        m_loadFlags |= net::LOAD_PREFERRING_CACHE;
+        break;
+    case ReturnCacheDataDontLoad:
+        m_loadFlags |= net::LOAD_ONLY_FROM_CACHE;
+        break;
+    case UseProtocolCachePolicy:
+        break;
+    }
 }
 
 } // namespace android

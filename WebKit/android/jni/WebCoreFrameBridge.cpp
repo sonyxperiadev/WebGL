@@ -77,6 +77,7 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
+#include "UrlInterceptResponse.h"
 #include "UserGestureIndicator.h"
 #include "WebCache.h"
 #include "WebCoreJni.h"
@@ -191,8 +192,8 @@ struct WebFrame::JavaBrowserFrame
 {
     jweak       mObj;
     jweak       mHistoryList; // WebBackForwardList object
-    jmethodID   mInputStreamForAndroidResource;
     jmethodID   mStartLoadingResource;
+    jmethodID   mShouldInterceptRequest;
     jmethodID   mLoadStarted;
     jmethodID   mTransitionToCommitted;
     jmethodID   mLoadFinished;
@@ -235,9 +236,11 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame = new JavaBrowserFrame;
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
-    mJavaFrame->mInputStreamForAndroidResource = env->GetMethodID(clazz, "inputStreamForAndroidResource", "(Ljava/lang/String;)Ljava/io/InputStream;");
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
             "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
+    mJavaFrame->mShouldInterceptRequest =
+            env->GetMethodID(clazz, "shouldInterceptRequest",
+            "(Ljava/lang/String;)Landroid/webkit/WebResourceResponse;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -279,8 +282,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     env->DeleteLocalRef(clazz);
 
-    LOG_ASSERT(mJavaFrame->mInputStreamForAndroidResource, "Could not find method inputStreamForAndroidResource");
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
+    LOG_ASSERT(mJavaFrame->mShouldInterceptRequest, "Could not find method shouldInterceptRequest");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
     LOG_ASSERT(mJavaFrame->mTransitionToCommitted, "Could not find method transitionToCommitted");
     LOG_ASSERT(mJavaFrame->mLoadFinished, "Could not find method loadFinished");
@@ -382,18 +385,6 @@ private:
     jstring m_uri;
     int m_size;
 };
-
-int WebFrame::inputStreamForAndroidResource(const char* url)
-{
-    JNIEnv* env = getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    jstring jUrlStr = env->NewStringUTF(url);
-
-    jobject jInputStream = env->CallObjectMethod(obj.get(), mJavaFrame->mInputStreamForAndroidResource, jUrlStr);
-    env->DeleteLocalRef(jUrlStr);
-
-    return (int)jInputStream;
-}
 
 PassRefPtr<WebCore::ResourceLoaderAndroid>
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
@@ -539,6 +530,23 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         h = WebCoreResourceLoader::create(env, jLoadListener);
     env->DeleteLocalRef(jLoadListener);
     return h;
+}
+
+UrlInterceptResponse*
+WebFrame::shouldInterceptRequest(const WTF::String& url)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    LOGV("::WebCore:: shouldInterceptRequest(%s)", url.latin1().data());
+
+    JNIEnv* env = getJNIEnv();
+    jstring urlStr = WtfStringToJstring(env, url);
+    jobject response = env->CallObjectMethod(mJavaFrame->frame(env).get(), mJavaFrame->mShouldInterceptRequest, urlStr);
+    env->DeleteLocalRef(urlStr);
+    if (response == 0)
+        return 0;
+    return new UrlInterceptResponse(env, response);
 }
 
 void

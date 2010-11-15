@@ -23,64 +23,48 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebResourceRequest_h
-#define WebResourceRequest_h
+#ifndef UrlInterceptResponse_h
+#define UrlInterceptResponse_h
 
-#include "ChromiumIncludes.h"
+#include "PlatformString.h"
+#include "wtf/Noncopyable.h"
+#include "wtf/OwnPtr.h"
 
+#include <jni.h>
 #include <string>
-
-namespace WebCore {
-class ResourceRequest;
-}
+#include <vector>
 
 namespace android {
 
-class WebResourceRequest {
+class JavaInputStreamWrapper;
 
+class UrlInterceptResponse : public Noncopyable {
 public:
-    WebResourceRequest(const WebCore::ResourceRequest&);
+    UrlInterceptResponse(JNIEnv* env, jobject response);
+    ~UrlInterceptResponse();
 
-    const std::string& method() const
-    {
-        return m_method;
+    const std::string& mimeType() const {
+        return m_mimeType;
     }
 
-    const std::string& referrer() const
-    {
-        return m_referrer;
+    const std::string& encoding() const {
+        return m_encoding;
     }
 
-    const std::string& userAgent() const
-    {
-        return m_userAgent;
+    int status() const {
+        return m_inputStream ? 200 : 404;
     }
 
-    const net::HttpRequestHeaders& requestHeaders() const
-    {
-        return m_requestHeaders;
-    }
-
-    const std::string& url() const
-    {
-        return m_url;
-    }
-
-    int loadFlags() const
-    {
-        return m_loadFlags;
-    }
+    // Read from the input stream.  Returns false if reading failed.
+    // A size of 0 indicates eof.
+    bool readStream(std::vector<char>* out) const;
 
 private:
-    std::string m_method;
-    std::string m_referrer;
-    std::string m_userAgent;
-    net::HttpRequestHeaders m_requestHeaders;
-    std::string m_url;
-    int m_loadFlags;
+    std::string m_mimeType;
+    std::string m_encoding;
+    OwnPtr<JavaInputStreamWrapper> m_inputStream;
 };
 
-} // namespace android
-
+}  // namespace android
 
 #endif

@@ -69,12 +69,6 @@ GLWebViewState::GLWebViewState()
     , m_futureScale(1)
     , m_updateTime(-1)
     , m_transitionTime(-1)
-    , m_originalTilesPosX(0)
-    , m_originalTilesPosY(0)
-    , m_nbTilesWidth(0)
-    , m_nbTilesHeight(0)
-    , m_firstTileX(0)
-    , m_firstTileY(0)
     , m_baseLayer(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
@@ -211,24 +205,35 @@ void GLWebViewState::swapPages()
     m_scaleRequestState = kNoScaleRequest;
 }
 
+int GLWebViewState::baseContentWidth()
+{
+    return m_baseLayer ? m_baseLayer->getWidth() : 0;
+
+}
+int GLWebViewState::baseContentHeight()
+{
+    return m_baseLayer ? m_baseLayer->getHeight() : 0;
+}
+
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
     if (m_viewport == viewport)
         return;
 
     m_viewport = viewport;
-    float fnbw = m_viewport.width() * scale / TilesManager::tileWidth();
-    int nbw = static_cast<int>(ceilf(fnbw));
-    float fnbh = m_viewport.height() * scale / TilesManager::tileHeight();
-    int nbh = static_cast<int>(ceilf(fnbh));
-    m_nbTilesWidth = nbw + 1;
-    m_nbTilesHeight = nbh + 1;
     XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f), nbw: %d nbh: %d",
          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
          m_viewport.width(), m_viewport.height(), scale,
          m_nbTilesWidth, m_nbTilesHeight);
-    m_firstTileX = static_cast<int>(m_viewport.fLeft * scale / TilesManager::tileWidth());
-    m_firstTileY = static_cast<int>(m_viewport.fTop * scale / TilesManager::tileHeight());
+
+    const float invTileContentWidth = scale / TilesManager::tileWidth();
+    const float invTileContentHeight = scale / TilesManager::tileHeight();
+
+    m_viewportTileBounds.set(
+            static_cast<int>(floorf(viewport.fLeft * invTileContentWidth)),
+            static_cast<int>(floorf(viewport.fTop * invTileContentHeight)),
+            static_cast<int>(ceilf(viewport.fRight * invTileContentWidth)),
+            static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
 }
 
 } // namespace WebCore

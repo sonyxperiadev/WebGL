@@ -976,11 +976,7 @@ const LayerAndroid* scrollableLayer(int x, int y)
     const LayerAndroid* layerRoot = compositeRoot();
     if (!layerRoot)
         return 0;
-    CachedRoot* cachedRoot = getFrameCache(DontAllowNewer);
-    if (!cachedRoot)
-        return 0;
-    SkPicture* picture = cachedRoot->pictureAt(&x, &y);
-    const LayerAndroid* result = layerRoot->find(x, y, picture);
+    const LayerAndroid* result = layerRoot->find(x, y, 0);
     if (result != 0 && result->contentIsScrollable())
         return result;
 #endif
@@ -1718,10 +1714,10 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
     return WtfStringToJstring(env, value);
 }
 
-static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
+static jfloat nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->textSize() : 0;
+    return input ? input->textSize() : 0.f;
 }
 
 static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
@@ -2281,7 +2277,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidatePointer },
     { "nativeFocusCandidateText", "()Ljava/lang/String;",
         (void*) nativeFocusCandidateText },
-    { "nativeFocusCandidateTextSize", "()I",
+    { "nativeFocusCandidateTextSize", "()F",
         (void*) nativeFocusCandidateTextSize },
     { "nativeFocusCandidateType", "()I",
         (void*) nativeFocusCandidateType },

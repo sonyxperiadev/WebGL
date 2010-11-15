@@ -165,10 +165,6 @@ public:
     double transitionTime(double currentTime);
     float transparency(double currentTime);
     void resetTransitionTime() { m_transitionTime = -1; }
-    int originalTilesPosX() const { return m_originalTilesPosX; }
-    void setOriginalTilesPosX(int pos) { m_originalTilesPosX = pos; }
-    int originalTilesPosY() const { return m_originalTilesPosY; }
-    void setOriginalTilesPosY(int pos) { m_originalTilesPosY = pos; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, IntRect& rect);
@@ -181,14 +177,17 @@ public:
     TiledPage* backPage();
     void swapPages();
 
+    // dimensions of the current base layer
+    int baseContentWidth();
+    int baseContentHeight();
+
     void setViewport(SkRect& viewport, float scale);
 
-    // returns the number of tiles needed to cover the viewport
-    int nbTilesWidth() const { return m_nbTilesWidth; }
-    int nbTilesHeight() const { return m_nbTilesHeight; }
-
-    int firstTileX() const { return m_firstTileX; }
-    int firstTileY() const { return m_firstTileY; }
+    // a rect containing the coordinates of all tiles in the current viewport
+    const SkIRect& viewportTileBounds() const { return m_viewportTileBounds; }
+    // a rect containing the viewportTileBounds before there was a scale change
+    const SkIRect& preZoomBounds() const { return m_preZoomBounds; }
+    void setPreZoomBounds(const SkIRect& bounds) { m_preZoomBounds = bounds; }
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
@@ -210,14 +209,10 @@ private:
     float m_futureScale;
     double m_updateTime;
     double m_transitionTime;
-    int m_originalTilesPosX;
-    int m_originalTilesPosY;
     android::Mutex m_tiledPageLock;
     SkRect m_viewport;
-    int m_nbTilesWidth;
-    int m_nbTilesHeight;
-    int m_firstTileX;
-    int m_firstTileY;
+    SkIRect m_viewportTileBounds;
+    SkIRect m_preZoomBounds;
     android::Mutex m_baseLayerLock;
     BaseLayerAndroid* m_baseLayer;
     unsigned int m_currentPictureCounter;

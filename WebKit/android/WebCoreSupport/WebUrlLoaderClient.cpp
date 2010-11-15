@@ -39,29 +39,6 @@
 
 #include <wtf/text/CString.h>
 
-namespace {
-const char* androidAsset = "file:///android_asset/";
-const char* androidResource = "file:///android_res/";
-const char* androidContent = "content:";
-const int androidAssetLen = strlen(androidAsset);
-const int androidResourceLen = strlen(androidResource);
-const int androidContentLen = strlen(androidContent);
-
-bool isAndroidUrl(const std::string& url)
-{
-    if (!url.compare(0, androidAssetLen, androidAsset))
-        return true;
-
-    if (!url.compare(0, androidResourceLen, androidResource))
-        return true;
-
-    if (!url.compare(0, androidContentLen, androidContent))
-        return true;
-
-    return false;
-}
-}
-
 namespace android {
 
 base::Thread* WebUrlLoaderClient::ioThread()
@@ -118,9 +95,9 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     , m_finished(false)
 {
     WebResourceRequest webResourceRequest(resourceRequest);
-    if (isAndroidUrl(webResourceRequest.url())) {
-        int inputStream = webFrame->inputStreamForAndroidResource(webResourceRequest.url().c_str());
-        m_request = new WebRequest(this, webResourceRequest, inputStream);
+    UrlInterceptResponse* intercept = webFrame->shouldInterceptRequest(resourceRequest.url().string());
+    if (intercept) {
+        m_request = new WebRequest(this, webResourceRequest, intercept);
         return;
     }
 

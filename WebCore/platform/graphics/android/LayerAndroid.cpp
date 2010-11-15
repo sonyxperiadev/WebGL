@@ -356,7 +356,7 @@ const LayerAndroid* LayerAndroid::find(int x, int y, SkPicture* root) const
     LayerAndroidFindState state(x, y);
     SkRect rootBounds;
     rootBounds.setEmpty();
-    if (state.drew(root, rootBounds) && state.drewText())
+    if (root && state.drew(root, rootBounds) && state.drewText())
         return 0; // use the root picture only if it contains the text
     findInner(state);
     return state.best();

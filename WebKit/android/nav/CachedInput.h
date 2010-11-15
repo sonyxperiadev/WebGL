@@ -74,8 +74,8 @@ public:
     void setPaddingLeft(int left) { mPaddingLeft = left; }
     void setPaddingRight(int right) { mPaddingRight = right; }
     void setPaddingTop(int top) { mPaddingTop = top; }
-    void setTextSize(int textSize) { mTextSize = textSize; }
-    int textSize() const { return mTextSize; }
+    void setTextSize(float textSize) { mTextSize = textSize; }
+    float textSize() const { return mTextSize; }
 
 private:
 
@@ -86,7 +86,7 @@ private:
     int mPaddingLeft;
     int mPaddingRight;
     int mPaddingTop;
-    int mTextSize;
+    float mTextSize;
     Type mType;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;

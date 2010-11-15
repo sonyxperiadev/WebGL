@@ -28,9 +28,11 @@
 
 #include "JNIUtility.h"
 #include "MainThread.h"
+#include "UrlInterceptResponse.h"
 #include "WebCoreFrameBridge.h"
 #include "WebRequestContext.h"
 #include "WebResourceRequest.h"
+#include "WebUrlLoaderClient.h"
 #include "jni.h"
 
 #include <cutils/log.h>
@@ -61,7 +63,6 @@ namespace {
 
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest)
     : m_urlLoader(loader)
-    , m_inputStream(0)
     , m_androidUrl(false)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
@@ -74,19 +75,19 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
     m_request->set_referrer(webResourceRequest.referrer());
     m_request->set_method(webResourceRequest.method());
+    m_request->set_load_flags(webResourceRequest.loadFlags());
 }
 
 // This is a special URL for Android. Query the Java InputStream
 // for data and send to WebCore
-WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest, int inputStream)
+WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest, UrlInterceptResponse* intercept)
     : m_urlLoader(loader)
+    , m_interceptResponse(intercept)
     , m_androidUrl(true)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    m_inputStream = (int)env->NewGlobalRef((_jobject*)inputStream);
 }
 
 WebRequest::~WebRequest()
@@ -94,9 +95,6 @@ WebRequest::~WebRequest()
     ASSERT(m_loadState == Finished, "dtor called on a WebRequest in a different state than finished (%d)", m_loadState);
 
     m_loadState = Deleted;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (m_inputStream)
-        env->DeleteGlobalRef((_jobject*)m_inputStream);
 }
 
 const std::string& WebRequest::getUrl() const
@@ -152,8 +150,8 @@ void WebRequest::start(bool isPrivateBrowsing)
 
     m_loadState = Started;
 
-    if (m_androidUrl)
-        return handleAndroidURL();
+    if (m_interceptResponse != NULL)
+        return handleInterceptedURL();
 
     // Handle data urls before we send it off to the http stack
     if (m_request->url().SchemeIs("data"))
@@ -187,60 +185,49 @@ void WebRequest::cancel()
     finish(true);
 }
 
-void WebRequest::handleAndroidURL()
+void WebRequest::handleInterceptedURL()
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (m_inputStream == 0) {
-        m_loadState = Finished;
-        OwnPtr<WebResponse> webResponse(new WebResponse(m_url, "", 0, "", 0));
-        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-                m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
-        return;
-    }
-
     m_loadState = Response;
 
+    const std::string& mime = m_interceptResponse->mimeType();
     // Get the MIME type from the URL. "text/html" is a last resort, hopefully overridden.
     std::string mimeType("text/html");
-
-    // Gmail appends the MIME to the end of the URL, with a ? separator.
-    size_t mimeTypeIndex = m_url.find_last_of('?');
-    if (mimeTypeIndex != std::string::npos) {
-        mimeType.assign(m_url.begin() + mimeTypeIndex + 1, m_url.end());
+    if (mime == "") {
+        // Gmail appends the MIME to the end of the URL, with a ? separator.
+        size_t mimeTypeIndex = m_url.find_last_of('?');
+        if (mimeTypeIndex != std::string::npos) {
+            mimeType.assign(m_url.begin() + mimeTypeIndex + 1, m_url.end());
+        } else {
+            // Get the MIME type from the file extension, if any.
+            FilePath path(m_url);
+            net::GetMimeTypeFromFile(path, &mimeType);
+        }
     } else {
-        // Get the MIME type from the file extension, if any.
-        FilePath path(m_url);
-        net::GetMimeTypeFromFile(path, &mimeType);
+        // Set from the intercept response.
+        mimeType = mime;
     }
 
-    OwnPtr<WebResponse> webResponse(new WebResponse(m_url, mimeType, 0, "", 200));
+
+    OwnPtr<WebResponse> webResponse(new WebResponse(m_url, mimeType, 0, m_interceptResponse->encoding(), m_interceptResponse->status()));
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
             m_urlLoader.get(), &WebUrlLoaderClient::didReceiveResponse, webResponse.release()));
 
-    int size = 0;
-    jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
-    jmethodID method = env->GetStaticMethodID(bridgeClass, "readFromStream", "(Ljava/io/InputStream;[B)I");
-
-    jbyteArray jb = env->NewByteArray(kInitialReadBufSize);
     do {
-        size = (int)env->CallStaticIntMethod(bridgeClass, method, m_inputStream, jb);
-        if (size < 0) // -1 is EOF
-            break;
-
         // data is deleted in WebUrlLoaderClient::didReceiveAndroidFileData
         // data is sent to the webcore thread
-        OwnPtr<std::vector<char> > data(new std::vector<char>(size));
-        env->GetByteArrayRegion(jb, 0, size, (jbyte*)&data->front());
+        OwnPtr<std::vector<char> > data(new std::vector<char>);
+        data->reserve(kInitialReadBufSize);
+
+        // Read returns false on error and size of 0 on eof.
+        if (!m_interceptResponse->readStream(data.get()) || data->size() == 0)
+            break;
 
         m_loadState = GotData;
         m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
                 m_urlLoader.get(), &WebUrlLoaderClient::didReceiveAndroidFileData, data.release()));
     } while (true);
 
-    env->DeleteLocalRef(jb);
-    env->DeleteLocalRef(bridgeClass);
-
-    finish(true);
+    finish(m_interceptResponse->status() == 200);
 }
 
 void WebRequest::handleDataURL(GURL url)

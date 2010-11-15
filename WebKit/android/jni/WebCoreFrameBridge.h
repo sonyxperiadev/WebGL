@@ -50,6 +50,7 @@ namespace android {
 
 class WebViewCore;
 class WebUrlLoaderClient;
+class UrlInterceptResponse;
 
 // one instance of WebFrame per Page for calling into Java's BrowserFrame
 class WebFrame : public WebCoreRefObject {
@@ -60,11 +61,11 @@ class WebFrame : public WebCoreRefObject {
     // helper function
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
-    int inputStreamForAndroidResource(const char* url);
-
     virtual PassRefPtr<WebCore::ResourceLoaderAndroid> startLoadingResource(WebCore::ResourceHandle*,
             const WebCore::ResourceRequest& request, bool mainResource,
             bool synchronous);
+
+    UrlInterceptResponse* shouldInterceptRequest(const WTF::String& url);
 
     void reportError(int errorCode, const WTF::String& description,
             const WTF::String& failingUrl);

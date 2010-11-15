@@ -28,6 +28,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
+	android/WebCoreSupport/UrlInterceptResponse.cpp \
 	android/WebCoreSupport/V8Counters.cpp
 
 ifeq ($(HTTP_STACK),chrome)
