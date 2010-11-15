@@ -1208,7 +1208,7 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 #define DROP_GRADIENT_TOP 0x50000000
 #define DROP_GRADIENT_BOTTOM 0x00000000
 
-#define SLOP 20
+#define SLOP 35
 
 SelectText::SelectText()
 {
