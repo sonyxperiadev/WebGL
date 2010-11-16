@@ -40,7 +40,7 @@ class AutoFillProfile;
 class AutoFillHost;
 
 namespace WebCore {
-class Document;
+class Frame;
 class HTMLFormControlElement;
 }
 
@@ -55,7 +55,7 @@ public:
     WebAutoFill();
     virtual ~WebAutoFill();
 
-    void searchDocument(WebCore::Document*);
+    void searchDocument(WebCore::Frame*);
     void formFieldFocused(WebCore::HTMLFormControlElement*);
     void fillFormFields(int queryId);
     void querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId);

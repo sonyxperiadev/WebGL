@@ -513,7 +513,7 @@ public:
         EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
         WebAutoFill* webAutoFill = editorC->getAutoFill();
         if (!oldAutoFillSetting && flag)
-            webAutoFill->searchDocument(pFrame->document());
+            webAutoFill->searchDocument(pFrame);
 
         // Set the active AutoFillProfile data.
         jobject autoFillProfile = env->GetObjectField(obj, gFieldIds->mAutoFillProfile);
