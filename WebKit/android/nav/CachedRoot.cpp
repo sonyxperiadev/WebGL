@@ -44,6 +44,8 @@
 #include "wtf/text/CString.h"
 #endif
 
+#define DONT_CENTER_IF_ALREADY_VISIBLE
+
 using std::min;
 using std::max;
 
@@ -388,9 +390,9 @@ public:
            the text into a rectangle before considering it. */
         if (rect.fTop < mPartial.fBottom
                 && rect.fBottom > mPartial.fTop
-                && mPartial.fRight + SLOP >= rect.fLeft
+                && mPartial.fRight + JOIN_SLOP_X >= rect.fLeft
                 && (mPartialType != kDrawBitmap_Type
-                || mPartial.height() <= rect.height() + HIT_SLOP)) {
+                || mPartial.height() <= rect.height() + JOIN_SLOP_Y)) {
             DBG_NAV_LOGD("LeftCheck join mPartial=(%d, %d, %d, %d)"
                 " rect=(%d, %d, %d, %d)",
                 mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
@@ -422,8 +424,8 @@ public:
         } else if (mHitLeft == INT_MAX)
             return; // wait for intersect success
         /* If text is too far away vertically, don't consider it */
-        if (!mBounds.isEmpty() && (mPartial.fTop > mBounds.fBottom + SLOP
-                || mPartial.fBottom < mBounds.fTop - SLOP)) {
+        if (!mBounds.isEmpty() && (mPartial.fTop > mBounds.fBottom + HIT_SLOP
+                || mPartial.fBottom < mBounds.fTop - HIT_SLOP)) {
             DBG_NAV_LOGD("LeftCheck stop mPartial=(%d, %d, %d, %d)"
                 " mBounds=(%d, %d, %d, %d)",
                 mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
@@ -454,8 +456,9 @@ public:
         }
     }
 
-    static const int HIT_SLOP = 5; // space between text parts and lines
-    static const int SLOP = 30; // space between text parts and lines
+    static const int JOIN_SLOP_X = 30; // horizontal space between text parts
+    static const int JOIN_SLOP_Y = 5; // vertical space between text lines
+    static const int HIT_SLOP = 30; // diameter allowing for tap size
     /* const */ SkIRect mHit; // sloppy hit rectangle
     SkIRect mBounds; // reference bounds
     SkIRect mPartial; // accumulated text bounds, per line
