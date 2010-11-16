@@ -116,7 +116,7 @@ static const std::string& getDatabaseDirectory()
     static std::string databaseDirectory;
     if (databaseDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/CookieSyncManager");
+        jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
         jmethodID method = env->GetStaticMethodID(bridgeClass, "getDatabaseDirectory", "()Ljava/lang/String;");
         databaseDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
         env->DeleteLocalRef(bridgeClass);
@@ -132,7 +132,7 @@ static const std::string& getCacheDirectory()
     static std::string cacheDirectory;
     if (cacheDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/CookieSyncManager");
+        jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
         jmethodID method = env->GetStaticMethodID(bridgeClass, "getCacheDirectory", "()Ljava/lang/String;");
         cacheDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
         env->DeleteLocalRef(bridgeClass);
