@@ -141,6 +141,7 @@ bool ChromeClientAndroid::canTakeFocus(FocusDirection) { notImplemented(); retur
 void ChromeClientAndroid::takeFocus(FocusDirection) { notImplemented(); }
 
 void ChromeClientAndroid::focusedNodeChanged(Node*) { notImplemented(); }
+void ChromeClientAndroid::focusedFrameChanged(Frame*) { notImplemented(); }
 
 Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
         const WindowFeatures& features, const NavigationAction&)
