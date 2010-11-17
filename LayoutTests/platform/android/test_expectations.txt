@@ -36,9 +36,6 @@ fast/js/excessive-comma-usage.html CRASH // Tests huge initializer list, causes 
 fast/js/regexp-charclass-crash.html CRASH // RegExp is too large, causing OOM
 fast/regex/test1.html CRASH // Causes DumpRenderTree to hang with V8
 fast/regex/slow.html CRASH // Causes DumpRenderTree to hang with V8
-ietestcenter/Javascript/15.4.4.15-3-14.html CRASH // hangs the layout tests http://b/issue?id=2889595
-ietestcenter/Javascript/15.4.4.15-3-29.html CRASH // hangs the layout tests http://b/issue?id=2889596
-ietestcenter/Javascript/15.4.4.15-3-8.html CRASH // hangs the layout tests http://b/issue?id=2889598
 
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
