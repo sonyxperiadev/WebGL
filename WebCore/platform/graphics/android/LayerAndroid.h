@@ -72,7 +72,6 @@ struct SkLength {
 namespace WebCore {
 
 class AndroidAnimation;
-class LayerAndroidFindState;
 
 class LayerAndroid : public SkLayer {
 
@@ -201,11 +200,12 @@ protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
 private:
+    class FindState;
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
 #endif
 
-    void findInner(LayerAndroidFindState& ) const;
+    void findInner(FindState& ) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 

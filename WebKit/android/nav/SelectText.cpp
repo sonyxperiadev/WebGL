@@ -1379,6 +1379,8 @@ void SelectText::extendSelection(const IntRect& vis, int x, int y)
     setVisibleRect(vis);
     SkIRect clipRect = m_visibleRect;
     int base;
+    DBG_NAV_LOGD("extend x/y=%d,%d m_startOffset=%d,%d", x, y,
+        m_startOffset.fX, m_startOffset.fY);
     x -= m_startOffset.fX;
     y -= m_startOffset.fY;
     if (m_startSelection) {
@@ -1397,6 +1399,8 @@ void SelectText::extendSelection(const IntRect& vis, int x, int y)
         m_extendSelection = true;
         m_original.fX = m_original.fY = 0;
     }
+    DBG_NAV_LOGD("extend x/y=%d,%d m_original=%d,%d", x, y,
+        m_original.fX, m_original.fY);
     x -= m_original.fX;
     y -= m_original.fY;
     if (!clipRect.contains(x, y) || !clipRect.contains(m_selStart)) {
@@ -1588,11 +1592,11 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
         m_picture->width(), m_picture->height(),left, top, right, bottom, x, y);
     if (m_hitTopLeft && (!hitBottomRight || y - top < bottom - y)) {
         DBG_NAV_LOG("hit top left");
-        m_original.fX -= left;
+        m_original.fX -= m_selStart.fLeft;
         m_original.fY -= (m_selStart.fTop + m_selStart.fBottom) >> 1;
     } else if (hitBottomRight) {
         DBG_NAV_LOG("hit bottom right");
-        m_original.fX -= right;
+        m_original.fX -= m_selEnd.fRight;
         m_original.fY -= (m_selEnd.fTop + m_selEnd.fBottom) >> 1;
     }
     return m_hitTopLeft || hitBottomRight;

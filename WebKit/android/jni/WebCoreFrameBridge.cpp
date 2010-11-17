@@ -668,7 +668,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     // TODO: Need to consider child frames.
     if (isMainFrame) {
         EditorClientAndroid* editorClient = static_cast<EditorClientAndroid*>(mPage->editorClient());
-        editorClient->getAutoFill()->searchDocument(frame->document());
+        editorClient->getAutoFill()->searchDocument(frame);
     }
 #endif
 }

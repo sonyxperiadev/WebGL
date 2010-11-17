@@ -27,18 +27,24 @@
 #include "config.h"
 #include "FormManagerAndroid.h"
 
+#include "DocumentLoader.h"
+#include "Element.h"
+#include "Frame.h"
+#include "FrameLoader.h"
+#include "HTMLCollection.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
-#include "HTMLTextAreaElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLLabelElement.h"
 #include "HTMLNames.h"
+#include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
+#include "Node.h"
 #include "NodeList.h"
 #include "HTMLCollection.h"
 #include "FormFieldAndroid.h"
 #include "QualifiedName.h"
-
+#include "StringUtils.h"
 
 // TODO: This file is taken from chromium/chrome/renderer/form_manager.cc and
 // customised to use WebCore types rather than WebKit API types. It would be
@@ -46,10 +52,13 @@
 
 using webkit_glue::FormData;
 using webkit_glue::FormField;
-using WebCore::HTMLElement;
+using WebCore::Element;
+using WebCore::HTMLCollection;
 using WebCore::HTMLFormControlElement;
 using WebCore::HTMLFormElement;
+using WebCore::HTMLInputElement;
 using WebCore::HTMLLabelElement;
+using WebCore::HTMLOptionElement;
 using WebCore::HTMLSelectElement;
 using WebCore::Node;
 using WebCore::NodeList;
@@ -67,61 +76,174 @@ namespace {
 // device experience where form filling can be time consuming and frustrating.
 const size_t kRequiredAutoFillFields = 2;
 
-string16 WTFStringToString16(const WTF::String& wtfString)
-{
-    WTF::String str = wtfString;
-
-    if (str.charactersWithNullTermination())
-        return string16(str.charactersWithNullTermination());
-    else
-        return string16();
-}
-
-string16 S(const WTF::AtomicString& str)
-{
-    return WTFStringToString16(str.string());
-}
-
-string16 S(const WTF::String& string)
-{
-    return WTFStringToString16(string);
-}
+// The maximum length allowed for form data.
+const size_t kMaxDataLength = 1024;
 
 // This is a helper function for the FindChildText() function.
-// Returns the node value of the descendant or sibling of |node| that is a
-// non-empty text node.  This is a faster alternative to |innerText()| for
+// Returns the aggregated values of the descendants or siblings of |node| that
+// are non-empty text nodes.  This is a faster alternative to |innerText()| for
 // performance critical operations.  It does a full depth-first search so
-// can be used when the structure is not directly known.  It does not aggregate
-// the text of multiple nodes, it just returns the value of the first found.
-// "Non-empty" in this case means non-empty after the whitespace has been
-// stripped.
-string16 FindChildTextInner(const Node* node) {
+// can be used when the structure is not directly known.  The text is
+// accumulated after the whitespace has been stropped. Search depth is limited
+// with the |depth| parameter.
+string16 FindChildTextInner(Node* node, int depth) {
     string16 element_text;
-    if (!node)
+    if (!node || depth <= 0)
         return element_text;
 
-    element_text = S(node->nodeValue());
-    TrimWhitespace(element_text, TRIM_ALL, &element_text);
-    if (!element_text.empty())
-        return element_text;
+    string16 node_text = WTFStringToString16(node->nodeValue());
+    TrimWhitespace(node_text, TRIM_ALL, &node_text);
+    if (!node_text.empty())
+        element_text = node_text;
 
-    element_text = FindChildTextInner(node->firstChild());
-    if (!element_text.empty())
-        return element_text;
+    string16 child_text = FindChildTextInner(node->firstChild(), depth-1);
+    if (!child_text.empty())
+        element_text = element_text + child_text;
 
-    element_text = FindChildTextInner(node->nextSibling());
-    if (!element_text.empty())
-        return element_text;
+    string16 sibling_text = FindChildTextInner(node->nextSibling(), depth-1);
+    if (!sibling_text.empty())
+        element_text = element_text + sibling_text;
 
     return element_text;
 }
 
 // Returns the node value of the first decendant of |element| that is a
 // non-empty text node.  "Non-empty" in this case means non-empty after the
-// whitespace has been stripped.
-string16 FindChildText(const HTMLElement* element) {
+// whitespace has been stripped. Search is limited to withing 10 siblings and/or
+// descendants.
+string16 FindChildText(Element* element) {
     Node* child = element->firstChild();
-    return FindChildTextInner(child);
+
+    const int kChildSearchDepth = 10;
+    return FindChildTextInner(child, kChildSearchDepth);
+}
+
+string16 InferLabelFromPrevious(const HTMLFormControlElement& element) {
+    string16 inferred_label;
+    Node* previous = element.previousSibling();
+    if (previous) {
+        // Eg. Some Text<input ...>
+        if (previous->isTextNode()) {
+            inferred_label = WTFStringToString16(previous->nodeValue());
+            TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
+        }
+
+        // If we didn't find text, check for previous paragraph.
+        // Eg. <p>Some Text</p><input ...>
+        // Note the lack of whitespace between <p> and <input> elements.
+        if (inferred_label.empty()) {
+            if (previous->isElementNode()) {
+                Element* element = static_cast<Element*>(previous);
+                if (element->hasTagName(pTag))
+                    inferred_label = FindChildText(element);
+             }
+         }
+
+        // If we didn't find paragraph, check for previous paragraph to this.
+        // Eg. <p>Some Text</p>   <input ...>
+        // Note the whitespace between <p> and <input> elements.
+        if (inferred_label.empty()) {
+            previous = previous->previousSibling();
+            if (previous && previous->isElementNode()) {
+                Element* element = static_cast<Element*>(previous);
+                if (element->hasTagName(pTag))
+                    inferred_label = FindChildText(element);
+            }
+        }
+
+        // Look for text node prior to <img> tag.
+        // Eg. Some Text<img/><input ...>
+        if (inferred_label.empty()) {
+            while (inferred_label.empty() && previous) {
+                if (previous->isTextNode()) {
+                    inferred_label = WTFStringToString16(previous->nodeValue());
+                    TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
+                } else if (previous->isElementNode()) {
+                    Element* element = static_cast<Element*>(previous);
+                    if (!element->hasTagName(imgTag))
+                        break;
+                } else
+                    break;
+                previous = previous->previousSibling();
+            }
+        }
+    }
+    return inferred_label;
+}
+
+// Helper for |InferLabelForElement()| that infers a label, if possible, from
+// surrounding table structure.
+// Eg. <tr><td>Some Text</td><td><input ...></td></tr>
+// Eg. <tr><td><b>Some Text</b></td><td><b><input ...></b></td></tr>
+string16 InferLabelFromTable(const HTMLFormControlElement& element) {
+    string16 inferred_label;
+    Node* parent = element.parentNode();
+    while (parent && parent->isElementNode() && !static_cast<Element*>(parent)->hasTagName(tdTag))
+        parent = parent->parentNode();
+
+    if (parent && parent->isElementNode()) {
+        Element* element = static_cast<Element*>(parent);
+        if (element->hasTagName(tdTag)) {
+            Node* previous = parent->previousSibling();
+
+            // Skip by any intervening text nodes.
+            while (previous && previous->isTextNode())
+                previous = previous->previousSibling();
+
+            if (previous && previous->isElementNode()) {
+                element = static_cast<Element*>(previous);
+                if (element->hasTagName(tdTag))
+                    inferred_label = FindChildText(element);
+            }
+        }
+    }
+   return inferred_label;
+}
+
+// Helper for |InferLabelForElement()| that infers a label, if possible, from
+// a surrounding definition list.
+// Eg. <dl><dt>Some Text</dt><dd><input ...></dd></dl>
+// Eg. <dl><dt><b>Some Text</b></dt><dd><b><input ...></b></dd></dl>
+string16 InferLabelFromDefinitionList(const HTMLFormControlElement& element) {
+    string16 inferred_label;
+    Node* parent = element.parentNode();
+    while (parent && parent->isElementNode() && !static_cast<Element*>(parent)->hasTagName(ddTag))
+        parent = parent->parentNode();
+
+    if (parent && parent->isElementNode()) {
+        Element* element = static_cast<Element*>(parent);
+        if (element->hasTagName(ddTag)) {
+            Node* previous = parent->previousSibling();
+
+            // Skip by any intervening text nodes.
+            while (previous && previous->isTextNode())
+                previous = previous->previousSibling();
+
+            if (previous && previous->isElementNode()) {
+                element = static_cast<Element*>(previous);
+                if (element->hasTagName(dtTag))
+                    inferred_label = FindChildText(element);
+            }
+        }
+    }
+    return inferred_label;
+}
+
+void GetOptionStringsFromElement(HTMLFormControlElement* element, std::vector<string16>* option_strings) {
+    DCHECK(element);
+    DCHECK(option_strings);
+    option_strings->clear();
+    if (formControlType(*element) == kSelectOne) {
+        HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
+
+        // For select-one elements copy option strings.
+        WTF::Vector<Element*> list_items = select_element->listItems();
+        option_strings->reserve(list_items.size());
+        for (size_t i = 0; i < list_items.size(); ++i) {
+            if (list_items[i]->hasTagName(optionTag))
+                option_strings->push_back(WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->value()));
+        }
+    }
 }
 
 }  // namespace
@@ -136,36 +258,57 @@ FormManager::~FormManager() {
 }
 
 // static
-void FormManager::HTMLFormControlElementToFormField(
-    const HTMLFormControlElement& element, bool get_value, FormField* field) {
-    ASSERT(field);
+void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* element, bool get_value, bool get_options, FormField* field) {
+    DCHECK(field);
 
     // The label is not officially part of a HTMLFormControlElement; however, the
     // labels for all form control elements are scraped from the DOM and set in
     // WebFormElementToFormData.
-    field->set_name(S(element.name()));
-    field->set_form_control_type(S(element.type()));
+    field->set_name(nameForAutoFill(*element));
+    field->set_form_control_type(formControlType(*element));
+
+    if (get_options) {
+        std::vector<string16> option_strings;
+        GetOptionStringsFromElement(element, &option_strings);
+        field->set_option_strings(option_strings);
+    }
+
+    if (formControlType(*element) == kText) {
+        HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
+        field->set_size(input_element->size());
+    }
 
     if (!get_value)
         return;
 
+    // TODO: In WebKit, move value() and setValue() to
+    // WebFormControlElement.
     string16 value;
-    if (element.type() == WTF::AtomicString("text")) {
-        const WebCore::HTMLTextAreaElement* input_element = static_cast<const WebCore::HTMLTextAreaElement*>(&element);
-        if (input_element->renderer())
-            value = S(input_element->value());
-    } else if (element.type() == WTF::AtomicString("select-one")) {
-        // TODO: This is ugly.  SelectElement::value() is a non-const
-        // method. Look into fixing this on the WebKit side.
-        HTMLFormControlElement& e = const_cast<HTMLFormControlElement&>(element);
-        HTMLSelectElement& select_element = static_cast<HTMLSelectElement&>(e);
-        value = S(select_element.value());
+    if (formControlType(*element) == kText ||
+        formControlType(*element) == kHidden) {
+        HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
+        value = WTFStringToString16(input_element->value());
+    } else if (formControlType(*element) == kSelectOne) {
+        HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
+        value = WTFStringToString16(select_element->value());
     }
+
+    // TODO: This is a temporary stop-gap measure designed to prevent
+    // a malicious site from DOS'ing the browser with extremely large profile
+    // data.  The correct solution is to parse this data asynchronously.
+    // See http://crbug.com/49332.
+    if (value.size() > kMaxDataLength)
+        value = value.substr(0, kMaxDataLength);
+
     field->set_value(value);
 }
 
 // static
 string16 FormManager::LabelForElement(const HTMLFormControlElement& element) {
+    // Don't scrape labels for hidden elements.
+    if (formControlType(element) == kHidden)
+        return string16();
+
     RefPtr<NodeList> labels = element.document()->getElementsByTagName("label");
     for (unsigned i = 0; i < labels->length(); ++i) {
         Node* e = labels->item(i);
@@ -181,27 +324,26 @@ string16 FormManager::LabelForElement(const HTMLFormControlElement& element) {
 }
 
 // static
-bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
-                                           RequirementsMask requirements,
-                                           bool get_values,
-                                           FormData* form) {
-    ASSERT(form);
+bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, RequirementsMask requirements, bool get_values, bool get_options, FormData* form) {
+    DCHECK(form);
 
-    const WebCore::Document* document = element.document();
-    if (!document)
+    Frame* frame = element->document()->frame();
+    if (!frame)
         return false;
 
-    if (requirements & REQUIRE_AUTOCOMPLETE && !element.autoComplete())
+    if (requirements & REQUIRE_AUTOCOMPLETE && !element->autoComplete())
         return false;
 
-    form->name = S(element.name());
-    form->method = S(element.method());
-    form->origin = GURL(S(document->documentURI()));
-    form->action = GURL(S(document->completeURL(element.action())));
+    form->name = WTFStringToString16(element->name());
+    form->method = WTFStringToString16(element->method());
+    form->origin = GURL(WTFStringToString16(frame->loader()->documentLoader()->url().string()));
+    form->action = GURL(WTFStringToString16(frame->document()->completeURL(element->action())));
+    form->user_submitted = element->wasUserSubmitted();
+
     // If the completed URL is not valid, just use the action we get from
     // WebKit.
     if (!form->action.is_valid())
-        form->action = GURL(S(element.action()));
+        form->action = GURL(WTFStringToString16(element->action()));
 
     // A map from a FormField's name to the FormField itself.
     std::map<string16, FormField*> name_map;
@@ -210,29 +352,30 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
     // |name_map|.
     ScopedVector<FormField> form_fields;
 
-    WTF::Vector<WebCore::HTMLFormControlElement*> control_elements = element.associatedElements();
+    WTF::Vector<HTMLFormControlElement*> control_elements = element->associatedElements();
 
     // A vector of bools that indicate whether each field in the form meets the
     // requirements and thus will be in the resulting |form|.
     std::vector<bool> fields_extracted(control_elements.size(), false);
+
     for (size_t i = 0; i < control_elements.size(); ++i) {
-        const HTMLFormControlElement* control_element = control_elements[i];
+        HTMLFormControlElement* control_element = control_elements[i];
         if (!(control_element->hasTagName(inputTag) || control_element->hasTagName(selectTag)))
             continue;
 
         if (requirements & REQUIRE_AUTOCOMPLETE &&
-            control_element->type() == WTF::String("text")) {
+            formControlType(*control_element) == kText) {
             const WebCore::HTMLInputElement* input_element = static_cast<const WebCore::HTMLInputElement*>(control_element);
             if (!input_element->autoComplete())
                 continue;
         }
 
-        if (requirements & REQUIRE_ELEMENTS_ENABLED && !control_element->isEnabledFormControl())
+        if (requirements & REQUIRE_ENABLED && !control_element->isEnabledFormControl())
             continue;
 
         // Create a new FormField, fill it out and map it to the field's name.
         FormField* field = new FormField;
-        HTMLFormControlElementToFormField(*control_element, get_values, field);
+        HTMLFormControlElementToFormField(control_element, get_values, get_options, field);
         form_fields.push_back(field);
         // TODO: A label element is mapped to a form control element's id.
         // field->name() will contain the id only if the name does not exist.  Add
@@ -250,15 +393,15 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
     // element's name as a key into the <name, FormField> map to find the
     // previously created FormField and set the FormField's label to the
     // label.firstChild().nodeValue() of the label element.
-    RefPtr<WebCore::NodeList> labels = element.getElementsByTagName("label");
+    RefPtr<WebCore::NodeList> labels = element->getElementsByTagName("label");
     for (unsigned i = 0; i < labels->length(); ++i) {
-        WebCore::HTMLLabelElement* label = static_cast<WebCore::HTMLLabelElement*>(labels->item(i));
+        HTMLLabelElement* label = static_cast<WebCore::HTMLLabelElement*>(labels->item(i));
         HTMLFormControlElement* field_element = label->control();
         if (!field_element || field_element->type() == "hidden")
             continue;
 
         std::map<string16, FormField*>::iterator iter =
-            name_map.find(S(field_element->name()));
+            name_map.find(nameForAutoFill(*field_element));
         if (iter != name_map.end())
             iter->second->set_label(FindChildText(label));
     }
@@ -267,8 +410,7 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
     // DOM.  We use the |fields_extracted| vector to make sure we assign the
     // extracted label to the correct field, as it's possible |form_fields| will
     // not contain all of the elements in |control_elements|.
-    for (size_t i = 0, field_idx = 0;
-         i < control_elements.size() && field_idx < form_fields.size(); ++i) {
+    for (size_t i = 0, field_idx = 0; i < control_elements.size() && field_idx < form_fields.size(); ++i) {
         // This field didn't meet the requirements, so don't try to find a label for
         // it.
         if (!fields_extracted[i])
@@ -276,139 +418,239 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
 
         const HTMLFormControlElement* control_element = control_elements[i];
         if (form_fields[field_idx]->label().empty())
-            form_fields[field_idx]->set_label(
-                FormManager::InferLabelForElement(*control_element));
+            form_fields[field_idx]->set_label(FormManager::InferLabelForElement(*control_element));
 
         ++field_idx;
 
     }
     // Copy the created FormFields into the resulting FormData object.
-    for (ScopedVector<FormField>::const_iterator iter = form_fields.begin();
-         iter != form_fields.end(); ++iter) {
+    for (ScopedVector<FormField>::const_iterator iter = form_fields.begin(); iter != form_fields.end(); ++iter)
         form->fields.push_back(**iter);
-    }
 
     return true;
 }
 
-void FormManager::ExtractForms(WebCore::Document* document) {
+void FormManager::ExtractForms(Frame* frame) {
 
-    WTF::PassRefPtr<WebCore::HTMLCollection> collection = document->forms();
+    ResetFrame(frame);
 
-    WebCore::HTMLFormElement* form;
-    WebCore::HTMLInputElement* input;
-    for (Node* node = collection->firstItem();
-         node && !node->namespaceURI().isNull() && !node->namespaceURI().isEmpty();
-         node = collection->nextItem()) {
+    WTF::PassRefPtr<HTMLCollection> web_forms = frame->document()->forms();
+
+    for (size_t i = 0; i < web_forms->length(); ++i) {
         FormElement* form_elements = new FormElement;
-        form = static_cast<WebCore::HTMLFormElement*>(node);
-        if (form->autoComplete()) {
-            WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->associatedElements();
-            size_t size = elements.size();
-            for (size_t i = 0; i < size; i++) {
-                WebCore::HTMLFormControlElement* e = elements[i];
-                if (e->hasTagName(inputTag) || e->hasTagName(selectTag))
-                    form_elements->control_elements.push_back(e);
-            }
-            form_elements->form_element = form;
+        HTMLFormElement* form_element = static_cast<HTMLFormElement*>(web_forms->item(i));
+        form_elements->form_element = form_element;
+
+        WTF::Vector<HTMLFormControlElement*> control_elements = form_element->associatedElements();
+        for (size_t j = 0; j < control_elements.size(); ++j) {
+            HTMLFormControlElement* element = control_elements[j];
+            form_elements->control_elements.push_back(element);
+
+            // Save original values of "select-one" inputs so we can restore them
+            // when |ClearFormWithNode()| is invoked.
+            if (formControlType(*element) == kSelectOne) {
+                HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
+                string16 value = WTFStringToString16(select_element->value());
+                form_elements->control_values.push_back(value);
+            } else
+                form_elements->control_values.push_back(string16());
         }
-        form_elements_map_[document].push_back(form_elements);
+
+        form_elements_.push_back(form_elements);
     }
 }
 
-void FormManager::GetForms(RequirementsMask requirements,
-                           std::vector<FormData>* forms) {
-    ASSERT(forms);
+void FormManager::GetFormsInFrame(const Frame* frame, RequirementsMask requirements, std::vector<FormData>* forms) {
+    DCHECK(frame);
+    DCHECK(forms);
 
-    for (DocumentFormElementMap::iterator iter = form_elements_map_.begin();
-         iter != form_elements_map_.end(); ++iter) {
-        for (std::vector<FormElement*>::iterator form_iter = iter->second.begin();
-             form_iter != iter->second.end(); ++form_iter) {
-            FormData form;
-            if (HTMLFormElementToFormData(*(*form_iter)->form_element,
-                                         requirements,
-                                         true,
-                                         &form))
-                forms->push_back(form);
-        }
-    }
-}
-
-void FormManager::GetFormsInDocument(const WebCore::Document* document,
-                                     RequirementsMask requirements,
-                                     std::vector<FormData>* forms) {
-    ASSERT(document);
-    ASSERT(forms);
-
-    DocumentFormElementMap::iterator iter = form_elements_map_.find(document);
-    if (iter == form_elements_map_.end())
-        return;
-
-    // TODO: Factor this out and use it here and in GetForms.
-    const std::vector<FormElement*>& form_elements = iter->second;
-    for (std::vector<FormElement*>::const_iterator form_iter =
-             form_elements.begin();
-         form_iter != form_elements.end(); ++form_iter) {
+    for (FormElementList::const_iterator form_iter = form_elements_.begin(); form_iter != form_elements_.end(); ++form_iter) {
         FormElement* form_element = *form_iter;
+
+        if (form_element->form_element->document()->frame() != frame)
+            continue;
 
         // We need at least |kRequiredAutoFillFields| fields before appending this
         // form to |forms|.
         if (form_element->control_elements.size() < kRequiredAutoFillFields)
             continue;
 
-        if (requirements & REQUIRE_AUTOCOMPLETE &&
-            !form_element->form_element->autoComplete())
+        if (requirements & REQUIRE_AUTOCOMPLETE && !form_element->form_element->autoComplete())
             continue;
 
         FormData form;
-        FormElementToFormData(document, form_element, requirements, &form);
+        HTMLFormElementToFormData(form_element->form_element, requirements, true, false, &form);
         if (form.fields.size() >= kRequiredAutoFillFields)
             forms->push_back(form);
     }
 }
 
-bool FormManager::FindForm(const HTMLFormElement& element,
-                           RequirementsMask requirements,
-                           FormData* form) {
-    ASSERT(form);
+bool FormManager::FindFormWithFormControlElement(HTMLFormControlElement* element, RequirementsMask requirements, FormData* form) {
+    DCHECK(form);
 
-    const WebCore::Document* document = element.document();
-    DocumentFormElementMap::const_iterator document_iter =
-        form_elements_map_.find(document);
-    if (document_iter == form_elements_map_.end())
+    const Frame* frame = element->document()->frame();
+    if (!frame)
         return false;
 
-    for (std::vector<FormElement*>::const_iterator iter =
-             document_iter->second.begin();
-         iter != document_iter->second.end(); ++iter) {
-        if ((*iter)->form_element->name() != element.name())
+    for (FormElementList::const_iterator iter = form_elements_.begin(); iter != form_elements_.end(); ++iter) {
+        const FormElement* form_element = *iter;
+
+        if (form_element->form_element->document()->frame() != frame)
             continue;
-        return FormElementToFormData(document, *iter, requirements, form);
+
+        for (std::vector<HTMLFormControlElement*>::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
+            if (nameForAutoFill(**iter) == nameForAutoFill(*element)) {
+                HTMLFormElementToFormData(form_element->form_element, requirements, true, true, form);
+                return true;
+            }
+        }
     }
     return false;
 }
 
-bool FormManager::FindFormWithFormControlElement(
-    const HTMLFormControlElement& element,
-    RequirementsMask requirements,
-    FormData* form) {
-    ASSERT(form);
-
-    const WebCore::Document* document = element.document();
-    if (form_elements_map_.find(document) == form_elements_map_.end())
+bool FormManager::FillForm(const FormData& form, Node* node) {
+    FormElement* form_element = NULL;
+    if (!FindCachedFormElement(form, &form_element))
         return false;
 
-    const std::vector<FormElement*> forms = form_elements_map_[document];
-    for (std::vector<FormElement*>::const_iterator iter = forms.begin();
-         iter != forms.end(); ++iter) {
-        const FormElement* form_element = *iter;
+    RequirementsMask requirements = static_cast<RequirementsMask>(REQUIRE_AUTOCOMPLETE | REQUIRE_ENABLED | REQUIRE_EMPTY);
+    ForEachMatchingFormField(form_element, node, requirements, form, NewCallback(this, &FormManager::FillFormField));
 
-        for (std::vector<HTMLFormControlElement*>::const_iterator iter =
-                 form_element->control_elements.begin();
-             iter != form_element->control_elements.end(); ++iter) {
-            if ((*iter)->name() == element.name()) {
-                HTMLFormElementToFormData(
-                    *form_element->form_element, requirements, true, form);
+    return true;
+}
+
+bool FormManager::PreviewForm(const FormData& form) {
+    FormElement* form_element = NULL;
+    if (!FindCachedFormElement(form, &form_element))
+        return false;
+
+    RequirementsMask requirements = static_cast<RequirementsMask>(REQUIRE_AUTOCOMPLETE | REQUIRE_ENABLED | REQUIRE_EMPTY);
+    ForEachMatchingFormField(form_element, 0, requirements, form, NewCallback(this, &FormManager::PreviewFormField));
+
+    return true;
+}
+
+bool FormManager::ClearFormWithNode(Node* node) {
+    FormElement* form_element = NULL;
+    if (!FindCachedFormElementWithNode(node, &form_element))
+        return false;
+
+    for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
+        HTMLFormControlElement* element = form_element->control_elements[i];
+        if (formControlType(*element) == kText) {
+            HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
+
+            // We don't modify the value of disabled fields.
+            if (!input_element->isEnabledFormControl())
+                continue;
+
+            input_element->setValue("");
+            input_element->setAutofilled(false);
+        } else if (formControlType(*element) == kSelectOne) {
+            HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
+            select_element->setValue(form_element->control_values[i].c_str());
+        }
+    }
+
+    return true;
+}
+
+bool FormManager::ClearPreviewedFormWithNode(Node* node) {
+    FormElement* form_element = NULL;
+    if (!FindCachedFormElementWithNode(node, &form_element))
+        return false;
+
+    for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
+        HTMLFormControlElement* element = form_element->control_elements[i];
+
+        // Only input elements can be previewed.
+        if (formControlType(*element) != kText)
+            continue;
+
+        // If the input element has not been auto-filled, FormManager has not
+        // previewed this field, so we have nothing to reset.
+        HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
+        if (!input_element->isAutofilled())
+            continue;
+
+        // If the user has completed the auto-fill and the values are filled in, we
+        // don't want to reset the auto-filled status.
+        if (!input_element->value().isEmpty())
+            continue;
+
+        input_element->setSuggestedValue("");
+        input_element->setAutofilled(false);
+
+        // Clearing the suggested value in the focused node (above) can cause
+        // selection to be lost. We force selection range to restore the text
+        // cursor.
+        if (node == input_element) {
+            input_element->setSelectionRange(input_element->value().length(),
+            input_element->value().length());
+        }
+    }
+
+    return true;
+}
+
+void FormManager::Reset() {
+    STLDeleteElements(&form_elements_);
+}
+
+void FormManager::ResetFrame(const Frame* frame) {
+    FormElementList::iterator iter = form_elements_.begin();
+    while (iter != form_elements_.end()) {
+        if ((*iter)->form_element->document()->frame() == frame) {
+            delete *iter;
+            iter = form_elements_.erase(iter);
+        } else
+            ++iter;
+    }
+}
+
+bool FormManager::FormWithNodeIsAutoFilled(Node* node) {
+    FormElement* form_element = NULL;
+    if (!FindCachedFormElementWithNode(node, &form_element))
+        return false;
+
+    for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
+        HTMLFormControlElement* element = form_element->control_elements[i];
+        if (formControlType(*element) != kText)
+            continue;
+
+        HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
+        if (input_element->isAutofilled())
+            return true;
+    }
+
+    return false;
+}
+
+// static
+string16 FormManager::InferLabelForElement(const HTMLFormControlElement& element) {
+    // Don't scrape labels for hidden elements.
+    if (formControlType(element) == kHidden)
+        return string16();
+
+    string16 inferred_label = InferLabelFromPrevious(element);
+
+    // If we didn't find a label, check for table cell case.
+    if (inferred_label.empty())
+        inferred_label = InferLabelFromTable(element);
+
+    // If we didn't find a label, check for definition list case.
+    if (inferred_label.empty())
+        inferred_label = InferLabelFromDefinitionList(element);
+
+    return inferred_label;
+}
+
+bool FormManager::FindCachedFormElementWithNode(Node* node,
+                                                FormElement** form_element) {
+    for (FormElementList::const_iterator form_iter = form_elements_.begin(); form_iter != form_elements_.end(); ++form_iter) {
+        for (std::vector<HTMLFormControlElement*>::const_iterator iter = (*form_iter)->control_elements.begin(); iter != (*form_iter)->control_elements.end(); ++iter) {
+            if (*iter == node) {
+                *form_element = *form_iter;
                 return true;
             }
         }
@@ -417,224 +659,118 @@ bool FormManager::FindFormWithFormControlElement(
     return false;
 }
 
-bool FormManager::FillForm(const FormData& form) {
-    FormElement* form_element = NULL;
-
-    for (DocumentFormElementMap::iterator iter = form_elements_map_.begin();
-         iter != form_elements_map_.end(); ++iter) {
-        const WebCore::Document* document = iter->first;
-
-        for (std::vector<FormElement*>::iterator form_iter = iter->second.begin();
-             form_iter != iter->second.end(); ++form_iter) {
-            // TODO: matching on form name here which is not guaranteed to
-            // be unique for the page, nor is it guaranteed to be non-empty.  Need to
-            // find a way to uniquely identify the form cross-process.  For now we'll
-            // check form name and form action for identity.
-            // http://crbug.com/37990 test file sample8.html.
-            // Also note that WebString() == WebString(string16()) does not seem to
-            // evaluate to |true| for some reason TBD, so forcing to string16.
-            string16 element_name(S((*form_iter)->form_element->name()));
-            GURL action(
-                S(document->completeURL((*form_iter)->form_element->action()).string()));
-            if (element_name == form.name && action == form.action) {
-                form_element = *form_iter;
-                break;
-            }
+bool FormManager::FindCachedFormElement(const FormData& form, FormElement** form_element) {
+    for (FormElementList::iterator form_iter = form_elements_.begin(); form_iter != form_elements_.end(); ++form_iter) {
+        // TODO: matching on form name here which is not guaranteed to
+        // be unique for the page, nor is it guaranteed to be non-empty.  Need to
+        // find a way to uniquely identify the form cross-process.  For now we'll
+        // check form name and form action for identity.
+        // http://crbug.com/37990 test file sample8.html.
+        // Also note that WebString() == WebString(string16()) does not seem to
+        // evaluate to |true| for some reason TBD, so forcing to string16.
+        string16 element_name(WTFStringToString16((*form_iter)->form_element->name()));
+        GURL action(WTFStringToString16((*form_iter)->form_element->document()->completeURL((*form_iter)->form_element->action()).string()));
+        if (element_name == form.name && action == form.action) {
+            *form_element = *form_iter;
+            return true;
         }
     }
 
-    if (!form_element)
-        return false;
+    return false;
+}
 
+
+void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, RequirementsMask requirements, const FormData& data, Callback* callback) {
     // It's possible that the site has injected fields into the form after the
     // page has loaded, so we can't assert that the size of the cached control
     // elements is equal to the size of the fields in |form|.  Fortunately, the
     // one case in the wild where this happens, paypal.com signup form, the fields
     // are appended to the end of the form and are not visible.
+    for (size_t i = 0, j = 0; i < form->control_elements.size() && j < data.fields.size(); ++i) {
+        HTMLFormControlElement* element = form->control_elements[i];
+        string16 element_name = nameForAutoFill(*element);
 
-    for (size_t i = 0, j = 0;
-         i < form_element->control_elements.size() && j < form.fields.size();
-         ++i, ++j) {
-        // Once again, empty WebString != empty string16, so we have to explicitly
-        // check for this case.
-        if (form_element->control_elements[i]->name().length() == 0 &&
-            form.fields[j].name().empty())
+        if (element_name.empty())
             continue;
 
-        // We assume that the intersection of the fields in
-        // |form_element->control_elements| and |form.fields| is ordered, but it's
-        // possible that one or the other sets may have more fields than the other,
-        // so loop past non-matching fields in the set with more elements.
-        while (S(form_element->control_elements[i]->name()) !=
-               form.fields[j].name()) {
-            if (form_element->control_elements.size() > form.fields.size()) {
-                // We're at the end of the elements already.
-                if (i + 1 == form_element->control_elements.size())
-                    break;
-                ++i;
-            } else if (form.fields.size() > form_element->control_elements.size()) {
-                // We're at the end of the elements already.
-                if (j + 1 == form.fields.size())
-                    break;
-                ++j;
-            } else {
-                // Shouldn't get here.
-                ASSERT(false);
-            }
+        // Search forward in the |form| for a corresponding field.
+        size_t k = j;
+        while (k < data.fields.size() && element_name != data.fields[k].name())
+               k++;
 
+        if (k >= data.fields.size())
             continue;
-        }
 
-        HTMLFormControlElement* element = form_element->control_elements[i];
-        if (!form.fields[j].value().empty() &&
-            element->type() != WTF::String("submit")) {
-            if (element->type() == WTF::String("text")) {
-                WebCore::HTMLInputElement* input_element = static_cast<WebCore::HTMLInputElement*>(element);
-                // If the maxlength attribute contains a negative value, maxLength()
-                // returns the default maxlength value.
-                input_element->setValue(
-                    WTF::String(form.fields[j].value().substr(0, input_element->maxLength()).c_str()));
-                input_element->setAutofilled(true);
-            } else if (element->type() ==
-                       WTF::String("select-one")) {
-                WebCore::HTMLSelectElement* select_element = static_cast<WebCore::HTMLSelectElement*>(element);
-                select_element->setValue(WTF::String(form.fields[j].value().c_str()));
-            }
-        }
-    }
+        DCHECK_EQ(data.fields[k].name(), element_name);
 
-    return true;
-}
+        // More than likely |requirements| will contain REQUIRE_AUTOCOMPLETE and/or
+        // REQUIRE_EMPTY, which both require text form control elements, so special-
+        // case this type of element.
+        if (formControlType(*element) == kText) {
+            HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
 
-void FormManager::FillForms(const std::vector<webkit_glue::FormData>& forms) {
-    for (std::vector<webkit_glue::FormData>::const_iterator iter = forms.begin();
-         iter != forms.end(); ++iter) {
-        FillForm(*iter);
-    }
-}
-
-void FormManager::Reset() {
-    for (DocumentFormElementMap::iterator iter = form_elements_map_.begin();
-         iter != form_elements_map_.end(); ++iter) {
-        STLDeleteElements(&iter->second);
-    }
-    form_elements_map_.clear();
-}
-
-void FormManager::ResetFrame(const WebCore::Document* document) {
-
-    DocumentFormElementMap::iterator iter = form_elements_map_.find(document);
-    if (iter != form_elements_map_.end()) {
-        STLDeleteElements(&iter->second);
-        form_elements_map_.erase(iter);
-    }
-}
-
-// static
-bool FormManager::FormElementToFormData(const WebCore::Document* document,
-                                        const FormElement* form_element,
-                                        RequirementsMask requirements,
-                                        FormData* form) {
-    if (requirements & REQUIRE_AUTOCOMPLETE &&
-        !form_element->form_element->autoComplete())
-        return false;
-
-    form->name = S(form_element->form_element->name());
-    form->method = S(form_element->form_element->method());
-    form->origin = GURL(S(document->documentURI()));
-    form->action = GURL(S(document->completeURL(form_element->form_element->action())));
-
-    // If the completed URL is not valid, just use the action we get from
-    // WebKit.
-    if (!form->action.is_valid())
-        form->action = GURL(S(form_element->form_element->action()));
-
-    // Form elements loop.
-    for (std::vector<HTMLFormControlElement*>::const_iterator element_iter =
-             form_element->control_elements.begin();
-         element_iter != form_element->control_elements.end(); ++element_iter) {
-        const HTMLFormControlElement* control_element = *element_iter;
-
-        if (requirements & REQUIRE_AUTOCOMPLETE &&
-            control_element->type() == WTF::String("text")) {
-            const WebCore::HTMLInputElement* input_element =
-                static_cast<const WebCore::HTMLInputElement*>(control_element);
-            if (!input_element->autoComplete())
+            // TODO: WebKit currently doesn't handle the autocomplete
+            // attribute for select control elements, but it probably should.
+            if (requirements & REQUIRE_AUTOCOMPLETE && !input_element->autoComplete())
                 continue;
+
+            // Don't require the node that initiated the auto-fill process to be
+            // empty.  The user is typing in this field and we should complete the
+            // value when the user selects a value to fill out.
+            if (requirements & REQUIRE_EMPTY && input_element != node && !input_element->value().isEmpty())
+               continue;
         }
 
-        if (requirements & REQUIRE_ELEMENTS_ENABLED && !control_element->isEnabledFormControl())
+        if (requirements & REQUIRE_ENABLED && !element->isEnabledFormControl())
             continue;
 
-        FormField field;
-        HTMLFormControlElementToFormField(*control_element, false, &field);
-        form->fields.push_back(field);
+        callback->Run(element, &data.fields[k]);
+
+        // We found a matching form field so move on to the next.
+        ++j;
     }
 
-    return true;
+    delete callback;
 }
 
-// static
-string16 FormManager::InferLabelForElement(
-    const HTMLFormControlElement& element) {
-    string16 inferred_label;
-    Node* previous = element.previousSibling();
-    if (previous) {
-        if (previous->isTextNode()) {
-            inferred_label = S(previous->nodeValue());
-            TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
-        }
+void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* data) {
+    // Nothing to fill.
+    if (data->value().empty())
+        return;
 
-        // If we didn't find text, check for previous paragraph.
-        // Eg. <p>Some Text</p><input ...>
-        // Note the lack of whitespace between <p> and <input> elements.
-        if (inferred_label.empty()) {
-            if (previous->isElementNode()) {
-                if (previous->hasTagName(pTag)) {
-                    inferred_label = FindChildText((HTMLElement*)previous);
-                }
-            }
-        }
+    if (formControlType(*field) == kText) {
+        HTMLInputElement* input_element = static_cast<HTMLInputElement*>(field);
 
-        // If we didn't find paragraph, check for previous paragraph to this.
-        // Eg. <p>Some Text</p>   <input ...>
-        // Note the whitespace between <p> and <input> elements.
-        if (inferred_label.empty()) {
-            previous = previous->previousSibling();
-            if (previous) {
-                if (previous->hasTagName(pTag)) {
-                    inferred_label = FindChildText((HTMLElement*)previous);
-                }
-            }
-        }
+        // If the maxlength attribute contains a negative value, maxLength()
+        // returns the default maxlength value.
+        // TODO: The call here to |setSuggestedValue| is a work-around
+        // to a WebKit change in r67122.  See http://crbug.com/56081 for details.
+        // Once the core issue is fixed in WebKit, this work-around should be
+        // removed.
+        input_element->setSuggestedValue(data->value().substr(0, input_element->maxLength()).c_str());
+        input_element->setValue(data->value().substr(0, input_element->maxLength()).c_str());
+        input_element->setAutofilled(true);
+    } else if (formControlType(*field) == kSelectOne) {
+        HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(field);
+        select_element->setValue(data->value().c_str());
     }
+}
 
-    // If we didn't find paragraph, check for table cell case.
-    // Eg. <tr><td>Some Text</td><td><input ...></td></tr>
-    // Eg. <tr><td><b>Some Text</b></td><td><b><input ...></b></td></tr>
-    if (inferred_label.empty()) {
-        Node* parent = element.parentNode();
-        while (parent &&
-               !parent->hasTagName(tdTag))
-            parent = parent->parentNode();
+void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormField* data) {
+    // Nothing to preview.
+    if (data->value().empty())
+        return;
 
-        if (parent) {
-            if (parent->hasTagName(tdTag)) {
-                previous = parent->previousSibling();
+    // Only preview input fields.
+    if (formControlType(*field) != kText)
+        return;
 
-                // Skip by any intervening text nodes.
-                while (previous && previous->isTextNode())
-                    previous = previous->previousSibling();
+    HTMLInputElement* input_element = static_cast<HTMLInputElement*>(field);
 
-                if (previous) {
-                    if (previous->hasTagName(tdTag)) {
-                        inferred_label = FindChildText((HTMLElement*)previous);
-                    }
-                }
-            }
-        }
-    }
-    return inferred_label;
+    // If the maxlength attribute contains a negative value, maxLength()
+    // returns the default maxlength value.
+    input_element->setSuggestedValue(data->value().substr(0, input_element->maxLength()).c_str());
+    input_element->setAutofilled(true);
 }
 
 }

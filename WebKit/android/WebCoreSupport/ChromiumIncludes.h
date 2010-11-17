@@ -45,6 +45,7 @@
 #undef LOG_ASSERT
 #endif
 
+#include <base/callback.h>
 #include <base/condition_variable.h>
 #include <base/lock.h>
 #include <base/message_loop_proxy.h>

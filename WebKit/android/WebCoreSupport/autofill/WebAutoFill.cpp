@@ -29,7 +29,6 @@
 #if ENABLE(WEB_AUTOFILL)
 
 #include "AutoFillHostAndroid.h"
-#include "Document.h"
 #include "Frame.h"
 #include "FormData.h"
 #include "FormManagerAndroid.h"
@@ -75,7 +74,7 @@ WebAutoFill::~WebAutoFill()
     mUniqueIdMap.clear();
 }
 
-void WebAutoFill::searchDocument(WebCore::Document* document)
+void WebAutoFill::searchDocument(WebCore::Frame* frame)
 {
     // TODO: This method is called when the main frame finishes loading and
     // scans the document for forms and tries to work out the type of the
@@ -94,9 +93,9 @@ void WebAutoFill::searchDocument(WebCore::Document* document)
     mQueryId = 1;
     mAutoFillManager->Reset();
     mFormManager->Reset();
-    mFormManager->ExtractForms(document);
+    mFormManager->ExtractForms(frame);
     mForms.clear();
-    mFormManager->GetForms(FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
+    mFormManager->GetFormsInFrame(frame, FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
     mAutoFillManager->FormsSeen(mForms);
 }
 
@@ -112,11 +111,11 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
 
     // Get the FormField from the Node.
     webkit_glue::FormField formField;
-    FormManager::HTMLFormControlElementToFormField(*formFieldElement, false, &formField);
+    FormManager::HTMLFormControlElementToFormField(formFieldElement, false, false, &formField);
     formField.set_label(FormManager::LabelForElement(*formFieldElement));
 
     webkit_glue::FormData* form = new webkit_glue::FormData;
-    mFormManager->FindFormWithFormControlElement(*formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
+    mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = form;
 
     bool suggestions = mAutoFillManager->GetAutoFillSuggestions(mQueryId, false, formField);
@@ -159,7 +158,12 @@ void WebAutoFill::fillFormInPage(int queryId, const webkit_glue::FormData& form)
     if (!enabled())
         return;
 
-    mFormManager->FillForm(form);
+    // FIXME: Pass a pointer to the Node that triggered the AutoFill flow here instead of 0.
+    // The consquence of passing 0 is that we should always fail the test in FormManader::ForEachMathcingFormField():169
+    // that says "only overwrite an elements current value if the user triggered autofill through that element"
+    // for elements that have a value already. But by a quirk of Android text views we are OK. We should still
+    // fix this though.
+    mFormManager->FillForm(form, 0);
 }
 
 bool WebAutoFill::enabled() const
