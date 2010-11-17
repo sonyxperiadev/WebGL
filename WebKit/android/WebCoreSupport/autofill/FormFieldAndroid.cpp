@@ -28,45 +28,66 @@
 #include "FormFieldAndroid.h"
 
 #include "ChromiumIncludes.h"
+#include "Element.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLNames.h"
+#include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
+#include "StringUtils.h"
+#include <wtf/Vector.h>
 
-// TODO: This file is taken from chromium/webkit/glue/form_field.h and
+using WebCore::Element;
+using WebCore::HTMLFormControlElement;
+using WebCore::HTMLInputElement;
+using WebCore::HTMLOptionElement;
+using WebCore::HTMLSelectElement;
+
+using namespace WebCore::HTMLNames;
+
+// TODO: This file is taken from chromium/webkit/glue/form_field.cc and
 // customised to use WebCore types rather than WebKit API types. It would
 // be nice and would ease future merge pain if the two could be combined.
 
 namespace webkit_glue {
+
 FormField::FormField()
     : size_(0) {
 }
 
-FormField::FormField(WebCore::HTMLFormControlElement& element)
+// TODO: This constructor should probably be deprecated and the
+// functionality moved to FormManager.
+FormField::FormField(const HTMLFormControlElement& element)
     : size_(0) {
-    name_ = string16(element.name().characters());
+    name_ = nameForAutoFill(element);
 
     // TODO: Extract the field label.  For now we just use the field
     // name.
     label_ = name_;
 
-    form_control_type_ = string16(element.type().characters());
-    if (form_control_type_ == ASCIIToUTF16("text")) {
-        WebCore::HTMLInputElement* input_element = static_cast<WebCore::HTMLInputElement*>(&element);
-        value_ = string16(input_element->value().characters());
-        size_ = input_element->size();
-    } else if (form_control_type_ == ASCIIToUTF16("select-one")) {
-        WebCore::HTMLSelectElement* select_element = static_cast<WebCore::HTMLSelectElement*>(&element);
-        value_ = string16(select_element->value().characters());
+    form_control_type_ = formControlType(element);
+    if (form_control_type_ == kText) {
+        const HTMLInputElement& input_element = static_cast<const HTMLInputElement&>(element);
+        value_ = WTFStringToString16(input_element.value());
+        size_ = input_element.size();
+    } else if (form_control_type_ == kSelectOne) {
+        const HTMLSelectElement& const_select_element = static_cast<const HTMLSelectElement&>(element);
+        HTMLSelectElement& select_element = const_cast<HTMLSelectElement&>(const_select_element);
+        value_ = WTFStringToString16(select_element.value());
+
+        // For select-one elements copy option strings.
+        WTF::Vector<Element*> list_items = select_element.listItems();
+        option_strings_.reserve(list_items.size());
+        for (size_t i = 0; i < list_items.size(); ++i) {
+            if (list_items[i]->hasTagName(optionTag))
+                option_strings_.push_back(WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->value()));
+        }
     }
 
     TrimWhitespace(value_, TRIM_LEADING, &value_);
 }
 
-FormField::FormField(const string16& label,
-                     const string16& name,
-                     const string16& value,
-                     const string16& form_control_type,
-                     int size)
+FormField::FormField(const string16& label, const string16& name, const string16& value, const string16& form_control_type, int size)
     : label_(label),
       name_(name),
       value_(value),
@@ -74,7 +95,41 @@ FormField::FormField(const string16& label,
       size_(size) {
 }
 
+FormField::~FormField() {
+}
+
+bool FormField::operator==(const FormField& field) const {
+    // A FormField stores a value, but the value is not part of the identity of
+    // the field, so we don't want to compare the values.
+    return (label_ == field.label_ &&
+            name_ == field.name_ &&
+            form_control_type_ == field.form_control_type_ &&
+            size_ == field.size_);
+}
+
 bool FormField::operator!=(const FormField& field) const {
     return !operator==(field);
 }
+
+bool FormField::StrictlyEqualsHack(const FormField& field) const {
+    return (label_ == field.label_ &&
+            name_ == field.name_ &&
+            value_ == field.value_ &&
+            form_control_type_ == field.form_control_type_ &&
+            size_ == field.size_);
+}
+
+std::ostream& operator<<(std::ostream& os, const FormField& field) {
+    return os
+            << UTF16ToUTF8(field.label())
+            << " "
+            << UTF16ToUTF8(field.name())
+            << " "
+            << UTF16ToUTF8(field.value())
+            << " "
+            << UTF16ToUTF8(field.form_control_type())
+            << " "
+            << field.size();
+}
+
 }  // namespace webkit_glue
