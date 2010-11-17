@@ -292,11 +292,11 @@ public:
     }
 };
 
-class LayerAndroidFindState {
+class LayerAndroid::FindState {
 public:
     static const int TOUCH_SLOP = 10;
 
-    LayerAndroidFindState(int x, int y)
+    FindState(int x, int y)
         : m_x(x)
         , m_y(y)
         , m_best(0)
@@ -332,7 +332,7 @@ protected:
     FindCanvas m_checker;
 };
 
-void LayerAndroid::findInner(LayerAndroidFindState& state) const
+void LayerAndroid::findInner(LayerAndroid::FindState& state) const
 {
     int x = state.x();
     int y = state.y();
@@ -353,7 +353,7 @@ void LayerAndroid::findInner(LayerAndroidFindState& state) const
 
 const LayerAndroid* LayerAndroid::find(int x, int y, SkPicture* root) const
 {
-    LayerAndroidFindState state(x, y);
+    FindState state(x, y);
     SkRect rootBounds;
     rootBounds.setEmpty();
     if (root && state.drew(root, rootBounds) && state.drewText())
