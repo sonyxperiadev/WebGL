@@ -291,6 +291,7 @@ inline string16 getStringFieldAsString16(JNIEnv* env, jobject autoFillProfile, j
 
 void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webAutoFill)
 {
+    // FIXME: id is deprecated.
     int id = env->GetIntField(autoFillProfile, gFieldIds->mAutoFillProfileUniqueId);
     string16 fullName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileFullName);
     string16 emailAddress = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress);
@@ -303,7 +304,7 @@ void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webA
     string16 country = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCountry);
     string16 phoneNumber = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfilePhoneNumber);
 
-    webAutoFill->setProfile(id, fullName, emailAddress, companyName, addressLine1, addressLine2, city, state, zipCode, country, phoneNumber);
+    webAutoFill->setProfile(fullName, emailAddress, companyName, addressLine1, addressLine2, city, state, zipCode, country, phoneNumber);
 }
 #endif
 
