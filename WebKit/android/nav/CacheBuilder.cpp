@@ -1303,11 +1303,18 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 static_cast<RenderTextControl*>(nodeRenderer);
             if (isFocus)
                 cachedRoot->setSelection(renderText->selectionStart(), renderText->selectionEnd());
-            // FIXME: Would it be better to use (float) size()?
             // FIXME: Are we sure there will always be a style and font, and it's correct?
             RenderStyle* style = nodeRenderer->style();
             if (style) {
                 isUnclipped |= !style->hasAppearance();
+                int lineHeight = -1;
+                Length lineHeightLength = style->lineHeight();
+                // If the lineHeight is negative, WebTextView will calculate it
+                // based on the text size, using the Paint.
+                // See RenderStyle.computedLineHeight.
+                if (lineHeightLength.isPositive())
+                    lineHeight = style->computedLineHeight();
+                cachedInput.setLineHeight(lineHeight);
                 cachedInput.setTextSize(style->font().size());
                 cachedInput.setIsRtlText(style->direction() == RTL
                         || style->textAlign() == WebCore::RIGHT

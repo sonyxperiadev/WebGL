@@ -58,6 +58,7 @@ public:
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
     bool isTextArea() const { return mIsTextArea; }
+    int lineHeight() const { return mLineHeight; }
     int maxLength() const { return mMaxLength; };
     const WTF::String& name() const { return mName; }
     int paddingBottom() const { return mPaddingBottom; }
@@ -68,6 +69,7 @@ public:
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
     void setIsTextArea(bool isTextArea) { mIsTextArea = isTextArea; }
+    void setLineHeight(int height) { mLineHeight = height; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WTF::String& name) { mName = name; }
     void setPaddingBottom(int bottom) { mPaddingBottom = bottom; }
@@ -80,8 +82,9 @@ public:
 private:
 
     void* mForm;
-    WTF::String mName;
+    int mLineHeight;
     int mMaxLength;
+    WTF::String mName;
     int mPaddingBottom;
     int mPaddingLeft;
     int mPaddingRight;
