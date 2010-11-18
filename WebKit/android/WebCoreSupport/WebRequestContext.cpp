@@ -150,7 +150,7 @@ WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilena
     FilePath cachePath(cacheString.c_str());
 
     WebRequestContext* context = new WebRequestContext();
-    context->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0);
+    context->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
     // Todo: check if the context takes ownership of the cache
