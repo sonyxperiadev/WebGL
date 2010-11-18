@@ -198,6 +198,8 @@ private:
     WTF::Vector<MatchInfo>* mMatches;
     const UChar*            mLowerText;
     const UChar*            mUpperText;
+    Vector<UChar>           mLowerReversed;
+    Vector<UChar>           mUpperReversed;
     size_t                  mLength;
     FindBounder             mBounder;
     int                     mNumFound;

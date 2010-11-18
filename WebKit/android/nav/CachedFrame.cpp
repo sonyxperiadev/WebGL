@@ -918,7 +918,7 @@ const CachedNode* CachedFrame::frameUp(const CachedNode* test,
     return bestData->mNode;
 }
 
-const CachedFrame* CachedFrame::hasFrame(const CachedNode* node) const
+CachedFrame* CachedFrame::hasFrame(const CachedNode* node)
 {
     return node->isFrame() ? &mCachedFrames[node->childFrameIndex()] : NULL;
 }

@@ -29,9 +29,11 @@
 #include "FindCanvas.h"
 #include "LayerAndroid.h"
 #include "IntRect.h"
+#include "SelectText.h"
 #include "SkBlurMaskFilter.h"
 #include "SkCornerPathEffect.h"
 #include "SkRect.h"
+#include "SkUtils.h"
 
 #include <utils/Log.h>
 
@@ -125,6 +127,27 @@ FindCanvas::FindCanvas(int width, int height, const UChar* lower,
         , mUpperText(upper)
         , mLength(byteLength)
         , mNumFound(0) {
+    // the text has been provided in read order. Reverse as needed so the
+    // result contains left-to-right characters.
+    const uint16_t* start = mLowerText;
+    size_t count = byteLength >> 1;
+    const uint16_t* end = mLowerText + count;
+    while (start < end) {
+        SkUnichar ch = SkUTF16_NextUnichar(&start);
+        WTF::Unicode::Direction charDirection = WTF::Unicode::direction(ch);
+        if (WTF::Unicode::RightToLeftArabic == charDirection
+                || WTF::Unicode::RightToLeft == charDirection) {
+            mLowerReversed.clear();
+            mLowerReversed.append(mLowerText, count);
+            WebCore::ReverseBidi(mLowerReversed.begin(), count);
+            mLowerText = mLowerReversed.begin();
+            mUpperReversed.clear();
+            mUpperReversed.append(mUpperText, count);
+            WebCore::ReverseBidi(mUpperReversed.begin(), count);
+            mUpperText = mUpperReversed.begin();
+            break;
+        }
+    }
 
     setBounder(&mBounder);
     mOutset = -SkIntToScalar(INTEGER_OUTSET);
