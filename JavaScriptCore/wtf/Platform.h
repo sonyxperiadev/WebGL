@@ -526,6 +526,7 @@
 #define WTF_PLATFORM_CI 1
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 1
+#define WTF_USE_ICCJPEG 1
 #else
 #define WTF_PLATFORM_SKIA 1
 #endif
@@ -814,7 +815,7 @@
 /* ENABLE macro defaults */
 
 #if PLATFORM(QT)
-// We must not customize the global operator new and delete for the Qt port.
+/* We must not customize the global operator new and delete for the Qt port. */
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
 #endif
 

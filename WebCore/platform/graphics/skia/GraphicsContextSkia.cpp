@@ -420,20 +420,6 @@ void GraphicsContext::clipOut(const Path& p)
     platformContext()->canvas()->clipPath(path, SkRegion::kDifference_Op);
 }
 
-void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    SkRect oval(rect);
-    if (!isRectSkiaSafe(getCTM(), oval))
-        return;
-
-    SkPath path;
-    path.addOval(oval, SkPath::kCCW_Direction);
-    platformContext()->canvas()->clipPath(path, SkRegion::kDifference_Op);
-}
-
 void GraphicsContext::clipPath(WindRule clipRule)
 {
     if (paintingDisabled())
@@ -944,6 +930,11 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         platformContext()->gpuCanvas()->setCompositeOperation(op);
 
     platformContext()->setXfermodeMode(WebCoreCompositeToSkiaComposite(op));
+}
+
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    return platformContext()->interpolationQuality();
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality q)

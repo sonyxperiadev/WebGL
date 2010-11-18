@@ -30,7 +30,7 @@
 
 #include "Arena.h"
 #include "BackForwardList.h"
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ChromiumLogging.h"

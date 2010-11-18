@@ -48,7 +48,7 @@ WebInspector.ConsoleView = function(drawer)
     this.promptElement.className = "source-code";
     this.promptElement.addEventListener("keydown", this._promptKeyDown.bind(this), true);
     this.prompt = new WebInspector.TextPrompt(this.promptElement, this.completions.bind(this), ExpressionStopCharacters + ".");
-    this.prompt.history = WebInspector.applicationSettings.consoleHistory;
+    this.prompt.history = WebInspector.settings.consoleHistory;
 
     this.topGroup = new WebInspector.ConsoleGroup(null, 0);
     this.messagesElement.insertBefore(this.topGroup.element, this.promptElement);
@@ -218,18 +218,7 @@ WebInspector.ConsoleView.prototype = {
     {
         if (msg instanceof WebInspector.ConsoleMessage && !(msg instanceof WebInspector.ConsoleCommandResult)) {
             this._incrementErrorWarningCount(msg);
-
-            // Add message to the resource panel
-            if (!Preferences.networkPanelEnabled) {
-                var resource = WebInspector.resourceForURL(msg.url);
-                if (resource) {
-                    msg.resource = resource;
-                    if (WebInspector.panels.resources)
-                        WebInspector.panels.resources.addMessageToResource(msg.resource, msg);
-                }
-            } else
-                WebInspector.resourceManager.addConsoleMessage(msg);
-
+            WebInspector.resourceManager.addConsoleMessage(msg);
             this.commandSincePreviousMessage = false;
             this.previousMessage = msg;
         } else if (msg instanceof WebInspector.ConsoleCommand) {
@@ -300,10 +289,7 @@ WebInspector.ConsoleView.prototype = {
 
     clearMessages: function()
     {
-        if (WebInspector.panels.resources)
-            WebInspector.panels.resources.clearMessages();
-        if (WebInspector.resourceManager)
-            WebInspector.resourceManager.clearConsoleMessages();
+        WebInspector.resourceManager.clearConsoleMessages();
 
         this.messages = [];
 
@@ -522,7 +508,7 @@ WebInspector.ConsoleView.prototype = {
 
     _enterKeyPressed: function(event)
     {
-        if (event.altKey || event.ctrlKey)
+        if (event.altKey || event.ctrlKey || event.shiftKey)
             return;
 
         event.preventDefault();
@@ -544,7 +530,7 @@ WebInspector.ConsoleView.prototype = {
             self.prompt.historyOffset = 0;
             self.prompt.text = "";
 
-            WebInspector.applicationSettings.consoleHistory = self.prompt.history.slice(-30);
+            WebInspector.settings.consoleHistory = self.prompt.history.slice(-30);
 
             self.addMessage(new WebInspector.ConsoleCommandResult(result, commandMessage));
         }

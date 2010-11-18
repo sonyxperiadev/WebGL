@@ -26,7 +26,10 @@
 #include "SVGAngle.h"
 #include "SVGLength.h"
 #include "SVGLengthList.h"
+#include "SVGNumberList.h"
+#include "SVGPointList.h"
 #include "SVGPreserveAspectRatio.h"
+#include "SVGStringList.h"
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -79,6 +82,14 @@ struct SVGPropertyTraits<float> {
 };
 
 template<>
+struct SVGPropertyTraits<SVGNumberList> {
+    typedef float ListItemType;
+
+    static SVGNumberList initialValue() { return SVGNumberList(); }
+    static String toString(const SVGNumberList& type) { return type.valueAsString(); }
+};
+
+template<>
 struct SVGPropertyTraits<SVGPreserveAspectRatio> {
     static SVGPreserveAspectRatio initialValue() { return SVGPreserveAspectRatio(); }
     static String toString(const SVGPreserveAspectRatio& type) { return type.valueAsString(); }
@@ -106,6 +117,17 @@ template<>
 struct SVGPropertyTraits<String> {
     static String initialValue() { return String(); }
     static String toString(const String& type) { return type; }
+};
+
+template<>
+struct SVGPropertyTraits<SVGStringList> {
+    typedef String ListItemType;
+};
+
+template<>
+struct SVGPropertyTraits<SVGPointList> {
+    static SVGPointList initialValue() { return SVGPointList(); }
+    typedef FloatPoint ListItemType;
 };
 
 }

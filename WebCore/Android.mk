@@ -217,6 +217,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/DeleteFromTextNodeCommand.cpp \
 	editing/DeleteSelectionCommand.cpp \
 	editing/EditCommand.cpp \
+	editing/EditingStyle.cpp \
 	editing/Editor.cpp \
 	editing/EditorCommand.cpp \
 	editing/FormatBlockCommand.cpp \
@@ -314,6 +315,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
+	html/HTMLOutputElement.cpp \
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLTableRowsCollection.cpp \
 	html/HTMLViewSourceDocument.cpp \
@@ -343,6 +345,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/TimeInputType.cpp \
 	html/TimeRanges.cpp \
 	html/URLInputType.cpp \
+	html/ValidationMessage.cpp \
 	html/ValidityState.cpp \
 	html/WeekInputType.cpp \
 	\
@@ -379,17 +382,21 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/TextDocumentParser.cpp \
 	html/parser/TextViewSourceParser.cpp \
 	\
-	loader/Cache.cpp \
-	loader/CachedCSSStyleSheet.cpp \
-	loader/CachedFont.cpp \
-	loader/CachedImage.cpp \
-	loader/CachedResource.cpp \
-	loader/CachedResourceClientWalker.cpp \
-	loader/CachedResourceHandle.cpp \
-	loader/CachedScript.cpp \
+	inspector/InspectorFileSystemAgent.cpp \
+	inspector/ScriptArguments.cpp \
+	inspector/ScriptCallFrame.cpp \
+	inspector/ScriptCallStack.cpp \
+	\
+	loader/cache/CachedCSSStyleSheet.cpp \
+	loader/cache/CachedFont.cpp \
+	loader/cache/CachedImage.cpp \
+	loader/cache/CachedResource.cpp \
+	loader/cache/CachedResourceClientWalker.cpp \
+	loader/cache/CachedResourceHandle.cpp \
+	loader/cache/CachedScript.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
-	loader/CachedResourceLoader.cpp \
+	loader/cache/CachedResourceLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
 	loader/DocumentWriter.cpp \
@@ -424,6 +431,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/appcache/ApplicationCacheStorage.cpp \
 	loader/appcache/DOMApplicationCache.cpp \
 	loader/appcache/ManifestParser.cpp \
+	\
+	loader/cache/MemoryCache.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconLoader.cpp \
@@ -529,6 +538,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/GeolocationServiceAndroid.cpp \
 	platform/android/GeolocationServiceBridge.cpp \
 	platform/android/KeyEventAndroid.cpp \
+	platform/android/LanguageAndroid.cpp \
 	platform/android/LocalizedStringsAndroid.cpp \
 	platform/android/PlatformTouchEventAndroid.cpp \
 	platform/android/PlatformTouchPointAndroid.cpp \
@@ -970,7 +980,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGAnimateMotionElement.cpp \
 	svg/SVGAnimateTransformElement.cpp \
 	svg/SVGAnimatedPathData.cpp \
-	svg/SVGAnimatedPoints.cpp \
 	svg/SVGAnimationElement.cpp \
 	svg/SVGCircleElement.cpp \
 	svg/SVGClipPathElement.cpp \
@@ -1141,6 +1150,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 # For XPath
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	xml/NativeXPathNSResolver.cpp \
 	xml/XPathEvaluator.cpp \
 	xml/XPathExpression.cpp \
 	xml/XPathExpressionNode.cpp \
@@ -1155,19 +1165,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XPathStep.cpp \
 	xml/XPathUtil.cpp \
 	xml/XPathValue.cpp \
-	xml/XPathVariableReference.cpp \
-	xml/NativeXPathNSResolver.cpp
+	xml/XPathVariableReference.cpp
 
 # For XSLT
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	loader/cache/CachedXSLStyleSheet.cpp \
+	dom/TransformSourceLibxslt.cpp \
+	xml/XSLImportRule.cpp \
+	xml/XSLStyleSheetLibxslt.cpp \
 	xml/XSLTExtensions.cpp \
 	xml/XSLTProcessorLibxslt.cpp \
 	xml/XSLTProcessor.cpp \
-	xml/XSLTUnicodeSort.cpp \
-	xml/XSLStyleSheetLibxslt.cpp \
-	xml/XSLImportRule.cpp \
-	loader/CachedXSLStyleSheet.cpp \
-	dom/TransformSourceLibxslt.cpp
+	xml/XSLTUnicodeSort.cpp
 
 # For Archive
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

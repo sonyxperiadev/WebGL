@@ -1434,6 +1434,9 @@ void RenderBox::computeRectForRepaint(RenderBoxModelObject* repaintContainer, In
         return;
     }
     
+    if (o->isBox())
+        toRenderBox(o)->flipForWritingMode(rect);
+    
     o->computeRectForRepaint(repaintContainer, rect, fixed);
 }
 
@@ -3253,40 +3256,64 @@ int RenderBox::baselinePosition(bool /*firstLine*/, LineDirectionMode direction,
     return 0;
 }
 
-void RenderBox::blockDirectionOverflow(bool isLineVertical, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
+void RenderBox::blockDirectionOverflow(bool isLineHorizontal, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
                                        int& logicalTopVisualOverflow, int& logicalBottomVisualOverflow)
 {
-    if (isLineVertical) {
-        logicalTopLayoutOverflow = leftLayoutOverflow();
-        logicalBottomLayoutOverflow = rightLayoutOverflow();
-        logicalTopVisualOverflow = leftVisualOverflow();
-        logicalBottomVisualOverflow = rightVisualOverflow();
-    } else {
+    if (isLineHorizontal) {
         logicalTopLayoutOverflow = topLayoutOverflow();
         logicalBottomLayoutOverflow = bottomLayoutOverflow();
         logicalTopVisualOverflow = topVisualOverflow();
         logicalBottomVisualOverflow = bottomVisualOverflow();
-    }
+    } else {
+        logicalTopLayoutOverflow = leftLayoutOverflow();
+        logicalBottomLayoutOverflow = rightLayoutOverflow();
+        logicalTopVisualOverflow = leftVisualOverflow();
+        logicalBottomVisualOverflow = rightVisualOverflow();
+    } 
 }
 
-void RenderBox::adjustForFlippedBlocksWritingMode(RenderBox* child, IntPoint& point, FlippingAdjustment adjustment)
+IntPoint RenderBox::flipForWritingMode(RenderBox* child, const IntPoint& point, FlippingAdjustment adjustment)
 {
     if (!style()->isFlippedBlocksWritingMode())
-        return;
+        return point;
     
     // The child is going to add in its x() and y(), so we have to make sure it ends up in
     // the right place.
     if (style()->isHorizontalWritingMode())
-        point.move(0, height() - child->height() - child->y() - (adjustment == ParentToChildFlippingAdjustment ? child->y() : 0));
-    else
-        point.move(width() - child->width() - child->x() - (adjustment == ParentToChildFlippingAdjustment ? child->x() : 0), 0);
+        return IntPoint(point.x(), point.y() + height() - child->height() - child->y() - (adjustment == ParentToChildFlippingAdjustment ? child->y() : 0));
+    return IntPoint(point.x() + width() - child->width() - child->x() - (adjustment == ParentToChildFlippingAdjustment ? child->x() : 0), point.y());
 }
 
-int RenderBox::convertFromFlippedWritingMode(int logicalPosition)
+void RenderBox::flipForWritingMode(IntRect& rect)
 {
     if (!style()->isFlippedBlocksWritingMode())
-        return logicalPosition;
-    return logicalHeight() - logicalPosition;
+        return;
+
+    if (style()->isHorizontalWritingMode())
+        rect.setY(height() - rect.bottom());
+    else
+        rect.setX(width() - rect.right());
+}
+
+int RenderBox::flipForWritingMode(int position)
+{
+    if (!style()->isFlippedBlocksWritingMode())
+        return position;
+    return logicalHeight() - position;
+}
+
+IntPoint RenderBox::flipForWritingMode(const IntPoint& position)
+{
+    if (!style()->isFlippedBlocksWritingMode())
+        return position;
+    return style()->isHorizontalWritingMode() ? IntPoint(position.x(), height() - position.y()) : IntPoint(width() - position.x(), position.y());
+}
+
+IntSize RenderBox::flipForWritingMode(const IntSize& offset)
+{
+    if (!style()->isFlippedBlocksWritingMode())
+        return offset;
+    return style()->isHorizontalWritingMode() ? IntSize(offset.width(), height() - offset.height()) : IntSize(width() - offset.width(), offset.height());
 }
 
 IntSize RenderBox::locationOffsetIncludingFlipping()
@@ -3295,8 +3322,7 @@ IntSize RenderBox::locationOffsetIncludingFlipping()
         return locationOffset();
     
     RenderBox* parent = parentBox();
-    IntPoint localPoint(x(), y());
-    parent->adjustForFlippedBlocksWritingMode(this, localPoint, ChildToParentFlippingAdjustment);
+    IntPoint localPoint = parent->flipForWritingMode(this, location(), ChildToParentFlippingAdjustment);
     return IntSize(localPoint.x(), localPoint.y());
 }
 

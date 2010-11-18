@@ -1,3 +1,313 @@
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48685
+        Notify UI process about focused frame
+
+        Added an empty implementation of the new ChromeClient method.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::focusedNodeChanged): Removed unneeded namespace prefix.
+        (WebCore::ChromeClientQt::focusedFrameChanged):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2010-11-08  Noam Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Texmap] [Qt] Texture mapper initial implementation
+        https://bugs.webkit.org/show_bug.cgi?id=47070
+
+        Reorganized the textureMapper to be a member of QWebFramePrivate, to help with making
+        TextureMapper thread-safe.
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderCompositedLayers):
+        * Api/qwebframe_p.h:
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PlatformLayerProxyQt::setTextureMapper):
+        (WebCore::PlatformLayerProxyQt::textureMapper):
+        (WebCore::PlatformLayerProxyQWidget::PlatformLayerProxyQWidget):
+        (WebCore::PlatformLayerProxyQGraphicsObject::PlatformLayerProxyQGraphicsObject):
+
+2010-11-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename Cache to MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=49159
+
+        * Api/qwebpage.cpp:
+        * Api/qwebsettings.cpp:
+
+2010-11-07  Chang Shu  <chang.shu@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        Add a helper function to avoid duplicated code.
+        https://bugs.webkit.org/show_bug.cgi?id=49085
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-11-05  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Move resumeAnimations/suspendAnimations from Frame to AnimationController.
+        https://bugs.webkit.org/show_bug.cgi?id=49073
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::suspendAnimations):
+        (DumpRenderTreeSupportQt::resumeAnimations):
+
+2010-11-03  Antonio Gomes  <tonikitoo@webkit.org>, Andre Pedralho  <andre.pedralho@gmail.com>
+
+        Reviewed by Kenneth Rohde Christiansen and Antti Koivisto.
+
+        [Qt] Making effective use of nodesFromRect.
+        https://bugs.webkit.org/show_bug.cgi?id=44089
+
+        Patch adds a helper class (named TouchAdjuster) to improve tap actions
+        on mobile touch devices. TouchAdjuster makes use of the newly added rect
+        based hit test extension through the Document::nodesFromRect method.
+        Given a rectangle as input, nodesFromRect returns a z-index ordered list
+        of nodes whose boundaries intersect the rectangle.
+
+        Basically the TouchAdjuster class intercepts the QGraphicsSceneMouseEvent
+        passed to both QWebPagePrivate::mouse{Press,Release}Event methods before
+        they are passed down to WebCore. The goal is to infer the target click position.
+        For that, a rectangle is built up using the event position as a center point and
+        expanding it based on the values and directions set in the Platform Plugin
+        QWebTouchModifier::hitTestPadding.
+
+        TouchAdjuster iterates over the list of nodes returned by nodesFromRect and
+        picks the clickable one that has the largest intersection area with the hit
+        test rectangle. The target position is then the center point of this intersection
+        area.
+
+        In case of no clickable node intersects the hit test area, the click position
+        is not altered.
+
+        TouchAdjuster is *only* working for QGraphicsWebView based views.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::mousePressEvent):
+        (QWebPagePrivate::mouseReleaseEvent):
+        (QWebPagePrivate::adjustPointForClicking):
+        (QWebPagePrivate::TouchAdjuster::TouchAdjuster):
+        (QWebPagePrivate::TouchAdjuster::findCandidatePointForTouch):
+        (isClickableElement):
+        (hasMouseListener):
+        (isValidFrameOwner):
+        (nodeToElement):
+        * Api/qwebpage_p.h:
+
+2010-10-20  Chang Shu  <chang.shu@nokia.com>, Antonio Gomes <tonikitoo@webkit.org>
+
+        Reviewed by Simon Fraser.
+
+        [Qt] Makes <input type=text> and <textarea> functional with
+        Spatial Navigation enabled. Before this patch, the focus cannot
+        move away from input box once it is in. This patch allows focus
+        move to neighbor nodes when the caret reaches the edge of the texts.
+        This patch does not support yet cases where the focused <input>
+        has a JS handler for the arrow keys.
+        https://bugs.webkit.org/show_bug.cgi?id=37153
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-11-04  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        Delegate scrolling via a separate method
+        https://bugs.webkit.org/show_bug.cgi?id=48988
+
+        Implement delegatedScrollRequested and make it emit the
+        scrollRequested signal for Qt.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::delegatedScrollRequested):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2010-11-04  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Clarify expected return values of innerXml(), outerXml()
+
+        If you put HTML in (e.g. using setHTML()) you will get HTML out,
+        even if you marked it up as XML.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44876
+
+        * Api/qwebelement.cpp:
+
+2010-11-03  Andre Pedralho  <andre.pedralho@gmail.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Using the Platform Plugin to define the default values for the padding of HitTestResult.
+        https://bugs.webkit.org/show_bug.cgi?id=48450
+
+        * Api/qwebkitplatformplugin.h:
+        (QWebTouchModifier::~QWebTouchModifier):
+        * WebCoreSupport/QtPlatformPlugin.cpp:
+        (WebCore::QtPlatformPlugin::createTouchModifier):
+        * WebCoreSupport/QtPlatformPlugin.h:
+        * examples/platformplugin/WebPlugin.cpp:
+        (WebPlugin::supportsExtension):
+        (WebPlugin::createExtension):
+        * examples/platformplugin/WebPlugin.h:
+        (TouchModifier::hitTestPaddingForTouch):
+        * examples/platformplugin/qwebkitplatformplugin.h:
+        (QWebTouchModifier::~QWebTouchModifier):
+
+2010-11-03  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QGWV: Keep the scrolling delegation intact when switching pages
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage): Turn on/off
+        scrolling delegation depending on the resizeToContents mode.
+        (QGraphicsWebViewPrivate::detachCurrentPage): Turn off scrolling delegation.
+        (QGraphicsWebView::setResizesToContents):
+
+2010-11-03  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Make it possible to delegate scrolling to the UI
+        https://bugs.webkit.org/show_bug.cgi?id=48907
+
+        Enable scrolling delegation when setResizesToContents is active.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::setResizesToContents):
+
+2010-11-03  Daniel Bates  <dbates@rim.com>
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Part 1 of 2.
+
+        Substitute FrameTree::uniqueName() for FrameTree::name() in the Qt port.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::frameName):
+
+2010-11-02  Noam Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Some refactor for texmap to enable WebKit2: remove globals, and allow TextureMapper to exist without a GraphicsContext.
+        This will allow rendering the TextureMapperNode tree without an active QPainter, into the current GL context.
+        Most of the changes simply move the globas in TextureMapperGL into members of that class.
+
+        [Texmap] [Qt] Texture mapper initial implementation
+        https://bugs.webkit.org/show_bug.cgi?id=47070
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderFromTiledBackingStore):
+        (QWebFramePrivate::renderCompositedLayers):
+        (QWebFramePrivate::renderRelativeCoords):
+        * Api/qwebframe_p.h:
+
+2010-11-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7660547> and https://bugs.webkit.org/show_bug.cgi?id=48699
+        Context menu support for WebKit 2.
+
+        * WebCoreSupport/ChromeClientQt.h:
+        (WebCore::ChromeClientQt::showContextMenu):
+
+2010-10-31  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Support nodesFromRect in DRT
+
+        https://bugs.webkit.org/show_bug.cgi?id=48716
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::nodesFromRect):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-10-31  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Short-circuit QWebPage::selectedText() if frame has no selection
+        https://bugs.webkit.org/show_bug.cgi?id=48736
+
+        Do an early return if the selection is empty.
+
+        No new tests, this is covered by tst_QWebPage::findText().
+
+        * Api/qwebpage.cpp:
+        (QWebPage::selectedText):
+
+2010-10-30  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] IM: Don't manipulate selection via RenderTextControl
+        https://bugs.webkit.org/show_bug.cgi?id=48700
+
+        Go directly through the Frame's SelectionController instead.
+
+        No new tests, this is covered by tst_QWebPage::inputMethods.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        (QWebPage::inputMethodQuery):
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        No review, rolling out 70971.
+        http://trac.webkit.org/changeset/70971
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Rolling out changeset 70971 <http://trac.webkit.org/changeset/70971> since
+        it caused layout test failures on all bots. In particular, the
+        child count in a generated frame name differs after this patch. We need
+        to look into this further.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::frameName):
+
+2010-10-28  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ojan Vafai.
+
+        Needs a "LinuxEditingBehavior", perhaps with a better name
+        https://bugs.webkit.org/show_bug.cgi?id=36627
+
+        Adding support to Qt's DRTSupport class to test the newly introduced Unix editing behavior.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setEditingBehavior):
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Modified Qt-port to use FrameTree::uniqueName().
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::frameName):
+
 2010-10-29  Andreas Kling  <kling@webkit.org>
 
         Reviewed by Ariya Hidayat.

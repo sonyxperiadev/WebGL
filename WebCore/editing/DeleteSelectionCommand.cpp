@@ -26,25 +26,18 @@
 #include "config.h"
 #include "DeleteSelectionCommand.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
 #include "EditorClient.h"
 #include "Element.h"
 #include "Frame.h"
-#include "Logging.h"
-#include "CSSComputedStyleDeclaration.h"
 #include "htmlediting.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "markup.h"
 #include "RenderTableCell.h"
-#include "ReplaceSelectionCommand.h"
 #include "Text.h"
-#include "TextIterator.h"
 #include "visible_units.h"
-#include "ApplyStyleCommand.h"
 
 namespace WebCore {
 
@@ -272,15 +265,6 @@ void DeleteSelectionCommand::initializePositionData()
     m_endBlock = enclosingNodeOfType(rangeCompliantEquivalent(m_upstreamEnd), &isBlock, false);
 }
 
-static void removeEnclosingAnchorStyle(CSSMutableStyleDeclaration* style, const Position& position)
-{
-    Node* enclosingAnchor = enclosingAnchorElement(position);
-    if (!enclosingAnchor || !enclosingAnchor->parentNode())
-        return;
-    
-    removeStylesAddedByNode(style, enclosingAnchor);
-}
-
 void DeleteSelectionCommand::saveTypingStyleState()
 {
     // A common case is deleting characters that are all from the same text node. In 
@@ -294,14 +278,13 @@ void DeleteSelectionCommand::saveTypingStyleState()
         return;
 
     // Figure out the typing style in effect before the delete is done.
-    m_typingStyle = ApplyStyleCommand::editingStyleAtPosition(positionBeforeTabSpan(m_selectionToDelete.start()));
-
-    removeEnclosingAnchorStyle(m_typingStyle.get(), m_selectionToDelete.start());
+    m_typingStyle = EditingStyle::create(positionBeforeTabSpan(m_selectionToDelete.start()));
+    m_typingStyle->removeStyleAddedByNode(enclosingAnchorElement(m_selectionToDelete.start()));
 
     // If we're deleting into a Mail blockquote, save the style at end() instead of start()
     // We'll use this later in computeTypingStyleAfterDelete if we end up outside of a Mail blockquote
     if (nearestMailBlockquote(m_selectionToDelete.start().node()))
-        m_deleteIntoBlockquoteStyle = ApplyStyleCommand::editingStyleAtPosition(m_selectionToDelete.end());
+        m_deleteIntoBlockquoteStyle = EditingStyle::create(m_selectionToDelete.end());
     else
         m_deleteIntoBlockquoteStyle = 0;
 }
@@ -693,8 +676,8 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
         m_typingStyle = m_deleteIntoBlockquoteStyle;
     m_deleteIntoBlockquoteStyle = 0;
 
-    prepareEditingStyleToApplyAt(m_typingStyle.get(), m_endingPosition);
-    if (!m_typingStyle->length())
+    m_typingStyle->prepareToApplyAt(m_endingPosition);
+    if (m_typingStyle->isEmpty())
         m_typingStyle = 0;
     VisiblePosition visibleEnd(m_endingPosition);
     if (m_typingStyle && 
@@ -707,7 +690,7 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
         // then move it back (which will clear typing style).
 
         setEndingSelection(visibleEnd);
-        applyStyle(m_typingStyle.get(), EditActionUnspecified);
+        applyStyle(m_typingStyle->style(), EditActionUnspecified);
         // applyStyle can destroy the placeholder that was at m_endingPosition if it needs to 
         // move it, but it will set an endingSelection() at [movedPlaceholder, 0] if it does so.
         m_endingPosition = endingSelection().start();

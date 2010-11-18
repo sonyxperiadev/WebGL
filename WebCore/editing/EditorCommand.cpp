@@ -618,8 +618,7 @@ static bool executeMoveBackwardAndModifySelection(Frame* frame, Event*, EditorCo
 
 static bool executeMoveDown(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionForward, LineGranularity, true);
-    return true;
+    return frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionForward, LineGranularity, true);
 }
 
 static bool executeMoveDownAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -642,8 +641,7 @@ static bool executeMoveForwardAndModifySelection(Frame* frame, Event*, EditorCom
 
 static bool executeMoveLeft(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionLeft, CharacterGranularity, true);
-    return true;
+    return frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionLeft, CharacterGranularity, true);
 }
 
 static bool executeMoveLeftAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -686,8 +684,7 @@ static bool executeMovePageUpAndModifySelection(Frame* frame, Event*, EditorComm
 
 static bool executeMoveRight(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionRight, CharacterGranularity, true);
-    return true;
+    return frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionRight, CharacterGranularity, true);
 }
 
 static bool executeMoveRightAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -806,8 +803,7 @@ static bool executeMoveParagraphForwardAndModifySelection(Frame* frame, Event*, 
 
 static bool executeMoveUp(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionBackward, LineGranularity, true);
-    return true;
+    return frame->selection()->modify(SelectionController::AlterationMove, SelectionController::DirectionBackward, LineGranularity, true);
 }
 
 static bool executeMoveUpAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -1074,7 +1070,7 @@ static bool executeYankAndSelect(Frame* frame, Event*, EditorCommandSource, cons
     return true;
 }
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if SUPPORT_AUTOCORRECTION_PANEL
 static bool executeCancelOperation(Frame* frame, Event*, EditorCommandSource, const String&)
 {
     frame->editor()->handleCancelOperation();
@@ -1124,7 +1120,7 @@ static bool supportedPaste(Frame* frame, EditorCommandSource source)
     return false;
 }
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if SUPPORT_AUTOCORRECTION_PANEL
 static bool supportedDismissCorrectionPanel(Frame* frame, EditorCommandSource source)
 {
     return supportedFromMenuOrKeyBinding(frame, source) && frame->editor()->isShowingCorrectionPanel();
@@ -1506,7 +1502,7 @@ static const CommandMap& createCommandMap()
         { "Unselect", { executeUnselect, supported, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Yank", { executeYank, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "YankAndSelect", { executeYankAndSelect, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if SUPPORT_AUTOCORRECTION_PANEL
         { "CancelOperation", { executeCancelOperation, supportedDismissCorrectionPanel, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
 #endif
     };

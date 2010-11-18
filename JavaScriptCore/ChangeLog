@@ -1,3 +1,229 @@
+2010-11-08  Adam Roben  <aroben@apple.com>
+
+        Roll out r71532
+
+        It broke the build for Cygwin 1.7 installs. Cygwin 1.7's default
+        .bashrc unsets %TEMP%, which broke copy-tools.cmd.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj:
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-tools.cmd: Removed.
+        * JavaScriptCore.vcproj/JavaScriptCore/show-alert.js: Removed.
+
+2010-11-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        >=webkitgtk-1.2.5: parallel build fails with libtool: link: cannot find the library `libwebkit-1.0.la' or unhandled argument `libwebkit-1.0.la'
+        https://bugs.webkit.org/show_bug.cgi?id=49128
+
+        r59042 introduced a C++-style comment in Platform.h, which is often
+        included in C source files. Change it to a C-style comment.
+
+        * wtf/Platform.h: Fix the C++-style comment.
+
+2010-11-08  Adam Roben  <aroben@apple.com>
+
+        Show a message and cause the build to immediately fail when any
+        .vsprops files are copied
+
+        When $WebKitLibrariesDir is set to a non-standard location, the
+        .vsprops files have to be copied from WebKitLibraries/win to
+        $WebKitLibrariesDir. When this happens, Visual Studio doesn't pick up
+        changes to the .vsprops files until the next time it opens the solution
+        file. Before this patch, the build would soldier on with the old
+        .vsprops files, leading to strange build failures. Now we detect that
+        the .vsprops files have been updated, display a message to the user
+        telling them what to do, and make the build fail immediately.
+
+        Fixes <http://webkit.org/b/49181> Windows build fail mysteriously when
+        .vsprops files are updated
+
+        Reviewed by Steve Falkenburg.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+        Moved code to copy the tools directory to the new copy-tools.cmd
+        script. Moved that after the command that writes the buildfailed file
+        so the build will be considered a failure if copy-tools.cmd fails.
+        Changed to write the project name into buildfailed like all our other
+        projects do, so those other projects will know that the failure was due
+        to this project.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj:
+        Added new scripts.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-tools.cmd: Added. Copies
+        the tools directory to $WebKitLibrariesDir. If any files were copied,
+        we display a message to the user and exit with error code 1 to cause
+        the build to fail. In non-interactive builds, we just print the message
+        to the build log. In interactive builds, we show the message in an
+        alert.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/show-alert.js: Added. Uses
+        Windows Scripting Host to display a message in an alert.
+
+2010-11-07  Sam Magnuson  <smagnuson@netflix.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] make install does not cause JavaScriptCore to be built
+        https://bugs.webkit.org/show_bug.cgi?id=49114
+
+        * JavaScriptCore.pro:
+
+2010-11-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Website consistently crashing TOT in JIT::execute() on news.com.au
+        https://bugs.webkit.org/show_bug.cgi?id=48954
+
+        The problem here was the strict pass of this conversion was loading the
+        this structure into one register but doing the flags check off a different
+        register.  This is clearly wrong.  I have been unable to trigger the crash
+        with a reduction, but I've added an assertion to the this conversion to
+        attempt to make it more readily catchable in future.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_convert_this_strict):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_convert_this_strict):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+
+2010-11-04  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Adam Barth.
+
+        Use leakRef instead of releaseRef
+        https://bugs.webkit.org/show_bug.cgi?id=48974
+
+        Use leakRef instead of the deprecated releaseRef. This was renamed
+        some time ago because 'releaseRef' is too close to 'release',
+        which does something completely different.
+
+2010-11-04  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION(49798): Crash in HTMLObjectElement::parseMappedAttribute
+        https://bugs.webkit.org/show_bug.cgi?id=48789
+
+        The contract for all String/AtomicString methods seems to be that it's
+        safe to call them, even when the String is null (impl() returns 0).
+        This contract was broken by r49798 (unintentionally) when optimizing
+        for dromeo.
+        This patch adds a null check to AtomicString::lower() fixing this
+        crash and preventing future confusion.
+
+        * wtf/text/AtomicString.cpp:
+        (WTF::AtomicString::lower):
+
+2010-11-04  Adam Barth  <abarth@webkit.org>
+
+        Enabled ICCJPEG on Chromium Mac
+        https://bugs.webkit.org/show_bug.cgi?id=48977
+
+        * wtf/Platform.h:
+
+2010-11-03  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Crash in Function.prototype.call.apply
+        https://bugs.webkit.org/show_bug.cgi?id=48485
+
+        The problem here was op_load_varargs failing to ensure that
+        there was sufficient space for the entire callframe prior to
+        op_call_varargs.  This meant that when we then re-entered the
+        VM it was possible to stomp over an earlier portion of the
+        stack, so causing sub-optimal behaviour.
+
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitLoadVarargs):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ApplyFunctionCallDotNode::emitBytecode):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompile):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_load_varargs):
+
+2010-11-03  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Chris Marrin.
+
+        Redesign extension mechanism in GraphicsContext3D
+        https://bugs.webkit.org/show_bug.cgi?id=46894
+
+        * JavaScriptCore.exp:
+         - Exposed String::split(const String&, Vector<String>).
+
+2010-11-03  Adam Roben  <aroben@apple.com>
+
+        Bring WTF.vcproj up to date
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Added filters for the text and
+        unicode directories, added new files, removed old files.
+
+2010-11-03  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Remove unused initializeWeakRandomNumberGenerator
+        https://bugs.webkit.org/show_bug.cgi?id=48899
+
+        WeakRandom class is used instead of weakRandomNumber and its initializer.
+
+        * wtf/RandomNumberSeed.h:
+
+2010-11-03  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Unused class: JSFastMath with JSValue64
+        https://bugs.webkit.org/show_bug.cgi?id=48835
+
+        Remove unused JSFastMath class.
+
+        * runtime/JSImmediate.h:
+
+2010-11-02  Adam Roben  <aroben@apple.com>
+
+        Windows build fix after r71127
+
+        MSVC isn't smart enough to figure out that the definition of the global
+        nullptr variable isn't needed, so we provide one for it.
+
+        Fixes <http://webkit.org/b/48862> Windows build is broken due to
+        undefined symbol nullptr
+
+        Reviewed by Anders Carlsson.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Export nullptr.
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Added NullPtr.cpp and let VS
+        resort the files.
+
+        * wtf/NullPtr.cpp: Added.
+
+2010-11-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Remove special handling of HashTableDeletedValue in PlatformRefPtr and manually manage memory that cannot be controlled by HashTraits
+        https://bugs.webkit.org/show_bug.cgi?id=48841
+
+        Remove special handling of HashTableDeletedValue in PlatformRefPtr.
+        This is better handled on a case-by-case basis, when HashTraits
+        cannot account for it.
+
+        * wtf/PlatformRefPtr.h:
+        (WTF::PlatformRefPtr::~PlatformRefPtr):
+        (WTF::PlatformRefPtr::clear):
+        (WTF::::operator):
+
 2010-10-29  Oliver Hunt  <oliver@apple.com>
 
         Reviewed by Gavin Barraclough.
@@ -6259,7 +6485,7 @@
         once. Added a clear function.
 
         * wtf/PassRefPtr.h: Changed all uses of releaseRef to leakRef.
-
+n
         * wtf/RefPtr.h: Changed all uses of "template <...>" to instead do
         "template<...>". Tidied up declarations and comments a bit.
          Changed all uses of releaseRef to leakRef.

@@ -95,7 +95,7 @@ void InspectorProfilerAgent::addProfileFinishedMessageToConsole(PassRefPtr<Scrip
 
 void InspectorProfilerAgent::addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL)
 {
-    String message = makeString("Profile \"webkit-profile://", CPUProfileType, '/', encodeWithURLEscapeSequences(title), "#0 \" started.");
+    String message = makeString("Profile \"webkit-profile://", CPUProfileType, '/', encodeWithURLEscapeSequences(title), "#0\" started.");
     m_inspectorController->addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
 
@@ -197,6 +197,8 @@ void InspectorProfilerAgent::resetState()
 
 void InspectorProfilerAgent::startUserInitiatedProfiling()
 {
+    if (m_recordingUserInitiatedProfile)
+        return;
     if (!enabled()) {
         enable(false);
         ScriptDebugServer::shared().recompileAllJSFunctions();
@@ -213,8 +215,10 @@ void InspectorProfilerAgent::startUserInitiatedProfiling()
     toggleRecordButton(true);
 }
 
-void InspectorProfilerAgent::stopUserInitiatedProfiling()
+void InspectorProfilerAgent::stopUserInitiatedProfiling(bool ignoreProfile)
 {
+    if (!m_recordingUserInitiatedProfile)
+        return;
     m_recordingUserInitiatedProfile = false;
     String title = getCurrentUserInitiatedProfileName();
 #if USE(JSC)
@@ -225,8 +229,12 @@ void InspectorProfilerAgent::stopUserInitiatedProfiling()
     ScriptState* scriptState = 0;
 #endif
     RefPtr<ScriptProfile> profile = ScriptProfiler::stop(scriptState, title);
-    if (profile)
-        addProfile(profile, 0, String());
+    if (profile) {
+        if (!ignoreProfile)
+            addProfile(profile, 0, String());
+        else
+            addProfileFinishedMessageToConsole(profile, 0, String());
+    }
     toggleRecordButton(false);
 }
 

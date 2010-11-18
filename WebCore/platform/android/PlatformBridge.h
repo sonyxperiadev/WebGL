@@ -139,6 +139,8 @@ public:
 
     // Updates the layers on the UI
     static void updateLayers(FrameView* view);
+    // Language
+    static String computeDefaultLanguage();
 };
 
 }

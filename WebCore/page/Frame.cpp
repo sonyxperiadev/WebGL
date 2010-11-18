@@ -280,6 +280,7 @@ void Frame::setView(PassRefPtr<FrameView> view)
 
 void Frame::setDocument(PassRefPtr<Document> newDoc)
 {
+    ASSERT(!newDoc || newDoc->frame());
     if (m_doc && m_doc->attached() && !m_doc->inPageCache()) {
         // FIXME: We don't call willRemove here. Why is that OK?
         m_doc->detach();
@@ -506,6 +507,9 @@ void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
 {
     if (!m_page)
         return;
+
+    if (loader()->stateMachine()->creatingInitialEmptyDocument())
+        return;
     
     // Walk the hashtable. Inject by world.
     const UserScriptMap* userScripts = m_page->group().userScripts();
@@ -641,7 +645,7 @@ void Frame::clearTimers(FrameView *view, Document *document)
     if (view) {
         view->unscheduleRelayout();
         if (view->frame()) {
-            view->frame()->animation()->suspendAnimations(document);
+            view->frame()->animation()->suspendAnimationsForDocument(document);
             view->frame()->eventHandler()->stopAutoscrollTimer();
         }
     }
@@ -717,11 +721,12 @@ void Frame::transferChildFrameToNewDocument()
     Page* newPage = newParent ? newParent->page() : 0;
     Page* oldPage = m_page;
     if (m_page != newPage) {
-        if (page()->focusController()->focusedFrame() == this)
-            page()->focusController()->setFocusedFrame(0);
+        if (m_page) {
+            if (m_page->focusController()->focusedFrame() == this)
+                m_page->focusController()->setFocusedFrame(0);
 
-        if (m_page)
-            m_page->decrementFrameCount();
+             m_page->decrementFrameCount();
+        }
 
         m_page = newPage;
 

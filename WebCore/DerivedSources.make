@@ -227,6 +227,7 @@ DOM_CLASSES = \
     HTMLOptGroupElement \
     HTMLOptionElement \
     HTMLOptionsCollection \
+    HTMLOutputElement \
     HTMLParagraphElement \
     HTMLParamElement \
     HTMLPreElement \
@@ -329,7 +330,6 @@ DOM_CLASSES = \
     SVGAnimatedNumber \
     SVGAnimatedNumberList \
     SVGAnimatedPathData \
-    SVGAnimatedPoints \
     SVGAnimatedPreserveAspectRatio \
     SVGAnimatedRect \
     SVGAnimatedString \

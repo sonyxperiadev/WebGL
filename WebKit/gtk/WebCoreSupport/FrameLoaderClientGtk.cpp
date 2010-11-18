@@ -584,8 +584,8 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
     RefPtr<Frame> childFrame = Frame::create(page, ownerElement, new FrameLoaderClient(kitFrame));
     framePrivate->coreFrame = childFrame.get();
 
-    parentFrame->tree()->appendChild(childFrame);
     childFrame->tree()->setName(name);
+    parentFrame->tree()->appendChild(childFrame);
     childFrame->init();
 
     // The creation of the frame may have run arbitrary JavaScript that removed it from the page already.
@@ -620,8 +620,16 @@ void FrameLoaderClient::didTransferChildFrameToNewDocument(WebCore::Page*)
     ASSERT(core(getViewFromFrame(m_frame)) == coreFrame->page());
 }
 
-void FrameLoaderClient::transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*)
+void FrameLoaderClient::transferLoadingResourceFromPage(unsigned long identifier, WebCore::DocumentLoader* docLoader, const WebCore::ResourceRequest& request, WebCore::Page* oldPage)
 {
+    ASSERT(oldPage != core(m_frame)->page());
+
+    GOwnPtr<gchar> identifierString(toString(identifier));
+    ASSERT(!webkit_web_view_get_resource(getViewFromFrame(m_frame), identifierString.get()));
+
+    assignIdentifierToInitialRequest(identifier, docLoader, request);
+
+    webkit_web_view_remove_resource(kit(oldPage), identifierString.get());
 }
 
 void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
@@ -1131,7 +1139,7 @@ void FrameLoaderClient::dispatchDidFailLoad(const ResourceError& error)
         if (!loaded)
             content = makeString("<html><body>", webError->message, "</body></html>");
         else
-            content = makeString(fileContent, error.failingURL(), webError->message);
+            content = String::format(fileContent, error.failingURL().utf8().data(), webError->message);
     }
 
     webkit_web_frame_load_alternate_string(m_frame, content.utf8().data(), 0, error.failingURL().utf8().data());

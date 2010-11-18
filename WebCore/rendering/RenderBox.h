@@ -51,9 +51,12 @@ public:
     void setHeight(int height) { m_frameRect.setHeight(height); }
 
     int logicalLeft() const { return style()->isHorizontalWritingMode() ? x() : y(); }
+    int logicalRight() const { return logicalLeft() + logicalWidth(); }
     int logicalTop() const { return style()->isHorizontalWritingMode() ? y() : x(); }
+    int logicalBottom() const { return logicalTop() + logicalHeight(); }
     int logicalWidth() const { return style()->isHorizontalWritingMode() ? width() : height(); }
     int logicalHeight() const { return style()->isHorizontalWritingMode() ? height() : width(); }
+
     void setLogicalLeft(int left)
     {
         if (style()->isHorizontalWritingMode())
@@ -155,7 +158,7 @@ public:
     void addOverflowFromChild(RenderBox* child, const IntSize& delta);
     void clearLayoutOverflow();
 
-    void blockDirectionOverflow(bool isLineVertical, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
+    void blockDirectionOverflow(bool isLineHorizontal, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
                                 int& logicalTopVisualOverflow, int& logicalBottomVisualOverflow);
 
     int contentWidth() const { return clientWidth() - paddingLeft() - paddingRight(); }
@@ -378,8 +381,11 @@ public:
     virtual int baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
     enum FlippingAdjustment { ChildToParentFlippingAdjustment, ParentToChildFlippingAdjustment };
-    void adjustForFlippedBlocksWritingMode(RenderBox* child, IntPoint&, FlippingAdjustment);
-    int convertFromFlippedWritingMode(int position);
+    IntPoint flipForWritingMode(RenderBox* child, const IntPoint&, FlippingAdjustment);
+    int flipForWritingMode(int position);
+    IntPoint flipForWritingMode(const IntPoint&);
+    IntSize flipForWritingMode(const IntSize&);
+    void flipForWritingMode(IntRect&);
     IntSize locationOffsetIncludingFlipping();
 
 #ifdef ANDROID_LAYOUT

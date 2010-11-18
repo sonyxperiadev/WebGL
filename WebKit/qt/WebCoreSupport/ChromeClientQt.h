@@ -72,6 +72,7 @@ namespace WebCore {
         virtual void takeFocus(FocusDirection);
 
         virtual void focusedNodeChanged(Node*);
+        virtual void focusedFrameChanged(Frame*);
 
         virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&);
         virtual void show();
@@ -115,6 +116,9 @@ namespace WebCore {
         virtual void invalidateContentsAndWindow(const IntRect&, bool);
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
         virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+#if ENABLE(TILED_BACKING_STORE)
+        virtual void delegatedScrollRequested(const IntSize& scrollDelta);
+#endif
 
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
@@ -133,6 +137,9 @@ namespace WebCore {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
         virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
+#endif
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
 #endif
 
 #if ENABLE(NOTIFICATIONS)

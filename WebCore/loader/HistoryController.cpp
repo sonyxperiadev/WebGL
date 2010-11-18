@@ -31,7 +31,7 @@
 #include "config.h"
 #include "HistoryController.h"
 
-#include "BackForwardList.h"
+#include "BackForwardController.h"
 #include "CachedPage.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
@@ -149,7 +149,7 @@ void HistoryController::saveDocumentState()
     ASSERT(document);
     
     if (item->isCurrentDocument(document)) {
-        LOG(Loading, "WebCoreLoading %s: saving form state to %p", m_frame->tree()->name().string().utf8().data(), item);
+        LOG(Loading, "WebCoreLoading %s: saving form state to %p", m_frame->tree()->uniqueName().string().utf8().data(), item);
         item->setDocumentState(document->formElementsState());
     }
 }
@@ -188,7 +188,7 @@ void HistoryController::restoreDocumentState()
     if (!itemToRestore)
         return;
 
-    LOG(Loading, "WebCoreLoading %s: restoring form state from %p", m_frame->tree()->name().string().utf8().data(), itemToRestore);
+    LOG(Loading, "WebCoreLoading %s: restoring form state from %p", m_frame->tree()->uniqueName().string().utf8().data(), itemToRestore);
     doc->setStateForNewFormElements(itemToRestore->documentState());
 }
 
@@ -230,9 +230,8 @@ void HistoryController::goToItem(HistoryItem* targetItem, FrameLoadType type)
     // Set the BF cursor before commit, which lets the user quickly click back/forward again.
     // - plus, it only makes sense for the top level of the operation through the frametree,
     // as opposed to happening for some/one of the page commits that might happen soon
-    BackForwardList* bfList = page->backForwardList();
-    HistoryItem* currentItem = bfList->currentItem();    
-    bfList->goToItem(targetItem);
+    HistoryItem* currentItem = page->backForward()->currentItem();    
+    page->backForward()->setCurrentItem(targetItem);
     Settings* settings = m_frame->settings();
     page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : targetItem);
     recursiveGoToItem(targetItem, currentItem, type);
@@ -295,7 +294,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
                     frameLoader->client()->updateGlobalHistoryRedirectLinks();
             }
             if (Page* page = m_frame->page())
-                page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForwardList()->currentItem());
+                page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForward()->currentItem());
         }
     } else if (frameLoader->documentLoader()->unreachableURL().isEmpty() && m_currentItem) {
         m_currentItem->setURL(frameLoader->documentLoader()->url());
@@ -333,7 +332,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
                         m_frame->loader()->client()->updateGlobalHistoryRedirectLinks();
                 }
                 if (Page* page = m_frame->page())
-                    page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForwardList()->currentItem());
+                    page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForward()->currentItem());
             }
         }
         if (m_currentItem) {
@@ -481,10 +480,10 @@ PassRefPtr<HistoryItem> HistoryController::createItem(bool useOriginal)
         originalURL = blankURL();
     
     Frame* parentFrame = m_frame->tree()->parent();
-    String parent = parentFrame ? parentFrame->tree()->name() : "";
+    String parent = parentFrame ? parentFrame->tree()->uniqueName() : "";
     String title = documentLoader ? documentLoader->title() : "";
 
-    RefPtr<HistoryItem> item = HistoryItem::create(url, m_frame->tree()->name(), parent, title);
+    RefPtr<HistoryItem> item = HistoryItem::create(url, m_frame->tree()->uniqueName(), parent, title);
     item->setOriginalURLString(originalURL.string());
 
     if (!unreachableURL.isEmpty() || !documentLoader || documentLoader->response().httpStatusCode() >= 400)
@@ -599,7 +598,7 @@ void HistoryController::recursiveGoToItem(HistoryItem* item, HistoryItem* fromIt
 // Helper method that determines whether the current frame tree matches given history item's.
 bool HistoryController::currentFramesMatchItem(HistoryItem* item) const
 {
-    if ((!m_frame->tree()->name().isEmpty() || !item->target().isEmpty()) && m_frame->tree()->name() != item->target())
+    if ((!m_frame->tree()->uniqueName().isEmpty() || !item->target().isEmpty()) && m_frame->tree()->uniqueName() != item->target())
         return false;
         
     const HistoryItemVector& childItems = item->children();
@@ -637,7 +636,7 @@ void HistoryController::updateBackForwardListClippedAtTarget(bool doClip)
 
     RefPtr<HistoryItem> topItem = frameLoader->history()->createItemTree(m_frame, doClip);
     LOG(BackForward, "WebCoreBackForward - Adding backforward item %p for frame %s", topItem.get(), m_frame->loader()->documentLoader()->url().string().ascii().data());
-    page->backForwardList()->addItem(topItem.release());
+    page->backForward()->addItem(topItem.release());
 }
 
 void HistoryController::pushState(PassRefPtr<SerializedScriptValue> stateObject, const String& title, const String& urlString)
@@ -657,7 +656,7 @@ void HistoryController::pushState(PassRefPtr<SerializedScriptValue> stateObject,
     m_currentItem->setStateObject(stateObject);
     m_currentItem->setURLString(urlString);
 
-    page->backForwardList()->addItem(topItem.release());
+    page->backForward()->addItem(topItem.release());
 }
 
 void HistoryController::replaceState(PassRefPtr<SerializedScriptValue> stateObject, const String& title, const String& urlString)

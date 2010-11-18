@@ -55,6 +55,7 @@ namespace WebKit {
         virtual void takeFocus(WebCore::FocusDirection);
 
         virtual void focusedNodeChanged(WebCore::Node*);
+        virtual void focusedFrameChanged(WebCore::Frame*);
 
         virtual WebCore::Page* createWindow(WebCore::Frame*, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&);
         virtual void show();
@@ -116,6 +117,9 @@ namespace WebKit {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
         virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*);
+#endif
+#if ENABLE(CONTEXT_MENUS)
+        virtual void showContextMenu() { }
 #endif
         virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
         virtual void chooseIconForFiles(const Vector<WTF::String>&, WebCore::FileChooser*);

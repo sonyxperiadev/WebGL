@@ -42,6 +42,7 @@
 #include "HitTestResult.h"
 #include "NodeList.h"
 #include "Page.h"
+#include "RenderApplet.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderIFrame.h"
 #include "RenderLayerBacking.h"
@@ -1101,6 +1102,15 @@ bool RenderLayerCompositor::has3DContent() const
     return layerHas3DContent(rootRenderLayer());
 }
 
+bool RenderLayerCompositor::allowsIndependentlyCompositedIFrames(const FrameView* view)
+{
+#if PLATFORM(MAC)
+    // iframes are only independently composited in Mac pre-WebKit2.
+    return view->platformWidget();
+#endif
+    return false;
+}
+
 bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
 {
     // Parent document content needs to be able to render on top of a composited iframe, so correct behavior
@@ -1111,12 +1121,7 @@ bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
     if (!renderer || !renderer->isRenderIFrame())
         return false;
 
-#if !PLATFORM(MAC)
-    // On non-Mac platforms, let compositing propagate for all iframes.
-    return true;
-#else
-    // If we're viewless (i.e. WebKit2), we always propagate compositing.
-    if (!m_renderView->frameView()->platformWidget())
+    if (!allowsIndependentlyCompositedIFrames(m_renderView->frameView()))
         return true;
 
     // On Mac, only propagate compositing if the iframe is overlapped in the parent
@@ -1125,17 +1130,11 @@ bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
     if (iframeRenderer->widget()) {
         ASSERT(iframeRenderer->widget()->isFrameView());
         FrameView* view = static_cast<FrameView*>(iframeRenderer->widget());
-        if (view->isOverlapped())
+        if (view->isOverlappedIncludingAncestors() || view->hasCompositingAncestor())
             return true;
-        
-        if (RenderView* view = iframeRenderer->view()) {
-            if (view->compositor()->inCompositingMode())
-                return true;
-        }
     }
 
     return false;
-#endif
 }
 
 HTMLFrameOwnerElement* RenderLayerCompositor::enclosingIFrameElement() const
@@ -1314,21 +1313,20 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer)
 
 bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer) const
 {
-    if (!renderer->isEmbeddedObject())
-        return false;
-    
-    RenderEmbeddedObject* embedRenderer = toRenderEmbeddedObject(renderer);
-    if (!embedRenderer->allowsAcceleratedCompositing())
+    bool composite = (renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing())
+                  || (renderer->isApplet() && toRenderApplet(renderer)->allowsAcceleratedCompositing());
+    if (!composite)
         return false;
 
     m_compositingDependsOnGeometry = true;
-
+    
+    RenderWidget* pluginRenderer = toRenderWidget(renderer);
     // If we can't reliably know the size of the plugin yet, don't change compositing state.
-    if (renderer->needsLayout())
-        return embedRenderer->hasLayer() && embedRenderer->layer()->isComposited();
+    if (pluginRenderer->needsLayout())
+        return pluginRenderer->hasLayer() && pluginRenderer->layer()->isComposited();
 
     // Don't go into compositing mode if height or width are zero, or size is 1x1.
-    IntRect contentBox = embedRenderer->contentBoxRect();
+    IntRect contentBox = pluginRenderer->contentBoxRect();
     return contentBox.height() * contentBox.width() > 1;
 }
 
@@ -1561,7 +1559,7 @@ void RenderLayerCompositor::notifyIFramesOfCompositingChange()
     if (!frame)
         return;
 
-    for (Frame* child = frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
+    for (Frame* child = frame->tree()->firstChild(); child; child = child->tree()->traverseNext(frame)) {
         if (child->document() && child->document()->ownerElement())
             scheduleNeedsStyleRecalc(child->document()->ownerElement());
     }

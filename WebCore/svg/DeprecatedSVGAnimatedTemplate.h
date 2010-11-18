@@ -23,16 +23,14 @@
 
 #if ENABLE(SVG)
 #include "DeprecatedSVGAnimatedPropertyTraits.h"
+#include "QualifiedName.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
    
     class SVGElement;
-    class SVGNumberList;
-    class SVGPreserveAspectRatio;
     class SVGTransformList;
-    class QualifiedName;
 
     struct DeprecatedSVGAnimatedTypeWrapperKey {            
         // Empty value
@@ -154,10 +152,6 @@ namespace WebCore {
     }
 
     // Common type definitions, to ease IDL generation.
-    typedef DeprecatedSVGAnimatedTemplate<float> SVGAnimatedNumber;
-    typedef DeprecatedSVGAnimatedTemplate<SVGNumberList*> SVGAnimatedNumberList; 
-    typedef DeprecatedSVGAnimatedTemplate<SVGPreserveAspectRatio> SVGAnimatedPreserveAspectRatio;
-    typedef DeprecatedSVGAnimatedTemplate<String> SVGAnimatedString;
     typedef DeprecatedSVGAnimatedTemplate<SVGTransformList*> SVGAnimatedTransformList;
 
 }

@@ -40,7 +40,8 @@
 #include "WebView.h"
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnPtr.h>
-#include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -48,8 +49,6 @@
 namespace WebKit {
 
 enum {
-    IMPLEMENTATION_COLOR_READ_FORMAT = 0x8B9B,
-    IMPLEMENTATION_COLOR_READ_TYPE =  0x8B9A,
     MAX_VERTEX_UNIFORM_VECTORS = 0x8DFB,
     MAX_VARYING_VECTORS = 0x8DFC,
     MAX_FRAGMENT_UNIFORM_VECTORS = 0x8DFD
@@ -531,20 +530,6 @@ void WebGraphicsContext3DDefaultImpl::synthesizeGLError(unsigned long error)
     m_syntheticErrors.add(error);
 }
 
-bool WebGraphicsContext3DDefaultImpl::supportsBGRA()
-{
-    // Supported since OpenGL 1.2. However, glTexImage2D() must be modified
-    // to translate the internalFormat from GL_BGRA to GL_RGBA, since the
-    // former is not accepted by desktop GL. Return false until this is done.
-    return false;
-}
-
-bool WebGraphicsContext3DDefaultImpl::supportsMapSubCHROMIUM()
-{
-    // We don't claim support for this extension at this time
-    return false;
-}
-
 void* WebGraphicsContext3DDefaultImpl::mapBufferSubDataCHROMIUM(unsigned target, int offset, int size, unsigned access)
 {
     return 0;
@@ -563,15 +548,11 @@ void WebGraphicsContext3DDefaultImpl::unmapTexSubImage2DCHROMIUM(const void* mem
 {
 }
 
-bool WebGraphicsContext3DDefaultImpl::supportsCopyTextureToParentTextureCHROMIUM()
-{
-    // This extension requires this desktopGL-only function (GLES2 doesn't
-    // support it), so check for its existence here.
-    return glGetTexLevelParameteriv;
-}
-
 void WebGraphicsContext3DDefaultImpl::copyTextureToParentTextureCHROMIUM(unsigned id, unsigned id2)
 {
+    if (!glGetTexLevelParameteriv)
+        return;
+
     makeContextCurrent();
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_copyTextureToParentTextureFBO);
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER,
@@ -855,16 +836,7 @@ DELEGATE_TO_GL(finish, Finish)
 
 DELEGATE_TO_GL(flush, Flush)
 
-void WebGraphicsContext3DDefaultImpl::framebufferRenderbuffer(unsigned long target, unsigned long attachment,
-                                                              unsigned long renderbuffertarget, WebGLId buffer)
-{
-    makeContextCurrent();
-    if (attachment == GL_DEPTH_STENCIL_ATTACHMENT) {
-        glFramebufferRenderbufferEXT(target, GL_DEPTH_ATTACHMENT, renderbuffertarget, buffer);
-        glFramebufferRenderbufferEXT(target, GL_STENCIL_ATTACHMENT, renderbuffertarget, buffer);
-    } else
-        glFramebufferRenderbufferEXT(target, attachment, renderbuffertarget, buffer);
-}
+DELEGATE_TO_GL_4(framebufferRenderbuffer, FramebufferRenderbufferEXT, unsigned long, unsigned long, unsigned long, WebGLId)
 
 DELEGATE_TO_GL_5(framebufferTexture2D, FramebufferTexture2DEXT, unsigned long, unsigned long, unsigned long, WebGLId, long)
 
@@ -979,21 +951,12 @@ void WebGraphicsContext3DDefaultImpl::getFramebufferAttachmentParameteriv(unsign
 
 void WebGraphicsContext3DDefaultImpl::getIntegerv(unsigned long pname, int* value)
 {
-    // Need to emulate IMPLEMENTATION_COLOR_READ_FORMAT/TYPE for GL.  Any valid
-    // combination should work, but GL_RGB/GL_UNSIGNED_BYTE might be the most
-    // useful for desktop WebGL users.
     // Need to emulate MAX_FRAGMENT/VERTEX_UNIFORM_VECTORS and MAX_VARYING_VECTORS
     // because desktop GL's corresponding queries return the number of components
     // whereas GLES2 return the number of vectors (each vector has 4 components).
     // Therefore, the value returned by desktop GL needs to be divided by 4.
     makeContextCurrent();
     switch (pname) {
-    case IMPLEMENTATION_COLOR_READ_FORMAT:
-        *value = GL_RGB;
-        break;
-    case IMPLEMENTATION_COLOR_READ_TYPE:
-        *value = GL_UNSIGNED_BYTE;
-        break;
     case MAX_FRAGMENT_UNIFORM_VECTORS:
         glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, value);
         *value /= 4;
@@ -1130,7 +1093,16 @@ WebString WebGraphicsContext3DDefaultImpl::getShaderSource(WebGLId shader)
 WebString WebGraphicsContext3DDefaultImpl::getString(unsigned long name)
 {
     makeContextCurrent();
-    return WebString::fromUTF8(reinterpret_cast<const char*>(glGetString(name)));
+    StringBuilder result;
+    result.append(reinterpret_cast<const char*>(glGetString(name)));
+    if (name == GL_EXTENSIONS) {
+        // GL_CHROMIUM_copy_texture_to_parent_texture requires this
+        // desktopGL-only function (GLES2 doesn't support it), so
+        // check for its existence here.
+        if (glGetTexLevelParameteriv)
+            result.append(" GL_CHROMIUM_copy_texture_to_parent_texture");
+    }
+    return WebString(result.toString());
 }
 
 DELEGATE_TO_GL_3(getTexParameterfv, GetTexParameterfv, unsigned long, unsigned long, float*)

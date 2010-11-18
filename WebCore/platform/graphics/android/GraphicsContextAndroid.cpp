@@ -838,17 +838,6 @@ void GraphicsContext::clipOut(const IntRect& r)
     GC2CANVAS(this)->clipRect(r, SkRegion::kDifference_Op);
 }
 
-void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
-{
-    if (paintingDisabled())
-        return;
-
-    SkPath path;
-
-    path.addOval(r, SkPath::kCCW_Direction);
-    GC2CANVAS(this)->clipPath(path, SkRegion::kDifference_Op);
-}
-
 #if ENABLE(SVG)
 void GraphicsContext::clipPath(WindRule clipRule)
 {
@@ -1221,6 +1210,12 @@ void GraphicsContext::strokePath()
                  m_common->state.strokeGradient.get());
 
     GC2CANVAS(this)->drawPath(*path, paint);
+}
+
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    notImplemented();
+    return InterpolationDefault;
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)

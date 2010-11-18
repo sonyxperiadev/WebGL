@@ -41,7 +41,7 @@
 #include "Page.h"
 #include "RenderListBox.h"
 #include "RenderMenuList.h"
-#include "Settings.h"
+#include "SpatialNavigation.h"
 #include <wtf/Assertions.h>
 
 #if ENABLE(WML)
@@ -561,10 +561,9 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
 #else
         // When using spatial navigation, we want to be able to navigate away from the select element
         // when the user hits any of the arrow keys, instead of changing the selection.
-        if (Frame* frame = element->document()->frame()) {
-            if (frame->settings() && frame->settings()->isSpatialNavigationEnabled())
+        if (isSpatialNavigationEnabled(element->document()->frame()))
+            if (!data.activeSelectionState())
                 return;
-        }
 
         UNUSED_PARAM(htmlForm);
         const Vector<Element*>& listItems = data.listItems(element);
@@ -644,6 +643,10 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         if (keyCode == '\r') {
             // listIndex should already be selected, but this will fire the onchange handler.
             setSelectedIndex(data, element, listToOptionIndex(data, element, listIndex), true, true);
+            handled = true;
+        } else if (keyCode == ' ' && isSpatialNavigationEnabled(element->document()->frame())) {
+            // Use space to trigger arrow key handling for selection change or spatial navigation.
+            data.setActiveSelectionState(!data.activeSelectionState());
             handled = true;
         }
 #endif
@@ -762,7 +765,12 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
             else if (keyIdentifier == "Up")
                 endIndex = previousSelectableListIndex(data, element, data.activeSelectionEndIndex());    
         }
-        
+
+        if (isSpatialNavigationEnabled(element->document()->frame()))
+            // Check if the selection moves to the boundary.
+            if (keyIdentifier == "Left" || keyIdentifier == "Right" || ((keyIdentifier == "Down" || keyIdentifier == "Up") && endIndex == data.activeSelectionEndIndex()))
+                return;
+
         if (keyIdentifier == "Down" || keyIdentifier == "Up") {
             // Save the selection so it can be compared to the new selection when dispatching change events immediately after making the new selection.
             saveLastSelection(data, element);

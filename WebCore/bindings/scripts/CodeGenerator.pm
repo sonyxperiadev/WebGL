@@ -50,8 +50,8 @@ my %numericTypeHash = ("int" => 1, "short" => 1, "long" => 1, "long long" => 1,
 
 my %primitiveTypeHash = ( "boolean" => 1, "void" => 1, "Date" => 1);
 
-my %podTypeHash = ("SVGNumber" => 1, "SVGTransform" => 1);
-my %podTypesWithWritablePropertiesHash = ("SVGMatrix" => 1, "SVGPoint" => 1, "SVGPreserveAspectRatio" => 1);
+my %podTypeHash = ("SVGTransform" => 1);
+my %podTypesWithWritablePropertiesHash = ("SVGMatrix" => 1);
 my %stringTypeHash = ("DOMString" => 1, "AtomicString" => 1);
 
 my %nonPointerTypeHash = ("DOMTimeStamp" => 1, "CompareHow" => 1, "SVGPaintType" => 1);
@@ -59,7 +59,9 @@ my %nonPointerTypeHash = ("DOMTimeStamp" => 1, "CompareHow" => 1, "SVGPaintType"
 my %svgNewStyleAnimatedTypeHash = ("SVGAnimatedAngle" => 1, "SVGAnimatedBoolean" => 1,
                                    "SVGAnimatedEnumeration" => 1, "SVGAnimatedInteger" => 1,
                                    "SVGAnimatedLength" => 1, "SVGAnimatedLengthList" => 1,
-                                   "SVGAnimatedRect" => 1);
+                                   "SVGAnimatedNumber" => 1, "SVGAnimatedNumberList" => 1,
+                                   "SVGAnimatedPreserveAspectRatio" => 1, "SVGAnimatedRect" => 1,
+                                   "SVGAnimatedString" => 1);
 
 my %svgAnimatedTypeHash = ("SVGAnimatedAngle" => 1, "SVGAnimatedBoolean" => 1,
                            "SVGAnimatedEnumeration" => 1, "SVGAnimatedInteger" => 1,
@@ -75,11 +77,21 @@ my %svgAttributesInHTMLHash = ("class" => 1, "id" => 1, "onabort" => 1, "onclick
                                "onmouseup" => 1, "onresize" => 1, "onscroll" => 1,
                                "onunload" => 1);
 
-my %svgNativeType = (
+my %svgTypeNeedingTearOff = (
     "SVGAngle" => "SVGPropertyTearOff<SVGAngle>",
     "SVGLength" => "SVGPropertyTearOff<SVGLength>",
     "SVGLengthList" => "SVGListPropertyTearOff<SVGLengthList>",
-    "SVGRect" => "SVGPropertyTearOff<FloatRect>"
+    "SVGNumber" => "SVGPropertyTearOff<float>",
+    "SVGNumberList" => "SVGListPropertyTearOff<SVGNumberList>",
+    "SVGPoint" => "SVGPropertyTearOff<FloatPoint>",
+    "SVGPointList" => "SVGListPropertyTearOff<SVGPointList>",
+    "SVGPreserveAspectRatio" => "SVGPropertyTearOff<SVGPreserveAspectRatio>",
+    "SVGRect" => "SVGPropertyTearOff<FloatRect>",
+    "SVGStringList" => "SVGStaticListPropertyTearOff<SVGStringList>"
+);
+
+my %svgTypeWithWritablePropertiesNeedingTearOff = (
+    "SVGPoint" => 1
 );
 
 # Cache of IDL file pathnames.
@@ -367,7 +379,16 @@ sub IsSVGTypeNeedingTearOff
     my $object = shift;
     my $type = shift;
 
-    return 1 if exists $svgNativeType{$type};
+    return 1 if exists $svgTypeNeedingTearOff{$type};
+    return 0;
+}
+
+sub IsSVGTypeWithWritablePropertiesNeedingTearOff
+{
+    my $object = shift;
+    my $type = shift;
+
+    return 1 if $svgTypeWithWritablePropertiesNeedingTearOff{$type};
     return 0;
 }
 
@@ -376,7 +397,7 @@ sub GetSVGTypeNeedingTearOff
     my $object = shift;
     my $type = shift;
 
-    return $svgNativeType{$type} if exists $svgNativeType{$type};
+    return $svgTypeNeedingTearOff{$type} if exists $svgTypeNeedingTearOff{$type};
     return undef;
 }
 
@@ -385,16 +406,19 @@ sub GetSVGWrappedTypeNeedingTearOff
     my $object = shift;
     my $type = shift;
 
-    my $svgNativeType = $object->GetSVGTypeNeedingTearOff($type);
-    return $svgNativeType if not $svgNativeType;
+    my $svgTypeNeedingTearOff = $object->GetSVGTypeNeedingTearOff($type);
+    return $svgTypeNeedingTearOff if not $svgTypeNeedingTearOff;
 
-    if ($svgNativeType =~ /SVGPropertyTearOff/) {
-        $svgNativeType =~ s/SVGPropertyTearOff<//;
-    } elsif ($svgNativeType =~ /SVGListPropertyTearOff/) {
-        $svgNativeType =~ s/SVGListPropertyTearOff<//;
+    if ($svgTypeNeedingTearOff =~ /SVGPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGPropertyTearOff<//;
+    } elsif ($svgTypeNeedingTearOff =~ /SVGListPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGListPropertyTearOff<//;
+    } elsif ($svgTypeNeedingTearOff =~ /SVGStaticListPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGStaticListPropertyTearOff<//;
     }
-    $svgNativeType =~ s/>//;
-    return $svgNativeType;
+
+    $svgTypeNeedingTearOff =~ s/>//;
+    return $svgTypeNeedingTearOff;
 }
 
 # FIXME: This method will go away once all SVG animated properties are converted to the new scheme.
@@ -476,13 +500,18 @@ sub AttributeNameForGetterAndSetter
     my ($generator, $attribute) = @_;
 
     my $attributeName = $attribute->signature->name;
+    my $attributeType = $generator->StripModule($attribute->signature->type);
 
     # Avoid clash with C++ keyword.
     $attributeName = "_operator" if $attributeName eq "operator";
 
+    # SVGAElement defines a non-virtual "String& target() const" method which clashes with "virtual String target() const" in Element.
+    # To solve this issue the SVGAElement method was renamed to "svgTarget", take care of that when calling this method.
+    $attributeName = "svgTarget" if $attributeName eq "target" and $attributeType eq "SVGAnimatedString";
+
     # SVG animated types need to use a special attribute name.
     # The rest of the special casing for SVG animated types is handled in the language-specific code generators.
-    $attributeName .= "Animated" if $generator->IsSVGAnimatedType($generator->StripModule($attribute->signature->type));
+    $attributeName .= "Animated" if $generator->IsSVGAnimatedType($attributeType);
 
     return $attributeName;
 }

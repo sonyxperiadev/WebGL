@@ -1,3 +1,105 @@
+2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48685
+        Notify UI process about focused frame
+
+        Added an empty implementation of the new ChromeClient method.
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::focusedFrameChanged):
+        * WebCoreSupport/ChromeClientEfl.h:
+
+2010-11-05  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Replace ARRAYSIZE with WTF_ARRAY_LENGTH
+        https://bugs.webkit.org/show_bug.cgi?id=48903
+
+        * WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::interpretKeyEvent):
+
+2010-11-04  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Adam Barth.
+
+        [EFL] Reflect latest EFL changes related to stride.
+        https://bugs.webkit.org/show_bug.cgi?id=48971
+
+        Remove adjustment code to compare stride of cairo_image_surfece and evas_object_image, as following changes of latest EFL.
+
+        * ewk/ewk_util.cpp:
+        (ewk_util_image_from_cairo_surface_add):
+
+2010-11-03  Daniel Bates  <dbates@rim.com>
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Part 1 of 2.
+
+        Substitute FrameTree::uniqueName() for FrameTree::name() in the EFL port.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_name_get):
+
+2010-11-02  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Set frame name before appending it to the frame tree in the Apple Windows,
+        GTK, and EFL ports
+        https://bugs.webkit.org/show_bug.cgi?id=48806
+
+        Make the frame creation process in the EFL-port consistent with the
+        Mac, Qt, and Haiku ports. In particular, set the name of the new
+        frame before it's appended to the frame tree.
+
+        At this time we cannot test this change since it is being masked by
+        HTMLFrameElementBase::setName() <http://trac.webkit.org/browser/trunk/WebCore/html/HTMLFrameElementBase.cpp?rev=70976#L160>.
+        We'll be able to test this once we fix bug #6751.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_child_add):
+
+2010-11-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7660547> and https://bugs.webkit.org/show_bug.cgi?id=48699
+        Context menu support for WebKit 2.
+
+        * WebCoreSupport/ChromeClientEfl.h:
+        (WebCore::ChromeClientEfl::showContextMenu):
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        No review, rolling out 70971.
+        http://trac.webkit.org/changeset/70971
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Rolling out changeset 70971 <http://trac.webkit.org/changeset/70971> since
+        it caused layout test failures on all bots. In particular, the
+        child count in a generated frame name differs after this patch. We need
+        to look into this further.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_name_get):
+
+2010-10-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Barth.
+
+        For unnamed frames, window.name returns a generated name
+        https://bugs.webkit.org/show_bug.cgi?id=6751
+
+        Modified EFL-port to use FrameTree::uniqueName().
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_name_get):
+
 2010-10-29  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

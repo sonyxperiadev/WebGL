@@ -416,12 +416,6 @@ void GraphicsContext::translate(float x, float y)
     notImplemented();
 }
 
-IntPoint GraphicsContext::origin()
-{
-    notImplemented();
-    return IntPoint(0, 0);
-}
-
 void GraphicsContext::rotate(float radians)
 {
     if (paintingDisabled())
@@ -439,14 +433,6 @@ void GraphicsContext::scale(const FloatSize& size)
 }
 
 void GraphicsContext::clipOut(const IntRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    notImplemented();
-}
-
-void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
 {
     if (paintingDisabled())
         return;
@@ -480,6 +466,12 @@ void GraphicsContext::setPlatformShouldAntialias(bool enable)
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
 {
+}
+
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    notImplemented();
+    return InterpolationDefault;
 }
 
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "History.h"
 
+#include "BackForwardController.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -56,7 +57,7 @@ unsigned History::length() const
         return 0;
     if (!m_frame->page())
         return 0;
-    return m_frame->page()->getHistoryLength();
+    return m_frame->page()->backForward()->count();
 }
 
 void History::back()

@@ -80,20 +80,19 @@ class Page;
 class ResourceRequest;
 class ResourceResponse;
 class ResourceError;
+class ScriptArguments;
 class ScriptCallStack;
 class ScriptProfile;
 class SharedBuffer;
 class Storage;
 class StorageArea;
 
-#define LEGACY_RESOURCE_TRACKING_ENABLED 1
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-class InspectorResource;
-#endif
-
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 class InspectorApplicationCacheAgent;
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+class InspectorFileSystemAgent;
 #endif
 
 #if ENABLE(WEB_SOCKETS)
@@ -103,10 +102,6 @@ class WebSocketHandshakeResponse;
 
 class InspectorController : public Noncopyable {
 public:
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    typedef HashMap<unsigned long, RefPtr<InspectorResource> > ResourcesMap;
-    typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
-#endif
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
 
@@ -138,6 +133,9 @@ public:
     void highlightDOMNode(long nodeId);
     void hideDOMNodeHighlight() { hideHighlight(); }
 
+    void highlightFrame(unsigned long frameId);
+    void hideFrameHighlight() { hideHighlight(); }
+
     void show();
     void showPanel(const String&);
     void close();
@@ -147,8 +145,8 @@ public:
     void disconnectFrontend();
 
     void setConsoleMessagesEnabled(bool enabled, bool* newState);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack>);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String&);
     void clearConsoleMessages();
     const Vector<OwnPtr<ConsoleMessage> >& consoleMessages() const { return m_consoleMessages; }
 
@@ -175,12 +173,6 @@ public:
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
     void scriptImported(unsigned long identifier, const String& sourceString);
 
-    void setResourceTrackingEnabled(bool enabled, bool always, bool* newState);
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    void setResourceTrackingEnabled(bool enabled);
-    bool resourceTrackingEnabled() const;
-#endif
-
     void ensureSettingsLoaded();
 
     void startTimelineProfiler();
@@ -193,6 +185,10 @@ public:
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     InspectorApplicationCacheAgent* applicationCacheAgent() { return m_applicationCacheAgent.get(); }
 #endif
+
+#if ENABLE(FILE_SYSTEM)
+    InspectorFileSystemAgent* fileSystemAgent() { return m_fileSystemAgent.get(); }
+#endif 
 
     void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
     void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
@@ -222,10 +218,6 @@ public:
     void didCloseWebSocket(unsigned long identifier);
 #endif
 
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    const ResourcesMap& resources() const { return m_resources; }
-#endif
-
     bool hasFrontend() const { return m_frontend; }
 
     void drawNodeHighlight(GraphicsContext&) const;
@@ -237,7 +229,7 @@ public:
     void startTiming(const String& title);
     bool stopTiming(const String& title, double& elapsed);
 
-    void startGroup(MessageSource source, ScriptCallStack* callFrame, bool collapsed = false);
+    void startGroup(PassOwnPtr<ScriptArguments>, PassOwnPtr<ScriptCallStack> callFrame, bool collapsed = false);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
     void markTimeline(const String& message);
@@ -248,7 +240,9 @@ public:
     void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
     bool isRecordingUserInitiatedProfile() const;
     String getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false);
+    void startProfiling() { startUserInitiatedProfiling(); }
     void startUserInitiatedProfiling();
+    void stopProfiling() { stopUserInitiatedProfiling(); }
     void stopUserInitiatedProfiling();
     void enableProfiler(bool always = false, bool skipRecompile = false);
     void disableProfiler(bool always = false);
@@ -289,9 +283,14 @@ private:
     friend class InspectorInstrumentation;
     friend class InjectedScriptHost;
 
+    enum ProfilerRestoreAction {
+        ProfilerRestoreNoAction = 0,
+        ProfilerRestoreResetAgent = 1
+    };
+    
     void populateScriptObjects();
     void restoreDebugger();
-    void restoreProfiler();
+    void restoreProfiler(ProfilerRestoreAction action);
     void unbindAllResources();
     void setSearchingForNode(bool enabled);
 
@@ -308,6 +307,7 @@ private:
 
     String findEventListenerBreakpoint(const String& eventName);
     String findXHRBreakpoint(const String& url);
+    void clearNativeBreakpoints();
 #endif
 #if ENABLE(DATABASE)
     void selectDatabase(Database* database);
@@ -323,15 +323,6 @@ private:
     void focusNode();
 
     void addConsoleMessage(PassOwnPtr<ConsoleMessage>);
-
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    void addResource(InspectorResource*);
-    void removeResource(InspectorResource*);
-    InspectorResource* getTrackedResource(unsigned long identifier);
-    void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
-    void removeAllResources(ResourcesMap* map) { pruneResources(map); }
-#endif
-    void getResourceContent(unsigned long identifier, bool encode, String* content);
 
     bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
 
@@ -358,17 +349,14 @@ private:
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     OwnPtr<InspectorApplicationCacheAgent> m_applicationCacheAgent;
 #endif
+    
+#if ENABLE(FILE_SYSTEM)
+    RefPtr<InspectorFileSystemAgent> m_fileSystemAgent;
+#endif 
+
     RefPtr<Node> m_nodeToFocus;
-#if LEGACY_RESOURCE_TRACKING_ENABLED
-    RefPtr<InspectorResource> m_mainResource;
-    ResourcesMap m_resources;
-    HashSet<String> m_knownResources;
-    FrameResourcesMap m_frameResources;
-#endif
     RefPtr<InspectorResourceAgent> m_resourceAgent;
     unsigned long m_mainResourceIdentifier;
-    double m_loadEventTime;
-    double m_domContentEventTime;
     Vector<OwnPtr<ConsoleMessage> > m_consoleMessages;
     unsigned m_expiredConsoleMessageCount;
     HashMap<String, double> m_times;

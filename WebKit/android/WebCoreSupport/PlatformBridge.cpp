@@ -157,6 +157,19 @@ FloatRect PlatformBridge::screenRect()
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
+String PlatformBridge::computeDefaultLanguage()
+{
+#if USE(CHROME_NETWORK_STACK)
+    std::string acceptLanguages = WebRequestContext::get(false)->GetAcceptLanguage();
+    size_t length = acceptLanguages.find(',');
+    if (length == std::string::npos)
+        length = acceptLanguages.length();
+    return String::fromUTF8(acceptLanguages.c_str(), length);
+#else
+    return "en";
+#endif
+}
+
 void PlatformBridge::updateViewport(FrameView* frameView)
 {
     android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);

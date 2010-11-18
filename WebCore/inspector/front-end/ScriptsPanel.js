@@ -376,7 +376,7 @@ WebInspector.ScriptsPanel.prototype = {
         InjectedScriptAccess.get(callFrame.worldId).evaluateInCallFrame(callFrame.id, code, objectGroup, evalCallback);
     },
 
-    debuggerPaused: function(details)
+    debuggerPaused: function(callFrames)
     {
         WebInspector.breakpointManager.removeOneTimeBreakpoint();
         this._paused = true;
@@ -385,8 +385,8 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._updateDebuggerButtons();
 
-        this.sidebarPanes.callstack.update(details.callFrames, this._sourceIDMap);
-        this.sidebarPanes.callstack.selectedCallFrame = details.callFrames[0];
+        this.sidebarPanes.callstack.update(callFrames, this._sourceIDMap);
+        this.sidebarPanes.callstack.selectedCallFrame = callFrames[0];
 
         WebInspector.currentPanel = this;
         window.focus();
@@ -608,7 +608,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         var url = scriptOrResource.url || scriptOrResource.sourceURL;
         if (url && !options.initialLoad)
-            WebInspector.applicationSettings.lastViewedScriptFile = url;
+            WebInspector.settings.lastViewedScriptFile = url;
 
         if (!options.fromBackForwardAction) {
             var oldIndex = this._currentBackForwardIndex;
@@ -702,16 +702,22 @@ WebInspector.ScriptsPanel.prototype = {
         else
             script.filesSelectOption = option;
 
-        // Call _showScriptOrResource if the option we just appended ended up being selected.
-        // This will happen for the first item added to the menu.
-        if (select.options[select.selectedIndex] === option)
+        if (select.options[select.selectedIndex] === option) {
+            // Call _showScriptOrResource if the option we just appended ended up being selected.
+            // This will happen for the first item added to the menu.
             this._showScriptOrResource(option.representedObject, {initialLoad: true});
-        else {
-            // if not first item, check to see if this was the last viewed
+        } else {
+            // If not first item, check to see if this was the last viewed
             var url = option.representedObject.url || option.representedObject.sourceURL;
-            var lastURL = WebInspector.applicationSettings.lastViewedScriptFile;
-            if (url && url === lastURL)
-                this._showScriptOrResource(option.representedObject, {initialLoad: true});
+            var lastURL = WebInspector.settings.lastViewedScriptFile;
+            if (url && url === lastURL) {
+                // For resources containing multiple <script> tags, we first report them separately and
+                // then glue them all together. They all share url and there is no need to show them all one
+                // by one.
+                var isResource = !!option.representedObject.url;
+                if (isResource || !this.visibleView || !this.visibleView.script || this.visibleView.script.sourceURL !== url)
+                    this._showScriptOrResource(option.representedObject, {initialLoad: true});
+            }
         }
 
         if (script.worldType === WebInspector.Script.WorldType.EXTENSIONS_WORLD)

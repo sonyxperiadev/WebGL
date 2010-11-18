@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "Connection.h"
 #include "CookieClient.h"
 #include "FileSystemClient.h"

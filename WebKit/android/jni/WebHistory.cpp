@@ -29,6 +29,7 @@
 #include "WebHistory.h"
 
 #include "BackForwardList.h"
+#include "BackForwardListImpl.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -80,7 +81,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
     LOG_ASSERT(frame, "Close needs a valid Frame pointer!");
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
 
-    WebCore::BackForwardList* list = pFrame->page()->backForwardList();
+    WebCore::BackForwardListImpl* list = static_cast<WebCore::BackForwardListImpl*>(pFrame->page()->backForwardList());
     RefPtr<WebCore::HistoryItem> current = list->currentItem();
     // Remove each item instead of using close(). close() is intended to be used
     // right before the list is deleted.
@@ -148,7 +149,7 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
     WebCore::Page* page = pFrame->page();
     WebCore::HistoryItem* currentItem =
-            page->backForwardList()->entries()[index].get();
+            static_cast<WebCore::BackForwardListImpl*>(page->backForwardList())->entries()[index].get();
 
     // load the current page with FrameLoadTypeIndexedBackForward so that it
     // will use cache when it is possible

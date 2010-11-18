@@ -29,19 +29,17 @@
 #include "config.h"
 #include "InspectorState.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "InspectorClient.h"
 #include "InspectorController.h"
-
-#if ENABLE(INSPECTOR)
 
 namespace WebCore {
 
 InspectorState::InspectorState(InspectorClient* client)
     : m_client(client)
 {
-    registerBoolean(monitoringXHR, false, "monitoringXHR", "xhrMonitor");
-    registerBoolean(resourceTrackingEnabled, false, "resourceTrackingEnabled", (const char*)0);
-    registerBoolean(resourceTrackingAlwaysEnabled, false, (const char*)0, "resourceTrackingEnabled");
+    registerBoolean(monitoringXHR, false, "monitoringXHREnabled", "xhrMonitor");
     registerBoolean(timelineProfilerEnabled, false, "timelineProfilerEnabled", (const char*)0);
     registerBoolean(searchingForNode, false, "searchingForNodeEnabled", (const char*)0);
     registerBoolean(profilerAlwaysEnabled, false, (const char*)0, "profilerEnabled");
@@ -50,6 +48,7 @@ InspectorState::InspectorState(InspectorClient* client)
     registerLong(inspectorAttachedHeight, InspectorController::defaultAttachedHeight, (const char*)0, "inspectorAttachedHeight");
     registerLong(pauseOnExceptionsState, 0, "pauseOnExceptionsState", (const char*)0);
     registerBoolean(consoleMessagesEnabled, false, "consoleMessagesEnabled", (const char*)0);
+    registerBoolean(userInitiatedProfiling, false, "userInitiatedProfiling", (const char*)0);
 }
 
 void InspectorState::restoreFromInspectorCookie(const String& json)

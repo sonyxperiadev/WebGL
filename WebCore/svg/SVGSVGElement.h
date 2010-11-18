@@ -78,9 +78,12 @@ namespace WebCore {
         float currentScale() const;
         void setCurrentScale(float scale);
 
-        FloatPoint currentTranslate() const;
+        FloatPoint& currentTranslate() { return m_translation; }
         void setCurrentTranslate(const FloatPoint&);
-        
+
+        // Only used from the bindings.
+        void updateCurrentTranslate();
+
         SMILTimeContainer* timeContainer() const { return m_timeContainer.get(); }
         
         void pauseAnimations();
@@ -147,7 +150,7 @@ namespace WebCore {
 
         // SVGFitToViewBox
         DECLARE_ANIMATED_PROPERTY_NEW(SVGSVGElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
-        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGSVGElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
  
         virtual void documentWillBecomeInactive();
         virtual void documentDidBecomeActive();

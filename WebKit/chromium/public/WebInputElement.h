@@ -66,7 +66,7 @@ namespace WebKit {
         WEBKIT_API bool isActivatedSubmit() const;
         WEBKIT_API void setActivatedSubmit(bool);
         WEBKIT_API int size() const;
-        WEBKIT_API void setValue(const WebString&);
+        WEBKIT_API void setValue(const WebString&, bool sendChangeEvent = false);
         WEBKIT_API WebString value() const;
         WEBKIT_API void setSuggestedValue(const WebString&);
         WEBKIT_API WebString suggestedValue() const;
@@ -76,8 +76,8 @@ namespace WebKit {
         WEBKIT_API void setAutofilled(bool);
         WEBKIT_API void dispatchFormControlChangeEvent();
         WEBKIT_API void setSelectionRange(int, int);
-        WEBKIT_API int selectionStart();
-        WEBKIT_API int selectionEnd();
+        WEBKIT_API int selectionStart() const;
+        WEBKIT_API int selectionEnd() const;
         WEBKIT_API bool isValidValue(const WebString&) const;
 
 #if WEBKIT_IMPLEMENTATION

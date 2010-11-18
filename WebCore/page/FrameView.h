@@ -76,6 +76,7 @@ public:
 
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
 
+    virtual bool delegatesScrolling();
     virtual bool avoidScrollbarCreation();
 
     virtual void setContentsSize(const IntSize&);
@@ -106,6 +107,8 @@ public:
 #endif
 
     bool hasCompositedContent() const;
+    bool hasCompositedContentIncludingDescendants() const;
+    bool hasCompositingAncestor() const;
     void enterCompositingMode();
     bool isEnclosedInCompositingLayer() const;
 
@@ -153,6 +156,7 @@ public:
     void setUseSlowRepaints();
     void setIsOverlapped(bool);
     bool isOverlapped() const { return m_isOverlapped; }
+    bool isOverlappedIncludingAncestors() const;
     void setContentIsOpaque(bool);
 
     void addSlowRepaintObject();
@@ -255,6 +259,7 @@ private:
     friend class RenderWidget;
     bool useSlowRepaints() const;
     bool useSlowRepaintsIfNotOverlapped() const;
+    void updateCanBlitOnScrollRecursively();
 
     bool hasFixedObjects() const { return m_fixedObjectCount > 0; }
 

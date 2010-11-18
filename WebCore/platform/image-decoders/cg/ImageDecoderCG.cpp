@@ -31,11 +31,16 @@
 
 namespace WebCore {
 
+static RGBA32Buffer::PixelData* getPtrAsPixelData(CFMutableDataRef data)
+{
+    return data ? reinterpret_cast<RGBA32Buffer::PixelData*>(CFDataGetMutableBytePtr(data)) : 0;
+}
+   
 void RGBA32Buffer::copyReferenceToBitmapData(const RGBA32Buffer& other)
 {
     ASSERT(this != &other);
     m_backingStore = other.m_backingStore;
-    m_bytes = reinterpret_cast<PixelData*>(CFDataGetMutableBytePtr(m_backingStore.get()));
+    m_bytes = getPtrAsPixelData(m_backingStore.get());
     // FIXME: The rest of this function seems redundant with RGBA32Buffer::copyBitmapData.
     m_size = other.m_size;
     setHasAlpha(other.m_hasAlpha);
@@ -47,7 +52,7 @@ bool RGBA32Buffer::copyBitmapData(const RGBA32Buffer& other)
         return true;
 
     m_backingStore.adoptCF(CFDataCreateMutableCopy(kCFAllocatorDefault, 0, other.m_backingStore.get()));
-    m_bytes = reinterpret_cast<PixelData*>(CFDataGetMutableBytePtr(m_backingStore.get()));
+    m_bytes = getPtrAsPixelData(m_backingStore.get());
     m_size = other.m_size;
     setHasAlpha(other.m_hasAlpha);
     return true;
@@ -64,15 +69,30 @@ bool RGBA32Buffer::setSize(int newWidth, int newHeight)
     return true;
 }
 
+static CGColorSpaceRef createColorSpace(const ColorProfile& colorProfile)
+{
+    if (colorProfile.isEmpty())
+        return CGColorSpaceCreateDeviceRGB();
+
+    RetainPtr<CFDataRef> data(AdoptCF, CFDataCreate(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(colorProfile.data()), colorProfile.size()));
+#if !defined(TARGETING_TIGER) && !defined(TARGETING_LEOPARD)
+    return CGColorSpaceCreateWithICCProfile(data.get());
+#else
+    RetainPtr<CGColorSpaceRef> deviceColorSpace(AdoptCF, CGColorSpaceCreateDeviceRGB());
+    RetainPtr<CGDataProviderRef> profileDataProvider(AdoptCF, CGDataProviderCreateWithCFData(data.get()));
+    CGFloat ranges[] = {0.0, 255.0, 0.0, 255.0, 0.0, 255.0};
+    return CGColorSpaceCreateICCBased(3, ranges, profileDataProvider.get(), deviceColorSpace.get());
+#endif
+}
+
 NativeImagePtr RGBA32Buffer::asNewNativeImage() const
 {
-    // FIXME: Figure out the right color space.
-    DEFINE_STATIC_LOCAL(RetainPtr<CGColorSpaceRef>, deviceColorSpace, (AdoptCF, CGColorSpaceCreateDeviceRGB()));
+    RetainPtr<CGColorSpaceRef> colorSpace(AdoptCF, createColorSpace(m_colorProfile));
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(m_backingStore.get()));
 
     CGImageAlphaInfo alphaInfo = m_premultiplyAlpha ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaFirst;
 
-    return CGImageCreate(width(), height(), 8, 32, width() * sizeof(PixelData), deviceColorSpace.get(),
+    return CGImageCreate(width(), height(), 8, 32, width() * sizeof(PixelData), colorSpace.get(),
         alphaInfo | kCGBitmapByteOrder32Host, dataProvider.get(), 0, false, kCGRenderingIntentDefault);
 }
 

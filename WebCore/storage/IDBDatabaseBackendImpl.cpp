@@ -31,9 +31,10 @@
 #include "CrossThreadTask.h"
 #include "DOMStringList.h"
 #include "IDBDatabaseException.h"
+#include "IDBFactoryBackendImpl.h"
 #include "IDBObjectStoreBackendImpl.h"
 #include "IDBSQLiteDatabase.h"
-#include "IDBTransactionBackendInterface.h"
+#include "IDBTransactionBackendImpl.h"
 #include "IDBTransactionCoordinator.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
@@ -88,12 +89,14 @@ static bool setMetaData(SQLiteDatabase& sqliteDatabase, const String& name, cons
     return true;
 }
 
-IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String& description, IDBSQLiteDatabase* sqliteDatabase, IDBTransactionCoordinator* coordinator)
+IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String& description, IDBSQLiteDatabase* sqliteDatabase, IDBTransactionCoordinator* coordinator, IDBFactoryBackendImpl* factory, const String& uniqueIdentifier)
     : m_sqliteDatabase(sqliteDatabase)
     , m_id(InvalidId)
     , m_name(name)
     , m_description(description)
     , m_version("")
+    , m_identifier(uniqueIdentifier)
+    , m_factory(factory)
     , m_transactionCoordinator(coordinator)
 {
     ASSERT(!m_name.isNull());
@@ -108,6 +111,7 @@ IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String&
 
 IDBDatabaseBackendImpl::~IDBDatabaseBackendImpl()
 {
+    m_factory->removeIDBDatabaseBackend(m_identifier);
 }
 
 void IDBDatabaseBackendImpl::setDescription(const String& description)
@@ -139,7 +143,7 @@ PassRefPtr<IDBObjectStoreBackendInterface>  IDBDatabaseBackendImpl::createObject
         return 0;
     }
 
-    RefPtr<IDBObjectStoreBackendImpl> objectStore = IDBObjectStoreBackendImpl::create(this, name, keyPath, autoIncrement);
+    RefPtr<IDBObjectStoreBackendImpl> objectStore = IDBObjectStoreBackendImpl::create(m_sqliteDatabase.get(), name, keyPath, autoIncrement);
     ASSERT(objectStore->name() == name);
 
     RefPtr<IDBDatabaseBackendImpl> database = this;
@@ -220,7 +224,7 @@ void IDBDatabaseBackendImpl::setVersion(const String& version, PassRefPtr<IDBCal
     RefPtr<IDBDatabaseBackendImpl> database = this;
     RefPtr<IDBCallbacks> callbacks = prpCallbacks;
     RefPtr<DOMStringList> objectStores = DOMStringList::create();
-    RefPtr<IDBTransactionBackendInterface> transaction = m_transactionCoordinator->createTransaction(objectStores.get(), IDBTransaction::VERSION_CHANGE, 0, this);
+    RefPtr<IDBTransactionBackendInterface> transaction = IDBTransactionBackendImpl::create(objectStores.get(), IDBTransaction::VERSION_CHANGE, 0, this);
     if (!transaction->scheduleTask(createCallbackTask(&IDBDatabaseBackendImpl::setVersionInternal, database, version, callbacks, transaction),
                                    createCallbackTask(&IDBDatabaseBackendImpl::resetVersion, database, m_version))) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
@@ -243,7 +247,7 @@ void IDBDatabaseBackendImpl::setVersionInternal(ScriptExecutionContext*, PassRef
 PassRefPtr<IDBTransactionBackendInterface> IDBDatabaseBackendImpl::transaction(DOMStringList* objectStores, unsigned short mode, unsigned long timeout, ExceptionCode&)
 {
     // FIXME: Return not allowed err if close has been called.
-    return m_transactionCoordinator->createTransaction(objectStores, mode, timeout, this);
+    return IDBTransactionBackendImpl::create(objectStores, mode, timeout, this);
 }
 
 void IDBDatabaseBackendImpl::close()
@@ -265,7 +269,7 @@ void IDBDatabaseBackendImpl::loadObjectStores()
         String keyPath = objectStoresQuery.getColumnText(2);
         bool autoIncrement = !!objectStoresQuery.getColumnInt(3);
 
-        m_objectStores.set(name, IDBObjectStoreBackendImpl::create(this, id, name, keyPath, autoIncrement));
+        m_objectStores.set(name, IDBObjectStoreBackendImpl::create(m_sqliteDatabase.get(), id, name, keyPath, autoIncrement));
     }
 }
 

@@ -22,6 +22,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/loader"
     "${WEBCORE_DIR}/loader/appcache"
     "${WEBCORE_DIR}/loader/archive"
+    "${WEBCORE_DIR}/loader/cache"
     "${WEBCORE_DIR}/loader/icon"
     "${WEBCORE_DIR}/mathml"
     "${WEBCORE_DIR}/notifications"
@@ -99,7 +100,6 @@ SET(WebCore_IDL_INCLUDES
 SET(WebCore_IDL_PURE_FILES
     svg/ElementTimeControl.idl
     svg/SVGAnimatedPathData.idl
-    svg/SVGAnimatedPoints.idl
     svg/SVGExternalResourcesRequired.idl
     svg/SVGFilterPrimitiveStandardAttributes.idl
     svg/SVGFitToViewBox.idl
@@ -262,6 +262,7 @@ SET(WebCore_IDL_FILES
     html/HTMLOptGroupElement.idl
     html/HTMLOptionElement.idl
     html/HTMLOptionsCollection.idl
+    html/HTMLOutputElement.idl
     html/HTMLParagraphElement.idl
     html/HTMLParamElement.idl
     html/HTMLPreElement.idl
@@ -639,6 +640,7 @@ SET(WebCore_SOURCES
     bindings/js/JSHTMLInputElementCustom.cpp
     bindings/js/JSHTMLObjectElementCustom.cpp
     bindings/js/JSHTMLOptionsCollectionCustom.cpp
+    bindings/js/JSHTMLOutputElementCustom.cpp
     bindings/js/JSHTMLSelectElementCustom.cpp
     bindings/js/JSImageConstructor.cpp
     bindings/js/JSImageDataCustom.cpp
@@ -688,8 +690,7 @@ SET(WebCore_SOURCES
     bindings/js/JSXSLTProcessorCustom.cpp
     bindings/js/ScheduledAction.cpp
     bindings/js/ScriptCachedFrameData.cpp
-    bindings/js/ScriptCallFrame.cpp
-    bindings/js/ScriptCallStack.cpp
+    bindings/js/ScriptCallStackFactory.cpp
     bindings/js/ScriptController.cpp
     bindings/js/ScriptDebugServer.cpp
     bindings/js/ScriptEventListener.cpp
@@ -898,6 +899,7 @@ SET(WebCore_SOURCES
     editing/DeleteFromTextNodeCommand.cpp
     editing/DeleteSelectionCommand.cpp
     editing/EditCommand.cpp
+    editing/EditingStyle.cpp
     editing/Editor.cpp
     editing/EditorCommand.cpp
     editing/FormatBlockCommand.cpp
@@ -1033,6 +1035,7 @@ SET(WebCore_SOURCES
     html/HTMLOptGroupElement.cpp
     html/HTMLOptionElement.cpp
     html/HTMLOptionsCollection.cpp
+    html/HTMLOutputElement.cpp
     html/HTMLParagraphElement.cpp
     html/HTMLParamElement.cpp
     html/HTMLParserErrorCodes.cpp
@@ -1081,6 +1084,7 @@ SET(WebCore_SOURCES
     html/TextInputType.cpp
     html/TimeInputType.cpp
     html/URLInputType.cpp
+    html/ValidationMessage.cpp
     html/ValidityState.cpp
     html/WeekInputType.cpp
     html/canvas/CanvasGradient.cpp
@@ -1119,32 +1123,34 @@ SET(WebCore_SOURCES
     inspector/InspectorDOMStorageResource.cpp
     inspector/InspectorDatabaseResource.cpp
     inspector/InspectorDebuggerAgent.cpp
+    inspector/InspectorFileSystemAgent.cpp
     inspector/InspectorFrontendClientLocal.cpp
     inspector/InspectorFrontendHost.cpp
     inspector/InspectorInstrumentation.cpp
     inspector/InspectorProfilerAgent.cpp
-    inspector/InspectorResource.cpp
     inspector/InspectorResourceAgent.cpp
     inspector/InspectorStyleSheet.cpp
     inspector/InspectorValues.cpp
     inspector/InspectorState.cpp
     inspector/InspectorStorageAgent.cpp
     inspector/InspectorTimelineAgent.cpp
+    inspector/ScriptArguments.cpp
     inspector/ScriptBreakpoint.cpp
+    inspector/ScriptCallFrame.cpp
+    inspector/ScriptCallStack.cpp
     inspector/TimelineRecordFactory.cpp
 
-    loader/Cache.cpp
-    loader/CachedCSSStyleSheet.cpp
-    loader/CachedFont.cpp
-    loader/CachedImage.cpp
-    loader/CachedResource.cpp
-    loader/CachedResourceClientWalker.cpp
-    loader/CachedResourceHandle.cpp
-    loader/CachedScript.cpp
-    loader/CachedXSLStyleSheet.cpp
+    loader/cache/CachedCSSStyleSheet.cpp
+    loader/cache/CachedFont.cpp
+    loader/cache/CachedImage.cpp
+    loader/cache/CachedResource.cpp
+    loader/cache/CachedResourceClientWalker.cpp
+    loader/cache/CachedResourceHandle.cpp
+    loader/cache/CachedScript.cpp
+    loader/cache/CachedXSLStyleSheet.cpp
     loader/CrossOriginAccessControl.cpp
     loader/CrossOriginPreflightResultCache.cpp
-    loader/CachedResourceLoader.cpp
+    loader/cache/CachedResourceLoader.cpp
     loader/DocumentLoader.cpp
     loader/DocumentThreadableLoader.cpp
     loader/DocumentWriter.cpp
@@ -1185,6 +1191,8 @@ SET(WebCore_SOURCES
     loader/archive/ArchiveFactory.cpp
     loader/archive/ArchiveResource.cpp
     loader/archive/ArchiveResourceCollection.cpp
+
+    loader/cache/MemoryCache.cpp
 
     loader/icon/IconDatabase.cpp
     loader/icon/IconLoader.cpp
@@ -1771,7 +1779,6 @@ IF (ENABLE_SVG)
         svg/SVGAnimateMotionElement.cpp
         svg/SVGAnimateTransformElement.cpp
         svg/SVGAnimatedPathData.cpp
-        svg/SVGAnimatedPoints.cpp
         svg/SVGAnimationElement.cpp
         svg/SVGCircleElement.cpp
         svg/SVGClipPathElement.cpp

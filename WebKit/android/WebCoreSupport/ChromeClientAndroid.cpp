@@ -141,6 +141,7 @@ bool ChromeClientAndroid::canTakeFocus(FocusDirection) { notImplemented(); retur
 void ChromeClientAndroid::takeFocus(FocusDirection) { notImplemented(); }
 
 void ChromeClientAndroid::focusedNodeChanged(Node*) { notImplemented(); }
+void ChromeClientAndroid::focusedFrameChanged(Frame*) { notImplemented(); }
 
 Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
         const WindowFeatures& features, const NavigationAction&)
@@ -190,6 +191,10 @@ void ChromeClientAndroid::setMenubarVisible(bool) { notImplemented(); }
 bool ChromeClientAndroid::menubarVisible() { notImplemented(); return false; }
 
 void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
+
+#if ENABLE(CONTEXT_MENUS)
+void ChromeClientAndroid::showContextMenu() { notImplemented(); }
+#endif
 
 // This function is called by the JavaScript bindings to print usually an error to
 // a message console. Pass the message to the java side so that the client can

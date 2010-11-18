@@ -2295,7 +2295,8 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
             while (1) {
                 if (nodeRecord->element()->hasLocalName(token.name())) {
                     m_tree.openElements()->popUntilPopped(nodeRecord->element());
-                    break;
+                    resetForeignInsertionMode();
+                    return;
                 }
                 nodeRecord = nodeRecord->next();
                 if (nodeRecord->element()->namespaceURI() == xhtmlNamespaceURI)
@@ -2580,7 +2581,7 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
     case AfterBodyMode:
     case AfterAfterBodyMode:
         ASSERT(insertionMode() == AfterBodyMode || insertionMode() == AfterAfterBodyMode);
-        return;
+        break;
     case InHeadNoscriptMode:
         ASSERT(insertionMode() == InHeadNoscriptMode);
         defaultForInHeadNoscript();
@@ -2602,11 +2603,11 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
     case InColumnGroupMode:
         if (m_tree.currentElement() == m_tree.openElements()->htmlElement()) {
             ASSERT(isParsingFragment());
-            return;
+            return; // FIXME: Should we break here instead of returning?
         }
         if (!processColgroupEndTagForInColumnGroup()) {
             ASSERT(isParsingFragment());
-            return;
+            return; // FIXME: Should we break here instead of returning?
         }
         prepareToReprocessToken();
         processEndOfFile(token);

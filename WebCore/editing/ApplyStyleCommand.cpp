@@ -36,7 +36,6 @@
 #include "Document.h"
 #include "Editor.h"
 #include "Frame.h"
-#include "HTMLElement.h"
 #include "HTMLFontElement.h"
 #include "HTMLInterchange.h"
 #include "HTMLNames.h"
@@ -428,104 +427,6 @@ RefPtr<CSSMutableStyleDeclaration> getPropertiesNotIn(CSSStyleDeclaration* style
         result->removeProperty(CSSPropertyTextAlign);        
 
     return result;
-}
-
-// Editing style properties must be preserved during editing operation.
-// e.g. when a user inserts a new paragraph, all properties listed here must be copied to the new paragraph.
-// FIXME: The current editingStyleProperties contains all inheritableProperties but we may not need to preserve all inheritable properties
-static const int editingStyleProperties[] = {
-    // CSS inheritable properties
-    CSSPropertyBorderCollapse,
-    CSSPropertyColor,
-    CSSPropertyFontFamily,
-    CSSPropertyFontSize,
-    CSSPropertyFontStyle,
-    CSSPropertyFontVariant,
-    CSSPropertyFontWeight,
-    CSSPropertyLetterSpacing,
-    CSSPropertyLineHeight,
-    CSSPropertyOrphans,
-    CSSPropertyTextAlign,
-    CSSPropertyTextIndent,
-    CSSPropertyTextTransform,
-    CSSPropertyWhiteSpace,
-    CSSPropertyWidows,
-    CSSPropertyWordSpacing,
-    CSSPropertyWebkitBorderHorizontalSpacing,
-    CSSPropertyWebkitBorderVerticalSpacing,
-    CSSPropertyWebkitTextDecorationsInEffect,
-    CSSPropertyWebkitTextFillColor,
-    CSSPropertyWebkitTextSizeAdjust,
-    CSSPropertyWebkitTextStrokeColor,
-    CSSPropertyWebkitTextStrokeWidth,
-};
-size_t numEditingStyleProperties = sizeof(editingStyleProperties)/sizeof(editingStyleProperties[0]);
-
-RefPtr<CSSMutableStyleDeclaration> ApplyStyleCommand::removeNonEditingProperties(CSSStyleDeclaration* style)
-{
-    return style->copyPropertiesInSet(editingStyleProperties, numEditingStyleProperties);
-}
-
-PassRefPtr<CSSMutableStyleDeclaration> ApplyStyleCommand::editingStyleAtPosition(Position pos, ShouldIncludeTypingStyle shouldIncludeTypingStyle)
-{
-    RefPtr<CSSComputedStyleDeclaration> computedStyleAtPosition = pos.computedStyle();
-    RefPtr<CSSMutableStyleDeclaration> style;
-    if (!computedStyleAtPosition)
-        style = CSSMutableStyleDeclaration::create();
-    else
-        style = removeNonEditingProperties(computedStyleAtPosition.get());
-
-    if (style && pos.node() && pos.node()->computedStyle()) {
-        RenderStyle* renderStyle = pos.node()->computedStyle();
-        // If a node's text fill color is invalid, then its children use 
-        // their font-color as their text fill color (they don't
-        // inherit it).  Likewise for stroke color.
-        ExceptionCode ec = 0;
-        if (!renderStyle->textFillColor().isValid())
-            style->removeProperty(CSSPropertyWebkitTextFillColor, ec);
-        if (!renderStyle->textStrokeColor().isValid())
-            style->removeProperty(CSSPropertyWebkitTextStrokeColor, ec);
-        ASSERT(ec == 0);
-        if (renderStyle->fontDescription().keywordSize())
-            style->setProperty(CSSPropertyFontSize, computedStyleAtPosition->getFontSizeCSSValuePreferringKeyword()->cssText());
-    }
-
-    if (shouldIncludeTypingStyle == IncludeTypingStyle) {
-        CSSMutableStyleDeclaration* typingStyle = pos.node()->document()->frame()->selection()->typingStyle();
-        if (typingStyle)
-            style->merge(typingStyle);
-    }
-
-    return style.release();
-}
-
-void prepareEditingStyleToApplyAt(CSSMutableStyleDeclaration* editingStyle, Position pos)
-{
-    // ReplaceSelectionCommand::handleStyleSpans() requires that this function only removes the editing style.
-    // If this function was modified in the future to delete all redundant properties, then add a boolean value to indicate
-    // which one of editingStyleAtPosition or computedStyle is called.
-    RefPtr<CSSMutableStyleDeclaration> style = ApplyStyleCommand::editingStyleAtPosition(pos);
-    style->diff(editingStyle);
-
-    // if alpha value is zero, we don't add the background color.
-    RefPtr<CSSValue> backgroundColor = editingStyle->getPropertyCSSValue(CSSPropertyBackgroundColor);
-    if (backgroundColor && backgroundColor->isPrimitiveValue()) {
-        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(backgroundColor.get());
-        Color color = Color(primitiveValue->getRGBA32Value());
-        ExceptionCode ec;
-        if (color.alpha() == 0)
-            editingStyle->removeProperty(CSSPropertyBackgroundColor, ec);
-    }
-}
-
-void removeStylesAddedByNode(CSSMutableStyleDeclaration* editingStyle, Node* node)
-{
-    ASSERT(node);
-    ASSERT(node->parentNode());
-    RefPtr<CSSMutableStyleDeclaration> parentStyle = ApplyStyleCommand::editingStyleAtPosition(Position(node->parentNode(), 0));
-    RefPtr<CSSMutableStyleDeclaration> style = ApplyStyleCommand::editingStyleAtPosition(Position(node, 0));
-    parentStyle->diff(style.get());
-    style->diff(editingStyle);
 }
 
 ApplyStyleCommand::ApplyStyleCommand(Document* document, CSSStyleDeclaration* style, EditAction editingAction, EPropertyLevel propertyLevel)
@@ -1046,6 +947,8 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
     removeInlineStyle(styleWithoutEmbedding ? styleWithoutEmbedding.get() : style, removeStart, end);
     start = startPosition();
     end = endPosition();
+    if (start.isNull() || start.isOrphan() || end.isNull() || end.isOrphan())
+        return;
 
     if (splitStart) {
         if (mergeStartWithPreviousIfIdentical(start, end)) {
@@ -1150,9 +1053,9 @@ void ApplyStyleCommand::applyInlineStyleToNodeRange(CSSMutableStyleDeclaration* 
     if (m_removeOnly)
         return;
 
-    for (Node* next; node && node != pastEndNode; node = next) {
+    for (RefPtr<Node> next; node && node != pastEndNode; node = next.get()) {
         next = node->traverseNextNode();
-        
+
         if (!node->renderer() || !node->isContentEditable())
             continue;
         
@@ -1183,7 +1086,8 @@ void ApplyStyleCommand::applyInlineStyleToNodeRange(CSSMutableStyleDeclaration* 
             }
         }
 
-        Node* runEnd = node;
+        RefPtr<Node> runStart = node;
+        RefPtr<Node> runEnd = node;
         Node* sibling = node->nextSibling();
         while (sibling && sibling != pastEndNode && !sibling->contains(pastEndNode)
                && (!isBlock(sibling) || sibling->hasTagName(brTag))
@@ -1193,9 +1097,9 @@ void ApplyStyleCommand::applyInlineStyleToNodeRange(CSSMutableStyleDeclaration* 
         }
         next = runEnd->traverseNextSibling();
 
-        if (!removeStyleFromRunBeforeApplyingStyle(style, node, runEnd))
+        if (!removeStyleFromRunBeforeApplyingStyle(style, runStart, runEnd))
             continue;
-        addInlineStyleIfNeeded(style, node, runEnd, AddStyledElement);
+        addInlineStyleIfNeeded(style, runStart.get(), runEnd.get(), AddStyledElement);
     }
 }
 
@@ -1205,12 +1109,12 @@ bool ApplyStyleCommand::isStyledInlineElementToRemove(Element* element) const
         || (m_isInlineElementToRemoveFunction && m_isInlineElementToRemoveFunction(element));
 }
 
-bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDeclaration* style, Node*& runStart, Node*& runEnd)
+bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDeclaration* style, RefPtr<Node>& runStart, RefPtr<Node>& runEnd)
 {
     ASSERT(runStart && runEnd && runStart->parentNode() == runEnd->parentNode());
-    Node* pastEndNode = runEnd->traverseNextSibling();
+    RefPtr<Node> pastEndNode = runEnd->traverseNextSibling();
     bool needToApplyStyle = false;
-    for (Node* node = runStart; node && node != pastEndNode; node = node->traverseNextNode()) {
+    for (Node* node = runStart.get(); node && node != pastEndNode.get(); node = node->traverseNextNode()) {
         if (node->childNodeCount())
             continue;
         // We don't consider m_isInlineElementToRemoveFunction here because we never apply style when m_isInlineElementToRemoveFunction is specified
@@ -1223,16 +1127,16 @@ bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDec
     if (!needToApplyStyle)
         return false;
 
-    Node* next;
-    for (Node* node = runStart; node && node != pastEndNode; node = next) {
+    RefPtr<Node> next = runStart;
+    for (RefPtr<Node> node = next; node && node->inDocument() && node != pastEndNode; node = next) {
         next = node->traverseNextNode();
         if (!node->isHTMLElement())
             continue;
-        
-        Node* previousSibling = node->previousSibling();
-        Node* nextSibling = node->nextSibling();
-        ContainerNode* parent = node->parentNode();
-        removeInlineStyleFromElement(style, static_cast<HTMLElement*>(node), RemoveAlways);
+
+        RefPtr<Node> previousSibling = node->previousSibling();
+        RefPtr<Node> nextSibling = node->nextSibling();
+        RefPtr<ContainerNode> parent = node->parentNode();
+        removeInlineStyleFromElement(style, static_cast<HTMLElement*>(node.get()), RemoveAlways);
         if (!node->inDocument()) {
             // FIXME: We might need to update the start and the end of current selection here but need a test.
             if (runStart == node)
@@ -1245,7 +1149,7 @@ bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDec
     return true;
 }
 
-bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration* style, HTMLElement* element, InlineStyleRemovalMode mode, CSSMutableStyleDeclaration* extractedStyle)
+bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration* style, PassRefPtr<HTMLElement> element, InlineStyleRemovalMode mode, CSSMutableStyleDeclaration* extractedStyle)
 {
     ASSERT(style);
     ASSERT(element);
@@ -1253,7 +1157,7 @@ bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration*
     if (!element->parentNode() || !element->parentNode()->isContentEditable())
         return false;
 
-    if (isStyledInlineElementToRemove(element)) {
+    if (isStyledInlineElementToRemove(element.get())) {
         if (mode == RemoveNone)
             return true;
         ASSERT(extractedStyle);
@@ -1264,7 +1168,7 @@ bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration*
     }
 
     bool removed = false;
-    if (removeImplicitlyStyledElement(style, element, mode, extractedStyle))
+    if (removeImplicitlyStyledElement(style, element.get(), mode, extractedStyle))
         removed = true;
 
     if (!element->inDocument())
@@ -1272,7 +1176,7 @@ bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration*
 
     // If the node was converted to a span, the span may still contain relevant
     // styles which must be removed (e.g. <b style='font-weight: bold'>)
-    if (removeCSSStyle(style, element, mode, extractedStyle))
+    if (removeCSSStyle(style, element.get(), mode, extractedStyle))
         removed = true;
 
     return removed;
@@ -1658,9 +1562,7 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
             break;
         node = next.get();
     }
-    
-    ASSERT(s.node()->inDocument());
-    ASSERT(e.node()->inDocument());
+
     updateStartEnd(s, e);
 }
 
@@ -1859,18 +1761,19 @@ bool ApplyStyleCommand::mergeEndWithNextIfIdentical(const Position &start, const
     return false;
 }
 
-void ApplyStyleCommand::surroundNodeRangeWithElement(Node* startNode, Node* endNode, PassRefPtr<Element> elementToInsert)
+void ApplyStyleCommand::surroundNodeRangeWithElement(PassRefPtr<Node> passedStartNode, PassRefPtr<Node> endNode, PassRefPtr<Element> elementToInsert)
 {
-    ASSERT(startNode);
+    ASSERT(passedStartNode);
     ASSERT(endNode);
     ASSERT(elementToInsert);
+    RefPtr<Node> startNode = passedStartNode;
     RefPtr<Element> element = elementToInsert;
 
     insertNodeBefore(element, startNode);
-    
-    Node* node = startNode;
-    while (1) {
-        Node* next = node->nextSibling();
+
+    RefPtr<Node> node = startNode;
+    while (node) {
+        RefPtr<Node> next = node->nextSibling();
         removeNode(node);
         appendNode(node, element);
         if (node == endNode)
@@ -1878,17 +1781,17 @@ void ApplyStyleCommand::surroundNodeRangeWithElement(Node* startNode, Node* endN
         node = next;
     }
 
-    Node* nextSibling = element->nextSibling();
-    Node* previousSibling = element->previousSibling();
+    RefPtr<Node> nextSibling = element->nextSibling();
+    RefPtr<Node> previousSibling = element->previousSibling();
     if (nextSibling && nextSibling->isElementNode() && nextSibling->isContentEditable()
-        && areIdenticalElements(element.get(), static_cast<Element*>(nextSibling)))
-        mergeIdenticalElements(element, static_cast<Element*>(nextSibling));
+        && areIdenticalElements(element.get(), static_cast<Element*>(nextSibling.get())))
+        mergeIdenticalElements(element.get(), static_cast<Element*>(nextSibling.get()));
 
     if (previousSibling && previousSibling->isElementNode() && previousSibling->isContentEditable()) {
         Node* mergedElement = previousSibling->nextSibling();
         if (mergedElement->isElementNode() && mergedElement->isContentEditable()
-            && areIdenticalElements(static_cast<Element*>(previousSibling), static_cast<Element*>(mergedElement)))
-            mergeIdenticalElements(static_cast<Element*>(previousSibling), static_cast<Element*>(mergedElement));
+            && areIdenticalElements(static_cast<Element*>(previousSibling.get()), static_cast<Element*>(mergedElement)))
+            mergeIdenticalElements(static_cast<Element*>(previousSibling.get()), static_cast<Element*>(mergedElement));
     }
 
     // FIXME: We should probably call updateStartEnd if the start or end was in the node
@@ -1910,17 +1813,22 @@ void ApplyStyleCommand::addBlockStyle(const StyleChange& styleChange, HTMLElemen
     setNodeAttribute(block, styleAttr, cssText);
 }
 
-void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style, Node *startNode, Node *endNode, EAddStyledElement addStyledElement)
+void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style, PassRefPtr<Node> passedStart, PassRefPtr<Node> passedEnd, EAddStyledElement addStyledElement)
 {
+    if (!passedStart || !passedEnd || !passedStart->inDocument() || !passedEnd->inDocument())
+        return;
+    RefPtr<Node> startNode = passedStart;
+    RefPtr<Node> endNode = passedEnd;
+
     // It's okay to obtain the style at the startNode because we've removed all relevant styles from the current run.
     RefPtr<HTMLElement> dummyElement;
     Position positionForStyleComparison;
     if (!startNode->isElementNode()) {
         dummyElement = createStyleSpanElement(document());
-        insertNodeAt(dummyElement, positionBeforeNode(startNode));
+        insertNodeAt(dummyElement, positionBeforeNode(startNode.get()));
         positionForStyleComparison = positionBeforeNode(dummyElement.get());
     } else
-        positionForStyleComparison = firstPositionInNode(startNode);
+        positionForStyleComparison = firstPositionInNode(startNode.get());
 
     StyleChange styleChange(style, positionForStyleComparison);
 
@@ -1930,7 +1838,7 @@ void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style
     // Find appropriate font and span elements top-down.
     HTMLElement* fontContainer = 0;
     HTMLElement* styleContainer = 0;
-    for (Node* container = startNode; container && startNode == endNode; container = container->firstChild()) {
+    for (Node* container = startNode.get(); container && startNode == endNode; container = container->firstChild()) {
         if (container->isHTMLElement() && container->hasTagName(fontTag))
             fontContainer = static_cast<HTMLElement*>(container);
         bool styleContainerIsNotSpan = !styleContainer || !styleContainer->hasTagName(spanTag);

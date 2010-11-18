@@ -36,6 +36,7 @@
 
 #include "AffineTransform.h"
 #include "Color.h"
+#include "Extensions3D.h"
 #include "FloatRect.h"
 #include "GraphicsContext3D.h"
 #include "GraphicsTypes.h"
@@ -52,6 +53,7 @@ namespace WebCore {
 PassRefPtr<SharedGraphicsContext3D> SharedGraphicsContext3D::create(HostWindow* hostWindow)
 {
     GraphicsContext3D::Attributes attr;
+    attr.canRecoverFromContextLoss = false; // Canvas contexts can not handle lost contexts.
     RefPtr<GraphicsContext3D> context = GraphicsContext3D::create(attr, hostWindow);
     if (!context)
         return 0;
@@ -178,18 +180,8 @@ void SharedGraphicsContext3D::readPixels(long x, long y, unsigned long width, un
 
 bool SharedGraphicsContext3D::supportsBGRA()
 {
-    return m_context->supportsBGRA();
-}
-
-bool SharedGraphicsContext3D::supportsCopyTextureToParentTextureCHROMIUM()
-
-{
-    return m_context->supportsCopyTextureToParentTextureCHROMIUM();
-}
-
-void SharedGraphicsContext3D::copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture)
-{
-    return m_context->copyTextureToParentTextureCHROMIUM(texture, parentTexture);
+    return m_context->getExtensions()->supports("GL_EXT_texture_format_BGRA8888")
+        && m_context->getExtensions()->supports("GL_EXT_read_format_bgra");
 }
 
 Texture* SharedGraphicsContext3D::createTexture(NativeImagePtr ptr, Texture::Format format, int width, int height)

@@ -25,7 +25,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 WebInspector.Resource = function(identifier, url)
 {
     this.identifier = identifier;
@@ -256,7 +255,7 @@ WebInspector.Resource.prototype = {
             this._checkWarnings();
             this.dispatchEventToListeners("finished");
             if (this._pendingContentCallbacks.length)
-                this._requestContent();
+                this._innerRequestContent();
         }
     },
 
@@ -288,6 +287,20 @@ WebInspector.Resource.prototype = {
     set cached(x)
     {
         this._cached = x;
+        if (x)
+            delete this._timing;
+    },
+
+
+    get timing()
+    {
+        return this._timing;
+    },
+
+    set timing(x)
+    {
+        if (!this._cached)
+            this._timing = x;
     },
 
     get mimeType()
@@ -332,7 +345,7 @@ WebInspector.Resource.prototype = {
                 this.category = WebInspector.resourceCategories.xhr;
                 break;
             case WebInspector.Resource.Type.WebSocket:
-                this.category = WebInspector.resourceCategories.websocket;
+                this.category = WebInspector.resourceCategories.websockets;
                 break;
             case WebInspector.Resource.Type.Other:
             default:
@@ -603,12 +616,17 @@ WebInspector.Resource.prototype = {
             WebInspector.console.addMessage(msg);
     },
 
+    get content()
+    {
+        return this._content;
+    },
+
     set content(content)
     {
         this._content = content;
     },
 
-    getContent: function(callback)
+    requestContent: function(callback)
     {
         if (this._content) {
             callback(this._content, this._contentEncoded);
@@ -616,7 +634,7 @@ WebInspector.Resource.prototype = {
         }
         this._pendingContentCallbacks.push(callback);
         if (this.finished)
-            this._requestContent();
+            this._innerRequestContent();
     },
 
     get contentURL()
@@ -629,7 +647,7 @@ WebInspector.Resource.prototype = {
         return "data:" + this.mimeType + (this._contentEncoded ? ";base64," : ",") + this._content;
     },
 
-    _requestContent: function()
+    _innerRequestContent: function()
     {
         if (this._contentRequested)
             return;
@@ -643,52 +661,10 @@ WebInspector.Resource.prototype = {
             for (var i = 0; i < callbacks.length; ++i)
                 callbacks[i](this._content, this._contentEncoded);
             this._pendingContentCallbacks.length = 0;
+            delete this._contentRequested;
         }
-        WebInspector.ResourceManager.getContent(this, this._contentEncoded, onResourceContent.bind(this));
+        WebInspector.ResourceManager.requestContent(this, this._contentEncoded, onResourceContent.bind(this));
     }
 }
 
 WebInspector.Resource.prototype.__proto__ = WebInspector.Object.prototype;
-
-WebInspector.Resource.CompareByStartTime = function(a, b)
-{
-    return a.startTime - b.startTime;
-}
-
-WebInspector.Resource.CompareByResponseReceivedTime = function(a, b)
-{
-    var aVal = a.responseReceivedTime;
-    var bVal = b.responseReceivedTime;
-    if (aVal === -1 ^ bVal === -1)
-        return bVal - aVal;
-    return aVal - bVal;
-}
-
-WebInspector.Resource.CompareByEndTime = function(a, b)
-{
-    var aVal = a.endTime;
-    var bVal = b.endTime;
-    if (aVal === -1 ^ bVal === -1)
-        return bVal - aVal;
-    return aVal - bVal;
-}
-
-WebInspector.Resource.CompareByDuration = function(a, b)
-{
-    return a.duration - b.duration;
-}
-
-WebInspector.Resource.CompareByLatency = function(a, b)
-{
-    return a.latency - b.latency;
-}
-
-WebInspector.Resource.CompareBySize = function(a, b)
-{
-    return a.resourceSize - b.resourceSize;
-}
-
-WebInspector.Resource.CompareByTransferSize = function(a, b)
-{
-    return a.transferSize - b.transferSize;
-}

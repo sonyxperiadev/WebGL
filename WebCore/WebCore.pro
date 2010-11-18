@@ -231,6 +231,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/loader \
     $$PWD/loader/appcache \
     $$PWD/loader/archive \
+    $$PWD/loader/cache \
     $$PWD/loader/icon \
     $$PWD/mathml \
     $$PWD/notifications \
@@ -351,8 +352,7 @@ v8 {
         bindings/v8/ScopedDOMDataStore.cpp \
 #        bindings/v8/ScriptArray.cpp \
         bindings/v8/ScriptCachedFrameData.cpp \
-        bindings/v8/ScriptCallFrame.cpp \
-        bindings/v8/ScriptCallStack.cpp \
+        bindings/v8/ScriptCallStackFactory.cpp \
         bindings/ScriptControllerBase.cpp \
         bindings/v8/ScriptController.cpp \
         bindings/v8/ScriptEventListener.cpp \
@@ -442,6 +442,7 @@ v8 {
         bindings/v8/custom/V8HTMLInputElementCustom.cpp \
         bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
         bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
+        bindings/v8/custom/V8HTMLOutputElementCustom.cpp \
         bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
         bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
         bindings/v8/custom/V8LocationCustom.cpp \
@@ -537,6 +538,7 @@ v8 {
         bindings/js/JSHTMLInputElementCustom.cpp \
         bindings/js/JSHTMLObjectElementCustom.cpp \
         bindings/js/JSHTMLOptionsCollectionCustom.cpp \
+        bindings/js/JSHTMLOutputElementCustom.cpp \
         bindings/js/JSHTMLSelectElementCustom.cpp \
         bindings/js/JSImageConstructor.cpp \
         bindings/js/JSImageDataCustom.cpp \
@@ -577,8 +579,7 @@ v8 {
         bindings/js/JSPopStateEventCustom.cpp \
         bindings/js/JSWorkerContextErrorHandler.cpp \
         bindings/js/ScriptCachedFrameData.cpp \
-        bindings/js/ScriptCallFrame.cpp \
-        bindings/js/ScriptCallStack.cpp \
+        bindings/js/ScriptCallStackFactory.cpp \
         bindings/js/ScriptController.cpp \
         bindings/js/ScriptDebugServer.cpp \
         bindings/js/ScriptEventListener.cpp \
@@ -787,6 +788,7 @@ SOURCES += \
     editing/DeleteFromTextNodeCommand.cpp \
     editing/DeleteSelectionCommand.cpp \
     editing/EditCommand.cpp \
+    editing/EditingStyle.cpp \
     editing/Editor.cpp \
     editing/EditorCommand.cpp \
     editing/FormatBlockCommand.cpp \
@@ -925,6 +927,7 @@ SOURCES += \
     html/HTMLOptGroupElement.cpp \
     html/HTMLOptionElement.cpp \
     html/HTMLOptionsCollection.cpp \
+    html/HTMLOutputElement.cpp \
     html/HTMLParagraphElement.cpp \
     html/HTMLParamElement.cpp \
     html/HTMLParserErrorCodes.cpp \
@@ -973,6 +976,7 @@ SOURCES += \
     html/TextInputType.cpp \
     html/TimeInputType.cpp \
     html/URLInputType.cpp \
+    html/ValidationMessage.cpp \
     html/ValidityState.cpp \
     html/WeekInputType.cpp \
     html/canvas/CanvasGradient.cpp \
@@ -1010,34 +1014,37 @@ SOURCES += \
     inspector/InspectorDebuggerAgent.cpp \
     inspector/InspectorDOMAgent.cpp \
     inspector/InspectorDOMStorageResource.cpp \
+    inspector/InspectorFileSystemAgent.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
     inspector/InspectorInstrumentation.cpp \
     inspector/InspectorProfilerAgent.cpp \
-    inspector/InspectorResource.cpp \
     inspector/InspectorResourceAgent.cpp \
     inspector/InspectorState.cpp \
     inspector/InspectorStorageAgent.cpp \
     inspector/InspectorStyleSheet.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
+    inspector/ScriptArguments.cpp \
     inspector/ScriptBreakpoint.cpp \
+    inspector/ScriptCallFrame.cpp \
+    inspector/ScriptCallStack.cpp \
     inspector/TimelineRecordFactory.cpp \
     loader/archive/ArchiveFactory.cpp \
     loader/archive/ArchiveResource.cpp \
     loader/archive/ArchiveResourceCollection.cpp \
-    loader/Cache.cpp \
-    loader/CachedCSSStyleSheet.cpp \
-    loader/CachedFont.cpp \
-    loader/CachedImage.cpp \
-    loader/CachedResourceClientWalker.cpp \
-    loader/CachedResourceHandle.cpp \
-    loader/CachedResource.cpp \
-    loader/CachedScript.cpp \
-    loader/CachedXSLStyleSheet.cpp \
+    loader/cache/MemoryCache.cpp \
+    loader/cache/CachedCSSStyleSheet.cpp \
+    loader/cache/CachedFont.cpp \
+    loader/cache/CachedImage.cpp \
+    loader/cache/CachedResourceClientWalker.cpp \
+    loader/cache/CachedResourceHandle.cpp \
+    loader/cache/CachedResource.cpp \
+    loader/cache/CachedScript.cpp \
+    loader/cache/CachedXSLStyleSheet.cpp \
     loader/CrossOriginAccessControl.cpp \
     loader/CrossOriginPreflightResultCache.cpp \
-    loader/CachedResourceLoader.cpp \
+    loader/cache/CachedResourceLoader.cpp \
     loader/DocumentLoader.cpp \
     loader/DocumentThreadableLoader.cpp \
     loader/DocumentWriter.cpp \
@@ -1397,8 +1404,6 @@ v8 {
         bindings/v8/ScopedDOMDataStore.h \
 #        bindings/v8/ScriptArray.h \
         bindings/v8/ScriptCachedFrameData.h \
-        bindings/v8/ScriptCallFrame.h \
-        bindings/v8/ScriptCallStack.h \
         bindings/v8/ScriptController.h \
         bindings/v8/ScriptEventListener.h \
         bindings/v8/ScriptFunctionCall.h \
@@ -1481,8 +1486,6 @@ v8 {
         bindings/js/JavaScriptCallFrame.h \
         bindings/js/ScheduledAction.h \
         bindings/js/ScriptCachedFrameData.h \
-        bindings/js/ScriptCallFrame.h \
-        bindings/js/ScriptCallStack.h \
         bindings/js/ScriptController.h \
         bindings/js/ScriptEventListener.h \
         bindings/js/ScriptFunctionCall.h \
@@ -1689,12 +1692,14 @@ HEADERS += \
     editing/ApplyStyleCommand.h \
     editing/BreakBlockquoteCommand.h \
     editing/CompositeEditCommand.h \
+    editing/CorrectionPanelInfo.h \
     editing/CreateLinkCommand.h \
     editing/DeleteButtonController.h \
     editing/DeleteButton.h \
     editing/DeleteFromTextNodeCommand.h \
     editing/DeleteSelectionCommand.h \
     editing/EditCommand.h \
+    editing/EditingStyle.h \
     editing/EditingBehavior.h \
     editing/Editor.h \
     editing/FormatBlockCommand.h \
@@ -1746,7 +1751,6 @@ HEADERS += \
     fileapi/FileThread.h \
     fileapi/FileThreadTask.h \
     history/BackForwardController.h \
-    history/BackForwardControllerClient.h \
     history/BackForwardListImpl.h \
     history/BackForwardList.h \
     history/CachedFrame.h \
@@ -1831,6 +1835,7 @@ HEADERS += \
     html/HTMLOptGroupElement.h \
     html/HTMLOptionElement.h \
     html/HTMLOptionsCollection.h \
+    html/HTMLOutputElement.h \
     html/HTMLParagraphElement.h \
     html/HTMLParamElement.h \
     html/HTMLParserErrorCodes.h \
@@ -1892,12 +1897,12 @@ HEADERS += \
     inspector/InspectorDatabaseResource.h \
     inspector/InspectorDebuggerAgent.h \
     inspector/InspectorDOMStorageResource.h \
+    inspector/InspectorFileSystemAgent.h \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
     inspector/InspectorInstrumentation.h \
     inspector/InspectorProfilerAgent.h \
-    inspector/InspectorResource.h \
     inspector/InspectorResourceAgent.h \
     inspector/InspectorState.h \
     inspector/InspectorStorageAgent.h \
@@ -1915,18 +1920,18 @@ HEADERS += \
     loader/archive/ArchiveFactory.h \
     loader/archive/ArchiveResourceCollection.h \
     loader/archive/ArchiveResource.h \
-    loader/CachedCSSStyleSheet.h \
-    loader/CachedFont.h \
-    loader/CachedImage.h \
-    loader/CachedResourceClientWalker.h \
-    loader/CachedResource.h \
-    loader/CachedResourceHandle.h \
-    loader/CachedScript.h \
-    loader/CachedXSLStyleSheet.h \
-    loader/Cache.h \
+    loader/cache/CachedCSSStyleSheet.h \
+    loader/cache/CachedFont.h \
+    loader/cache/CachedImage.h \
+    loader/cache/CachedResourceClientWalker.h \
+    loader/cache/CachedResource.h \
+    loader/cache/CachedResourceHandle.h \
+    loader/cache/CachedScript.h \
+    loader/cache/CachedXSLStyleSheet.h \
+    loader/cache/MemoryCache.h \
     loader/CrossOriginAccessControl.h \
     loader/CrossOriginPreflightResultCache.h \
-    loader/CachedResourceLoader.h \
+    loader/cache/CachedResourceLoader.h \
     loader/DocumentLoader.h \
     loader/DocumentThreadableLoader.h \
     loader/FormState.h \
@@ -2364,10 +2369,13 @@ HEADERS += \
     svg/properties/SVGAnimatedPropertySynchronizer.h \
     svg/properties/SVGAnimatedPropertyTearOff.h \
     svg/properties/SVGAnimatedStaticPropertyTearOff.h \
+    svg/properties/SVGListProperty.h \
     svg/properties/SVGListPropertyTearOff.h \
     svg/properties/SVGProperty.h \
     svg/properties/SVGPropertyTearOff.h \
     svg/properties/SVGPropertyTraits.h \
+    svg/properties/SVGStaticListPropertyTearOff.h \
+    svg/properties/SVGStaticPropertyTearOff.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
@@ -2378,9 +2386,12 @@ HEADERS += \
     svg/SVGAnimatedInteger.h \
     svg/SVGAnimatedLength.h \
     svg/SVGAnimatedLengthList.h \
+    svg/SVGAnimatedNumber.h \
+    svg/SVGAnimatedNumberList.h \
     svg/SVGAnimatedPathData.h \
-    svg/SVGAnimatedPoints.h \
+    svg/SVGAnimatedPreserveAspectRatio.h \
     svg/SVGAnimatedRect.h \
+    svg/SVGAnimatedString.h \
     svg/SVGAnimateElement.h \
     svg/SVGAnimateMotionElement.h \
     svg/SVGAnimateTransformElement.h \
@@ -2777,11 +2788,11 @@ contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
     
             mac {
                 SOURCES += \
-                    plugins/mac/PluginPackageMac.cpp \
-                    plugins/mac/PluginViewMac.mm
+                    plugins/mac/PluginPackageMac.cpp
                 OBJECTIVE_SOURCES += \
                     platform/text/mac/StringImplMac.mm \
-                    platform/mac/WebCoreNSStringExtras.mm
+                    platform/mac/WebCoreNSStringExtras.mm \
+                    plugins/mac/PluginViewMac.mm
                 INCLUDEPATH += platform/mac
                 # Note: XP_MACOSX is defined in npapi.h
             } else {
@@ -3392,7 +3403,6 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGAngle.cpp \
         svg/SVGAnimateColorElement.cpp \
         svg/SVGAnimatedPathData.cpp \
-        svg/SVGAnimatedPoints.cpp \
         svg/SVGAnimateElement.cpp \
         svg/SVGAnimateMotionElement.cpp \
         svg/SVGAnimateTransformElement.cpp \
@@ -3671,7 +3681,9 @@ HEADERS += \
         html/canvas/Uint8Array.h \
         html/canvas/Uint32Array.h \
         html/canvas/Uint16Array.h \
-        platform/graphics/GraphicsContext3D.h
+        platform/graphics/Extensions3D.h \
+        platform/graphics/GraphicsContext3D.h \
+        platform/graphics/qt/Extensions3DQt.h
 
     !v8 {
         SOURCES += \
@@ -3709,6 +3721,7 @@ SOURCES += \
         html/canvas/Uint32Array.cpp \
         html/canvas/Uint16Array.cpp \
         platform/graphics/GraphicsContext3D.cpp \
+        platform/graphics/qt/Extensions3DQt.cpp \
         platform/graphics/qt/GraphicsContext3DQt.cpp
 
 }
@@ -3844,11 +3857,15 @@ win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
 contains(CONFIG, texmap) {
     DEFINES += WTF_USE_TEXTURE_MAPPER=1
     HEADERS += \
+        platform/graphics/qt/TextureMapperQt.h \
+        platform/graphics/texmap/GraphicsLayerTextureMapper.h \
         platform/graphics/texmap/TextureMapper.h \
+        platform/graphics/texmap/TextureMapperNode.h \
         platform/graphics/texmap/TextureMapperPlatformLayer.h
 
     SOURCES += \
         platform/graphics/qt/TextureMapperQt.cpp \
+        platform/graphics/texmap/TextureMapperNode.cpp \
         platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
 
     contains(QT_CONFIG, opengl) {

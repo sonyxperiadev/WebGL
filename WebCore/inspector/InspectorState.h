@@ -45,8 +45,6 @@ class InspectorState {
 public:
     enum InspectorPropertyId {
         monitoringXHR = 1,
-        resourceTrackingEnabled,
-        resourceTrackingAlwaysEnabled,
         timelineProfilerEnabled,
         searchingForNode,
         profilerAlwaysEnabled,
@@ -56,6 +54,7 @@ public:
         inspectorAttachedHeight,
         pauseOnExceptionsState,
         consoleMessagesEnabled,
+        userInitiatedProfiling,
         lastPropertyId
     };
 

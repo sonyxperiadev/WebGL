@@ -27,6 +27,7 @@
 #define ApplyStyleCommand_h
 
 #include "CompositeEditCommand.h"
+#include "HTMLElement.h"
 
 namespace WebCore {
 
@@ -63,9 +64,6 @@ public:
         return adoptRef(new ApplyStyleCommand(document, style, isInlineElementToRemoveFunction, action));
     }
 
-    static RefPtr<CSSMutableStyleDeclaration> removeNonEditingProperties(CSSStyleDeclaration* style);
-    static PassRefPtr<CSSMutableStyleDeclaration> editingStyleAtPosition(Position pos, ShouldIncludeTypingStyle shouldIncludeTypingStyle = IgnoreTypingStyle);
-
 private:
     ApplyStyleCommand(Document*, CSSStyleDeclaration*, EditAction, EPropertyLevel);
     ApplyStyleCommand(Document*, CSSStyleDeclaration*, const Position& start, const Position& end, EditAction, EPropertyLevel);
@@ -79,8 +77,8 @@ private:
 
     // style-removal helpers
     bool isStyledInlineElementToRemove(Element*) const;
-    bool removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDeclaration* style, Node*& runStart, Node*& runEnd);
-    bool removeInlineStyleFromElement(CSSMutableStyleDeclaration*, HTMLElement*, InlineStyleRemovalMode = RemoveIfNeeded, CSSMutableStyleDeclaration* extractedStyle = 0);
+    bool removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDeclaration* style, RefPtr<Node>& runStart, RefPtr<Node>& runEnd);
+    bool removeInlineStyleFromElement(CSSMutableStyleDeclaration*, PassRefPtr<HTMLElement>, InlineStyleRemovalMode = RemoveIfNeeded, CSSMutableStyleDeclaration* extractedStyle = 0);
     inline bool shouldRemoveInlineStyleFromElement(CSSMutableStyleDeclaration* style, HTMLElement* element) {return removeInlineStyleFromElement(style, element, RemoveNone);}
     bool removeImplicitlyStyledElement(CSSMutableStyleDeclaration*, HTMLElement*, InlineStyleRemovalMode, CSSMutableStyleDeclaration* extractedStyle);
     void replaceWithSpanOrRemoveIfWithoutAttributes(HTMLElement*&);
@@ -99,7 +97,7 @@ private:
     void fixRangeAndApplyInlineStyle(CSSMutableStyleDeclaration*, const Position& start, const Position& end);
     void applyInlineStyleToNodeRange(CSSMutableStyleDeclaration*, Node* startNode, Node* pastEndNode);
     void addBlockStyle(const StyleChange&, HTMLElement*);
-    void addInlineStyleIfNeeded(CSSMutableStyleDeclaration*, Node* start, Node* end, EAddStyledElement addStyledElement = AddStyledElement);
+    void addInlineStyleIfNeeded(CSSMutableStyleDeclaration*, PassRefPtr<Node> start, PassRefPtr<Node> end, EAddStyledElement addStyledElement = AddStyledElement);
     void splitTextAtStart(const Position& start, const Position& end);
     void splitTextAtEnd(const Position& start, const Position& end);
     void splitTextElementAtStart(const Position& start, const Position& end);
@@ -110,7 +108,7 @@ private:
     bool mergeEndWithNextIfIdentical(const Position& start, const Position& end);
     void cleanupUnstyledAppleStyleSpans(Node* dummySpanAncestor);
 
-    void surroundNodeRangeWithElement(Node* start, Node* end, PassRefPtr<Element>);
+    void surroundNodeRangeWithElement(PassRefPtr<Node> start, PassRefPtr<Node> end, PassRefPtr<Element>);
     float computedFontSize(const Node*);
     void joinChildTextNodes(Node*, const Position& start, const Position& end);
 
@@ -135,9 +133,6 @@ private:
 bool isStyleSpan(const Node*);
 PassRefPtr<HTMLElement> createStyleSpanElement(Document*);
 RefPtr<CSSMutableStyleDeclaration> getPropertiesNotIn(CSSStyleDeclaration* styleWithRedundantProperties, CSSStyleDeclaration* baseStyle);
-
-void prepareEditingStyleToApplyAt(CSSMutableStyleDeclaration*, Position);
-void removeStylesAddedByNode(CSSMutableStyleDeclaration*, Node*);
 
 } // namespace WebCore
 

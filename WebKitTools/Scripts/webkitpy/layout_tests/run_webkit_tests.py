@@ -85,6 +85,8 @@ _log = logging.getLogger("webkitpy.layout_tests.run_webkit_tests")
 # Builder base URL where we have the archived test results.
 BUILDER_BASE_URL = "http://build.chromium.org/buildbot/layout_test_results/"
 
+LAYOUT_TESTS_DIRECTORY = "LayoutTests" + os.sep
+
 TestExpectationsFile = test_expectations.TestExpectationsFile
 
 
@@ -283,11 +285,16 @@ class TestRunner:
           last_unexpected_results: list of unexpected results to retest, if any
 
         """
-        paths = [arg for arg in args if arg and arg != '']
+        paths = [self._strip_test_dir_prefix(arg) for arg in args if arg and arg != '']
         paths += last_unexpected_results
         if self._options.test_list:
             paths += read_test_files(self._options.test_list)
         self._test_files = self._port.tests(paths)
+
+    def _strip_test_dir_prefix(self, path):
+        if path.startswith(LAYOUT_TESTS_DIRECTORY):
+            return path[len(LAYOUT_TESTS_DIRECTORY):]
+        return path
 
     def lint(self):
         # Creating the expecations for each platform/configuration pair does
@@ -404,9 +411,8 @@ class TestRunner:
 
             # If we reached the end and we don't have enough tests, we run some
             # from the beginning.
-            if (self._options.run_chunk and
-                (slice_end - slice_start < chunk_len)):
-                extra = 1 + chunk_len - (slice_end - slice_start)
+            if slice_end - slice_start < chunk_len:
+                extra = chunk_len - (slice_end - slice_start)
                 extra_msg = ('   last chunk is partial, appending [0:%d]' %
                             extra)
                 self._printer.print_expected(extra_msg)
@@ -470,9 +476,9 @@ class TestRunner:
     def _get_dir_for_test_file(self, test_file):
         """Returns the highest-level directory by which to shard the given
         test file."""
-        index = test_file.rfind(os.sep + 'LayoutTests' + os.sep)
+        index = test_file.rfind(os.sep + LAYOUT_TESTS_DIRECTORY)
 
-        test_file = test_file[index + len('LayoutTests/'):]
+        test_file = test_file[index + len(LAYOUT_TESTS_DIRECTORY):]
         test_file_parts = test_file.split(os.sep, 1)
         directory = test_file_parts[0]
         test_file = test_file_parts[1]
@@ -741,17 +747,6 @@ class TestRunner:
         if not result_summary:
             return None
 
-        # Do not start when http locking is enabled.
-        if not self._options.wait_for_httpd:
-            if self.needs_http():
-                self._printer.print_update('Starting HTTP server ...')
-                self._port.start_http_server()
-
-            if self.needs_websocket():
-                self._printer.print_update('Starting WebSocket server ...')
-                self._port.start_websocket_server()
-                # self._websocket_secure_server.Start()
-
         return result_summary
 
     def run(self, result_summary):
@@ -841,11 +836,6 @@ class TestRunner:
         sys.stdout.flush()
         _log.debug("flushing stderr")
         sys.stderr.flush()
-        if not self._options.wait_for_httpd:
-            _log.debug("stopping http server")
-            self._port.stop_http_server()
-            _log.debug("stopping websocket server")
-            self._port.stop_websocket_server()
         _log.debug("stopping helper")
         self._port.stop_helper()
 
@@ -948,14 +938,15 @@ class TestRunner:
         if not self._options.test_results_server:
             return
 
+        if not self._options.master_name:
+            _log.error("--test-results-server was set, but --master-name was not. Not uploading JSON files.")
+            return
+
         _log.info("Uploading JSON files for builder: %s",
                    self._options.builder_name)
 
-        attrs = [("builder", self._options.builder_name), ("testtype", "layout-tests")]
-        # FIXME: master_name should be required if test_results_server is set.
-        # Throw an error if master_name isn't set.
-        if self._options.master_name:
-            attrs.append(("master", self._options.master_name))
+        attrs = [("builder", self._options.builder_name), ("testtype", "layout-tests"),
+            ("master", self._options.master_name)]
 
         json_files = ["expectations.json"]
         if self._options.upload_full_results:
@@ -965,13 +956,6 @@ class TestRunner:
 
         files = [(file, os.path.join(self._options.results_directory, file))
             for file in json_files]
-
-        # FIXME: Remove this. This is temporary debug logging.
-        if self._options.builder_name.startswith("Webkit Linux"):
-            for filename in files:
-                _log.debug(filename[1])
-                with codecs.open(filename[1], "r") as results_file:
-                    _log.debug("%s:\n%s" % (filename[0], results_file.read()))
 
         uploader = test_results_uploader.TestResultsUploader(
             self._options.test_results_server)
@@ -1530,7 +1514,7 @@ def parse_args(args=None):
             default=False,
             help="Don't check the system dependencies (themes)"),
         optparse.make_option("--use-drt", action="store_true",
-            default=False,
+            default=None,
             help="Use DumpRenderTree instead of test_shell"),
         optparse.make_option("--accelerated-compositing",
             action="store_true",
@@ -1612,9 +1596,6 @@ def parse_args(args=None):
         optparse.make_option("--no-record-results", action="store_false",
             default=True, dest="record_results",
             help="Don't record the results."),
-        optparse.make_option("--wait-for-httpd", action="store_true",
-            default=False, dest="wait_for_httpd",
-            help="Wait for http locks."),
         # old-run-webkit-tests also has HTTP toggle options:
         # --[no-]http                     Run (or do not run) http tests
         #                                 (default: run)
