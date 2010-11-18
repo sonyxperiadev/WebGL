@@ -112,7 +112,10 @@ public:
     void* framePointer() const { return mFrame; }
     CachedNode* getIndex(int index) { return index >= 0 ?
         &mCachedNodes[index] : NULL; }
-    const CachedFrame* hasFrame(const CachedNode* node) const;
+    const CachedFrame* hasFrame(const CachedNode* node) const {
+        return const_cast<CachedFrame*>(this)->hasFrame(node);
+    }
+    CachedFrame* hasFrame(const CachedNode* node);
     void hideCursor();
     int indexInParent() const { return mIndexInParent; }
     void init(const CachedRoot* root, int index, WebCore::Frame* frame);
@@ -143,6 +146,7 @@ public:
     void setData();
     bool setFocus(WebCore::Frame* , WebCore::Node* , int x, int y);
     void setFocusIndex(int index) { mFocusIndex = index; }
+    void setIndexInParent(int index) { mIndexInParent = index; }
     void setLocalViewBounds(const WebCore::IntRect& bounds) { mLocalViewBounds = bounds; }
     int size() { return mCachedNodes.size(); }
     const CachedInput* textInput(const CachedNode* node) const {
