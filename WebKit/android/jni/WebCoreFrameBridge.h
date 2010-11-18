@@ -37,6 +37,7 @@
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
+    class Frame;
     class HistoryItem;
     class Image;
     class Page;
@@ -116,6 +117,8 @@ class WebFrame : public WebCoreRefObject {
 
     void downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength);
 
+    void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);
+
     /**
      * When the user initiates an action (via trackball, key-press, or touch),
      * we set mUserInitiatedAction to true.  If a load happens due to this click,
@@ -134,6 +137,13 @@ class WebFrame : public WebCoreRefObject {
     // FrameLoader.java to block java network loads.
     void setBlockNetworkLoads(bool block) { mBlockNetworkLoads = block; }
     bool blockNetworkLoads() const { return mBlockNetworkLoads; }
+
+    /**
+     * Helper methods. These are typically chunks of code that are called in
+     * slightly different ways by the Apache and Chrome HTTP stacks.
+     */
+    bool getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& username, WTF::String& password);
+    jbyteArray getPostData(const WebCore::ResourceRequest& request);
 
 private:
     struct JavaBrowserFrame;
