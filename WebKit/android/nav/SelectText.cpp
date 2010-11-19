@@ -421,25 +421,38 @@ public:
          * centerX = (rect.L + rect.R) / 2
          * multiply centerX and comparison x by 2 to retain better precision
          */
-        int dx = rect.fLeft + rect.fRight - (mFocusX << 1);
-        int dy = top() + bottom() - (mFocusY << 1);
-        dx = abs(dx);
-        dy = abs(dy);
+        SkIRect testBounds = {rect.fLeft, top(), rect.fRight, bottom()};
+        int dx = std::max(0, std::max(testBounds.fLeft - mFocusX,
+            mFocusX - testBounds.fRight));
+        int dy = std::max(0, std::max(testBounds.fTop - mFocusY,
+            mFocusY - testBounds.fBottom));
+        bool overlaps = testBounds.fTop < mBestBounds.fBottom
+            && testBounds.fBottom > mBestBounds.fTop;
 #ifdef EXTRA_NOISY_LOGGING
-        if (dy < 15)
-            DBG_NAV_LOGD("FirstCheck dx/y=(%d, %d) mDx/y=(%d, %d)",
-                dx>>1, dy>>1, mDx>>1, mDy>>1);
+        if (dy < 10) {
+            SkUnichar ch = getUniChar(rec);
+            DBG_NAV_LOGD("FirstCheck dx/y=(%d,%d) mDx/y=(%d,%d)"
+                " testBounds=(%d,%d,r=%d,b=%d) mBestBounds=(%d,%d,r=%d,b=%d)"
+                " overlaps=%s ch=%c", dx, dy, mDx, mDy,
+                testBounds.fLeft, testBounds.fTop, testBounds.fRight,
+                testBounds.fBottom, mBestBounds.fLeft, mBestBounds.fTop,
+                mBestBounds.fRight, mBestBounds.fBottom,
+                overlaps ? "true" : "false", ch < 0x7f ? ch : '?');
+        }
 #endif
-        if (mDy > dy || (mDy == dy && mDx > dx)) {
+        if ((mDy > dy && !overlaps)
+            || ((mDy == dy || overlaps) && mDx > dx)) {
             mBestBase = base();
-            mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
+            mBestBounds = testBounds;
 #ifndef EXTRA_NOISY_LOGGING
             if (dy < 10 && dx < 10)
 #endif
             {
-                DBG_NAV_LOGD("FirstCheck mBestBounds={%d,%d,r=%d,b=%d} dx/y=(%d, %d)",
+                DBG_NAV_LOGD("FirstCheck dx/y=(%d,%d) mFocus=(%d,%d)"
+                    " mBestBounds={%d,%d,r=%d,b=%d}",
+                    dx, dy, mFocusX, mFocusY,
                     mBestBounds.fLeft, mBestBounds.fTop,
-                    mBestBounds.fRight, mBestBounds.fBottom, dx>>1, dy>>1);
+                    mBestBounds.fRight, mBestBounds.fBottom);
             }
             mDx = dx;
             mDy = dy;
