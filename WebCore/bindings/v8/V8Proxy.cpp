@@ -244,21 +244,17 @@ V8Proxy::~V8Proxy()
     windowShell()->destroyGlobal();
 }
 
-<<<<<<< HEAD
-v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData)
+v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* scriptData)
 #ifdef ANDROID_INSTRUMENT
 {
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
-    v8::Handle<v8::Script> script = compileScriptInternal(code, fileName, baseLine, scriptData);
+    v8::Handle<v8::Script> script = compileScriptInternal(code, fileName, scriptStartPosition, scriptData);
     android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
     return script;
 }
 
-v8::Handle<v8::Script> V8Proxy::compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData)
+v8::Handle<v8::Script> V8Proxy::compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* scriptData)
 #endif
-=======
-v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* scriptData)
->>>>>>> webkit.org at r72274
 {
     const uint16_t* fileNameString = fromWebCoreString(fileName);
     v8::Handle<v8::String> name = v8::String::New(fileNameString, fileName.length());

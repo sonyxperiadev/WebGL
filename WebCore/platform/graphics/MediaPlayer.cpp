@@ -64,12 +64,10 @@
 #endif
 #elif PLATFORM(CHROMIUM)
 #include "MediaPlayerPrivateChromium.h"
-<<<<<<< HEAD
+#define PlatformMediaEngineClassName MediaPlayerPrivate
 #elif PLATFORM(ANDROID)
 #include "MediaPlayerPrivateAndroid.h"
-=======
 #define PlatformMediaEngineClassName MediaPlayerPrivate
->>>>>>> webkit.org at r72274
 #endif
 
 namespace WebCore {

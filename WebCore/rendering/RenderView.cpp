@@ -321,17 +321,6 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
     if (printing())
         return;
 
-<<<<<<< HEAD
-#ifdef ANDROID_FIXED_ELEMENTS
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    const Settings * settings = document()->settings();
-    if (settings && (settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
-#else
-    if (false)
-#endif
-#endif
-=======
     if (style()->isFlippedBlocksWritingMode()) {
         // We have to flip by hand since the view's logical height has not been determined.  We
         // can use the viewport width and height.
@@ -341,7 +330,15 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
             rect.setX(viewWidth() - rect.right());
     }
 
->>>>>>> webkit.org at r72274
+#ifdef ANDROID_FIXED_ELEMENTS
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    const Settings * settings = document()->settings();
+    if (settings && (settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
+        !settings->viewportUserScalable())
+#else
+    if (false)
+#endif
+#endif
     if (fixed && m_frameView)
         rect.move(m_frameView->scrollX(), m_frameView->scrollY());
         

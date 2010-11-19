@@ -144,15 +144,10 @@ void ResourceLoader::start()
         return;
     }    
     
-<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    if (m_documentLoader->scheduleArchiveLoad(this, clientRequest, r.url()))
-        return true;
-#endif
-=======
     if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
         return;
->>>>>>> webkit.org at r72274
+#endif
     
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (m_documentLoader->applicationCacheHost()->maybeLoadResource(this, m_request, m_request.url()))

@@ -641,7 +641,6 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 if (fullLayout || o->selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, fullLayout);
                 o->setNeedsLayout(false);
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
                 if (doTextWrap && !hasTextToWrap && o->isText()) {
                     Node* node = o->node();
@@ -662,10 +661,6 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                     }
                 }
 #endif
-                if (!o->isText())
-                    toRenderInline(o)->invalidateVerticalPosition(); // FIXME: Should do better here and not always invalidate everything.
-=======
->>>>>>> webkit.org at r72274
             }
             o = bidiNext(this, o, 0, false, &endOfInline);
         }

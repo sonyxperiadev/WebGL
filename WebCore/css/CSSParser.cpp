@@ -363,15 +363,13 @@ void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorLi
     cssyyparse(this);
 
     m_selectorListForParseSelector = 0;
-<<<<<<< HEAD
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
-#endif
-=======
 
     // The style sheet will be deleted right away, so it won't outlive the document.
     ASSERT(dummyStyleSheet->hasOneRef());
->>>>>>> webkit.org at r72274
+
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
 }
 
 bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string, RefPtr<CSSStyleSourceData>* styleSourceData)
@@ -5643,82 +5641,6 @@ void CSSParser::endDeclarationsForMarginBox()
     m_numParsedPropertiesBeforeMarginBox = INVALID_NUM_PARSED_PROPERTIES;
 }
 
-<<<<<<< HEAD
-void CSSParser::clearVariables()
-{
-    m_variableNames.clear();
-    m_variableValues.clear();
-}
-
-bool CSSParser::parseVariable(CSSVariablesDeclaration* declaration, const String& variableName, const String& variableValue)
-{
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
-#endif
-    m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
-
-    String nameValuePair = variableName + ": ";
-    nameValuePair += variableValue;
-
-    setupParser("@-webkit-variables-decls{", nameValuePair, "} ");
-    cssyyparse(this);
-    m_rule = 0;
-
-    bool ok = false;
-    if (m_variableNames.size()) {
-        ok = true;
-        declaration->addParsedVariable(variableName, m_variableValues[0]);
-    }
-
-    clearVariables();
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
-#endif
-    return ok;
-}
-
-void CSSParser::parsePropertyWithResolvedVariables(int propId, bool isImportant, CSSMutableStyleDeclaration* declaration, CSSParserValueList* list)
-{
-    m_valueList = list;
-    m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
-
-    if (parseValue(propId, isImportant))
-        declaration->addParsedProperties(m_parsedProperties, m_numParsedProperties);
-
-    clearProperties();
-    m_valueList = 0;
-}
-
-bool CSSParser::checkForVariables(CSSParserValueList* valueList)
-{
-    if (!valueList || !valueList->containsVariables())
-        return false;
-
-    bool hasVariables = false;
-    for (unsigned i = 0; i < valueList->size(); ++i) {
-        if (valueList->valueAt(i)->isVariable()) {
-            hasVariables = true;
-            break;
-        }
-
-        if (valueList->valueAt(i)->unit == CSSParserValue::Function && checkForVariables(valueList->valueAt(i)->function->args.get())) {
-            hasVariables = true;
-            break;
-        }
-    }
-
-    return hasVariables;
-}
-
-void CSSParser::addUnresolvedProperty(int propId, bool important)
-{
-    RefPtr<CSSVariableDependentValue> val = CSSVariableDependentValue::create(CSSValueList::createFromParserValueList(m_valueList));
-    addProperty(propId, val.release(), important);
-}
-
-=======
->>>>>>> webkit.org at r72274
 void CSSParser::deleteFontFaceOnlyValues()
 {
     ASSERT(m_hasFontFaceOnlyValues);
