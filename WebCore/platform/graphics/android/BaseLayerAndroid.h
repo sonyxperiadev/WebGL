@@ -31,6 +31,7 @@
 #include "IntRect.h"
 #include "PictureSet.h"
 #include "SkLayer.h"
+#include "SkPicture.h"
 
 namespace WebCore {
 
@@ -48,6 +49,7 @@ public:
     void setBackgroundColor(Color& color) { m_color = color; }
 #endif
     void setContent(const android::PictureSet& src);
+    void setExtra(SkPicture& extra);
     android::PictureSet* content() { return &m_content; }
     // This method will paint using the current PictureSet onto
     // the passed canvas. We used it to paint the GL tiles as well as
@@ -67,6 +69,7 @@ private:
     Color m_color;
 #endif
     android::PictureSet m_content;
+    SkPicture m_extra;
     SkRect m_previousVisible;
 };
 

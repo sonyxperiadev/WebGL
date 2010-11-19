@@ -31,6 +31,7 @@
 #include "SkBounder.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
+#include "SkRect.h"
 #include "SkRegion.h"
 #include "SkTDArray.h"
 
@@ -219,13 +220,14 @@ public:
         m_matches = 0;
         m_hasCurrentLocation = false;
         m_isFindPaintSetUp = false;
+        m_lastBounds.setEmpty();
     }
     virtual ~FindOnPage() { delete m_matches; }
     void clearCurrentLocation() { m_hasCurrentLocation = false; }
     IntRect currentMatchBounds() const;
     int currentMatchIndex() const { return m_findIndex; }
     bool currentMatchIsInLayer() const;
-    virtual void draw(SkCanvas* , LayerAndroid* );
+    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     void findNext(bool forward);
     bool isCurrentLocationValid() { return m_hasCurrentLocation; }
     void setMatches(WTF::Vector<MatchInfo>* matches);
@@ -245,6 +247,7 @@ private:
     // Paint used for the background of our Find matches.
     SkPaint m_findBlurPaint;
     unsigned m_findIndex;
+    SkIRect m_lastBounds;
 };
 
 }

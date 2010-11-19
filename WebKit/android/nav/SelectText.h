@@ -42,7 +42,7 @@ class SelectText : public DrawExtra {
 public:
     SelectText();
     virtual ~SelectText();
-    virtual void draw(SkCanvas* , LayerAndroid* );
+    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     void extendSelection(const IntRect& vis, int x, int y);
     const String getSelection();
     bool hitSelection(int x, int y) const;
@@ -60,8 +60,8 @@ public:
     int m_selectX;
     int m_selectY;
 private:
-    void drawSelectionPointer(SkCanvas* );
-    void drawSelectionRegion(SkCanvas* );
+    void drawSelectionPointer(SkCanvas* , IntRect* );
+    void drawSelectionRegion(SkCanvas* , IntRect* );
     static void getSelectionArrow(SkPath* );
     void getSelectionCaret(SkPath* );
     bool hitCorner(int cx, int cy, int x, int y) const;
@@ -71,6 +71,8 @@ private:
     SkIPoint m_startOffset; // difference from global to layer
     SkIRect m_selStart;
     SkIRect m_selEnd;
+    SkIRect m_lastStart;
+    SkIRect m_lastEnd;
     int m_startBase;
     int m_endBase;
     int m_layerId;

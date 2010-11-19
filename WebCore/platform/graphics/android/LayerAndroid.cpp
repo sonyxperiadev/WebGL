@@ -459,8 +459,10 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
           canvas->restore();
       }
     }
-    if (m_extra)
-        m_extra->draw(canvas, this);
+    if (m_extra) {
+        IntRect dummy; // inval area, unused for now
+        m_extra->draw(canvas, this, &dummy);
+    }
 
 #ifdef LAYER_DEBUG
     float w = getSize().width();

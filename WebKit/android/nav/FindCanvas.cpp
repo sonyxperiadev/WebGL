@@ -559,7 +559,11 @@ void FindOnPage::storeCurrentMatchLocation() {
 // matches than this, only draw the focused match.
 #define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
 
-void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer) {
+void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval) {
+    if (!m_lastBounds.isEmpty()) {
+        inval->unite(m_lastBounds);
+        m_lastBounds.setEmpty();
+    }
     if (!m_hasCurrentLocation || !m_matches || !m_matches->size())
         return;
     int layerId = layer->uniqueId();
@@ -582,6 +586,12 @@ void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer) {
         canvas->clipPath(matchPath);
         canvas->drawPicture(*matchInfo.getPicture());
         canvas->restoreToCount(saveCount);
+        const SkMatrix& matrix = canvas->getTotalMatrix();
+        const SkRect& localBounds = matchPath.getBounds();
+        SkRect globalBounds;
+        matrix.mapRect(&globalBounds, localBounds);
+        globalBounds.round(&m_lastBounds);
+        inval->unite(m_lastBounds);
     }
     // Draw the rest
     unsigned numberOfMatches = m_matches->size();

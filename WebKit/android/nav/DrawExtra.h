@@ -29,6 +29,7 @@
 class SkCanvas;
 
 namespace WebCore {
+    class IntRect;
     class LayerAndroid;
 }
 
@@ -39,7 +40,7 @@ namespace android {
 class DrawExtra {
 public:
     virtual ~DrawExtra() {}
-    virtual void draw(SkCanvas* , LayerAndroid* ) = 0;
+    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* ) = 0;
 };
 
 }
