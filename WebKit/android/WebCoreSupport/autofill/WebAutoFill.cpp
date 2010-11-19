@@ -111,7 +111,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
 
     // Get the FormField from the Node.
     webkit_glue::FormField formField;
-    FormManager::HTMLFormControlElementToFormField(formFieldElement, false, false, &formField);
+    FormManager::HTMLFormControlElementToFormField(formFieldElement, FormManager::EXTRACT_NONE, &formField);
     formField.set_label(FormManager::LabelForElement(*formFieldElement));
 
     webkit_glue::FormData* form = new webkit_glue::FormData;

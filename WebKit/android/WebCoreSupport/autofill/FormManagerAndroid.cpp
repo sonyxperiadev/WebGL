@@ -121,53 +121,74 @@ string16 FindChildText(Element* element) {
 string16 InferLabelFromPrevious(const HTMLFormControlElement& element) {
     string16 inferred_label;
     Node* previous = element.previousSibling();
-    if (previous) {
-        // Eg. Some Text<input ...>
-        if (previous->isTextNode()) {
-            inferred_label = WTFStringToString16(previous->nodeValue());
-            TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
-        }
+    if (!previous)
+        return string16();
 
-        // If we didn't find text, check for previous paragraph.
-        // Eg. <p>Some Text</p><input ...>
-        // Note the lack of whitespace between <p> and <input> elements.
-        if (inferred_label.empty()) {
-            if (previous->isElementNode()) {
-                Element* element = static_cast<Element*>(previous);
-                if (element->hasTagName(pTag))
-                    inferred_label = FindChildText(element);
-             }
-         }
+    if (previous->isTextNode()) {
+        inferred_label = WTFStringToString16(previous->nodeValue());
+        TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
+    }
 
-        // If we didn't find paragraph, check for previous paragraph to this.
-        // Eg. <p>Some Text</p>   <input ...>
-        // Note the whitespace between <p> and <input> elements.
-        if (inferred_label.empty()) {
-            previous = previous->previousSibling();
-            if (previous && previous->isElementNode()) {
-                Element* element = static_cast<Element*>(previous);
-                if (element->hasTagName(pTag))
-                    inferred_label = FindChildText(element);
-            }
-        }
+    // If we didn't find text, check for previous paragraph.
+    // Eg. <p>Some Text</p><input ...>
+    // Note the lack of whitespace between <p> and <input> elements.
+    if (inferred_label.empty() && previous->isElementNode()) {
+        Element* element = static_cast<Element*>(previous);
+        if (element->hasTagName(pTag))
+            inferred_label = FindChildText(element);
+    }
 
-        // Look for text node prior to <img> tag.
-        // Eg. Some Text<img/><input ...>
-        if (inferred_label.empty()) {
-            while (inferred_label.empty() && previous) {
-                if (previous->isTextNode()) {
-                    inferred_label = WTFStringToString16(previous->nodeValue());
-                    TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
-                } else if (previous->isElementNode()) {
-                    Element* element = static_cast<Element*>(previous);
-                    if (!element->hasTagName(imgTag))
-                        break;
-                } else
-                    break;
-                previous = previous->previousSibling();
-            }
+    // If we didn't find paragraph, check for previous paragraph to this.
+    // Eg. <p>Some Text</p>   <input ...>
+    // Note the whitespace between <p> and <input> elements.
+    if (inferred_label.empty()) {
+        Node* sibling = previous->previousSibling();
+        if (sibling && sibling->isElementNode()) {
+            Element* element = static_cast<Element*>(sibling);
+            if (element->hasTagName(pTag))
+                inferred_label = FindChildText(element);
         }
     }
+
+    // Look for text node prior to <img> tag.
+    // Eg. Some Text<img/><input ...>
+    if (inferred_label.empty()) {
+        while (inferred_label.empty() && previous) {
+            if (previous->isTextNode()) {
+                inferred_label = WTFStringToString16(previous->nodeValue());
+                TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
+            } else if (previous->isElementNode()) {
+                Element* element = static_cast<Element*>(previous);
+                if (!element->hasTagName(imgTag))
+                    break;
+            } else
+                break;
+            previous = previous->previousSibling();
+        }
+    }
+
+    // Look for label node prior to <input> tag.
+    // Eg. <label>Some Text</label><input ...>
+    if (inferred_label.empty()) {
+        while (inferred_label.empty() && previous) {
+            if (previous->isTextNode()) {
+                inferred_label = WTFStringToString16(previous->nodeValue());
+                TrimWhitespace(inferred_label, TRIM_ALL, &inferred_label);
+            } else if (previous->isElementNode()) {
+                Element* element = static_cast<Element*>(previous);
+                if (element->hasTagName(labelTag)) {
+                    inferred_label = FindChildText(element);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+
+            previous = previous->previousSibling();
+         }
+    }
+
     return inferred_label;
 }
 
@@ -198,6 +219,24 @@ string16 InferLabelFromTable(const HTMLFormControlElement& element) {
         }
     }
    return inferred_label;
+}
+
+// Helper for |InferLabelForElement()| that infers a label, if possible, from
+// a surrounding div table.
+// Eg. <div>Some Text<span><input ...></span></div>
+string16 InferLabelFromDivTable(const HTMLFormControlElement& element) {
+    Node* parent = element.parentNode();
+    while (parent && parent->isElementNode() && !static_cast<Element*>(parent)->hasTagName(divTag))
+        parent = parent->parentNode();
+
+    if (!parent || !parent->isElementNode())
+        return string16();
+
+    Element* e = static_cast<Element*>(parent);
+    if (!e || !e->hasTagName(divTag))
+        return string16();
+
+    return FindChildText(e);
 }
 
 // Helper for |InferLabelForElement()| that infers a label, if possible, from
@@ -250,6 +289,12 @@ void GetOptionStringsFromElement(HTMLFormControlElement* element, std::vector<st
 
 namespace android {
 
+struct FormManager::FormElement {
+    HTMLFormElement* form_element;
+    std::vector<HTMLFormControlElement*> control_elements;
+    std::vector<string16> control_values;
+};
+
 FormManager::FormManager() {
 }
 
@@ -258,7 +303,7 @@ FormManager::~FormManager() {
 }
 
 // static
-void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* element, bool get_value, bool get_options, FormField* field) {
+void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* element, ExtractMask extract_mask, FormField* field) {
     DCHECK(field);
 
     // The label is not officially part of a HTMLFormControlElement; however, the
@@ -267,7 +312,7 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
     field->set_name(nameForAutoFill(*element));
     field->set_form_control_type(formControlType(*element));
 
-    if (get_options) {
+    if (extract_mask & EXTRACT_OPTIONS) {
         std::vector<string16> option_strings;
         GetOptionStringsFromElement(element, &option_strings);
         field->set_option_strings(option_strings);
@@ -278,7 +323,7 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
         field->set_size(input_element->size());
     }
 
-    if (!get_value)
+    if (!(extract_mask & EXTRACT_VALUE))
         return;
 
     // TODO: In WebKit, move value() and setValue() to
@@ -324,7 +369,7 @@ string16 FormManager::LabelForElement(const HTMLFormControlElement& element) {
 }
 
 // static
-bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, RequirementsMask requirements, bool get_values, bool get_options, FormData* form) {
+bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, RequirementsMask requirements, ExtractMask extract_mask, FormData* form) {
     DCHECK(form);
 
     Frame* frame = element->document()->frame();
@@ -375,7 +420,7 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
 
         // Create a new FormField, fill it out and map it to the field's name.
         FormField* field = new FormField;
-        HTMLFormControlElementToFormField(control_element, get_values, get_options, field);
+        HTMLFormControlElementToFormField(control_element, extract_mask, field);
         form_fields.push_back(field);
         // TODO: A label element is mapped to a form control element's id.
         // field->name() will contain the id only if the name does not exist.  Add
@@ -479,7 +524,7 @@ void FormManager::GetFormsInFrame(const Frame* frame, RequirementsMask requireme
             continue;
 
         FormData form;
-        HTMLFormElementToFormData(form_element->form_element, requirements, true, false, &form);
+        HTMLFormElementToFormData(form_element->form_element, requirements, EXTRACT_VALUE, &form);
         if (form.fields.size() >= kRequiredAutoFillFields)
             forms->push_back(form);
     }
@@ -500,7 +545,8 @@ bool FormManager::FindFormWithFormControlElement(HTMLFormControlElement* element
 
         for (std::vector<HTMLFormControlElement*>::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
             if (nameForAutoFill(**iter) == nameForAutoFill(*element)) {
-                HTMLFormElementToFormData(form_element->form_element, requirements, true, true, form);
+                ExtractMask extract_mask = static_cast<ExtractMask>(EXTRACT_VALUE | EXTRACT_OPTIONS);
+                HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
                 return true;
             }
         }
@@ -519,13 +565,13 @@ bool FormManager::FillForm(const FormData& form, Node* node) {
     return true;
 }
 
-bool FormManager::PreviewForm(const FormData& form) {
+bool FormManager::PreviewForm(const FormData& form, Node* node) {
     FormElement* form_element = NULL;
     if (!FindCachedFormElement(form, &form_element))
         return false;
 
     RequirementsMask requirements = static_cast<RequirementsMask>(REQUIRE_AUTOCOMPLETE | REQUIRE_ENABLED | REQUIRE_EMPTY);
-    ForEachMatchingFormField(form_element, 0, requirements, form, NewCallback(this, &FormManager::PreviewFormField));
+    ForEachMatchingFormField(form_element, node, requirements, form, NewCallback(this, &FormManager::PreviewFormField));
 
     return true;
 }
@@ -546,6 +592,12 @@ bool FormManager::ClearFormWithNode(Node* node) {
 
             input_element->setValue("");
             input_element->setAutofilled(false);
+             // Clearing the value in the focused node (above) can cause selection
+             // to be lost. We force selection range to restore the text cursor.
+             if (node == input_element) {
+                 int length = input_element->value().length();
+                 input_element->setSelectionRange(length, length);
+             }
         } else if (formControlType(*element) == kSelectOne) {
             HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
             select_element->setValue(form_element->control_values[i].c_str());
@@ -573,20 +625,30 @@ bool FormManager::ClearPreviewedFormWithNode(Node* node) {
         if (!input_element->isAutofilled())
             continue;
 
-        // If the user has completed the auto-fill and the values are filled in, we
-        // don't want to reset the auto-filled status.
-        if (!input_element->value().isEmpty())
+        // There might be unrelated elements in this form which have already been
+        // auto-filled. For example, the user might have already filled the address
+        // part of a form and now be dealing with the credit card section. We only
+        // want to reset the auto-filled status for fields that were previewed.
+        if (input_element->suggestedValue().isEmpty())
             continue;
 
+        // Clear the suggested value. For the initiating node, also restore the
+        // original value.
         input_element->setSuggestedValue("");
+        bool is_initiating_node = (node == input_element);
+        if (is_initiating_node) {
+            // Call |setValue()| to force the renderer to update the field's displayed
+            // value.
+            input_element->setValue(input_element->value());
+        }
         input_element->setAutofilled(false);
 
         // Clearing the suggested value in the focused node (above) can cause
         // selection to be lost. We force selection range to restore the text
         // cursor.
-        if (node == input_element) {
-            input_element->setSelectionRange(input_element->value().length(),
-            input_element->value().length());
+        if (is_initiating_node) {
+            int length = input_element->value().length();
+            input_element->setSelectionRange(length, length);
         }
     }
 
@@ -637,6 +699,10 @@ string16 FormManager::InferLabelForElement(const HTMLFormControlElement& element
     // If we didn't find a label, check for table cell case.
     if (inferred_label.empty())
         inferred_label = InferLabelFromTable(element);
+
+    // If we didn't find a label, check for div table case.
+    if (inferred_label.empty())
+        inferred_label = InferLabelFromDivTable(element);
 
     // If we didn't find a label, check for definition list case.
     if (inferred_label.empty())
@@ -703,6 +769,8 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
 
         DCHECK_EQ(data.fields[k].name(), element_name);
 
+        bool is_initiating_node = false;
+
         // More than likely |requirements| will contain REQUIRE_AUTOCOMPLETE and/or
         // REQUIRE_EMPTY, which both require text form control elements, so special-
         // case this type of element.
@@ -714,17 +782,18 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
             if (requirements & REQUIRE_AUTOCOMPLETE && !input_element->autoComplete())
                 continue;
 
+            is_initiating_node = (input_element == node);
             // Don't require the node that initiated the auto-fill process to be
             // empty.  The user is typing in this field and we should complete the
             // value when the user selects a value to fill out.
-            if (requirements & REQUIRE_EMPTY && input_element != node && !input_element->value().isEmpty())
+            if (requirements & REQUIRE_EMPTY && !is_initiating_node && !input_element->value().isEmpty())
                continue;
         }
 
         if (requirements & REQUIRE_ENABLED && !element->isEnabledFormControl())
             continue;
 
-        callback->Run(element, &data.fields[k]);
+        callback->Run(element, &data.fields[k], is_initiating_node);
 
         // We found a matching form field so move on to the next.
         ++j;
@@ -733,7 +802,7 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
     delete callback;
 }
 
-void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* data) {
+void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* data, bool is_initiating_node) {
     // Nothing to fill.
     if (data->value().empty())
         return;
@@ -743,20 +812,19 @@ void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* 
 
         // If the maxlength attribute contains a negative value, maxLength()
         // returns the default maxlength value.
-        // TODO: The call here to |setSuggestedValue| is a work-around
-        // to a WebKit change in r67122.  See http://crbug.com/56081 for details.
-        // Once the core issue is fixed in WebKit, this work-around should be
-        // removed.
-        input_element->setSuggestedValue(data->value().substr(0, input_element->maxLength()).c_str());
         input_element->setValue(data->value().substr(0, input_element->maxLength()).c_str());
         input_element->setAutofilled(true);
+        if (is_initiating_node) {
+            int length = input_element->value().length();
+            input_element->setSelectionRange(length, length);
+        }
     } else if (formControlType(*field) == kSelectOne) {
         HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(field);
         select_element->setValue(data->value().c_str());
     }
 }
 
-void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormField* data) {
+void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormField* data, bool is_initiating_node) {
     // Nothing to preview.
     if (data->value().empty())
         return;
@@ -771,6 +839,8 @@ void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormFiel
     // returns the default maxlength value.
     input_element->setSuggestedValue(data->value().substr(0, input_element->maxLength()).c_str());
     input_element->setAutofilled(true);
+    if (is_initiating_node)
+        input_element->setSelectionRange(0, input_element->suggestedValue().length());
 }
 
 }

@@ -60,21 +60,25 @@ class FormManager {
 public:
     // A bit field mask for form requirements.
     enum RequirementsMask {
-        REQUIRE_NONE = 0x0,             // No requirements.
-        REQUIRE_AUTOCOMPLETE = 0x1,     // Require that autocomplete != off.
-        REQUIRE_ENABLED = 0x2,          // Require that disabled attribute is off.
-        REQUIRE_EMPTY = 0x4             // Require that the fields are empty.
+        REQUIRE_NONE         = 0,          // No requirements.
+        REQUIRE_AUTOCOMPLETE = 1 << 0,     // Require that autocomplete != off.
+        REQUIRE_ENABLED      = 1 << 1,     // Require that disabled attribute is off.
+        REQUIRE_EMPTY        = 1 << 2,     // Require that the fields are empty.
+    };
+
+    // A bit field mask to extract data from HTMLFormControlElement.
+    enum ExtractMask {
+        EXTRACT_NONE    = 0,
+        EXTRACT_VALUE   = 1 << 0,  // Extract value from HTMLFormControlElement.
+        EXTRACT_OPTIONS = 1 << 1,  // Extract options from HTMLFormControlElement.
     };
 
     FormManager();
     virtual ~FormManager();
 
     // Fills out a FormField object from a given HTMLFormControlElement.
-    // If |get_value| is true, |field| will have the value set from |element|.
-    // If |get_options| is true, |field| will have the select options set from
-    // |element|.
-    // TODO: Use a bit-field instead of two parameters.
-    static void HTMLFormControlElementToFormField(HTMLFormControlElement* element, bool get_value, bool get_options, webkit_glue::FormField* field);
+    // |extract_mask|: See the enum ExtractMask above for details.
+    static void HTMLFormControlElementToFormField(HTMLFormControlElement* element, ExtractMask extract_mask, webkit_glue::FormField* field);
 
     // Returns the corresponding label for |element|.  WARNING: This method can
     // potentially be very slow.  Do not use during any code paths where the page
@@ -88,7 +92,7 @@ public:
     // fields in |form|.
     // TODO: Remove the user of this in RenderView and move this to
     // private.
-    static bool HTMLFormElementToFormData(HTMLFormElement* element, RequirementsMask requirements, bool get_values, bool get_options, webkit_glue::FormData* form);
+    static bool HTMLFormElementToFormData(HTMLFormElement* element, RequirementsMask requirements, ExtractMask extract_mask, webkit_glue::FormData* form);
 
     // Scans the DOM in |frame| extracting and storing forms.
     void ExtractForms(Frame* frame);
@@ -108,8 +112,9 @@ public:
     // store multiple forms with the same names from different frames.
     bool FillForm(const webkit_glue::FormData& form, Node* node);
 
-    // Previews the form represented by |form|.  Same conditions as FillForm.
-    bool PreviewForm(const webkit_glue::FormData& form);
+    // Previews the form represented by |form|.  |node| is the form control element
+    // that initiated the preview process. Same conditions as FillForm.
+    bool PreviewForm(const webkit_glue::FormData& form, Node* node);
 
     // Clears the values of all input elements in the form that contains |node|.
     // Returns false if the form is not found.
@@ -133,17 +138,13 @@ private:
     // Stores the HTMLFormElement and the form control elements for a form.
     // Original form values are stored so when we clear a form we can reset
     // "select-one" values to their original state.
-    struct FormElement {
-        HTMLFormElement* form_element;
-        std::vector<HTMLFormControlElement*> control_elements;
-        std::vector<string16> control_values;
-    };
+    struct FormElement;
 
     // Type for cache of FormElement objects.
     typedef std::vector<FormElement*> FormElementList;
 
     // The callback type used by ForEachMatchingFormField().
-    typedef Callback2<HTMLFormControlElement*, const webkit_glue::FormField*>::Type Callback;
+    typedef Callback3<HTMLFormControlElement*, const webkit_glue::FormField*, bool>::Type Callback;
 
     // Infers corresponding label for |element| from surrounding context in the
     // DOM.  Contents of preceeding <p> tag or preceeding text element found in
@@ -166,12 +167,12 @@ private:
     // A ForEachMatchingFormField() callback that sets |field|'s value using the
     // value in |data|.  This method also sets the autofill attribute, causing the
     // background to be yellow.
-    void FillFormField(HTMLFormControlElement* field, const webkit_glue::FormField* data);
+    void FillFormField(HTMLFormControlElement* field, const webkit_glue::FormField* data, bool is_initiating_node);
 
     // A ForEachMatchingFormField() callback that sets |field|'s placeholder value
     // using the value in |data|, causing the test to be greyed-out.  This method
     // also sets the autofill attribute, causing the background to be yellow.
-    void PreviewFormField(HTMLFormControlElement* field, const webkit_glue::FormField* data);
+    void PreviewFormField(HTMLFormControlElement* field, const webkit_glue::FormField* data, bool is_initiaiting_node);
 
     // The cached FormElement objects.
     FormElementList form_elements_;
