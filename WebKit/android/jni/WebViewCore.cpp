@@ -34,6 +34,7 @@
 #include "CachedRoot.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
+#include "ChromiumIncludes.h"
 #include "Color.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
@@ -393,6 +394,10 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     reset(true);
 
     WebViewCore::addInstance(this);
+
+#if USE(CHROME_NETWORK_STACK)
+    AndroidNetworkLibraryImpl::InitWithApplicationContext(env, 0);
+#endif
 }
 
 WebViewCore::~WebViewCore()
