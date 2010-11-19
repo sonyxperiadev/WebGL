@@ -167,10 +167,8 @@ public:
     void resetTransitionTime() { m_transitionTime = -1; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
-    void setBaseLayer(BaseLayerAndroid* layer, IntRect& rect);
-    void setExtra(android::DrawExtra* extra, LayerAndroid* navLayer);
-    void resetExtra(bool repaint);
-
+    void setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect);
+    void setExtra(BaseLayerAndroid* , SkPicture& , const IntRect& );
     void scheduleUpdate(const double& currentTime, float scale);
 
     TiledPage* frontPage();
@@ -194,6 +192,7 @@ public:
     bool hasContent();
 
 private:
+    void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 
     // Delay between scheduling a new page when the scale
     // factor changes (i.e. zooming in or out)
@@ -221,8 +220,7 @@ private:
     bool m_usePageA;
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;
-    android::DrawExtra* m_extra;
-    LayerAndroid* m_navLayer;
+    SkIRect m_lastInval;
 };
 
 } // namespace WebCore

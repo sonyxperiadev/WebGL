@@ -40,8 +40,12 @@ namespace android {
 // The CSS values for the inner and outer widths may be specified as fractions
 #define WIDTH_SCALE 0.0625f // 1/16, to offset the scale in CSSStyleSelector
 
-void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
+void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
 {
+    if (!m_lastBounds.isEmpty()) {
+        *inval = m_lastBounds;
+        m_lastBounds = IntRect(0, 0, 0, 0);
+    }
 #if USE(ACCELERATED_COMPOSITING)
     int layerId = m_node->isInLayer() ? m_frame->layer(m_node)->uniqueId() : -1;
     if (layer->uniqueId() != layerId)
@@ -92,6 +96,17 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
     paint.setStrokeWidth(colors.innerWidth() * WIDTH_SCALE);
     paint.setColor(inner);
     canvas->drawPath(path, paint);
+    SkRect localBounds, globalBounds;
+    localBounds = path.getBounds();
+    float width = std::max(colors.innerWidth(), colors.outerWidth());
+    width *= WIDTH_SCALE;
+    localBounds.inset(-width, -width);
+    const SkMatrix& matrix = canvas->getTotalMatrix();
+    matrix.mapRect(&globalBounds, localBounds);
+    SkIRect globalIBounds;
+    globalBounds.round(&globalIBounds);
+    m_lastBounds = globalIBounds;
+    inval->unite(m_lastBounds);
 }
 
 bool CursorRing::setup()

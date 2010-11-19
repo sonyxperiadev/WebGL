@@ -72,8 +72,6 @@ GLWebViewState::GLWebViewState()
     , m_baseLayer(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
-    , m_extra(0)
-    , m_navLayer(0)
 {
     m_viewport.setEmpty();
     m_viewportTileBounds.setEmpty();
@@ -90,58 +88,48 @@ GLWebViewState::~GLWebViewState()
 {
     delete m_tiledPageA;
     delete m_tiledPageB;
-    delete m_navLayer;
 #ifdef DEBUG_COUNT
     gGLWebViewStateCount--;
 #endif
 }
 
-void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
+void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     m_baseLayer = layer;
-    m_extra = 0;
-    delete m_navLayer;
-    m_navLayer = 0;
     if (m_baseLayer) {
         m_baseLayer->setGLWebViewState(this);
-        m_currentPictureCounter++;
-
-        if (!rect.isEmpty()) {
-            // find which tiles fall within the invalRect and mark them as dirty
-            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
-            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
-        }
+        inval(rect);
     }
 }
 
-void GLWebViewState::setExtra(android::DrawExtra* extra, LayerAndroid* navLayer)
+void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
+    const IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    m_extra = extra;
-    delete m_navLayer;
-    m_navLayer = navLayer;
-    m_currentPictureCounter++;
+    layer->setExtra(picture);
+    if (!rect.isEmpty())
+        inval(rect);
+    else if (!m_lastInval.isEmpty())
+        inval(m_lastInval);
+    m_lastInval = rect;
 }
 
-void GLWebViewState::resetExtra(bool repaint)
+void GLWebViewState::inval(const IntRect& rect)
 {
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_extra && repaint)
-        m_currentPictureCounter++;
-    m_extra = 0;
-    delete m_navLayer;
-    m_navLayer = 0;
+    m_currentPictureCounter++;
+    if (!rect.isEmpty()) {
+        // find which tiles fall within the invalRect and mark them as dirty
+        m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
+        m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+    }
 }
 
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_baseLayer) {
+    if (m_baseLayer)
         m_baseLayer->drawCanvas(canvas);
-        if (m_extra && m_navLayer)
-            m_extra->draw(canvas, m_navLayer);
-    }
     return m_currentPictureCounter;
 }
 

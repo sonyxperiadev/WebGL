@@ -418,9 +418,6 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     if (!m_glWebViewState)
         m_glWebViewState = new GLWebViewState();
 
-#if 0
-    m_glWebViewState.resetExtra(false);
-#endif
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
@@ -449,14 +446,17 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
 
     unsigned int pic = m_glWebViewState->currentPictureCounter();
 
-#if 0
+    SkPicture picture;
+    IntRect rect(0, 0, 0, 0);
     if (extra) {
-        LayerAndroid* mainPicture = new LayerAndroid(m_navPictureUI);
-        m_glWebViewState->setExtra(extra, mainPicture);
-    } else {
-        m_glWebViewState->resetExtra(true);
+        LayerAndroid mainPicture(m_navPictureUI);
+        PictureSet* content = m_baseLayer->content();
+        SkCanvas* canvas = picture.beginRecording(content->width(),
+            content->height());
+        extra->draw(canvas, &mainPicture, &rect);
+        picture.endRecording();
     }
-#endif
+    m_glWebViewState->setExtra(m_baseLayer, picture, rect);
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
     bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
@@ -510,8 +510,10 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         default:
             ;
     }
-    if (extra)
-        extra->draw(canvas, &mainPicture);
+    if (extra) {
+        IntRect dummy; // inval area, unused for now
+        extra->draw(canvas, &mainPicture, &dummy);
+    }
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* compositeLayer = compositeRoot();
     if (!compositeLayer)

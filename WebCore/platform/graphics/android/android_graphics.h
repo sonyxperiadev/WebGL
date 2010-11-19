@@ -53,7 +53,7 @@ class CursorRing : public DrawExtra {
 public:
     CursorRing(WebViewCore* core) : m_viewImpl(core) {}
     virtual ~CursorRing() {}
-    virtual void draw(SkCanvas* , LayerAndroid* );
+    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     bool setup();
 private:
     friend class WebView;
@@ -61,6 +61,7 @@ private:
     WTF::Vector<IntRect> m_rings;
     IntRect m_bounds;
     IntRect m_absBounds;
+    IntRect m_lastBounds;
     const CachedRoot* m_root;
     const CachedFrame* m_frame;
     const CachedNode* m_node;
