@@ -401,7 +401,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
         m_resultsButton->defaultEventHandler(event);
     else if (m_cancelButton && localPoint.x() > textRight)
         m_cancelButton->defaultEventHandler(event);
-    else if (m_innerSpinButton && localPoint.x() > textRight && localPoint.x() < textRight + m_innerSpinButton->renderBox()->width())
+    else if (m_innerSpinButton && localPoint.x() > textRight && m_innerSpinButton->renderBox() && localPoint.x() < textRight + m_innerSpinButton->renderBox()->width())
         m_innerSpinButton->defaultEventHandler(event);
     else if (m_outerSpinButton && localPoint.x() > textRight)
         m_outerSpinButton->defaultEventHandler(event);
@@ -678,25 +678,14 @@ void RenderTextControlSingleLine::updateFromElement()
     if (m_cancelButton)
         updateCancelButtonVisibility();
 
-    if (m_placeholderVisible) {
-        // node() must be an HTMLInputElement. WMLInputElement doesn't support placeholder.
-        ASSERT(node()->isHTMLElement());
-        ExceptionCode ec = 0;
-        innerTextElement()->setInnerText(static_cast<HTMLInputElement*>(node())->strippedPlaceholder(), ec);
-        ASSERT(!ec);
-    } else {
-        if (!inputElement()->suggestedValue().isNull())
-            setInnerTextValue(inputElement()->suggestedValue());
-        else {
-            bool shouldUpdateValue = true;
-            if (node()->isHTMLElement()) {
-                // For HTMLInputElement, update the renderer value if the element
-                // supports placeholder or the formControlValueMatchesRenderer()
-                // flag is false. It protects an unacceptable renderer value from
-                // being overwritten with the DOM value.
-                shouldUpdateValue = static_cast<HTMLTextFormControlElement*>(node())->supportsPlaceholder() || !static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer();
-            }
-            if (shouldUpdateValue)
+    if (!inputElement()->suggestedValue().isNull())
+        setInnerTextValue(inputElement()->suggestedValue());
+    else {
+        if (node()->hasTagName(inputTag)) {
+            // For HTMLInputElement, update the renderer value if the formControlValueMatchesRenderer()
+            // flag is false. It protects an unacceptable renderer value from
+            // being overwritten with the DOM value.
+            if (!static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer())
                 setInnerTextValue(inputElement()->value());
         }
     }
@@ -712,16 +701,8 @@ void RenderTextControlSingleLine::cacheSelection(int start, int end)
 
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const RenderStyle* startStyle) const
 {
-    RefPtr<RenderStyle> textBlockStyle;
-    if (m_placeholderVisible) {
-        if (RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER))
-            textBlockStyle = RenderStyle::clone(pseudoStyle);
-    } 
-    if (!textBlockStyle) {
-        textBlockStyle = RenderStyle::create();   
-        textBlockStyle->inheritFrom(startStyle);
-    }
-
+    RefPtr<RenderStyle> textBlockStyle = RenderStyle::create();   
+    textBlockStyle->inheritFrom(startStyle);
     adjustInnerTextStyle(startStyle, textBlockStyle.get());
 
     textBlockStyle->setWhiteSpace(PRE);
@@ -743,13 +724,6 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
     // We're adding one extra pixel of padding to match WinIE.
     textBlockStyle->setPaddingLeft(Length(1, Fixed));
     textBlockStyle->setPaddingRight(Length(1, Fixed));
-
-    // When the placeholder is going to be displayed, temporarily override the text security to be "none".
-    // After this, updateFromElement will immediately update the text displayed.
-    // When the placeholder is no longer visible, updatePlaceholderVisiblity will reset the style, 
-    // and the text security mode will be set back to the computed value correctly.
-    if (m_placeholderVisible)
-        textBlockStyle->setTextSecurity(TSNONE);
 
     return textBlockStyle.release();
 }
@@ -956,7 +930,7 @@ PopupMenuStyle RenderTextControlSingleLine::itemStyle(unsigned) const
 
 PopupMenuStyle RenderTextControlSingleLine::menuStyle() const
 {
-    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->textIndent(), style()->direction());
+    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->display() == NONE, style()->textIndent(), style()->direction());
 }
 
 int RenderTextControlSingleLine::clientInsetLeft() const
@@ -1114,6 +1088,26 @@ PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollbarClie
 InputElement* RenderTextControlSingleLine::inputElement() const
 {
     return toInputElement(static_cast<Element*>(node()));
+}
+
+int RenderTextControlSingleLine::textBlockInsetLeft() const
+{
+    int inset = borderLeft() + clientPaddingLeft();
+    if (HTMLElement* innerText = innerTextElement()) {
+        if (RenderBox* innerTextRenderer = innerText->renderBox())
+            inset += innerTextRenderer->paddingLeft();
+    }
+    return inset;
+}
+    
+int RenderTextControlSingleLine::textBlockInsetRight() const
+{
+    int inset = borderRight() + clientPaddingRight();
+    if (HTMLElement* innerText = innerTextElement()) {
+        if (RenderBox* innerTextRenderer = innerText->renderBox())
+            inset += innerTextRenderer->paddingRight();
+    }
+    return inset;
 }
 
 }

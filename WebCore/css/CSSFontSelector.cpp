@@ -224,7 +224,7 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
             }
         }
     } else
-        traitsMask |= FontVariantNormalMask;
+        traitsMask |= FontVariantMask;
 
     // Each item in the src property's list is a single CSSFontFaceSource. Put them all into a CSSFontFace.
     RefPtr<CSSFontFace> fontFace;
@@ -317,13 +317,6 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
         if (familyName.isEmpty())
             continue;
 
-#if ENABLE(SVG_FONTS)
-        // SVG allows several <font> elements with the same font-family, differing only
-        // in ie. font-variant. Be sure to pick up the right one - in getFontData below.
-        if (foundSVGFont && (traitsMask & FontVariantSmallCapsMask))
-            familyName += "-webkit-svg-small-caps";
-#endif
-
         Vector<RefPtr<CSSFontFace> >* familyFontFaces = m_fontFaces.get(familyName);
         if (!familyFontFaces) {
             familyFontFaces = new Vector<RefPtr<CSSFontFace> >;
@@ -340,7 +333,7 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
                 m_locallyInstalledFontFaces.set(familyName, familyLocallyInstalledFaces);
 
                 for (unsigned i = 0; i < numLocallyInstalledFaces; ++i) {
-                    RefPtr<CSSFontFace> locallyInstalledFontFace = CSSFontFace::create(static_cast<FontTraitsMask>(locallyInstalledFontsTraitsMasks[i]));
+                    RefPtr<CSSFontFace> locallyInstalledFontFace = CSSFontFace::create(static_cast<FontTraitsMask>(locallyInstalledFontsTraitsMasks[i]), true);
                     locallyInstalledFontFace->addSource(new CSSFontFaceSource(familyName));
                     ASSERT(locallyInstalledFontFace->isValid());
                     familyLocallyInstalledFaces->append(locallyInstalledFontFace);
@@ -408,11 +401,29 @@ static inline bool compareFontFaces(CSSFontFace* first, CSSFontFace* second)
     if (firstHasDesiredVariant != secondHasDesiredVariant)
         return firstHasDesiredVariant;
 
+    if ((desiredTraitsMaskForComparison & FontVariantSmallCapsMask) && !first->isLocalFallback() && !second->isLocalFallback()) {
+        // Prefer a font that has indicated that it can only support small-caps to a font that claims to support
+        // all variants.  The specialized font is more likely to be true small-caps and not require synthesis.
+        bool firstRequiresSmallCaps = (firstTraitsMask & FontVariantSmallCapsMask) && !(firstTraitsMask & FontVariantNormalMask);
+        bool secondRequiresSmallCaps = (secondTraitsMask & FontVariantSmallCapsMask) && !(secondTraitsMask & FontVariantNormalMask);
+        if (firstRequiresSmallCaps != secondRequiresSmallCaps)
+            return firstRequiresSmallCaps;
+    }
+
     bool firstHasDesiredStyle = firstTraitsMask & desiredTraitsMaskForComparison & FontStyleMask;
     bool secondHasDesiredStyle = secondTraitsMask & desiredTraitsMaskForComparison & FontStyleMask;
 
     if (firstHasDesiredStyle != secondHasDesiredStyle)
         return firstHasDesiredStyle;
+
+    if ((desiredTraitsMaskForComparison & FontStyleItalicMask) && !first->isLocalFallback() && !second->isLocalFallback()) {
+        // Prefer a font that has indicated that it can only support italics to a font that claims to support
+        // all styles.  The specialized font is more likely to be the one the author wants used.
+        bool firstRequiresItalics = (firstTraitsMask & FontStyleItalicMask) && !(firstTraitsMask & FontStyleNormalMask);
+        bool secondRequiresItalics = (secondTraitsMask & FontStyleItalicMask) && !(secondTraitsMask & FontStyleNormalMask);
+        if (firstRequiresItalics != secondRequiresItalics)
+            return firstRequiresItalics;
+    }
 
     if (secondTraitsMask & desiredTraitsMaskForComparison & FontWeightMask)
         return false;
@@ -469,11 +480,6 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
 
     String family = familyName.string();
 
-#if ENABLE(SVG_FONTS)
-    if (fontDescription.smallCaps())
-        family += "-webkit-svg-small-caps";
-#endif
-
     Vector<RefPtr<CSSFontFace> >* familyFontFaces = m_fontFaces.get(family);
     // If no face was found, then return 0 and let the OS come up with its best match for the name.
     if (!familyFontFaces || familyFontFaces->isEmpty()) {
@@ -504,6 +510,12 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
                 continue;
             if ((traitsMask & FontVariantNormalMask) && !(candidateTraitsMask & FontVariantNormalMask))
                 continue;
+#if ENABLE(SVG_FONTS)
+            // For SVG Fonts that specify that they only support the "normal" variant, we will assume they are incapable
+            // of small-caps synthesis and just ignore the font face as a candidate.
+            if (candidate->hasSVGFontFaceSource() && (traitsMask & FontVariantSmallCapsMask) && !(candidateTraitsMask & FontVariantSmallCapsMask))
+                continue;
+#endif
             candidateFontFaces.append(candidate);
         }
 

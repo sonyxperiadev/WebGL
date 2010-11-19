@@ -90,31 +90,18 @@ LAYOUT_TESTS_DIRECTORY = "LayoutTests" + os.sep
 TestExpectationsFile = test_expectations.TestExpectationsFile
 
 
-class TestInfo:
+class TestInput:
     """Groups information about a test for easy passing of data."""
 
-    def __init__(self, port, filename, timeout):
-        """Generates the URI and stores the filename and timeout for this test.
+    def __init__(self, filename, timeout):
+        """Holds the input parameters for a test.
         Args:
           filename: Full path to the test.
-          timeout: Timeout for running the test in TestShell.
+          timeout: Timeout in msecs the driver should use while running the test
           """
+        # FIXME: filename should really be test_name as a relative path.
         self.filename = filename
-        self._port = port
-        self.uri = port.filename_to_uri(filename)
         self.timeout = timeout
-        self._image_checksum = -1
-
-    def image_hash(self):
-        # Read the image_hash lazily to reduce startup time.
-        # This class is accessed across threads, but only one thread should
-        # ever be dealing with any given TestInfo so no locking is needed.
-        #
-        # Note that we use -1 to indicate that we haven't read the value,
-        # because expected_checksum() returns a string or None.
-        if self._image_checksum == -1:
-            self._image_checksum = self._port.expected_checksum(self.filename)
-        return self._image_checksum
 
 
 class ResultSummary(object):
@@ -497,14 +484,13 @@ class TestRunner:
 
         return return_value
 
-    def _get_test_info_for_file(self, test_file):
-        """Returns the appropriate TestInfo object for the file. Mostly this
+    def _get_test_input_for_file(self, test_file):
+        """Returns the appropriate TestInput object for the file. Mostly this
         is used for looking up the timeout value (in ms) to use for the given
         test."""
         if self._expectations.has_modifier(test_file, test_expectations.SLOW):
-            return TestInfo(self._port, test_file,
-                            self._options.slow_time_out_ms)
-        return TestInfo(self._port, test_file, self._options.time_out_ms)
+            return TestInput(test_file, self._options.slow_time_out_ms)
+        return TestInput(test_file, self._options.time_out_ms)
 
     def _test_requires_lock(self, test_file):
         """Return True if the test needs to be locked when
@@ -522,7 +508,7 @@ class TestRunner:
         cross-tests dependencies tend to occur within the same directory.
 
         Return:
-          The Queue of lists of TestInfo objects.
+          The Queue of lists of TestInput objects.
         """
 
         test_lists = []
@@ -530,21 +516,21 @@ class TestRunner:
         if (self._options.experimental_fully_parallel or
             self._is_single_threaded()):
             for test_file in test_files:
-                test_info = self._get_test_info_for_file(test_file)
+                test_input = self._get_test_input_for_file(test_file)
                 if self._test_requires_lock(test_file):
-                    tests_to_http_lock.append(test_info)
+                    tests_to_http_lock.append(test_input)
                 else:
-                    test_lists.append((".", [test_info]))
+                    test_lists.append((".", [test_input]))
         else:
             tests_by_dir = {}
             for test_file in test_files:
                 directory = self._get_dir_for_test_file(test_file)
-                test_info = self._get_test_info_for_file(test_file)
+                test_input = self._get_test_input_for_file(test_file)
                 if self._test_requires_lock(test_file):
-                    tests_to_http_lock.append(test_info)
+                    tests_to_http_lock.append(test_input)
                 else:
                     tests_by_dir.setdefault(directory, [])
-                    tests_by_dir[directory].append(test_info)
+                    tests_by_dir[directory].append(test_input)
             # Sort by the number of tests in the dir so that the ones with the
             # most tests get run first in order to maximize parallelization.
             # Number of tests is a good enough, but not perfect, approximation
@@ -808,12 +794,10 @@ class TestRunner:
         self._printer.print_unexpected_results(unexpected_results)
 
         if self._options.record_results:
-            # Write the same data to log files.
-            self._write_json_files(unexpected_results, result_summary,
-                                   individual_test_timings)
-
-            # Upload generated JSON files to appengine server.
-            self._upload_json_files()
+            # Write the same data to log files and upload generated JSON files
+            # to appengine server.
+            self._upload_json_files(unexpected_results, result_summary,
+                                    individual_test_timings)
 
         # Write the summary to disk (results.html) and display it if requested.
         wrote_results = self._write_results_html_file(result_summary)
@@ -892,10 +876,10 @@ class TestRunner:
 
         return failed_results
 
-    def _write_json_files(self, unexpected_results, result_summary,
+    def _upload_json_files(self, unexpected_results, result_summary,
                         individual_test_timings):
         """Writes the results of the test run as JSON files into the results
-        dir.
+        dir and upload the files to the appengine server.
 
         There are three different files written into the results dir:
           unexpected_results.json: A short list of any unexpected results.
@@ -924,29 +908,17 @@ class TestRunner:
         with codecs.open(expectations_path, "w", "utf-8") as file:
             file.write(u"ADD_EXPECTATIONS(%s);" % expectations_json)
 
-        json_layout_results_generator.JSONLayoutResultsGenerator(
+        generator = json_layout_results_generator.JSONLayoutResultsGenerator(
             self._port, self._options.builder_name, self._options.build_name,
             self._options.build_number, self._options.results_directory,
             BUILDER_BASE_URL, individual_test_timings,
             self._expectations, result_summary, self._test_files_list,
             not self._options.upload_full_results,
-            self._options.test_results_server)
+            self._options.test_results_server,
+            "layout-tests",
+            self._options.master_name)
 
         _log.debug("Finished writing JSON files.")
-
-    def _upload_json_files(self):
-        if not self._options.test_results_server:
-            return
-
-        if not self._options.master_name:
-            _log.error("--test-results-server was set, but --master-name was not. Not uploading JSON files.")
-            return
-
-        _log.info("Uploading JSON files for builder: %s",
-                   self._options.builder_name)
-
-        attrs = [("builder", self._options.builder_name), ("testtype", "layout-tests"),
-            ("master", self._options.master_name)]
 
         json_files = ["expectations.json"]
         if self._options.upload_full_results:
@@ -954,20 +926,7 @@ class TestRunner:
         else:
             json_files.append("incremental_results.json")
 
-        files = [(file, os.path.join(self._options.results_directory, file))
-            for file in json_files]
-
-        uploader = test_results_uploader.TestResultsUploader(
-            self._options.test_results_server)
-        try:
-            # Set uploading timeout in case appengine server is having problem.
-            # 120 seconds are more than enough to upload test results.
-            uploader.upload(attrs, files, 120)
-        except Exception, err:
-            _log.error("Upload failed: %s" % err)
-            return
-
-        _log.info("JSON files uploaded.")
+        generator.upload_json_files(json_files)
 
     def _print_config(self):
         """Prints the configuration for the test run."""

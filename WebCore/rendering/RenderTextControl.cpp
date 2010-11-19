@@ -30,6 +30,7 @@
 #include "Frame.h"
 #include "HTMLBRElement.h"
 #include "HTMLFormControlElement.h"
+#include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "RenderLayer.h"
@@ -256,6 +257,22 @@ void setSelectionRange(Node* node, int start, int end)
         frame->selection()->setSelection(newSelection);
 }
 
+bool RenderTextControl::isSelectableElement(Node* node) const
+{
+    if (!node || !m_innerText)
+        return false;
+    
+    if (node->rootEditableElement() == m_innerText)
+        return true;
+    
+    if (!m_innerText->contains(node))
+        return false;
+    
+    Node* shadowAncestor = node->shadowAncestorNode();
+    return shadowAncestor && (shadowAncestor->hasTagName(textareaTag)
+        || (shadowAncestor->hasTagName(inputTag) && static_cast<HTMLInputElement*>(shadowAncestor)->isTextField()));
+}
+
 PassRefPtr<Range> RenderTextControl::selection(int start, int end) const
 {
     if (!m_innerText)
@@ -284,7 +301,7 @@ VisiblePosition RenderTextControl::visiblePositionForIndex(int index) const
 int RenderTextControl::indexForVisiblePosition(const VisiblePosition& pos) const
 {
     Position indexPosition = pos.deepEquivalent();
-    if (!indexPosition.node() || indexPosition.node()->rootEditableElement() != m_innerText)
+    if (!isSelectableElement(indexPosition.node()))
         return 0;
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(document());
@@ -561,14 +578,52 @@ void RenderTextControl::updatePlaceholderVisibility(bool placeholderShouldBeVisi
 {
     bool oldPlaceholderVisible = m_placeholderVisible;
     m_placeholderVisible = placeholderShouldBeVisible;
-    if (oldPlaceholderVisible != m_placeholderVisible || placeholderValueChanged) {
-        // Sets the inner text style to the normal style or :placeholder style.
-        setInnerTextStyle(createInnerTextStyle(textBaseStyle()));
+    if (oldPlaceholderVisible != m_placeholderVisible || placeholderValueChanged)
+        repaint();
+}
 
-        // updateFromElement() of the subclasses updates the text content
-        // to the element's value(), placeholder(), or the empty string.
-        updateFromElement();
+void RenderTextControl::paintPlaceholder(PaintInfo& paintInfo, int tx, int ty)
+{
+    if (style()->visibility() != VISIBLE)
+        return;
+    
+    IntRect clipRect(tx + borderLeft(), ty + borderTop(), width() - borderLeft() - borderRight(), height() - borderBottom() - borderTop());
+    if (clipRect.isEmpty())
+        return;
+    
+    paintInfo.context->save();
+    
+    paintInfo.context->clip(clipRect);
+    
+    RefPtr<RenderStyle> placeholderStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER);
+    if (!placeholderStyle)
+        placeholderStyle = style();
+    
+    paintInfo.context->setFillColor(placeholderStyle->visitedDependentColor(CSSPropertyColor), placeholderStyle->colorSpace());
+    
+    String placeholderText = static_cast<HTMLTextFormControlElement*>(node())->strippedPlaceholder();
+    TextRun textRun(placeholderText.characters(), placeholderText.length(), 0, 0, 0, !placeholderStyle->isLeftToRightDirection(), placeholderStyle->unicodeBidi() == Override, false, false);
+    
+    RenderBox* textRenderer = innerTextElement() ? innerTextElement()->renderBox() : 0;
+    if (textRenderer) {
+        IntPoint textPoint;
+        textPoint.setY(ty + borderTop() + paddingTop() + textRenderer->paddingTop() + placeholderStyle->font().ascent());
+        if (placeholderStyle->isLeftToRightDirection())
+            textPoint.setX(tx + textBlockInsetLeft());
+        else
+            textPoint.setX(tx + width() - textBlockInsetRight() - style()->font().width(textRun));
+        
+        paintInfo.context->drawBidiText(placeholderStyle->font(), textRun, textPoint);
     }
+    paintInfo.context->restore();    
+}
+
+void RenderTextControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
+{    
+    if (m_placeholderVisible && paintInfo.phase == PaintPhaseForeground)
+        paintPlaceholder(paintInfo, tx, ty);
+    
+    RenderBlock::paintObject(paintInfo, tx, ty);
 }
 
 } // namespace WebCore

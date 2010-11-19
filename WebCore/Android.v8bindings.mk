@@ -173,8 +173,12 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8SVGDocumentCustom.cpp \
 	bindings/v8/custom/V8SVGElementCustom.cpp \
 	bindings/v8/custom/V8SVGLengthCustom.cpp \
+<<<<<<< HEAD
 	bindings/v8/custom/V8SVGMatrixCustom.cpp \
 	bindings/v8/custom/V8SVGPathSegCustom.cpp
+=======
+	bindings/v8/custom/V8SVGPathSegCustom.cpp \
+>>>>>>> webkit.org at r72274
 endif
 
 LOCAL_SRC_FILES += \

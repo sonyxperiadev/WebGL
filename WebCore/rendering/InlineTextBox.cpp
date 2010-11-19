@@ -43,11 +43,11 @@ using namespace std;
 
 namespace WebCore {
 
-int InlineTextBox::baselinePosition() const
+int InlineTextBox::baselinePosition(FontBaseline baselineType) const
 {
     if (!isText() || !parent())
         return 0;
-    return parent()->baselinePosition();
+    return parent()->baselinePosition(baselineType);
 }
     
 int InlineTextBox::lineHeight() const
@@ -171,9 +171,7 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
     int width = isHorizontal() ? logicalWidth : selHeight;
     int height = isHorizontal() ? selHeight : logicalWidth;
     
-    IntRect result = IntRect(topPoint, IntSize(width, height));
-    flipForWritingMode(result);
-    return result;
+    return IntRect(topPoint, IntSize(width, height));
 }
 
 void InlineTextBox::deleteLine(RenderArena* arena)

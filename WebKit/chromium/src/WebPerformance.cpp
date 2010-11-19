@@ -37,6 +37,11 @@ using namespace WebCore;
 
 namespace WebKit {
 
+static double millisecondsToSeconds(unsigned long long milliseconds)
+{
+    return static_cast<double>(milliseconds / 1000.0);
+}
+
 void WebPerformance::reset()
 {
     m_private.reset();
@@ -50,11 +55,11 @@ void WebPerformance::assign(const WebPerformance& other)
 WebNavigationType WebPerformance::navigationType() const
 {
     switch (m_private->navigation()->type()) {
-    case Navigation::NAVIGATE:
+    case PerformanceNavigation::NAVIGATE:
         return WebNavigationTypeOther;
-    case Navigation::RELOAD:
+    case PerformanceNavigation::RELOAD:
         return WebNavigationTypeReload;
-    case Navigation::BACK_FORWARD:
+    case PerformanceNavigation::BACK_FORWARD:
         return WebNavigationTypeBackForward;
     }
     ASSERT_NOT_REACHED();
@@ -63,22 +68,22 @@ WebNavigationType WebPerformance::navigationType() const
 
 double WebPerformance::navigationStart() const
 {
-    return static_cast<double>(m_private->timing()->navigationStart());
+    return millisecondsToSeconds(m_private->timing()->navigationStart());
 }
 
 double WebPerformance::unloadEventEnd() const
 {
-    return static_cast<double>(m_private->timing()->unloadEventEnd());
+    return millisecondsToSeconds(m_private->timing()->unloadEventEnd());
 }
 
 double WebPerformance::redirectStart() const
 {
-    return static_cast<double>(m_private->timing()->redirectStart());
+    return millisecondsToSeconds(m_private->timing()->redirectStart());
 }
 
 double WebPerformance::redirectEnd() const
 {
-    return static_cast<double>(m_private->timing()->redirectEnd());
+    return millisecondsToSeconds(m_private->timing()->redirectEnd());
 }
 
 unsigned short WebPerformance::redirectCount() const
@@ -88,57 +93,52 @@ unsigned short WebPerformance::redirectCount() const
 
 double WebPerformance::fetchStart() const
 {
-    return static_cast<double>(m_private->timing()->fetchStart());
+    return millisecondsToSeconds(m_private->timing()->fetchStart());
 }
 
 double WebPerformance::domainLookupStart() const
 {
-    return static_cast<double>(m_private->timing()->domainLookupStart());
+    return millisecondsToSeconds(m_private->timing()->domainLookupStart());
 }
 
 double WebPerformance::domainLookupEnd() const
 {
-    return static_cast<double>(m_private->timing()->domainLookupEnd());
+    return millisecondsToSeconds(m_private->timing()->domainLookupEnd());
 }
 
 double WebPerformance::connectStart() const
 {
-    return static_cast<double>(m_private->timing()->connectStart());
+    return millisecondsToSeconds(m_private->timing()->connectStart());
 }
 
 double WebPerformance::connectEnd() const
 {
-    return static_cast<double>(m_private->timing()->connectEnd());
+    return millisecondsToSeconds(m_private->timing()->connectEnd());
 }
 
 double WebPerformance::requestStart() const
 {
-    return static_cast<double>(m_private->timing()->requestStart());
-}
-
-double WebPerformance::requestEnd() const
-{
-    return static_cast<double>(m_private->timing()->requestEnd());
+    return millisecondsToSeconds(m_private->timing()->requestStart());
 }
 
 double WebPerformance::responseStart() const
 {
-    return static_cast<double>(m_private->timing()->responseStart());
+    return millisecondsToSeconds(m_private->timing()->responseStart());
 }
 
 double WebPerformance::responseEnd() const
 {
-    return static_cast<double>(m_private->timing()->responseEnd());
+    return millisecondsToSeconds(m_private->timing()->responseEnd());
 }
 
 double WebPerformance::loadEventStart() const
 {
-    return static_cast<double>(m_private->timing()->loadEventStart());
+    return millisecondsToSeconds(m_private->timing()->loadEventStart());
 }
 
 double WebPerformance::loadEventEnd() const
 {
-    return static_cast<double>(m_private->timing()->loadEventEnd());
+    return millisecondsToSeconds(m_private->timing()->loadEventEnd());
 }
 
 WebPerformance::WebPerformance(const PassRefPtr<Performance>& performance)

@@ -73,8 +73,6 @@ DOM_CLASSES = \
     CSSUnknownRule \
     CSSValue \
     CSSValueList \
-    CSSVariablesRule \
-    CSSVariablesDeclaration \
     WebGLActiveInfo \
     ArrayBufferView \
     ArrayBuffer \
@@ -168,6 +166,7 @@ DOM_CLASSES = \
     FileReaderSync \
     FileWriter \
     FileWriterCallback \
+    FileWriterSync \
     FileSystemCallback \
     Flags \
     Geolocation \
@@ -278,7 +277,6 @@ DOM_CLASSES = \
     MouseEvent \
     MutationEvent \
     NamedNodeMap \
-    Navigation \
     Navigator \
     Node \
     NodeFilter \
@@ -290,6 +288,8 @@ DOM_CLASSES = \
     OverflowEvent \
     PageTransitionEvent \
     Performance \
+    PerformanceNavigation \
+    PerformanceTiming \
     PopStateEvent \
     PositionError \
     ProcessingInstruction \
@@ -469,7 +469,6 @@ DOM_CLASSES = \
     TextEvent \
     TextMetrics \
     TimeRanges \
-    Timing \
     Touch \
     TouchEvent \
     TouchList \
@@ -713,10 +712,6 @@ endif
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
-endif
-
-ifeq ($(findstring ENABLE_RUBY,$(FEATURE_DEFINES)), ENABLE_RUBY)
-    HTML_FLAGS := $(HTML_FLAGS) ENABLE_RUBY=1
 endif
 
 ifdef HTML_FLAGS

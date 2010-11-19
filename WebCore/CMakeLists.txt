@@ -128,8 +128,6 @@ SET(WebCore_IDL_FILES
     css/CSSStyleSheet.idl
     css/CSSValue.idl
     css/CSSValueList.idl
-    css/CSSVariablesDeclaration.idl
-    css/CSSVariablesRule.idl
     css/MediaList.idl
     css/Rect.idl
     css/RGBColor.idl
@@ -295,10 +293,6 @@ SET(WebCore_IDL_FILES
     html/canvas/CanvasPattern.idl
     html/canvas/CanvasRenderingContext2D.idl
     html/canvas/CanvasRenderingContext.idl
-    html/canvas/WebGLRenderingContext.idl
-
-    html/canvas/ArrayBuffer.idl
-    html/canvas/ArrayBufferView.idl
     html/canvas/Float32Array.idl
     html/canvas/Int16Array.idl
     html/canvas/Int32Array.idl
@@ -306,6 +300,7 @@ SET(WebCore_IDL_FILES
     html/canvas/Uint16Array.idl
     html/canvas/Uint32Array.idl
     html/canvas/Uint8Array.idl
+    html/canvas/WebGLRenderingContext.idl
 
     inspector/InjectedScriptHost.idl
     inspector/InspectorFrontendHost.idl
@@ -329,12 +324,12 @@ SET(WebCore_IDL_FILES
     page/History.idl
     page/Location.idl
     page/MemoryInfo.idl
-    page/Navigation.idl
     page/Navigator.idl
     page/Performance.idl
+    page/PerformanceNavigation.idl
+    page/PerformanceTiming.idl
     page/PositionError.idl
     page/Screen.idl
-    page/Timing.idl
     page/WebKitPoint.idl
     page/WorkerNavigator.idl
 
@@ -571,7 +566,6 @@ SET(WebCore_SOURCES
     accessibility/AccessibilityTableHeaderContainer.cpp
     accessibility/AccessibilityTableRow.cpp
 
-    bindings/js/specialization/JSBindingState.cpp
     bindings/ScriptControllerBase.cpp
 
     bindings/generic/ActiveDOMCallback.cpp
@@ -704,6 +698,8 @@ SET(WebCore_SOURCES
     bindings/js/SerializedScriptValue.cpp
     bindings/js/WorkerScriptController.cpp
 
+    bindings/js/specialization/JSBindingState.cpp
+
     bridge/IdentifierRep.cpp
     bridge/NP_jsobject.cpp
     bridge/npruntime.cpp
@@ -760,9 +756,6 @@ SET(WebCore_SOURCES
     css/CSSTimingFunctionValue.cpp
     css/CSSUnicodeRangeValue.cpp
     css/CSSValueList.cpp
-    css/CSSVariableDependentValue.cpp
-    css/CSSVariablesDeclaration.cpp
-    css/CSSVariablesRule.cpp
     css/FontFamilyValue.cpp
     css/FontValue.cpp
     css/MediaFeatureNames.cpp
@@ -825,6 +818,7 @@ SET(WebCore_SOURCES
     dom/EntityReference.cpp
     dom/ErrorEvent.cpp
     dom/Event.cpp
+    dom/EventContext.cpp
     dom/EventNames.cpp
     dom/EventTarget.cpp
     dom/ExceptionBase.cpp
@@ -882,6 +876,7 @@ SET(WebCore_SOURCES
     dom/WebKitAnimationEvent.cpp
     dom/WebKitTransitionEvent.cpp
     dom/WheelEvent.cpp
+    dom/WindowEventContext.cpp
     dom/XMLDocumentParser.cpp
     dom/XMLDocumentParserLibxml2.cpp
     dom/XMLDocumentParserScope.cpp
@@ -1087,12 +1082,14 @@ SET(WebCore_SOURCES
     html/ValidationMessage.cpp
     html/ValidityState.cpp
     html/WeekInputType.cpp
+
     html/canvas/CanvasGradient.cpp
     html/canvas/CanvasPattern.cpp
     html/canvas/CanvasPixelArray.cpp
     html/canvas/CanvasRenderingContext.cpp
     html/canvas/CanvasRenderingContext2D.cpp
     html/canvas/CanvasStyle.cpp
+
     html/parser/CSSPreloadScanner.cpp
     html/parser/HTMLConstructionSite.cpp
     html/parser/HTMLDocumentParser.cpp
@@ -1140,17 +1137,8 @@ SET(WebCore_SOURCES
     inspector/ScriptCallStack.cpp
     inspector/TimelineRecordFactory.cpp
 
-    loader/cache/CachedCSSStyleSheet.cpp
-    loader/cache/CachedFont.cpp
-    loader/cache/CachedImage.cpp
-    loader/cache/CachedResource.cpp
-    loader/cache/CachedResourceClientWalker.cpp
-    loader/cache/CachedResourceHandle.cpp
-    loader/cache/CachedScript.cpp
-    loader/cache/CachedXSLStyleSheet.cpp
     loader/CrossOriginAccessControl.cpp
     loader/CrossOriginPreflightResultCache.cpp
-    loader/cache/CachedResourceLoader.cpp
     loader/DocumentLoader.cpp
     loader/DocumentThreadableLoader.cpp
     loader/DocumentWriter.cpp
@@ -1172,6 +1160,7 @@ SET(WebCore_SOURCES
     loader/NavigationScheduler.cpp
     loader/Request.cpp
     loader/ResourceLoadNotifier.cpp
+    loader/ResourceLoadScheduler.cpp
     loader/ResourceLoader.cpp
     loader/SinkDocument.cpp
     loader/SubframeLoader.cpp
@@ -1179,6 +1168,7 @@ SET(WebCore_SOURCES
     loader/TextResourceDecoder.cpp
     loader/ThreadableLoader.cpp
     loader/WorkerThreadableLoader.cpp
+    loader/loader.cpp
 
     loader/appcache/ApplicationCache.cpp
     loader/appcache/ApplicationCacheGroup.cpp
@@ -1192,13 +1182,21 @@ SET(WebCore_SOURCES
     loader/archive/ArchiveResource.cpp
     loader/archive/ArchiveResourceCollection.cpp
 
+    loader/cache/CachedCSSStyleSheet.cpp
+    loader/cache/CachedFont.cpp
+    loader/cache/CachedImage.cpp
+    loader/cache/CachedResource.cpp
+    loader/cache/CachedResourceClientWalker.cpp
+    loader/cache/CachedResourceHandle.cpp
+    loader/cache/CachedResourceLoader.cpp
+    loader/cache/CachedScript.cpp
+    loader/cache/CachedXSLStyleSheet.cpp
     loader/cache/MemoryCache.cpp
 
     loader/icon/IconDatabase.cpp
     loader/icon/IconLoader.cpp
     loader/icon/IconRecord.cpp
     loader/icon/PageURLRecord.cpp
-    loader/loader.cpp
 
     page/BarInfo.cpp
     page/Chrome.cpp
@@ -1222,7 +1220,6 @@ SET(WebCore_SOURCES
     page/Location.cpp
     page/MemoryInfo.cpp
     page/MouseEventWithHitTestResults.cpp
-    page/Navigation.cpp
     page/Navigator.cpp
     page/NavigatorBase.cpp
     page/OriginAccessEntry.cpp
@@ -1230,6 +1227,8 @@ SET(WebCore_SOURCES
     page/PageGroup.cpp
     page/PageGroupLoadDeferrer.cpp
     page/Performance.cpp
+    page/PerformanceNavigation.cpp
+    page/PerformanceTiming.cpp
     page/PluginHalter.cpp
     page/PrintContext.cpp
     page/Screen.cpp
@@ -1237,7 +1236,6 @@ SET(WebCore_SOURCES
     page/Settings.cpp
     page/SpatialNavigation.cpp
     page/SuspendableTimer.cpp
-    page/Timing.cpp
     page/UserContentURLPattern.cpp
     page/WindowFeatures.cpp
     page/WorkerNavigator.cpp
@@ -1481,6 +1479,7 @@ SET(WebCore_SOURCES
     rendering/TextControlInnerElements.cpp
     rendering/TransformState.cpp
     rendering/break_lines.cpp
+
     rendering/style/ContentData.cpp
     rendering/style/CounterDirectives.cpp
     rendering/style/FillLayer.cpp
@@ -1679,6 +1678,7 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/FileEntrySync.cpp
         fileapi/FileSystemCallbacks.cpp
         fileapi/FileWriter.cpp
+        fileapi/FileWriterSync.cpp
         fileapi/LocalFileSystem.cpp
         platform/AsyncFileSystem.cpp
     )
@@ -1702,6 +1702,7 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/FileSystemCallback.idl
         fileapi/FileWriterCallback.idl
         fileapi/FileWriter.idl
+        fileapi/FileWriterSync.idl
         fileapi/Flags.idl
         fileapi/Metadata.idl
         fileapi/MetadataCallback.idl
@@ -1712,7 +1713,6 @@ IF (ENABLE_SVG)
     LIST(APPEND WebCore_SOURCES
         bindings/js/JSSVGElementInstanceCustom.cpp
         bindings/js/JSSVGLengthCustom.cpp
-        bindings/js/JSSVGMatrixCustom.cpp
         bindings/js/JSSVGPathSegCustom.cpp
         bindings/js/JSSVGPathSegListCustom.cpp
         css/SVGCSSComputedStyleDeclaration.cpp

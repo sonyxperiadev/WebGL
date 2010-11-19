@@ -295,7 +295,7 @@ WebView *createWebViewAndOffscreenWindow()
     [webView setEditingDelegate:editingDelegate];
     [webView setResourceLoadDelegate:resourceLoadDelegate];
     [webView _setGeolocationProvider:[MockGeolocationProvider shared]];
-    [webView _setDeviceOrientationProvider:[[WebDeviceOrientationProviderMock alloc] init]];
+    [webView _setDeviceOrientationProvider:[WebDeviceOrientationProviderMock shared]];
 
     // Register the same schemes that Safari does
     [WebView registerURLSchemeAsLocal:@"feed"];
@@ -406,6 +406,7 @@ static void resetDefaultsToConsistentValues()
 #endif
 
     [defaults setBool:NO forKey:@"AppleScrollAnimationEnabled"];
+    [defaults setBool:NO forKey:@"NSOverlayScrollersEnabled"];
 
     if (initialValue)
         CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), initialValue.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
@@ -426,7 +427,7 @@ static void resetDefaultsToConsistentValues()
     [preferences setFantasyFontFamily:@"Papyrus"];
     [preferences setDefaultFontSize:16];
     [preferences setDefaultFixedFontSize:13];
-    [preferences setMinimumFontSize:1];
+    [preferences setMinimumFontSize:0];
     [preferences setJavaEnabled:NO];
     [preferences setJavaScriptEnabled:YES];
     [preferences setEditableLinkBehavior:WebKitEditableLinkOnlyLiveWithShiftKey];

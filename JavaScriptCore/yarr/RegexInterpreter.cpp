@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Peter Varga (pvarga@inf.u-szeged.hu), University of Szeged
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -195,6 +196,12 @@ public:
             return -1;
         }
 
+        int readPair()
+        {
+            ASSERT(pos + 1 < length);
+            return input[pos] | input[pos + 1] << 16;
+        }
+
         int readChecked(int position)
         {
             ASSERT(position < 0);
@@ -260,6 +267,11 @@ public:
         bool atEnd(int position)
         {
             return (pos + position) == length;
+        }
+
+        bool isNotAvailableInput(int position)
+        {
+            return (pos + position) > length;
         }
 
     private:
@@ -591,20 +603,24 @@ public:
         unsigned count = term.atom.parenthesesDisjunction->m_numSubpatterns;
         context->restoreOutput(output, firstSubpatternId, count);
     }
-    bool parenthesesDoBacktrack(ByteTerm& term, BackTrackInfoParentheses* backTrack)
+    JSRegExpResult parenthesesDoBacktrack(ByteTerm& term, BackTrackInfoParentheses* backTrack)
     {
         while (backTrack->matchAmount) {
             ParenthesesDisjunctionContext* context = backTrack->lastContext;
 
-            if (matchDisjunction(term.atom.parenthesesDisjunction, context->getDisjunctionContext(term), true))
-                return true;
+            JSRegExpResult result = matchDisjunction(term.atom.parenthesesDisjunction, context->getDisjunctionContext(term), true);
+            if (result == JSRegExpMatch)
+                return JSRegExpMatch;
 
             resetMatches(term, context);
             popParenthesesDisjunctionContext(backTrack);
             freeParenthesesDisjunctionContext(context);
+
+            if (result != JSRegExpNoMatch)
+                return result;
         }
 
-        return false;
+        return JSRegExpNoMatch;
     }
 
     bool matchParenthesesOnceBegin(ByteTerm& term, DisjunctionContext* context)
@@ -765,7 +781,7 @@ public:
         return false;
     }
 
-    bool matchParentheses(ByteTerm& term, DisjunctionContext* context)
+    JSRegExpResult matchParentheses(ByteTerm& term, DisjunctionContext* context)
     {
         ASSERT(term.type == ByteTerm::TypeParenthesesSubpattern);
 
@@ -786,31 +802,42 @@ public:
             while (backTrack->matchAmount < term.atom.quantityCount) {
                 // Try to do a match, and it it succeeds, add it to the list.
                 ParenthesesDisjunctionContext* context = allocParenthesesDisjunctionContext(disjunctionBody, output, term);
-                if (matchDisjunction(disjunctionBody, context->getDisjunctionContext(term)))
+                JSRegExpResult result = matchDisjunction(disjunctionBody, context->getDisjunctionContext(term));
+                if (result == JSRegExpMatch)
                     appendParenthesesDisjunctionContext(backTrack, context);
                 else {
                     // The match failed; try to find an alternate point to carry on from.
                     resetMatches(term, context);
                     freeParenthesesDisjunctionContext(context);
-                    if (!parenthesesDoBacktrack(term, backTrack))
-                        return false;
+
+                    if (result == JSRegExpNoMatch) {
+                        JSRegExpResult backtrackResult = parenthesesDoBacktrack(term, backTrack);
+                        if (backtrackResult != JSRegExpMatch)
+                            return backtrackResult;
+                    } else
+                        return result;
                 }
             }
 
             ASSERT(backTrack->matchAmount == term.atom.quantityCount);
             ParenthesesDisjunctionContext* context = backTrack->lastContext;
             recordParenthesesMatch(term, context);
-            return true;
+            return JSRegExpMatch;
         }
 
         case QuantifierGreedy: {
             while (backTrack->matchAmount < term.atom.quantityCount) {
                 ParenthesesDisjunctionContext* context = allocParenthesesDisjunctionContext(disjunctionBody, output, term);
-                if (matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term)))
+                JSRegExpResult result = matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term));
+                if (result == JSRegExpMatch)
                     appendParenthesesDisjunctionContext(backTrack, context);
                 else {
                     resetMatches(term, context);
                     freeParenthesesDisjunctionContext(context);
+
+                    if (result != JSRegExpNoMatch)
+                        return result;
+
                     break;
                 }
             }
@@ -819,15 +846,15 @@ public:
                 ParenthesesDisjunctionContext* context = backTrack->lastContext;
                 recordParenthesesMatch(term, context);
             }
-            return true;
+            return JSRegExpMatch;
         }
 
         case QuantifierNonGreedy:
-            return true;
+            return JSRegExpMatch;
         }
 
         ASSERT_NOT_REACHED();
-        return false;
+        return JSRegExpErrorNoMatch;
     }
 
     // Rules for backtracking differ depending on whether this is greedy or non-greedy.
@@ -840,7 +867,7 @@ public:
     // Non-greedy, we've already done the one less case, so don't match on popping.
     // We haven't done the one more case, so always try to add that.
     //
-    bool backtrackParentheses(ByteTerm& term, DisjunctionContext* context)
+    JSRegExpResult backtrackParentheses(ByteTerm& term, DisjunctionContext* context)
     {
         ASSERT(term.type == ByteTerm::TypeParenthesesSubpattern);
 
@@ -859,44 +886,58 @@ public:
             ASSERT(backTrack->matchAmount == term.atom.quantityCount);
 
             ParenthesesDisjunctionContext* context = 0;
+            JSRegExpResult result = parenthesesDoBacktrack(term, backTrack);
 
-            if (!parenthesesDoBacktrack(term, backTrack))
-                return false;
+            if (result != JSRegExpMatch)
+                return result;
 
             // While we haven't yet reached our fixed limit,
             while (backTrack->matchAmount < term.atom.quantityCount) {
                 // Try to do a match, and it it succeeds, add it to the list.
                 context = allocParenthesesDisjunctionContext(disjunctionBody, output, term);
-                if (matchDisjunction(disjunctionBody, context->getDisjunctionContext(term)))
+                result = matchDisjunction(disjunctionBody, context->getDisjunctionContext(term));
+
+                if (result == JSRegExpMatch)
                     appendParenthesesDisjunctionContext(backTrack, context);
                 else {
                     // The match failed; try to find an alternate point to carry on from.
                     resetMatches(term, context);
                     freeParenthesesDisjunctionContext(context);
-                    if (!parenthesesDoBacktrack(term, backTrack))
-                        return false;
+
+                    if (result == JSRegExpNoMatch) {
+                        JSRegExpResult backtrackResult = parenthesesDoBacktrack(term, backTrack);
+                        if (backtrackResult != JSRegExpMatch)
+                            return backtrackResult;
+                    } else
+                        return result;
                 }
             }
 
             ASSERT(backTrack->matchAmount == term.atom.quantityCount);
             context = backTrack->lastContext;
             recordParenthesesMatch(term, context);
-            return true;
+            return JSRegExpMatch;
         }
 
         case QuantifierGreedy: {
             if (!backTrack->matchAmount)
-                return false;
+                return JSRegExpNoMatch;
 
             ParenthesesDisjunctionContext* context = backTrack->lastContext;
-            if (matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term), true)) {
+            JSRegExpResult result = matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term), true);
+            if (result == JSRegExpMatch) {
                 while (backTrack->matchAmount < term.atom.quantityCount) {
                     ParenthesesDisjunctionContext* context = allocParenthesesDisjunctionContext(disjunctionBody, output, term);
-                    if (matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term)))
+                    JSRegExpResult parenthesesResult = matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term));
+                    if (parenthesesResult == JSRegExpMatch)
                         appendParenthesesDisjunctionContext(backTrack, context);
                     else {
                         resetMatches(term, context);
                         freeParenthesesDisjunctionContext(context);
+
+                        if (parenthesesResult != JSRegExpNoMatch)
+                            return parenthesesResult;
+
                         break;
                     }
                 }
@@ -904,62 +945,107 @@ public:
                 resetMatches(term, context);
                 popParenthesesDisjunctionContext(backTrack);
                 freeParenthesesDisjunctionContext(context);
+
+                if (result != JSRegExpNoMatch)
+                    return result;
             }
 
             if (backTrack->matchAmount) {
                 ParenthesesDisjunctionContext* context = backTrack->lastContext;
                 recordParenthesesMatch(term, context);
             }
-            return true;
+            return JSRegExpMatch;
         }
 
         case QuantifierNonGreedy: {
             // If we've not reached the limit, try to add one more match.
             if (backTrack->matchAmount < term.atom.quantityCount) {
                 ParenthesesDisjunctionContext* context = allocParenthesesDisjunctionContext(disjunctionBody, output, term);
-                if (matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term))) {
+                JSRegExpResult result = matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term));
+                if (result == JSRegExpMatch) {
                     appendParenthesesDisjunctionContext(backTrack, context);
                     recordParenthesesMatch(term, context);
-                    return true;
-                } else {
-                    resetMatches(term, context);
-                    freeParenthesesDisjunctionContext(context);
+                    return JSRegExpMatch;
                 }
+
+                resetMatches(term, context);
+                freeParenthesesDisjunctionContext(context);
+
+                if (result != JSRegExpNoMatch)
+                    return result;
             }
 
             // Nope - okay backtrack looking for an alternative.
             while (backTrack->matchAmount) {
                 ParenthesesDisjunctionContext* context = backTrack->lastContext;
-                if (matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term), true)) {
+                JSRegExpResult result = matchNonZeroDisjunction(disjunctionBody, context->getDisjunctionContext(term), true);
+                if (result == JSRegExpMatch) {
                     // successful backtrack! we're back in the game!
                     if (backTrack->matchAmount) {
                         context = backTrack->lastContext;
                         recordParenthesesMatch(term, context);
                     }
-                    return true;
+                    return JSRegExpMatch;
                 }
 
                 // pop a match off the stack
                 resetMatches(term, context);
                 popParenthesesDisjunctionContext(backTrack);
                 freeParenthesesDisjunctionContext(context);
+
+                return result;
             }
 
-            return false;
+            return JSRegExpNoMatch;
         }
         }
 
         ASSERT_NOT_REACHED();
-        return false;
+        return JSRegExpErrorNoMatch;
+    }
+
+    void lookupForBeginChars()
+    {
+        int character;
+        bool firstSingleCharFound;
+
+        while (true) {
+            if (input.isNotAvailableInput(2))
+                return;
+
+            firstSingleCharFound = false;
+
+            character = input.readPair();
+
+            for (unsigned i = 0; i < pattern->m_beginChars.size(); ++i) {
+                BeginChar bc = pattern->m_beginChars[i];
+
+                if (!firstSingleCharFound && bc.value <= 0xFFFF) {
+                    firstSingleCharFound = true;
+                    character &= 0xFFFF;
+                }
+
+                if ((character | bc.mask) == bc.value)
+                    return;
+            }
+
+            input.next();
+        }
     }
 
 #define MATCH_NEXT() { ++context->term; goto matchAgain; }
 #define BACKTRACK() { --context->term; goto backtrack; }
 #define currentTerm() (disjunction->terms[context->term])
-    bool matchDisjunction(ByteDisjunction* disjunction, DisjunctionContext* context, bool btrack = false)
+    JSRegExpResult matchDisjunction(ByteDisjunction* disjunction, DisjunctionContext* context, bool btrack = false, bool isBody = false)
     {
+        if (!--remainingMatchCount)
+            return JSRegExpErrorHitLimit;
+
         if (btrack)
             BACKTRACK();
+
+        if (pattern->m_containsBeginChars && isBody)
+            lookupForBeginChars();
 
         context->matchBegin = input.getPos();
         context->term = 0;
@@ -972,14 +1058,14 @@ public:
             MATCH_NEXT();
         case ByteTerm::TypeSubpatternEnd:
             context->matchEnd = input.getPos();
-            return true;
+            return JSRegExpMatch;
 
         case ByteTerm::TypeBodyAlternativeBegin:
             MATCH_NEXT();
         case ByteTerm::TypeBodyAlternativeDisjunction:
         case ByteTerm::TypeBodyAlternativeEnd:
             context->matchEnd = input.getPos();
-            return true;
+            return JSRegExpMatch;
 
         case ByteTerm::TypeAlternativeBegin:
             MATCH_NEXT();
@@ -1069,10 +1155,16 @@ public:
             if (matchBackReference(currentTerm(), context))
                 MATCH_NEXT();
             BACKTRACK();
-        case ByteTerm::TypeParenthesesSubpattern:
-            if (matchParentheses(currentTerm(), context))
+        case ByteTerm::TypeParenthesesSubpattern: {
+            JSRegExpResult result = matchParentheses(currentTerm(), context);
+
+            if (result == JSRegExpMatch) {
                 MATCH_NEXT();
+            }  else if (result != JSRegExpNoMatch)
+                return result;
+
             BACKTRACK();
+        }
         case ByteTerm::TypeParenthesesSubpatternOnceBegin:
             if (matchParenthesesOnceBegin(currentTerm(), context))
                 MATCH_NEXT();
@@ -1104,7 +1196,7 @@ public:
 
         switch (currentTerm().type) {
         case ByteTerm::TypeSubpatternBegin:
-            return false;
+            return JSRegExpNoMatch;
         case ByteTerm::TypeSubpatternEnd:
             ASSERT_NOT_REACHED();
 
@@ -1116,9 +1208,13 @@ public:
                 MATCH_NEXT();
 
             if (input.atEnd())
-                return false;
+                return JSRegExpNoMatch;
 
             input.next();
+
+            if (pattern->m_containsBeginChars && isBody)
+                lookupForBeginChars();
+
             context->matchBegin = input.getPos();
 
             if (currentTerm().alternative.onceThrough)
@@ -1172,10 +1268,16 @@ public:
                 if (backtrackBackReference(currentTerm(), context))
                     MATCH_NEXT();
                 BACKTRACK();
-            case ByteTerm::TypeParenthesesSubpattern:
-                if (backtrackParentheses(currentTerm(), context))
+            case ByteTerm::TypeParenthesesSubpattern: {
+                JSRegExpResult result = backtrackParentheses(currentTerm(), context);
+
+                if (result == JSRegExpMatch) {
                     MATCH_NEXT();
+                } else if (result != JSRegExpNoMatch)
+                    return result;
+
                 BACKTRACK();
+            }
             case ByteTerm::TypeParenthesesSubpatternOnceBegin:
                 if (backtrackParenthesesOnceBegin(currentTerm(), context))
                     MATCH_NEXT();
@@ -1199,20 +1301,23 @@ public:
         }
 
         ASSERT_NOT_REACHED();
-        return false;
+        return JSRegExpErrorNoMatch;
     }
 
-    bool matchNonZeroDisjunction(ByteDisjunction* disjunction, DisjunctionContext* context, bool btrack = false)
+    JSRegExpResult matchNonZeroDisjunction(ByteDisjunction* disjunction, DisjunctionContext* context, bool btrack = false)
     {
-        if (matchDisjunction(disjunction, context, btrack)) {
+        JSRegExpResult result = matchDisjunction(disjunction, context, btrack);
+
+        if (result == JSRegExpMatch) {
             while (context->matchBegin == context->matchEnd) {
-                if (!matchDisjunction(disjunction, context, true))
-                    return false;
+                result = matchDisjunction(disjunction, context, true);
+                if (result != JSRegExpMatch)
+                    return result;
             }
-            return true;
+            return JSRegExpMatch;
         }
 
-        return false;
+        return result;
     }
 
     int interpret()
@@ -1226,7 +1331,8 @@ public:
 
         DisjunctionContext* context = allocDisjunctionContext(pattern->m_body.get());
 
-        if (matchDisjunction(pattern->m_body.get(), context)) {
+        JSRegExpResult result = matchDisjunction(pattern->m_body.get(), context, false, true);
+        if (result == JSRegExpMatch) {
             output[0] = context->matchBegin;
             output[1] = context->matchEnd;
         }
@@ -1234,6 +1340,9 @@ public:
         freeDisjunctionContext(context);
 
         pattern->m_allocator->stopAllocator();
+
+        if (output[0] == -1 && result != JSRegExpNoMatch)
+            return result;
 
         return output[0];
     }
@@ -1243,6 +1352,7 @@ public:
         , output(output)
         , input(inputChar, start, length)
         , allocatorPool(0)
+        , remainingMatchCount(matchLimit)
     {
     }
 
@@ -1251,6 +1361,7 @@ private:
     int* output;
     InputStream input;
     BumpPointerPool* allocatorPool;
+    unsigned remainingMatchCount;
 };
 
 

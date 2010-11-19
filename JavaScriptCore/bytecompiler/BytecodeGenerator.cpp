@@ -443,7 +443,6 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
         emitOpcode(op_get_callee);
         instructions().append(func->index());
         // Load prototype.
-        emitGetByIdExceptionInfo(op_create_this);
         emitGetById(funcProto.get(), func.get(), globalData()->propertyNames->prototype);
 
         emitOpcode(op_create_this);
@@ -1156,6 +1155,12 @@ bool BytecodeGenerator::findScopedProperty(const Identifier& property, int& inde
     if (++iter == end)
         globalObject = scope;
     return true;
+}
+
+void BytecodeGenerator::emitCheckHasInstance(RegisterID* base)
+{ 
+    emitOpcode(op_check_has_instance);
+    instructions().append(base->index());
 }
 
 RegisterID* BytecodeGenerator::emitInstanceOf(RegisterID* dst, RegisterID* value, RegisterID* base, RegisterID* basePrototype)
@@ -2050,13 +2055,16 @@ RegisterID* BytecodeGenerator::emitCatch(RegisterID* targetRegister, Label* star
     return targetRegister;
 }
 
-RegisterID* BytecodeGenerator::emitNewError(RegisterID* dst, bool isReferenceError, JSValue message)
+void BytecodeGenerator::emitThrowReferenceError(const UString& message)
 {
-    emitOpcode(op_new_error);
-    instructions().append(dst->index());
-    instructions().append(isReferenceError);
-    instructions().append(addConstantValue(message)->index());
-    return dst;
+    emitOpcode(op_throw_reference_error);
+    instructions().append(addConstantValue(jsString(globalData(), message))->index());
+}
+
+void BytecodeGenerator::emitThrowSyntaxError(const UString& message)
+{
+    emitOpcode(op_throw_syntax_error);
+    instructions().append(addConstantValue(jsString(globalData(), message))->index());
 }
 
 PassRefPtr<Label> BytecodeGenerator::emitJumpSubroutine(RegisterID* retAddrDst, Label* finally)
@@ -2211,9 +2219,8 @@ RegisterID* BytecodeGenerator::emitThrowExpressionTooDeepException()
     // that from an arbitrary node. However, calling emitExpressionInfo without any useful data
     // is still good enough to get us an accurate line number.
     emitExpressionInfo(0, 0, 0);
-    RegisterID* exception = emitNewError(newTemporary(), false, jsString(globalData(), "Expression too deep"));
-    emitThrow(exception);
-    return exception;
+    emitThrowSyntaxError("Expression too deep");
+    return newTemporary();
 }
 
 void BytecodeGenerator::setIsNumericCompareFunction(bool isNumericCompareFunction)

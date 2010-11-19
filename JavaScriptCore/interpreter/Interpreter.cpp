@@ -38,6 +38,7 @@
 #include "Collector.h"
 #include "Debugger.h"
 #include "DebuggerCallFrame.h"
+#include "ErrorInstance.h"
 #include "EvalCodeCache.h"
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
@@ -60,6 +61,7 @@
 #include "Register.h"
 #include "SamplingTool.h"
 #include "StrictEvalActivation.h"
+#include "UStringConcatenate.h"
 #include <limits.h>
 #include <stdio.h>
 #include <wtf/Threading.h>
@@ -112,7 +114,7 @@ NEVER_INLINE bool Interpreter::resolve(CallFrame* callFrame, Instruction* vPC, J
             return true;
         }
     } while (++iter != end);
-    exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionValue = createUndefinedVariableError(callFrame, ident);
     return false;
 }
 
@@ -152,7 +154,7 @@ NEVER_INLINE bool Interpreter::resolveSkip(CallFrame* callFrame, Instruction* vP
             return true;
         }
     } while (++iter != end);
-    exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionValue = createUndefinedVariableError(callFrame, ident);
     return false;
 }
 
@@ -192,7 +194,7 @@ NEVER_INLINE bool Interpreter::resolveGlobal(CallFrame* callFrame, Instruction* 
         return true;
     }
 
-    exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionValue = createUndefinedVariableError(callFrame, ident);
     return false;
 }
 
@@ -237,7 +239,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
                 o = *iter;
                 ++iter;
             } while (true);
-            exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+            exceptionValue = createUndefinedVariableError(callFrame, ident);
             return false;
         }
         ++iter;
@@ -272,7 +274,7 @@ NEVER_INLINE bool Interpreter::resolveGlobalDynamic(CallFrame* callFrame, Instru
         return true;
     }
     
-    exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionValue = createUndefinedVariableError(callFrame, ident);
     return false;
 }
 
@@ -322,7 +324,7 @@ NEVER_INLINE bool Interpreter::resolveBaseAndProperty(CallFrame* callFrame, Inst
         ++iter;
     } while (iter != end);
 
-    exceptionValue = createUndefinedVariableError(callFrame, ident, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionValue = createUndefinedVariableError(callFrame, ident);
     return false;
 }
 
@@ -366,19 +368,19 @@ ALWAYS_INLINE CallFrame* Interpreter::slideRegisterWindowForCall(CodeBlock* newC
 }
 
 #if ENABLE(INTERPRETER)
-static NEVER_INLINE bool isInvalidParamForIn(CallFrame* callFrame, CodeBlock* codeBlock, const Instruction* vPC, JSValue value, JSValue& exceptionData)
+static NEVER_INLINE bool isInvalidParamForIn(CallFrame* callFrame, JSValue value, JSValue& exceptionData)
 {
     if (value.isObject())
         return false;
-    exceptionData = createInvalidParamError(callFrame, "in" , value, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionData = createInvalidParamError(callFrame, "in" , value);
     return true;
 }
 
-static NEVER_INLINE bool isInvalidParamForInstanceOf(CallFrame* callFrame, CodeBlock* codeBlock, const Instruction* vPC, JSValue value, JSValue& exceptionData)
+static NEVER_INLINE bool isInvalidParamForInstanceOf(CallFrame* callFrame, JSValue value, JSValue& exceptionData)
 {
     if (value.isObject() && asObject(value)->structure()->typeInfo().implementsHasInstance())
         return false;
-    exceptionData = createInvalidParamError(callFrame, "instanceof" , value, vPC - codeBlock->instructions().begin(), codeBlock);
+    exceptionData = createInvalidParamError(callFrame, "instanceof" , value);
     return true;
 }
 #endif
@@ -605,6 +607,54 @@ NEVER_INLINE bool Interpreter::unwindCallFrame(CallFrame*& callFrame, JSValue ex
     return true;
 }
 
+static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, unsigned bytecodeOffset)
+{
+    exception->clearAppendSourceToMessage();
+
+    int startOffset = 0;
+    int endOffset = 0;
+    int divotPoint = 0;
+
+    CodeBlock* codeBlock = callFrame->codeBlock();
+    codeBlock->expressionRangeForBytecodeOffset(callFrame, bytecodeOffset, divotPoint, startOffset, endOffset);
+
+    int expressionStart = divotPoint - startOffset;
+    int expressionStop = divotPoint + endOffset;
+
+    if (!expressionStop || expressionStart > codeBlock->source()->length())
+        return;
+
+    JSGlobalData* globalData = &callFrame->globalData();
+    JSValue jsMessage = exception->getDirect(globalData->propertyNames->message);
+    if (!jsMessage || !jsMessage.isString())
+        return;
+
+    UString message = asString(jsMessage)->value(callFrame);
+
+    if (expressionStart < expressionStop)
+        message =  makeUString(message, " (evaluating '", codeBlock->source()->getRange(expressionStart, expressionStop), "')");
+    else {
+        // No range information, so give a few characters of context
+        const UChar* data = codeBlock->source()->data();
+        int dataLength = codeBlock->source()->length();
+        int start = expressionStart;
+        int stop = expressionStart;
+        // Get up to 20 characters of context to the left and right of the divot, clamping to the line.
+        // then strip whitespace.
+        while (start > 0 && (expressionStart - start < 20) && data[start - 1] != '\n')
+            start--;
+        while (start < (expressionStart - 1) && isStrWhiteSpace(data[start]))
+            start++;
+        while (stop < dataLength && (stop - expressionStart < 20) && data[stop] != '\n')
+            stop++;
+        while (stop > expressionStart && isStrWhiteSpace(data[stop]))
+            stop--;
+        message = makeUString(message, " (near '...", codeBlock->source()->getRange(start, stop), "...')");
+    }
+
+    exception->putDirect(globalData->propertyNames->message, jsString(globalData, message));
+}
+
 NEVER_INLINE HandlerInfo* Interpreter::throwException(CallFrame*& callFrame, JSValue& exceptionValue, unsigned bytecodeOffset, bool explicitThrow)
 {
     // Set up the exception object
@@ -612,28 +662,20 @@ NEVER_INLINE HandlerInfo* Interpreter::throwException(CallFrame*& callFrame, JSV
     CodeBlock* codeBlock = callFrame->codeBlock();
     if (exceptionValue.isObject()) {
         JSObject* exception = asObject(exceptionValue);
-        if (exception->isNotAnObjectErrorStub()) {
-            exception = createNotAnObjectError(callFrame, static_cast<JSNotAnObjectErrorStub*>(exception), bytecodeOffset, codeBlock);
-            exceptionValue = exception;
-        } else {
-            if (!hasErrorInfo(callFrame, exception)) {
-                if (explicitThrow) {
-                    int startOffset = 0;
-                    int endOffset = 0;
-                    int divotPoint = 0;
-                    int line = codeBlock->expressionRangeForBytecodeOffset(callFrame, bytecodeOffset, divotPoint, startOffset, endOffset);
-                    addErrorInfo(callFrame, exception, line, codeBlock->ownerExecutable()->source(), divotPoint, startOffset, endOffset, false);
-                } else
-                    addErrorInfo(callFrame, exception, codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset), codeBlock->ownerExecutable()->source());
-            }
+        if (!explicitThrow && exception->isErrorInstance() && static_cast<ErrorInstance*>(exception)->appendSourceToMessage())
+            appendSourceToError(callFrame, static_cast<ErrorInstance*>(exception), bytecodeOffset);
 
-            ComplType exceptionType = exception->exceptionType();
-            if (exceptionType == Interrupted || exceptionType == Terminated) {
-                while (unwindCallFrame(callFrame, exceptionValue, bytecodeOffset, codeBlock)) {
-                    // Don't need handler checks or anything, we just want to unroll all the JS callframes possible.
-                }
-                return 0;
+        // FIXME: should only really be adding these properties to VM generated exceptions,
+        // but the inspector currently requires these for all thrown objects.
+        if (!hasErrorInfo(callFrame, exception))
+            addErrorInfo(callFrame, exception, codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset), codeBlock->ownerExecutable()->source());
+
+        ComplType exceptionType = exception->exceptionType();
+        if (exceptionType == Interrupted || exceptionType == Terminated) {
+            while (unwindCallFrame(callFrame, exceptionValue, bytecodeOffset, codeBlock)) {
+                // Don't need handler checks or anything, we just want to unroll all the JS callframes possible.
             }
+            return 0;
         }
     }
 
@@ -2098,6 +2140,23 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         vPC += OPCODE_LENGTH(op_not);
         NEXT_INSTRUCTION();
     }
+    DEFINE_OPCODE(op_check_has_instance) {
+        /* check_has_instance constructor(r)
+
+           Check 'constructor' is an object with the internal property
+           [HasInstance] (i.e. is a function ... *shakes head sadly at
+           JSC API*). Raises an exception if register constructor is not
+           an valid parameter for instanceof.
+        */
+        int base = vPC[1].u.operand;
+        JSValue baseVal = callFrame->r(base).jsValue();
+
+        if (isInvalidParamForInstanceOf(callFrame, baseVal, exceptionValue))
+            goto vm_throw;
+
+        vPC += OPCODE_LENGTH(op_check_has_instance);
+        NEXT_INSTRUCTION();
+    }
     DEFINE_OPCODE(op_instanceof) {
         /* instanceof dst(r) value(r) constructor(r) constructorProto(r)
 
@@ -2118,8 +2177,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
 
         JSValue baseVal = callFrame->r(base).jsValue();
 
-        if (isInvalidParamForInstanceOf(callFrame, codeBlock, vPC, baseVal, exceptionValue))
-            goto vm_throw;
+        ASSERT(!isInvalidParamForInstanceOf(callFrame, baseVal, exceptionValue));
 
         bool result = asObject(baseVal)->hasInstance(callFrame, callFrame->r(value).jsValue(), callFrame->r(baseProto).jsValue());
         CHECK_FOR_EXCEPTION();
@@ -2240,7 +2298,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         int base = vPC[3].u.operand;
 
         JSValue baseVal = callFrame->r(base).jsValue();
-        if (isInvalidParamForIn(callFrame, codeBlock, vPC, baseVal, exceptionValue))
+        if (isInvalidParamForIn(callFrame, baseVal, exceptionValue))
             goto vm_throw;
 
         JSObject* baseObj = asObject(baseVal);
@@ -3885,7 +3943,7 @@ skip_id_custom_self:
 
         ASSERT(callType == CallTypeNone);
 
-        exceptionValue = createNotAFunctionError(callFrame, v, vPC - codeBlock->instructions().begin(), codeBlock);
+        exceptionValue = createNotAFunctionError(callFrame, v);
         goto vm_throw;
     }
     DEFINE_OPCODE(op_load_varargs) {
@@ -3917,7 +3975,7 @@ skip_id_custom_self:
                 argStore[i] = callFrame->registers()[i - RegisterFile::CallFrameHeaderSize - expectedParams - static_cast<int32_t>(argCount) - 1];
         } else if (!arguments.isUndefinedOrNull()) {
             if (!arguments.isObject()) {
-                exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments, vPC - codeBlock->instructions().begin(), codeBlock);
+                exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments);
                 goto vm_throw;
             }
             if (asObject(arguments)->classInfo() == &Arguments::info) {
@@ -3958,7 +4016,7 @@ skip_id_custom_self:
                     CHECK_FOR_EXCEPTION();
                 }
             } else {
-                exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments, vPC - codeBlock->instructions().begin(), codeBlock);
+                exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments);
                 goto vm_throw;
             }
         }
@@ -4043,7 +4101,7 @@ skip_id_custom_self:
         
         ASSERT(callType == CallTypeNone);
         
-        exceptionValue = createNotAFunctionError(callFrame, v, vPC - codeBlock->instructions().begin(), codeBlock);
+        exceptionValue = createNotAFunctionError(callFrame, v);
         goto vm_throw;
     }
     DEFINE_OPCODE(op_tear_off_activation) {
@@ -4387,7 +4445,7 @@ skip_id_custom_self:
 
         ASSERT(constructType == ConstructTypeNone);
 
-        exceptionValue = createNotAConstructorError(callFrame, v, vPC - codeBlock->instructions().begin(), codeBlock);
+        exceptionValue = createNotAConstructorError(callFrame, v);
         goto vm_throw;
     }
     DEFINE_OPCODE(op_strcat) {
@@ -4584,24 +4642,27 @@ skip_id_custom_self:
         vPC = codeBlock->instructions().begin() + handler->target;
         NEXT_INSTRUCTION();
     }
-    DEFINE_OPCODE(op_new_error) {
-        /* new_error dst(r) type(n) message(k)
+    DEFINE_OPCODE(op_throw_reference_error) {
+        /* op_throw_reference_error message(k)
 
-           Constructs a new Error instance using the original
-           constructor, using immediate number n as the type and
-           constant message as the message string. The result is
-           written to register dst.
+           Constructs a new reference Error instance using the
+           original constructor, using constant message as the
+           message string. The result is thrown.
         */
-        int dst = vPC[1].u.operand;
-        int isReference = vPC[2].u.operand;
-        UString message = callFrame->r(vPC[3].u.operand).jsValue().toString(callFrame);
+        UString message = callFrame->r(vPC[1].u.operand).jsValue().toString(callFrame);
+        exceptionValue = JSValue(createReferenceError(callFrame, message));
+        goto vm_throw;
+    }
+    DEFINE_OPCODE(op_throw_syntax_error) {
+        /* op_throw_syntax_error message(k)
 
-        JSObject* error = isReference ? createReferenceError(callFrame, message) : createSyntaxError(callFrame, message);
-        addErrorInfo(globalData, error, codeBlock->lineNumberForBytecodeOffset(callFrame, vPC - codeBlock->instructions().begin()), codeBlock->ownerExecutable()->source());
-        callFrame->r(dst) = JSValue(error);
-
-        vPC += OPCODE_LENGTH(op_new_error);
-        NEXT_INSTRUCTION();
+           Constructs a new syntax Error instance using the
+           original constructor, using constant message as the
+           message string. The result is thrown.
+        */
+        UString message = callFrame->r(vPC[1].u.operand).jsValue().toString(callFrame);
+        exceptionValue = JSValue(createSyntaxError(callFrame, message));
+        goto vm_throw;
     }
     DEFINE_OPCODE(op_end) {
         /* end result(r)

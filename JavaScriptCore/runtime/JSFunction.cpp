@@ -45,9 +45,7 @@ namespace JSC {
 #if ENABLE(JIT)
 EncodedJSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState* exec)
 {
-    CodeBlock* codeBlock = exec->callerFrame()->codeBlock();
-    unsigned vPCIndex = codeBlock->bytecodeOffset(exec, exec->returnPC());
-    return throwVMError(exec, createNotAConstructorError(exec, exec->callee(), vPCIndex, codeBlock));
+    return throwVMError(exec, createNotAConstructorError(exec, exec->callee()));
 }
 #endif
 
@@ -284,6 +282,10 @@ bool JSFunction::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pro
 void JSFunction::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     if (!isHostFunction() && (mode == IncludeDontEnumProperties)) {
+        // Make sure prototype has been reified.
+        PropertySlot slot;
+        getOwnPropertySlot(exec, exec->propertyNames().prototype, slot);
+
         propertyNames.add(exec->propertyNames().arguments);
         propertyNames.add(exec->propertyNames().callee);
         propertyNames.add(exec->propertyNames().caller);
@@ -297,6 +299,12 @@ void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValue va
     if (isHostFunction()) {
         Base::put(exec, propertyName, value, slot);
         return;
+    }
+    if (propertyName == exec->propertyNames().prototype) {
+        // Make sure prototype has been reified, such that it can only be overwritten
+        // following the rules set out in ECMA-262 8.12.9.
+        PropertySlot slot;
+        getOwnPropertySlot(exec, propertyName, slot);
     }
     if (jsExecutable()->isStrictMode()) {
         if (propertyName == exec->propertyNames().arguments) {

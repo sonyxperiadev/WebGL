@@ -44,6 +44,7 @@
 #include "EventSender.h"
 
 #include "TestShell.h"
+#include "WebContextMenuData.h"
 #include "WebDragData.h"
 #include "WebDragOperation.h"
 #include "WebPoint.h"
@@ -728,16 +729,52 @@ void EventSender::replaySavedEvents()
     replayingSavedEvents = false;
 }
 
+// Because actual context menu is implemented by the browser side, 
+// this function does only what LayoutTests are expecting:
+// - Many test checks the count of items. So returning non-zero value makes sense.
+// - Some test compares the count before and after some action. So changing the count based on flags
+//   also makes sense. This function is doing such for some flags.
+// - Some test even checks actual string content. So providing it would be also helpful.
+//
+static Vector<WebString> makeMenuItemStringsFor(WebContextMenuData* contextMenu, MockSpellCheck* spellcheck)
+{
+    // These constants are based on Safari's context menu because tests are made for it.
+    static const char* nonEditableMenuStrings[] = { "Back", "Reload Page", "Open in Dashbaord", "<separator>", "View Source", "Save Page As", "Print Page", "Inspect Element", 0 };
+    static const char* editableMenuStrings[] = { "Cut", "Copy", "<separator>", "Paste", "Spelling and Grammar", "Substitutions, Transformations", "Font", "Speech", "Paragraph Direction", "<separator>", 0 };
+
+    // This is possible because mouse events are cancelleable.
+    if (!contextMenu)
+        return Vector<WebString>();
+
+    Vector<WebString> strings;
+
+    if (contextMenu->isEditable) {
+        for (const char** item = editableMenuStrings; *item; ++item) 
+            strings.append(WebString::fromUTF8(*item));
+        Vector<WebString> suggestions;
+        spellcheck->fillSuggestionList(contextMenu->misspelledWord, &suggestions);
+        for (size_t i = 0; i < suggestions.size(); ++i) 
+            strings.append(suggestions[i]);
+    } else {
+        for (const char** item = nonEditableMenuStrings; *item; ++item) 
+            strings.append(WebString::fromUTF8(*item));
+    }
+
+    return strings;
+}
+
+
 void EventSender::contextClick(const CppArgumentList& arguments, CppVariant* result)
 {
-    result->setNull();
-
     webview()->layout();
 
     updateClickCountForButton(WebMouseEvent::ButtonRight);
 
-    // Generate right mouse down and up.
+    // Clears last context menu data because we need to know if the context menu be requested 
+    // after following mouse events.
+    m_shell->webViewHost()->clearContextMenuData();
 
+    // Generate right mouse down and up.
     WebMouseEvent event;
     pressedButton = WebMouseEvent::ButtonRight;
     initMouseEvent(WebInputEvent::MouseDown, WebMouseEvent::ButtonRight, lastMousePos, &event);
@@ -747,6 +784,9 @@ void EventSender::contextClick(const CppArgumentList& arguments, CppVariant* res
     webview()->handleInputEvent(event);
 
     pressedButton = WebMouseEvent::ButtonNone;
+
+    WebContextMenuData* lastContextMenu = m_shell->webViewHost()->lastContextMenuData();
+    result->set(WebBindings::makeStringArray(makeMenuItemStringsFor(lastContextMenu, m_shell->webViewHost()->mockSpellCheck())));
 }
 
 class MouseDownTask: public MethodTask<EventSender> {
@@ -801,6 +841,7 @@ void EventSender::addTouchPoint(const CppArgumentList& arguments, CppVariant* re
     WebTouchPoint touchPoint;
     touchPoint.state = WebTouchPoint::StatePressed;
     touchPoint.position = WebPoint(arguments[0].toInt32(), arguments[1].toInt32());
+    touchPoint.screenPosition = touchPoint.position;
     touchPoint.id = touchPoints.size();
     touchPoints.append(touchPoint);
 }
@@ -854,6 +895,7 @@ void EventSender::updateTouchPoint(const CppArgumentList& arguments, CppVariant*
     WebTouchPoint* touchPoint = &touchPoints[index];
     touchPoint->state = WebTouchPoint::StateMoved;
     touchPoint->position = position;
+    touchPoint->screenPosition = position;
 }
 
 void EventSender::cancelTouchPoint(const CppArgumentList& arguments, CppVariant* result)
@@ -870,6 +912,8 @@ void EventSender::cancelTouchPoint(const CppArgumentList& arguments, CppVariant*
 void EventSender::sendCurrentTouchEvent(const WebInputEvent::Type type)
 {
     ASSERT(static_cast<unsigned>(WebTouchEvent::touchPointsLengthCap) > touchPoints.size());
+    webview()->layout();
+
     WebTouchEvent touchEvent;
     touchEvent.type = type;
     touchEvent.modifiers = touchModifiers;

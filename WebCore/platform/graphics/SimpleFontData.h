@@ -24,6 +24,7 @@
 #ifndef SimpleFontData_h
 #define SimpleFontData_h
 
+#include "FontBaseline.h"
 #include "FontData.h"
 #include "FontPlatformData.h"
 #include "FloatRect.h"
@@ -77,9 +78,14 @@ public:
     const FontPlatformData& platformData() const { return m_platformData; }
     SimpleFontData* smallCapsFontData(const FontDescription& fontDescription) const;
 
-    // vertical metrics
-    int ascent() const { return m_ascent; }
-    int descent() const { return m_descent; }
+    SimpleFontData* brokenIdeographFontData() const;
+    
+    // FIXME: Use the actual metrics for fonts with vertical tables instead of just hard-coding.  If the font is horizontally oriented or
+    // a broken ideographic font, then just hard-code to split ascent/descent down the middle.  Otherwise we should actually use the metrics
+    // from the font itself.
+    int ascent(FontBaseline baselineType = AlphabeticBaseline) const { return baselineType == AlphabeticBaseline ? m_ascent : height() - height() / 2; }
+    int descent(FontBaseline baselineType = AlphabeticBaseline) const { return baselineType == AlphabeticBaseline ? m_descent : height() / 2; }
+    int height() const { return m_ascent + m_descent; }
     int lineSpacing() const { return m_lineSpacing; }
     int lineGap() const { return m_lineGap; }
     float maxCharWidth() const { return m_maxCharWidth; }
@@ -117,6 +123,8 @@ public:
     virtual bool isCustomFont() const { return m_isCustomFont; }
     virtual bool isLoading() const { return m_isLoading; }
     virtual bool isSegmented() const;
+
+    bool isBrokenIdeographFont() const { return m_isBrokenIdeographFont; }
 
     const GlyphData& missingGlyphData() const { return m_missingGlyphData; }
 
@@ -162,6 +170,8 @@ public:
     wxFont* getWxFont() const { return m_platformData.font(); }
 #endif
 
+    FontOrientation orientation() const { return m_orientation; }
+
 private:
     void platformInit();
     void platformGlyphInit();
@@ -188,6 +198,9 @@ private:
     float m_avgCharWidth;
     float m_xHeight;
     unsigned m_unitsPerEm;
+    
+    FontOrientation m_orientation; // This is our supported orientation according to the tables in the font.  FontPlatformData will just always have the desired orientation.
+                                   // This value represents what we actually support.
 
     FontPlatformData m_platformData;
 
@@ -202,6 +215,7 @@ private:
 
     bool m_isCustomFont;  // Whether or not we are custom font loaded via @font-face
     bool m_isLoading; // Whether or not this custom font is still in the act of loading.
+    bool m_isBrokenIdeographFont;
 
     Glyph m_spaceGlyph;
     float m_spaceWidth;
@@ -212,6 +226,8 @@ private:
     GlyphData m_missingGlyphData;
 
     mutable SimpleFontData* m_smallCapsFontData;
+
+    mutable SimpleFontData* m_brokenIdeographFontData;
 
 #if PLATFORM(CG) || PLATFORM(CAIRO) || PLATFORM(WX)
     float m_syntheticBoldOffset;

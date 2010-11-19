@@ -219,10 +219,6 @@ body.attached #search-results-matches {
     background-image: url(Images/timelineIcon.png);
 }
 
-.toolbar-item.storage .toolbar-icon {
-    background-image: url(Images/storageIcon.png);
-}
-
 .toolbar-item.profiles .toolbar-icon {
     background-image: url(Images/profilesIcon.png);
 }
@@ -813,16 +809,12 @@ body.platform-linux .monospace, body.platform-linux .source-code {
 }
 
 .resource-view.visible {
-    display: block;
+    display: -webkit-box;
 }
 
 .resource-view .tabbed-pane-header {
     display: none;
-    position: absolute;
     height: 20px;
-    top: 0;
-    left: 0;
-    right: 0;
     background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
     border-bottom: 1px solid rgb(163, 163, 163);
 }
@@ -845,10 +837,6 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     right: 0;
     bottom: 0;
     overflow: auto;
-}
-
-.resource-view.headers-visible .resource-view-headers {
-    top: 20px;
 }
 
 .resource-view-headers .outline-disclosure .parent {
@@ -894,11 +882,8 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     overflow: auto;
 }
 
-.resource-view.headers-visible .resource-view-content {
-    top: 20px;
-}
-
-.resource-view .resource-view-cookies {
+.resource-view-cookies {
+    display: none;
     position: absolute;
     top: 0;
     right: 0;
@@ -906,10 +891,11 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     bottom: 0;
     overflow: auto;
     padding: 12px;
+    height: 100%;
 }
 
-.resource-view.headers-visible .resource-view-cookies {
-    top: 20px;
+.resource-view-cookies.visible {
+    display: block;
 }
 
 .resource-view-cookies.table .data-grid {
@@ -1033,7 +1019,6 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     right: 0;
     bottom: 0;
     width: 325px;
-    background-color: rgb(245, 245, 245);
     border-left: 1px solid rgb(64%, 64%, 64%);
     cursor: default;
     overflow: auto;
@@ -1477,7 +1462,7 @@ body.inactive .placard.selected {
 
 .event-bar {
     position: relative;
-    left: 10px;
+    margin-left: 10px;
 }
 
 .event-bars .event-bar .header {
@@ -1716,7 +1701,6 @@ li.editing .swatch, li.editing .enabled-button,  li.editing-sub-part .delete-but
 .pane > .body {
     position: relative;
     display: none;
-    background-color: white;
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -1759,9 +1743,9 @@ li.editing .swatch, li.editing .enabled-button,  li.editing-sub-part .delete-but
 }
 
 .sidebar-pane-subtitle {
-    float: right;
+    position: absolute;
+    right: 0;
     font-weight: normal;
-    overflow: hidden;
 }
 
 body.platform-windows .sidebar-pane-subtitle {
@@ -1928,52 +1912,52 @@ body.inactive .sidebar {
     bottom: 0;
 }
 
-.storage.panel .sidebar {
+.resources.panel .sidebar {
     padding-left: 0;
     z-index: 10;
 }
 
-.storage.panel .sidebar li {
+.resources.panel .sidebar li {
     height: 17px;
     white-space: nowrap;
     text-indent: 0;
     margin-left: -2px;
 }
 
-.storage.panel .sidebar li.parent {
+.resources.panel .sidebar li.parent {
     text-indent: 0;
     margin-left: -12px;
 }
 
-.storage.panel .sidebar li.selected {
+.resources.panel .sidebar li.selected {
     color: white;
     text-shadow: rgba(0, 0, 0, 0.33) 0 1px 0;
     font-weight: bold;
 }
 
-.storage.panel .sidebar li.selected .selection {
+.resources.panel .sidebar li.selected .selection {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(162, 177, 207)), to(rgb(120, 138, 177)));
     border-top: 1px solid #979797;
     height: 17px;
 }
 
-.storage.panel .sidebar :focus li.selected .selection {
+.resources.panel .sidebar :focus li.selected .selection {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(92, 147, 213)), to(rgb(21, 83, 170)));
     border-top: 1px solid rgb(68, 128, 200);
 }
 
-body.inactive .storage.panel .sidebar li.selected .selection {
+body.inactive .resources.panel .sidebar li.selected .selection {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(180, 180, 180)), to(rgb(138, 138, 138)));
     border-top: 1px solid rgb(151, 151, 151);
 }
 
-.storage.panel .sidebar .icon {
+.resources.panel .sidebar .icon {
     width: 16px;
     height: 16px;
     float: left;
 }
 
-.storage.panel .base-storage-tree-element-title {
+.resources.panel .base-storage-tree-element-title {
     overflow: hidden;
     position: relative;
     text-overflow: ellipsis;
@@ -1991,7 +1975,7 @@ li.selected .base-storage-tree-element-subtitle {
     text-shadow: none;
 }
 
-.storage.panel .status {
+.resources.panel .status {
     float: right;
     height: 16px;
     margin-top: 1px;
@@ -1999,7 +1983,7 @@ li.selected .base-storage-tree-element-subtitle {
     line-height: 1em;
 }
 
-.storage.panel li .status .bubble {
+.resources.panel li .status .bubble {
     height: 13px;
     padding-top: 0;
 }
@@ -2632,7 +2616,6 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     right: 0;
     bottom: 0;
     width: 225px;
-    background-color: rgb(245, 245, 245);
     border-left: 1px solid rgb(64%, 64%, 64%);
     cursor: default;
     overflow: auto;
@@ -2654,6 +2637,16 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
 
 #console-filter {
     margin-top: 1px;
+}
+
+.tabbed-pane {
+    -webkit-box-orient: vertical;
+    height: 100%;
+}
+
+.tabbed-pane-content {
+    -webkit-box-flex: 1;
+    position: relative;
 }
 
 .tabbed-pane-header {
@@ -4125,6 +4118,16 @@ ol.breakpoint-list {
     background-color: rgb(255, 255, 194);
 }
 
+li.breakpoint-hit .breakpoint-hit-marker {
+    background-color: rgb(255, 255, 194);
+    height: 18px;
+    left: 0px;
+    margin-top: -16px;
+    position: absolute;
+    right: 0px;
+    z-index: -1;
+}
+
 .webkit-html-js-node, .webkit-html-css-node {
     white-space: pre;
 }
@@ -4219,6 +4222,7 @@ a.worker-item {
     cursor: pointer;
     text-decoration: none;
 }
+
 .styles-section {
     padding: 2px 2px 4px 4px;
     min-height: 18px;
@@ -4234,6 +4238,28 @@ a.worker-item {
 
 .styles-section.read-only {
     background-color: rgb(240, 240, 240);
+}
+
+.styles-section .properties li.not-parsed-ok {
+    margin-left: 0px;
+}
+
+.styles-section .properties li.not-parsed-ok::before {
+    content: url(Images/warningIcon.png);
+    opacity: 0.75;
+    float: left;
+    width: 8px;
+    height: 8px;
+    margin-top: 0;
+    padding-right: 5px;
+    vertical-align: sub;
+    -webkit-user-select: none;
+    cursor: default;
+}
+
+.styles-section .properties .inactive {
+    opacity: 0.75;
+    background-color: rgb(212, 212, 212);
 }
 
 .styles-section .header {

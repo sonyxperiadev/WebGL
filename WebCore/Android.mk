@@ -68,9 +68,6 @@ LOCAL_SRC_FILES := \
 	css/CSSTimingFunctionValue.cpp \
 	css/CSSUnicodeRangeValue.cpp \
 	css/CSSValueList.cpp \
-	css/CSSVariableDependentValue.cpp \
-	css/CSSVariablesDeclaration.cpp \
-	css/CSSVariablesRule.cpp \
 	css/FontFamilyValue.cpp \
 	css/FontValue.cpp \
 	css/MediaFeatureNames.cpp \
@@ -139,6 +136,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/EntityReference.cpp \
 	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
+	dom/EventContext.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
 	dom/ExceptionBase.cpp \
@@ -201,6 +199,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WebKitAnimationEvent.cpp \
 	dom/WebKitTransitionEvent.cpp \
 	dom/WheelEvent.cpp \
+	dom/WindowEventContext.cpp \
 	dom/XMLDocumentParser.cpp \
 	dom/XMLDocumentParserLibxml2.cpp \
 	dom/XMLDocumentParserScope.cpp \
@@ -462,7 +461,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Location.cpp \
 	page/MemoryInfo.cpp \
 	page/MouseEventWithHitTestResults.cpp \
-	page/Navigation.cpp \
 	page/Navigator.cpp \
 	page/NavigatorBase.cpp \
 	page/OriginAccessEntry.cpp \
@@ -470,6 +468,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/PageGroup.cpp \
 	page/PageGroupLoadDeferrer.cpp \
 	page/Performance.cpp \
+	page/PerformanceNavigation.cpp \
+	page/PerformanceTiming.cpp \
 	page/PluginHalter.cpp \
 	page/PrintContext.cpp \
 	page/Screen.cpp \
@@ -479,7 +479,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SpeechInput.cpp \
 	page/SpeechInputResult.cpp \
 	page/SuspendableTimer.cpp \
-	page/Timing.cpp \
 	page/UserContentURLPattern.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \

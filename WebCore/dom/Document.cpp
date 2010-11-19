@@ -594,6 +594,17 @@ Document::~Document()
     if (m_styleSheets)
         m_styleSheets->documentDestroyed();
 
+    if (m_elemSheet)
+        m_elemSheet->clearOwnerNode();
+    if (m_mappedElementSheet)
+        m_mappedElementSheet->clearOwnerNode();
+    if (m_pageUserSheet)
+        m_pageUserSheet->clearOwnerNode();
+    if (m_pageGroupUserSheets) {
+        for (size_t i = 0; i < m_pageGroupUserSheets->size(); ++i)
+            (*m_pageGroupUserSheets)[i]->clearOwnerNode();
+    }
+
     m_weakReference->clear();
 }
 
@@ -1522,6 +1533,11 @@ void Document::unscheduleStyleRecalc()
 
     m_styleRecalcTimer.stop();
     m_pendingStyleRecalcShouldForce = false;
+}
+
+bool Document::isPendingStyleRecalc() const
+{
+    return m_styleRecalcTimer.isActive() && !m_inStyleRecalc;
 }
 
 void Document::styleRecalcTimerFired(Timer<Document>*)
@@ -3010,7 +3026,8 @@ void Document::recalcStyleSelector()
         StyleSheet* sheet = 0;
 
         if (n->nodeType() == PROCESSING_INSTRUCTION_NODE) {
-            // Processing instruction (XML documents only)
+            // Processing instruction (XML documents only).
+            // We don't support linking to embedded CSS stylesheets, see <https://bugs.webkit.org/show_bug.cgi?id=49281> for discussion.
             ProcessingInstruction* pi = static_cast<ProcessingInstruction*>(n);
             sheet = pi->sheet();
 #if ENABLE(XSLT)
@@ -3022,25 +3039,6 @@ void Document::recalcStyleSelector()
                 return;
             }
 #endif
-            if (!sheet && !pi->localHref().isEmpty()) {
-                // Processing instruction with reference to an element in this document - e.g.
-                // <?xml-stylesheet href="#mystyle">, with the element
-                // <foo id="mystyle">heading { color: red; }</foo> at some location in
-                // the document
-                Element* elem = getElementById(pi->localHref().impl());
-                if (elem) {
-                    String sheetText("");
-                    for (Node* c = elem->firstChild(); c; c = c->nextSibling()) {
-                        if (c->nodeType() == TEXT_NODE || c->nodeType() == CDATA_SECTION_NODE)
-                            sheetText += c->nodeValue();
-                    }
-
-                    RefPtr<CSSStyleSheet> cssSheet = CSSStyleSheet::create(this);
-                    cssSheet->parseString(sheetText);
-                    pi->setCSSStyleSheet(cssSheet);
-                    sheet = cssSheet.get();
-                }
-            }
         } else if ((n->isHTMLElement() && (n->hasTagName(linkTag) || n->hasTagName(styleTag)))
 #if ENABLE(SVG)
             ||  (n->isSVGElement() && n->hasTagName(SVGNames::styleTag))
@@ -4253,9 +4251,11 @@ void Document::finishedParsing()
     ASSERT(!scriptableDocumentParser() || !m_parser->isParsing());
     ASSERT(!scriptableDocumentParser() || m_readyState != Loading);
     setParsing(false);
-    if (!m_documentTiming.domContentLoaded)
-        m_documentTiming.domContentLoaded = currentTime();
+    if (!m_documentTiming.domContentLoadedStart)
+        m_documentTiming.domContentLoadedStart = currentTime();
     dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, true, false));
+    if (!m_documentTiming.domContentLoadedEnd)
+        m_documentTiming.domContentLoadedEnd = currentTime();
 
     if (Frame* f = frame()) {
         // FrameLoader::finishedParsing() might end up calling Document::implicitClose() if all
@@ -4430,6 +4430,25 @@ void Document::setIconURL(const String& iconURL, const String& type)
         m_iconURL = iconURL;
     if (Frame* f = frame())
         f->loader()->setIconURL(m_iconURL);
+}
+
+void Document::registerFormElementWithFormAttribute(Element* control)
+{
+    ASSERT(control->fastHasAttribute(formAttr));
+    m_formElementsWithFormAttribute.add(control);
+}
+
+void Document::unregisterFormElementWithFormAttribute(Element* control)
+{
+    m_formElementsWithFormAttribute.remove(control);
+}
+
+void Document::resetFormElementsOwner(HTMLFormElement* form)
+{
+    typedef FormElementListHashSet::iterator Iterator;
+    Iterator end = m_formElementsWithFormAttribute.end();
+    for (Iterator it = m_formElementsWithFormAttribute.begin(); it != end; ++it)
+        static_cast<HTMLFormControlElement*>(*it)->resetFormOwner(form);
 }
 
 void Document::setUseSecureKeyboardEntryWhenActive(bool usesSecureKeyboard)

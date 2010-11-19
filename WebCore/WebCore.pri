@@ -83,8 +83,6 @@ IDL_BINDINGS += \
     css/CSSStyleSheet.idl \
     css/CSSValue.idl \
     css/CSSValueList.idl \
-    css/CSSVariablesDeclaration.idl \
-    css/CSSVariablesRule.idl \
     css/MediaList.idl \
     css/Rect.idl \
     css/RGBColor.idl \
@@ -307,12 +305,12 @@ IDL_BINDINGS += \
     page/History.idl \
     page/Location.idl \
     page/MemoryInfo.idl \
-    page/Navigation.idl \
     page/Navigator.idl \
     page/Performance.idl \
+    page/PerformanceNavigation.idl \
+    page/PerformanceTiming.idl \
     page/PositionError.idl \
     page/Screen.idl \
-    page/Timing.idl \
     page/WebKitPoint.idl \
     page/WorkerNavigator.idl \
     plugins/DOMPlugin.idl \

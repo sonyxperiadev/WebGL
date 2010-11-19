@@ -82,6 +82,7 @@ namespace JSC {
         macro(op_bitor, 5) \
         macro(op_bitnot, 3) \
         \
+        macro(op_check_has_instance, 2) \
         macro(op_instanceof, 5) \
         macro(op_typeof, 3) \
         macro(op_is_undefined, 3) \
@@ -183,7 +184,8 @@ namespace JSC {
         \
         macro(op_catch, 2) \
         macro(op_throw, 2) \
-        macro(op_new_error, 4) \
+        macro(op_throw_reference_error, 2) \
+        macro(op_throw_syntax_error, 2) \
         \
         macro(op_jsr, 3) \
         macro(op_sret, 2) \

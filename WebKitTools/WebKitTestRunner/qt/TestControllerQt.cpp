@@ -40,54 +40,52 @@
 
 namespace WTR {
 
-// With a bigger interval we would waste to much time
-// after the test had been finished.
-static const unsigned kTimerIntervalMS = 1;
-
-class RunUntilConditionLoop : public QObject {
+class TestControllerRunLoop : public QObject {
     Q_OBJECT
-
 public:
-    static void start(bool& done)
+    static TestControllerRunLoop* instance()
     {
-        static RunUntilConditionLoop* instance = new RunUntilConditionLoop;
-        instance->run(done);
+        static TestControllerRunLoop* result = new TestControllerRunLoop;
+        return result;
     }
 
-private:
-    RunUntilConditionLoop() {}
-
-    void run(bool& done)
+    void start(int msec)
     {
-        m_condition = &done;
-        m_timerID = startTimer(kTimerIntervalMS);
+        m_timerID = startTimer(msec);
         ASSERT(m_timerID);
         m_eventLoop.exec(QEventLoop::ExcludeUserInputEvents);
     }
 
-    virtual void timerEvent(QTimerEvent*)
+    void stop()
     {
-        if (!*m_condition)
-            return;
-
         killTimer(m_timerID);
-        m_eventLoop.exit();
+        m_eventLoop.quit();
+    }
+private:
+    TestControllerRunLoop() {}
+
+    void timerEvent(QTimerEvent*)
+    {
+        fprintf(stderr, "FAIL: TestControllerRunLoop timed out.\n");
+        stop();
     }
 
     QEventLoop m_eventLoop;
-    bool* m_condition;
     int m_timerID;
 };
+
+void TestController::notifyDone()
+{
+    TestControllerRunLoop::instance()->stop();
+}
 
 void TestController::platformInitialize()
 {
 }
 
-void TestController::platformRunUntil(bool& done, double)
+void TestController::platformRunUntil(bool&, double timeout)
 {
-    // FIXME: Honor the timeout parameter <http://webkit.org/b/48941>.
-    RunUntilConditionLoop::start(done);
-    ASSERT(done);
+    TestControllerRunLoop::instance()->start(static_cast<int>(timeout * 1000));
 }
 
 static bool isExistingLibrary(const QString& path)

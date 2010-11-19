@@ -1,3 +1,90 @@
+2010-11-17  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        Fix a typo that leads to emitting the wrong signal if it is done
+        by using the signals array.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init):
+
+2010-11-16  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Some key-press events can't be handled by WebView
+        https://bugs.webkit.org/show_bug.cgi?id=48986
+
+        The problem is that "popup-menu" and "show-help" signals are
+        handled by GtkTextView, as they are added to the key bindings set
+        of every widget in gtk_widget_class_init(). For all other bindings
+        handled by GtkTextView we are stopping the signal emission in
+        their callbacks, so we only need to do the same for "popup-menu"
+        and "show-help" signals.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::toggleOverwriteCallback):
+        (WebKit::popupMenuCallback):
+        (WebKit::showHelpCallback):
+        (WebKit::EditorClient::EditorClient):
+
+2010-11-16  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Show default context menu for the currently focused element when activated with keyboard
+        https://bugs.webkit.org/show_bug.cgi?id=49376
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_popup_menu_handler):
+
+2010-11-11  Joone Hur  <joone@kldp.org>
+
+        Reviewed by Antonio Gomes.
+
+        [GTK][DRT] Implement LayoutTestController::nodesFromRect
+        https://bugs.webkit.org/show_bug.cgi?id=46598
+
+        Support nodesFromRect in DRT
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::nodesFromRect): Added.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2010-11-11  Chang Shu  <chang.shu@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [GTK] Replace "MoveForward"/"MoveBackward" with "MoveRight"/"MoveLeft"
+        to make spatial navigation work on input/textarea.
+        https://bugs.webkit.org/show_bug.cgi?id=49056
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::moveCursorCallback):
+
+2010-11-08  Nicolas Dufresne  <nicolas.dufresne@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Link with target name set does not work
+        https://bugs.webkit.org/show_bug.cgi?id=48865
+
+        When a new page is created with a name (target=myFrame), the new
+        mainFrame could not be found because they where not stored in the
+        same PageGroup. As PageGroup are not exposed externally so the
+        simpliest solution is to use a global page group name. This also fixes
+        issue with visited link coloration across pages. After this change the
+        private function webkit_web_view_set_group_name() was no longer used
+        so it was removed completly.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::closeWindowSoon):
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_init):
+
 2010-11-08  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Darin Adler.

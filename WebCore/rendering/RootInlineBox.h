@@ -57,7 +57,7 @@ public:
     int selectionBottom() const;
     int selectionHeight() const { return max(0, selectionBottom() - selectionTop()); }
 
-    int alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAndFallbackFontsMap&);
+    int alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void setLineTopBottomPositions(int top, int bottom);
 
     virtual RenderLineBoxList* rendererLineBoxes() const;
@@ -88,7 +88,7 @@ public:
 
     virtual void clearTruncation();
 
-    virtual int baselinePosition() const { return boxModelObject()->baselinePosition(m_firstLine, isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes); }
+    virtual int baselinePosition(FontBaseline baselineType) const { return boxModelObject()->baselinePosition(baselineType, m_firstLine, isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes); }
     virtual int lineHeight() const { return boxModelObject()->lineHeight(m_firstLine, isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes); }
 
 #if PLATFORM(MAC)
@@ -110,7 +110,7 @@ public:
 
     RenderBlock* block() const;
 
-    InlineBox* closestLeafChildForXPos(int x, bool onlyEditableLeaves = false);
+    InlineBox* closestLeafChildForLogicalLeftPosition(int, bool onlyEditableLeaves = false);
 
     Vector<RenderBox*>& floats()
     {
@@ -125,6 +125,8 @@ public:
     virtual void extractLineBoxFromRenderObject();
     virtual void attachLineBoxToRenderObject();
     virtual void removeLineBoxFromRenderObject();
+    
+    FontBaseline baselineType() const { return m_baselineType; }
 
 private:
     bool hasEllipsisBox() const { return m_hasEllipsisBoxOrHyphen; }
@@ -148,6 +150,9 @@ private:
     // The logical height of the block at the end of this line.  This is where the next line starts.
     int m_blockLogicalHeight;
 
+    // Whether or not this line uses alphabetic or ideographic baselines by default.
+    FontBaseline m_baselineType;
+    
     WTF::Unicode::Direction m_lineBreakBidiStatusEor : 5;
     WTF::Unicode::Direction m_lineBreakBidiStatusLastStrong : 5;
     WTF::Unicode::Direction m_lineBreakBidiStatusLast : 5;

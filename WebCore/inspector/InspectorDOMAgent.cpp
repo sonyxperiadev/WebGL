@@ -51,6 +51,7 @@
 #include "Document.h"
 #include "DocumentType.h"
 #include "Event.h"
+#include "EventContext.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
@@ -613,13 +614,13 @@ void InspectorDOMAgent::getEventListenersForNode(long nodeId, long* outNodeId, R
         return;
 
     // The Node's Event Ancestors (not including self)
-    Vector<RefPtr<ContainerNode> > ancestors;
-    node->eventAncestors(ancestors);
+    Vector<EventContext> ancestors;
+    node->getEventAncestors(ancestors, node);
 
     // Nodes and their Listeners for the concerned event types (order is top to bottom)
     Vector<EventListenerInfo> eventInformation;
     for (size_t i = ancestors.size(); i; --i) {
-        ContainerNode* ancestor = ancestors[i - 1].get();
+        Node* ancestor = ancestors[i - 1].node();
         for (size_t j = 0; j < eventTypesLength; ++j) {
             AtomicString& type = eventTypes[j];
             if (ancestor->hasEventListeners(type))
@@ -1536,15 +1537,6 @@ void InspectorDOMAgent::addRule(const String& selector, long selectedNodeId, Ref
     CSSStyleRule* newRule = static_cast<CSSStyleRule*>(styleSheet->item(styleSheet->length() - 1));
     *selectorAffectsNode = ruleAffectsNode(newRule, node);
     *ruleObject = buildObjectForRule(node->ownerDocument(), newRule);
-}
-
-void InspectorDOMAgent::getSupportedCSSProperties(RefPtr<InspectorArray>* cssProperties)
-{
-    RefPtr<InspectorArray> properties = InspectorArray::create();
-    for (int i = 0; i < numCSSProperties; ++i)
-        properties->pushString(propertyNameStrings[i]);
-
-    *cssProperties = properties.release();
 }
 
 PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForStyle(CSSStyleDeclaration* style, bool bind)

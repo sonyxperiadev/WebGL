@@ -209,9 +209,6 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_suppressOpenerInNewFrame(false)
     , m_sandboxFlags(SandboxAll)
     , m_forcedSandboxFlags(SandboxNone)
-#ifndef NDEBUG
-    , m_didDispatchDidCommitLoad(false)
-#endif
 {
 }
 
@@ -1529,11 +1526,6 @@ bool FrameLoader::willLoadMediaElementURL(KURL& url)
     return error.isNull();
 }
 
-ResourceError FrameLoader::interruptionForPolicyChangeError(const ResourceRequest& request)
-{
-    return m_client->interruptForPolicyChangeError(request);
-}
-
 bool FrameLoader::shouldReloadToHandleUnreachableURL(DocumentLoader* docLoader)
 {
     KURL unreachableURL = docLoader->unreachableURL();
@@ -1767,8 +1759,17 @@ bool FrameLoader::frameHasLoaded() const
 void FrameLoader::transferLoadingResourcesFromPage(Page* oldPage)
 {
     ASSERT(oldPage != m_frame->page());
-    if (isLoading())
+    if (isLoading()) {
         activeDocumentLoader()->transferLoadingResourcesFromPage(oldPage);
+        oldPage->progress()->progressCompleted(m_frame);
+        if (m_frame->page())
+            m_frame->page()->progress()->progressStarted(m_frame);
+    }
+}
+
+void FrameLoader::dispatchTransferLoadingResourceFromPage(unsigned long identifier, DocumentLoader* docLoader, const ResourceRequest& request, Page* oldPage)
+{
+    notifier()->dispatchTransferLoadingResourceFromPage(identifier, docLoader, request, oldPage);
 }
 
 void FrameLoader::setDocumentLoader(DocumentLoader* loader)
@@ -2187,10 +2188,6 @@ void FrameLoader::finishedLoading()
     dl->setPrimaryLoadComplete(true);
     m_client->dispatchDidLoadMainResource(dl.get());
     checkLoadComplete();
-
-    DOMWindow* window = m_frame->existingDOMWindow();
-    if (window && window->printDeferred())
-        window->print();
 }
 
 bool FrameLoader::isHostedByObjectElement() const
@@ -2433,9 +2430,6 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 return;
 
             const ResourceError& error = dl->mainDocumentError();
-#ifndef NDEBUG
-            m_didDispatchDidCommitLoad = false;
-#endif
             if (!error.isNull())
                 m_client->dispatchDidFailLoad(error);
             else
@@ -3325,6 +3319,11 @@ ResourceError FrameLoader::cannotShowURLError(const ResourceRequest& request) co
     return m_client->cannotShowURLError(request);
 }
 
+ResourceError FrameLoader::interruptionForPolicyChangeError(const ResourceRequest& request) const
+{
+    return m_client->interruptForPolicyChangeError(request);
+}
+
 ResourceError FrameLoader::fileDoesNotExistError(const ResourceResponse& response) const
 {
     return m_client->fileDoesNotExistError(response);    
@@ -3438,10 +3437,6 @@ void FrameLoader::dispatchDidCommitLoad()
 {
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
-
-#ifndef NDEBUG
-    m_didDispatchDidCommitLoad = true;
-#endif
 
     m_client->dispatchDidCommitLoad();
 

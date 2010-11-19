@@ -33,21 +33,15 @@ class HTMLScriptElement : public HTMLElement, public ScriptElement {
 public:
     static PassRefPtr<HTMLScriptElement> create(const QualifiedName&, Document*, bool createdByParser);
 
-    virtual bool shouldExecuteAsJavaScript() const;
-
-    String text() const;
+    String text() const { return scriptContent(); }
     void setText(const String&);
 
     KURL src() const;
 
-    virtual String scriptCharset() const;
-    
-    bool haveFiredLoadEvent() const { return m_data.haveFiredLoadEvent(); }
+    bool haveFiredLoadEvent() const { return ScriptElement::haveFiredLoadEvent(); }
 
 private:
-    HTMLScriptElement(const QualifiedName&, Document*, bool createdByParser);
-
-    virtual String scriptContent() const;
+    HTMLScriptElement(const QualifiedName&, Document*, bool createdByParser, bool isEvaluated);
 
     virtual void parseMappedAttribute(Attribute*);
     virtual void insertedIntoDocument();
@@ -71,7 +65,7 @@ private:
     virtual void dispatchLoadEvent();
     virtual void dispatchErrorEvent();
 
-    ScriptElementData m_data;
+    PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() const;
 };
 
 } //namespace

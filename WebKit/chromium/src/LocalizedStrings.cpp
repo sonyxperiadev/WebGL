@@ -296,44 +296,56 @@ String localizedMediaTimeDescription(float /*time*/)
 
 String validationMessageValueMissingText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationValueMissing);
 }
 
 String validationMessageTypeMismatchText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationTypeMismatch);
+}
+
+String validationMessageTypeMismatchForEmailText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForEmail);
+}
+
+String validationMessageTypeMismatchForMultipleEmailText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForMultipleEmail);
+}
+
+String validationMessageTypeMismatchForURLText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForURL);
 }
 
 String validationMessagePatternMismatchText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationPatternMismatch);
 }
 
-String validationMessageTooLongText()
+String validationMessageTooLongText(int, int)
 {
-    notImplemented();
-    return String();
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationTooLong);
 }
 
-String validationMessageRangeUnderflowText()
+String validationMessageRangeUnderflowText(const String&)
 {
-    notImplemented();
-    return String();
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationRangeUnderflow);
 }
 
-String validationMessageRangeOverflowText()
+String validationMessageRangeOverflowText(const String&)
 {
-    notImplemented();
-    return String();
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationRangeOverflow);
 }
 
-String validationMessageStepMismatchText()
+String validationMessageStepMismatchText(const String&, const String&)
 {
-    notImplemented();
-    return String();
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationStepMismatch);
 }
 
 } // namespace WebCore

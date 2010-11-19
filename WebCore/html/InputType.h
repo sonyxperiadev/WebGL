@@ -38,8 +38,11 @@
 namespace WebCore {
 
 class DateComponents;
+class Event;
 class FormDataList;
 class HTMLInputElement;
+class KeyboardEvent;
+class MouseEvent;
 class RenderArena;
 class RenderObject;
 class RenderStyle;
@@ -90,10 +93,22 @@ public:
     virtual double maximum() const;
     virtual bool stepMismatch(const String&, double) const;
     virtual double stepBase() const;
+    virtual double stepBaseWithDecimalPlaces(unsigned*) const;
     virtual double defaultStep() const;
     virtual double stepScaleFactor() const;
     virtual bool parsedStepValueShouldBeInteger() const;
     virtual bool scaledStepValeuShouldBeInteger() const;
+    virtual double acceptableError(double) const;
+    virtual String typeMismatchText() const;
+
+    // Event handlers
+    // If the return value is true, do no further default event handling in the
+    // default event handler. If an event handler calls Event::setDefaultHandled(),
+    // its return value must be true.
+
+    virtual bool handleClickEvent(MouseEvent*);
+    virtual bool handleDOMActivateEvent(Event*);
+    virtual bool handleKeydownEvent(KeyboardEvent*);
 
     // Miscellaneous functions
 
@@ -104,6 +119,10 @@ public:
     // succeeds; Returns defaultValue otherwise. This function can
     // return NaN or Infinity only if defaultValue is NaN or Infinity.
     virtual double parseToDouble(const String&, double defaultValue) const;
+    // Parses the specified string for the type as parseToDouble() does.
+    // In addition, it stores the number of digits after the decimal point
+    // into *decimalPlaces.
+    virtual double parseToDoubleWithDecimalPlaces(const String& src, double defaultValue, unsigned *decimalPlaces) const;
     // Parses the specified string for this InputType, and returns true if it
     // is successfully parsed. An instance pointed by the DateComponents*
     // parameter will have parsed values and be modified even if the parsing

@@ -1,3 +1,755 @@
+2010-11-17  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Add stubbed out ScrollAnimator for the Mac
+        https://bugs.webkit.org/show_bug.cgi?id=49678
+
+        * wtf/Platform.h: Enable SMOOTH_SCROLLING on the Mac, this has no
+        change in behavior at the moment.
+
+2010-11-17  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/49634> Make overflow guards in WTF::String::utf8 explicit
+
+        Reviewed by Darin Adler.
+
+        Add an explicit overflow check prior to allocating our buffer,
+        rather than implicitly relying on the guard in convertUTF16ToUTF8.
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::utf8):
+
+2010-11-17  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72197.
+        http://trac.webkit.org/changeset/72197
+        https://bugs.webkit.org/show_bug.cgi?id=49661
+
+        broke fast/regex/test1.html (Requested by stampho on #webkit).
+
+        * runtime/JSGlobalData.h:
+        * runtime/RegExp.cpp:
+        (JSC::RegExpRepresentation::~RegExpRepresentation):
+        (JSC::RegExp::compile):
+        (JSC::RegExp::match):
+        * tests/mozilla/expected.html:
+        * wtf/Platform.h:
+        * yarr/RegexCompiler.cpp:
+        * yarr/RegexCompiler.h:
+        * yarr/RegexInterpreter.cpp:
+        * yarr/RegexInterpreter.h:
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::jitCompileRegex):
+        * yarr/RegexJIT.h:
+        (JSC::Yarr::RegexCodeBlock::RegexCodeBlock):
+        (JSC::Yarr::RegexCodeBlock::~RegexCodeBlock):
+        (JSC::Yarr::RegexCodeBlock::getFallback):
+        (JSC::Yarr::RegexCodeBlock::setFallback):
+        (JSC::Yarr::executeRegex):
+        * yarr/RegexParser.h:
+        * yarr/RegexPattern.h:
+
+2010-11-17  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        YARR JIT should fallback to YARR Interpreter instead of PCRE.
+        https://bugs.webkit.org/show_bug.cgi?id=46719
+
+        Remove the ENABLE_YARR macro and the option of matching regular
+        expressions with PCRE from JavaScriptCore.
+
+        * runtime/JSGlobalData.h:
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::compile):
+        (JSC::RegExp::match):
+        * tests/mozilla/expected.html:
+        * wtf/Platform.h:
+        * yarr/RegexCompiler.cpp:
+        * yarr/RegexCompiler.h:
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::byteCompileRegex):
+        * yarr/RegexInterpreter.h:
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::jitCompileRegex):
+        * yarr/RegexJIT.h:
+        (JSC::Yarr::RegexCodeBlock::RegexCodeBlock):
+        (JSC::Yarr::RegexCodeBlock::~RegexCodeBlock):
+        (JSC::Yarr::RegexCodeBlock::getFallback):
+        (JSC::Yarr::RegexCodeBlock::isFallback):
+        (JSC::Yarr::RegexCodeBlock::setFallback):
+        (JSC::Yarr::executeRegex):
+        * yarr/RegexParser.h:
+        * yarr/RegexPattern.h:
+
+2010-11-17  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Extend YARR Interpreter with beginning character look-up optimization
+        https://bugs.webkit.org/show_bug.cgi?id=45751
+
+        Add beginning character look-up optimization which sets the start
+        index to the first possible successful pattern match.
+        Extend YARR Interpreter with lookupForBeginChars function which
+        implements the beginning character look-up optimization.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::InputStream::readPair):
+        (JSC::Yarr::Interpreter::InputStream::isNotAvailableInput):
+        (JSC::Yarr::Interpreter::lookupForBeginChars):
+        (JSC::Yarr::Interpreter::matchDisjunction):
+        (JSC::Yarr::Interpreter::interpret):
+        * yarr/RegexInterpreter.h:
+        (JSC::Yarr::BytecodePattern::BytecodePattern):
+
+2010-11-17  Alexis Menard  <alexis.menard@nokia.com>, Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Kenneth Christiansen, Tor Arne Vestbø.
+
+        [Qt] Add support for use GStreamer with the Qt build
+
+        Enable the build/inclusion of the wtf/QObject convenience classes.
+
+        * JavaScriptCore.pri:
+        * wtf/wtf.pri:
+
+2010-11-17  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Collect the beginning characters in a RegExp pattern for look-up
+        optimization
+        https://bugs.webkit.org/show_bug.cgi?id=45748
+
+        Extend the YARR's parser with an algorithm which collects the potential
+        beginning characters from a RegExp pattern for later look-up optimization.
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::BeginCharHelper::BeginCharHelper):
+        (JSC::Yarr::BeginCharHelper::addBeginChar):
+        (JSC::Yarr::BeginCharHelper::merge):
+        (JSC::Yarr::BeginCharHelper::addCharacter):
+        (JSC::Yarr::BeginCharHelper::linkHotTerms):
+        (JSC::Yarr::RegexPatternConstructor::RegexPatternConstructor):
+        (JSC::Yarr::RegexPatternConstructor::addBeginTerm):
+        (JSC::Yarr::RegexPatternConstructor::setupDisjunctionBeginTerms):
+        (JSC::Yarr::RegexPatternConstructor::setupAlternativeBeginTerms):
+        (JSC::Yarr::RegexPatternConstructor::setupBeginChars):
+        (JSC::Yarr::compileRegex):
+        * yarr/RegexPattern.h:
+        (JSC::Yarr::TermChain::TermChain):
+        (JSC::Yarr::BeginChar::BeginChar):
+        (JSC::Yarr::RegexPattern::RegexPattern):
+        (JSC::Yarr::RegexPattern::reset):
+
+2010-11-17  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72160.
+        http://trac.webkit.org/changeset/72160
+        https://bugs.webkit.org/show_bug.cgi?id=49646
+
+        Broke lots of fast/profiler tests, among others (Requested by
+        aroben on #webkit).
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::functionRegisterForBytecodeOffset):
+        (JSC::CodeBlock::shrinkToFit):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::addFunctionRegisterInfo):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitCall):
+        (JSC::BytecodeGenerator::emitCallVarargs):
+        (JSC::BytecodeGenerator::emitReturn):
+        (JSC::BytecodeGenerator::emitConstruct):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::CallArguments::profileHookRegister):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::CallArguments::CallArguments):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_profile_will_call):
+        (JSC::JIT::emit_op_profile_did_call):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_profile_will_call):
+        (JSC::JIT::emit_op_profile_did_call):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * profiler/Profile.cpp:
+        (JSC::Profile::Profile):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::addParentForConsoleStart):
+        (JSC::ProfileGenerator::willExecute):
+        (JSC::ProfileGenerator::didExecute):
+        (JSC::ProfileGenerator::stopProfiling):
+        * profiler/ProfileGenerator.h:
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::ProfileNode):
+        (JSC::ProfileNode::willExecute):
+        * profiler/ProfileNode.h:
+        (JSC::ProfileNode::create):
+        (JSC::ProfileNode::operator==):
+        * profiler/Profiler.cpp:
+        (JSC::dispatchFunctionToProfiles):
+        (JSC::Profiler::willExecute):
+        (JSC::Profiler::didExecute):
+        * profiler/Profiler.h:
+
+2010-11-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 49635 - Profiler implementation is fragile
+
+        The profile presently requires the exception handling mechanism to explicitly
+        remove all stack frames that are exited during the exception unwind mechanism.
+        This is fragile in a number of ways:
+          * We have to change bytecode register allocation when compiling code to run
+            when profiling, to preserve the callee function (this is also required to
+            call did_call after the call has returned).
+          * In the JIT we have to maintain additional data structures
+            (CodeBlock::RareData::m_functionRegisterInfos) to map back to the register
+            containing the callee.
+          * In the interpreter we use 'magic values' to offset into the instruction
+            stream to rediscover the register containing the function.
+
+        Instead, move profiling into the head and tail of functions.
+          * This correctly accounts the cost of the call itself to the caller.
+          * This allows us to access the callee function object from the callframe.
+          * This means that at the point a call is made we can track the stack depth
+            on the ProfileNode.
+          * When unwinding we can simply report the depth at which the exception is
+            being handled - all call frames above this level are freed.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::shrinkToFit):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::bytecodeOffset):
+        (JSC::CodeBlock::methodCallLinkInfo):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitCall):
+        (JSC::BytecodeGenerator::emitCallVarargs):
+        (JSC::BytecodeGenerator::emitReturn):
+        (JSC::BytecodeGenerator::emitConstruct):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::CallArguments::count):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::CallArguments::CallArguments):
+        * interpreter/Interpreter.cpp:
+        (JSC::ProfileHostCall::ProfileHostCall):
+        (JSC::ProfileHostCall::~ProfileHostCall):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_profile_has_called):
+        (JSC::JIT::emit_op_profile_will_return):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_profile_has_called):
+        (JSC::JIT::emit_op_profile_will_return):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * profiler/Profile.cpp:
+        (JSC::Profile::Profile):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::addParentForConsoleStart):
+        (JSC::ProfileGenerator::willExecute):
+        (JSC::ProfileGenerator::didExecute):
+        (JSC::ProfileGenerator::exceptionUnwind):
+        (JSC::ProfileGenerator::stopProfiling):
+        * profiler/ProfileGenerator.h:
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::ProfileNode):
+        (JSC::ProfileNode::willExecute):
+        * profiler/ProfileNode.h:
+        (JSC::ProfileNode::create):
+        (JSC::ProfileNode::operator==):
+        (JSC::ProfileNode::exec):
+        * profiler/Profiler.cpp:
+        (JSC::dispatchFunctionToProfiles):
+        (JSC::Profiler::hasCalled):
+        (JSC::Profiler::willEvaluate):
+        (JSC::Profiler::willReturn):
+        (JSC::Profiler::didEvaluate):
+        (JSC::Profiler::exceptionUnwind):
+        * profiler/Profiler.h:
+
+2010-11-16  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben and Steve Falkenburg.
+
+        Touch Platform.h to force a rebuild for Windows.
+
+        * wtf/Platform.h:
+
+2010-11-16  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Disable LTCG for Windows Release builds. Add new Release_LTCG configuration.
+        https://bugs.webkit.org/show_bug.cgi?id=49632
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.vcproj/jsc/jsc.vcproj:
+        * JavaScriptCore.vcproj/testapi/testapi.vcproj:
+
+2010-11-16  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        The number of recursive match calls isn't limited in YARR Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=47906
+
+        Check the number of the matchDisjunction recursive calls to avoid unbounded
+        recursion.
+        Now the matchDisjunction function returns JSRegExpResult instead of bool.
+        The JSRegExpResult enum contains the result of matching or the error code
+        of the failure (like HitLimit) which terminates the matching.
+        The error codes are based on pcre's jsRegExpExecute error codes.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::parenthesesDoBacktrack):
+        (JSC::Yarr::Interpreter::matchParentheses):
+        (JSC::Yarr::Interpreter::backtrackParentheses):
+        (JSC::Yarr::Interpreter::matchDisjunction):
+        (JSC::Yarr::Interpreter::matchNonZeroDisjunction):
+        (JSC::Yarr::Interpreter::interpret):
+        (JSC::Yarr::Interpreter::Interpreter):
+        * yarr/RegexInterpreter.h:
+
+2010-11-16  Brian Weinstein  <bweinstein@apple.com>
+
+        Rest of the Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-11-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix pt 1.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-11-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49606
+
+        The bug here is that we read the prototype from the RHS argument using a regular
+        op_get_by_id before op_instanceof has checked that this is an object implementing
+        HasInstance. This incorrect behaviour gives rise to further unnecessary complexity
+        in the code base, since we have additional logic (implemented using the
+        GetByIdExceptionInfo data structures on CodeBlock) to convert not an object errors
+        from the get_by_id into invalid parameter errors. Having fixed this bug this code
+        is all redundant, since in these cases the get_by_id will never have been reached.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::shrinkToFit):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::addExpressionInfo):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitCheckHasInstance):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::InstanceOfNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_check_has_instance):
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_check_has_instance):
+        (JSC::JIT::emitSlow_op_instanceof):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_check_has_instance):
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_check_has_instance):
+        (JSC::JIT::emitSlow_op_instanceof):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createInterruptedExecutionException):
+        (JSC::createTerminatedExecutionException):
+        (JSC::createUndefinedVariableError):
+        (JSC::createNotAFunctionError):
+        (JSC::createNotAnObjectError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSNotAnObject.cpp:
+        (JSC::JSNotAnObject::toPrimitive):
+        (JSC::JSNotAnObject::getPrimitiveNumber):
+        (JSC::JSNotAnObject::toBoolean):
+        (JSC::JSNotAnObject::toNumber):
+        (JSC::JSNotAnObject::toString):
+        (JSC::JSNotAnObject::toObject):
+        (JSC::JSNotAnObject::getOwnPropertySlot):
+        (JSC::JSNotAnObject::getOwnPropertyDescriptor):
+        (JSC::JSNotAnObject::put):
+        (JSC::JSNotAnObject::deleteProperty):
+        (JSC::JSNotAnObject::getOwnPropertyNames):
+        * runtime/JSNotAnObject.h:
+        (JSC::JSNotAnObject::JSNotAnObject):
+        * runtime/JSObject.h:
+        (JSC::JSObject::isActivationObject):
+        * runtime/JSValue.cpp:
+        (JSC::JSValue::toObjectSlowCase):
+        (JSC::JSValue::synthesizeObject):
+        (JSC::JSValue::synthesizePrototype):
+
+2010-11-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Harden additional string functions against large lengths
+        https://bugs.webkit.org/show_bug.cgi?id=49574
+
+        * wtf/text/CString.cpp:
+        (WTF::CString::init): Check for length that is too large for CString.
+        (WTF::CString::newUninitialized): Ditto.
+        (WTF::CString::copyBufferIfNeeded): Fix types so the length stays
+        in a size_t.
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::append): Check for length that is too large.
+
+2010-11-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 49577 - Function.prototype should be non-configurable
+
+        JSC lazily allocates the prototype property of Function objects.
+
+        We check the prototype exists on 'get', but not on 'put'.
+        If you 'put' without having first done a 'get' you can end up with a configurable
+        prototype (prototype should only ever be non-configurable).
+
+        This is visible in a couple of ways:
+          * 'delete' on the property may succeed. (the next access will result in a new,
+          reset prototype object).
+          * the prototype may be set to a getter.
+
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::getOwnPropertyNames):
+            Reify the prototype property before allowing an enumerate including don't enum properties.
+        (JSC::JSFunction::put):
+            Reify the prototype property before any put to it.
+
+2010-11-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 49488 - Only add source specific information to exceptions in Interpreter::throwException
+
+        Three types of source location information are added to errors.
+
+        (1) Divot information.
+
+        This was added with the intention of using it to provide better source highlighting in the inspector.
+        We may still want to do so, but we probably should not be exposing these values in a manner visible to
+        user scripts – only through an internal C++ interface. The code adding divot properties to objects has
+        been removed.
+
+        (2) Line number information.
+
+        Line number information is presently sometimes added at the point the exception is created, and sometimes
+        added at the point the exception passes through throwException. Change this so that throwException has
+        the sole responsibility for adding line number and source file information.
+
+        (3) Source snippets in the message of certain type errors (e.g. 'doc' in `Result of expression 'doc' [undefined] is not an object.`).
+
+        These messages are currently created at the point the exceptions is raised. Instead reformat the message
+        such that the source snippet is located at the end (`Result of expression 'b1' [undefined] is not an object.`
+        becomes `'undefined' is not an object (evaluating 'b1.property')`), and append these to the message at
+        the in throw Exception. This presents a number of advantages:
+          * we no longer need to have source location information to create these TypeErrors.
+          * we can chose to append source location information in other error messages, including those where
+            passing source location to the point of construction would be inconvenient.
+          * we can chose in future to omit to append source location information when running in a non-debug mode.
+
+        This also cleans up some error output, e.g. removing double brackets ('[[]]') around objects in output,
+        removing double periods (..) at end of lines, and adding slightly more context to some errors.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::expressionRangeForBytecodeOffset):
+            - Separated called to access line and range information.
+
+        * bytecode/CodeBlock.h:
+            - Separated called to access line and range information.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::isInvalidParamForIn):
+        (JSC::isInvalidParamForInstanceOf):
+            - Update parameters passed to error constructors.
+        (JSC::appendSourceToError):
+            - Update message property to add location information (previously added in createErrorMessage, in ExceptionHelpers)
+        (JSC::Interpreter::throwException):
+            - Updated to call appendSourceToError. 
+        (JSC::Interpreter::privateExecute):
+            - Update parameters passed to error constructors.
+
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+            - Update parameters passed to error constructors.
+
+        * runtime/Error.cpp:
+        (JSC::addErrorInfo):
+        (JSC::hasErrorInfo):
+            - Removed divot properties.
+
+        * runtime/Error.h:
+            - Removed divot properties.
+
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+            - Initialize new property.
+
+        * runtime/ErrorInstance.h:
+        (JSC::ErrorInstance::appendSourceToMessage):
+        (JSC::ErrorInstance::setAppendSourceToMessage):
+        (JSC::ErrorInstance::clearAppendSourceToMessage):
+            - Added flag to check for errors needing location information appending.
+        (JSC::ErrorInstance::isErrorInstance):
+            - Added virtual method to check for ErrorInstances.
+
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createUndefinedVariableError):
+        (JSC::createInvalidParamError):
+        (JSC::createNotAConstructorError):
+        (JSC::createNotAFunctionError):
+        (JSC::createNotAnObjectError):
+            - Update parameters passed to error constructors, stopped adding line number information early, changed TypeError messages.
+
+        * runtime/ExceptionHelpers.h:
+            - Updated function signatures.
+
+        * runtime/JSFunction.cpp:
+        (JSC::callHostFunctionAsConstructor):
+            - Update parameters passed to error constructors.
+
+        * runtime/JSObject.h:
+        (JSC::JSObject::isErrorInstance):
+            - Added virtual method to check for ErrorInstances.
+
+2010-11-12  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        CString(const char*) crashes when passed a null pointer
+        https://bugs.webkit.org/show_bug.cgi?id=49450
+
+        * wtf/text/CString.cpp:
+        (WTF::CString::CString):
+        Return early if str is null.
+
+2010-11-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 49420 - Clean up syntax/reference error throw.
+
+        Some errors detected at compile time are thrown at runtime. We currently do so using a op_new_error/op_throw bytecode pair.
+        This is not ideal. op_throw is used for explicit user throw statements, and has different requirements in terms or meta data
+        attached to the exception (controlled by the explicitThrow parameter passed to Interpreter::throwException). To work around
+        this, op_new_error has to add the meta data at an early stage, which is unlike other VM exceptions being raised.
+
+        We can simplify this and bring into line with other exception behaviour by changing new_error from just allocating an
+        Exception instance to also throwing it – but as a regular VM throw, correctly passing explicitThrow as false.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::expressionRangeForBytecodeOffset):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitThrowReferenceError):
+        (JSC::BytecodeGenerator::emitThrowSyntaxError):
+        (JSC::BytecodeGenerator::emitThrowExpressionTooDeepException):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::emitNodeInConditionContext):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ThrowableExpressionData::emitThrowReferenceError):
+        (JSC::ThrowableExpressionData::emitThrowSyntaxError):
+        (JSC::RegExpNode::emitBytecode):
+        (JSC::PostfixErrorNode::emitBytecode):
+        (JSC::PrefixErrorNode::emitBytecode):
+        (JSC::AssignErrorNode::emitBytecode):
+        (JSC::ForInNode::emitBytecode):
+        (JSC::ContinueNode::emitBytecode):
+        (JSC::BreakNode::emitBytecode):
+        (JSC::ReturnNode::emitBytecode):
+        (JSC::LabelNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_throw_reference_error):
+        (JSC::JIT::emit_op_throw_syntax_error):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_throw_reference_error):
+        (JSC::JIT::emit_op_throw_syntax_error):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * parser/Nodes.h:
+
+2010-11-11  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Harden some string functions against large lengths
+        https://bugs.webkit.org/show_bug.cgi?id=49293
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::create): Fix incorrect use of PassRefPtr. Check for
+        strlen results that are too large for StringImpl.
+        (WTF::StringImpl::lower): Check for lengths that are too large for
+        int32_t.
+        (WTF::StringImpl::upper): Fix incorrect use of PassRefPtr. Check for
+        lengths that are too large for int32_t.
+        (WTF::StringImpl::secure): Fix incorect use of PassRefPtr. Use unsigned
+        rather than int and int32_t so we can handle any length.
+        (WTF::StringImpl::foldCase): Fix incorrect use of PassRefPtr. Check for
+        lengths that are too large for int32_t.
+        (WTF::StringImpl::find): Check for strlen results that are too large for
+        StringImpl.
+        (WTF::StringImpl::findIgnoringCase): Ditto.
+        (WTF::StringImpl::replace): Fix incorrect use of PassRefPtr.
+        (WTF::StringImpl::createWithTerminatingNullCharacter): Check before
+        incrementing length.
+
+2010-11-11  Dan Horák  <dan@danny.cz>
+
+        Reviewed by Andreas Kling.
+
+        Add support for the s390/s390x architectures, it's big-endian
+        with s390 being 32-bit and s390x being 64-bit.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34786
+
+        * wtf/Platform.h:
+
+2010-11-10  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        HTML5 Ruby support should be mandatory feature
+        https://bugs.webkit.org/show_bug.cgi?id=49272
+
+        Remove Ruby as optional feature.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * JavaScriptCorePrefix.h:: Touch it to avoid incremental build failure on Windows.
+
+2010-11-10  Peter Rybin  <peter.rybin@gmail.com>
+
+        Reviewed by Adam Barth.
+
+        HTML parser should provide script column position within HTML document to JavaScript engine
+        https://bugs.webkit.org/show_bug.cgi?id=45271
+
+        Adds TextPosition* classes -- a structure that stores line/column/generation
+        level coordinates inside text document. Adds *BasedNumber classes -- typesafe int
+        wrappers that emphasize whether int number is used as zero-based or
+        one-based.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/TextPosition.h: Added.
+        (WTF::TextPosition::TextPosition):
+        (WTF::TextPosition::minimumPosition):
+        (WTF::TextPosition::belowRangePosition):
+        (WTF::ZeroBasedNumber::fromZeroBasedInt):
+        (WTF::ZeroBasedNumber::ZeroBasedNumber):
+        (WTF::ZeroBasedNumber::zeroBasedInt):
+        (WTF::ZeroBasedNumber::base):
+        (WTF::ZeroBasedNumber::belowBase):
+        (WTF::OneBasedNumber::fromOneBasedInt):
+        (WTF::OneBasedNumber::OneBasedNumber):
+        (WTF::OneBasedNumber::oneBasedInt):
+        (WTF::OneBasedNumber::convertAsZeroBasedInt):
+        (WTF::OneBasedNumber::convertToZeroBased):
+        (WTF::OneBasedNumber::base):
+        (WTF::OneBasedNumber::belowBase):
+        (WTF::toZeroBasedTextPosition):
+        (WTF::toOneBasedTextPosition):
+        (WTF::ZeroBasedNumber::convertToOneBased):
+
+2010-11-09  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        ARM JIT asserts when loading http://reader.google.com in debug mode
+        https://bugs.webkit.org/show_bug.cgi?id=48912
+
+        There are several cases when the uninterrupted sequence is larger than
+        maximum required offset for pathing the same sequence. Eg.: if in a
+        uninterrupted sequence the last macroassembler's instruction is a stub
+        call, it emits store instruction(s) which should not be included in the
+        calculation of length of uninterrupted sequence. So, the insnSpace and
+        constSpace should be upper limit instead of hard limit.
+
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::endUninterruptedSequence):
+
+2010-11-09  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/49279> Fix include statements for local headers
+
+        Reviewed by Gavin Barraclough.
+
+        Use "Foo.h" instead of <Foo.h> for local headers.
+
+        * assembler/AbstractMacroAssembler.h: Also fixed sort order.
+        * assembler/CodeLocation.h:
+        * yarr/RegexJIT.h:
+        * yarr/RegexParser.h:
+
 2010-11-08  Adam Roben  <aroben@apple.com>
 
         Roll out r71532

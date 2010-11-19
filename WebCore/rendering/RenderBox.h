@@ -378,15 +378,15 @@ public:
     bool isWritingModeRoot() const { return !parent() || parent()->style()->writingMode() != style()->writingMode(); }
     
     virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
-    virtual int baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
     enum FlippingAdjustment { ChildToParentFlippingAdjustment, ParentToChildFlippingAdjustment };
-    IntPoint flipForWritingMode(RenderBox* child, const IntPoint&, FlippingAdjustment);
-    int flipForWritingMode(int position);
-    IntPoint flipForWritingMode(const IntPoint&);
-    IntSize flipForWritingMode(const IntSize&);
-    void flipForWritingMode(IntRect&);
-    IntSize locationOffsetIncludingFlipping();
+    IntPoint flipForWritingMode(const RenderBox* child, const IntPoint&, FlippingAdjustment) const;
+    int flipForWritingMode(int position) const; // The offset is in the block direction (y for horizontal writing modes, x for vertical writing modes).
+    IntPoint flipForWritingMode(const IntPoint&) const;
+    IntSize flipForWritingMode(const IntSize&) const;
+    void flipForWritingMode(IntRect&) const;
+    IntSize locationOffsetIncludingFlipping() const;
 
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }

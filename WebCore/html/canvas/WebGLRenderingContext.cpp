@@ -105,11 +105,9 @@ WebGLRenderingContext::WebGLRenderingContext(HTMLCanvasElement* passedCanvas, Pa
     , m_context(context)
     , m_videoCache(4)
     , m_contextLost(false)
-    , m_stencilMask(0xFFFFFFFF)
-    , m_stencilFuncRef(0)
-    , m_stencilFuncMask(0xFFFFFFFF)
 {
     ASSERT(m_context);
+    setupFlags();
     initializeNewContext();
 }
 
@@ -122,11 +120,15 @@ void WebGLRenderingContext::initializeNewContext()
     m_unpackAlignment = 4;
     m_unpackFlipY = false;
     m_unpackPremultiplyAlpha = false;
+    m_unpackColorspaceConversion = GraphicsContext3D::BROWSER_DEFAULT_WEBGL;
     m_boundArrayBuffer = 0;
     m_boundElementArrayBuffer = 0;
     m_currentProgram = 0;
     m_framebufferBinding = 0;
     m_renderbufferBinding = 0;
+    m_stencilMask = 0xFFFFFFFF;
+    m_stencilFuncRef = 0;
+    m_stencilFuncMask = 0xFFFFFFFF;
     m_vertexAttribState.clear();
 
     int numCombinedTextureImageUnits = 0;
@@ -150,13 +152,24 @@ void WebGLRenderingContext::initializeNewContext()
     if (!isGLES2Compliant())
         initVertexAttrib0();
 
-    if (isGLES2Compliant())
-        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_OES_packed_depth_stencil");
-    else
-        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_EXT_packed_depth_stencil");
-
     m_context->reshape(canvas()->width(), canvas()->height());
     m_context->viewport(0, 0, canvas()->width(), canvas()->height());
+}
+
+void WebGLRenderingContext::setupFlags()
+{
+    ASSERT(m_context);
+
+    m_isGLES2Compliant = m_context->isGLES2Compliant();
+    m_isErrorGeneratedOnOutOfBoundsAccesses = m_context->getExtensions()->supports("GL_CHROMIUM_strict_attribs");
+    m_isResourceSafe = m_context->getExtensions()->supports("GL_CHROMIUM_resource_safe");
+    if (m_isGLES2Compliant) {
+        m_isGLES2NPOTStrict = !m_context->getExtensions()->supports("GL_OES_texture_npot");
+        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_OES_packed_depth_stencil");
+    } else {
+        m_isGLES2NPOTStrict = !m_context->getExtensions()->supports("GL_ARB_texture_non_power_of_two");
+        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_EXT_packed_depth_stencil");
+    }
 }
 
 WebGLRenderingContext::~WebGLRenderingContext()
@@ -423,6 +436,10 @@ void WebGLRenderingContext::bufferData(unsigned long target, ArrayBuffer* data, 
     WebGLBuffer* buffer = validateBufferDataParameters(target, usage);
     if (!buffer)
         return;
+    if (!data) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+        return;
+    }
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         if (!buffer->associateBufferData(data)) {
             m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
@@ -442,6 +459,10 @@ void WebGLRenderingContext::bufferData(unsigned long target, ArrayBufferView* da
     WebGLBuffer* buffer = validateBufferDataParameters(target, usage);
     if (!buffer)
         return;
+    if (!data) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+        return;
+    }
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         if (!buffer->associateBufferData(data)) {
             m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
@@ -461,6 +482,8 @@ void WebGLRenderingContext::bufferSubData(unsigned long target, long offset, Arr
     WebGLBuffer* buffer = validateBufferDataParameters(target, GraphicsContext3D::STATIC_DRAW);
     if (!buffer)
         return;
+    if (!data)
+        return;
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         if (!buffer->associateBufferSubData(offset, data)) {
             m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
@@ -479,6 +502,8 @@ void WebGLRenderingContext::bufferSubData(unsigned long target, long offset, Arr
         return;
     WebGLBuffer* buffer = validateBufferDataParameters(target, GraphicsContext3D::STATIC_DRAW);
     if (!buffer)
+        return;
+    if (!data)
         return;
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         if (!buffer->associateBufferSubData(offset, data)) {
@@ -1632,6 +1657,8 @@ WebGLGetInfo WebGLRenderingContext::getParameter(unsigned long pname, ExceptionC
         return WebGLGetInfo(m_unpackFlipY);
     case GraphicsContext3D::UNPACK_PREMULTIPLY_ALPHA_WEBGL:
         return WebGLGetInfo(m_unpackPremultiplyAlpha);
+    case GraphicsContext3D::UNPACK_COLORSPACE_CONVERSION_WEBGL:
+        return WebGLGetInfo(m_unpackColorspaceConversion);
     case GraphicsContext3D::VENDOR:
         return WebGLGetInfo("Webkit (" + m_context->getString(GraphicsContext3D::VENDOR) + ")");
     case GraphicsContext3D::VERSION:
@@ -1700,7 +1727,7 @@ WebGLGetInfo WebGLRenderingContext::getRenderbufferParameter(unsigned long targe
 
     if (m_renderbufferBinding->getInternalFormat() == GraphicsContext3D::DEPTH_STENCIL
         && !m_renderbufferBinding->isValid()) {
-        ASSERT(!m_isDepthStencilSupported);
+        ASSERT(!isDepthStencilSupported());
         long value = 0;
         switch (pname) {
         case GraphicsContext3D::RENDERBUFFER_WIDTH:
@@ -2148,21 +2175,32 @@ void WebGLRenderingContext::pixelStorei(unsigned long pname, long param)
     case GraphicsContext3D::UNPACK_PREMULTIPLY_ALPHA_WEBGL:
         m_unpackPremultiplyAlpha = param;
         break;
+    case GraphicsContext3D::UNPACK_COLORSPACE_CONVERSION_WEBGL:
+        if (param == GraphicsContext3D::BROWSER_DEFAULT_WEBGL || param == GraphicsContext3D::NONE)
+            m_unpackColorspaceConversion = static_cast<unsigned long>(param);
+        else {
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+            return;
+        }
+        break;
     case GraphicsContext3D::PACK_ALIGNMENT:
     case GraphicsContext3D::UNPACK_ALIGNMENT:
-        m_context->pixelStorei(pname, param);
         if (param == 1 || param == 2 || param == 4 || param == 8) {
             if (pname == GraphicsContext3D::PACK_ALIGNMENT)
                 m_packAlignment = static_cast<int>(param);
             else // GraphicsContext3D::UNPACK_ALIGNMENT:
                 m_unpackAlignment = static_cast<int>(param);
+            m_context->pixelStorei(pname, param);
+            cleanupAfterGraphicsCall(false);
+        } else {
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+            return;
         }
         break;
     default:
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
         return;
     }
-    cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::polygonOffset(double factor, double units)
@@ -2278,12 +2316,12 @@ void WebGLRenderingContext::renderbufferStorage(unsigned long target, unsigned l
         cleanupAfterGraphicsCall(false);
         break;
     case GraphicsContext3D::DEPTH_STENCIL:
-        if (m_isDepthStencilSupported) {
+        if (isDepthStencilSupported()) {
             m_context->renderbufferStorage(target, Extensions3D::DEPTH24_STENCIL8, width, height);
             cleanupAfterGraphicsCall(false);
         } else
             m_renderbufferBinding->setSize(width, height);
-        m_renderbufferBinding->setIsValid(m_isDepthStencilSupported);
+        m_renderbufferBinding->setIsValid(isDepthStencilSupported());
         m_renderbufferBinding->setInternalFormat(internalformat);
         break;
     default:
@@ -2417,7 +2455,7 @@ void WebGLRenderingContext::texImage2DImpl(unsigned target, unsigned level, unsi
 {
     ec = 0;
     Vector<uint8_t> data;
-    if (!m_context->extractImageData(image, format, type, flipY, premultiplyAlpha, data)) {
+    if (!m_context->extractImageData(image, format, type, flipY, premultiplyAlpha, m_unpackColorspaceConversion == GraphicsContext3D::NONE, data)) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
@@ -2603,7 +2641,7 @@ void WebGLRenderingContext::texSubImage2DImpl(unsigned target, unsigned level, u
     if (isContextLost())
         return;
     Vector<uint8_t> data;
-    if (!m_context->extractImageData(image, format, type, flipY, premultiplyAlpha, data)) {
+    if (!m_context->extractImageData(image, format, type, flipY, premultiplyAlpha, m_unpackColorspaceConversion == GraphicsContext3D::NONE, data)) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
@@ -3378,21 +3416,6 @@ WebGLGetInfo WebGLRenderingContext::getWebGLIntArrayParameter(unsigned long pnam
         notImplemented();
     }
     return WebGLGetInfo(Int32Array::create(value, length));
-}
-
-bool WebGLRenderingContext::isGLES2Compliant()
-{
-    return m_context->isGLES2Compliant();
-}
-
-bool WebGLRenderingContext::isGLES2NPOTStrict()
-{
-    return m_context->isGLES2NPOTStrict();
-}
-
-bool WebGLRenderingContext::isErrorGeneratedOnOutOfBoundsAccesses()
-{
-    return m_context->isErrorGeneratedOnOutOfBoundsAccesses();
 }
 
 void WebGLRenderingContext::handleNPOTTextures(bool prepareToDraw)

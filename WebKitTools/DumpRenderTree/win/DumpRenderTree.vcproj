@@ -18,12 +18,11 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeApple.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -39,10 +38,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cg&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -55,12 +50,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -85,19 +74,16 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeApple.vsprops"
 			CharacterSet="1"
-			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -113,10 +99,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cg&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -129,12 +111,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -159,18 +135,16 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug_Internal|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeApple.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -186,10 +160,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cg&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -202,11 +172,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -231,18 +196,16 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug_Cairo|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_wincairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_wincairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeCairo.vsprops;.\DumpRenderTreeCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(TargetDir)\..\include\WebCore\ForwardingHeaders\wtf\MD5.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -258,10 +221,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cairo&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -274,12 +233,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CFLite_Debug.lib cairo.lib libjpeg.lib libpng.lib libcurl_imp.lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -304,19 +257,17 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release_Cairo|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeCairo.vsprops;.\DumpRenderTreeCFLite.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(TargetDir)\..\include\WebCore\ForwardingHeaders\wtf\MD5.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -332,10 +283,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cairo&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -348,12 +295,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CFLite.lib cairo.lib libjpeg.lib libpng.lib libcurl_imp.lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -378,18 +319,16 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeApple.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\DumpRenderTree\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -405,10 +344,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)\.&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\cg&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\DumpRenderTree\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;"
-				PreprocessorDefinitions="_CONSOLE"
-				DisableSpecificWarnings="4146"
-				ForcedIncludeFiles="DumpRenderTreePrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -421,11 +356,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/NXCOMPAT"
-				AdditionalDependencies="JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebKit$(WebKitDLLConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib gdi32.lib ole32.lib oleaut32.lib user32.lib shlwapi.lib oleacc.lib comsuppw.lib"
-				AdditionalLibraryDirectories=""
-				DelayLoadDLLs=""
-				SubSystem="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -450,7 +380,68 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not defined ARCHIVE_BUILD (if defined PRODUCTION exit /b)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if not exist &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; exit /b&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreFoundation$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreVideo$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CFNetwork$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CFNetwork.resources&quot; &quot;$(WebKitOutputDir)\bin\CFNetwork.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CoreFoundation.resources&quot; &quot;$(WebKitOutputDir)\bin\CoreFoundation.resources&quot;&#x0D;&#x0A;xcopy /y /d /e /i &quot;$(WebKitLibrariesDir)\bin\CharacterSets&quot; &quot;$(WebKitOutputDir)\bin\CharacterSets&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\CoreGraphics$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\dnssd.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc40$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42.dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icudt42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuin42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;if exist &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\icuuc42$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxml2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\libxslt$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\pthreadVC2$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\SQLite3$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).dll&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\bin\zlib1$(LibraryConfigSuffix).pdb&quot; &quot;$(WebKitOutputDir)\bin&quot;&#x0D;&#x0A;"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release_LTCG|Win32"
+			ConfigurationType="1"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\DumpRenderTreeCommon.vsprops;.\DumpRenderTreeApple.vsprops"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
 	</Configurations>
@@ -688,6 +679,14 @@
 					Name="VCCLCompilerTool"
 				/>
 			</FileConfiguration>
+			<FileConfiguration
+				Name="Release_LTCG|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+				/>
+			</FileConfiguration>
 		</File>
 		<File
 			RelativePath="..\cairo\PixelDumpSupportCairo.h"
@@ -718,6 +717,14 @@
 			</FileConfiguration>
 			<FileConfiguration
 				Name="Debug_All|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCCustomBuildTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release_LTCG|Win32"
 				ExcludedFromBuild="true"
 				>
 				<Tool

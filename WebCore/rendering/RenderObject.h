@@ -266,12 +266,12 @@ public:
     virtual bool isRenderPart() const { return false; }
     virtual bool isRenderView() const { return false; }
     virtual bool isReplica() const { return false; }
-#if ENABLE(RUBY)
+
     virtual bool isRuby() const { return false; }
     virtual bool isRubyBase() const { return false; }
     virtual bool isRubyRun() const { return false; }
     virtual bool isRubyText() const { return false; }
-#endif
+
     virtual bool isSlider() const { return false; }
     virtual bool isTable() const { return false; }
     virtual bool isTableCell() const { return false; }
@@ -288,6 +288,7 @@ public:
     bool isRoot() const { return document()->documentElement() == m_node; }
     bool isBody() const;
     bool isHR() const;
+    bool isLegend() const;
 
     bool isHTMLMarquee() const;
 
@@ -314,6 +315,7 @@ public:
     // to add SVG renderer methods to RenderObject with an ASSERT_NOT_REACHED() default implementation.
     virtual bool isSVGRoot() const { return false; }
     virtual bool isSVGContainer() const { return false; }
+    virtual bool isSVGViewportContainer() const { return false; } 
     virtual bool isSVGGradientStop() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
     virtual bool isSVGPath() const { return false; }

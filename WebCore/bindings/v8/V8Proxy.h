@@ -283,7 +283,7 @@ namespace WebCore {
 
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
-        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* = 0);
+        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* = 0);
 
 #ifdef ANDROID_INSTRUMENT
         static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData);

@@ -33,6 +33,8 @@
 #include "Image.h"
 #include "ImageSource.h"
 #include "NativeImageSkia.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 #include <algorithm>
 
@@ -42,6 +44,7 @@ bool GraphicsContext3D::getImageData(Image* image,
                                      unsigned int format,
                                      unsigned int type,
                                      bool premultiplyAlpha,
+                                     bool ignoreGammaAndColorProfile,
                                      Vector<uint8_t>& outputVector)
 {
     if (!image)
@@ -50,12 +53,12 @@ bool GraphicsContext3D::getImageData(Image* image,
     NativeImageSkia* skiaImage = 0;
     AlphaOp neededAlphaOp = AlphaDoNothing;
     if (image->data()) {
-        ImageSource decoder(false);
+        ImageSource decoder(false, ignoreGammaAndColorProfile);
         decoder.setData(image->data(), true);
         if (!decoder.frameCount() || !decoder.frameIsCompleteAtIndex(0))
             return false;
         bool hasAlpha = decoder.frameHasAlphaAtIndex(0);
-        pixels = decoder.createFrameAtIndex(0);
+        pixels = adoptPtr(decoder.createFrameAtIndex(0));
         if (!pixels.get() || !pixels->isDataComplete() || !pixels->width() || !pixels->height())
             return false;
         SkBitmap::Config skiaConfig = pixels->config();

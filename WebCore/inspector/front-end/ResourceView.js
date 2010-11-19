@@ -39,12 +39,12 @@ WebInspector.ResourceView = function(resource)
 
     this.headersElement = document.createElement("div");
     this.headersElement.className = "resource-view-headers";
-    this.tabbedPane.appendTab("headers", WebInspector.UIString("Headers"), this.headersElement, this._selectHeadersTab.bind(this, true));
+    this.tabbedPane.appendTab("headers", WebInspector.UIString("Headers"), this.headersElement, this._selectTab.bind(this, "headers"));
 
     if (this.hasContentTab()) {
         this.contentElement = document.createElement("div");
         this.contentElement.className = "resource-view-content";
-        this.tabbedPane.appendTab("content", WebInspector.UIString("Content"), this.contentElement, this.selectContentTab.bind(this, true));
+        this.tabbedPane.appendTab("content", WebInspector.UIString("Content"), this.contentElement, this._selectTab.bind(this, "content"));
     }
 
     this.headersListElement = document.createElement("ol");
@@ -145,29 +145,26 @@ WebInspector.ResourceView.prototype = {
             this._cookiesView.resize();
     },
 
-    _selectTab: function()
+    selectContentTab: function()
     {
-        var preferredTab = WebInspector.settings.resourceViewTab;
-        if (this._headersVisible && this._cookiesView && preferredTab === "cookies")
-            this._selectCookiesTab();
-        else if (this._headersVisible && (!this.hasContentTab() || preferredTab === "headers"))
-            this._selectHeadersTab();
-        else
-            this._innerSelectContentTab();
+        this._selectTab("content");
     },
 
-    _selectHeadersTab: function(updatePrefs)
+    _selectTab: function(tab)
     {
-        if (updatePrefs)
-            WebInspector.settings.resourceViewTab = "headers";
-        this.tabbedPane.selectTabById("headers");
-    },
+        if (tab)
+            WebInspector.settings.resourceViewTab = tab;
+        else {
+            var preferredTab = WebInspector.settings.resourceViewTab;
+            tab = "content";
 
-    selectContentTab: function(updatePrefs)
-    {
-        if (updatePrefs)
-            WebInspector.settings.resourceViewTab = "content";
-        this._innerSelectContentTab();
+            // Honor user tab preference (if we can). Fallback to content if headers not visible, headers otherwise.
+            if (this._headersVisible)
+                tab = this.tabbedPane.hasTab(preferredTab) ? preferredTab : "headers";
+        }
+        this.tabbedPane.selectTabById(tab);
+        if (tab === "content" && this.hasContentTab())
+            this.contentTabSelected();
     },
 
     hasContentTab: function()
@@ -176,25 +173,9 @@ WebInspector.ResourceView.prototype = {
         return false;
     },
 
-    _selectCookiesTab: function(updatePrefs)
-    {
-        if (updatePrefs)
-            WebInspector.settings.resourceViewTab = "cookies";
-        this.tabbedPane.selectTabById("cookies");
-        this._cookiesView.resize();
-    },
-
-    _innerSelectContentTab: function()
-    {
-        this.tabbedPane.selectTabById("content");
-        this.resize();
-        if (this.hasContentTab())
-            this.contentTabSelected();
-    },
-
     _refreshURL: function()
     {
-        this.urlTreeElement.title = "<div class=\"header-name\">" + WebInspector.UIString("Request URL") + ":</div>" +
+        this.urlTreeElement.titleHTML = "<div class=\"header-name\">" + WebInspector.UIString("Request URL") + ":</div>" +
             "<div class=\"header-value source-code\">" + this.resource.url.escapeHTML() + "</div>";
     },
 
@@ -230,7 +211,8 @@ WebInspector.ResourceView.prototype = {
         this.requestPayloadTreeElement.removeChildren();
 
         var title = "<div class=\"raw-form-data header-value source-code\">" + formData.escapeHTML() + "</div>";
-        var parmTreeElement = new TreeElement(title, null, false);
+        var parmTreeElement = new TreeElement(null, null, false);
+        parmTreeElement.titleHTML = title;
         parmTreeElement.selectable = false;
         this.requestPayloadTreeElement.appendChild(parmTreeElement);
     },
@@ -239,7 +221,7 @@ WebInspector.ResourceView.prototype = {
     {
         parmsTreeElement.removeChildren();
 
-        parmsTreeElement.title = title + "<span class=\"header-count\">" + WebInspector.UIString(" (%d)", parms.length) + "</span>";
+        parmsTreeElement.titleHTML = title + "<span class=\"header-count\">" + WebInspector.UIString(" (%d)", parms.length) + "</span>";
 
         for (var i = 0; i < parms.length; ++i) {
             var name = parms[i].name;
@@ -265,7 +247,8 @@ WebInspector.ResourceView.prototype = {
             var title = "<div class=\"header-name\">" + name.escapeHTML() + ":</div>";
             title += "<div class=\"header-value source-code\">" + valueEscaped + "</div>";
 
-            var parmTreeElement = new TreeElement(title, null, false);
+            var parmTreeElement = new TreeElement(null, null, false);
+            parmTreeElement.titleHTML = title;
             parmTreeElement.selectable = false;
             parmTreeElement.tooltip = this._decodeHover;
             parmTreeElement.ondblclick = this._toggleURLdecoding.bind(this);
@@ -328,10 +311,10 @@ WebInspector.ResourceView.prototype = {
             var statusTextEscaped = this.resource.statusCode + " " + this.resource.statusText.escapeHTML();
             statusCodeImage = "<img class=\"resource-status-image\" src=\"" + statusImageSource + "\" title=\"" + statusTextEscaped + "\">";
     
-            requestMethodElement.title = "<div class=\"header-name\">" + WebInspector.UIString("Request Method") + ":</div>" +
+            requestMethodElement.titleHTML = "<div class=\"header-name\">" + WebInspector.UIString("Request Method") + ":</div>" +
                 "<div class=\"header-value source-code\">" + this.resource.requestMethod + "</div>";
 
-            statusCodeElement.title = "<div class=\"header-name\">" + WebInspector.UIString("Status Code") + ":</div>" +
+            statusCodeElement.titleHTML = "<div class=\"header-name\">" + WebInspector.UIString("Status Code") + ":</div>" +
                 statusCodeImage + "<div class=\"header-value source-code\">" + statusTextEscaped + "</div>";
         }
     },
@@ -341,7 +324,7 @@ WebInspector.ResourceView.prototype = {
         headersTreeElement.removeChildren();
 
         var length = headers.length;
-        headersTreeElement.title = title.escapeHTML() + "<span class=\"header-count\">" + WebInspector.UIString(" (%d)", length) + "</span>";
+        headersTreeElement.titleHTML = title.escapeHTML() + "<span class=\"header-count\">" + WebInspector.UIString(" (%d)", length) + "</span>";
         headersTreeElement.hidden = !length;
 
         var length = headers.length;
@@ -349,7 +332,8 @@ WebInspector.ResourceView.prototype = {
             var title = "<div class=\"header-name\">" + headers[i].header.escapeHTML() + ":</div>";
             title += "<div class=\"header-value source-code\">" + headers[i].value.escapeHTML() + "</div>"
 
-            var headerTreeElement = new TreeElement(title, null, false);
+            var headerTreeElement = new TreeElement(null, null, false);
+            headerTreeElement.titleHTML = title;
             headerTreeElement.selectable = false;
             headersTreeElement.appendChild(headerTreeElement);
         }
@@ -358,7 +342,8 @@ WebInspector.ResourceView.prototype = {
             var title = "<div class=\"header-name\">" + additionalRow.header.escapeHTML() + ":</div>";
             title += "<div class=\"header-value source-code\">" + additionalRow.value.escapeHTML() + "</div>"
 
-            var headerTreeElement = new TreeElement(title, null, false);
+            var headerTreeElement = new TreeElement(null, null, false);
+            headerTreeElement.titleHTML = title;
             headerTreeElement.selectable = false;
             headersTreeElement.appendChild(headerTreeElement);
         }
@@ -370,7 +355,7 @@ WebInspector.ResourceView.prototype = {
             if (!this.resource.requestCookies && !this.resource.responseCookies)
                 return;
             this._cookiesView = new WebInspector.ResourceCookiesTab();
-            this.tabbedPane.appendTab("cookies", WebInspector.UIString("Cookies"), this._cookiesView.element, this._selectCookiesTab.bind(this, true));
+            this.tabbedPane.appendTab("cookies", WebInspector.UIString("Cookies"), this._cookiesView, this._selectTab.bind(this, "cookies"));
         }
         this._cookiesView.requestCookies = this.resource.requestCookies;
         this._cookiesView.responseCookies = this.resource.responseCookies;
@@ -391,6 +376,12 @@ WebInspector.ResourceCookiesTab = function()
 }
 
 WebInspector.ResourceCookiesTab.prototype = {
+    show: function(parentElement)
+    {
+        WebInspector.CookiesTable.prototype.show.call(this, parentElement);
+        this.resize();
+    },
+
     set requestCookies(cookies)
     {
         if (this._requestCookies === cookies)

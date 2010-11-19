@@ -141,6 +141,11 @@ public:
     static void updateLayers(FrameView* view);
     // Language
     static String computeDefaultLanguage();
+    // Memory details for V8 GC
+    static int lowMemoryUsageMB();
+    static int highMemoryUsageMB();
+    static int memoryUsageMB();
+    static int actualMemoryUsageMB();
 };
 
 }

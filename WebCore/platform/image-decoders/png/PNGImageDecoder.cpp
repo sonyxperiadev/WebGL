@@ -169,8 +169,8 @@ private:
     unsigned m_currentBufferSize;
 };
 
-PNGImageDecoder::PNGImageDecoder(bool premultiplyAlpha)
-    : ImageDecoder(premultiplyAlpha)
+PNGImageDecoder::PNGImageDecoder(bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
+    : ImageDecoder(premultiplyAlpha, ignoreGammaAndColorProfile)
     , m_doNothingOnFailure(false)
 {
 }
@@ -296,7 +296,7 @@ void PNGImageDecoder::headerAvailable()
 
     // Deal with gamma and keep it under our control.
     double gamma;
-    if (png_get_gAMA(png, info, &gamma)) {
+    if (!m_ignoreGammaAndColorProfile && png_get_gAMA(png, info, &gamma)) {
         if ((gamma <= 0.0) || (gamma > cMaxGamma)) {
             gamma = cInverseGamma;
             png_set_gAMA(png, info, gamma);
@@ -395,16 +395,15 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
     // Check that the row is within the image bounds. LibPNG may supply an extra row.
     if (destY < 0 || destY >= scaledSize().height())
         return;
-    bool sawAlpha = buffer.hasAlpha();
+    bool nonTrivialAlpha = false;
     for (int x = 0; x < width; ++x) {
         png_bytep pixel = row + (m_scaled ? m_scaledColumns[x] : x) * colorChannels;
         unsigned alpha = hasAlpha ? pixel[3] : 255;
         buffer.setRGBA(x, destY, pixel[0], pixel[1], pixel[2], alpha);
-        if (!sawAlpha && alpha < 255) {
-            sawAlpha = true;
-            buffer.setHasAlpha(true);
-        }
+        nonTrivialAlpha |= alpha < 255;
     }
+    if (nonTrivialAlpha && !buffer.hasAlpha())
+        buffer.setHasAlpha(nonTrivialAlpha);
 }
 
 void PNGImageDecoder::pngComplete()

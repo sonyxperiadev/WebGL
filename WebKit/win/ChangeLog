@@ -1,3 +1,93 @@
+2010-11-16  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Disable LTCG for Windows Release builds. Add new Release_LTCG configuration.
+        https://bugs.webkit.org/show_bug.cgi?id=49632
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.make:
+        * WebKit.vcproj/WebKit.sln:
+        * WebKit.vcproj/WebKit.submit.sln:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2010-11-16  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=11004
+        
+        font-size:0 is ignored.  Remove the minimum font size of 1 in CSSStyleSelector.
+        Change the pref value for minimum font size from 1 to 0.  Make sure to never use the NSFont's size,
+        since it doesn't honor a size of 0.  Instead pass the size in to the FontPlatformData(NSFont*) version
+        of the constructor rather than using [NSFont pointSize].
+
+        https://bugs.webkit.org/show_bug.cgi?id=49582
+        
+        Negative leading is not handled correctly.  There are two bugs here.  The first is that
+        maxAscent and maxDescent can be negative, so we need a notion of whether or not we have
+        set them before so that we can allow them to be < 0.
+        
+        The second issue is that we should understand where fonts will end up relative to
+        our baseline (excluding line height), and only allow those boxes to impact ascent and
+        descent if the actual font box (without factoring in line height) is above or below the
+        root line box baseline.
+
+        Added fast/css/negative-leading.html
+        
+        These two bug fixes have to land together to keep the Acid 3 test rendering correctly.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+
+2010-11-16  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Use vsprops files for common settings in Windows WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=49622
+
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitCommon.vsprops: Added.
+
+2010-11-16  Steve Falkenburg  <sfalken@apple.com>
+
+        Rubber stamped by Adam Roben.
+
+        Remove unnecessary def file, remove outdated def files from vcproj.
+
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKit_debug.def: Removed.
+
+2010-11-12  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Rename GeolocationControllerClient to GeolocationClient.
+        https://bugs.webkit.org/show_bug.cgi?id=49259
+
+        * WebCoreSupport/WebGeolocationClient.cpp: Renamed from WebKit/win/WebCoreSupport/WebGeolocationControllerClient.cpp.
+        (WebGeolocationClient::WebGeolocationClient):
+        (WebGeolocationClient::geolocationDestroyed):
+        (WebGeolocationClient::startUpdating):
+        (WebGeolocationClient::stopUpdating):
+        (WebGeolocationClient::lastPosition):
+        * WebCoreSupport/WebGeolocationClient.h: Renamed from WebKit/win/WebCoreSupport/WebGeolocationControllerClient.h.
+        (WebGeolocationClient::setEnableHighAccuracy):
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2010-11-10  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        HTML5 Ruby support should be mandatory feature
+        https://bugs.webkit.org/show_bug.cgi?id=49272
+
+        * WebKitPrefix.h: Touch it to avoid incremental build failure on Windows.
+
 2010-11-08  Alexey Proskuryakov  <ap@apple.com>
 
         Windows build fix.

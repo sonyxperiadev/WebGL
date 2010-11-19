@@ -39,8 +39,9 @@
 #include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "ProgressTracker.h"
-#include "ResourceHandle.h"
 #include "ResourceError.h"
+#include "ResourceHandle.h"
+#include "ResourceLoadScheduler.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
 
@@ -95,6 +96,8 @@ void ResourceLoader::releaseResources()
 
     m_identifier = 0;
 
+    resourceLoadScheduler()->remove(this);
+
     if (m_handle) {
         // Clear out the ResourceHandle's client so that it doesn't try to call
         // us back after we release it, unless it has been replaced by someone else.
@@ -107,9 +110,10 @@ void ResourceLoader::releaseResources()
     m_deferredRequest = ResourceRequest();
 }
 
-bool ResourceLoader::load(const ResourceRequest& r)
+void ResourceLoader::init(const ResourceRequest& r)
 {
     ASSERT(!m_handle);
+    ASSERT(m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
     ASSERT(!m_documentLoader->isSubstituteLoadPending(this));
     
@@ -125,30 +129,43 @@ bool ResourceLoader::load(const ResourceRequest& r)
             clientRequest.setFirstPartyForCookies(document->firstPartyForCookies());
     }
 
-    willSendRequest(clientRequest, ResourceResponse());
-    if (clientRequest.isNull()) {
-        didFail(frameLoader()->cancelledError(r));
-        return false;
-    }
+    m_request = clientRequest;
+}
+
+void ResourceLoader::start()
+{
+    ASSERT(!m_handle);
+    ASSERT(!m_request.isNull());
+    ASSERT(m_deferredRequest.isNull());
+
+    willSendRequest(m_request, ResourceResponse());
+    if (m_request.isNull()) {
+        didFail(frameLoader()->cancelledError(m_request));
+        return;
+    }    
     
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     if (m_documentLoader->scheduleArchiveLoad(this, clientRequest, r.url()))
         return true;
 #endif
+=======
+    if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
+        return;
+>>>>>>> webkit.org at r72274
     
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    if (m_documentLoader->applicationCacheHost()->maybeLoadResource(this, clientRequest, r.url()))
-        return true;
+    if (m_documentLoader->applicationCacheHost()->maybeLoadResource(this, m_request, m_request.url()))
+        return;
 #endif
 
     if (m_defersLoading) {
-        m_deferredRequest = clientRequest;
-        return true;
+        m_deferredRequest = m_request;
+        return;
     }
-    
-    m_handle = ResourceHandle::create(m_frame->loader()->networkingContext(), clientRequest, this, m_defersLoading, m_shouldContentSniff);
 
-    return true;
+    if (!m_reachedTerminalState)
+        m_handle = ResourceHandle::create(m_frame->loader()->networkingContext(), m_request, this, m_defersLoading, m_shouldContentSniff);
 }
 
 void ResourceLoader::setDefersLoading(bool defers)
@@ -157,9 +174,9 @@ void ResourceLoader::setDefersLoading(bool defers)
     if (m_handle)
         m_handle->setDefersLoading(defers);
     if (!defers && !m_deferredRequest.isNull()) {
-        ResourceRequest request(m_deferredRequest);
+        m_request = m_deferredRequest;
         m_deferredRequest = ResourceRequest();
-        load(request);
+        start();
     }
 }
 
@@ -234,6 +251,8 @@ void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceRes
         frameLoader()->notifier()->willSendRequest(this, request, redirectResponse);
     }
 
+    if (!redirectResponse.isNull())
+        resourceLoadScheduler()->crossOriginRedirectReceived(this, request.url());
     m_request = request;
 }
 
@@ -354,7 +373,7 @@ void ResourceLoader::didCancel(const ResourceError& error)
         m_handle->cancel();
         m_handle = 0;
     }
-    if (m_sendResourceLoadCallbacks && !m_calledDidFinishLoad)
+    if (m_sendResourceLoadCallbacks && m_identifier && !m_calledDidFinishLoad)
         frameLoader()->notifier()->didFailToLoad(this, error);
 
     releaseResources();

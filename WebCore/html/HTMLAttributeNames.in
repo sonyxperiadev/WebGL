@@ -94,7 +94,12 @@ expanded
 face
 focused
 for
+form
+formaction
+formenctype
+formmethod
 formnovalidate
+formtarget
 frame
 frameborder
 headers

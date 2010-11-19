@@ -29,32 +29,38 @@
 #ifndef BrowserWindow_h
 #define BrowserWindow_h
 
-#define PLATFORM(x) 0
-
 #include "BrowserView.h"
+#include <QStringList>
 #include <QtGui>
+#include <qgraphicswkview.h>
 
 class BrowserWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    BrowserWindow();
+    BrowserWindow(QGraphicsWKView::BackingStoreType);
     ~BrowserWindow();
     void load(const QString& url);
 
 public slots:
     BrowserWindow* newWindow(const QString& url = "about:blank");
+    void openLocation();
 
 protected slots:
     void changeLocation();
     void loadProgress(int progress);
     void titleChanged(const QString&);
     void urlChanged(const QUrl&);
+    void showUserAgentDialog();
 
 private:
+    void updateUserAgentList();
+
     BrowserView* m_browser;
     QMenuBar* m_menu;
     QLineEdit* m_addressBar;
+    QStringList m_userAgentList;
+    QGraphicsWKView::BackingStoreType m_backingStoreType;
 };
 
 #endif

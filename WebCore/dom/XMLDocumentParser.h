@@ -211,7 +211,7 @@ namespace WebCore {
         // WMLErrorHandling uses these functions.
         virtual bool wellFormed() const { return !m_sawError; }
         virtual int lineNumber() const;
-        virtual int columnNumber() const;
+        TextPosition0 textPosition() const;
 
         static bool supportsXMLVersion(const String&);
 
@@ -237,6 +237,14 @@ namespace WebCore {
         void resumeParsing();
 
         bool appendFragmentSource(const String&);
+
+        int columnNumber() const;
+
+        // This method is introduced to temporary legalize existing line/column
+        // coordinate bug: it is believed that numbers that originally were zero-based
+        // eventually becomes one-based.
+        // FIXME: Investigate and get rid of this method.
+        TextPosition1 textPositionOneBased() const;
 
 #if USE(QXMLSTREAM)
 private:
@@ -317,7 +325,7 @@ public:
 
         CachedResourceHandle<CachedScript> m_pendingScript;
         RefPtr<Element> m_scriptElement;
-        int m_scriptStartLine;
+        TextPosition1 m_scriptStartPosition;
 
         bool m_parsingFragment;
         AtomicString m_defaultNamespaceURI;

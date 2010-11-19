@@ -663,6 +663,11 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printUnaryOp(exec, location, it, "bitnot");
             break;
         }
+        case op_check_has_instance: {
+            int base = (++it)->u.operand;
+            printf("[%4d] check_has_instance\t\t %s\n", location, registerName(exec, base).data());
+            break;
+        }
         case op_instanceof: {
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
@@ -1187,11 +1192,14 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] throw\t\t %s\n", location, registerName(exec, r0).data());
             break;
         }
-        case op_new_error: {
-            int r0 = (++it)->u.operand;
-            int errorType = (++it)->u.operand;
+        case op_throw_reference_error: {
             int k0 = (++it)->u.operand;
-            printf("[%4d] new_error\t %s, %d, %s\n", location, registerName(exec, r0).data(), errorType, constantName(exec, k0, getConstant(k0)).data());
+            printf("[%4d] throw_reference_error\t %s\n", location, constantName(exec, k0, getConstant(k0)).data());
+            break;
+        }
+        case op_throw_syntax_error: {
+            int k0 = (++it)->u.operand;
+            printf("[%4d] throw_syntax_error\t %s\n", location, constantName(exec, k0, getConstant(k0)).data());
             break;
         }
         case op_jsr: {
@@ -1617,7 +1625,7 @@ int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned byteco
     return m_exceptionInfo->m_lineInfo[low - 1].lineNumber;
 }
 
-int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset)
+void CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset)
 {
     ASSERT(bytecodeOffset < m_instructionCount);
 
@@ -1627,7 +1635,7 @@ int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned b
         startOffset = 0;
         endOffset = 0;
         divot = 0;
-        return lineNumberForBytecodeOffset(callFrame, bytecodeOffset);
+        return;
     }
 
     int low = 0;
@@ -1639,43 +1647,19 @@ int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned b
         else
             high = mid;
     }
-    
+
     ASSERT(low);
     if (!low) {
         startOffset = 0;
         endOffset = 0;
         divot = 0;
-        return lineNumberForBytecodeOffset(callFrame, bytecodeOffset);
+        return;
     }
 
     startOffset = m_exceptionInfo->m_expressionInfo[low - 1].startOffset;
     endOffset = m_exceptionInfo->m_expressionInfo[low - 1].endOffset;
     divot = m_exceptionInfo->m_expressionInfo[low - 1].divotPoint + m_sourceOffset;
-    return lineNumberForBytecodeOffset(callFrame, bytecodeOffset);
-}
-
-bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, OpcodeID& opcodeID)
-{
-    ASSERT(bytecodeOffset < m_instructionCount);
-
-    if (!reparseForExceptionInfoIfNecessary(callFrame) || !m_exceptionInfo->m_getByIdExceptionInfo.size())
-        return false;
-
-    int low = 0;
-    int high = m_exceptionInfo->m_getByIdExceptionInfo.size();
-    while (low < high) {
-        int mid = low + (high - low) / 2;
-        if (m_exceptionInfo->m_getByIdExceptionInfo[mid].bytecodeOffset <= bytecodeOffset)
-            low = mid + 1;
-        else
-            high = mid;
-    }
-
-    if (!low || m_exceptionInfo->m_getByIdExceptionInfo[low - 1].bytecodeOffset != bytecodeOffset)
-        return false;
-
-    opcodeID = m_exceptionInfo->m_getByIdExceptionInfo[low - 1].isOpCreateThis ? op_create_this : op_instanceof;
-    return true;
+    return;
 }
 
 #if ENABLE(JIT)
@@ -1770,7 +1754,6 @@ void CodeBlock::shrinkToFit()
     if (m_exceptionInfo) {
         m_exceptionInfo->m_expressionInfo.shrinkToFit();
         m_exceptionInfo->m_lineInfo.shrinkToFit();
-        m_exceptionInfo->m_getByIdExceptionInfo.shrinkToFit();
     }
 
     if (m_rareData) {

@@ -152,6 +152,38 @@ def subn(pattern, replacement, s):
     return _regexp_compile_cache[pattern].subn(replacement, s)
 
 
+def iteratively_replace_matches_with_char(pattern, char_replacement, s):
+    """Returns the string with replacement done.
+
+    Every character in the match is replaced with char.
+    Due to the iterative nature, pattern should not match char or
+    there will be an infinite loop.
+
+    Example:
+      pattern = r'<[^>]>' # template parameters
+      char_replacement =  '_'
+      s =     'A<B<C, D>>'
+      Returns 'A_________'
+
+    Args:
+      pattern: The regex to match.
+      char_replacement: The character to put in place of every
+                        character of the match.
+      s: The string on which to do the replacements.
+
+    Returns:
+      True, if the given line is blank.
+    """
+    while True:
+        matched = search(pattern, s)
+        if not matched:
+            return s
+        start_match_index = matched.start(0)
+        end_match_index = matched.end(0)
+        match_length = end_match_index - start_match_index
+        s = s[:start_match_index] + char_replacement * match_length + s[end_match_index:]
+
+
 def up_to_unmatched_closing_paren(s):
     """Splits a string into two parts up to first unmatched ')'.
 
@@ -284,20 +316,27 @@ class _FunctionState(object):
         self.current_function = ''
         self.in_a_function = False
         self.lines_in_function = 0
+        # Make sure these will not be mistaken for real lines (even when a
+        # small amount is added to them).
+        self.body_start_line_number = -1000
+        self.ending_line_number = -1000
 
-    def begin(self, function_name):
+    def begin(self, function_name, body_start_line_number, ending_line_number):
         """Start analyzing function body.
 
         Args:
             function_name: The name of the function being tracked.
+            ending_line_number: The line number where the function ends.
         """
         self.in_a_function = True
         self.lines_in_function = 0
         self.current_function = function_name
+        self.body_start_line_number = body_start_line_number
+        self.ending_line_number = ending_line_number
 
-    def count(self):
+    def count(self, line_number):
         """Count line in current function body."""
-        if self.in_a_function:
+        if self.in_a_function and line_number >= self.body_start_line_number:
             self.lines_in_function += 1
 
     def check(self, error, line_number):
@@ -325,7 +364,7 @@ class _FunctionState(object):
                       self.current_function, self.lines_in_function, trigger))
 
     def end(self):
-        """Stop analizing function body."""
+        """Stop analyzing function body."""
         self.in_a_function = False
 
 
@@ -577,8 +616,8 @@ class CleansedLines(object):
 def close_expression(clean_lines, line_number, pos):
     """If input points to ( or { or [, finds the position that closes it.
 
-    If lines[line_number][pos] points to a '(' or '{' or '[', finds the the
-    line_number/pos that correspond to the closing of the expression.
+    If clean_lines.elided[line_number][pos] points to a '(' or '{' or '[', finds
+    the line_number/pos that correspond to the closing of the expression.
 
     Args:
       clean_lines: A CleansedLines instance containing the file.
@@ -587,8 +626,8 @@ def close_expression(clean_lines, line_number, pos):
 
     Returns:
       A tuple (line, line_number, pos) pointer *past* the closing brace, or
-      (line, len(lines), -1) if we never find a close.  Note we ignore
-      strings and comments when matching; and the line we return is the
+      ('', len(clean_lines.elided), -1) if we never find a close.  Note we
+      ignore strings and comments when matching; and the line we return is the
       'cleansed' line at line_number.
     """
 
@@ -604,8 +643,10 @@ def close_expression(clean_lines, line_number, pos):
         end_character = '}'
 
     num_open = line.count(start_character) - line.count(end_character)
-    while line_number < clean_lines.num_lines() and num_open > 0:
+    while num_open > 0:
         line_number += 1
+        if line_number >= clean_lines.num_lines():
+            return ('', len(clean_lines.elided), -1)
         line = clean_lines.elided[line_number]
         num_open += line.count(start_character) - line.count(end_character)
     # OK, now find the end_character that actually got us back to even
@@ -1109,17 +1150,85 @@ def is_blank_line(line):
     return not line or line.isspace()
 
 
+def detect_functions(clean_lines, line_number, function_state, error):
+    """Finds where functions start and end.
+
+    Uses a simplistic algorithm assuming other style guidelines
+    (especially spacing) are followed.
+    Trivial bodies are unchecked, so constructors with huge initializer lists
+    may be missed.
+
+    Args:
+      clean_lines: A CleansedLines instance containing the file.
+      line_number: The number of the line to check.
+      function_state: Current function name and lines in body so far.
+      error: The function to call with any errors found.
+    """
+    # Are we now past the end of a function?
+    if function_state.ending_line_number + 1 == line_number:
+        function_state.end()
+
+    # If we're in a function, don't try to detect a new one.
+    if function_state.in_a_function:
+        return
+
+    lines = clean_lines.lines
+    line = lines[line_number]
+    raw = clean_lines.raw_lines
+    raw_line = raw[line_number]
+
+    regexp = r'\s*(\w(\w|::|\*|\&|\s|<|>|,|~)*)\('  # decls * & space::name( ...
+    match_result = match(regexp, line)
+    if not match_result:
+        return
+
+    # If the name is all caps and underscores, figure it's a macro and
+    # ignore it, unless it's TEST or TEST_F.
+    function_name = match_result.group(1).split()[-1]
+    if function_name != 'TEST' and function_name != 'TEST_F' and match(r'[A-Z_]+$', function_name):
+        return
+
+    joined_line = ''
+    for start_line_number in xrange(line_number, clean_lines.num_lines()):
+        start_line = lines[start_line_number]
+        joined_line += ' ' + start_line.lstrip()
+        if search(r'(;|})', start_line):  # Declarations and trivial functions
+            return                              # ... ignore
+
+        if search(r'{', start_line):
+            # Replace template constructs with _ so that no spaces remain in the function name,
+            # while keeping the column numbers of other characters the same as "line".
+            line_with_no_templates = iteratively_replace_matches_with_char(r'<[^<>]*>', '_', line)
+            match_function = search(r'((\w|:|<|>|,|~)*)\(', line_with_no_templates)
+            if not match_function:
+                return  # The '(' must have been inside of a template.
+
+            # Use the column numbers from the modified line to find the
+            # function name in the original line.
+            function = line[match_function.start(1):match_function.end(1)]
+
+            if match(r'TEST', function):    # Handle TEST... macros
+                parameter_regexp = search(r'(\(.*\))', joined_line)
+                if parameter_regexp:             # Ignore bad syntax
+                    function += parameter_regexp.group(1)
+            else:
+                function += '()'
+            open_brace_index = start_line.find('{')
+            ending_line_number = close_expression(clean_lines, start_line_number, open_brace_index)[1]
+            function_state.begin(function, start_line_number + 1, ending_line_number)
+            return
+
+    # No body for the function (or evidence of a non-function) was found.
+    error(line_number, 'readability/fn_size', 5,
+          'Lint failed to find start of function body.')
+
+
 def check_for_function_lengths(clean_lines, line_number, function_state, error):
     """Reports for long function bodies.
 
     For an overview why this is done, see:
     http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml#Write_Short_Functions
 
-    Uses a simplistic algorithm assuming other style guidelines
-    (especially spacing) are followed.
-    Only checks unindented functions, so class members are unchecked.
-    Trivial bodies are unchecked, so constructors with huge initializer lists
-    may be missed.
     Blank/comment lines are not counted so as to avoid encouraging the removal
     of vertical space and commments just to get through a lint check.
     NOLINT *on the last line of a function* disables this check.
@@ -1134,47 +1243,38 @@ def check_for_function_lengths(clean_lines, line_number, function_state, error):
     line = lines[line_number]
     raw = clean_lines.raw_lines
     raw_line = raw[line_number]
-    joined_line = ''
 
-    starting_func = False
-    regexp = r'(\w(\w|::|\*|\&|\s)*)\('  # decls * & space::name( ...
-    match_result = match(regexp, line)
-    if match_result:
-        # If the name is all caps and underscores, figure it's a macro and
-        # ignore it, unless it's TEST or TEST_F.
-        function_name = match_result.group(1).split()[-1]
-        if function_name == 'TEST' or function_name == 'TEST_F' or (not match(r'[A-Z_]+$', function_name)):
-            starting_func = True
-
-    if starting_func:
-        body_found = False
-        for start_line_number in xrange(line_number, clean_lines.num_lines()):
-            start_line = lines[start_line_number]
-            joined_line += ' ' + start_line.lstrip()
-            if search(r'(;|})', start_line):  # Declarations and trivial functions
-                body_found = True
-                break                              # ... ignore
-            if search(r'{', start_line):
-                body_found = True
-                function = search(r'((\w|:)*)\(', line).group(1)
-                if match(r'TEST', function):    # Handle TEST... macros
-                    parameter_regexp = search(r'(\(.*\))', joined_line)
-                    if parameter_regexp:             # Ignore bad syntax
-                        function += parameter_regexp.group(1)
-                else:
-                    function += '()'
-                function_state.begin(function)
-                break
-        if not body_found:
-            # No body for the function (or evidence of a non-function) was found.
-            error(line_number, 'readability/fn_size', 5,
-                  'Lint failed to find start of function body.')
-    elif match(r'^\}\s*$', line):  # function end
+    if function_state.ending_line_number == line_number:  # last line
         if not search(r'\bNOLINT\b', raw_line):
             function_state.check(error, line_number)
-        function_state.end()
     elif not match(r'^\s*$', line):
-        function_state.count()  # Count non-blank/non-comment lines.
+        function_state.count(line_number)  # Count non-blank/non-comment lines.
+
+
+def check_pass_ptr_usage(clean_lines, line_number, function_state, error):
+    """Check for proper usage of Pass*Ptr.
+
+    Currently this is limited to detecting declarations of Pass*Ptr
+    variables inside of functions.
+
+    Args:
+      clean_lines: A CleansedLines instance containing the file.
+      line_number: The number of the line to check.
+      function_state: Current function name and lines in body so far.
+      error: The function to call with any errors found.
+    """
+    if not function_state.in_a_function:
+        return
+
+    lines = clean_lines.lines
+    line = lines[line_number]
+    if line_number >= function_state.body_start_line_number:
+        matched_pass_ptr = match(r'^\s*Pass([A-Z][A-Za-z]*)Ptr<', line)
+        if matched_pass_ptr:
+            type_name = 'Pass%sPtr' % matched_pass_ptr.group(1)
+            error(line_number, 'readability/pass_ptr', 5,
+                  'Local variables should never be %s (see '
+                  'http://webkit.org/coding/RefPtr.html).' % type_name)
 
 
 def check_spacing(file_extension, clean_lines, line_number, error):
@@ -2855,9 +2955,11 @@ def process_line(filename, file_extension,
 
     """
     raw_lines = clean_lines.raw_lines
+    detect_functions(clean_lines, line, function_state, error)
     check_for_function_lengths(clean_lines, line, function_state, error)
     if search(r'\bNOLINT\b', raw_lines[line]):  # ignore nolint lines
         return
+    check_pass_ptr_usage(clean_lines, line, function_state, error)
     check_for_multiline_comments_and_strings(clean_lines, line, error)
     check_style(clean_lines, line, file_extension, class_state, file_state, error)
     check_language(filename, clean_lines, line, file_extension, include_state,
@@ -2942,6 +3044,7 @@ class CppChecker(object):
         'readability/multiline_string',
         'readability/naming',
         'readability/null',
+        'readability/pass_ptr',
         'readability/streams',
         'readability/todo',
         'readability/utf8',
