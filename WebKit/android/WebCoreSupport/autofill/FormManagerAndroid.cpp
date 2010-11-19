@@ -202,21 +202,19 @@ string16 InferLabelFromTable(const HTMLFormControlElement& element) {
     while (parent && parent->isElementNode() && !static_cast<Element*>(parent)->hasTagName(tdTag))
         parent = parent->parentNode();
 
-    if (parent && parent->isElementNode()) {
-        Element* element = static_cast<Element*>(parent);
-        if (element->hasTagName(tdTag)) {
-            Node* previous = parent->previousSibling();
-
-            // Skip by any intervening text nodes.
-            while (previous && previous->isTextNode())
-                previous = previous->previousSibling();
-
-            if (previous && previous->isElementNode()) {
-                element = static_cast<Element*>(previous);
-                if (element->hasTagName(tdTag))
-                    inferred_label = FindChildText(element);
+    // Check all previous siblings, skipping non-element nodes, until we find a
+    // non-empty text block.
+    Node* previous = parent;
+    while(previous) {
+        if (previous->isElementNode()) {
+            Element* e = static_cast<Element*>(previous);
+            if (e->hasTagName(tdTag)) {
+                inferred_label = FindChildText(e);
+                if (!inferred_label.empty())
+                    break;
             }
         }
+        previous = previous->previousSibling();
     }
    return inferred_label;
 }
