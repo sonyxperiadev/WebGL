@@ -112,4 +112,10 @@ bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
     return false;
 }
 
+void BackedDoubleBufferedTexture::release(BaseTile* owner)
+{
+    if (m_owner == owner)
+        m_owner = 0;
+}
+
 } // namespace WebCore
