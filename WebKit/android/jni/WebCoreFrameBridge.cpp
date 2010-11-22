@@ -193,6 +193,7 @@ struct WebFrame::JavaBrowserFrame
     jweak       mObj;
     jweak       mHistoryList; // WebBackForwardList object
     jmethodID   mStartLoadingResource;
+    jmethodID   mMaybeSavePassword;
     jmethodID   mShouldInterceptRequest;
     jmethodID   mLoadStarted;
     jmethodID   mTransitionToCommitted;
@@ -238,6 +239,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
             "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
+    mJavaFrame->mMaybeSavePassword = env->GetMethodID(clazz, "maybeSavePassword",
+            "([BLjava/lang/String;Ljava/lang/String;)V");
     mJavaFrame->mShouldInterceptRequest =
             env->GetMethodID(clazz, "shouldInterceptRequest",
             "(Ljava/lang/String;)Landroid/webkit/WebResourceResponse;");
@@ -283,6 +286,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
+    LOG_ASSERT(mJavaFrame->mMaybeSavePassword, "Could not find method maybeSavePassword");
     LOG_ASSERT(mJavaFrame->mShouldInterceptRequest, "Could not find method shouldInterceptRequest");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
     LOG_ASSERT(mJavaFrame->mTransitionToCommitted, "Could not find method transitionToCommitted");
@@ -420,67 +424,8 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jstring jMethodStr = NULL;
     if (!method.isEmpty())
         jMethodStr = WtfStringToJstring(env, method);
-    jbyteArray jPostDataStr = NULL;
     WebCore::FormData* formdata = request.httpBody();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (formdata) {
-        // We can use the formdata->flatten() but it will result in two 
-        // memcpys, first through loading up the vector with the form data
-        // then another to copy it out of the vector and into the java byte
-        // array. Instead, we copy the form data ourselves below saving a
-        // memcpy.
-        const WTF::Vector<WebCore::FormDataElement>& elements = 
-                formdata->elements();
-
-        // Sizing pass
-        int size = 0;
-        size_t n = elements.size();
-        FileInfo** fileinfos = new FileInfo*[n];
-        for (size_t i = 0; i < n; ++i) {
-            fileinfos[i] = 0;
-            const WebCore::FormDataElement& e = elements[i];
-            if (e.m_type == WebCore::FormDataElement::data) {
-                size += e.m_data.size();
-            } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
-                fileinfos[i] = new FileInfo(env, e.m_filename);
-                int delta = env->CallIntMethod(obj.get(),
-                    mJavaFrame->mGetFileSize, fileinfos[i]->getUri());
-                checkException(env);
-                fileinfos[i]->setSize(delta);
-                size += delta;
-            }
-        }
-
-        // Only create the byte array if there is POST data to pass up.
-        // The Java code is expecting null if there is no data.
-        if (size > 0) {
-            // Copy the actual form data.
-            jPostDataStr = env->NewByteArray(size);
-            if (jPostDataStr) {
-                // Write  the form data to the java array.
-                jbyte* bytes = env->GetByteArrayElements(jPostDataStr, NULL);
-                int offset = 0;
-                for (size_t i = 0; i < n; ++i) {
-                    const WebCore::FormDataElement& e = elements[i];
-                    if (e.m_type == WebCore::FormDataElement::data) {
-                        int delta = e.m_data.size();
-                        memcpy(bytes + offset, e.m_data.data(), delta);
-                        offset += delta;
-                    } else if (e.m_type
-                            == WebCore::FormDataElement::encodedFile) {
-                        int delta = env->CallIntMethod(obj.get(),
-                            mJavaFrame->mGetFile, fileinfos[i]->getUri(),
-                            jPostDataStr, offset, fileinfos[i]->getSize());
-                        checkException(env);
-                        offset += delta;
-                    }
-                }
-                env->ReleaseByteArrayElements(jPostDataStr, bytes, 0);
-            }
-        }
-        delete[] fileinfos;
-    }
-
+    jbyteArray jPostDataStr = getPostData(request);
     jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers);
 
     // Convert the WebCore Cache Policy to a WebView Cache Policy.
@@ -510,7 +455,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
     jobject jLoadListener =
-        env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
+        env->CallObjectMethod(mJavaFrame->frame(env).get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
                 jPostDataStr, formdata ? formdata->identifier(): 0,
                 cacheMode, mainResource, isUserGesture,
@@ -946,8 +891,129 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     checkException(env);
 }
 
+void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request)
+{
+    if (request.httpMethod() != "POST")
+        return;
+
+    WTF::String username;
+    WTF::String password;
+    if (!getUsernamePasswordFromDom(frame, username, password))
+        return;
+
+    JNIEnv* env = getJNIEnv();
+    jstring jUsername = WtfStringToJstring(env, username);
+    jstring jPassword = WtfStringToJstring(env, password);
+    jbyteArray jPostData = getPostData(request);
+    if (jPostData) {
+        env->CallVoidMethod(mJavaFrame->frame(env).get(),
+                mJavaFrame->mMaybeSavePassword, jPostData, jUsername, jPassword);
+    }
+
+    env->DeleteLocalRef(jPostData);
+    env->DeleteLocalRef(jUsername);
+    env->DeleteLocalRef(jPassword);
+    checkException(env);
+}
+
+bool WebFrame::getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& username, WTF::String& password)
+{
+    bool found = false;
+    WTF::PassRefPtr<WebCore::HTMLCollection> form = frame->document()->forms();
+    WebCore::Node* node = form->firstItem();
+    while (node && !found && !node->namespaceURI().isNull() &&
+           !node->namespaceURI().isEmpty()) {
+        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+            ((WebCore::HTMLFormElement*)node)->associatedElements();
+        size_t size = elements.size();
+        for (size_t i = 0; i< size && !found; i++) {
+            WebCore::HTMLFormControlElement* e = elements[i];
+            if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
+                WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
+                if (input->autoComplete() == false)
+                    continue;
+                if (input->isPasswordField())
+                    password = input->value();
+                else if (input->isTextField() || input->isEmailField())
+                    username = input->value();
+                if (!username.isNull() && !password.isNull())
+                    found = true;
+            }
+        }
+        node = form->nextItem();
+    }
+    return found;
+}
+
+jbyteArray WebFrame::getPostData(const WebCore::ResourceRequest& request)
+{
+    jbyteArray jPostDataStr = NULL;
+    WebCore::FormData* formdata = request.httpBody();
+    if (formdata) {
+        JNIEnv* env = getJNIEnv();
+        AutoJObject obj = mJavaFrame->frame(env);
+
+        // We can use the formdata->flatten() but it will result in two
+        // memcpys, first through loading up the vector with the form data
+        // then another to copy it out of the vector and into the java byte
+        // array. Instead, we copy the form data ourselves below saving a
+        // memcpy.
+        const WTF::Vector<WebCore::FormDataElement>& elements =
+                formdata->elements();
+
+        // Sizing pass
+        int size = 0;
+        size_t n = elements.size();
+        FileInfo** fileinfos = new FileInfo*[n];
+        for (size_t i = 0; i < n; ++i) {
+            fileinfos[i] = 0;
+            const WebCore::FormDataElement& e = elements[i];
+            if (e.m_type == WebCore::FormDataElement::data) {
+                size += e.m_data.size();
+            } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
+                fileinfos[i] = new FileInfo(env, e.m_filename);
+                int delta = env->CallIntMethod(obj.get(),
+                    mJavaFrame->mGetFileSize, fileinfos[i]->getUri());
+                checkException(env);
+                fileinfos[i]->setSize(delta);
+                size += delta;
+            }
+        }
+
+        // Only create the byte array if there is POST data to pass up.
+        // The Java code is expecting null if there is no data.
+        if (size > 0) {
+            // Copy the actual form data.
+            jPostDataStr = env->NewByteArray(size);
+            if (jPostDataStr) {
+                // Write  the form data to the java array.
+                jbyte* bytes = env->GetByteArrayElements(jPostDataStr, NULL);
+                int offset = 0;
+                for (size_t i = 0; i < n; ++i) {
+                    const WebCore::FormDataElement& e = elements[i];
+                    if (e.m_type == WebCore::FormDataElement::data) {
+                        int delta = e.m_data.size();
+                        memcpy(bytes + offset, e.m_data.data(), delta);
+                        offset += delta;
+                    } else if (e.m_type
+                            == WebCore::FormDataElement::encodedFile) {
+                        int delta = env->CallIntMethod(obj.get(),
+                            mJavaFrame->mGetFile, fileinfos[i]->getUri(),
+                            jPostDataStr, offset, fileinfos[i]->getSize());
+                        checkException(env);
+                        offset += delta;
+                    }
+                }
+                env->ReleaseByteArrayElements(jPostDataStr, bytes, 0);
+            }
+        }
+        delete[] fileinfos;
+    }
+    return jPostDataStr;
+}
 
 // ----------------------------------------------------------------------------
+
 static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decision)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -1680,33 +1746,9 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "GetUsernamePassword must take a valid frame pointer!");
     jobjectArray strArray = NULL;
-
-    WTF::String username, password;
-    bool found = false;
-    WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
-    WebCore::Node* node = form->firstItem();
-    while (node && !found && !node->namespaceURI().isNull() &&
-           !node->namespaceURI().isEmpty()) {
-        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
-            ((WebCore::HTMLFormElement*)node)->associatedElements();
-        size_t size = elements.size();
-        for (size_t i = 0; i< size && !found; i++) {
-            WebCore::HTMLFormControlElement* e = elements[i];
-            if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
-                WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
-                if (input->autoComplete() == false)
-                    continue;
-                if (input->isPasswordField())
-                    password = input->value();
-                else if (input->isTextField() || input->isEmailField())
-                    username = input->value();
-                if (!username.isNull() && !password.isNull())
-                    found = true;
-            }
-        }
-        node = form->nextItem();
-    }
-    if (found) {
+    WTF::String username;
+    WTF::String password;
+    if (WebFrame::getWebFrame(pFrame)->getUsernamePasswordFromDom(pFrame, username, password)) {
         jclass stringClass = env->FindClass("java/lang/String");
         strArray = env->NewObjectArray(2, stringClass, NULL);
         env->DeleteLocalRef(stringClass);
