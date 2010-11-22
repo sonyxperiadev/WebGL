@@ -84,6 +84,9 @@ BaseTile::BaseTile()
 BaseTile::~BaseTile()
 {
     setUsedLevel(-1);
+    if(m_texture)
+        m_texture->release(this);
+
 #ifdef DEBUG_COUNT
     gBaseTileCount--;
 #endif

@@ -75,11 +75,12 @@ GLWebViewState::GLWebViewState()
     , m_extra(0)
     , m_navLayer(0)
 {
-    m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
-    m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
     m_viewport.setEmpty();
     m_viewportTileBounds.setEmpty();
     m_preZoomBounds.setEmpty();
+
+    m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
+    m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
 #ifdef DEBUG_COUNT
     gGLWebViewStateCount++;
 #endif

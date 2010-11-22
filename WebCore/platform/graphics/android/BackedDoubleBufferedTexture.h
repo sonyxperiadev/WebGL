@@ -66,6 +66,7 @@ public:
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(BaseTile* owner);
+    void release(BaseTile* owner);
 
     // private member accessor functions
     BaseTile* owner() { return m_owner; } // only used by the consumer thread
