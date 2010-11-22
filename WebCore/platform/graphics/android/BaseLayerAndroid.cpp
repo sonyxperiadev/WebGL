@@ -122,7 +122,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     XLOG("drawBasePicture, TX: %d, TY: %d scale %.2f", viewportTileBounds.fLeft,
             viewportTileBounds.fTop, scale);
 
-    if (scale == m_glWebViewState->currentScale())
+    if (scale == m_glWebViewState->currentScale()
+        || m_glWebViewState->preZoomBounds().isEmpty())
         m_glWebViewState->setPreZoomBounds(viewportTileBounds);
 
     // If we have a different scale than the current one, we have to
