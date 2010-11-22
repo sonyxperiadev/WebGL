@@ -33,7 +33,7 @@
 
 namespace android {
 
-bool logMessageHandler(int severity, const std::string& str) {
+bool logMessageHandler(int severity, const char* file, int line, size_t message_start, const std::string& str) {
     int androidSeverity = ANDROID_LOG_VERBOSE;
     switch(severity) {
     case logging::LOG_FATAL:
@@ -50,7 +50,7 @@ bool logMessageHandler(int severity, const std::string& str) {
         androidSeverity = ANDROID_LOG_VERBOSE;
         break;
     }
-    android_printLog(androidSeverity, "chromium", "%s", str.c_str());
+    android_printLog(androidSeverity, "chromium", "%s:%d: %s", file, line, str.c_str());
     return false;
 }
 

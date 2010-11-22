@@ -1713,6 +1713,12 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
     return WtfStringToJstring(env, value);
 }
 
+static int nativeFocusCandidateLineHeight(JNIEnv *env, jobject obj)
+{
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->lineHeight() : 0;
+}
+
 static jfloat nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
@@ -2264,6 +2270,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateIsRtlText },
     { "nativeFocusCandidateIsTextInput", "()Z",
         (void*) nativeFocusCandidateIsTextInput },
+    { "nativeFocusCandidateLineHeight", "()I",
+        (void*) nativeFocusCandidateLineHeight },
     { "nativeFocusCandidateMaxLength", "()I",
         (void*) nativeFocusCandidateMaxLength },
     { "nativeFocusCandidateName", "()Ljava/lang/String;",

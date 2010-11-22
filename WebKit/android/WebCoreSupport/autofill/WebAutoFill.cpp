@@ -111,7 +111,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
 
     // Get the FormField from the Node.
     webkit_glue::FormField formField;
-    FormManager::HTMLFormControlElementToFormField(formFieldElement, false, false, &formField);
+    FormManager::HTMLFormControlElementToFormField(formFieldElement, FormManager::EXTRACT_NONE, &formField);
     formField.set_label(FormManager::LabelForElement(*formFieldElement));
 
     webkit_glue::FormData* form = new webkit_glue::FormData;
@@ -138,7 +138,7 @@ void WebAutoFill::querySuccessful(int queryId, const string16& value, const stri
     mUniqueIdMap[queryId] = uniqueId;
 
     ASSERT(mWebViewCore);
-    mWebViewCore->setWebTextViewAutoFillable(queryId, mAutoFillProfile->PreviewSummary());
+    mWebViewCore->setWebTextViewAutoFillable(queryId, mAutoFillProfile->Label());
 }
 
 void WebAutoFill::fillFormFields(int queryId)
@@ -172,12 +172,11 @@ bool WebAutoFill::enabled() const
     return page ? page->settings()->autoFillEnabled() : false;
 }
 
-void WebAutoFill::setProfile(int id, const string16& fullName, const string16& emailAddress, const string16& companyName,
+void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName,
                              const string16& addressLine1, const string16& addressLine2, const string16& city,
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
     mAutoFillProfile.set(new AutoFillProfile());
-    mAutoFillProfile->set_unique_id(id);
 
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
     mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), fullName);
@@ -193,7 +192,15 @@ void WebAutoFill::setProfile(int id, const string16& fullName, const string16& e
 
     std::vector<AutoFillProfile> profiles;
     profiles.push_back(*mAutoFillProfile);
+    updateProfileLabel();
     mTabContents->profile()->GetPersonalDataManager()->SetProfiles(&profiles);
+}
+
+bool WebAutoFill::updateProfileLabel()
+{
+    std::vector<AutoFillProfile*> profiles;
+    profiles.push_back(mAutoFillProfile.get());
+    return AutoFillProfile::AdjustInferredLabels(&profiles);
 }
 
 void WebAutoFill::clearProfiles()
@@ -201,12 +208,10 @@ void WebAutoFill::clearProfiles()
     if (!mAutoFillProfile)
         return;
     // For now Chromium only ever knows about one profile, so we can just
-    // remove it by unique id. If we support multiple profiles in the future
+    // remove it. If we support multiple profiles in the future
     // we need to remove them all here.
-    int uniqueProfileId = mAutoFillProfile->unique_id();
-    if (uniqueProfileId != NO_PROFILE_SET)
-        mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(uniqueProfileId);
-    mAutoFillProfile.set(0);
+    std::string profileGuid = mAutoFillProfile->guid();
+    mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(profileGuid);
 }
 
 }

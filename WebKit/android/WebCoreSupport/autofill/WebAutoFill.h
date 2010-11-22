@@ -63,10 +63,12 @@ public:
     void setWebViewCore(WebViewCore* webViewCore) { mWebViewCore = webViewCore; }
     bool enabled() const;
 
-    void setProfile(int id, const string16& fullName, const string16& emailAddress, const string16& companyName,
+    void setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName,
                     const string16& addressLine1, const string16& addressLine2, const string16& city,
                     const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber);
     void clearProfiles();
+
+    bool updateProfileLabel();
 
 private:
     OwnPtr<FormManager> mFormManager;

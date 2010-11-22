@@ -45,6 +45,7 @@
 #undef LOG_ASSERT
 #endif
 
+#include <android/net/android_network_library_impl.h>
 #include <base/callback.h>
 #include <base/condition_variable.h>
 #include <base/lock.h>
