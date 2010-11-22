@@ -72,6 +72,8 @@ private:
     std::string m_url;
 
     std::map<std::string, std::string> m_headerFields;
+
+    void setMimeType(const std::string &mimeType);
 };
 
 } // namespace android
