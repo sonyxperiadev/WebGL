@@ -134,6 +134,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
             || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest
             || m_glWebViewState->futureScale() != scale)) {
         m_glWebViewState->scheduleUpdate(currentTime, scale);
+
+        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
+            // schedule the new request
+            TiledPage* nextTiledPage = m_glWebViewState->backPage();
+            nextTiledPage->setScale(scale);
+            nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        }
     }
 
     float transparency = 1;
