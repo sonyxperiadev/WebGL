@@ -416,6 +416,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ProgressTracker.cpp \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
+	loader/ResourceLoadScheduler.cpp \
 	loader/ResourceLoader.cpp \
 	loader/SinkDocument.cpp \
 	loader/SubframeLoader.cpp \
