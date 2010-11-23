@@ -191,6 +191,8 @@ public:
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
+    bool hasContent();
+
 private:
 
     // Delay between scheduling a new page when the scale

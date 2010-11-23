@@ -66,6 +66,8 @@ WebAutoFill::WebAutoFill()
     mAutoFillManager = new AutoFillManager(mTabContents.get());
     mAutoFillHost = new AutoFillHostAndroid(this);
     mTabContents->SetAutoFillHost(mAutoFillHost.get());
+
+    setEmptyProfile();
 }
 
 WebAutoFill::~WebAutoFill()
@@ -147,6 +149,7 @@ void WebAutoFill::fillFormFields(int queryId)
         return;
 
     webkit_glue::FormData* form = mQueryMap[queryId];
+    ASSERT(form);
     AutoFillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
     ASSERT(iter != mUniqueIdMap.end());
     mAutoFillManager->FillAutoFillFormData(queryId, *form, iter->second);
@@ -176,8 +179,10 @@ void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddr
                              const string16& addressLine1, const string16& addressLine2, const string16& city,
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
-    mAutoFillProfile.set(new AutoFillProfile());
+    if (!mAutoFillProfile)
+        mAutoFillProfile.set(new AutoFillProfile());
 
+    // Update the profile.
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
     mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), fullName);
     mAutoFillProfile->SetInfo(AutoFillType(EMAIL_ADDRESS), emailAddress);
@@ -212,6 +217,23 @@ void WebAutoFill::clearProfiles()
     // we need to remove them all here.
     std::string profileGuid = mAutoFillProfile->guid();
     mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(profileGuid);
+    setEmptyProfile();
+}
+
+void WebAutoFill::setEmptyProfile()
+{
+    // Set an empty profile. This will ensure that when autofill is enabled,
+    // we will still search the document for autofillable forms and inform
+    // java of their presence so we can invite the user to set up
+    // their own profile.
+
+    // Chromium code will strip the values sent into the profile so we need them to be
+    // at least one non-whitespace character long. We need to set all fields of the
+    // profile to a non-empty string so that any field type can trigger the autofill
+    // suggestion. AutoFill will not detect form fields if the profile value for that
+    // field is an empty string.
+    static const string16 empty = string16(ASCIIToUTF16("a"));
+    setProfile(empty, empty, empty, empty, empty, empty, empty, empty, empty, empty);
 }
 
 }

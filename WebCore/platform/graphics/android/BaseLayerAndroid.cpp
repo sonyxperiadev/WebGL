@@ -134,6 +134,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
             || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest
             || m_glWebViewState->futureScale() != scale)) {
         m_glWebViewState->scheduleUpdate(currentTime, scale);
+
+        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
+            // schedule the new request
+            TiledPage* nextTiledPage = m_glWebViewState->backPage();
+            nextTiledPage->setScale(scale);
+            nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        }
     }
 
     float transparency = 1;
@@ -210,6 +217,12 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     glEnable(GL_SCISSOR_TEST);
 
     glScissor(left, top, width, height);
+    if (!m_glWebViewState || !m_glWebViewState->hasContent()) {
+        glClearColor(1, 1, 1, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        return true;
+    }
     glClearColor((float)m_color.red() / 255.0,
                  (float)m_color.green() / 255.0,
                  (float)m_color.blue() / 255.0, 1);

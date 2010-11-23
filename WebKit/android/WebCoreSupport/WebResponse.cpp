@@ -26,8 +26,12 @@
 #include "config.h"
 #include "WebResponse.h"
 
+#include "MIMETypeRegistry.h"
+#include "PlatformString.h"
 #include "ResourceResponse.h"
 #include "ResourceError.h"
+
+#include <wtf/text/CString.h>
 
 using namespace std;
 
@@ -42,6 +46,8 @@ WebResponse::WebResponse(URLRequest* request)
     m_url = request->url().spec();
     m_host = request->url().HostNoBrackets();
     request->GetMimeType(&m_mime);
+    setMimeType(m_mime);
+
     request->GetCharset(&m_encoding);
     m_expectedSize = request->GetExpectedContentSize();
 
@@ -67,6 +73,7 @@ WebResponse::WebResponse(const string &url, const string &mimeType, long long ex
     , m_mime(mimeType)
     , m_url(url)
 {
+    setMimeType(mimeType);
 }
 
 WebCore::ResourceResponse WebResponse::createResourceResponse()
@@ -108,6 +115,17 @@ void WebResponse::setUrl(const string& url)
 const string& WebResponse::getMimeType() const
 {
     return m_mime;
+}
+
+void WebResponse::setMimeType(const std::string &mimeType)
+{
+    if (mimeType.length() == 0 && m_url.length() > 0) {
+        WTF::String wtfMime(m_url.c_str(), m_url.length());
+        wtfMime = WebCore::MIMETypeRegistry::getMIMETypeForPath(wtfMime);
+        m_mime = std::string(wtfMime.utf8().data(), wtfMime.length());
+    } else {
+        m_mime = mimeType;
+    }
 }
 
 bool WebResponse::getHeader(const string& header, string* result) const

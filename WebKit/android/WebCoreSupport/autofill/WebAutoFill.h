@@ -71,6 +71,8 @@ public:
     bool updateProfileLabel();
 
 private:
+    void setEmptyProfile();
+
     OwnPtr<FormManager> mFormManager;
     OwnPtr<AutoFillManager> mAutoFillManager;
     OwnPtr<AutoFillHost> mAutoFillHost;
