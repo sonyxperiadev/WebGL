@@ -69,6 +69,8 @@
 #include <jni.h>
 #include <utils/Log.h>
 
+#define EXPORT __attribute__((visibility("default")))
+
 namespace android {
 
 extern int registerWebFrame(JNIEnv*);
