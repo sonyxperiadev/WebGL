@@ -51,7 +51,6 @@ extern android::AssetManager* globalAssetManager();
 #define ASSERT(assertion, ...) do \
     if (!(assertion)) { \
         android_printLog(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
-        CRASH(); \
     } \
 while (0)
 
