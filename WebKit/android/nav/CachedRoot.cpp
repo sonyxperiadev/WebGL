@@ -717,9 +717,8 @@ public:
                 layers->getBounds().fLeft, layers->getBounds().fTop,
                 layers->getBounds().fRight, layers->getBounds().fBottom);
             if (collectGlyphs && (layerType == kDrawGlyph_Type
-                || ((layerType == kDrawRect_Type
-                || layerType == kDrawBitmap_Type)
-                && mTextTest.contains(*layers)))) {
+                || ((layerType == kDrawRect_Type && mTextTest.contains(*layers))
+                || (layerType == kDrawBitmap_Type && mTextSlop.contains(*layers))))) {
                 DBG_NAV_LOGD("RingCheck #%d collectOvers", layers - mLayers.begin());
                 collectOvers = true;
                 clipped->op(*layers, SkRegion::kUnion_Op);
@@ -964,9 +963,9 @@ private:
                 mTextSlop.contains(*layers) ? "true" : "false",
                 gb.fLeft, gb.fTop, gb.fRight, gb.fBottom);
 #endif
-            if ((layerType == kDrawGlyph_Type && mTextSlop.contains(*layers))
-                || ((layerType == kDrawRect_Type
-                || layerType == kDrawBitmap_Type)
+            if (((layerType == kDrawGlyph_Type || layerType == kDrawBitmap_Type)
+                && mTextSlop.contains(*layers))
+                || (layerType == kDrawRect_Type
                 && mTextTest.contains(*layers))) {
                 if (!testLayer)
                     testLayer = layers;
@@ -1854,7 +1853,8 @@ void CachedRoot::Debug::print() const
     b->mHistory->mDebug.print(b);
     DUMP_NAV_LOGD("// int mMaxXScroll=%d, mMaxYScroll=%d;\n",
         b->mMaxXScroll, b->mMaxYScroll);
-    CachedLayer::Debug::printRootLayerAndroid(b->mRootLayer);
+    if (b->mRootLayer)
+        CachedLayer::Debug::printRootLayerAndroid(b->mRootLayer);
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     if (gNavCacheLogFile)
         fclose(gNavCacheLogFile);
