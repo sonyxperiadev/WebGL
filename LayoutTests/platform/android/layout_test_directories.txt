@@ -36,6 +36,7 @@ fast/url
 fast/xpath
 http/conf
 http/tests/appcache
+http/tests/cookies
 http/tests/resources
 http/tests/ssl
 platform/android
