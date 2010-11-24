@@ -973,7 +973,7 @@ void Element::recalcStyle(StyleChange change)
 
     if ((change > NoChange || needsStyleRecalc())) {
 #ifdef ANDROID_STYLE_VERSION
-        RefPtr<RenderStyle> newStyle = document()->styleSelector()->styleForElement(this);
+        RefPtr<RenderStyle> newStyle = document()->styleForElementIgnoringPendingStylesheets(this);
         if (displayDiff(currentStyle.get(), newStyle.get()))
             document()->incStyleVersion();
 #endif
