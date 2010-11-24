@@ -66,6 +66,7 @@ fast/events/touch/basic-multi-touch-events.html FAIL // Requires multi-touch ges
 fast/events/touch/touch-coords-in-zoom-and-scroll.html FAIL // Requires eventSender.zoomPageIn(),zoomPageOut()
 fast/events/touch/touch-target.html FAIL // Requires multi-touch gestures not supported by Android system
 fast/workers FAIL // workers not supported
+http/tests/cookies/third-party-cookie-relaxing.html FAIL // We don't support conditional acceptance of third-party cookies
 http/tests/eventsource/workers FAIL // workers not supported
 http/tests/workers FAIL // workers not supported
 http/tests/xmlhttprequest/workers FAIL // workers not supported
