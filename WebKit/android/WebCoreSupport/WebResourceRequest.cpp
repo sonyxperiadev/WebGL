@@ -36,39 +36,7 @@ namespace android {
 
 WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
 {
-    // Set the request headers
-    const HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
-    for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
-        const std::string& nameUtf8 = it->first.string().utf8().data();
-
-        // Skip over referrer headers found in the header map because we already
-        // pulled it out as a separate parameter.  We likewise prune the UA since
-        // that will be added back by the network layer.
-        if (LowerCaseEqualsASCII(nameUtf8, "referer") || LowerCaseEqualsASCII(nameUtf8, "user-agent"))
-            continue;
-
-        // The next comment does not match what is happening in code since the load flags are not implemented
-        // (http://b/issue?id=2889880)
-        // TODO: Check this is correct when load flags are implemented and working.
-
-        // Skip over "Cache-Control: max-age=0" header if the corresponding
-        // load flag is already specified. FrameLoader sets both the flag and
-        // the extra header -- the extra header is redundant since our network
-        // implementation will add the necessary headers based on load flags.
-        // See http://code.google.com/p/chromium/issues/detail?id=3434.
-        const std::string& valueUtf8 = it->second.utf8().data();
-        if (LowerCaseEqualsASCII(nameUtf8, "cache-control") && LowerCaseEqualsASCII(valueUtf8, "max-age=0"))
-            continue;
-
-        m_requestHeaders.SetHeader(nameUtf8, valueUtf8);
-    }
-
-    m_method = resourceRequest.httpMethod().utf8().data();
-    m_referrer = resourceRequest.httpReferrer().utf8().data();
-    m_userAgent = resourceRequest.httpUserAgent().utf8().data();
-
-    m_url = resourceRequest.url().string().utf8().data();
-
+    // Set the load flags based on the WebCore request.
     m_loadFlags = net::LOAD_NORMAL;
     switch (resourceRequest.cachePolicy()) {
     case ReloadIgnoringCacheData:
@@ -83,6 +51,46 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
     case UseProtocolCachePolicy:
         break;
     }
+
+    // TODO: We should consider setting these flags and net::LOAD_DO_NOT_SEND_AUTH_DATA
+    // when FrameLoaderClient::shouldUseCredentialStorage() is false. However,
+    // the required WebKit logic is not yet in place. See Chromium's
+    // FrameLoaderClientImpl::shouldUseCredentialStorage().
+    if (!resourceRequest.allowCookies()) {
+        m_loadFlags |= net::LOAD_DO_NOT_SAVE_COOKIES;
+        m_loadFlags |= net::LOAD_DO_NOT_SEND_COOKIES;
+    }
+
+
+    // Set the request headers
+    const HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
+    for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+        const std::string& nameUtf8 = it->first.string().utf8().data();
+        const std::string& valueUtf8 = it->second.utf8().data();
+
+        // Skip over referrer headers found in the header map because we already
+        // pulled it out as a separate parameter.  We likewise prune the UA since
+        // that will be added back by the network layer.
+        if (LowerCaseEqualsASCII(nameUtf8, "referer") || LowerCaseEqualsASCII(nameUtf8, "user-agent"))
+            continue;
+
+        // Skip over "Cache-Control: max-age=0" header if the corresponding
+        // load flag is already specified. FrameLoader sets both the flag and
+        // the extra header -- the extra header is redundant since our network
+        // implementation will add the necessary headers based on load flags.
+        // See http://code.google.com/p/chromium/issues/detail?id=3434.
+        if ((m_loadFlags & net::LOAD_VALIDATE_CACHE) &&
+            LowerCaseEqualsASCII(nameUtf8, "cache-control") && LowerCaseEqualsASCII(valueUtf8, "max-age=0"))
+            continue;
+
+        m_requestHeaders.SetHeader(nameUtf8, valueUtf8);
+    }
+
+    m_method = resourceRequest.httpMethod().utf8().data();
+    m_referrer = resourceRequest.httpReferrer().utf8().data();
+    m_userAgent = resourceRequest.httpUserAgent().utf8().data();
+
+    m_url = resourceRequest.url().string().utf8().data();
 }
 
 } // namespace android
