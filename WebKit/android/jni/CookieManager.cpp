@@ -127,7 +127,7 @@ static void removeSessionCookies(WebRequestContext* context)
   CookieMonster* cookieMonster = context->cookie_store()->GetCookieMonster();
   CookieMonster::CookieList cookies = cookieMonster->GetAllCookies();
   for (CookieMonster::CookieList::const_iterator iter = cookies.begin(); iter != cookies.end(); ++iter) {
-    if (!iter->IsPersistent())
+    if (iter->IsSessionCookie())
       cookieMonster->DeleteCanonicalCookie(*iter);
   }
 #endif
