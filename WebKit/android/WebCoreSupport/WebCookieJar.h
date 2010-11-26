@@ -23,48 +23,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebRequestContext_h
-#define WebRequestContext_h
+#ifndef WebCookieJar_h
+#define WebCookieJar_h
 
 #include "ChromiumIncludes.h"
-#include "PlatformString.h"
 
 #include <wtf/ThreadingPrimitives.h>
 
 namespace android {
 
-class WebRequestContext : public URLRequestContext {
+class WebCookieJar : public net::CookiePolicy {
 public:
-    // URLRequestContext overrides.
-    virtual const std::string& GetUserAgent(const GURL&) const;
-    virtual const std::string& GetAcceptLanguage() const;
+    static WebCookieJar* get(bool isPrivate);
 
-    // Lazily create the relevant context. This class holds a reference.
-    // This may be called on any thread. The context returned, however, is not
-    // threadsafe, and should only be used on a single thread (the network stack
-    // IO thread), with the exception of the methods below.
-    static WebRequestContext* get(bool isPrivateBrowsing);
+    // CookiePolicy implementation from external/chromium
+    virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
+    virtual int CanSetCookie(const GURL& url, const GURL& first_party_for_cookies, const std::string& cookie_line, net::CompletionCallback*);
 
-    // These methods are threadsafe.
-    static bool cleanupPrivateBrowsingFiles();
-    static void setUserAgent(WTF::String);
-    static void setAcceptLanguage(WTF::String);
+    bool allowCookies();
+    void setAllowCookies(bool allow);
+    void cleanupFiles();
 
-    // A helper function used by the cache and cookie managers. Should probably
-    // find a better home, but wait for the refactoring in b/3113804 to be
-    // completed.
-    static void removeFileOrDirectory(const char* filename);
+    // Instead of this it would probably be better to add the cookie methods
+    // here so the rest of WebKit doesn't have to know about Chromium classes
+    net::CookieStore* cookieStore() { return m_cookieStore.get(); }
+    net::CookiePolicy* cookiePolicy() { return this; }
 
 private:
-    WebRequestContext();
-    ~WebRequestContext();
+    WebCookieJar(bool isPrivate);
 
-    static WebRequestContext* getImpl(bool isPrivateBrowsing);
-    static WebRequestContext* getRegularContext();
-    static WebRequestContext* getPrivateBrowsingContext();
-
+    scoped_refptr<net::CookieStore> m_cookieStore;
+    bool m_allowCookies;
+    WTF::Mutex m_allowCookiesMutex;
+    std::string m_databaseFilePath;
 };
 
-} // namespace android
+}
 
 #endif
