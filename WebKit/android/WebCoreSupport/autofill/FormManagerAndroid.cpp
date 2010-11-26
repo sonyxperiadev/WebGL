@@ -480,26 +480,26 @@ void FormManager::ExtractForms(Frame* frame) {
     WTF::PassRefPtr<HTMLCollection> web_forms = frame->document()->forms();
 
     for (size_t i = 0; i < web_forms->length(); ++i) {
-        FormElement* form_elements = new FormElement;
-        HTMLFormElement* form_element = static_cast<HTMLFormElement*>(web_forms->item(i));
-        form_elements->form_element = form_element;
+        FormElement* form_element = new FormElement;
+        HTMLFormElement* html_form_element = static_cast<HTMLFormElement*>(web_forms->item(i));
+        form_element->form_element = html_form_element;
 
-        WTF::Vector<HTMLFormControlElement*> control_elements = form_element->associatedElements();
+        WTF::Vector<HTMLFormControlElement*> control_elements = html_form_element->associatedElements();
         for (size_t j = 0; j < control_elements.size(); ++j) {
             HTMLFormControlElement* element = control_elements[j];
-            form_elements->control_elements.push_back(element);
+            form_element->control_elements.push_back(element);
 
             // Save original values of "select-one" inputs so we can restore them
             // when |ClearFormWithNode()| is invoked.
             if (formControlType(*element) == kSelectOne) {
                 HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
                 string16 value = WTFStringToString16(select_element->value());
-                form_elements->control_values.push_back(value);
+                form_element->control_values.push_back(value);
             } else
-                form_elements->control_values.push_back(string16());
+                form_element->control_values.push_back(string16());
         }
 
-        form_elements_.push_back(form_elements);
+        form_elements_.push_back(form_element);
     }
 }
 
