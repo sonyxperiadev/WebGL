@@ -334,6 +334,18 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
     } else if (formControlType(*element) == kSelectOne) {
         HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(element);
         value = WTFStringToString16(select_element->value());
+
+        // Convert the |select_element| value to text if requested.
+        if (extract_mask & EXTRACT_OPTION_TEXT) {
+            Vector<Element*> list_items = select_element->listItems();
+            for (size_t i = 0; i < list_items.size(); ++i) {
+                if (list_items[i]->hasTagName(optionTag) &&
+                    WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->value()) == value) {
+                    value = WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->text());
+                    break;
+                }
+            }
+        }
     }
 
     // TODO: This is a temporary stop-gap measure designed to prevent
