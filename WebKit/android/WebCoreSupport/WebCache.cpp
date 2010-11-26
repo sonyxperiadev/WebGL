@@ -23,37 +23,95 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebCache.h"
+
+#include "JNIUtility.h"
+#include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
 
+using namespace WTF;
 using namespace net;
 
 namespace android {
 
-WebCache* WebCache::s_instance = 0;
+static const std::string& rootDirectory()
+{
+    // This method may be called on any thread, as the Java method is
+    // synchronized.
+    static WTF::Mutex mutex;
+    MutexLocker lock(mutex);
+    static std::string cacheDirectory;
+    if (cacheDirectory.empty()) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
+        jmethodID method = env->GetStaticMethodID(bridgeClass, "getCacheDirectory", "()Ljava/lang/String;");
+        cacheDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
+        env->DeleteLocalRef(bridgeClass);
+    }
+    return cacheDirectory;
+}
+
+WebCache* WebCache::get(bool isPrivateBrowsing)
+{
+    static const char* const kDirectory = "/webviewCacheChromium";
+    static const char* const kDirectoryPrivate = "/webviewCacheChromiumPrivate";
+
+    static WebCache* regularCache = 0;
+    static WebCache* privateCache = 0;
+
+    if (isPrivateBrowsing) {
+        if (!privateCache) {
+            std::string storageDirectory = rootDirectory();
+            storageDirectory.append(kDirectoryPrivate);
+            privateCache = new WebCache(storageDirectory);
+        }
+        return privateCache;
+    }
+
+    if (!regularCache) {
+        std::string storageDirectory = rootDirectory();
+        storageDirectory.append(kDirectory);
+        regularCache = new WebCache(storageDirectory);
+    }
+    return regularCache;
+}
+
+WebCache::WebCache(const std::string& storageDirectory)
+    : m_storageDirectory(storageDirectory)
+    , m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
+    , m_doneCallback(this, &WebCache::onClearDone)
+    , m_isClearInProgress(false)
+{
+    base::Thread* ioThread = WebUrlLoaderClient::ioThread();
+    scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
+
+    static const int kMaximumCacheSizeBytes = 20 * 1024 * 1024;
+    FilePath directoryPath(m_storageDirectory.c_str());
+    net::HttpCache::DefaultBackend* backendFactory = new net::HttpCache::DefaultBackend(net::DISK_CACHE, directoryPath, kMaximumCacheSizeBytes, cacheMessageLoopProxy);
+
+    m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
+    m_cache = new net::HttpCache(m_hostResolver.get(),
+                                 0, // dnsrr_resolver
+                                 net::ProxyService::CreateDirect(),
+                                 net::SSLConfigService::CreateSystemSSLConfigService(),
+                                 net::HttpAuthHandlerFactory::CreateDefault(m_hostResolver.get()),
+                                 0, // network_delegate
+                                 0, // net_log
+                                 backendFactory);
+}
 
 void WebCache::clear()
 {
      base::Thread* thread = WebUrlLoaderClient::ioThread();
      if (thread)
-         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(getInstance(), &WebCache::doClear));
+         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::doClear));
 }
 
-WebCache::WebCache()
-    : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
-    , m_doneCallback(this, &WebCache::done)
-    , m_isClearInProgress(false)
+void WebCache::cleanupFiles()
 {
-}
-
-WebCache* WebCache::getInstance()
-{
-    if (!s_instance) {
-        s_instance = new WebCache();
-        s_instance->AddRef();
-    }
-    return s_instance;
+    WebRequestContext::removeFileOrDirectory(m_storageDirectory.c_str());
 }
 
 void WebCache::doClear()
@@ -61,9 +119,8 @@ void WebCache::doClear()
     if (m_isClearInProgress)
         return;
     m_isClearInProgress = true;
-    URLRequestContext* context = WebRequestContext::get(false /* isPrivateBrowsing */);
-    HttpTransactionFactory* factory = context->http_transaction_factory();
-    int code = factory->GetCache()->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
+
+    int code = m_cache->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
     // Code ERR_IO_PENDING indicates that the operation is still in progress and
     // the supplied callback will be invoked when it completes.
     if (code == ERR_IO_PENDING)
@@ -91,10 +148,10 @@ void WebCache::doomAllEntries(int)
         m_isClearInProgress = false;
         return;
     }
-    done(0 /*unused*/);
+    onClearDone(0 /*unused*/);
 }
 
-void WebCache::done(int)
+void WebCache::onClearDone(int)
 {
     m_isClearInProgress = false;
 }
