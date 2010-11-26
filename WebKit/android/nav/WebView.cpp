@@ -2048,19 +2048,10 @@ static void nativeMoveSelection(JNIEnv *env, jobject obj, int x, int y)
     GET_NATIVE_VIEW(env, obj)->moveSelection(x, y);
 }
 
-static jboolean nativeCleanupPrivateBrowsingFiles(
-        JNIEnv *env, jobject obj, jstring databaseDirectoryJString, jstring cacheDirectoryJString) {
+static jboolean nativeCleanupPrivateBrowsingFiles(JNIEnv*, jobject)
+{
 #if USE(CHROME_NETWORK_STACK)
-    jboolean isCopy;
-    const char* cString = env->GetStringUTFChars(databaseDirectoryJString, &isCopy);
-    std::string databaseDirectory(cString);
-    if (isCopy == JNI_TRUE)
-        env->ReleaseStringUTFChars(databaseDirectoryJString, cString);
-    cString = env->GetStringUTFChars(cacheDirectoryJString, &isCopy);
-    std::string cacheDirectory(cString);
-    if (isCopy == JNI_TRUE)
-        env->ReleaseStringUTFChars(cacheDirectoryJString, cString);
-    return WebRequestContext::cleanupPrivateBrowsingFiles(databaseDirectory, cacheDirectory);
+    return WebRequestContext::cleanupPrivateBrowsingFiles();
 #else
     return JNI_FALSE;
 #endif
@@ -2322,7 +2313,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(II)V",
         (void*) nativeMoveSelection },
-    { "nativeCleanupPrivateBrowsingFiles", "(Ljava/lang/String;Ljava/lang/String;)Z",
+    { "nativeCleanupPrivateBrowsingFiles", "()Z",
         (void*) nativeCleanupPrivateBrowsingFiles },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
