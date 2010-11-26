@@ -224,7 +224,7 @@ static void removeFileOrDirectory(const char* filename)
     unlink(filename);
 }
 
-bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory)
+bool WebRequestContext::cleanupPrivateBrowsingFiles()
 {
     // This is called on the UI thread.
     MutexLocker lock(privateBrowsingContextMutex);
@@ -232,10 +232,10 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseD
     if (!privateBrowsingContext || privateBrowsingContext->HasOneRef()) {
         privateBrowsingContext = 0;
 
-        std::string cookiePath(databaseDirectory);
+        std::string cookiePath = getDatabaseDirectory();
         cookiePath.append(kCookiesDatabaseFilenamePrivate);
         removeFileOrDirectory(cookiePath.c_str());
-        std::string cachePath(cacheDirectory);
+        std::string cachePath = getCacheDirectory();
         cachePath.append(kCacheDirectoryPrivate);
         removeFileOrDirectory(cachePath.c_str());
         return true;

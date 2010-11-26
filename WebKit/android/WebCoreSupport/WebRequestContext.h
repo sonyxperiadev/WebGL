@@ -50,7 +50,7 @@ public:
     static WebRequestContext* get(bool isPrivateBrowsing);
 
     // These methods are threadsafe.
-    static bool cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
+    static bool cleanupPrivateBrowsingFiles();
     static void setUserAgent(WTF::String);
     static void setAcceptLanguage(WTF::String);
     bool allowCookies();
