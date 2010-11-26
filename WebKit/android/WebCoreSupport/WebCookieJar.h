@@ -34,7 +34,7 @@ namespace android {
 
 class WebCookieJar : public net::CookiePolicy {
 public:
-    static WebCookieJar* get(bool isPrivate);
+    static WebCookieJar* get(bool isPrivateBrowsing);
 
     // CookiePolicy implementation from external/chromium
     virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
@@ -50,7 +50,7 @@ public:
     net::CookiePolicy* cookiePolicy() { return this; }
 
 private:
-    WebCookieJar(bool isPrivate);
+    WebCookieJar(const std::string& databaseFilePath);
 
     scoped_refptr<net::CookieStore> m_cookieStore;
     bool m_allowCookies;

@@ -29,19 +29,6 @@
 #include "JNIUtility.h"
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
-#include "jni.h"
-
-#include <dirent.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <wtf/text/CString.h>
-
-namespace {
-static const char* const kCookiesDatabaseFilename = "/webviewCookiesChromium.db";
-static const char* const kCookiesDatabaseFilenamePrivateBrowsing = "/webviewCookiesChromiumPrivate.db";
-WTF::Mutex databaseDirectoryMutex;
-}
 
 namespace android {
 
@@ -49,6 +36,7 @@ const std::string& databaseDirectory()
 {
     // This method may be called on any thread, as the Java method is
     // synchronized.
+    static WTF::Mutex databaseDirectoryMutex;
     MutexLocker lock(databaseDirectoryMutex);
     static std::string databaseDirectory;
     if (databaseDirectory.empty()) {
@@ -64,28 +52,35 @@ const std::string& databaseDirectory()
 
 WebCookieJar* WebCookieJar::get(bool isPrivateBrowsing)
 {
+    static const char* const kDatabaseFilename = "/webviewCookiesChromium.db";
+    static const char* const kDatabaseFilenamePrivateBrowsing = "/webviewCookiesChromiumPrivate.db";
+
     static WebCookieJar* regularCookieManager = 0;
     static WebCookieJar* privateCookieManager = 0;
 
     if (isPrivateBrowsing) {
-        if (!privateCookieManager)
-            privateCookieManager = new WebCookieJar(true);
+        if (!privateCookieManager) {
+            std::string databaseFilePath = databaseDirectory();
+            databaseFilePath.append(kDatabaseFilenamePrivateBrowsing);
+            privateCookieManager = new WebCookieJar(databaseFilePath);
+        }
         return privateCookieManager;
-    } else {
-        if (!regularCookieManager)
-            regularCookieManager = new WebCookieJar(false);
-        return regularCookieManager;
     }
+
+    if (!regularCookieManager) {
+        std::string databaseFilePath = databaseDirectory();
+        databaseFilePath.append(kDatabaseFilename);
+        regularCookieManager = new WebCookieJar(databaseFilePath);
+    }
+    return regularCookieManager;
 }
 
-WebCookieJar::WebCookieJar(bool isPrivateBrowsing)
+WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
     : m_allowCookies(true)
+    , m_databaseFilePath(databaseFilePath)
 {
     // This is needed for the page cycler. See http://b/2944150
     net::CookieMonster::EnableFileScheme();
-
-    m_databaseFilePath = databaseDirectory();
-    m_databaseFilePath.append(isPrivateBrowsing ? kCookiesDatabaseFilenamePrivateBrowsing : kCookiesDatabaseFilename);
 
     FilePath cookiePath(m_databaseFilePath.c_str());
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
