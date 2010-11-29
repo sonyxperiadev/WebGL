@@ -47,7 +47,8 @@ public:
     // These methods are threadsafe.
     static bool cleanupPrivateBrowsingFiles();
     static void setUserAgent(WTF::String);
-    static void setAcceptLanguage(WTF::String);
+    static void setAcceptLanguage(const WTF::String&);
+    static const WTF::String& acceptLanguage();
 
     // A helper function used by the cache and cookie managers. Should probably
     // find a better home, but wait for the refactoring in b/3113804 to be
