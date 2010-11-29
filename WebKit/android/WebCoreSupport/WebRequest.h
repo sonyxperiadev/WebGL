@@ -101,6 +101,7 @@ private:
     std::string m_url;
     std::string m_userAgent;
     LoadState m_loadState;
+    int m_authRequestCount;
 };
 
 } // namespace android

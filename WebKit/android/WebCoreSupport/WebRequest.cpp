@@ -51,7 +51,6 @@ extern android::AssetManager* globalAssetManager();
 #define ASSERT(assertion, ...) do \
     if (!(assertion)) { \
         android_printLog(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
-        CRASH(); \
     } \
 while (0)
 
@@ -67,6 +66,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
+    , m_authRequestCount(0)
 {
     GURL gurl(m_url);
 
@@ -87,6 +87,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
+    , m_authRequestCount(0)
 {
 }
 
@@ -311,8 +312,11 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
     ASSERT(m_loadState == Started, "OnAuthRequired called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
     scoped_refptr<net::AuthChallengeInfo> authInfoPtr(authInfo);
+    bool firstTime = (m_authRequestCount == 0);
+    ++m_authRequestCount;
+
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-            m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr));
+            m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr, firstTime));
 }
 
 // After calling Start(), the delegate will receive an OnResponseStarted

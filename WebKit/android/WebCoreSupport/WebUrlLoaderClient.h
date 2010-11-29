@@ -86,7 +86,7 @@ public:
     void didFinishLoading();
     void didFail(PassOwnPtr<WebResponse>);
     void willSendRequest(PassOwnPtr<WebResponse>);
-    void authRequired(scoped_refptr<net::AuthChallengeInfo>);
+    void authRequired(scoped_refptr<net::AuthChallengeInfo>, bool firstTime);
 
     // Handle to the chrome IO thread
     static base::Thread* ioThread();

@@ -91,12 +91,6 @@ string16 FindChildTextInner(Node* node, int depth) {
     if (!node || depth <= 0)
         return element_text;
 
-    // FIXME: Temporary ANDROID workaround for regression introduced by
-    // Chromium change 64761 on sites that have script inbetween form controls.
-    // Need to understand why Chromium doesn't need this.
-    if (node->hasTagName(scriptTag))
-        return element_text;
-
     string16 node_text = WTFStringToString16(node->nodeValue());
     TrimWhitespace(node_text, TRIM_ALL, &node_text);
     if (!node_text.empty())

@@ -29,6 +29,7 @@
 #include "ChromiumIncludes.h"
 #include "ChromiumLogging.h"
 #include "JNIUtility.h"
+#include "WebCookieJar.h"
 #include "WebCoreJni.h"
 #include "WebUrlLoaderClient.h"
 #include "jni.h"
@@ -48,7 +49,6 @@ std::string acceptLanguage("");
 Lock userAgentLock;
 Lock acceptLanguageLock;
 
-WTF::Mutex databaseDirectoryMutex;
 WTF::Mutex cacheDirectoryMutex;
 }
 
@@ -56,16 +56,13 @@ using namespace WTF;
 
 namespace android {
 
-static const char* const kCookiesDatabaseFilename = "/webviewCookiesChromium.db";
 static const char* const kCacheDirectory = "/webviewCacheChromium";
-static const char* const kCookiesDatabaseFilenamePrivate = "/webviewCookiesChromiumPrivate.db";
 static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
 static scoped_refptr<WebRequestContext> privateBrowsingContext(0);
 static WTF::Mutex privateBrowsingContextMutex;
 
 WebRequestContext::WebRequestContext()
-    : m_allowCookies(true)
 {
     // Also hardcoded in FrameLoader.java
     accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
@@ -108,23 +105,7 @@ const std::string& WebRequestContext::GetAcceptLanguage() const
     return acceptLanguage;
 }
 
-static const std::string& getDatabaseDirectory()
-{
-    // This method may be called on any thread, as the Java method is
-    // synchronized.
-    MutexLocker lock(databaseDirectoryMutex);
-    static std::string databaseDirectory;
-    if (databaseDirectory.empty()) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
-        jmethodID method = env->GetStaticMethodID(bridgeClass, "getDatabaseDirectory", "()Ljava/lang/String;");
-        databaseDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
-        env->DeleteLocalRef(bridgeClass);
-    }
-    return databaseDirectory;
-}
-
-static const std::string& getCacheDirectory()
+static const std::string& cacheRootDirectory()
 {
     // This method may be called on any thread, as the Java method is
     // synchronized.
@@ -140,14 +121,11 @@ static const std::string& getCacheDirectory()
     return cacheDirectory;
 }
 
-WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilename, const char* cacheFilename)
+WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
 {
-    std::string cookieString(getDatabaseDirectory());
-    cookieString.append(cookieFilename);
-    FilePath cookiePath(cookieString.c_str());
-    std::string cacheString(getCacheDirectory());
-    cacheString.append(cacheFilename);
-    FilePath cachePath(cacheString.c_str());
+    static std::string path = cacheRootDirectory();
+    path.append(isPrivateBrowsing ? kCacheDirectoryPrivate : kCacheDirectory);
+    FilePath cachePath(path.c_str());
 
     WebRequestContext* context = new WebRequestContext();
     context->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
@@ -158,13 +136,9 @@ WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilena
 
     context->http_transaction_factory_ = new net::HttpCache(context->host_resolver(), context->dnsrr_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(context->host_resolver_), 0, 0, defaultBackend);
 
-    scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
-
-    // This is needed for the page cycler. See http://b/2944150
-    net::CookieMonster::EnableFileScheme();
-
-    context->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
-    context->cookie_policy_ = context;
+    WebCookieJar* cookieJar = WebCookieJar::get(isPrivateBrowsing);
+    context->cookie_store_ = cookieJar->cookieStore();
+    context->cookie_policy_ = cookieJar;
 
     return context;
 }
@@ -176,7 +150,7 @@ WebRequestContext* WebRequestContext::getRegularContext()
 
     MutexLocker lock(regularContextMutex);
     if (!regularContext)
-        regularContext = getContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
+        regularContext = getImpl(false);
     return regularContext;
 }
 
@@ -184,11 +158,10 @@ WebRequestContext* WebRequestContext::getPrivateBrowsingContext()
 {
     MutexLocker lock(privateBrowsingContextMutex);
 
-    if (!privateBrowsingContext) {
-        // TODO: Where is the right place to put the temporary db? Should it be
-        // kept in memory?
-        privateBrowsingContext = getContextForPath(kCookiesDatabaseFilenamePrivate, kCacheDirectoryPrivate);
-    }
+    // TODO: Where is the right place to put the temporary db? Should it be
+    // kept in memory?
+    if (!privateBrowsingContext)
+        privateBrowsingContext = getImpl(true);
     return privateBrowsingContext;
 }
 
@@ -200,7 +173,7 @@ WebRequestContext* WebRequestContext::get(bool isPrivateBrowsing)
     return isPrivateBrowsing ? getPrivateBrowsingContext() : getRegularContext();
 }
 
-static void removeFileOrDirectory(const char* filename)
+void WebRequestContext::removeFileOrDirectory(const char* filename)
 {
     struct stat filetype;
     if (stat(filename, &filetype) != 0)
@@ -224,7 +197,7 @@ static void removeFileOrDirectory(const char* filename)
     unlink(filename);
 }
 
-bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory)
+bool WebRequestContext::cleanupPrivateBrowsingFiles()
 {
     // This is called on the UI thread.
     MutexLocker lock(privateBrowsingContextMutex);
@@ -232,38 +205,14 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseD
     if (!privateBrowsingContext || privateBrowsingContext->HasOneRef()) {
         privateBrowsingContext = 0;
 
-        std::string cookiePath(databaseDirectory);
-        cookiePath.append(kCookiesDatabaseFilenamePrivate);
-        removeFileOrDirectory(cookiePath.c_str());
-        std::string cachePath(cacheDirectory);
+        WebCookieJar::get(true)->cleanupFiles();
+
+        std::string cachePath = cacheRootDirectory();
         cachePath.append(kCacheDirectoryPrivate);
         removeFileOrDirectory(cachePath.c_str());
         return true;
     }
     return false;
-}
-
-int WebRequestContext::CanGetCookies(const GURL&, const GURL&, net::CompletionCallback*)
-{
-    MutexLocker lock(m_allowCookiesMutex);
-    return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
-}
-
-int WebRequestContext::CanSetCookie(const GURL&, const GURL&, const std::string&, net::CompletionCallback*)
-{
-    MutexLocker lock(m_allowCookiesMutex);
-    return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
-}
-
-bool WebRequestContext::allowCookies() {
-    MutexLocker lock(m_allowCookiesMutex);
-    return m_allowCookies;
-}
-
-void WebRequestContext::setAllowCookies(bool allow)
-{
-    MutexLocker lock(m_allowCookiesMutex);
-    m_allowCookies = allow;
 }
 
 } // namespace android

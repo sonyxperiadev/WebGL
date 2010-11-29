@@ -1275,6 +1275,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 isUnclipped = isTransparent;
             } else if (input->isInputTypeHidden())
                 continue;
+            else if (input->isRadioButton() || input->isCheckbox())
+                isTransparent = false;
         } else if (node->hasTagName(HTMLNames::textareaTag)) {
             cachedInput.init();
             type = TEXT_INPUT_CACHEDNODETYPE;

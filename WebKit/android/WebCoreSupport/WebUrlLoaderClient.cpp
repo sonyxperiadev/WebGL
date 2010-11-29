@@ -337,7 +337,7 @@ void WebUrlLoaderClient::didFinishLoading()
     finish();
 }
 
-void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo)
+void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo, bool firstTime)
 {
     if (!isActive()) {
         return;
@@ -346,13 +346,7 @@ void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> auth
     std::string host = base::SysWideToUTF8(authChallengeInfo->host_and_port);
     std::string realm = base::SysWideToUTF8(authChallengeInfo->realm);
 
-    // TODO: Not clear whose responsibility it is to cache credentials. There's nothing
-    // in AuthChallengeInfo that seems suitable, so for safety we'll tell the UI *not*
-    // to use cached credentials. We may need to track this ourselves (pass "true" on
-    // the first call, then "false" for a second call if the credentials are rejected).
-    bool useCachedCredentials = false;
-
-    m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, useCachedCredentials);
+    m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, firstTime);
 }
 
 } // namespace android
