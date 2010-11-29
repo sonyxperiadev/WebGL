@@ -28,16 +28,10 @@
 
 #include "ChromiumIncludes.h"
 #include "ChromiumLogging.h"
-#include "JNIUtility.h"
+#include "WebCache.h"
 #include "WebCookieJar.h"
-#include "WebCoreJni.h"
-#include "WebUrlLoaderClient.h"
-#include "jni.h"
 
 #include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <wtf/text/CString.h>
 
 namespace {
@@ -48,16 +42,11 @@ std::string acceptLanguage("");
 
 Lock userAgentLock;
 Lock acceptLanguageLock;
-
-WTF::Mutex cacheDirectoryMutex;
 }
 
 using namespace WTF;
 
 namespace android {
-
-static const char* const kCacheDirectory = "/webviewCacheChromium";
-static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
 static scoped_refptr<WebRequestContext> privateBrowsingContext(0);
 static WTF::Mutex privateBrowsingContextMutex;
@@ -105,36 +94,13 @@ const std::string& WebRequestContext::GetAcceptLanguage() const
     return acceptLanguage;
 }
 
-static const std::string& cacheRootDirectory()
-{
-    // This method may be called on any thread, as the Java method is
-    // synchronized.
-    MutexLocker lock(cacheDirectoryMutex);
-    static std::string cacheDirectory;
-    if (cacheDirectory.empty()) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
-        jmethodID method = env->GetStaticMethodID(bridgeClass, "getCacheDirectory", "()Ljava/lang/String;");
-        cacheDirectory = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
-        env->DeleteLocalRef(bridgeClass);
-    }
-    return cacheDirectory;
-}
-
 WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
 {
-    static std::string path = cacheRootDirectory();
-    path.append(isPrivateBrowsing ? kCacheDirectoryPrivate : kCacheDirectory);
-    FilePath cachePath(path.c_str());
-
     WebRequestContext* context = new WebRequestContext();
-    context->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
-    base::Thread* ioThread = WebUrlLoaderClient::ioThread();
-    scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
-    // Todo: check if the context takes ownership of the cache
-    net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
 
-    context->http_transaction_factory_ = new net::HttpCache(context->host_resolver(), context->dnsrr_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(context->host_resolver_), 0, 0, defaultBackend);
+    WebCache* cache = WebCache::get(isPrivateBrowsing);
+    context->host_resolver_ = cache->hostResolver();
+    context->http_transaction_factory_ = cache->cache();
 
     WebCookieJar* cookieJar = WebCookieJar::get(isPrivateBrowsing);
     context->cookie_store_ = cookieJar->cookieStore();
@@ -206,10 +172,7 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles()
         privateBrowsingContext = 0;
 
         WebCookieJar::get(true)->cleanupFiles();
-
-        std::string cachePath = cacheRootDirectory();
-        cachePath.append(kCacheDirectoryPrivate);
-        removeFileOrDirectory(cachePath.c_str());
+        WebCache::get(true)->cleanupFiles();
         return true;
     }
     return false;

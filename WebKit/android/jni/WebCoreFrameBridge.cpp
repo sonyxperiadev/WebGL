@@ -1666,7 +1666,7 @@ static void ClearWebCoreCache()
 static void ClearWebViewCache()
 {
 #if USE(CHROME_NETWORK_STACK)
-    WebCache::clear();
+    WebCache::get(false /*privateBrowsing*/)->clear();
 #else
     // The Android network stack provides a WebView cache in CacheManager.java.
     // Clearing this is handled entirely Java-side.
