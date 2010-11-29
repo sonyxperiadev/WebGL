@@ -34,49 +34,58 @@
 #include <dirent.h>
 #include <wtf/text/CString.h>
 
-namespace {
-// TODO: The userAgent should not be a static, as it can be set per WebView.
-// http://b/3113804
-std::string userAgent("");
-Lock userAgentLock;
+static std::string acceptLanguageStdString("");
+static WTF::String acceptLanguageWtfString("");
+static WTF::Mutex acceptLanguageMutex;
 
-std::string acceptLanguageStdString("");
-WTF::String acceptLanguageWtfString("");
-WTF::Mutex acceptLanguageMutex;
-}
+static int numPrivateBrowsingInstances;
+static WTF::Mutex numPrivateBrowsingInstancesMutex;
 
 using namespace WTF;
 
 namespace android {
 
-static scoped_refptr<WebRequestContext> privateBrowsingContext(0);
-static WTF::Mutex privateBrowsingContextMutex;
-
-WebRequestContext::WebRequestContext()
+WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
+    : m_isPrivateBrowsing(isPrivateBrowsing)
 {
+    // Initialize chromium logging, needs to be done before any chromium code is called.
+    initChromiumLogging();
+
+    WebCache* cache = WebCache::get(m_isPrivateBrowsing);
+    host_resolver_ = cache->hostResolver();
+    http_transaction_factory_ = cache->cache();
+
+    WebCookieJar* cookieJar = WebCookieJar::get(m_isPrivateBrowsing);
+    cookie_store_ = cookieJar->cookieStore();
+    cookie_policy_ = cookieJar;
+
     // Also hardcoded in FrameLoader.java
     accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
+
+    if (m_isPrivateBrowsing) {
+        MutexLocker lock(numPrivateBrowsingInstancesMutex);
+        numPrivateBrowsingInstances++;
+    }
 }
 
 WebRequestContext::~WebRequestContext()
 {
+    if (m_isPrivateBrowsing) {
+        MutexLocker lock(numPrivateBrowsingInstancesMutex);
+        numPrivateBrowsingInstances--;
+    }
 }
 
-void WebRequestContext::setUserAgent(String string)
+void WebRequestContext::setUserAgent(const String& string)
 {
-    // The useragent is set on the WebCore thread and read on the network
-    // stack's IO thread.
-    AutoLock aLock(userAgentLock);
-    userAgent = string.utf8().data();
+    MutexLocker lock(m_userAgentMutex);
+    m_userAgent = string.utf8().data();
 }
 
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
 {
-    // The useragent is set on the WebCore thread and read on the network
-    // stack's IO thread.
-    AutoLock aLock(userAgentLock);
-    ASSERT(userAgent != "");
-    return userAgent;
+    MutexLocker lock(m_userAgentMutex);
+    return m_userAgent;
 }
 
 void WebRequestContext::setAcceptLanguage(const String& string)
@@ -96,48 +105,6 @@ const String& WebRequestContext::acceptLanguage()
 {
     MutexLocker lock(acceptLanguageMutex);
     return acceptLanguageWtfString;
-}
-
-WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
-{
-    WebRequestContext* context = new WebRequestContext();
-
-    WebCache* cache = WebCache::get(isPrivateBrowsing);
-    context->host_resolver_ = cache->hostResolver();
-    context->http_transaction_factory_ = cache->cache();
-
-    WebCookieJar* cookieJar = WebCookieJar::get(isPrivateBrowsing);
-    context->cookie_store_ = cookieJar->cookieStore();
-    context->cookie_policy_ = cookieJar;
-
-    return context;
-}
-
-WebRequestContext* WebRequestContext::getRegularContext()
-{
-    static scoped_refptr<WebRequestContext> regularContext(0);
-    if (!regularContext)
-        regularContext = getImpl(false);
-    return regularContext;
-}
-
-WebRequestContext* WebRequestContext::getPrivateBrowsingContext()
-{
-    MutexLocker lock(privateBrowsingContextMutex);
-
-    // TODO: Where is the right place to put the temporary db? Should it be
-    // kept in memory?
-    if (!privateBrowsingContext)
-        privateBrowsingContext = getImpl(true);
-    return privateBrowsingContext;
-}
-
-WebRequestContext* WebRequestContext::get(bool isPrivateBrowsing)
-{
-    // Initialize chromium logging, needs to be done before any chromium code is called
-    initChromiumLogging();
-
-    return isPrivateBrowsing ? getPrivateBrowsingContext() : getRegularContext();
 }
 
 void WebRequestContext::removeFileOrDirectory(const char* filename)
@@ -169,16 +136,15 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles()
     // This is called on the UI thread.
     // TODO: This should be done on a different thread. Moving to the WebKit
     // thread should be straightforward and safe. See b/3243891.
-    MutexLocker lock(privateBrowsingContextMutex);
+    MutexLocker lock(numPrivateBrowsingInstancesMutex);
 
-    if (!privateBrowsingContext || privateBrowsingContext->HasOneRef()) {
-        privateBrowsingContext = 0;
+    // If there are private browsing contexts in use, do nothing.
+    if (numPrivateBrowsingInstances)
+        return false;
 
-        WebCookieJar::cleanup(true);
-        WebCache::cleanup(true);
-        return true;
-    }
-    return false;
+    WebCookieJar::cleanup(true);
+    WebCache::cleanup(true);
+    return true;
 }
 
 } // namespace android

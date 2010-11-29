@@ -168,8 +168,13 @@ namespace android {
         virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&);
         virtual void setTitle(const String& title, const KURL&);
 
+        // This provides the userAgent to WebCore. It is used by WebCore to
+        // populate navigator.userAgent and to set the HTTP header in
+        // ResourceRequest objects. We also set a userAgent on WebRequestContext
+        // for the Chromium HTTP stack, which overrides the value on the
+        // ResourceRequest.
         virtual String userAgent(const KURL&);
-        
+
         virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();

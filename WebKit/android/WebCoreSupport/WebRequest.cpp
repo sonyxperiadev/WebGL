@@ -145,7 +145,7 @@ void WebRequest::appendBytesToUpload(WTF::Vector<char>* data)
     delete data;
 }
 
-void WebRequest::start(bool isPrivateBrowsing)
+void WebRequest::start(WebRequestContext* context)
 {
     ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
 
@@ -161,7 +161,6 @@ void WebRequest::start(bool isPrivateBrowsing)
     if (m_request->url().SchemeIs("browser"))
         return handleBrowserURL(m_request->url());
 
-    URLRequestContext* context = WebRequestContext::get(isPrivateBrowsing);
     m_request->set_context(context);
 
     m_request->Start();

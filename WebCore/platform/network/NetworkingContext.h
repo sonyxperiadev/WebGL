@@ -66,7 +66,6 @@ public:
 
 #if PLATFORM(ANDROID)
     virtual MainResourceLoader* mainResourceLoader() const = 0;
-    virtual bool isPrivateBrowsingEnabled() const = 0;
     virtual FrameLoaderClient* frameLoaderClient() const = 0;
 #endif
 

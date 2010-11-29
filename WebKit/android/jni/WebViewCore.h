@@ -26,12 +26,11 @@
 #ifndef WEBVIEWCORE_H
 #define WEBVIEWCORE_H
 
-#include "android_npapi.h"
-#include "FileChooser.h"
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
 #include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
+#include "FileChooser.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
 #include "SkColor.h"
@@ -40,6 +39,9 @@
 #include "Timer.h"
 #include "WebCoreRefObject.h"
 #include "WebCoreJni.h"
+#include "WebRequestContext.h"
+#include "android_npapi.h"
+
 #include <jni.h>
 #include <ui/KeycodeLabels.h>
 #include <ui/PixelFormat.h>
@@ -536,6 +538,8 @@ namespace android {
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         bool drawIsPaused() const;
+        void setWebRequestContextUserAgent();
+        WebRequestContext* webRequestContext();
         // end of shared members
 
         // internal functions
@@ -619,16 +623,16 @@ namespace android {
         bool setSelection(DOMSelection* selection, Text* textNode, int direction);
         bool setSelection(DOMSelection* selection, Node* startNode, Node* endNode, int startOffset, int endOffset);
         Node* m_currentNodeDomNavigationAxis;
-
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
 #endif
-
 #if DEBUG_NAV_UI
         uint32_t m_now;
 #endif
-
         DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
+#if USE(CHROME_NETWORK_STACK)
+        scoped_refptr<WebRequestContext> m_webRequestContext;
+#endif
 
     private:
         // called from constructor, to add this to a global list

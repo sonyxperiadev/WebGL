@@ -57,6 +57,8 @@ static const std::string& rootDirectory()
 
 static std::string storageDirectory(bool isPrivateBrowsing)
 {
+    // TODO: Where is the right place to put the db for private browsing? Should
+    // it be kept in memory?
     static const char* const kDirectory = "/webviewCacheChromium";
     static const char* const kDirectoryPrivate = "/webviewCacheChromiumPrivate";
 

@@ -54,9 +54,8 @@ bool ResourceHandle::start(NetworkingContext* context)
     MainResourceLoader* mainLoader = context->mainResourceLoader();
     bool isMainResource =
             static_cast<void*>(mainLoader) == static_cast<void*>(client());
-    bool isPrivateBrowsing = context->isPrivateBrowsingEnabled();
 
-    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false, isPrivateBrowsing);
+    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false);
 
     if (loader) {
         d->m_loader = loader;
@@ -156,13 +155,12 @@ void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const
 {
     SyncLoader s(error, response, data);
     RefPtr<ResourceHandle> h = adoptRef(new ResourceHandle(request, &s, false, false));
-    bool isPrivateBrowsing = context->isPrivateBrowsingEnabled();
     // This blocks until the load is finished.
     // Use the request owned by the ResourceHandle. This has had the username
     // and password (if present) stripped from the URL in
     // ResourceHandleInternal::ResourceHandleInternal(). This matches the
     // behaviour in the asynchronous case.
-    ResourceLoaderAndroid::start(h.get(), request, context->frameLoaderClient(), false, true, isPrivateBrowsing);
+    ResourceLoaderAndroid::start(h.get(), request, context->frameLoaderClient(), false, true);
 }
 
 } // namespace WebCore

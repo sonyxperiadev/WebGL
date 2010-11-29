@@ -147,7 +147,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     }
 }
 
-bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
+bool WebUrlLoaderClient::start(bool sync, WebRequestContext* context)
 {
     base::Thread* thread = ioThread();
     if (!thread) {
@@ -157,7 +157,7 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, isPrivateBrowsing));
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, context));
 
         // Run callbacks until the queue is exhausted and m_finished is true.
         while(!m_finished) {
@@ -176,7 +176,7 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
         m_resourceHandle = 0;
     } else {
         // Asynchronous start.
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, isPrivateBrowsing));
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, context));
     }
     return true;
 }

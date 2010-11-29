@@ -3336,6 +3336,24 @@ bool WebViewCore::drawIsPaused() const
         gWebViewCoreFields.m_drawIsPaused);
 }
 
+#if USE(CHROME_NETWORK_STACK)
+void WebViewCore::setWebRequestContextUserAgent()
+{
+    if (m_webRequestContext)
+        m_webRequestContext->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
+}
+
+WebRequestContext* WebViewCore::webRequestContext()
+{
+    if (!m_webRequestContext) {
+        Settings* settings = mainFrame()->settings();
+        m_webRequestContext = new WebRequestContext(settings && settings->privateBrowsingEnabled());
+        setWebRequestContextUserAgent();
+    }
+    return m_webRequestContext.get();
+}
+#endif
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------

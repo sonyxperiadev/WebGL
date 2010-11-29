@@ -44,11 +44,6 @@ MainResourceLoader* FrameNetworkingContextAndroid::mainResourceLoader() const
     return frame()->loader()->activeDocumentLoader()->mainResourceLoader();
 }
 
-bool FrameNetworkingContextAndroid::isPrivateBrowsingEnabled() const
-{
-    return frame()->settings() && frame()->settings()->privateBrowsingEnabled();
-}
-
 FrameLoaderClient* FrameNetworkingContextAndroid::frameLoaderClient() const
 {
     return frame()->loader()->client();

@@ -26,23 +26,26 @@
 #include <config.h>
 #include <ResourceLoaderAndroid.h>
 
+#include "Frame.h"
 #include "FrameLoaderClientAndroid.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreResourceLoader.h"
 #include "WebUrlLoader.h"
+#include "WebViewCore.h"
 
 using namespace android;
 
 namespace WebCore {
 
 PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
-        ResourceHandle* handle, const ResourceRequest& request, FrameLoaderClient* client, bool isMainResource, bool isSync, bool isPrivateBrowsing)
+        ResourceHandle* handle, const ResourceRequest& request, FrameLoaderClient* client, bool isMainResource, bool isSync)
 {
     // Called on main thread
+    FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*>(client);
 #if USE(CHROME_NETWORK_STACK)
-    return WebUrlLoader::start(client, handle, request, isSync, isPrivateBrowsing);
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(clientAndroid->getFrame()->view());
+    return WebUrlLoader::start(client, handle, request, isSync, webViewCore->webRequestContext());
 #else
-    FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
     return clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);
 #endif
 }
