@@ -33,6 +33,8 @@
 
 namespace android {
 
+// This class is not generally threadsafe. get() is not threadsafe - instances
+// are created on the WebCore thread only.
 class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
     static WebCache* get(bool isPrivateBrowsing);

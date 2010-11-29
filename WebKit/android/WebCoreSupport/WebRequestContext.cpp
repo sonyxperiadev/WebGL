@@ -111,10 +111,7 @@ WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
 
 WebRequestContext* WebRequestContext::getRegularContext()
 {
-    static WTF::Mutex regularContextMutex;
     static scoped_refptr<WebRequestContext> regularContext(0);
-
-    MutexLocker lock(regularContextMutex);
     if (!regularContext)
         regularContext = getImpl(false);
     return regularContext;

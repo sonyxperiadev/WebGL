@@ -39,16 +39,7 @@ namespace android {
 // JNI for android.webkit.CookieManager
 static const char* javaCookieManagerClass = "android/webkit/CookieManager";
 
-// Though WebRequestContext::get() is threadsafe, the context itself, in
-// general, is not. The context is generally used on the HTTP stack IO
-// thread, but calls to the methods of this class are made on the UI thread.
-// We ensure thread safety as follows ...
-// - The cookie_store() getter just returns a pointer which is only set when the
-//   context is first constructed. The CookieMonster itself is threadsafe, so
-//   using it from the UI thread is safe.
-// - Calls to the other WebRequestContext methods used here are explicitly
-//   threadsafe.
-
+// WebCookieJar is threadsafe, as is CookieMonster.
 static bool useChromiumHttpStack(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
