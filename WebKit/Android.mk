@@ -28,6 +28,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
+	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
 	android/WebCoreSupport/UrlInterceptResponse.cpp \
 	android/WebCoreSupport/V8Counters.cpp
 
@@ -43,9 +44,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/WebResourceRequest.cpp \
 	android/WebCoreSupport/WebResponse.cpp \
 	android/WebCoreSupport/WebViewClientError.cpp
-else
-LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	android/WebCoreSupport/ResourceLoaderAndroid.cpp
 endif # HTTP_STACK == chrome
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

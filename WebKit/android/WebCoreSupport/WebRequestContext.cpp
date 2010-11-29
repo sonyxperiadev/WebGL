@@ -38,10 +38,11 @@ namespace {
 // TODO: The userAgent should not be a static, as it can be set per WebView.
 // http://b/3113804
 std::string userAgent("");
-std::string acceptLanguage("");
-
 Lock userAgentLock;
-Lock acceptLanguageLock;
+
+std::string acceptLanguageStdString("");
+WTF::String acceptLanguageWtfString("");
+WTF::Mutex acceptLanguageMutex;
 }
 
 using namespace WTF;
@@ -78,20 +79,23 @@ const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
     return userAgent;
 }
 
-void WebRequestContext::setAcceptLanguage(String string)
+void WebRequestContext::setAcceptLanguage(const String& string)
 {
-    // The accept language is set on the WebCore thread and read on the network
-    // stack's IO thread.
-    AutoLock aLock(acceptLanguageLock);
-    acceptLanguage = string.utf8().data();
+    MutexLocker lock(acceptLanguageMutex);
+    acceptLanguageStdString = string.utf8().data();
+    acceptLanguageWtfString = string;
 }
 
 const std::string& WebRequestContext::GetAcceptLanguage() const
 {
-    // The accept language is set on the WebCore thread and read on the network
-    // stack's IO thread.
-    AutoLock aLock(acceptLanguageLock);
-    return acceptLanguage;
+    MutexLocker lock(acceptLanguageMutex);
+    return acceptLanguageStdString;
+}
+
+const String& WebRequestContext::acceptLanguage()
+{
+    MutexLocker lock(acceptLanguageMutex);
+    return acceptLanguageWtfString;
 }
 
 WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
@@ -111,10 +115,7 @@ WebRequestContext* WebRequestContext::getImpl(bool isPrivateBrowsing)
 
 WebRequestContext* WebRequestContext::getRegularContext()
 {
-    static WTF::Mutex regularContextMutex;
     static scoped_refptr<WebRequestContext> regularContext(0);
-
-    MutexLocker lock(regularContextMutex);
     if (!regularContext)
         regularContext = getImpl(false);
     return regularContext;

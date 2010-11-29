@@ -80,31 +80,3 @@ void WebUrlLoader::downloadFile()
 }
 
 } // namespace android
-
-
-namespace WebCore {
-// on main thread
-// static
-// TODO: Implement sync requests
-PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest,
-        FrameLoaderClient* client, bool /*isMainResource*/, bool isSync, bool isPrivateBrowsing)
-{
-    return android::WebUrlLoader::start(client, resourceHandle, resourceRequest, isSync, isPrivateBrowsing);
-}
-
-// static
-bool ResourceLoaderAndroid::willLoadFromCache(const WebCore::KURL&, int64_t identifier)
-{
-    // This method is used to determine if a POST request can be repeated from
-    // cache, but you cannot really know until you actually try to read from the
-    // cache.  Even if we checked now, something else could come along and wipe
-    // out the cache entry by the time we fetch it.
-    //
-    // So, we always say yes here, to prevent the FrameLoader from initiating a
-    // reload.  Then in FrameLoaderClientImpl::dispatchWillSendRequest, we
-    // fix-up the cache policy of the request to force a load from the cache.
-    //
-    return true;
-}
-
-} // namespace WebCore

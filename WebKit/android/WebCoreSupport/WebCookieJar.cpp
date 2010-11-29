@@ -58,6 +58,9 @@ WebCookieJar* WebCookieJar::get(bool isPrivateBrowsing)
     static WebCookieJar* regularCookieManager = 0;
     static WebCookieJar* privateCookieManager = 0;
 
+    WTF::Mutex instanceMutex;
+    MutexLocker lock(instanceMutex);
+
     if (isPrivateBrowsing) {
         if (!privateCookieManager) {
             std::string databaseFilePath = databaseDirectory();
