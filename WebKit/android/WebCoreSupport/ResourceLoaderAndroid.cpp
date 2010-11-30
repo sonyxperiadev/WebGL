@@ -40,7 +40,6 @@ PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
 {
     // Called on main thread
 #if USE(CHROME_NETWORK_STACK)
-    // TODO: Implement sync requests
     return WebUrlLoader::start(client, handle, request, isSync, isPrivateBrowsing);
 #else
     FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
