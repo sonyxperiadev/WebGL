@@ -42,6 +42,7 @@
 
 using namespace WTF;
 using namespace Unicode;
+using namespace std;
 
 namespace WebCore {
 
@@ -686,6 +687,10 @@ PassRefPtr<StringImpl> StringImpl::replace(unsigned position, unsigned lengthToR
     if (!lengthToReplace && !lengthToInsert)
         return this;
     UChar* data;
+
+    if ((length() - lengthToReplace) >= (numeric_limits<unsigned>::max() - lengthToInsert))
+        CRASH();
+
     PassRefPtr<StringImpl> newImpl =
         createUninitialized(length() - lengthToReplace + lengthToInsert, data);
     memcpy(data, characters(), position * sizeof(UChar));
@@ -714,10 +719,19 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
     // If we have 0 matches, we don't have to do any more work
     if (!matchCount)
         return this;
-    
+
+    if (repStrLength && matchCount > numeric_limits<unsigned>::max() / repStrLength)
+        CRASH();
+
+    unsigned replaceSize = matchCount * repStrLength;
+    unsigned newSize = m_length - matchCount;
+    if (newSize >= (numeric_limits<unsigned>::max() - replaceSize))
+        CRASH();
+
+    newSize += replaceSize;
+
     UChar* data;
-    PassRefPtr<StringImpl> newImpl =
-        createUninitialized(m_length - matchCount + (matchCount * repStrLength), data);
+    PassRefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
 
     // Construct the new data
     int srcSegmentEnd;
@@ -766,8 +780,17 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
         return this;
     
     UChar* data;
-    PassRefPtr<StringImpl> newImpl =
-        createUninitialized(m_length + matchCount * (repStrLength - patternLength), data);
+
+    unsigned newSize = m_length - matchCount * patternLength;
+    if (repStrLength && matchCount > numeric_limits<unsigned>::max() / repStrLength)
+       CRASH();
+
+    if (newSize > (numeric_limits<unsigned>::max() - matchCount * repStrLength))
+       CRASH();
+
+    newSize += matchCount * repStrLength;
+
+    PassRefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
     
     // Construct the new data
     int srcSegmentEnd;
