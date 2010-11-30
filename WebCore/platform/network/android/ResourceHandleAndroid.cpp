@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-
 #include "ResourceHandle.h"
 
 #include "CachedResourceLoader.h"
@@ -52,13 +51,11 @@ ResourceHandle::~ResourceHandle()
 bool ResourceHandle::start(NetworkingContext* context)
 {
     MainResourceLoader* mainLoader = context->mainResourceLoader();
-    bool isMainResource =
-            static_cast<void*>(mainLoader) == static_cast<void*>(client());
-
-    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false);
+    bool isMainResource = static_cast<void*>(mainLoader) == static_cast<void*>(client());
+    RefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false);
 
     if (loader) {
-        d->m_loader = loader;
+        d->m_loader = loader.release();
         return true;
     }
 
@@ -111,11 +108,11 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
     return ResourceLoaderAndroid::willLoadFromCache(request.url(), formData ? formData->identifier() : 0);
 }
 
-bool ResourceHandle::loadsBlocked() 
+bool ResourceHandle::loadsBlocked()
 {
     // FIXME, need to check whether connection pipe is blocked.
     // return false for now
-    return false; 
+    return false;
 }
 
 // Class to handle synchronized loading of resources.
