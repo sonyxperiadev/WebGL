@@ -1306,24 +1306,36 @@ void WebViewCore::dumpNavTree()
 #endif
 }
 
-WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node)
+WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(int x, int y)
 {
-    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
+    HitTestResult hitTestResult = m_mainFrame->eventHandler()
+        ->hitTestResultAtPoint(IntPoint(x, y), false, false,
+        DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly,
+        IntSize(1, 1));
+    if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
+        LOGE("Should not happen: no in document Node found");
         return 0;
+    }
+    const ListHashSet<RefPtr<Node> >& list = hitTestResult.rectBasedTestResult();
+    if (list.isEmpty()) {
+        LOGE("Should not happen: no rect-based-test nodes found");
+        return 0;
+    }
+    Node* node = hitTestResult.innerNode();
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
         return 0;
     return static_cast<WebCore::HTMLAnchorElement*>(node);
 }
 
-WTF::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
+WTF::String WebViewCore::retrieveHref(int x, int y)
 {
-    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
+    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(x, y);
     return anchor ? anchor->href() : WTF::String();
 }
 
-WTF::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node)
+WTF::String WebViewCore::retrieveAnchorText(int x, int y)
 {
-    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
+    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(x, y);
     return anchor ? anchor->text() : WTF::String();
 }
 
@@ -3633,31 +3645,27 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
         (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
-static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
-        jint node)
+static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    WTF::String result = viewImpl->retrieveHref((WebCore::Frame*) frame,
-            (WebCore::Node*) node);
+    WTF::String result = viewImpl->retrieveHref(x, y);
     if (!result.isEmpty())
         return WtfStringToJstring(env, result);
     return 0;
 }
 
-static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint frame,
-        jint node)
+static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    WTF::String result = viewImpl->retrieveAnchorText((WebCore::Frame*) frame,
-            (WebCore::Node*) node);
+    WTF::String result = viewImpl->retrieveAnchorText(x, y);
     if (!result.isEmpty())
         return WtfStringToJstring(env, result);
     return 0;
