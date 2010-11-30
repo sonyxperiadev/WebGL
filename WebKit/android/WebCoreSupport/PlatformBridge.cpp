@@ -161,11 +161,11 @@ FloatRect PlatformBridge::screenRect()
 String PlatformBridge::computeDefaultLanguage()
 {
 #if USE(CHROME_NETWORK_STACK)
-    std::string acceptLanguages = WebRequestContext::get(false)->GetAcceptLanguage();
+    String acceptLanguages = WebRequestContext::acceptLanguage();
     size_t length = acceptLanguages.find(',');
     if (length == std::string::npos)
         length = acceptLanguages.length();
-    return String::fromUTF8(acceptLanguages.c_str(), length);
+    return acceptLanguages.substring(0, length);
 #else
     return "en";
 #endif

@@ -28,21 +28,35 @@
 
 #include "ChromiumIncludes.h"
 
+#include <OwnPtr.h>
+#include <wtf/ThreadingPrimitives.h>
+
 namespace android {
 
+// This class is not generally threadsafe. get() is not threadsafe - instances
+// are created on the WebCore thread only.
 class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
-    static void clear();
+    static WebCache* get(bool isPrivateBrowsing);
+
+    void clear();
+    void cleanupFiles();
+    net::HostResolver* hostResolver() { return m_hostResolver.get(); }
+    net::HttpCache* cache() { return m_cache.get(); }
 
 private:
-    WebCache();
-    static WebCache* getInstance();
+    WebCache(const std::string& storageDirectory);
 
+    // For clear()
     void doClear();
     void doomAllEntries(int);
-    void done(int);
+    void onClearDone(int);
 
-    static WebCache* s_instance;
+    std::string m_storageDirectory;
+    OwnPtr<net::HostResolver> m_hostResolver;
+    OwnPtr<net::HttpCache> m_cache;
+
+    // For clear()
     net::CompletionCallbackImpl<WebCache> m_doomAllEntriesCallback;
     net::CompletionCallbackImpl<WebCache> m_doneCallback;
     disk_cache::Backend* m_cacheBackend;

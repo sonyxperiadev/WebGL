@@ -137,6 +137,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
         || m_glWebViewState->preZoomBounds().isEmpty())
         m_glWebViewState->setPreZoomBounds(viewportTileBounds);
 
+    bool prepareNextTiledPage = false;
     // If we have a different scale than the current one, we have to
     // decide what to do. The current behaviour is to delay an update,
     // so that we do not slow down zooming unnecessarily.
@@ -144,53 +145,57 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
         && (m_glWebViewState->scaleRequestState() == GLWebViewState::kNoScaleRequest
             || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest
             || m_glWebViewState->futureScale() != scale)) {
-        m_glWebViewState->scheduleUpdate(currentTime, scale);
 
-        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
-            // schedule the new request
-            TiledPage* nextTiledPage = m_glWebViewState->backPage();
-            nextTiledPage->setScale(scale);
-            nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
-        }
+        // schedule the new request
+        m_glWebViewState->scheduleUpdate(currentTime, viewportTileBounds, scale);
+
+        // If it's a new request, we will have to prepare the page.
+        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale)
+            prepareNextTiledPage = true;
+    }
+
+    // If the viewport has changed since we scheduled the request, we also need to prepare.
+    if (((m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale)
+         || (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale))
+         && (m_glWebViewState->futureViewport() != viewportTileBounds))
+        prepareNextTiledPage = true;
+
+    // Let's prepare the page if needed
+    if (prepareNextTiledPage) {
+        TiledPage* nextTiledPage = m_glWebViewState->backPage();
+        nextTiledPage->setScale(scale);
+        m_glWebViewState->setFutureViewport(viewportTileBounds);
+        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
     }
 
     float transparency = 1;
     bool doSwap = false;
 
-    // Here we have to schedule the painting of the tiles corresponding
-    // to the new tiles for the new scale factor (see above)
-    if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale
-        || m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
+    // If we fired a request, let's check if it's ready to use
+    if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
-        nextTiledPage->setScale(scale);
-
-        // Check if the page is ready...
-        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale
-            && nextTiledPage->ready(viewportTileBounds)) {
+        if (nextTiledPage->ready(viewportTileBounds))
             m_glWebViewState->setScaleRequestState(GLWebViewState::kReceivedNewScale);
-        }
+    }
 
-        // If the page is ready, display it. We do a short transition between
-        // the two pages (current one and future one with the new scale factor)
-        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
-            double transitionTime = m_glWebViewState->transitionTime(currentTime);
-            transparency = m_glWebViewState->transparency(currentTime);
+    // If the page is ready, display it. We do a short transition between
+    // the two pages (current one and future one with the new scale factor)
+    if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
+        TiledPage* nextTiledPage = m_glWebViewState->backPage();
+        double transitionTime = m_glWebViewState->transitionTime(currentTime);
+        transparency = m_glWebViewState->transparency(currentTime);
 
-            float newTilesTransparency = 1;
-            if (scale < m_glWebViewState->currentScale())
-                newTilesTransparency = 1 - transparency;
+        float newTilesTransparency = 1;
+        if (scale < m_glWebViewState->currentScale())
+            newTilesTransparency = 1 - transparency;
 
-            nextTiledPage->draw(newTilesTransparency, viewport, viewportTileBounds);
+        nextTiledPage->draw(newTilesTransparency, viewport, viewportTileBounds);
 
-            // The transition between the two pages is finished, swap them
-            if (currentTime > transitionTime) {
-                m_glWebViewState->setCurrentScale(scale);
-                m_glWebViewState->resetTransitionTime();
-                doSwap = true;
-            }
-        } else {
-            // If the page is not ready, schedule it if needed.
-            nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        // The transition between the two pages is finished, swap them
+        if (currentTime > transitionTime) {
+            m_glWebViewState->setCurrentScale(scale);
+            m_glWebViewState->resetTransitionTime();
+            doSwap = true;
         }
     }
 

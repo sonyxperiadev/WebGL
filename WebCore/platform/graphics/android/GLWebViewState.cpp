@@ -74,6 +74,7 @@ GLWebViewState::GLWebViewState()
     , m_usePageA(true)
 {
     m_viewport.setEmpty();
+    m_futureViewportTileBounds.setEmpty();
     m_viewportTileBounds.setEmpty();
     m_preZoomBounds.setEmpty();
 
@@ -133,13 +134,15 @@ unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
     return m_currentPictureCounter;
 }
 
-void GLWebViewState::scheduleUpdate(const double& currentTime, float scale)
+void GLWebViewState::scheduleUpdate(const double& currentTime,
+                                    const SkIRect& viewport, float scale)
 {
     // if no update time, set it
     if (updateTime() == -1) {
         m_scaleRequestState = kWillScheduleRequest;
         setUpdateTime(currentTime + s_updateInitialDelay);
         setFutureScale(scale);
+        setFutureViewport(viewport);
         return;
     }
 
@@ -158,6 +161,7 @@ void GLWebViewState::scheduleUpdate(const double& currentTime, float scale)
         // in the process of zooming. Let's push the update time a bit.
         setUpdateTime(currentTime + s_updateDelay);
         setFutureScale(scale);
+        setFutureViewport(viewport);
     }
 }
 

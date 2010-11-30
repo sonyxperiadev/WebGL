@@ -160,6 +160,8 @@ public:
     void setCurrentScale(float scale) { m_currentScale = scale; }
     float futureScale() const { return m_futureScale; }
     void setFutureScale(float scale) { m_futureScale = scale; }
+    const SkIRect& futureViewport() const { return m_futureViewportTileBounds; }
+    void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
     double updateTime() const { return m_updateTime; }
     void setUpdateTime(double value) { m_updateTime = value; }
     double transitionTime(double currentTime);
@@ -169,7 +171,7 @@ public:
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect);
     void setExtra(BaseLayerAndroid* , SkPicture& , const IntRect& );
-    void scheduleUpdate(const double& currentTime, float scale);
+    void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
 
     TiledPage* frontPage();
     TiledPage* backPage();
@@ -213,6 +215,7 @@ private:
     android::Mutex m_tiledPageLock;
     SkRect m_viewport;
     SkIRect m_viewportTileBounds;
+    SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
     android::Mutex m_baseLayerLock;
     BaseLayerAndroid* m_baseLayer;

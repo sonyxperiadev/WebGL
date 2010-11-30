@@ -129,7 +129,6 @@ struct FieldIds {
         mAutoFillEnabled = env->GetFieldID(clazz, "mAutoFillEnabled", "Z");
         mAutoFillProfile = env->GetFieldID(clazz, "mAutoFillProfile", "Landroid/webkit/WebSettings$AutoFillProfile;");
         jclass autoFillProfileClass = env->FindClass("android/webkit/WebSettings$AutoFillProfile");
-        mAutoFillProfileUniqueId = env->GetFieldID(autoFillProfileClass, "mUniqueId", "I");
         mAutoFillProfileFullName = env->GetFieldID(autoFillProfileClass, "mFullName", "Ljava/lang/String;");
         mAutoFillProfileEmailAddress = env->GetFieldID(autoFillProfileClass, "mEmailAddress", "Ljava/lang/String;");
         mAutoFillProfileCompanyName = env->GetFieldID(autoFillProfileClass, "mCompanyName", "Ljava/lang/String;");
@@ -254,7 +253,6 @@ struct FieldIds {
 #if ENABLE(WEB_AUTOFILL)
     jfieldID mAutoFillEnabled;
     jfieldID mAutoFillProfile;
-    jfieldID mAutoFillProfileUniqueId;
     jfieldID mAutoFillProfileFullName;
     jfieldID mAutoFillProfileEmailAddress;
     jfieldID mAutoFillProfileCompanyName;
@@ -291,8 +289,6 @@ inline string16 getStringFieldAsString16(JNIEnv* env, jobject autoFillProfile, j
 
 void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webAutoFill)
 {
-    // FIXME: id is deprecated.
-    int id = env->GetIntField(autoFillProfile, gFieldIds->mAutoFillProfileUniqueId);
     string16 fullName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileFullName);
     string16 emailAddress = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress);
     string16 companyName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCompanyName);

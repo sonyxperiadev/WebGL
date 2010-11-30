@@ -1793,6 +1793,25 @@ static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
     view->selectBestAt(rect);
 }
 
+static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
+{
+    SkRect r;
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* layer = (LayerAndroid*) jlayer;
+    r = layer->bounds();
+#else
+    r.setEmpty();
+#endif
+    SkIRect irect;
+    r.round(&irect);
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject rect = env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
+        irect.fRight, irect.fBottom);
+    env->DeleteLocalRef(rectClass);
+    return rect;
+}
+
 static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
 {
     SkIRect irect = jrect_to_webrect(env, jrect);
@@ -2303,6 +2322,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeImageURI },
     { "nativeInstrumentReport", "()V",
         (void*) nativeInstrumentReport },
+    { "nativeLayerBounds", "(I)Landroid/graphics/Rect;",
+        (void*) nativeLayerBounds },
     { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",

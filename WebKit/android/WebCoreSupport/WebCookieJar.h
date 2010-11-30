@@ -32,6 +32,8 @@
 
 namespace android {
 
+// This class is threadsafe. It is used from the IO, WebCore and Chromium IO
+// threads.
 class WebCookieJar : public net::CookiePolicy {
 public:
     static WebCookieJar* get(bool isPrivateBrowsing);
