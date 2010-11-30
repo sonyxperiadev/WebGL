@@ -541,6 +541,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
     bool canDeleteAnonymousBlocks = !documentBeingDestroyed() && !isInline() && !oldChild->isInline() && 
                                     (!oldChild->isRenderBlock() || !toRenderBlock(oldChild)->inlineContinuation()) && 
                                     (!prev || (prev->isAnonymousBlock() && prev->childrenInline())) &&
+                                    (!prev || (!prev->firstChild() || !prev->firstChild()->isInline() || !prev->firstChild()->isRunIn())) &&
                                     (!next || (next->isAnonymousBlock() && next->childrenInline()));
     if (canDeleteAnonymousBlocks && prev && next) {
         // Take all the children out of the |next| block and put them in
