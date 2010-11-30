@@ -38,9 +38,10 @@ namespace android {
 class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
     static WebCache* get(bool isPrivateBrowsing);
+    static void cleanup(bool isPrivateBrowsing);
 
+    ~WebCache();
     void clear();
-    void cleanupFiles();
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
 
@@ -52,7 +53,6 @@ private:
     void doomAllEntries(int);
     void onClearDone(int);
 
-    std::string m_storageDirectory;
     OwnPtr<net::HostResolver> m_hostResolver;
     OwnPtr<net::HttpCache> m_cache;
 
