@@ -212,7 +212,7 @@ void HTMLLinkElement::process()
                         m_isPrecomposedTouchIcon);
 #endif
 
-    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+    if (m_isDNSPrefetch && document()->isDNSPrefetchEnabled() && m_url.isValid() && !m_url.isEmpty())
         prefetchDNS(m_url.host());
 
     bool acceptIfTypeContainsTextCSS = document()->page() && document()->page()->settings() && document()->page()->settings()->treatsAnyTextCSSLinkAsStylesheet();
