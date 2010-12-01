@@ -167,13 +167,15 @@ void WebRequestContext::removeFileOrDirectory(const char* filename)
 bool WebRequestContext::cleanupPrivateBrowsingFiles()
 {
     // This is called on the UI thread.
+    // TODO: This should be done on a different thread. Moving to the WebKit
+    // thread should be straightforward and safe. See b/3243891.
     MutexLocker lock(privateBrowsingContextMutex);
 
     if (!privateBrowsingContext || privateBrowsingContext->HasOneRef()) {
         privateBrowsingContext = 0;
 
-        WebCookieJar::get(true)->cleanupFiles();
-        WebCache::get(true)->cleanupFiles();
+        WebCookieJar::cleanup(true);
+        WebCache::cleanup(true);
         return true;
     }
     return false;
