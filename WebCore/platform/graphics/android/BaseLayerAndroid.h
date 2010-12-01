@@ -59,7 +59,7 @@ public:
 
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
-
+    void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
     bool drawBasePictureInGL(SkRect& viewport, float scale);

@@ -97,6 +97,8 @@ GLWebViewState::~GLWebViewState()
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
+    if (m_baseLayer && layer)
+        m_baseLayer->swapExtra(layer);
     m_baseLayer = layer;
     if (m_baseLayer) {
         m_baseLayer->setGLWebViewState(this);
