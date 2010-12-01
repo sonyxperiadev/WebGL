@@ -1112,10 +1112,12 @@ void CachedRoot::calcBitBounds(const IntRect& nodeBounds, IntRect* bitBounds) co
     IntRect contentBounds = IntRect(0, 0, mPicture->width(), mPicture->height());
     IntRect overBounds = nodeBounds;
     overBounds.inflate(kMargin);
-    *bitBounds = mScrolledBounds;
-    bitBounds->unite(mViewBounds);
-    bitBounds->intersect(contentBounds);
+    IntRect viewableBounds = mScrolledBounds;
+    viewableBounds.unite(mViewBounds);
+    *bitBounds = contentBounds;
     bitBounds->intersect(overBounds);
+    if (!bitBounds->intersects(viewableBounds))
+        *bitBounds = IntRect(0, 0, 0, 0);
     DBG_NAV_LOGD("contentBounds=(%d,%d,r=%d,b=%d) overBounds=(%d,%d,r=%d,b=%d)"
         " mScrolledBounds=(%d,%d,r=%d,b=%d) mViewBounds=(%d,%d,r=%d,b=%d)"
         " bitBounds=(%d,%d,r=%d,b=%d)",

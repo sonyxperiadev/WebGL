@@ -286,8 +286,8 @@ namespace android {
         //
 
 
-        WTF::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
-        WTF::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
+        WTF::String retrieveHref(int x, int y);
+        WTF::String retrieveAnchorText(int x, int y);
         WTF::String requestLabel(WebCore::Frame* , WebCore::Node* );
 
         // If the focus is a textfield (<input>), textarea, or contentEditable,
@@ -605,7 +605,7 @@ namespace android {
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
-        WebCore::HTMLAnchorElement* retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node);
+        WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
         // below are members responsible for accessibility support
         String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
         String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
