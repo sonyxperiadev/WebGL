@@ -98,7 +98,7 @@ GlyphSet::~GlyphSet() {
     // part of mLowerGlyphs
 }
 
-GlyphSet::GlyphSet& GlyphSet::operator=(GlyphSet& src) {
+GlyphSet& GlyphSet::operator=(GlyphSet& src) {
     mTypeface = src.mTypeface;
     mCount = src.mCount;
     if (mCount > MAX_STORAGE_COUNT) {
