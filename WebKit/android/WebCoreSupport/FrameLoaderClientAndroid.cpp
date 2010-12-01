@@ -980,6 +980,7 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
 
 // YouTube flash url path starts with /v/
 static const char slash_v_slash[] = { '/', 'v', '/' };
+static const char slash_e_slash[] = { '/', 'e', '/' };
 
 static bool isValidYouTubeVideo(const String& path)
 {
@@ -990,8 +991,10 @@ static bool isValidYouTubeVideo(const String& path)
         return false;
     CString str = path.lower().utf8();
     const char* data = str.data();
+    // Youtube flash url can start with /v/ or /e/
     if (memcmp(data, slash_v_slash, sizeof(slash_v_slash)) != 0)
-        return false;
+        if (memcmp(data, slash_e_slash, sizeof(slash_e_slash)) != 0)
+            return false;
     // Start after /v/
     for (unsigned int i = sizeof(slash_v_slash); i < len; i++) {
         char c = data[i];
