@@ -71,10 +71,10 @@ WTF::String jstringToWtfString(JNIEnv* env, jstring str)
     return ret;
 }
 
-jstring WtfStringToJstring(JNIEnv* env, const WTF::String& str)
+jstring WtfStringToJstring(JNIEnv* env, const WTF::String& str, bool validOnZeroLength)
 {
     int length = str.length();
-    return length ? env->NewString(str.characters(), length) : 0;
+    return length || validOnZeroLength ? env->NewString(str.characters(), length) : 0;
 }
 
 

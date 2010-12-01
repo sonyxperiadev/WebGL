@@ -2559,7 +2559,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WTF::String acceptType = chooser->acceptTypes();
-    jstring jAcceptType = WtfStringToJstring(env, acceptType);
+    jstring jAcceptType = WtfStringToJstring(env, acceptType, true);
     jstring jName = (jstring) env->CallObjectMethod(
             m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
