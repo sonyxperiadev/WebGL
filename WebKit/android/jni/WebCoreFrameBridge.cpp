@@ -33,7 +33,7 @@
 #include "MemoryCache.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
-#include "ChromiumLogging.h"
+#include "ChromiumInit.h"
 #include "ContextMenuClientAndroid.h"
 #include "DeviceMotionClientAndroid.h"
 #include "DeviceOrientationClientAndroid.h"
@@ -1036,8 +1036,8 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     ScriptController::initializeThreading();
 
 #if USE(CHROME_NETWORK_STACK)
-    // Initialize chromium logging, needs to be done before any chromium code is called
-    initChromiumLogging();
+    // needs to be called before any other chromium code
+    initChromium();
 #endif
 
 #ifdef ANDROID_INSTRUMENT

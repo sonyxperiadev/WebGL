@@ -27,7 +27,7 @@
 #include "WebRequestContext.h"
 
 #include "ChromiumIncludes.h"
-#include "ChromiumLogging.h"
+#include "ChromiumInit.h"
 #include "WebCache.h"
 #include "WebCookieJar.h"
 
@@ -49,7 +49,7 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
     : m_isPrivateBrowsing(isPrivateBrowsing)
 {
     // Initialize chromium logging, needs to be done before any chromium code is called.
-    initChromiumLogging();
+    initChromium();
 
     WebCache* cache = WebCache::get(m_isPrivateBrowsing);
     host_resolver_ = cache->hostResolver();
