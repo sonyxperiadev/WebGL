@@ -73,6 +73,7 @@ public:
     virtual void OnResponseStarted(URLRequest*);
     virtual void OnReadCompleted(URLRequest*, int bytesRead);
     virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
+    virtual void OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert);
 
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
