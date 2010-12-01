@@ -319,6 +319,14 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
             m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr, firstTime));
 }
 
+// Called when we received an SSL certificate error. Right now, we only
+// set the appropriate error code. FIXME: the delegate should provide
+// the user the options to proceed, cancel, or view certificates.
+void WebRequest::OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert)
+{
+    request->SimulateError(cert_error);
+}
+
 // After calling Start(), the delegate will receive an OnResponseStarted
 // callback when the request has completed.  If an error occurred, the
 // request->status() will be set.  On success, all redirects have been
