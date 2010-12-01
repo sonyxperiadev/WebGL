@@ -155,6 +155,14 @@ static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
 #endif
 }
 
+static void flushCookieStore(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
+    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->FlushStore();
+    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->FlushStore();
+#endif
+}
+
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
     { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
@@ -165,6 +173,7 @@ static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeRemoveSessionCookie", "()V", (void*) removeSessionCookie },
     { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
     { "nativeSetCookie", "(Ljava/lang/String;Ljava/lang/String;)V", (void*) setCookie },
+    { "nativeFlushCookieStore", "()V", (void*) flushCookieStore },
 };
 
 int registerCookieManager(JNIEnv* env)
