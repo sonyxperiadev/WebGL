@@ -52,7 +52,10 @@ namespace android
 WebAutoFill::WebAutoFill()
     : mQueryId(1)
     , mWebViewCore(0)
+    , mLastSearchDomVersion(0)
 {
+    mTabContents = new TabContents();
+    setEmptyProfile();
 }
 
 void WebAutoFill::init()
@@ -65,12 +68,9 @@ void WebAutoFill::init()
     ASSERT(mWebViewCore);
     AndroidURLRequestContextGetter::Get()->SetURLRequestContext(mWebViewCore->webRequestContext());
     AndroidURLRequestContextGetter::Get()->SetIOThread(WebUrlLoaderClient::ioThread());
-    mTabContents = new TabContents();
     mAutoFillManager = new AutoFillManager(mTabContents.get());
     mAutoFillHost = new AutoFillHostAndroid(this);
     mTabContents->SetAutoFillHost(mAutoFillHost.get());
-
-    setEmptyProfile();
 }
 
 WebAutoFill::~WebAutoFill()
@@ -81,12 +81,6 @@ WebAutoFill::~WebAutoFill()
 
 void WebAutoFill::searchDocument(WebCore::Frame* frame)
 {
-    // TODO: This method is called when the main frame finishes loading and
-    // scans the document for forms and tries to work out the type of the
-    // fields in those forms. It's currently synchronous and might be slow
-    // if the page has many or complex forms. Might want to make this an
-    // async method.
-
     if (!enabled())
         return;
 
@@ -94,17 +88,43 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
 
     mQueryMap.clear();
     mUniqueIdMap.clear();
+    mForms.clear();
     mQueryId = 1;
+
+    ASSERT(mFormManager);
+    ASSERT(mAutoFillManager);
+
     mAutoFillManager->Reset();
     mFormManager->Reset();
+
     mFormManager->ExtractForms(frame);
-    mForms.clear();
     mFormManager->GetFormsInFrame(frame, FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
     mAutoFillManager->FormsSeen(mForms);
+
 }
 
 void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
 {
+    ASSERT(formFieldElement);
+
+    Document* doc = formFieldElement->document();
+    Frame* frame = doc->frame();
+
+    // FIXME: AutoFill only works in main frame for now. Should consider
+    // child frames.
+    if (frame != frame->page()->mainFrame())
+        return;
+
+    unsigned domVersion = doc->domTreeVersion();
+    ASSERT(domVersion > 0);
+
+    if (mLastSearchDomVersion != domVersion) {
+        // Need to extract forms as DOM version has changed since the last time
+        // we searched.
+        searchDocument(formFieldElement->document()->frame());
+        mLastSearchDomVersion = domVersion;
+    }
+
     if (!enabled()) {
         // In case that we've just been disabled and the last time we got autofill
         // suggestions and told Java about them, clear that bit Java side now
@@ -153,7 +173,12 @@ void WebAutoFill::fillFormFields(int queryId)
     webkit_glue::FormData* form = mQueryMap[queryId];
     ASSERT(form);
     AutoFillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
-    ASSERT(iter != mUniqueIdMap.end());
+    if (iter == mUniqueIdMap.end()) {
+        // The user has most likely tried to AutoFill the form again without
+        // refocussing the form field. The UI should protect against this
+        // but stop here to be certain.
+        return;
+    }
     mAutoFillManager->FillAutoFillFormData(queryId, *form, iter->second);
     mUniqueIdMap.erase(iter);
 }

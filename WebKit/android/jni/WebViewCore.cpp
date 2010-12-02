@@ -2947,6 +2947,13 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
                     ->readOnly();
             if (ime) {
+#if ENABLE(WEB_AUTOFILL)
+                if (renderer->isTextField()) {
+                    EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(framePtr->page()->editorClient());
+                    WebAutoFill* autoFill = editorC->getAutoFill();
+                    autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
+                }
+#endif
                 RenderTextControl* rtc
                         = static_cast<RenderTextControl*> (renderer);
                 requestKeyboardWithSelection(focusNode, rtc->selectionStart(),

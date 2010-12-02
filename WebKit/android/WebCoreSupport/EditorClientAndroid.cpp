@@ -238,19 +238,6 @@ void EditorClientAndroid::respondToChangedSelection() {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
     if (!frame || !frame->view())
         return;
-
-#if ENABLE(WEB_AUTOFILL)
-    WebCore::Node* focusedNode = frame->document()->focusedNode();
-    if (focusedNode && focusedNode->hasTagName(inputTag)) {
-        WebCore::HTMLInputElement* element =  static_cast<WebCore::HTMLInputElement*>(focusedNode);
-        // TODO: If it's a text field, inform AutoFill that it should get AutoFill suggestions for
-        // the form it belongs to. AutoFill can also work with select-one elements (i.e. <select>
-        // without the "multiple" attribute set. Is it safe to call this function with select elements?
-        // How should AutoFill communicate select suggestions to Java?
-        if (element->isTextField())
-            m_autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusedNode));
-    }
-#endif
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(frame->view());
     webViewCore->updateTextSelection();
 }
