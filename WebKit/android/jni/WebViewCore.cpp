@@ -2559,7 +2559,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WTF::String acceptType = chooser->acceptTypes();
-    jstring jAcceptType = WtfStringToJstring(env, acceptType);
+    jstring jAcceptType = WtfStringToJstring(env, acceptType, true);
     jstring jName = (jstring) env->CallObjectMethod(
             m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
@@ -3335,6 +3335,24 @@ bool WebViewCore::drawIsPaused() const
     return env->GetBooleanField(m_javaGlue->object(env).get(),
         gWebViewCoreFields.m_drawIsPaused);
 }
+
+#if USE(CHROME_NETWORK_STACK)
+void WebViewCore::setWebRequestContextUserAgent()
+{
+    if (m_webRequestContext)
+        m_webRequestContext->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
+}
+
+WebRequestContext* WebViewCore::webRequestContext()
+{
+    if (!m_webRequestContext) {
+        Settings* settings = mainFrame()->settings();
+        m_webRequestContext = new WebRequestContext(settings && settings->privateBrowsingEnabled());
+        setWebRequestContextUserAgent();
+    }
+    return m_webRequestContext.get();
+}
+#endif
 
 //----------------------------------------------------------------------
 // Native JNI methods

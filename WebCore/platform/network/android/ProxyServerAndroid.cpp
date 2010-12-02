@@ -27,8 +27,6 @@
 #include "config.h"
 #include "ProxyServer.h"
 
-#include "KURL.h"
-#include "NetworkingContext.h"
 #include "NotImplemented.h"
 
 namespace WebCore {

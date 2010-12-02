@@ -46,7 +46,6 @@ private:
     FrameNetworkingContextAndroid(WebCore::Frame*);
 
     virtual WebCore::MainResourceLoader* mainResourceLoader() const;
-    virtual bool isPrivateBrowsingEnabled() const;
     virtual WebCore::FrameLoaderClient* frameLoaderClient() const;
 };
 

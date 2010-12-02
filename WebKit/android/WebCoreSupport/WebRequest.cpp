@@ -145,7 +145,7 @@ void WebRequest::appendBytesToUpload(WTF::Vector<char>* data)
     delete data;
 }
 
-void WebRequest::start(bool isPrivateBrowsing)
+void WebRequest::start(WebRequestContext* context)
 {
     ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
 
@@ -161,7 +161,6 @@ void WebRequest::start(bool isPrivateBrowsing)
     if (m_request->url().SchemeIs("browser"))
         return handleBrowserURL(m_request->url());
 
-    URLRequestContext* context = WebRequestContext::get(isPrivateBrowsing);
     m_request->set_context(context);
 
     m_request->Start();
@@ -317,6 +316,14 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
 
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
             m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr, firstTime));
+}
+
+// Called when we received an SSL certificate error. Right now, we only
+// set the appropriate error code. FIXME: the delegate should provide
+// the user the options to proceed, cancel, or view certificates.
+void WebRequest::OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert)
+{
+    request->SimulateError(cert_error);
 }
 
 // After calling Start(), the delegate will receive an OnResponseStarted

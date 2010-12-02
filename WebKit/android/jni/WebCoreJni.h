@@ -72,8 +72,10 @@ bool checkException(JNIEnv* env);
 
 // Create a WTF::String object from a jstring object.
 WTF::String jstringToWtfString(JNIEnv*, jstring);
-// Returns a local reference to a new jstring.
-jstring WtfStringToJstring(JNIEnv*, const WTF::String&);
+// Returns a local reference to a new jstring. If validOnZeroLength is true then
+// passing in an empty WTF String will result in an empty jstring. Otherwise
+// an empty WTF String returns 0.
+jstring WtfStringToJstring(JNIEnv*, const WTF::String&, bool validOnZeroLength = false);
 
 #if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv*, jstring);

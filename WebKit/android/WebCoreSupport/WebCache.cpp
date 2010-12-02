@@ -36,6 +36,8 @@ using namespace net;
 
 namespace android {
 
+static WTF::Mutex instanceMutex;
+
 static const std::string& rootDirectory()
 {
     // This method may be called on any thread, as the Java method is
@@ -53,34 +55,52 @@ static const std::string& rootDirectory()
     return cacheDirectory;
 }
 
-WebCache* WebCache::get(bool isPrivateBrowsing)
+static std::string storageDirectory(bool isPrivateBrowsing)
 {
+    // TODO: Where is the right place to put the db for private browsing? Should
+    // it be kept in memory?
     static const char* const kDirectory = "/webviewCacheChromium";
     static const char* const kDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
-    static WebCache* regularCache = 0;
-    static WebCache* privateCache = 0;
+    std::string storageDirectory = rootDirectory();
+    storageDirectory.append(isPrivateBrowsing ? kDirectoryPrivate : kDirectory);
+    return storageDirectory;
+}
 
-    if (isPrivateBrowsing) {
-        if (!privateCache) {
-            std::string storageDirectory = rootDirectory();
-            storageDirectory.append(kDirectoryPrivate);
-            privateCache = new WebCache(storageDirectory);
-        }
-        return privateCache;
-    }
+static scoped_refptr<WebCache>* instance(bool isPrivateBrowsing)
+{
+    static scoped_refptr<WebCache> regularInstance;
+    static scoped_refptr<WebCache> privateInstance;
+    return isPrivateBrowsing ? &privateInstance : &regularInstance;
+}
 
-    if (!regularCache) {
-        std::string storageDirectory = rootDirectory();
-        storageDirectory.append(kDirectory);
-        regularCache = new WebCache(storageDirectory);
-    }
-    return regularCache;
+WebCache* WebCache::get(bool isPrivateBrowsing)
+{
+    MutexLocker lock(instanceMutex);
+    scoped_refptr<WebCache>* instancePtr = instance(isPrivateBrowsing);
+    if (!instancePtr->get())
+        *instancePtr = new WebCache(storageDirectory(isPrivateBrowsing));
+    return instancePtr->get();
+}
+
+WebCache::~WebCache()
+{
+    // We currently leak the HostResolver object to avoid a crash.
+    // TODO: Fix this. See b/3243797
+    m_hostResolver.leakPtr();
+}
+
+void WebCache::cleanup(bool isPrivateBrowsing)
+{
+    // This is called on the UI thread.
+    MutexLocker lock(instanceMutex);
+    scoped_refptr<WebCache>* instancePtr = instance(isPrivateBrowsing);
+    *instancePtr = 0;
+    WebRequestContext::removeFileOrDirectory(storageDirectory(isPrivateBrowsing).c_str());
 }
 
 WebCache::WebCache(const std::string& storageDirectory)
-    : m_storageDirectory(storageDirectory)
-    , m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
+    : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
     , m_doneCallback(this, &WebCache::onClearDone)
     , m_isClearInProgress(false)
 {
@@ -88,7 +108,7 @@ WebCache::WebCache(const std::string& storageDirectory)
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
 
     static const int kMaximumCacheSizeBytes = 20 * 1024 * 1024;
-    FilePath directoryPath(m_storageDirectory.c_str());
+    FilePath directoryPath(storageDirectory.c_str());
     net::HttpCache::DefaultBackend* backendFactory = new net::HttpCache::DefaultBackend(net::DISK_CACHE, directoryPath, kMaximumCacheSizeBytes, cacheMessageLoopProxy);
 
     m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
@@ -107,11 +127,6 @@ void WebCache::clear()
      base::Thread* thread = WebUrlLoaderClient::ioThread();
      if (thread)
          thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::doClear));
-}
-
-void WebCache::cleanupFiles()
-{
-    WebRequestContext::removeFileOrDirectory(m_storageDirectory.c_str());
 }
 
 void WebCache::doClear()

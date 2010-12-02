@@ -27,7 +27,7 @@
 #define WebRequest_h
 
 #include "ChromiumIncludes.h"
-#include "wtf/Vector.h"
+#include <wtf/Vector.h>
 
 class MessageLoop;
 
@@ -44,8 +44,9 @@ enum LoadState {
 };
 
 class UrlInterceptResponse;
-class WebResourceRequest;
 class WebFrame;
+class WebRequestContext;
+class WebResourceRequest;
 class WebUrlLoaderClient;
 
 // All methods in this class must be called on the io thread
@@ -65,7 +66,7 @@ public:
     void appendBytesToUpload(Vector<char>* data);
     void appendFileToUpload(const std::string& filename);
 
-    void start(bool isPrivateBrowsing);
+    void start(WebRequestContext*);
     void cancel();
 
     // From URLRequest::Delegate
@@ -73,6 +74,7 @@ public:
     virtual void OnResponseStarted(URLRequest*);
     virtual void OnReadCompleted(URLRequest*, int bytesRead);
     virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
+    virtual void OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert);
 
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);

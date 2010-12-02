@@ -34,11 +34,12 @@ using namespace WebCore;
 namespace android {
 class WebUrlLoaderClient;
 class WebFrame;
+class WebRequestContext;
 
 class WebUrlLoader : public ResourceLoaderAndroid {
 public:
     virtual ~WebUrlLoader();
-    static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, bool isPrivateBrowsing);
+    static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, WebRequestContext*);
 
     virtual void cancel();
     virtual void downloadFile();

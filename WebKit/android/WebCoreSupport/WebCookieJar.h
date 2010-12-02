@@ -34,9 +34,10 @@ namespace android {
 
 // This class is threadsafe. It is used from the IO, WebCore and Chromium IO
 // threads.
-class WebCookieJar : public net::CookiePolicy {
+class WebCookieJar : public net::CookiePolicy, public base::RefCountedThreadSafe<WebCookieJar> {
 public:
     static WebCookieJar* get(bool isPrivateBrowsing);
+    static void cleanup(bool isPrivateBrowsing);
 
     // CookiePolicy implementation from external/chromium
     virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
@@ -44,7 +45,6 @@ public:
 
     bool allowCookies();
     void setAllowCookies(bool allow);
-    void cleanupFiles();
 
     // Instead of this it would probably be better to add the cookie methods
     // here so the rest of WebKit doesn't have to know about Chromium classes
@@ -57,7 +57,6 @@ private:
     scoped_refptr<net::CookieStore> m_cookieStore;
     bool m_allowCookies;
     WTF::Mutex m_allowCookiesMutex;
-    std::string m_databaseFilePath;
 };
 
 }

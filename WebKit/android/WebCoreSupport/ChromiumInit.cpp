@@ -23,16 +23,47 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ChromiumLogging_h
-#define ChromiumLogging_h
+#include "config.h"
+#include "ChromiumInit.h"
+
+#include "ChromiumIncludes.h"
+
+#include <cutils/log.h>
+#include <string>
 
 namespace android {
 
-// Sends chromium logs to logcat
-//
-// This only calls into chromium once, but can be called multiple times.
-// It should be called before any other calls into external/chromium.
-void initChromiumLogging();
+bool logMessageHandler(int severity, const char* file, int line, size_t message_start, const std::string& str) {
+    int androidSeverity = ANDROID_LOG_VERBOSE;
+    switch(severity) {
+    case logging::LOG_FATAL:
+        androidSeverity = ANDROID_LOG_FATAL;
+        break;
+    case logging::LOG_ERROR_REPORT:
+    case logging::LOG_ERROR:
+        androidSeverity = ANDROID_LOG_ERROR;
+        break;
+    case logging::LOG_WARNING:
+        androidSeverity = ANDROID_LOG_WARN;
+        break;
+    default:
+        androidSeverity = ANDROID_LOG_VERBOSE;
+        break;
+    }
+    android_printLog(androidSeverity, "chromium", "%s:%d: %s", file, line, str.c_str());
+    return false;
 }
 
-#endif
+void initChromium()
+{
+    static Lock lock;
+    AutoLock aLock(lock);
+    static bool initCalled = false;
+    if (!initCalled) {
+        logging::SetLogMessageHandler(logMessageHandler);
+        net::HttpNetworkLayer::EnableSpdy("npn");
+        initCalled = true;
+    }
+}
+
+} // namespace android

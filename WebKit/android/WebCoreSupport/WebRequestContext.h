@@ -33,20 +33,18 @@
 
 namespace android {
 
-// This class is generally not threadsafe. .get() is not threadsafe - instances
-// are created on the WebCore thread only.
+// This class is generally not threadsafe.
 class WebRequestContext : public URLRequestContext {
 public:
     // URLRequestContext overrides.
     virtual const std::string& GetUserAgent(const GURL&) const;
     virtual const std::string& GetAcceptLanguage() const;
 
-    // Lazily create the relevant context. This class holds a reference.
-    static WebRequestContext* get(bool isPrivateBrowsing);
+    WebRequestContext(bool isPrivateBrowsing);
 
     // These methods are threadsafe.
     static bool cleanupPrivateBrowsingFiles();
-    static void setUserAgent(WTF::String);
+    void setUserAgent(const WTF::String&);
     static void setAcceptLanguage(const WTF::String&);
     static const WTF::String& acceptLanguage();
 
@@ -59,10 +57,9 @@ private:
     WebRequestContext();
     ~WebRequestContext();
 
-    static WebRequestContext* getImpl(bool isPrivateBrowsing);
-    static WebRequestContext* getRegularContext();
-    static WebRequestContext* getPrivateBrowsingContext();
-
+    std::string m_userAgent;
+    mutable WTF::Mutex m_userAgentMutex;
+    bool m_isPrivateBrowsing;
 };
 
 } // namespace android

@@ -50,12 +50,20 @@ namespace android
 {
 
 WebAutoFill::WebAutoFill()
-    : mWebViewCore(0)
+    : mQueryId(1)
+    , mWebViewCore(0)
 {
-    mFormManager = new FormManager();
-    mQueryId = 1;
+}
 
-    AndroidURLRequestContextGetter::Get()->SetURLRequestContext(WebRequestContext::get(false /* isPrivateBrowsing */));
+void WebAutoFill::init()
+{
+    if (mAutoFillManager)
+        return;
+
+    mFormManager = new FormManager();
+    // We use the WebView's WebRequestContext, which may be a private browsing context.
+    ASSERT(mWebViewCore);
+    AndroidURLRequestContextGetter::Get()->SetURLRequestContext(mWebViewCore->webRequestContext());
     AndroidURLRequestContextGetter::Get()->SetIOThread(WebUrlLoaderClient::ioThread());
     mTabContents = new TabContents();
     mAutoFillManager = new AutoFillManager(mTabContents.get());
@@ -82,8 +90,7 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
     if (!enabled())
         return;
 
-    if (!mFormManager)
-        return;
+    init();
 
     mQueryMap.clear();
     mUniqueIdMap.clear();

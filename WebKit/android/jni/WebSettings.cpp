@@ -51,6 +51,7 @@
 #include "WorkerContextExecutionProxy.h"
 #endif
 #include "WebRequestContext.h"
+#include "WebViewCore.h"
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
@@ -364,7 +365,8 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mUserAgent);
         WebFrame::getWebFrame(pFrame)->setUserAgent(jstringToWtfString(env, str));
 #if USE(CHROME_NETWORK_STACK)
-        WebRequestContext::setUserAgent(jstringToWtfString(env, str));
+        WebViewCore::getWebViewCore(pFrame->view())->setWebRequestContextUserAgent();
+
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
         WebRequestContext::setAcceptLanguage(jstringToWtfString(env, str));
 #endif

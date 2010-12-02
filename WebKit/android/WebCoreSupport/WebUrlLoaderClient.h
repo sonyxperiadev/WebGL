@@ -52,6 +52,7 @@ namespace android {
 
 class WebFrame;
 class WebRequest;
+class WebRequestContext;
 
 // This class handles communication between the IO thread where loading happens
 // and the webkit main thread.
@@ -65,7 +66,7 @@ public:
     WebUrlLoaderClient(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
 
     // Called from WebCore, will be forwarded to the IO thread
-    bool start(bool sync, bool isPrivateBrowsing);
+    bool start(bool sync, WebRequestContext*);
     void cancel();
     void downloadFile();
     void pauseLoad(bool pause) {} // Android method, does nothing for now
