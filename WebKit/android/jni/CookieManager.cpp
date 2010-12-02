@@ -158,8 +158,7 @@ static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
 static void flushCookieStore(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->FlushStore();
-    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->FlushStore();
+    WebCookieJar::flush();
 #endif
 }
 

@@ -39,6 +39,9 @@ public:
     static WebCookieJar* get(bool isPrivateBrowsing);
     static void cleanup(bool isPrivateBrowsing);
 
+    // Flush all cookies to disk. Synchronous.
+    static void flush();
+
     // CookiePolicy implementation from external/chromium
     virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
     virtual int CanSetCookie(const GURL& url, const GURL& first_party_for_cookies, const std::string& cookie_line, net::CompletionCallback*);
