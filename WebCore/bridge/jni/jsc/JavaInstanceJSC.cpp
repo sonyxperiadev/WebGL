@@ -42,11 +42,6 @@
 #include <runtime/Error.h>
 #include <runtime/JSLock.h>
 
-#if PLATFORM(ANDROID)
-#define LOG_TAG JavaInstanceJSC.cpp
-#include <utils/Log.h>
-#endif
-
 using namespace JSC::Bindings;
 using namespace JSC;
 using namespace WebCore;
@@ -367,10 +362,6 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     : m_refCount(0)
 {
     ASSERT(instance);
-#if PLATFORM(ANDROID)
-    if (!instance)
-        LOGE("Attempted to create JObjectWrapper for null object");
-#endif
 
     // Cache the JNIEnv used to get the global ref for this java instance.
     // It'll be used to delete the reference.
@@ -381,11 +372,7 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     LOG(LiveConnect, "JObjectWrapper ctor new global ref %p for %p", m_instance, instance);
 
     if (!m_instance)
-#if PLATFORM(ANDROID)
-        LOGE("%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
-#else
         LOG_ERROR("Could not get GlobalRef for %p", instance);
-#endif
 }
 
 JObjectWrapper::~JObjectWrapper()
