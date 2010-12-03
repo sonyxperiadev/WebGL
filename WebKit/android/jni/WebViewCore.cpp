@@ -3557,10 +3557,17 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static jint UpdateLayers(JNIEnv *env, jobject obj)
+static jint UpdateLayers(JNIEnv *env, jobject obj, jobject region)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     BaseLayerAndroid* result = viewImpl->createBaseLayer();
+    SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
+    if (result) {
+        SkIRect bounds;
+        LayerAndroid* root = static_cast<LayerAndroid*>(result->getChild(0));
+        root->bounds().roundOut(&bounds);
+        nativeRegion->setRect(bounds);
+    }
     return reinterpret_cast<jint>(result);
 }
 
@@ -4096,7 +4103,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
-    { "nativeUpdateLayers", "()I",
+    { "nativeUpdateLayers", "(Landroid/graphics/Region;)I",
         (void*) UpdateLayers },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
