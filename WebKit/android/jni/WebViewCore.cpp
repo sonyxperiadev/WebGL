@@ -3569,8 +3569,10 @@ static jint UpdateLayers(JNIEnv *env, jobject obj, jobject region)
     if (result) {
         SkIRect bounds;
         LayerAndroid* root = static_cast<LayerAndroid*>(result->getChild(0));
-        root->bounds().roundOut(&bounds);
-        nativeRegion->setRect(bounds);
+        if (root) {
+            root->bounds().roundOut(&bounds);
+            nativeRegion->setRect(bounds);
+        }
     }
     return reinterpret_cast<jint>(result);
 }
