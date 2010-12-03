@@ -1177,10 +1177,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         originalAbsBounds = absBounds;
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (nodeRenderer->enclosingLayer() && nodeRenderer->enclosingLayer()->hasOverflowParent())
-            hasClip = false;
-#endif
 
         if (node->hasTagName(HTMLNames::canvasTag))
             mPictureSetDisabled = true;
@@ -1392,12 +1388,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.intersect(parentClip);
             hasClip = true;
         }
-        if (hasClip) {
-            if (clip.isEmpty())
-                continue; // skip this node if clip prevents all drawing
-            else if (cachedNode.clip(clip) == false)
-                continue; // skip this node if outside of the clip
-        }
         bool isInLayer = false;
 #if USE(ACCELERATED_COMPOSITING)
         // If this renderer has a composited parent layer (including itself),
@@ -1414,11 +1404,18 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 }
                 isInLayer = true;
                 isUnclipped = true; // assume that layers do not have occluded nodes
+                hasClip = false;
                 AddLayer(cachedFrame, cachedFrame->size(), layerClip.location(),
                          layer->uniqueId());
             }
         }
 #endif
+        if (hasClip) {
+            if (clip.isEmpty())
+                continue; // skip this node if clip prevents all drawing
+            else if (cachedNode.clip(clip) == false)
+                continue; // skip this node if outside of the clip
+        }
         cachedNode.setNavableRects();
         cachedNode.setColorIndex(colorIndex);
         cachedNode.setExport(exported);
@@ -2935,7 +2932,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     IntPoint scroll(layer->scrollXOffset(), layer->scrollYOffset());
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // If this is an overflow element, track the content layer.
-    if (layer->hasOverflowParent() && aLayer->getChild(0))
+    if (layer->hasOverflowScroll())
         aLayer = aLayer->getChild(0)->getChild(0);
     if (!aLayer)
         return;
@@ -2945,7 +2942,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
     indexTracker.mRenderLayer = layer;
-    indexTracker.mBounds = IntRect(FloatRect(aLayer->bounds()));
+    indexTracker.mBounds = enclosingIntRect(aLayer->bounds());
     // Use the absolute location of the layer as the bounds location.  This
     // provides the original offset of nodes in the layer so that we can
     // translate nodes between their original location and the layer's new
@@ -3094,7 +3091,7 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
                     return false;
                 continue;
             } 
-            if (renderer->hasOverflowClip() == false) {
+            if (hasClip == false) {
                 if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
                     IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
                     int left = bounds.x() + ((RenderBox*)renderer)->paddingLeft() 
