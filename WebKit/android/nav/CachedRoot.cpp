@@ -801,6 +801,7 @@ public:
                     mLayerTypes.size());
                 mLayers.remove(remove);
                 mLayerTypes.remove(remove);
+                mAppendLikeTypes = false;
                 return;
             }
         }
@@ -896,12 +897,15 @@ protected:
         if (mType != kDrawGlyph_Type && mType != kDrawRect_Type
                 && mType != kDrawSprite_Type && mType != kDrawBitmap_Type)
             return false;
-        if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType)
+        if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType
+            || !mAppendLikeTypes) {
             push(mType, mEmpty);
+        }
         DBG_NAV_LOGD("RingCheck join %s (%d,%d,r=%d,b=%d) '%c'",
             TypeNames[mType], rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
             mCh);
         mLayers.last().op(rect, SkRegion::kUnion_Op);
+        mAppendLikeTypes = true;
         return false;
     }
 
@@ -1017,6 +1021,7 @@ private:
     Vector<Type> mLayerTypes;
     const SkPaint* mPaint;
     char mCh;
+    bool mAppendLikeTypes;
 };
 
 class RingCanvas : public BoundsCanvas {
