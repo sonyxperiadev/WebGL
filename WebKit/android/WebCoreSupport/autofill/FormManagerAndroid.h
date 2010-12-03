@@ -68,9 +68,10 @@ public:
 
     // A bit field mask to extract data from HTMLFormControlElement.
     enum ExtractMask {
-        EXTRACT_NONE    = 0,
-        EXTRACT_VALUE   = 1 << 0,  // Extract value from HTMLFormControlElement.
-        EXTRACT_OPTIONS = 1 << 1,  // Extract options from HTMLFormControlElement.
+        EXTRACT_NONE        = 0,
+        EXTRACT_VALUE       = 1 << 0, // Extract value from HTMLFormControlElement.
+        EXTRACT_OPTION_TEXT = 1 << 1, // Extract option text from HTMLFormSelectElement. Only valid when |EXTRACT_VALUE| is set. This is used for form submission where humand readable value is captured.
+        EXTRACT_OPTIONS     = 1 << 2, // Extract options from HTMLFormControlElement.
     };
 
     FormManager();

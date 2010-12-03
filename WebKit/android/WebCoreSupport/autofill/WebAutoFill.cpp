@@ -122,7 +122,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = form;
 
-    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(mQueryId, false, formField);
+    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(false, formField);
     mQueryId++;
     if (!suggestions) {
         ASSERT(mWebViewCore);
@@ -132,17 +132,17 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     }
 }
 
-void WebAutoFill::querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId)
+void WebAutoFill::querySuccessful(const string16& value, const string16& label, int uniqueId)
 {
     if (!enabled())
         return;
 
     // Store the unique ID for the query and inform java that autofill suggestions for this form are available.
     // Pass java the queryId so that it can pass it back if the user decides to use autofill.
-    mUniqueIdMap[queryId] = uniqueId;
+    mUniqueIdMap[mQueryId] = uniqueId;
 
     ASSERT(mWebViewCore);
-    mWebViewCore->setWebTextViewAutoFillable(queryId, mAutoFillProfile->Label());
+    mWebViewCore->setWebTextViewAutoFillable(mQueryId, mAutoFillProfile->Label());
 }
 
 void WebAutoFill::fillFormFields(int queryId)
