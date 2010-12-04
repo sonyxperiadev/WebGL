@@ -38,6 +38,7 @@
 #endif
 #include "CachedPage.h"
 #include "CachedResourceLoader.h"
+#include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentParser.h"
 #include "Event.h"
@@ -364,7 +365,13 @@ void DocumentLoader::updateLoading()
         return;
     }
     ASSERT(this == frameLoader()->activeDocumentLoader());
+    bool wasLoading = m_loading;
     setLoading(frameLoader()->isLoading());
+
+    if (wasLoading && !m_loading) {
+        if (DOMWindow* window = m_frame->existingDOMWindow())
+            window->finishedLoading();
+    }
 }
 
 void DocumentLoader::setFrame(Frame* frame)
@@ -803,10 +810,12 @@ void DocumentLoader::transferLoadingResourcesFromPage(Page* oldPage)
 {
     ASSERT(oldPage != m_frame->page());
 
-    FrameLoaderClient* frameLoaderClient = frameLoader()->client();
+    FrameLoader* loader = frameLoader();
+    ASSERT(loader);
+
     const ResourceRequest& request = originalRequest();
     if (isLoadingMainResource()) {
-        frameLoaderClient->transferLoadingResourceFromPage(
+        loader->dispatchTransferLoadingResourceFromPage(
             m_mainResourceLoader->identifier(), this, request, oldPage);
     }
 
@@ -814,7 +823,7 @@ void DocumentLoader::transferLoadingResourcesFromPage(Page* oldPage)
         ResourceLoaderSet::const_iterator it = m_subresourceLoaders.begin();
         ResourceLoaderSet::const_iterator end = m_subresourceLoaders.end();
         for (; it != end; ++it) {
-            frameLoaderClient->transferLoadingResourceFromPage(
+            loader->dispatchTransferLoadingResourceFromPage(
                 (*it)->identifier(), this, request, oldPage);
         }
     }

@@ -1,3 +1,144 @@
+2010-11-16  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        <rdar://problem/8624267> Leak creating offscreen webview running fast/dom tests
+
+        Make a static provider for WebDeviceOrientationProviderMock.  The old code allocated a new WebDeviceOrientationProviderMock for 
+        every WebView, and the WebKit API doesn't support that ownership model.
+
+        * WebView/WebDeviceOrientationProviderMock.h:
+        * WebView/WebDeviceOrientationProviderMock.mm:
+        (+[WebDeviceOrientationProviderMock shared]):
+
+2010-11-16  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=11004
+        
+        font-size:0 is ignored.  Remove the minimum font size of 1 in CSSStyleSelector.
+        Change the pref value for minimum font size from 1 to 0.  Make sure to never use the NSFont's size,
+        since it doesn't honor a size of 0.  Instead pass the size in to the FontPlatformData(NSFont*) version
+        of the constructor rather than using [NSFont pointSize].
+
+        https://bugs.webkit.org/show_bug.cgi?id=49582
+        
+        Negative leading is not handled correctly.  There are two bugs here.  The first is that
+        maxAscent and maxDescent can be negative, so we need a notion of whether or not we have
+        set them before so that we can allow them to be < 0.
+        
+        The second issue is that we should understand where fonts will end up relative to
+        our baseline (excluding line height), and only allow those boxes to impact ascent and
+        descent if the actual font box (without factoring in line height) is above or below the
+        root line box baseline.
+
+        Added fast/css/negative-leading.html
+        
+        These two bug fixes have to land together to keep the Acid 3 test rendering correctly.
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:allowingFontSmoothing:]):
+        (-[NSString _web_widthWithFont:]):
+        * Misc/WebStringTruncator.mm:
+        (fontFromNSFont):
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2010-11-16  Anders Carlsson  <andersca@apple.com>
+
+        Fix clang++ build.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+
+2010-11-14  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Andreas Kling.
+
+        KeyboardEvent::keyIdentifier() should return "const String&"
+        https://bugs.webkit.org/show_bug.cgi?id=49426
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (selectorForKeyEvent):
+          Change the type of a variable to have keyIdentifier(); String -> const String&
+
+2010-11-12  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Rename GeolocationControllerClient to GeolocationClient.
+        https://bugs.webkit.org/show_bug.cgi?id=49259
+
+        * WebCoreSupport/WebGeolocationClient.h: Renamed from WebKit/mac/WebCoreSupport/WebGeolocationControllerClient.h.
+        (WebGeolocationClient::webView):
+        (WebGeolocationClient::setEnableHighAccuracy):
+        * WebCoreSupport/WebGeolocationClient.mm: Renamed from WebKit/mac/WebCoreSupport/WebGeolocationControllerClient.mm.
+        (WebGeolocationClient::WebGeolocationClient):
+        (WebGeolocationClient::geolocationDestroyed):
+        (WebGeolocationClient::startUpdating):
+        (WebGeolocationClient::stopUpdating):
+        (WebGeolocationClient::lastPosition):
+        * WebKit.order:
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2010-11-10  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=49356 
+        -[WebView _scaleWebView:] should take and origin and scroll the 
+        document
+        -and corresponding-
+        <rdar://problem/8643921>
+
+        * WebView/WebView.mm:
+        (-[WebView _scaleWebView:atOrigin:]):
+        * WebView/WebViewPrivate.h:
+
+2010-11-10  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        HTML5 Ruby support should be mandatory feature
+        https://bugs.webkit.org/show_bug.cgi?id=49272
+
+        Remove Ruby as optional feature.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-11-08  Ned Holbrook  <nholbrook@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Avoid CFAttributedString creation in ComplexTextController by adopting UniChar provider SPI.
+        https://bugs.webkit.org/show_bug.cgi?id=48886
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2010-11-08  Nate Chapin  <japhet@chromium.org>
+
+        Unreviewed, build fix.
+
+        Clumsy typo in r71562.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::start):
+
+2010-11-08  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Interface changes in https://bugs.webkit.org/show_bug.cgi?id=27165
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::start): Move duplicate code into NetscapePluginStreamLoader
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::start): Move duplicate code into NetscapePluginStreamLoader
+        * WebView/WebView.mm:
+        (-[WebView _dispatchPendingLoadRequests]): Use resourceLoadScheduler() instead of cache()->loader().
+
 2010-11-08  Anders Carlsson  <andersca@apple.com>
 
         Reviewed by Dan Bernstein.

@@ -178,7 +178,7 @@ static const PopupContainerSettings autoFillPopupSettings = {
     false, // acceptOnAbandon
     true,  // loopSelectionNavigation
     false, // restrictWidthOfListBox (For security reasons show the entire entry
-           // so the user doesn't enter information it did not intend to.)
+           // so the user doesn't enter information he did not intend to.)
     // For suggestions, we use the direction of the input field as the direction
     // of the popup items. The main reason is to keep the display of items in
     // drop-down the same as the items in the input field.
@@ -571,13 +571,13 @@ bool WebViewImpl::keyEvent(const WebKeyboardEvent& event)
         WebInputEvent::RawKeyDown;
 #endif
 
-    if (((!event.modifiers && (event.windowsKeyCode == VKEY_APPS))
-        || ((event.modifiers == WebInputEvent::ShiftKey) && (event.windowsKeyCode == VKEY_F10)))
-        && event.type == contextMenuTriggeringEventType) {
+    bool isUnmodifiedMenuKey = !(event.modifiers & WebInputEvent::InputModifiers) && event.windowsKeyCode == VKEY_APPS;
+    bool isShiftF10 = event.modifiers == WebInputEvent::ShiftKey && event.windowsKeyCode == VKEY_F10;
+    if ((isUnmodifiedMenuKey || isShiftF10) && event.type == contextMenuTriggeringEventType) {
         sendContextMenuEvent(event);
         return true;
     }
-#endif
+#endif // OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
 
     // It's not clear if we should continue after detecting a capslock keypress.
     // I'll err on the side of continuing, which is the pre-existing behaviour.
@@ -936,10 +936,10 @@ void WebViewImpl::resize(const WebSize& newSize)
             m_client->didInvalidateRect(damagedRect);
     }
 
-#if USE(ACCELERATED_COMPOSITING) && OS(DARWIN)
+#if USE(ACCELERATED_COMPOSITING)
     if (m_layerRenderer) {
-        m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
-                                                                std::max(1, m_size.height)));
+        m_layerRenderer->resizeOnscreenContent(IntSize(std::max(1, m_size.width),
+                                                       std::max(1, m_size.height)));
     }
 #endif
 }
@@ -1016,10 +1016,6 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
             resizeRect.intersect(IntRect(IntPoint(), m_layerRenderer->rootLayerTextureSize()));
             doPixelReadbackToCanvas(canvas, resizeRect);
         }
-
-        // Temporarily present so the downstream Chromium renderwidget still renders.
-        // FIXME: remove this call once the changes to Chromium's renderwidget have landed.
-        m_layerRenderer->present();
 #endif
     } else {
         WebFrameImpl* webframe = mainFrameImpl();
@@ -1100,7 +1096,7 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
 
         node->dispatchMouseEvent(
               PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
-              eventType);
+              eventType, static_cast<const WebMouseEvent*>(&inputEvent)->clickCount);
         m_currentInputEvent = 0;
         return true;
     }
@@ -1943,12 +1939,9 @@ void WebViewImpl::applyAutoFillSuggestions(
     }
 
     if (m_autoFillPopupShowing) {
-        m_autoFillPopupClient->setSuggestions(
-            names, labels, icons, uniqueIDs, separatorIndex);
         refreshAutoFillPopup();
     } else {
-        m_autoFillPopup->show(focusedNode->getRect(),
-                                 focusedNode->ownerDocument()->view(), 0);
+        m_autoFillPopup->show(focusedNode->getRect(), focusedNode->ownerDocument()->view(), 0);
         m_autoFillPopupShowing = true;
     }
 
@@ -2274,22 +2267,11 @@ void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 void WebViewImpl::setRootLayerNeedsDisplay()
 {
     m_client->scheduleComposite();
-    // FIXME: To avoid breaking the downstream Chrome render_widget while downstream
-    // changes land, we also have to pass a 1x1 invalidate up to the client
-    {
-        WebRect damageRect(0, 0, 1, 1);
-        m_client->didInvalidateRect(damageRect);
-    }
 }
 
 
 void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect& clipRect)
 {
-    // FIXME: To avoid breaking the Chrome render_widget when the new compositor render
-    // path is not checked in, we must still pass scroll damage up to the client. This
-    // code will be backed out in a followup CL once the Chromium changes have landed.
-    m_client->didScrollRect(scrollDelta.width(), scrollDelta.height(), clipRect);
-
     ASSERT(m_layerRenderer);
     // Compute the damage rect in viewport space.
     WebFrameImpl* webframe = mainFrameImpl();
@@ -2346,7 +2328,7 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
 
         // Move the damage
         innerDamage.move(scrollDelta.width(), scrollDelta.height());
-        
+
         // Merge it back into the damaged rect
         m_rootLayerDirtyRect.unite(innerDamage);
     }
@@ -2356,17 +2338,12 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
 
 void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
 {
-    // FIXME: To avoid breaking the Chrome render_widget when the new compositor render
-    // path is not checked in, we must still pass damage up to the client. This
-    // code will be backed out in a followup CL once the Chromium changes have landed.
-    m_client->didInvalidateRect(rect);
-
     ASSERT(m_layerRenderer);
 
     if (!page())
         return;
 
-    // FIXME: add a smarter damage aggregation logic and/or unify with 
+    // FIXME: add a smarter damage aggregation logic and/or unify with
     // LayerChromium's damage logic
     m_rootLayerDirtyRect.unite(rect);
     setRootLayerNeedsDisplay();
@@ -2380,16 +2357,23 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 
     if (!active) {
         m_isAcceleratedCompositingActive = false;
+        m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
+        m_client->didActivateAcceleratedCompositing(false);
         return;
     }
 
     if (m_layerRenderer) {
         m_isAcceleratedCompositingActive = true;
+        m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
+                                                                std::max(1, m_size.height)));
+
+        m_client->didActivateAcceleratedCompositing(true);
         return;
     }
 
     RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
     if (!context) {
+        m_client->didActivateAcceleratedCompositing(true);
         context = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
         if (context)
             context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
@@ -2400,6 +2384,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         m_compositorCreationFailed = false;
     } else {
         m_isAcceleratedCompositingActive = false;
+        m_client->didActivateAcceleratedCompositing(false);
         m_compositorCreationFailed = true;
     }
 }

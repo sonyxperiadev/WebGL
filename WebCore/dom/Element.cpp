@@ -159,7 +159,7 @@ PassRefPtr<Element> Element::cloneElementWithChildren()
 
 PassRefPtr<Element> Element::cloneElementWithoutChildren()
 {
-    RefPtr<Element> clone = document()->createElement(tagQName(), false);
+    RefPtr<Element> clone = cloneElementWithoutAttributesAndChildren();
     // This will catch HTML elements in the wrong namespace that are not correctly copied.
     // This is a sanity check as HTML overloads some of the DOM methods.
     ASSERT(isHTMLElement() == clone->isHTMLElement());
@@ -171,6 +171,11 @@ PassRefPtr<Element> Element::cloneElementWithoutChildren()
     clone->copyNonAttributeProperties(this);
 
     return clone.release();
+}
+
+PassRefPtr<Element> Element::cloneElementWithoutAttributesAndChildren() const
+{
+    return document()->createElement(tagQName(), false);
 }
 
 void Element::removeAttribute(const QualifiedName& name, ExceptionCode& ec)
@@ -1518,7 +1523,7 @@ AtomicString Element::computeInheritedLanguage() const
             value = static_cast<const Document*>(n)->contentLanguage();
         }
 
-        n = n->parent();
+        n = n->parentNode();
     }
 
     return value;

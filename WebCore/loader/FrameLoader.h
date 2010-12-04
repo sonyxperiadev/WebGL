@@ -138,6 +138,7 @@ public:
     bool isLoading() const;
     bool frameHasLoaded() const;
     void transferLoadingResourcesFromPage(Page*);
+    void dispatchTransferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*);
 
     int numPendingOrLoadingRequests(bool recurse) const;
     String referrer() const;
@@ -170,7 +171,7 @@ public:
     ResourceError fileDoesNotExistError(const ResourceResponse&) const;
     ResourceError blockedError(const ResourceRequest&) const;
     ResourceError cannotShowURLError(const ResourceRequest&) const;
-    ResourceError interruptionForPolicyChangeError(const ResourceRequest&);
+    ResourceError interruptionForPolicyChangeError(const ResourceRequest&) const;
 
     bool isHostedByObjectElement() const;
     bool isLoadingMainFrame() const;
@@ -337,12 +338,6 @@ public:
     NetworkingContext* networkingContext() const;
 
 private:
-    bool canCachePageContainingThisFrame();
-#ifndef NDEBUG
-    void logCanCachePageDecision();
-    bool logCanCacheFrameDecision(int indentLevel);
-#endif
-
     void checkTimerFired(Timer<FrameLoader>*);
     
     void navigateWithinDocument(HistoryItem*);
@@ -367,8 +362,6 @@ private:
 
     void mainReceivedError(const ResourceError&, bool isComplete);
 
-    void setLoadType(FrameLoadType);
-
     static void callContinueLoadAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
     static void callContinueLoadAfterNewWindowPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, const NavigationAction&, bool shouldContinue);
     static void callContinueFragmentScrollAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
@@ -389,8 +382,6 @@ private:
 
     void closeOldDataSources();
     void prepareForCachedPageRestore();
-
-    void updateHistoryAfterClientRedirect();
 
     bool shouldReloadToHandleUnreachableURL(DocumentLoader*);
 
@@ -421,8 +412,6 @@ private:
     void loadInSameDocument(const KURL&, SerializedScriptValue* stateObject, bool isNewNavigation);
 
     void provisionalLoadStarted();
-
-    bool canCachePage();
 
     bool didOpenURL(const KURL&);
 
@@ -498,10 +487,6 @@ private:
     
     SandboxFlags m_sandboxFlags;
     SandboxFlags m_forcedSandboxFlags;
-
-#ifndef NDEBUG
-    bool m_didDispatchDidCommitLoad;
-#endif
 
     RefPtr<FrameNetworkingContext> m_networkingContext;
 };

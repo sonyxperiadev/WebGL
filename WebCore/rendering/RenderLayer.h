@@ -260,6 +260,7 @@ public:
     bool hasOverflowControls() const;
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool hasOverflowScroll() const;
+    bool hasOverflowParent() const;
 #endif
     void positionOverflowControls(int tx, int ty);
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
@@ -323,10 +324,18 @@ public:
     bool isFixed() const { return renderer()->isPositioned() && renderer()->style()->position() == FixedPosition; }
     // If fixed elements are composited, they will be containing children
     bool isStackingContext() const {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+      if (hasOverflowScroll())
+          return true;
+#endif
       return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed());
     }
 #else
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView() || hasOverflowScroll(); }
+#else
     bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView() ; }
+#endif
 #endif
 
     void dirtyZOrderLists();
@@ -704,7 +713,8 @@ private:
 
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
-void showLayerTree(const WebCore::RenderLayer* layer);
+void showLayerTree(const WebCore::RenderLayer*);
+void showLayerTree(const WebCore::RenderObject*);
 #endif
 
 #endif // RenderLayer_h

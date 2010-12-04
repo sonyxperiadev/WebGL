@@ -32,6 +32,7 @@
 #include "FrameView.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
+#include "MemoryUsage.h"
 #include "PluginView.h"
 #include "Settings.h"
 #include "WebCookieJar.h"
@@ -183,10 +184,24 @@ void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool c
     webViewCore->updateTextfield(nodePtr, changeToPassword, text);
 }
 
-void PlatformBridge::updateLayers(FrameView* frameView)
+int PlatformBridge::lowMemoryUsageMB()
 {
-    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
-    webViewCore->layersDraw();
+    return MemoryUsage::lowMemoryUsageMb();
+}
+
+int PlatformBridge::highMemoryUsageMB()
+{
+    return MemoryUsage::highMemoryUsageMb();
+}
+
+int PlatformBridge::memoryUsageMB()
+{
+    return MemoryUsage::memoryUsageMb(false);
+}
+
+int PlatformBridge::actualMemoryUsageMB()
+{
+    return MemoryUsage::memoryUsageMb(true);
 }
 
 }  // namespace WebCore

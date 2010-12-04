@@ -41,9 +41,7 @@ namespace WebCore {
         void setType(const String&);
 
     private:
-        SVGScriptElement(const QualifiedName&, Document*, bool createdByParser);
-
-        virtual String scriptContent() const;
+        SVGScriptElement(const QualifiedName&, Document*, bool createdByParser, bool isEvaluated);
 
         virtual void parseMappedAttribute(Attribute*);
         virtual void insertedIntoDocument();
@@ -55,11 +53,7 @@ namespace WebCore {
         virtual bool isURLAttribute(Attribute*) const;
         virtual void finishParsingChildren();
 
-        virtual String scriptCharset() const;
-
         virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
-
-        virtual bool shouldExecuteAsJavaScript() const;
 
         virtual bool haveLoadedRequiredResources();
 
@@ -75,13 +69,14 @@ namespace WebCore {
         virtual void dispatchLoadEvent();
         virtual void dispatchErrorEvent();
 
+        PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() const;
+
         // SVGURIReference
         DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGScriptElement, XLinkNames::hrefAttr, String, Href, href)
 
         // SVGExternalResourcesRequired
         DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGScriptElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
 
-        ScriptElementData m_data;
         String m_type;
     };
 

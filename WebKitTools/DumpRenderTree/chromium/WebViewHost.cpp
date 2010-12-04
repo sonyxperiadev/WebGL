@@ -39,6 +39,7 @@
 #include "WebConsoleMessage.h"
 #include "WebContextMenuData.h"
 #include "WebDataSource.h"
+#include "WebDeviceOrientationClientMock.h"
 #include "WebDragData.h"
 #include "WebElement.h"
 #include "WebFrame.h"
@@ -49,6 +50,7 @@
 #include "WebRect.h"
 #include "WebScreenInfo.h"
 #include "WebSize.h"
+#include "WebSpeechInputControllerMock.h"
 #include "WebStorageNamespace.h"
 #include "WebURLRequest.h"
 #include "WebURLResponse.h"
@@ -443,10 +445,20 @@ bool WebViewHost::runModalBeforeUnloadDialog(WebFrame*, const WebString&)
     return true; // Allow window closure.
 }
 
-void WebViewHost::showContextMenu(WebFrame*, const WebContextMenuData&)
+void WebViewHost::showContextMenu(WebFrame*, const WebContextMenuData& contextMenuData)
 {
+    m_lastContextMenuData = adoptPtr(new WebContextMenuData(contextMenuData));
 }
 
+void WebViewHost::clearContextMenuData()
+{
+    m_lastContextMenuData.clear();
+}
+
+WebContextMenuData* WebViewHost::lastContextMenuData() const
+{
+    return m_lastContextMenuData.get();
+}
 
 void WebViewHost::setStatusText(const WebString& text)
 {
@@ -570,12 +582,26 @@ WebKit::WebGeolocationService* WebViewHost::geolocationService()
 
 WebSpeechInputController* WebViewHost::speechInputController(WebKit::WebSpeechInputListener* listener)
 {
-    return m_shell->layoutTestController()->speechInputController(listener);
+    if (!m_speechInputControllerMock)
+        m_speechInputControllerMock.set(WebSpeechInputControllerMock::create(listener));
+    return m_speechInputControllerMock.get();
 }
 
-WebKit::WebDeviceOrientationClient* WebViewHost::deviceOrientationClient()
+WebDeviceOrientationClientMock* WebViewHost::deviceOrientationClientMock()
 {
-    return m_shell->layoutTestController()->deviceOrientationClient();
+    if (!m_deviceOrientationClientMock.get())
+        m_deviceOrientationClientMock.set(WebDeviceOrientationClientMock::create());
+    return m_deviceOrientationClientMock.get();
+}
+
+MockSpellCheck* WebViewHost::mockSpellCheck()
+{
+    return &m_spellcheck;
+}
+
+WebDeviceOrientationClient* WebViewHost::deviceOrientationClient()
+{
+    return deviceOrientationClientMock();
 }
 
 // WebWidgetClient -----------------------------------------------------------
@@ -633,14 +659,24 @@ void WebViewHost::show(WebNavigationPolicy)
     updatePaintRect(WebRect(0, 0, size.width, size.height));
 }
 
-void WebViewHost::closeWidgetSoon()
+
+
+void WebViewHost::closeWidget()
 {
     m_hasWindow = false;
     m_shell->closeWindow(this);
-    if (m_inModalLoop) {
-      m_inModalLoop = false;
-      webkit_support::QuitMessageLoop();
-    }
+    // No more code here, we should be deleted at this point.
+}
+
+static void invokeCloseWidget(void* context)
+{
+    WebViewHost* wvh = static_cast<WebViewHost*>(context);
+    wvh->closeWidget();
+}
+
+void WebViewHost::closeWidgetSoon()
+{
+    webkit_support::PostDelayedTask(invokeCloseWidget, static_cast<void*>(this), 0);
 }
 
 void WebViewHost::didChangeCursor(const WebCursorInfo& cursorInfo)
@@ -940,13 +976,14 @@ void WebViewHost::didChangeLocationWithinPage(WebFrame* frame)
 
 void WebViewHost::assignIdentifierToRequest(WebFrame*, unsigned identifier, const WebURLRequest& request)
 {
+     if (!m_shell->shouldDumpResourceLoadCallbacks())
+        return;
     ASSERT(!m_resourceIdentifierMap.contains(identifier));
     m_resourceIdentifierMap.set(identifier, descriptionSuitableForTestResult(request.url().spec()));
 }
 
 void WebViewHost::removeIdentifierForRequest(unsigned identifier)
 {
-    ASSERT(m_resourceIdentifierMap.contains(identifier));
     m_resourceIdentifierMap.remove(identifier);
 }
 
@@ -1066,31 +1103,26 @@ void WebViewHost::openFileSystem(WebFrame* frame, WebFileSystem::Type type, long
 // Public functions -----------------------------------------------------------
 
 WebViewHost::WebViewHost(TestShell* shell)
-    : m_policyDelegateEnabled(false)
-    , m_policyDelegateIsPermissive(false)
-    , m_policyDelegateShouldNotifyDone(false)
-    , m_shell(shell)
+    : m_shell(shell)
     , m_webWidget(0)
-    , m_topLoadingFrame(0)
-    , m_pageId(-1)
-    , m_lastPageIdUpdated(-1)
-    , m_hasWindow(false)
-    , m_inModalLoop(false)
-    , m_smartInsertDeleteEnabled(true)
-#if OS(WINDOWS)
-    , m_selectTrailingWhitespaceEnabled(true)
-#else
-    , m_selectTrailingWhitespaceEnabled(false)
-#endif
-    , m_blocksRedirects(false)
-    , m_requestReturnNull(false)
-    , m_isPainting(false)
 {
-    m_navigationController.set(new TestNavigationController(this));
+    reset();
 }
 
 WebViewHost::~WebViewHost()
 {
+    // Navigate to an empty page to fire all the destruction logic for the
+    // current page.
+    loadURLForFrame(GURL("about:blank"), WebString());
+
+    // Call GC twice to clean up garbage.
+    m_shell->callJSGC();
+    m_shell->callJSGC();
+
+    webWidget()->close();
+
+    if (m_inModalLoop)
+        webkit_support::QuitMessageLoop();
 }
 
 WebView* WebViewHost::webView() const
@@ -1108,13 +1140,46 @@ WebWidget* WebViewHost::webWidget() const
 
 void WebViewHost::reset()
 {
-    // Do a little placement new dance...
-    TestShell* shell = m_shell;
-    WebWidget* widget = m_webWidget;
-    this->~WebViewHost();
-    new (this) WebViewHost(shell);
-    setWebWidget(widget);
-    webView()->mainFrame()->setName(WebString());
+    m_policyDelegateEnabled = false;
+    m_policyDelegateIsPermissive = false;
+    m_policyDelegateShouldNotifyDone = false;
+    m_topLoadingFrame = 0;
+    m_pageId = -1;
+    m_lastPageIdUpdated = -1;
+    m_hasWindow = false;
+    m_inModalLoop = false;
+    m_smartInsertDeleteEnabled = true;
+#if OS(WINDOWS)
+    m_selectTrailingWhitespaceEnabled = true;
+#else
+    m_selectTrailingWhitespaceEnabled = false;
+#endif
+    m_blocksRedirects = false;
+    m_requestReturnNull = false;
+    m_isPainting = false;
+    m_canvas.clear();
+
+    m_navigationController.set(new TestNavigationController(this));
+
+    m_pendingExtraData.clear();
+    m_resourceIdentifierMap.clear();
+    m_clearHeaders.clear();
+    m_editCommandName.clear();
+    m_editCommandValue.clear();
+
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
+    m_geolocationServiceMock.clear();
+#endif
+
+    if (m_speechInputControllerMock.get())
+        m_speechInputControllerMock->clearResults();
+
+    m_currentCursor = WebCursorInfo();
+    m_windowRect = WebRect();
+    m_paintRect = WebRect();
+
+    if (m_webWidget)
+        webView()->mainFrame()->setName(WebString());
 }
 
 void WebViewHost::setSelectTrailingWhitespaceEnabled(bool enabled)

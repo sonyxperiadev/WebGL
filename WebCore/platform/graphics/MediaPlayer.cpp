@@ -47,21 +47,27 @@
 
 #if PLATFORM(MAC)
 #include "MediaPlayerPrivateQTKit.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivateQTKit
 #elif OS(WINCE) && !PLATFORM(QT)
 #include "MediaPlayerPrivateWinCE.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivate
 #elif PLATFORM(WIN)
 #include "MediaPlayerPrivateQuickTimeVisualContext.h"
-#include "MediaPlayerPrivateQuicktimeWin.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivateQuickTimeVisualContext
 #elif PLATFORM(QT)
-#if USE(QT_MULTIMEDIA)
+#if USE(QT_MULTIMEDIA) && !USE(GSTREAMER)
 #include "MediaPlayerPrivateQt.h"
-#else
+#define PlatformMediaEngineClassName MediaPlayerPrivateQt
+#elif !USE(GSTREAMER)
 #include "MediaPlayerPrivatePhonon.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivatePhonon
 #endif
 #elif PLATFORM(CHROMIUM)
 #include "MediaPlayerPrivateChromium.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivate
 #elif PLATFORM(ANDROID)
 #include "MediaPlayerPrivateAndroid.h"
+#define PlatformMediaEngineClassName MediaPlayerPrivate
 #endif
 
 namespace WebCore {
@@ -167,26 +173,14 @@ static Vector<MediaPlayerFactory*>& installedMediaEngines()
 
     if (!enginesQueried) {
         enginesQueried = true;
+
 #if USE(GSTREAMER)
         MediaPlayerPrivateGStreamer::registerMediaEngine(addMediaEngine);
 #endif
 
-#if PLATFORM(WIN)
-        MediaPlayerPrivateQuickTimeVisualContext::registerMediaEngine(addMediaEngine);
-#elif PLATFORM(QT)
-#if USE(QT_MULTIMEDIA)
-        MediaPlayerPrivateQt::registerMediaEngine(addMediaEngine);
-#else
-        MediaPlayerPrivatePhonon::registerMediaEngine(addMediaEngine);
+#if !PLATFORM(GTK) && !PLATFORM(EFL) && !(PLATFORM(QT) && USE(GSTREAMER))
+        PlatformMediaEngineClassName::registerMediaEngine(addMediaEngine);
 #endif
-#elif !PLATFORM(GTK) && !PLATFORM(EFL)
-        // FIXME: currently all the MediaEngines are named
-        // MediaPlayerPrivate. This code will need an update when bug
-        // 36663 is adressed.
-        MediaPlayerPrivate::registerMediaEngine(addMediaEngine);
-#endif
-
-        // register additional engines here
     }
     
     return installedEngines;
@@ -651,6 +645,11 @@ MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
 float MediaPlayer::mediaTimeForTimeValue(float timeValue) const
 {
     return m_private->mediaTimeForTimeValue(timeValue);
+}
+
+double MediaPlayer::maximumDurationToCacheMediaTime() const
+{
+    return m_private->maximumDurationToCacheMediaTime();
 }
 
 // Client callbacks.

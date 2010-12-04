@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -32,18 +32,20 @@
 #define PopupMenuChromium_h
 
 #include "config.h"
-#include "PopupMenuClient.h"
 
 #include "FramelessScrollView.h"
 #include "IntRect.h"
+#include "PlatformString.h"
 #include "PopupMenu.h"
 #include "PopupMenuPrivate.h"
+#include "PopupMenuStyle.h"
 
 namespace WebCore {
 
 class ChromeClientChromium;
 class FrameView;
 class PopupListBox;
+class PopupMenuClient;
 
 // A container for the data for each menu item (e.g. represented by <option>
 // or <optgroup> in a <select> widget) and is used by PopupListBox.

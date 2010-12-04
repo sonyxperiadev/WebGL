@@ -48,7 +48,7 @@ public:
     }
     // FIXME: adjustBounds should be renamed globalBounds or toGlobal
     IntRect adjustBounds(const LayerAndroid* root, const IntRect& bounds) const;
-    // Moves the bounds by the layer's scroll position.  Assumes the incoming
+    // Moves the bounds by the layer's position.  Assumes the incoming
     // bounds have been adjusted by adjustBounds.
     IntRect unadjustBounds(const LayerAndroid* root,
                            const IntRect& bounds) const;
@@ -60,19 +60,17 @@ public:
     void toLocal(const LayerAndroid* root, int* xPtr, int* yPtr) const;
     void reset() { mLayer = 0; }
     void setCachedNodeIndex(int index) { mCachedNodeIndex = index; }
+    // Set the global position of the layer.  This is recorded by the nav cache
+    // and corresponds to RenderLayer::absoluteBoundingBox() which is in
+    // document coordinates.  This can be different from the global position of
+    // the layer if the layer is fixed positioned or scrollable.
     void setOffset(const IntPoint& offset) { mOffset = offset; }
-    void setScrollOffset(const IntPoint& scrollOffset) {
-        mScrollOffset = scrollOffset;
-    }
     void setUniqueId(int uniqueId) { mUniqueId = uniqueId; }
     int uniqueId() const { return mUniqueId; }
 private:
     int mCachedNodeIndex;
     mutable const LayerAndroid* mLayer;
-    // mOffset and mScrollOffset are the position and scroll offset of the
-    // layer when recorded by the nav cache.
     IntPoint mOffset;
-    IntPoint mScrollOffset;
     int mUniqueId;
 
 #if DUMP_NAV_CACHE

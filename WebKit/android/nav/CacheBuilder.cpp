@@ -93,6 +93,12 @@ Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) {
     return loader->getFrame();
 }
 
+CacheBuilder::LayerTracker::~LayerTracker() {
+    if (mRenderLayer)
+        // Restore the scroll position of the layer.  Does not affect layers
+        // without overflow scroll as the layer will not be scrolled.
+        mRenderLayer->scrollToOffset(mScroll.x(), mScroll.y(), false, false);
+}
 
 #if DUMP_NAV_CACHE
 
@@ -919,8 +925,7 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
-        const IntPoint& scroll, int id)
+static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location, int id)
 {
     DBG_NAV_LOGD("frame=%p index=%d loc=(%d,%d) id=%d", frame, index,
         location.x(), location.y(), id);
@@ -928,7 +933,6 @@ static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
     cachedLayer.reset();
     cachedLayer.setCachedNodeIndex(index);
     cachedLayer.setOffset(location);
-    cachedLayer.setScrollOffset(scroll);
     cachedLayer.setUniqueId(id);
     frame->add(cachedLayer);
 }
@@ -1099,7 +1103,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             hasCursorRing = style->tapHighlightColor().alpha() > 0;
 #endif
 #if USE(ACCELERATED_COMPOSITING)
-            if (nodeRenderer->hasLayer()) {
+            // If this renderer has its own layer and the layer is composited,
+            // start tracking it.
+            if (lastChild && nodeRenderer->hasLayer() && toRenderBox(nodeRenderer)->layer()->backing()) {
                 TrackLayer(layerTracker, nodeRenderer, lastChild,
                     globalOffsetX, globalOffsetY);
                 size_t size = tracker.size();
@@ -1108,11 +1114,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                     int id = layer->uniqueId();
                     const RenderLayer* renderLayer =
                             layerTracker.last().mRenderLayer;
-                    IntPoint loc(SkScalarRound(layer->getPosition().fX),
-                                 SkScalarRound(layer->getPosition().fY));
+                    // Global location
+                    IntPoint loc = renderLayer->absoluteBoundingBox().location();
                     loc.move(globalOffsetX, globalOffsetY);
-                    IntPoint scroll(renderLayer->scrollXOffset(),
-                                    renderLayer->scrollYOffset());
                     // if this is a child of a CachedNode, add a layer
                     size_t limit = cachedFrame->layerCount() == 0 ? 0 :
                         cachedFrame->lastLayer()->cachedNodeIndex();
@@ -1128,7 +1132,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         CachedNode* trackedNode = cachedFrame->getIndex(index);
                         trackedNode->setIsInLayer(true);
                         trackedNode->setIsUnclipped(true);
-                        AddLayer(cachedFrame, index, loc, scroll, id);
+                        AddLayer(cachedFrame, index, loc, id);
                     }
                 }
             }
@@ -1173,13 +1177,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         originalAbsBounds = absBounds;
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (nodeRenderer->hasLayer()) {
-            const LayerAndroid* layer = layerTracker.last().mLayer;
-            if (layer && layer->contentIsScrollable())
-                hasClip = false;
-        }
-#endif
 
         if (node->hasTagName(HTMLNames::canvasTag))
             mPictureSetDisabled = true;
@@ -1391,32 +1388,34 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.intersect(parentClip);
             hasClip = true;
         }
+        bool isInLayer = false;
+#if USE(ACCELERATED_COMPOSITING)
+        // If this renderer has a composited parent layer (including itself),
+        // add the node to the cached layer.
+        // FIXME: does not work for area rects
+        RenderLayer* enclosingLayer = nodeRenderer->enclosingLayer();
+        if (enclosingLayer && enclosingLayer->enclosingCompositingLayer()) {
+            LayerAndroid* layer = layerTracker.last().mLayer;
+            if (layer) {
+                const IntRect& layerClip = layerTracker.last().mBounds;
+                if (!layerClip.isEmpty() && !cachedNode.clip(layerClip)) {
+                    DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
+                    continue; // skip this node if outside of the clip
+                }
+                isInLayer = true;
+                isUnclipped = true; // assume that layers do not have occluded nodes
+                hasClip = false;
+                AddLayer(cachedFrame, cachedFrame->size(), layerClip.location(),
+                         layer->uniqueId());
+            }
+        }
+#endif
         if (hasClip) {
             if (clip.isEmpty())
                 continue; // skip this node if clip prevents all drawing
             else if (cachedNode.clip(clip) == false)
                 continue; // skip this node if outside of the clip
         }
-        bool isInLayer = false;
-#if USE(ACCELERATED_COMPOSITING)
-        // FIXME: does not work for area rects
-        LayerAndroid* layer = layerTracker.last().mLayer;
-        if (layer) {
-            const IntRect& layerClip = layerTracker.last().mBounds;
-            const RenderLayer* renderLayer = layerTracker.last().mRenderLayer;
-            if (!layer->contentIsScrollable() && !layerClip.isEmpty() &&
-                    !cachedNode.clip(layerClip)) {
-                DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
-                continue; // skip this node if outside of the clip
-            }
-            isInLayer = true;
-            isUnclipped = true; // assume that layers do not have occluded nodes
-            IntPoint scroll(renderLayer->scrollXOffset(),
-                            renderLayer->scrollYOffset());
-            AddLayer(cachedFrame, cachedFrame->size(), layerClip.location(),
-                     scroll, layer->uniqueId());
-        }
-#endif
         cachedNode.setNavableRects();
         cachedNode.setColorIndex(colorIndex);
         cachedNode.setExport(exported);
@@ -2919,7 +2918,7 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
 void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     RenderObject* nodeRenderer, Node* lastChild, int offsetX, int offsetY)
 {
-    RenderLayer* layer = toRenderBoxModelObject(nodeRenderer)->layer();
+    RenderLayer* layer = nodeRenderer->enclosingLayer();
     RenderLayerBacking* back = layer->backing();
     if (!back)
         return;
@@ -2930,13 +2929,28 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     LayerAndroid* aLayer = grLayer->contentLayer();
     if (!aLayer)
         return;
+    IntPoint scroll(layer->scrollXOffset(), layer->scrollYOffset());
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    // If this is an overflow element, track the content layer.
+    if (layer->hasOverflowScroll())
+        aLayer = aLayer->getChild(0)->getChild(0);
+    if (!aLayer)
+        return;
+    layer->scrollToOffset(0, 0, false, false);
+#endif
     layerTracker.grow(layerTracker.size() + 1);
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
     indexTracker.mRenderLayer = layer;
-    indexTracker.mBounds = IntRect(FloatRect(aLayer->bounds()));
+    indexTracker.mBounds = enclosingIntRect(aLayer->bounds());
+    // Use the absolute location of the layer as the bounds location.  This
+    // provides the original offset of nodes in the layer so that we can
+    // translate nodes between their original location and the layer's new
+    // location.
+    indexTracker.mBounds.setLocation(layer->absoluteBoundingBox().location());
     indexTracker.mBounds.move(offsetX, offsetY);
-    indexTracker.mLastChild = lastChild ? OneAfter(lastChild) : 0;
+    indexTracker.mScroll = scroll;
+    indexTracker.mLastChild = OneAfter(lastChild);
     DBG_NAV_LOGD("layer=%p [%d] bounds=(%d,%d,w=%d,h=%d)", aLayer,
         aLayer->uniqueId(), indexTracker.mBounds.x(), indexTracker.mBounds.y(),
         indexTracker.mBounds.width(), indexTracker.mBounds.height());
@@ -3077,7 +3091,7 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
                     return false;
                 continue;
             } 
-            if (renderer->hasOverflowClip() == false) {
+            if (hasClip == false) {
                 if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
                     IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
                     int left = bounds.x() + ((RenderBox*)renderer)->paddingLeft() 

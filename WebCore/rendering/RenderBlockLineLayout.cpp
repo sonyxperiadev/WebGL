@@ -35,6 +35,7 @@
 #include "RenderView.h"
 #include "Settings.h"
 #include "TrailingFloatsRootInlineBox.h"
+#include "VerticalPositionCache.h"
 #include "break_lines.h"
 #include <wtf/AlwaysInline.h>
 #include <wtf/RefCountedLeakCounter.h>
@@ -477,9 +478,10 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
     lineBox->placeBoxesInInlineDirection(logicalLeft, needsWordSpacing, textBoxDataMap);
 }
 
-void RenderBlock::computeBlockDirectionPositionsForLine(RootInlineBox* lineBox, BidiRun* firstRun, GlyphOverflowAndFallbackFontsMap& textBoxDataMap)
+void RenderBlock::computeBlockDirectionPositionsForLine(RootInlineBox* lineBox, BidiRun* firstRun, GlyphOverflowAndFallbackFontsMap& textBoxDataMap,
+                                                        VerticalPositionCache& verticalPositionCache)
 {
-    setLogicalHeight(lineBox->alignBoxesInBlockDirection(logicalHeight(), textBoxDataMap));
+    setLogicalHeight(lineBox->alignBoxesInBlockDirection(logicalHeight(), textBoxDataMap, verticalPositionCache));
     lineBox->setBlockLogicalHeight(logicalHeight());
 
     // Now make sure we place replaced render objects correctly.
@@ -659,8 +661,6 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                     }
                 }
 #endif
-                if (!o->isText())
-                    toRenderInline(o)->invalidateVerticalPosition(); // FIXME: Should do better here and not always invalidate everything.
             }
             o = bidiNext(this, o, 0, false, &endOfInline);
         }
@@ -783,6 +783,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
         bool isLineEmpty = true;
         bool paginated = view()->layoutState() && view()->layoutState()->isPaginated();
 
+        VerticalPositionCache verticalPositionCache;
+
         while (!end.atEnd()) {
             // FIXME: Is this check necessary before the first iteration or can it be moved to the end?
             if (checkForEndLineMatch && (endLineMatched = matchedEndLine(resolver, cleanLineStart, cleanLineBidiStatus, endLine, endLineLogicalTop, repaintLogicalBottom, repaintLogicalTop)))
@@ -883,7 +885,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                             computeInlineDirectionPositionsForLine(lineBox, firstLine, resolver.firstRun(), trailingSpaceRun, end.atEnd(), textBoxDataMap);
 
                         // Now position our text runs vertically.
-                        computeBlockDirectionPositionsForLine(lineBox, resolver.firstRun(), textBoxDataMap);
+                        computeBlockDirectionPositionsForLine(lineBox, resolver.firstRun(), textBoxDataMap, verticalPositionCache);
 
 #if ENABLE(SVG)
                         // SVG text layout code computes vertical & horizontal positions on its own.
@@ -1013,7 +1015,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 m_lineBoxes.appendLineBox(trailingFloatsLineBox);
                 trailingFloatsLineBox->setConstructed();
                 GlyphOverflowAndFallbackFontsMap textBoxDataMap;
-                trailingFloatsLineBox->alignBoxesInBlockDirection(logicalHeight(), textBoxDataMap);
+                VerticalPositionCache verticalPositionCache;
+                trailingFloatsLineBox->alignBoxesInBlockDirection(logicalHeight(), textBoxDataMap, verticalPositionCache);
                 trailingFloatsLineBox->setBlockDirectionOverflowPositions(logicalHeight(), bottomLayoutOverflow, logicalHeight(), bottomVisualOverflow);
                 trailingFloatsLineBox->setBlockLogicalHeight(logicalHeight());
             }
@@ -2162,66 +2165,38 @@ void RenderBlock::addOverflowFromInlineChildren()
 
 int RenderBlock::beforeSideVisibleOverflowForLine(RootInlineBox* line) const
 {
-    switch (style()->writingMode()) {
-    case TopToBottomWritingMode:
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
+    // we continue to use top and left overflow even though physically it's bottom and right.
+    if (style()->isHorizontalWritingMode())
         return line->topVisibleOverflow();
-    case LeftToRightWritingMode:
-        return line->leftVisibleOverflow();
-    case RightToLeftWritingMode:
-        return line->rightVisibleOverflow();
-    case BottomToTopWritingMode:
-        return line->bottomVisibleOverflow();
-    }
-    ASSERT_NOT_REACHED();
-    return line->topVisibleOverflow();
+    return line->leftVisibleOverflow();
 }
 
 int RenderBlock::afterSideVisibleOverflowForLine(RootInlineBox* line) const
 {
-    switch (style()->writingMode()) {
-    case TopToBottomWritingMode:
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
+    // we continue to use bottom and right overflow even though physically it's top and left.
+    if (style()->isHorizontalWritingMode())
         return line->bottomVisibleOverflow();
-    case LeftToRightWritingMode:
-        return line->rightVisibleOverflow();
-    case RightToLeftWritingMode:
-        return line->leftVisibleOverflow();
-    case BottomToTopWritingMode:
-        return line->topVisibleOverflow();
-    }
-    ASSERT_NOT_REACHED();
-    return line->bottomVisibleOverflow();
+    return line->rightVisibleOverflow();
 }
 
 int RenderBlock::beforeSideLayoutOverflowForLine(RootInlineBox* line) const
 {
-    switch (style()->writingMode()) {
-    case TopToBottomWritingMode:
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
+    // we continue to use top and left overflow even though physically it's bottom and right.
+    if (style()->isHorizontalWritingMode())
         return line->topLayoutOverflow();
-    case LeftToRightWritingMode:
-        return line->leftLayoutOverflow();
-    case RightToLeftWritingMode:
-        return line->rightLayoutOverflow();
-    case BottomToTopWritingMode:
-        return line->bottomLayoutOverflow();
-    }
-    ASSERT_NOT_REACHED();
-    return line->topLayoutOverflow();
+    return line->leftLayoutOverflow();
 }
 
 int RenderBlock::afterSideLayoutOverflowForLine(RootInlineBox* line) const
 {
-    switch (style()->writingMode()) {
-    case TopToBottomWritingMode:
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
+    // we continue to use bottom and right overflow even though physically it's top and left.
+    if (style()->isHorizontalWritingMode())
         return line->bottomLayoutOverflow();
-    case LeftToRightWritingMode:
-        return line->rightLayoutOverflow();
-    case RightToLeftWritingMode:
-        return line->leftLayoutOverflow();
-    case BottomToTopWritingMode:
-        return line->topLayoutOverflow();
-    }
-    ASSERT_NOT_REACHED();
-    return line->bottomLayoutOverflow();
+    return line->rightLayoutOverflow();
 }
 
 void RenderBlock::deleteEllipsisLineBoxes()

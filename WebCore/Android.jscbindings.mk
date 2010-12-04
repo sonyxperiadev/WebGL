@@ -158,7 +158,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSSQLTransactionSyncCustom.cpp \
 	bindings/js/JSSVGElementInstanceCustom.cpp \
 	bindings/js/JSSVGLengthCustom.cpp \
-	bindings/js/JSSVGMatrixCustom.cpp \
 	bindings/js/JSSVGPathSegCustom.cpp \
 	bindings/js/JSSVGPathSegListCustom.cpp \
 	bindings/js/JSSharedWorkerCustom.cpp \

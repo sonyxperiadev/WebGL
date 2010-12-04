@@ -2,19 +2,19 @@
 CONFIG += building-libs
 CONFIG += depend_includepath
 
-meegotouch {
-    DEFINES += WTF_USE_MEEGOTOUCH=1
-}
+V8_DIR = "$$[QT_INSTALL_PREFIX]/src/3rdparty/v8"
 
-v8:exists($$[QT_INSTALL_PREFIX]/src/3rdparty/v8/include/v8.h) {
+v8:exists($${V8_DIR}/include/v8.h) {
     message(Using V8 with QtScript)
     QT += script
-    INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/v8/include
+    INCLUDEPATH += $${V8_DIR}/include
 
     DEFINES *= V8_BINDING=1
     DEFINES += WTF_CHANGES=1
     DEFINES *= WTF_USE_V8=1
     DEFINES += USING_V8_SHARED
+
+    linux-*:LIBS += -lv8
 }
 
 symbian: {
@@ -471,7 +471,6 @@ v8 {
         bindings/v8/custom/V8SVGDocumentCustom.cpp \
         bindings/v8/custom/V8SVGElementCustom.cpp \
         bindings/v8/custom/V8SVGLengthCustom.cpp \
-        bindings/v8/custom/V8SVGMatrixCustom.cpp \
         bindings/v8/custom/V8SVGPathSegCustom.cpp \
         \
         bindings/v8/specialization/V8BindingState.cpp\
@@ -649,9 +648,6 @@ SOURCES += \
     css/CSSTimingFunctionValue.cpp \
     css/CSSUnicodeRangeValue.cpp \
     css/CSSValueList.cpp \
-    css/CSSVariableDependentValue.cpp \
-    css/CSSVariablesDeclaration.cpp \
-    css/CSSVariablesRule.cpp \
     css/FontFamilyValue.cpp \
     css/FontValue.cpp \
     css/MediaFeatureNames.cpp \
@@ -714,6 +710,7 @@ SOURCES += \
     dom/EntityReference.cpp \
     dom/ErrorEvent.cpp \
     dom/Event.cpp \
+    dom/EventContext.cpp \
     dom/EventNames.cpp \
     dom/EventTarget.cpp \
     dom/ExceptionBase.cpp \
@@ -774,6 +771,7 @@ SOURCES += \
     dom/WebKitAnimationEvent.cpp \
     dom/WebKitTransitionEvent.cpp \
     dom/WheelEvent.cpp \
+    dom/WindowEventContext.cpp \
     dom/XMLDocumentParser.cpp \
     dom/XMLDocumentParserQt.cpp \
     dom/default/PlatformMessagePortChannel.cpp \
@@ -1069,6 +1067,7 @@ SOURCES += \
     loader/Request.cpp \
     loader/ResourceLoader.cpp \
     loader/ResourceLoadNotifier.cpp \
+    loader/ResourceLoadScheduler.cpp \
     loader/SinkDocument.cpp \
     loader/SubframeLoader.cpp \
     loader/SubresourceLoader.cpp \
@@ -1088,7 +1087,6 @@ SOURCES += \
     page/DOMSelection.cpp \
     page/DOMTimer.cpp \
     page/DOMWindow.cpp \
-    page/Navigation.cpp \
     page/Navigator.cpp \
     page/NavigatorBase.cpp \
     page/DragController.cpp \
@@ -1111,6 +1109,8 @@ SOURCES += \
     page/PageGroup.cpp \
     page/PageGroupLoadDeferrer.cpp \
     page/Performance.cpp \
+    page/PerformanceNavigation.cpp \
+    page/PerformanceTiming.cpp \
     page/PluginHalter.cpp \
     page/PrintContext.cpp \
     page/SecurityOrigin.cpp \
@@ -1118,7 +1118,6 @@ SOURCES += \
     page/Settings.cpp \
     page/SpatialNavigation.cpp \
     page/SuspendableTimer.cpp \
-    page/Timing.cpp \
     page/UserContentURLPattern.cpp \
     page/WindowFeatures.cpp \
     page/XSSAuditor.cpp \
@@ -1565,9 +1564,6 @@ HEADERS += \
     css/CSSTimingFunctionValue.h \
     css/CSSUnicodeRangeValue.h \
     css/CSSValueList.h \
-    css/CSSVariableDependentValue.h \
-    css/CSSVariablesDeclaration.h \
-    css/CSSVariablesRule.h \
     css/FontFamilyValue.h \
     css/FontValue.h \
     css/MediaFeatureNames.h \
@@ -1621,6 +1617,7 @@ HEADERS += \
     dom/DOMImplementation.h \
     dom/DOMStringList.h \
     dom/DOMStringMap.h \
+    dom/DOMTimeStamp.h \
     dom/DatasetDOMStringMap.h \
     dom/DynamicNodeList.h \
     dom/EditingText.h \
@@ -2369,6 +2366,7 @@ HEADERS += \
     svg/properties/SVGAnimatedPropertySynchronizer.h \
     svg/properties/SVGAnimatedPropertyTearOff.h \
     svg/properties/SVGAnimatedStaticPropertyTearOff.h \
+    svg/properties/SVGAnimatedTransformListPropertyTearOff.h \
     svg/properties/SVGListProperty.h \
     svg/properties/SVGListPropertyTearOff.h \
     svg/properties/SVGProperty.h \
@@ -2376,6 +2374,8 @@ HEADERS += \
     svg/properties/SVGPropertyTraits.h \
     svg/properties/SVGStaticListPropertyTearOff.h \
     svg/properties/SVGStaticPropertyTearOff.h \
+    svg/properties/SVGStaticPropertyWithParentTearOff.h \
+    svg/properties/SVGTransformListPropertyTearOff.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
@@ -2392,6 +2392,7 @@ HEADERS += \
     svg/SVGAnimatedPreserveAspectRatio.h \
     svg/SVGAnimatedRect.h \
     svg/SVGAnimatedString.h \
+    svg/SVGAnimatedTransformList.h \
     svg/SVGAnimateElement.h \
     svg/SVGAnimateMotionElement.h \
     svg/SVGAnimateTransformElement.h \
@@ -2461,6 +2462,7 @@ HEADERS += \
     svg/SVGLocatable.h \
     svg/SVGMarkerElement.h \
     svg/SVGMaskElement.h \
+    svg/SVGMatrix.h \
     svg/SVGMetadataElement.h \
     svg/SVGMissingGlyphElement.h \
     svg/SVGMPathElement.h \
@@ -3052,6 +3054,7 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/FileWriter.h \
         fileapi/FileWriterCallback.h \
         fileapi/FileWriterClient.h \
+        fileapi/FileWriterSync.h \
         fileapi/Flags.h \
         fileapi/LocalFileSystem.h \
         fileapi/Metadata.h \
@@ -3081,6 +3084,7 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/FileEntrySync.cpp \
         fileapi/FileSystemCallbacks.cpp \
         fileapi/FileWriter.cpp \
+        fileapi/FileWriterSync.cpp \
         fileapi/LocalFileSystem.cpp \
         platform/AsyncFileSystem.cpp
 }
@@ -3155,31 +3159,58 @@ contains(DEFINES, ENABLE_VIDEO=1) {
             bindings/js/JSAudioConstructor.cpp
     }
 
-         contains(MOBILITY_CONFIG, multimedia) {
-            HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
-            SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
+    contains(DEFINES, USE_GSTREAMER=1) {
+        HEADERS += \
+            platform/graphics/gstreamer/DataSourceGStreamer.h \
+            platform/graphics/gstreamer/GOwnPtrGStreamer.h \
+            platform/graphics/gstreamer/GStreamerGWorld.h \
+            platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h \
+            platform/graphics/gstreamer/VideoSinkGStreamer.h \
+            platform/graphics/gstreamer/WebKitWebSourceGStreamer.h \
+            platform/graphics/gstreamer/PlatformVideoWindow.h \
+            platform/graphics/gstreamer/PlatformVideoWindowPrivate.h \
+            platform/graphics/gstreamer/ImageGStreamer.h
+        SOURCES += \
+            platform/graphics/gstreamer/DataSourceGStreamer.cpp \
+            platform/graphics/gstreamer/GOwnPtrGStreamer.cpp \
+            platform/graphics/gstreamer/GStreamerGWorld.cpp \
+            platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp \
+            platform/graphics/gstreamer/VideoSinkGStreamer.cpp \
+            platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp \
+            platform/graphics/gstreamer/PlatformVideoWindowQt.cpp \
+            platform/graphics/gstreamer/ImageGStreamerQt.cpp
 
-            CONFIG *= mobility
-            MOBILITY += multimedia
-            DEFINES += WTF_USE_QT_MULTIMEDIA
-         } else:contains(QT_CONFIG, phonon) {
-            HEADERS += \
-                platform/graphics/qt/MediaPlayerPrivatePhonon.h
+        DEFINES += WTF_USE_GSTREAMER=1
+        DEFINES += ENABLE_GLIB_SUPPORT=1
 
-            SOURCES += \
-                platform/graphics/qt/MediaPlayerPrivatePhonon.cpp
+        INCLUDEPATH += $$PWD/platform/graphics/gstreamer
 
-            # Add phonon manually to prevent it from coming first in
-            # the include paths, as Phonon's path.h conflicts with
-            # WebCore's Path.h on case-insensitive filesystems.
-            qtAddLibrary(phonon)
-            INCLUDEPATH -= $$QMAKE_INCDIR_QT/phonon
-            INCLUDEPATH += $$QMAKE_INCDIR_QT/phonon
-            mac {
-                INCLUDEPATH -= $$QMAKE_LIBDIR_QT/phonon.framework/Headers
-                INCLUDEPATH += $$QMAKE_LIBDIR_QT/phonon.framework/Headers
-            }
+        PKGCONFIG += glib-2.0 gio-2.0 gstreamer-0.10 gstreamer-app-0.10 gstreamer-base-0.10 gstreamer-interfaces-0.10 gstreamer-pbutils-0.10 gstreamer-plugins-base-0.10 gstreamer-video-0.10
+     } else:contains(MOBILITY_CONFIG, multimedia) {
+        HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
+        SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
+
+        CONFIG *= mobility
+        MOBILITY += multimedia
+        DEFINES += WTF_USE_QT_MULTIMEDIA
+     } else:contains(QT_CONFIG, phonon) {
+        HEADERS += \
+            platform/graphics/qt/MediaPlayerPrivatePhonon.h
+
+        SOURCES += \
+            platform/graphics/qt/MediaPlayerPrivatePhonon.cpp
+
+        # Add phonon manually to prevent it from coming first in
+        # the include paths, as Phonon's path.h conflicts with
+        # WebCore's Path.h on case-insensitive filesystems.
+        qtAddLibrary(phonon)
+        INCLUDEPATH -= $$QMAKE_INCDIR_QT/phonon
+        INCLUDEPATH += $$QMAKE_INCDIR_QT/phonon
+        mac {
+            INCLUDEPATH -= $$QMAKE_LIBDIR_QT/phonon.framework/Headers
+            INCLUDEPATH += $$QMAKE_LIBDIR_QT/phonon.framework/Headers
         }
+    }
 }
 
 contains(DEFINES, ENABLE_XPATH=1) {
@@ -3365,7 +3396,6 @@ contains(DEFINES, ENABLE_SVG=1) {
     # TODO: this-one-is-not-auto-added! FIXME! tmp/SVGElementFactory.cpp \
             bindings/js/JSSVGElementInstanceCustom.cpp \
             bindings/js/JSSVGLengthCustom.cpp \
-            bindings/js/JSSVGMatrixCustom.cpp \
             bindings/js/JSSVGPathSegCustom.cpp \
             bindings/js/JSSVGPathSegListCustom.cpp
     }

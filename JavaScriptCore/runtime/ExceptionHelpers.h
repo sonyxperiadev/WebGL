@@ -43,16 +43,15 @@ namespace JSC {
     class Node;
     struct Instruction;
     
-    JSValue createInterruptedExecutionException(JSGlobalData*);
-    JSValue createTerminatedExecutionException(JSGlobalData*);
+    JSObject* createInterruptedExecutionException(JSGlobalData*);
+    JSObject* createTerminatedExecutionException(JSGlobalData*);
     JSObject* createStackOverflowError(ExecState*);
     JSObject* createStackOverflowError(JSGlobalObject*);
-    JSValue createUndefinedVariableError(ExecState*, const Identifier&, unsigned bytecodeOffset, CodeBlock*);
-    JSNotAnObjectErrorStub* createNotAnObjectErrorStub(ExecState*, bool isNull);
-    JSObject* createInvalidParamError(ExecState*, const char* op, JSValue, unsigned bytecodeOffset, CodeBlock*);
-    JSObject* createNotAConstructorError(ExecState*, JSValue, unsigned bytecodeOffset, CodeBlock*);
-    JSValue createNotAFunctionError(ExecState*, JSValue, unsigned bytecodeOffset, CodeBlock*);
-    JSObject* createNotAnObjectError(ExecState*, JSNotAnObjectErrorStub*, unsigned bytecodeOffset, CodeBlock*);
+    JSObject* createUndefinedVariableError(ExecState*, const Identifier&);
+    JSObject* createNotAnObjectError(ExecState*, JSValue);
+    JSObject* createInvalidParamError(ExecState*, const char* op, JSValue);
+    JSObject* createNotAConstructorError(ExecState*, JSValue);
+    JSObject* createNotAFunctionError(ExecState*, JSValue);
     JSObject* createErrorForInvalidGlobalAssignment(ExecState*, const UString&);
 
     JSObject* throwOutOfMemoryError(ExecState*);

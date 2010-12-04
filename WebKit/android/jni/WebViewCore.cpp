@@ -73,6 +73,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
+#include "MemoryUsage.h"
 #include "Navigator.h"
 #include "Node.h"
 #include "NodeList.h"
@@ -237,6 +238,8 @@ struct WebViewCoreFields {
     jfieldID    m_viewportDensityDpi;
     jfieldID    m_webView;
     jfieldID    m_drawIsPaused;
+    jfieldID    m_lowMemoryUsageMb;
+    jfieldID    m_highMemoryUsageMb;
 } gWebViewCoreFields;
 
 // ----------------------------------------------------------------------------
@@ -392,6 +395,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
+
+    MemoryUsage::setLowMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_lowMemoryUsageMb));
+    MemoryUsage::setHighMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_highMemoryUsageMb));
 
     WebViewCore::addInstance(this);
 
@@ -1170,14 +1176,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
-    window->setSize(width, height);
-    window->setVisibleSize(screenWidth, screenHeight);
-    if (width != screenWidth) {
-        m_mainFrame->view()->setUseFixedLayout(true);
-        m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
-    } else {
-        m_mainFrame->view()->setUseFixedLayout(false);
-    }
     int osw = m_screenWidth;
     int osh = m_screenHeight;
     int otw = m_textWrapWidth;
@@ -1204,7 +1202,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             // orientation change. Try to keep the anchor at the same place.
             if (otw && textWrapWidth && otw != textWrapWidth) {
                 WebCore::HitTestResult hitTestResult =
-                        m_mainFrame->eventHandler()-> hitTestResultAtPoint(
+                        m_mainFrame->eventHandler()->hitTestResultAtPoint(
                                 anchorPoint, false);
                 node = hitTestResult.innerNode();
             }
@@ -1224,8 +1222,20 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                     }
                 }
             }
+
+            // Set the size after finding the old anchor point as
+            // hitTestResultAtPoint causes a layout.
+            window->setSize(width, height);
+            window->setVisibleSize(screenWidth, screenHeight);
+            if (width != screenWidth) {
+                m_mainFrame->view()->setUseFixedLayout(true);
+                m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
+            } else {
+                m_mainFrame->view()->setUseFixedLayout(false);
+            }
             r->setNeedsLayoutAndPrefWidthsRecalc();
             m_mainFrame->view()->forceLayout();
+
             // scroll to restore current screen center
             if (node) {
                 const WebCore::IntRect& newBounds = node->getRect();
@@ -1254,6 +1264,16 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                              yPercentInDoc, yPercentInView);
                 }
             }
+        }
+    } else {
+        window->setSize(width, height);
+        window->setVisibleSize(screenWidth, screenHeight);
+        m_mainFrame->view()->resize(width, height);
+        if (width != screenWidth) {
+            m_mainFrame->view()->setUseFixedLayout(true);
+            m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
+        } else {
+            m_mainFrame->view()->setUseFixedLayout(false);
         }
     }
 
@@ -2786,33 +2806,35 @@ void WebViewCore::touchUp(int touchGeneration,
 
 // Return the RenderLayer for the given RenderObject only if the layer is
 // composited and it contains a scrollable content layer.
-static WebCore::RenderLayer* getLayerFromRenderer(
-        WebCore::RenderObject* renderer, LayerAndroid** aLayer)
+static WebCore::RenderLayer* getScrollingLayerFromRenderer(
+        WebCore::RenderObject* renderer)
 {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (!renderer)
         return 0;
     WebCore::RenderLayer* layer = renderer->enclosingSelfPaintingLayer();
-    if (!layer || !layer->backing())
+    if (!layer)
         return 0;
-    GraphicsLayerAndroid* graphicsLayer =
-            static_cast<GraphicsLayerAndroid*>(layer->backing()->graphicsLayer());
-    if (!graphicsLayer)
-        return 0;
-    LayerAndroid* layerAndroid = graphicsLayer->contentLayer();
-    if (!layerAndroid || !layerAndroid->contentIsScrollable())
-        return 0;
-    *aLayer = layerAndroid;
+    // Find the layer that actually has overflow scroll in case this renderer is
+    // inside a child layer.
+    while (layer && !layer->hasOverflowScroll())
+        layer = layer->parent();
     return layer;
+#endif
+    return 0;
 }
 
 // Scroll the RenderLayer associated with a scrollable div element.  This is
 // done so that the node is visible when it is clicked.
 static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 {
-    LayerAndroid* aLayer;
-    WebCore::RenderLayer* layer = getLayerFromRenderer(renderer, &aLayer);
+    WebCore::RenderLayer* layer = getScrollingLayerFromRenderer(renderer);
     if (!layer)
         return;
+    // The cache uses absolute coordinates when clicking on nodes and it assumes
+    // the layer is not scrolled.
+    layer->scrollToOffset(0, 0, false, false);
+
     WebCore::IntRect absBounds = renderer->absoluteBoundingBoxRect();
     // Do not include the outline when moving the node's bounds.
     WebCore::IntRect layerBounds = layer->renderer()->absoluteBoundingBoxRect();
@@ -2820,16 +2842,11 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
     // Move the node's bounds into the layer's coordinates.
     absBounds.move(-layerBounds.x(), -layerBounds.y());
 
-    int diffX = layer->scrollXOffset();
-    int diffY = layer->scrollYOffset();
-    // Scroll the layer to the node's position.  The false parameters tell the
-    // layer not to invalidate.
+    // Scroll the layer to the node's position.
     layer->scrollToOffset(absBounds.x(), absBounds.y(), false, true);
-    diffX = layer->scrollXOffset() - diffX;
-    diffY = layer->scrollYOffset() - diffY;
 
     // Update the mouse position to the layer offset.
-    pos->move(-diffX, -diffY);
+    pos->move(-layer->scrollXOffset(), -layer->scrollYOffset());
 }
 
 // Common code for both clicking with the trackball and touchUp
@@ -3540,10 +3557,17 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static jint UpdateLayers(JNIEnv *env, jobject obj)
+static jint UpdateLayers(JNIEnv *env, jobject obj, jobject region)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     BaseLayerAndroid* result = viewImpl->createBaseLayer();
+    SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
+    if (result) {
+        SkIRect bounds;
+        LayerAndroid* root = static_cast<LayerAndroid*>(result->getChild(0));
+        root->bounds().roundOut(&bounds);
+        nativeRegion->setRect(bounds);
+    }
     return reinterpret_cast<jint>(result);
 }
 
@@ -4079,7 +4103,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
-    { "nativeUpdateLayers", "()I",
+    { "nativeUpdateLayers", "(Landroid/graphics/Region;)I",
         (void*) UpdateLayers },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
@@ -4169,6 +4193,8 @@ int registerWebViewCore(JNIEnv* env)
             "mDrawIsPaused", "Z");
     LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
+    gWebViewCoreFields.m_lowMemoryUsageMb = env->GetFieldID(widget, "mLowMemoryUsageThresholdMb", "I");
+    gWebViewCoreFields.m_highMemoryUsageMb = env->GetFieldID(widget, "mHighMemoryUsageThresholdMb", "I");
 
     gWebViewCoreStaticMethods.m_isSupportedMediaMimeType =
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");

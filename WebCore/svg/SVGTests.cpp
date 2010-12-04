@@ -26,6 +26,7 @@
 #include "Attribute.h"
 #include "DOMImplementation.h"
 #include "Language.h"
+#include "SVGElement.h"
 #include "SVGNames.h"
 #include "SVGStringList.h"
 
@@ -82,11 +83,32 @@ bool SVGTests::parseMappedAttribute(Attribute* attr)
     return false;
 }
 
-bool SVGTests::isKnownAttribute(const QualifiedName& attrName)
+static bool knownAttribute(const QualifiedName& attrName)
 {
     return attrName == SVGNames::requiredFeaturesAttr
         || attrName == SVGNames::requiredExtensionsAttr
         || attrName == SVGNames::systemLanguageAttr;
+}
+
+bool SVGTests::isKnownAttribute(const QualifiedName& attrName)
+{
+    return knownAttribute(attrName);
+}
+
+bool SVGTests::handleAttributeChange(const SVGElement* targetElement, const QualifiedName& attrName)
+{
+    if (!knownAttribute(attrName))
+        return false;
+    if (!targetElement->inDocument())
+        return false;
+    SVGElement* svgElement = const_cast<SVGElement*>(targetElement);
+    ASSERT(svgElement);
+    bool valid = svgElement->isValid();
+    if (valid && !svgElement->attached())
+        svgElement->attach();
+    if (!valid && svgElement->attached())
+        svgElement->detach();
+    return true;
 }
 
 }

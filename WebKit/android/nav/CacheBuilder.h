@@ -202,6 +202,8 @@ private:
         LayerAndroid* mLayer;
         RenderLayer* mRenderLayer;
         IntRect mBounds;
+        IntPoint mScroll;
+        ~LayerTracker();
     };
     struct TabIndexTracker : Tracker {
         int mTabIndex;

@@ -286,6 +286,13 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
         // 3D transforms turn off the testing of overlap.
         if (requiresCompositingForTransform(layer->renderer()))
             setCompositingConsultsOverlap(false);
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        // If we are a child of a scrollable layer, ignore the overlap from the
+        // scrollable layer as it can cause child layers to become composited
+        // siblings and will not scroll with the main content layer.
+        if (layer->hasOverflowParent())
+            setCompositingConsultsOverlap(false);
+#endif
 
         if (!layer->backing()) {
 

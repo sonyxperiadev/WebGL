@@ -512,7 +512,6 @@ void SelectElement::reset(SelectElementData& data, Element* element)
     element->setNeedsStyleRecalc();
 }
     
-#if !ARROW_KEYS_POP_MENU
 enum SkipDirection {
     SkipBackwards = -1,
     SkipForwards = 1
@@ -533,7 +532,6 @@ static int nextValidIndex(const Vector<Element*>& listItems, int listIndex, Skip
     }
     return lastGoodIndex;
 }
-#endif
 
 void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element* element, Event* event, HTMLFormElement* htmlForm)
 {
@@ -541,24 +539,28 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         if (!element->renderer() || !event->isKeyboardEvent())
             return;
 
-        String keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
+        const String& keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
         bool handled = false;
 
 #if ARROW_KEYS_POP_MENU
-        if (keyIdentifier == "Down" || keyIdentifier == "Up") {
-            element->focus();
+        if (!isSpatialNavigationEnabled(element->document()->frame())) {
+            if (keyIdentifier == "Down" || keyIdentifier == "Up") {
+                element->focus();
 
-            if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
-                return;
+                if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
+                    return;
 
-            // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
-            // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
-            saveLastSelection(data, element);
-            if (RenderMenuList* menuList = toRenderMenuList(element->renderer()))
-                menuList->showPopup();
-            handled = true;
+                // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
+                // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
+                saveLastSelection(data, element);
+                if (RenderMenuList* menuList = toRenderMenuList(element->renderer()))
+                    menuList->showPopup();
+
+                event->setDefaultHandled();
+            }
+            return;
         }
-#else
+#endif
         // When using spatial navigation, we want to be able to navigate away from the select element
         // when the user hits any of the arrow keys, instead of changing the selection.
         if (isSpatialNavigationEnabled(element->document()->frame()))
@@ -591,7 +593,7 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         
         if (handled && listIndex >= 0 && (unsigned)listIndex < listItems.size())
             setSelectedIndex(data, element, listToOptionIndex(data, element, listIndex));
-#endif
+
         if (handled)
             event->setDefaultHandled();
     }
@@ -604,6 +606,13 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
 
         int keyCode = static_cast<KeyboardEvent*>(event)->keyCode();
         bool handled = false;
+
+        if (keyCode == ' ' && isSpatialNavigationEnabled(element->document()->frame())) {
+            // Use space to toggle arrow key handling for selection change or spatial navigation.
+            data.setActiveSelectionState(!data.activeSelectionState());
+            event->setDefaultHandled();
+            return;
+        }
 
 #if SPACE_OR_RETURN_POP_MENU
         if (keyCode == ' ' || keyCode == '\r') {
@@ -643,10 +652,6 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         if (keyCode == '\r') {
             // listIndex should already be selected, but this will fire the onchange handler.
             setSelectedIndex(data, element, listToOptionIndex(data, element, listIndex), true, true);
-            handled = true;
-        } else if (keyCode == ' ' && isSpatialNavigationEnabled(element->document()->frame())) {
-            // Use space to trigger arrow key handling for selection change or spatial navigation.
-            data.setActiveSelectionState(!data.activeSelectionState());
             handled = true;
         }
 #endif
@@ -743,13 +748,13 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
 
             event->setDefaultHandled();
         }
-    } else if (event->type() == eventNames().mouseupEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton && element->document()->frame()->eventHandler()->autoscrollRenderer() != element->renderer())
+    } else if (event->type() == eventNames().mouseupEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton && element->document()->frame()->eventHandler()->autoscrollRenderer() != element->renderer()) {
         // This makes sure we fire dispatchFormControlChangeEvent for a single click.  For drag selection, onChange will fire when the autoscroll timer stops.
         listBoxOnChange(data, element);
-    else if (event->type() == eventNames().keydownEvent) {
+    } else if (event->type() == eventNames().keydownEvent) {
         if (!event->isKeyboardEvent())
             return;
-        String keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
+        const String& keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
 
         int endIndex = 0;        
         if (data.activeSelectionEndIndex() < 0) {

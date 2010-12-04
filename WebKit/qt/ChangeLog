@@ -1,3 +1,175 @@
+2010-11-17  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Converge means of querying a parent node into one way, which is Node::parentNode.
+        https://bugs.webkit.org/show_bug.cgi?id=49686
+
+        * Api/qwebelement.cpp:
+        (QWebElement::prependOutside): Changed to use parentNode.
+        (QWebElement::appendOutside): Ditto.
+        (QWebElement::encloseContentsWith): Ditto.
+        (QWebElement::encloseWith): Ditto.
+
+2010-11-16  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Remove synchronous QWebPage::checkPermissions signal
+        https://bugs.webkit.org/show_bug.cgi?id=46810
+
+        As decided in the API review, we remove this signal and replace its only use currently
+        with cached credentials.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setUserPermission): Pass the WebCore frame instead of the QWebFrame.
+        * Api/qwebpage.h:
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::checkPermission): Replaced explicit
+        signal emission with hash lookup of previously granted permission (or not).
+        (WebCore::NotificationPresenterClientQt::cancelRequestsForPermission): Remove
+        any previously cached/granted permission for the given script execution context.
+        (WebCore::NotificationPresenterClientQt::allowNotificationForFrame): Do not
+        only serve pending permission requests but before calling the JS callbacks, remember
+        the permission for subsequent synchronous checkPermission() calls.
+        * WebCoreSupport/NotificationPresenterClientQt.h: Add cache for permissions.
+
+2010-11-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY build fix.
+
+        Fix test broken by earlier patch.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-11-15  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] ZoomTextOnly doesn't work
+        https://bugs.webkit.org/show_bug.cgi?id=49568
+
+        Check QWebSettings::ZoomTextOnly attribute before applying zoom
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::textSizeMultiplier):
+        (QWebFrame::setZoomFactor):
+        (QWebFrame::zoomFactor):
+        * Api/qwebframe_p.h:
+        (QWebFramePrivate::QWebFramePrivate):
+
+2010-11-14  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        REGRESSION(r71895): API test javaScriptWindowObjectCleared fails
+        https://bugs.webkit.org/show_bug.cgi?id=49466
+
+        As of r71895 empty inline scripts are no longer executed and so
+        the javaScriptWindowObjectCleared() signal is no longer triggered
+        by <script></script>.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-11-12  Jacob Dinu  <dinu.jacob@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Update .def file for Symbian
+        https://bugs.webkit.org/show_bug.cgi?id=49456
+
+        Added missing symbols from revisions r69825, r70470, r71806
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-11-12  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Need to implement WebKit::pluginWillHandleLoadError for WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=48764
+
+        Add the missing error.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::pluginWillHandleLoadError):
+
+2010-11-11  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] QWebScriptWorld::world() may crash
+        https://bugs.webkit.org/show_bug.cgi?id=49342
+
+        * Api/qwebscriptworld.cpp:
+        (QWebScriptWorld::world):
+
+2010-11-11  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Add an API for overriding the actual visible content rect in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=49373
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setActualVisibleContentRect):
+        * Api/qwebpage.h:
+
+2010-11-11  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        FrameView: Don't clip to visibleContentRect in paintEntireContents mode
+        https://bugs.webkit.org/show_bug.cgi?id=49375
+
+        Use paintEntireContents in combination with tiling, allowing to
+        actually set visibleContentRect to something different from
+        the actual contents size.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
+2010-11-10  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r71733.
+        http://trac.webkit.org/changeset/71733
+        https://bugs.webkit.org/show_bug.cgi?id=49319
+
+        made qt bot crashy and sad (Requested by kling on #webkit).
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
+2010-11-10  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Use paintEntireContents in combination with tiling, allowing to
+        actually set visibleContentRect to something different from
+        the actual contents size.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
+2010-11-08  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] build error in WebKit/qt/Api/qwebpage.cpp in Qt 4.7.0
+        https://bugs.webkit.org/show_bug.cgi?id=47427
+
+        Add a missing guard in order to be able to compile when
+        ENABLE(TOUCH_EVENTS) is not defined.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::touchEvent):
+
 2010-11-08  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Darin Adler.

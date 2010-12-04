@@ -35,11 +35,11 @@
 #include "InlineTextBox.h"
 #include "InspectorInstrumentation.h"
 #include "MutationEvent.h"
+#include "ResourceLoadScheduler.h"
 #include "Page.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
 #include "RootInlineBox.h"
-#include "loader.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/Vector.h>
 
@@ -101,7 +101,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parent());
+    ASSERT(refCount() || parentNode());
 
     ec = 0;
 
@@ -165,7 +165,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
         notifyChildInserted(child);
 
         // Add child to the rendering tree.
-        if (attached() && !child->attached() && child->parent() == this) {
+        if (attached() && !child->attached() && child->parentNode() == this) {
             if (shouldLazyAttach)
                 child->lazyAttach();
             else
@@ -184,7 +184,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
 void ContainerNode::insertBeforeCommon(Node* nextChild, Node* newChild)
 {
     ASSERT(newChild);
-    ASSERT(!newChild->parent()); // Use insertBefore if you need to handle reparenting (and want DOM mutation events).
+    ASSERT(!newChild->parentNode()); // Use insertBefore if you need to handle reparenting (and want DOM mutation events).
     ASSERT(!newChild->nextSibling());
     ASSERT(!newChild->previousSibling());
 
@@ -240,7 +240,7 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parent());
+    ASSERT(refCount() || parentNode());
 
     ec = 0;
 
@@ -334,7 +334,7 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         notifyChildInserted(child.get());
                 
         // Add child to the rendering tree
-        if (attached() && !child->attached() && child->parent() == this) {
+        if (attached() && !child->attached() && child->parentNode() == this) {
             if (shouldLazyAttach)
                 child->lazyAttach();
             else
@@ -355,8 +355,11 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
 
 void ContainerNode::willRemove()
 {
-    for (Node *n = m_firstChild; n != 0; n = n->nextSibling())
-        n->willRemove();
+    NodeVector nodes;
+    for (Node* n = m_lastChild; n; n = n->previousSibling())
+        nodes.append(n);
+    for (; nodes.size(); nodes.removeLast())
+        nodes.last().get()->willRemove();
     Node::willRemove();
 }
 
@@ -388,7 +391,7 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parent());
+    ASSERT(refCount() || parentNode());
 
     ec = 0;
 
@@ -547,7 +550,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parent());
+    ASSERT(refCount() || parentNode());
 
     ec = 0;
 
@@ -601,7 +604,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
         notifyChildInserted(child);
 
         // Add child to the rendering tree
-        if (attached() && !child->attached() && child->parent() == this) {
+        if (attached() && !child->attached() && child->parentNode() == this) {
             if (shouldLazyAttach)
                 child->lazyAttach();
             else
@@ -621,7 +624,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
 void ContainerNode::parserAddChild(PassRefPtr<Node> newChild)
 {
     ASSERT(newChild);
-    ASSERT(!newChild->parent()); // Use appendChild if you need to handle reparenting (and want DOM mutation events).
+    ASSERT(!newChild->parentNode()); // Use appendChild if you need to handle reparenting (and want DOM mutation events).
 
 #if ENABLE(INSPECTOR)
     InspectorInstrumentation::willInsertDOMNode(document(), newChild.get(), this);
@@ -655,7 +658,7 @@ void ContainerNode::suspendPostAttachCallbacks()
                 s_shouldReEnableMemoryCacheCallsAfterAttach = true;
             }
         }
-        cache()->loader()->suspendPendingRequests();
+        resourceLoadScheduler()->suspendPendingRequests();
     }
     ++s_attachDepth;
 }
@@ -670,7 +673,7 @@ void ContainerNode::resumePostAttachCallbacks()
             if (Page* page = document()->page())
                 page->setMemoryCacheClientCallsEnabled(true);
         }
-        cache()->loader()->resumePendingRequests();
+        resourceLoadScheduler()->resumePendingRequests();
     }
     --s_attachDepth;
 }
@@ -873,6 +876,8 @@ bool ContainerNode::getLowerRightCorner(FloatPoint& point) const
             if (o->isText()) {
                 RenderText* text = toRenderText(o);
                 IntRect linesBox = text->linesBoundingBox();
+                if (!linesBox.x() && !linesBox.width() && !linesBox.y() && !linesBox.height())
+                    continue;
                 point.move(linesBox.x() + linesBox.width(), linesBox.y() + linesBox.height());
             } else {
                 RenderBox* box = toRenderBox(o);
@@ -1005,7 +1010,8 @@ static void notifyChildInserted(Node* child)
     RefPtr<Node> c = child;
     RefPtr<Document> document = child->document();
 
-    if (c->parentNode() && c->parentNode()->inDocument())
+    Node* parentOrHostNode = c->parentOrHostNode();
+    if (parentOrHostNode && parentOrHostNode->inDocument())
         c->insertedIntoDocument();
     else
         c->insertedIntoTree(true);

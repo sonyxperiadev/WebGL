@@ -280,6 +280,7 @@ public:
 
     QSize preferredContentsSize() const;
     void setPreferredContentsSize(const QSize &size) const;
+    void setActualVisibleContentRect(const QRect& rect) const;
 
     virtual bool event(QEvent*);
     bool focusNextPrevChild(bool next);
@@ -393,7 +394,6 @@ Q_SIGNALS:
     void viewportChangeRequested();
 
     void requestPermissionFromUser(QWebFrame* frame, QWebPage::PermissionDomain domain);
-    void checkPermissionFromUser(QWebFrame* frame, QWebPage::PermissionDomain domain, QWebPage::PermissionPolicy& policy);
     void cancelRequestsForPermission(QWebFrame* frame, QWebPage::PermissionDomain domain);
 
 protected:

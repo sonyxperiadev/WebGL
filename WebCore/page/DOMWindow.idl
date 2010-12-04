@@ -144,7 +144,7 @@ module window {
 
         // DOM Level 2 Style Interface
         CSSStyleDeclaration getComputedStyle(in Element element,
-                                             in DOMString pseudoElement);
+                                             in [ConvertUndefinedOrNullToNullString] DOMString pseudoElement);
 
         // WebKit extensions
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
@@ -363,9 +363,6 @@ module window {
         attribute CSSPageRuleConstructor CSSPageRule;
         attribute CSSStyleRuleConstructor CSSStyleRule;
         
-        attribute CSSVariablesRuleConstructor CSSVariablesRule;
-        attribute CSSVariablesDeclarationConstructor CSSVariablesDeclaration;
-
         attribute CSSStyleDeclarationConstructor CSSStyleDeclaration;
         attribute MediaListConstructor MediaList;
         attribute CounterConstructor Counter;

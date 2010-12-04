@@ -1311,6 +1311,7 @@ void QWebPagePrivate::adjustPointForClicking(QGraphicsSceneMouseEvent* ev)
 
 bool QWebPagePrivate::touchEvent(QTouchEvent* event)
 {
+#if ENABLE(TOUCH_EVENTS)
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
         return false;
@@ -1320,6 +1321,10 @@ bool QWebPagePrivate::touchEvent(QTouchEvent* event)
 
     // Return whether the default action was cancelled in the JS event handler
     return frame->eventHandler()->handleTouchEvent(PlatformTouchEvent(event));
+#else
+    event->ignore();
+    return false;
+#endif
 }
 
 /*!
@@ -2118,7 +2123,7 @@ void QWebPage::setUserPermission(QWebFrame* frame, PermissionDomain domain, Perm
     case NotificationsPermissionDomain:
 #if ENABLE(NOTIFICATIONS)
         if (policy == PermissionGranted)
-            NotificationPresenterClientQt::notificationPresenter()->allowNotificationForFrame(frame);
+            NotificationPresenterClientQt::notificationPresenter()->allowNotificationForFrame(frame->d->frame);
 #endif
         break;
     case GeolocationPermissionDomain:
@@ -2533,6 +2538,26 @@ void QWebPage::setPreferredContentsSize(const QSize& size) const
         view->setUseFixedLayout(false);
 
     view->layout();
+}
+
+/*
+    This function is to be called after any (animated) scroll/pan has ended, in the case the application handles the
+    scrolling/panning of the web contents. This is commonly used in combination with tiling where is it common for
+    the application to pan the actual view, which then resizes itself to the size of the contents.
+
+    \note Calling this function makes WebKit stop trying to calculate the visibleContentRect. To turn that on
+    again, call this method with an empty rect.
+
+    \sa QGraphicsWebView::resizesToContents, QWebSettings::TiledBackingStoreEnabled
+*/
+void QWebPage::setActualVisibleContentRect(const QRect& rect) const
+{
+    QWebFrame* frame = mainFrame();
+    if (!frame->d->frame || !frame->d->frame->view())
+        return;
+
+    WebCore::FrameView* view = frame->d->frame->view();
+    view->setActualVisibleContentRect(rect);
 }
 
 /*!

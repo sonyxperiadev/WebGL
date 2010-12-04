@@ -159,8 +159,9 @@ RenderSlider::~RenderSlider()
         m_thumb->detach();
 }
 
-int RenderSlider::baselinePosition(bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
+int RenderSlider::baselinePosition(FontBaseline, bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
 {
+    // FIXME: Patch this function for writing-mode.
     return height() + marginTop();
 }
 
@@ -285,7 +286,7 @@ void RenderSlider::layout()
         if (oldSize != size())
             thumb->setChildNeedsLayout(true, false);
 
-        LayoutStateMaintainer statePusher(view(), this, size());
+        LayoutStateMaintainer statePusher(view(), this, size(), style()->isFlippedBlocksWritingMode());
 
         IntRect oldThumbRect = thumb->frameRect();
 

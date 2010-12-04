@@ -1697,7 +1697,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitTransformOriginY:
         case CSSPropertyWebkitTransformOriginZ:
         case CSSPropertyWebkitTransition:
-        case CSSPropertyWebkitVariableDeclarationBlock:
             break;
 #ifdef ANDROID_CSS_RING
         case CSSPropertyWebkitRing:

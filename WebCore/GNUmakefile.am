@@ -182,10 +182,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSCSSValue.h \
 	DerivedSources/WebCore/JSCSSValueList.cpp \
 	DerivedSources/WebCore/JSCSSValueList.h \
-	DerivedSources/WebCore/JSCSSVariablesDeclaration.cpp \
-	DerivedSources/WebCore/JSCSSVariablesDeclaration.h \
-	DerivedSources/WebCore/JSCSSVariablesRule.cpp \
-	DerivedSources/WebCore/JSCSSVariablesRule.h \
 	DerivedSources/WebCore/JSCustomEvent.cpp \
 	DerivedSources/WebCore/JSCustomEvent.h \
 	DerivedSources/WebCore/JSDataGridColumn.cpp \
@@ -447,8 +443,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSMutationEvent.h \
 	DerivedSources/WebCore/JSNamedNodeMap.cpp \
 	DerivedSources/WebCore/JSNamedNodeMap.h \
-	DerivedSources/WebCore/JSNavigation.cpp \
-	DerivedSources/WebCore/JSNavigation.h \
 	DerivedSources/WebCore/JSNavigator.cpp \
 	DerivedSources/WebCore/JSNavigator.h \
 	DerivedSources/WebCore/JSNode.cpp \
@@ -471,6 +465,10 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSPageTransitionEvent.h \
 	DerivedSources/WebCore/JSPerformance.cpp \
 	DerivedSources/WebCore/JSPerformance.h \
+	DerivedSources/WebCore/JSPerformanceNavigation.cpp \
+	DerivedSources/WebCore/JSPerformanceNavigation.h \
+	DerivedSources/WebCore/JSPerformanceTiming.cpp \
+	DerivedSources/WebCore/JSPerformanceTiming.h \
 	DerivedSources/WebCore/JSPopStateEvent.cpp \
 	DerivedSources/WebCore/JSPopStateEvent.h \
 	DerivedSources/WebCore/JSPositionError.cpp \
@@ -512,8 +510,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSTextMetrics.h \
 	DerivedSources/WebCore/JSTimeRanges.cpp \
 	DerivedSources/WebCore/JSTimeRanges.h \
-	DerivedSources/WebCore/JSTiming.cpp \
-	DerivedSources/WebCore/JSTiming.h \
 	DerivedSources/WebCore/JSTouch.cpp \
 	DerivedSources/WebCore/JSTouchEvent.cpp \
 	DerivedSources/WebCore/JSTouchEvent.h \
@@ -798,7 +794,6 @@ webcore_sources += \
 	WebCore/bindings/js/JSSVGContextCache.h \
 	WebCore/bindings/js/JSSVGElementInstanceCustom.cpp \
 	WebCore/bindings/js/JSSVGLengthCustom.cpp \
-	WebCore/bindings/js/JSSVGMatrixCustom.cpp \
 	WebCore/bindings/js/JSSVGPathSegCustom.cpp \
 	WebCore/bindings/js/JSSVGPathSegListCustom.cpp \
 	WebCore/bindings/js/JSSVGPODListCustom.h \
@@ -988,12 +983,6 @@ webcore_sources += \
 	WebCore/css/CSSValue.h \
 	WebCore/css/CSSValueList.cpp \
 	WebCore/css/CSSValueList.h \
-	WebCore/css/CSSVariableDependentValue.cpp \
-	WebCore/css/CSSVariableDependentValue.h \
-	WebCore/css/CSSVariablesDeclaration.cpp \
-	WebCore/css/CSSVariablesDeclaration.h \
-	WebCore/css/CSSVariablesRule.cpp \
-	WebCore/css/CSSVariablesRule.h \
 	WebCore/css/DashboardRegion.h \
 	WebCore/css/FontFamilyValue.cpp \
 	WebCore/css/FontFamilyValue.h \
@@ -1121,6 +1110,7 @@ webcore_sources += \
 	WebCore/dom/DOMStringList.h \
 	WebCore/dom/DOMStringMap.cpp \
 	WebCore/dom/DOMStringMap.h \
+	WebCore/dom/DOMTimeStamp.h \
 	WebCore/dom/DynamicNodeList.cpp \
 	WebCore/dom/DynamicNodeList.h \
 	WebCore/dom/EditingText.cpp \
@@ -1135,8 +1125,10 @@ webcore_sources += \
 	WebCore/dom/ErrorEvent.cpp \
 	WebCore/dom/ErrorEvent.h \
 	WebCore/dom/Event.cpp \
-	WebCore/dom/EventException.h \
 	WebCore/dom/Event.h \
+	WebCore/dom/EventContext.cpp \
+	WebCore/dom/EventContext.h \
+	WebCore/dom/EventException.h \
 	WebCore/dom/EventListener.h \
 	WebCore/dom/EventNames.cpp \
 	WebCore/dom/EventNames.h \
@@ -1264,6 +1256,8 @@ webcore_sources += \
 	WebCore/dom/WebKitTransitionEvent.h \
 	WebCore/dom/WheelEvent.cpp \
 	WebCore/dom/WheelEvent.h \
+	WebCore/dom/WindowEventContext.cpp \
+	WebCore/dom/WindowEventContext.h \
 	WebCore/dom/XMLDocumentParser.cpp \
 	WebCore/dom/XMLDocumentParser.h \
 	WebCore/dom/XMLDocumentParserLibxml2.cpp \
@@ -1443,6 +1437,8 @@ webcore_sources += \
 	WebCore/fileapi/FileWriterCallback.h \
 	WebCore/fileapi/FileWriter.cpp \
 	WebCore/fileapi/FileWriter.h \
+	WebCore/fileapi/FileWriterSync.cpp \
+	WebCore/fileapi/FileWriterSync.h \
 	WebCore/fileapi/Flags.h \
 	WebCore/fileapi/LocalFileSystem.cpp \
 	WebCore/fileapi/LocalFileSystem.h \
@@ -1999,6 +1995,8 @@ webcore_sources += \
 	WebCore/loader/ResourceLoader.h \
 	WebCore/loader/ResourceLoadNotifier.cpp \
 	WebCore/loader/ResourceLoadNotifier.h \
+	WebCore/loader/ResourceLoadScheduler.cpp \
+	WebCore/loader/ResourceLoadScheduler.h \
 	WebCore/loader/SinkDocument.cpp \
 	WebCore/loader/SinkDocument.h \
 	WebCore/loader/SubframeLoader.cpp \
@@ -2098,15 +2096,15 @@ webcore_sources += \
 	WebCore/page/FrameTree.h \
 	WebCore/page/FrameView.cpp \
 	WebCore/page/FrameView.h \
-	WebCore/page/GeolocationControllerClient.h \
+	WebCore/page/Geolocation.cpp \
+	WebCore/page/Geolocation.h \
+	WebCore/page/GeolocationClient.h \
+	WebCore/page/GeolocationError.h \
 	WebCore/page/GeolocationController.cpp \
 	WebCore/page/GeolocationController.h \
-	WebCore/page/Geolocation.cpp \
-	WebCore/page/GeolocationError.h \
-	WebCore/page/Geolocation.h \
+	WebCore/page/GeolocationPosition.h \
 	WebCore/page/GeolocationPositionCache.cpp \
 	WebCore/page/GeolocationPositionCache.h \
-	WebCore/page/GeolocationPosition.h \
 	WebCore/page/Geoposition.h \
 	WebCore/page/GroupSettings.cpp \
 	WebCore/page/GroupSettings.h \
@@ -2120,8 +2118,6 @@ webcore_sources += \
 	WebCore/page/MemoryInfo.h \
 	WebCore/page/MouseEventWithHitTestResults.cpp \
 	WebCore/page/MouseEventWithHitTestResults.h \
-	WebCore/page/Navigation.cpp \
-	WebCore/page/Navigation.h \
 	WebCore/page/NavigatorBase.cpp \
 	WebCore/page/NavigatorBase.h \
 	WebCore/page/Navigator.cpp \
@@ -2136,6 +2132,10 @@ webcore_sources += \
 	WebCore/page/Page.h \
 	WebCore/page/Performance.cpp \
 	WebCore/page/Performance.h \
+	WebCore/page/PerformanceNavigation.cpp \
+	WebCore/page/PerformanceNavigation.h \
+	WebCore/page/PerformanceTiming.cpp \
+	WebCore/page/PerformanceTiming.h \
 	WebCore/page/PluginHalterClient.h \
 	WebCore/page/PluginHalter.cpp \
 	WebCore/page/PluginHalter.h \
@@ -2162,8 +2162,6 @@ webcore_sources += \
 	WebCore/page/SpeechInputResult.h \
 	WebCore/page/SuspendableTimer.cpp \
 	WebCore/page/SuspendableTimer.h \
-	WebCore/page/Timing.cpp \
-	WebCore/page/Timing.h \
 	WebCore/page/UserContentTypes.h \
 	WebCore/page/UserContentURLPattern.cpp \
 	WebCore/page/UserContentURLPattern.h \
@@ -3055,6 +3053,7 @@ webcore_sources += \
 	WebCore/svg/properties/SVGAnimatedPropertySynchronizer.h \
 	WebCore/svg/properties/SVGAnimatedPropertyTearOff.h \
 	WebCore/svg/properties/SVGAnimatedStaticPropertyTearOff.h \
+	WebCore/svg/properties/SVGAnimatedTransformListPropertyTearOff.h \
 	WebCore/svg/properties/SVGListProperty.h \
 	WebCore/svg/properties/SVGListPropertyTearOff.h \
 	WebCore/svg/properties/SVGProperty.h \
@@ -3062,6 +3061,8 @@ webcore_sources += \
 	WebCore/svg/properties/SVGPropertyTraits.h \
 	WebCore/svg/properties/SVGStaticListPropertyTearOff.h \
 	WebCore/svg/properties/SVGStaticPropertyTearOff.h \
+	WebCore/svg/properties/SVGStaticPropertyWithParentTearOff.h \
+	WebCore/svg/properties/SVGTransformListPropertyTearOff.h \
 	WebCore/svg/RadialGradientAttributes.h \
 	WebCore/svg/SVGAElement.cpp \
 	WebCore/svg/SVGAElement.h \
@@ -3084,6 +3085,7 @@ webcore_sources += \
 	WebCore/svg/SVGAnimatedPreserveAspectRatio.h \
 	WebCore/svg/SVGAnimatedRect.h \
 	WebCore/svg/SVGAnimatedString.h \
+	WebCore/svg/SVGAnimatedTransformList.h \
 	WebCore/svg/SVGAnimateElement.cpp \
 	WebCore/svg/SVGAnimateElement.h \
 	WebCore/svg/SVGAnimateMotionElement.cpp \
@@ -3226,6 +3228,7 @@ webcore_sources += \
 	WebCore/svg/SVGMarkerElement.h \
 	WebCore/svg/SVGMaskElement.cpp \
 	WebCore/svg/SVGMaskElement.h \
+	WebCore/svg/SVGMatrix.h \
 	WebCore/svg/SVGMetadataElement.cpp \
 	WebCore/svg/SVGMetadataElement.h \
 	WebCore/svg/SVGMissingGlyphElement.cpp \
@@ -3531,7 +3534,6 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/FloatRectCairo.cpp \
 	WebCore/platform/graphics/cairo/FontCairo.cpp \
 	WebCore/platform/graphics/cairo/FontCustomPlatformData.h \
-	WebCore/platform/graphics/cairo/FontPlatformData.h \
 	WebCore/platform/graphics/cairo/GradientCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h \
@@ -3626,6 +3628,9 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/TemporaryLinkStubs.cpp \
 	WebCore/platform/gtk/WheelEventGtk.cpp \
 	WebCore/platform/gtk/WidgetGtk.cpp \
+	WebCore/platform/gtk/WidgetRenderingContextGtk2.cpp \
+	WebCore/platform/gtk/WidgetRenderingContextGtk3.cpp \
+	WebCore/platform/gtk/WidgetRenderingContext.h \
 	WebCore/platform/image-decoders/bmp/BMPImageDecoder.cpp \
 	WebCore/platform/image-decoders/bmp/BMPImageDecoder.h \
 	WebCore/platform/image-decoders/bmp/BMPImageReader.cpp \
@@ -3742,28 +3747,34 @@ endif # END ENABLE_FAST_MOBILE_SCROLLING
 # FreeType font backend
 # ---
 if USE_FREETYPE
-webcoregtk_cppflags += -DUSE_FREETYPE=1
+webcoregtk_cppflags += \
+	-DUSE_FREETYPE=1 \
+	-I$(srcdir)/WebCore/platform/graphics/freetype
+
 webcoregtk_sources += \
-	WebCore/platform/graphics/cairo/FontCacheFreeType.cpp \
-	WebCore/platform/graphics/cairo/FontCustomPlatformData.cpp \
-	WebCore/platform/graphics/cairo/FontPlatformDataFreeType.cpp \
-	WebCore/platform/graphics/cairo/FontPlatformDataFreeType.h \
-	WebCore/platform/graphics/cairo/GlyphPageTreeNodeCairo.cpp \
-	WebCore/platform/graphics/cairo/SimpleFontDataCairo.cpp
+	WebCore/platform/graphics/freetype/FontCacheFreeType.cpp \
+	WebCore/platform/graphics/freetype/FontCustomPlatformDataFreeType.cpp \
+	WebCore/platform/graphics/freetype/FontPlatformDataFreeType.cpp \
+	WebCore/platform/graphics/freetype/FontPlatformData.h \
+	WebCore/platform/graphics/freetype/GlyphPageTreeNodeFreeType.cpp \
+	WebCore/platform/graphics/freetype/SimpleFontDataFreeType.cpp
 endif # END USE_FREETYPE
 
 # ---
 # Pango font backend
 # ---
 if USE_PANGO
-webcoregtk_cppflags += -DUSE_PANGO=1
+webcoregtk_cppflags += \
+	-DUSE_PANGO=1 \
+	-I$(srcdir)/WebCore/platform/graphics/pango
+
 webcoregtk_sources += \
-	WebCore/platform/graphics/gtk/FontCachePango.cpp \
-	WebCore/platform/graphics/gtk/FontCustomPlatformDataPango.cpp \
-	WebCore/platform/graphics/gtk/FontPlatformDataPango.cpp \
-	WebCore/platform/graphics/gtk/FontPlatformDataPango.h \
-	WebCore/platform/graphics/gtk/GlyphPageTreeNodePango.cpp \
-	WebCore/platform/graphics/gtk/SimpleFontDataPango.cpp
+	WebCore/platform/graphics/pango/FontCachePango.cpp \
+	WebCore/platform/graphics/pango/FontCustomPlatformDataPango.cpp \
+	WebCore/platform/graphics/pango/FontPlatformDataPango.cpp \
+	WebCore/platform/graphics/pango/FontPlatformData.h \
+	WebCore/platform/graphics/pango/GlyphPageTreeNodePango.cpp \
+	WebCore/platform/graphics/pango/SimpleFontDataPango.cpp
 endif # END USE_PANGO
 
 # ----
@@ -3930,30 +3941,46 @@ webcore_cppflags += -DENABLE_FILE_SYSTEM=1
 webcore_built_sources += \
 	DerivedSources/WebCore/JSDirectoryEntry.cpp \
 	DerivedSources/WebCore/JSDirectoryEntry.h \
+	DerivedSources/WebCore/JSDirectoryEntrySync.cpp \
+	DerivedSources/WebCore/JSDirectoryEntrySync.h \
 	DerivedSources/WebCore/JSDirectoryReader.cpp \
 	DerivedSources/WebCore/JSDirectoryReader.h \
+	DerivedSources/WebCore/JSDirectoryReaderSync.cpp \
+	DerivedSources/WebCore/JSDirectoryReaderSync.h \
 	DerivedSources/WebCore/JSDOMFileSystem.cpp \
 	DerivedSources/WebCore/JSDOMFileSystem.h \
+	DerivedSources/WebCore/JSDOMFileSystemSync.cpp \
+	DerivedSources/WebCore/JSDOMFileSystemSync.h \
 	DerivedSources/WebCore/JSEntriesCallback.cpp \
 	DerivedSources/WebCore/JSEntriesCallback.h \
 	DerivedSources/WebCore/JSEntry.cpp \
 	DerivedSources/WebCore/JSEntry.h \
 	DerivedSources/WebCore/JSEntryArray.cpp \
 	DerivedSources/WebCore/JSEntryArray.h \
+	DerivedSources/WebCore/JSEntryArraySync.cpp \
+	DerivedSources/WebCore/JSEntryArraySync.h \
 	DerivedSources/WebCore/JSEntryCallback.cpp \
 	DerivedSources/WebCore/JSEntryCallback.h \
+	DerivedSources/WebCore/JSEntrySync.cpp \
+	DerivedSources/WebCore/JSEntrySync.h \
 	DerivedSources/WebCore/JSErrorCallback.cpp \
 	DerivedSources/WebCore/JSErrorCallback.h \
 	DerivedSources/WebCore/JSFileCallback.cpp \
 	DerivedSources/WebCore/JSFileCallback.h \
 	DerivedSources/WebCore/JSFileEntry.cpp \
 	DerivedSources/WebCore/JSFileEntry.h \
+	DerivedSources/WebCore/JSFileEntrySync.cpp \
+	DerivedSources/WebCore/JSFileEntrySync.h \
+	DerivedSources/WebCore/JSFileException.cpp \
+	DerivedSources/WebCore/JSFileException.h \
 	DerivedSources/WebCore/JSFileSystemCallback.cpp \
 	DerivedSources/WebCore/JSFileSystemCallback.h \
 	DerivedSources/WebCore/JSFileWriter.cpp \
 	DerivedSources/WebCore/JSFileWriter.h \
 	DerivedSources/WebCore/JSFileWriterCallback.cpp \
 	DerivedSources/WebCore/JSFileWriterCallback.h \
+	DerivedSources/WebCore/JSFileWriterSync.cpp \
+	DerivedSources/WebCore/JSFileWriterSync.h \
 	DerivedSources/WebCore/JSFlags.cpp \
 	DerivedSources/WebCore/JSFlags.h \
 	DerivedSources/WebCore/JSMetadata.cpp \
@@ -4026,14 +4053,6 @@ if ENABLE_XHTMLMP
 FEATURE_DEFINES += ENABLE_XHTMLMP=1
 webcore_cppflags += -DENABLE_XHTMLMP=1
 endif # END ENABLE_XHTMLMP
-
-# ----
-# Ruby Support
-# ----
-if ENABLE_RUBY
-HTML_FEATURES += ENABLE_RUBY=1
-webcore_cppflags += -DENABLE_RUBY=1
-endif # END ENABLE_RUBY
 
 # ----
 # XPath Support

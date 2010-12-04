@@ -281,6 +281,8 @@ public:
 
     float mediaTimeForTimeValue(float) const;
 
+    double maximumDurationToCacheMediaTime() const;
+
 private:
     MediaPlayer(MediaPlayerClient*);
 

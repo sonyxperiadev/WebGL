@@ -68,9 +68,7 @@ ContentLayerChromium::SharedValues::SharedValues(GraphicsContext3D* context)
         "  v_texCoord = a_texCoord;   \n"
         "}                            \n";
 
-    // Note differences between Skia and Core Graphics versions:
-    //  - Skia uses BGRA
-    //  - Core Graphics uses RGBA
+    // Color is in BGRA order.
     char fragmentShaderString[] =
         "precision mediump float;                            \n"
         "varying vec2 v_texCoord;                            \n"
@@ -79,13 +77,7 @@ ContentLayerChromium::SharedValues::SharedValues(GraphicsContext3D* context)
         "void main()                                         \n"
         "{                                                   \n"
         "  vec4 texColor = texture2D(s_texture, v_texCoord); \n"
-#if PLATFORM(SKIA)
         "  gl_FragColor = vec4(texColor.z, texColor.y, texColor.x, texColor.w) * alpha; \n"
-#elif PLATFORM(CG)
-        "  gl_FragColor = vec4(texColor.x, texColor.y, texColor.z, texColor.w) * alpha; \n"
-#else
-#error "Need to implement for your platform."
-#endif
         "}                                                   \n";
 
     m_contentShaderProgram = createShaderProgram(m_context, vertexShaderString, fragmentShaderString);
@@ -130,6 +122,7 @@ ContentLayerChromium::~ContentLayerChromium()
 
 void ContentLayerChromium::cleanupResources()
 {
+    LayerChromium::cleanupResources();
     if (layerRenderer()) {
         if (m_contentsTexture) {
             layerRenderer()->deleteLayerTexture(m_contentsTexture);
@@ -141,11 +134,11 @@ void ContentLayerChromium::cleanupResources()
 bool ContentLayerChromium::requiresClippedUpdateRect() const
 {
     // To avoid allocating excessively large textures, switch into "large layer mode" if
-    // one of the layer's dimensions is larger than 2000 pixels or the current size
-    // of the visible rect. This is a temporary measure until layer tiling is implemented.
+    // one of the layer's dimensions is larger than 2000 pixels or the size of
+    // surface it's rendering into. This is a temporary measure until layer tiling is implemented.
     static const int maxLayerSize = 2000;
-    return (m_bounds.width() > max(maxLayerSize, layerRenderer()->rootLayerContentRect().width())
-            || m_bounds.height() > max(maxLayerSize, layerRenderer()->rootLayerContentRect().height())
+    return (m_bounds.width() > max(maxLayerSize, m_targetRenderSurface->contentRect().width())
+            || m_bounds.height() > max(maxLayerSize, m_targetRenderSurface->contentRect().height())
             || !layerRenderer()->checkTextureSize(m_bounds));
 }
 
@@ -153,25 +146,26 @@ void ContentLayerChromium::calculateClippedUpdateRect(IntRect& dirtyRect, IntRec
 {
     // For the given layer size and content rect, calculate:
     // 1) The minimal texture space rectangle to be uploaded, returned in dirtyRect.
-    // 2) The content rect-relative rectangle to draw this texture in, returned in drawRect.
+    // 2) The rectangle to draw this texture in relative to the target render surface, returned in drawRect.
 
-    const IntRect clipRect = layerRenderer()->currentScissorRect();
-    const TransformationMatrix& transform = drawTransform();
-    // The layer's draw transform points to the center of the layer, relative to
-    // the content rect.  layerPos is the distance from the top left of the
-    // layer to the top left of the content rect.
-    const IntPoint layerPos(m_bounds.width() / 2 - transform.m41(),
-                            m_bounds.height() / 2 - transform.m42());
-    // Transform the contentRect into the space of the layer.
-    IntRect contentRectInLayerSpace(layerPos, clipRect.size());
+    ASSERT(m_targetRenderSurface);
+    const IntRect clipRect = m_targetRenderSurface->contentRect();
 
-    // Clip the entire layer against the visible region in the content rect
-    // and use that as the drawable texture, instead of the entire layer.
-    dirtyRect = IntRect(IntPoint(0, 0), m_bounds);
-    dirtyRect.intersect(contentRectInLayerSpace);
+    TransformationMatrix layerOriginTransform = drawTransform();
+    layerOriginTransform.translate3d(-0.5 * m_bounds.width(), -0.5 * m_bounds.height(), 0);
 
-    // The draw position is relative to the content rect.
-    drawRect = IntRect(toPoint(dirtyRect.location() - layerPos), dirtyRect.size());
+    // For now we apply the large layer treatment only for layers that are either untransformed
+    // or are purely translated. Their matrix is expected to be invertible.
+    ASSERT(layerOriginTransform.isInvertible());
+
+    TransformationMatrix targetToLayerMatrix = layerOriginTransform.inverse();
+    IntRect clipRectInLayerCoords = targetToLayerMatrix.mapRect(clipRect);
+    clipRectInLayerCoords.intersect(IntRect(0, 0, m_bounds.width(), m_bounds.height()));
+
+    dirtyRect = clipRectInLayerCoords;
+
+    // Map back to the target surface coordinate system.
+    drawRect = layerOriginTransform.mapRect(dirtyRect);
 }
 
 void ContentLayerChromium::updateContents()
@@ -205,12 +199,21 @@ void ContentLayerChromium::updateContents()
             m_skipsDraw = true;
             return;
         }
-        if (m_largeLayerDirtyRect == dirtyRect)
-            return;
 
-        m_largeLayerDirtyRect = dirtyRect;
-        requiredTextureSize = dirtyRect.size();
-        updateRect = IntRect(IntPoint(0, 0), dirtyRect.size());
+        // If the portion of the large layer that's visible hasn't changed
+        // then we don't need to update it, _unless_ its contents have changed
+        // in which case we only update the dirty bits.
+        if (m_largeLayerDirtyRect == dirtyRect) {
+            if (!m_dirtyRect.intersects(dirtyRect))
+                return;
+            dirtyRect.intersect(IntRect(m_dirtyRect));
+            updateRect = dirtyRect;
+            requiredTextureSize = m_largeLayerDirtyRect.size();
+        } else {
+            m_largeLayerDirtyRect = dirtyRect;
+            requiredTextureSize = dirtyRect.size();
+            updateRect = IntRect(IntPoint(0, 0), dirtyRect.size());
+        }
     } else {
         dirtyRect = IntRect(m_dirtyRect);
         IntRect boundsRect(IntPoint(0, 0), m_bounds);
@@ -226,6 +229,9 @@ void ContentLayerChromium::updateContents()
         }
         updateRect = dirtyRect;
     }
+
+    if (dirtyRect.isEmpty())
+        return;
 
 #if PLATFORM(SKIA)
     const SkBitmap* skiaBitmap = 0;
@@ -266,7 +272,7 @@ void ContentLayerChromium::updateContents()
     RetainPtr<CGContextRef> contextCG(AdoptCF, CGBitmapContextCreate(tempVector.data(),
                                                                      dirtyRect.width(), dirtyRect.height(), 8, rowBytes,
                                                                      colorSpace.get(),
-                                                                     kCGImageAlphaPremultipliedLast));
+                                                                     kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
     CGContextTranslateCTM(contextCG.get(), 0, dirtyRect.height());
     CGContextScaleCTM(contextCG.get(), 1, -1);
 

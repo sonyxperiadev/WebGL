@@ -38,6 +38,11 @@ $typeTransform{"DOM"} = {
     "header" => "InspectorDOMAgent.h",
     "domainAccessor" => "m_inspectorController->domAgent()",
 };
+$typeTransform{"CSS"} = {
+    "forward" => "InspectorCSSAgent",
+    "header" => "InspectorCSSAgent.h",
+    "domainAccessor" => "m_inspectorController->cssAgent()",
+};
 $typeTransform{"ApplicationCache"} = {
     "forward" => "InspectorApplicationCacheAgent",
     "header" => "InspectorApplicationCacheAgent.h",
@@ -625,6 +630,7 @@ sub generateSource
     push(@sourceContent, "\n#include \"config.h\"");
     push(@sourceContent, "#include \"$className.h\"");
     push(@sourceContent, "#include <wtf/text/StringConcatenate.h>");
+    push(@sourceContent, "#include <wtf/text/CString.h>");
     push(@sourceContent, "");
     push(@sourceContent, "#if ENABLE(INSPECTOR)");
     push(@sourceContent, "");

@@ -30,11 +30,12 @@
 #ifndef FontPlatformData_H
 #define FontPlatformData_H
 
+#include "FontOrientation.h"
+#include <wtf/text/StringImpl.h>
+
 #ifndef NDEBUG
 #include "PlatformString.h"
 #endif
-
-#include <wtf/text/StringImpl.h>
 
 class SkPaint;
 class SkTypeface;
@@ -62,6 +63,8 @@ public:
     bool isHashTableDeletedValue() const {
         return mTypeface == hashTableDeletedFontValue();
     }
+
+    FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
 
     FontPlatformData& operator=(const FontPlatformData&);
     bool operator==(const FontPlatformData& a) const;

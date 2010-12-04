@@ -931,11 +931,9 @@ static bool canMergeContiguousAnonymousBlocks(RenderObject* oldChild, RenderObje
     if (prev && prev->firstChild() && prev->firstChild()->isInline() && prev->firstChild()->isRunIn())
         return false;
 
-#if ENABLE(RUBY)
     if ((prev && (prev->isRubyRun() || prev->isRubyBase()))
         || (next && (next->isRubyRun() || next->isRubyBase())))
         return false;
-#endif
 
     if (!prev || !next)
         return true;
@@ -1164,7 +1162,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren, int pageHeight)
             colInfo->clearForcedBreaks();
     }
 
-    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasColumns() || hasTransform() || hasReflection(), pageHeight, pageHeightChanged, colInfo);
+    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasColumns() || hasTransform() || hasReflection() || style()->isFlippedBlocksWritingMode(), pageHeight, pageHeightChanged, colInfo);
 
     // We use four values, maxTopPos, maxTopNeg, maxBottomPos, and maxBottomNeg, to track
     // our current maximal positive and negative margins.  These values are used when we
@@ -1997,7 +1995,7 @@ bool RenderBlock::layoutOnlyPositionedObjects()
     if (!posChildNeedsLayout() || normalChildNeedsLayout() || selfNeedsLayout())
         return false;
 
-    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasColumns() || hasTransform() || hasReflection());
+    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasColumns() || hasTransform() || hasReflection() || style()->isFlippedBlocksWritingMode());
 
     if (needsPositionedMovementLayout()) {
         tryLayoutDoingPositionedMovementOnly();
@@ -2583,8 +2581,9 @@ void RenderBlock::paintSelection(PaintInfo& paintInfo, int tx, int ty)
             if (RenderLayer* layer = enclosingLayer()) {
                 gapRectsBounds.move(IntSize(-tx, -ty));
                 if (!hasLayer()) {
-                    FloatRect localBounds(gapRectsBounds);
-                    gapRectsBounds = localToContainerQuad(localBounds, layer->renderer()).enclosingBoundingBox();
+                    IntRect localBounds(gapRectsBounds);
+                    flipForWritingMode(localBounds);
+                    gapRectsBounds = localToContainerQuad(FloatRect(localBounds), layer->renderer()).enclosingBoundingBox();
                     gapRectsBounds.move(layer->scrolledContentOffset());
                 }
                 layer->addBlockSelectionGapsBounds(gapRectsBounds);
@@ -3978,8 +3977,12 @@ void RenderBlock::addIntrudingFloats(RenderBlock* prev, int logicalLeftOffset, i
                 // above.  |logicalLeftOffset| will equal the margin in this case, so it's already been taken
                 // into account.  Only apply this code if prev is the parent, since otherwise the left margin
                 // will get applied twice.
-                if (prev != parent())
-                    floatingObj->setLeft(floatingObj->left() + (style()->isHorizontalWritingMode() ? prev->marginLeft() : prev->marginTop()));
+                if (prev != parent()) {
+                    if (style()->isHorizontalWritingMode())
+                        floatingObj->setLeft(floatingObj->left() + prev->marginLeft());
+                    else
+                        floatingObj->setTop(floatingObj->top() + prev->marginTop());
+                }
                
                 floatingObj->m_shouldPaint = false;  // We are not in the direct inheritance chain for this float. We will never paint it.
                 floatingObj->m_renderer = r->m_renderer;
@@ -4150,7 +4153,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     if (hitTestAction == HitTestBlockBackground || hitTestAction == HitTestChildBlockBackground) {
         IntRect boundsRect(tx, ty, width(), height());
         if (visibleToHitTesting() && boundsRect.intersects(result.rectForPoint(_x, _y))) {
-            updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
+            updateHitTestResult(result, flipForWritingMode(IntPoint(_x - tx, _y - ty)));
             if (!result.addNodeToRectBasedTestResult(node(), _x, _y, boundsRect))
                 return true;
         }
@@ -4174,8 +4177,8 @@ bool RenderBlock::hitTestFloats(const HitTestRequest& request, HitTestResult& re
     for (it.toLast(); (floatingObject = it.current()); --it) {
         if (floatingObject->m_shouldPaint && !floatingObject->m_renderer->hasSelfPaintingLayer()) {
             int xOffset = floatingObject->left() + floatingObject->m_renderer->marginLeft() - floatingObject->m_renderer->x();
-            int yOffset =  floatingObject->top() + floatingObject->m_renderer->marginTop() - floatingObject->m_renderer->y();
-            IntPoint childPoint= flipForWritingMode(floatingObject->m_renderer, IntPoint(tx + xOffset, ty + yOffset), ParentToChildFlippingAdjustment);
+            int yOffset = floatingObject->top() + floatingObject->m_renderer->marginTop() - floatingObject->m_renderer->y();
+            IntPoint childPoint = flipForWritingMode(floatingObject->m_renderer, IntPoint(tx + xOffset, ty + yOffset), ParentToChildFlippingAdjustment);
             if (floatingObject->m_renderer->hitTest(request, result, IntPoint(x, y), childPoint.x(), childPoint.y())) {
                 updateHitTestResult(result, IntPoint(x - childPoint.x(), y - childPoint.y()));
                 return true;
@@ -4278,8 +4281,9 @@ Position RenderBlock::positionForRenderer(RenderObject* renderer, bool start) co
 // FIXME: This function should go on RenderObject as an instance method. Then
 // all cases in which positionForPoint recurs could call this instead to
 // prevent crossing editable boundaries. This would require many tests.
-static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBox* parent, RenderBox* child, const IntPoint& pointInParentCoordinates)
+static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBlock* parent, RenderBox* child, const IntPoint& pointInParentCoordinates)
 {
+    // FIXME: This is wrong if the child's writing-mode is different from the parent's.
     IntPoint pointInChildCoordinates(pointInParentCoordinates - child->location());
 
     // If this is an anonymous renderer, we just recur normally
@@ -4297,14 +4301,15 @@ static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBox* pa
     if (!ancestor || ancestor->node()->isContentEditable() == childNode->isContentEditable())
         return child->positionForPoint(pointInChildCoordinates);
 
-    // Otherwise return before or after the child, depending on if the click was left or right of the child
-    int childMidX = child->width() / 2;
-    if (pointInChildCoordinates.x() < childMidX)
+    // Otherwise return before or after the child, depending on if the click was to the logical left or logical right of the child
+    int childMiddle = parent->logicalWidthForChild(child) / 2;
+    int logicalLeft = parent->style()->isHorizontalWritingMode() ? pointInChildCoordinates.x() : pointInChildCoordinates.y();
+    if (logicalLeft < childMiddle)
         return ancestor->createVisiblePosition(childNode->nodeIndex(), DOWNSTREAM);
     return ancestor->createVisiblePosition(childNode->nodeIndex() + 1, UPSTREAM);
 }
 
-VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& pointInContents)
+VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& pointInLogicalContents)
 {
     ASSERT(childrenInline());
 
@@ -4323,8 +4328,8 @@ VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& 
         lastRootBoxWithChildren = root;
 
         // check if this root line box is located at this y coordinate
-        if (pointInContents.y() < root->selectionBottom()) {
-            closestBox = root->closestLeafChildForXPos(pointInContents.x());
+        if (pointInLogicalContents.y() < root->selectionBottom()) {
+            closestBox = root->closestLeafChildForLogicalLeftPosition(pointInLogicalContents.x());
             if (closestBox)
                 break;
         }
@@ -4334,17 +4339,22 @@ VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& 
 
     if (!moveCaretToBoundary && !closestBox && lastRootBoxWithChildren) {
         // y coordinate is below last root line box, pretend we hit it
-        closestBox = lastRootBoxWithChildren->closestLeafChildForXPos(pointInContents.x());
+        closestBox = lastRootBoxWithChildren->closestLeafChildForLogicalLeftPosition(pointInLogicalContents.x());
     }
 
     if (closestBox) {
-        if (moveCaretToBoundary && pointInContents.y() < firstRootBoxWithChildren->selectionTop()) {
+        if (moveCaretToBoundary && pointInLogicalContents.y() < firstRootBoxWithChildren->selectionTop()) {
             // y coordinate is above first root line box, so return the start of the first
             return VisiblePosition(positionForBox(firstRootBoxWithChildren->firstLeafChild(), true), DOWNSTREAM);
         }
 
-        // pass the box a y position that is inside it
-        return closestBox->renderer()->positionForPoint(IntPoint(pointInContents.x(), closestBox->m_y));
+        // pass the box a top position that is inside it
+        IntPoint point(pointInLogicalContents.x(), closestBox->logicalTop());
+        if (!style()->isHorizontalWritingMode())
+            point = point.transposedPoint();
+        if (closestBox->renderer()->isReplaced())
+            return positionForPointRespectingEditingBoundaries(this, toRenderBox(closestBox->renderer()), point);
+        return closestBox->renderer()->positionForPoint(point);
     }
 
     if (lastRootBoxWithChildren) {
@@ -4370,9 +4380,13 @@ VisiblePosition RenderBlock::positionForPoint(const IntPoint& point)
         return RenderBox::positionForPoint(point);
 
     if (isReplaced()) {
-        if (point.y() < 0 || (point.y() < height() && point.x() < 0))
+        // FIXME: This seems wrong when the object's writing-mode doesn't match the line's writing-mode.
+        int pointLogicalLeft = style()->isHorizontalWritingMode() ? point.x() : point.y();
+        int pointLogicalTop = style()->isHorizontalWritingMode() ? point.y() : point.x();
+
+        if (pointLogicalTop < 0 || (pointLogicalTop < logicalHeight() && pointLogicalLeft < 0))
             return createVisiblePosition(caretMinOffset(), DOWNSTREAM);
-        if (point.y() >= height() || (point.y() >= 0 && point.x() >= width()))
+        if (pointLogicalTop >= logicalHeight() || (pointLogicalTop >= 0 && pointLogicalLeft >= logicalWidth()))
             return createVisiblePosition(caretMaxOffset(), DOWNSTREAM);
     } 
 
@@ -4380,11 +4394,14 @@ VisiblePosition RenderBlock::positionForPoint(const IntPoint& point)
     int contentsY = point.y();
     offsetForContents(contentsX, contentsY);
     IntPoint pointInContents(contentsX, contentsY);
+    IntPoint pointInLogicalContents(pointInContents);
+    if (!style()->isHorizontalWritingMode())
+        pointInLogicalContents = pointInLogicalContents.transposedPoint();
 
     if (childrenInline())
-        return positionForPointWithInlineChildren(pointInContents);
+        return positionForPointWithInlineChildren(pointInLogicalContents);
 
-    if (lastChildBox() && contentsY > lastChildBox()->y()) {
+    if (lastChildBox() && pointInContents.y() > lastChildBox()->logicalTop()) {
         for (RenderBox* childBox = lastChildBox(); childBox; childBox = childBox->previousSiblingBox()) {
             if (isChildHitTestCandidate(childBox))
                 return positionForPointRespectingEditingBoundaries(this, childBox, pointInContents);
@@ -4392,7 +4409,7 @@ VisiblePosition RenderBlock::positionForPoint(const IntPoint& point)
     } else {
         for (RenderBox* childBox = firstChildBox(); childBox; childBox = childBox->nextSiblingBox()) {
             // We hit child if our click is above the bottom of its padding box (like IE6/7 and FF3).
-            if (isChildHitTestCandidate(childBox) && contentsY < childBox->frameRect().bottom())
+            if (isChildHitTestCandidate(childBox) && pointInContents.y() < childBox->logicalBottom())
                 return positionForPointRespectingEditingBoundaries(this, childBox, pointInContents);
         }
     }
@@ -5255,7 +5272,7 @@ int RenderBlock::lineHeight(bool firstLine, LineDirectionMode direction, LinePos
     return m_lineHeight;
 }
 
-int RenderBlock::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+int RenderBlock::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     // Inline blocks are replaced elements. Otherwise, just pass off to
     // the base class.  If we're being queried as though we're the root line
@@ -5276,28 +5293,29 @@ int RenderBlock::baselinePosition(bool firstLine, LineDirectionMode direction, L
         // vertically (e.g., an overflow:hidden block that has had scrollTop moved) or if the baseline is outside
         // of our content box.
         bool ignoreBaseline = (layer() && (layer()->marquee() || (direction == HorizontalLine ? (layer()->verticalScrollbar() || layer()->scrollYOffset() != 0)
-            : (layer()->horizontalScrollbar() || layer()->scrollXOffset() != 0)))) || isWritingModeRoot();
+            : (layer()->horizontalScrollbar() || layer()->scrollXOffset() != 0)))) || (isWritingModeRoot() && !isRubyRun());
+        
         int baselinePos = ignoreBaseline ? -1 : lastLineBoxBaseline();
         
         int bottomOfContent = direction == HorizontalLine ? borderTop() + paddingTop() + contentHeight() : borderRight() + paddingRight() + contentWidth();
         if (baselinePos != -1 && baselinePos <= bottomOfContent)
             return direction == HorizontalLine ? marginTop() + baselinePos : marginRight() + baselinePos;
             
-        return RenderBox::baselinePosition(firstLine, direction, linePositionMode);
+        return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode);
     }
 
     const Font& f = style(firstLine)->font();
-    return f.ascent() + (lineHeight(firstLine, direction, linePositionMode) - f.height()) / 2;
+    return f.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - f.height()) / 2;
 }
 
 int RenderBlock::firstLineBoxBaseline() const
 {
-    if (!isBlockFlow() || isWritingModeRoot())
+    if (!isBlockFlow() || (isWritingModeRoot() && !isRubyRun()))
         return -1;
 
     if (childrenInline()) {
         if (firstLineBox())
-            return firstLineBox()->logicalTop() + style(true)->font().ascent();
+            return firstLineBox()->logicalTop() + style(true)->font().ascent(firstRootBox()->baselineType());
         else
             return -1;
     }
@@ -5316,7 +5334,7 @@ int RenderBlock::firstLineBoxBaseline() const
 
 int RenderBlock::lastLineBoxBaseline() const
 {
-    if (!isBlockFlow() || isWritingModeRoot())
+    if (!isBlockFlow() || (isWritingModeRoot() && !isRubyRun()))
         return -1;
 
     LineDirectionMode lineDirection = style()->isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
@@ -5327,7 +5345,7 @@ int RenderBlock::lastLineBoxBaseline() const
             return f.ascent() + (lineHeight(true, lineDirection, PositionOfInteriorLineBoxes) - f.height()) / 2 + (lineDirection == HorizontalLine ? borderTop() + paddingTop() : borderRight() + paddingRight());
         }
         if (lastLineBox())
-            return lastLineBox()->logicalTop() + style(lastLineBox() == firstLineBox())->font().ascent();
+            return lastLineBox()->logicalTop() + style(lastLineBox() == firstLineBox())->font().ascent(lastRootBox()->baselineType());
         return -1;
     } else {
         bool haveNormalFlowChild = false;

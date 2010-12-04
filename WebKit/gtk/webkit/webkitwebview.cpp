@@ -245,6 +245,13 @@ static void PopupMenuPositionFunc(GtkMenu* menu, gint *x, gint *y, gboolean *pus
     *pushIn = FALSE;
 }
 
+static Node* getFocusedNode(Frame* frame)
+{
+    if (Document* doc = frame->document())
+        return doc->focusedNode();
+    return 0;
+}
+
 static gboolean webkit_web_view_forward_context_menu_event(WebKitWebView* webView, const PlatformMouseEvent& event)
 {
     Page* page = core(webView);
@@ -340,9 +347,14 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
     IntPoint location;
 
     if (!start.node() || !end.node()
-        || (frame->selection()->selection().isCaret() && !frame->selection()->selection().isContentEditable()))
-        location = IntPoint(rightAligned ? view->contentsWidth() - contextMenuMargin : contextMenuMargin, contextMenuMargin);
-    else {
+        || (frame->selection()->selection().isCaret() && !frame->selection()->selection().isContentEditable())) {
+        // If there's a focused elment, use its location.
+        if (Node* focusedNode = getFocusedNode(frame)) {
+            IntRect focusedNodeRect = focusedNode->getRect();
+            location = IntPoint(rightAligned ? focusedNodeRect.right() : focusedNodeRect.x(), focusedNodeRect.bottom());
+        } else
+            location = IntPoint(rightAligned ? view->contentsWidth() - contextMenuMargin : contextMenuMargin, contextMenuMargin);
+    } else {
         RenderObject* renderer = start.node()->renderer();
         if (!renderer)
             return FALSE;
@@ -2057,7 +2069,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      *
      * When a #WebKitWebFrame receives an onload event this signal is emitted.
      */
-    webkit_web_view_signals[LOAD_STARTED] = g_signal_new("onload-event",
+    webkit_web_view_signals[ONLOAD_EVENT] = g_signal_new("onload-event",
             G_TYPE_FROM_CLASS(webViewClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
@@ -3247,6 +3259,12 @@ static void webkit_web_view_init(WebKitWebView* webView)
     pageClients.dragClient = new WebKit::DragClient(webView);
     pageClients.inspectorClient = new WebKit::InspectorClient(webView);
     priv->corePage = new Page(pageClients);
+
+    // Pages within a same session need to be linked together otherwise some functionalities such
+    // as visited link coloration (across pages) and changing popup window location will not work.
+    // To keep the default behavior simple (and because no PageGroup API exist in WebKitGTK at the
+    // time of writing this comment), we simply set all the pages to the same group.
+    priv->corePage->setGroupName("org.webkit.gtk.WebKitGTK");
 
     // We also add a simple wrapper class to provide the public
     // interface for the Web Inspector.
@@ -4511,18 +4529,6 @@ void webkit_web_view_move_cursor(WebKitWebView* webView, GtkMovementStep step, g
 
     gboolean handled;
     g_signal_emit(webView, webkit_web_view_signals[MOVE_CURSOR], 0, step, count, &handled);
-}
-
-void webkit_web_view_set_group_name(WebKitWebView* webView, const gchar* groupName)
-{
-    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
-
-    WebKitWebViewPrivate* priv = webView->priv;
-
-    if (!priv->corePage)
-        return;
-
-    priv->corePage->setGroupName(String::fromUTF8(groupName));
 }
 
 /**

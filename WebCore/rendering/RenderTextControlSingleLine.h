@@ -143,6 +143,9 @@ private:
 
     InputElement* inputElement() const;
 
+    virtual int textBlockInsetLeft() const;
+    virtual int textBlockInsetRight() const;
+
     bool m_searchPopupIsVisible;
     bool m_shouldDrawCapsLockIndicator;
 
@@ -161,7 +164,7 @@ private:
 };
 
 inline RenderTextControlSingleLine* toRenderTextControlSingleLine(RenderObject* object)
-{ 
+{
     ASSERT(!object || object->isTextField());
     return static_cast<RenderTextControlSingleLine*>(object);
 }

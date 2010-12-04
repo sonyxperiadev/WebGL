@@ -404,6 +404,8 @@ public:
         UNPACK_FLIP_Y_WEBGL = 0x9240,
         UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241,
         CONTEXT_LOST_WEBGL = 0x9242,
+        UNPACK_COLORSPACE_CONVERSION_WEBGL = 0x9243,
+        BROWSER_DEFAULT_WEBGL = 0x9244
     };
 
     // Context creation attributes.
@@ -471,8 +473,6 @@ public:
     int sizeInBytes(int type);
 
     bool isGLES2Compliant() const;
-    bool isGLES2NPOTStrict() const;
-    bool isErrorGeneratedOnOutOfBoundsAccesses() const;
 
     //----------------------------------------------------------------------
     // Helpers for texture uploading and pixel readback.
@@ -488,13 +488,14 @@ public:
 
     // Extracts the contents of the given Image into the passed Vector,
     // packing the pixel data according to the given format and type,
-    // and obeying the flipY and premultiplyAlpha flags. Returns true
-    // upon success.
+    // and obeying the flipY, premultiplyAlpha, and ignoreGammaAndColorProfile
+    // flags. Returns true upon success.
     bool extractImageData(Image* image,
                           unsigned int format,
                           unsigned int type,
                           bool flipY,
                           bool premultiplyAlpha,
+                          bool ignoreGammaAndColorProfile,
                           Vector<uint8_t>& data);
 
     // Extracts the contents of the given ImageData into the passed Vector,
@@ -803,12 +804,16 @@ public:
     // extraction process. This premultiplication occurs before
     // any packing of pixel data.
     //
+    // If ignoreGammaAndColorProfile is true, gamma correction and ICC
+    // profile won't be applied.
+    //
     // No vertical flip of the image data is performed by this
     // method.
     bool getImageData(Image* image,
                       unsigned int format,
                       unsigned int type,
                       bool premultiplyAlpha,
+                      bool ignoreGammaAndColorProfile,
                       Vector<uint8_t>& outputVector);
 
     // Possible alpha operations that may need to occur during

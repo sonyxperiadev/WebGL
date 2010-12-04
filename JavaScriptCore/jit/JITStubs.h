@@ -354,7 +354,6 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_urshift(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_to_object(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_array(STUB_ARGS_DECLARATION);
-    JSObject* JIT_STUB cti_op_new_error(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_func(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_func_exp(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_object(STUB_ARGS_DECLARATION);
@@ -373,6 +372,7 @@ extern "C" {
     int JIT_STUB cti_op_loop_if_lesseq(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_timeout_check(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_has_property(STUB_ARGS_DECLARATION);
+    void JIT_STUB cti_op_check_has_instance(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_debug(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_end(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_jmp_scopes(STUB_ARGS_DECLARATION);
@@ -393,6 +393,8 @@ extern "C" {
     void JIT_STUB cti_op_ret_scopeChain(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_tear_off_activation(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_tear_off_arguments(STUB_ARGS_DECLARATION);
+    void JIT_STUB cti_op_throw_reference_error(STUB_ARGS_DECLARATION);
+    void JIT_STUB cti_op_throw_syntax_error(STUB_ARGS_DECLARATION);
     void* JIT_STUB cti_op_call_arityCheck(STUB_ARGS_DECLARATION);
     void* JIT_STUB cti_op_construct_arityCheck(STUB_ARGS_DECLARATION);
     void* JIT_STUB cti_op_call_jitCompile(STUB_ARGS_DECLARATION);

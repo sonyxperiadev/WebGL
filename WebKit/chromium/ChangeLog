@@ -1,4 +1,529 @@
-2010-11-08  Alexey Proskuryakov  <ap@apple.com>
+2010-11-17  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72228.
+        http://trac.webkit.org/changeset/72228
+        https://bugs.webkit.org/show_bug.cgi?id=49712
+
+        Caused many >10 regressions on Win and Linux gpu layout test
+        runs. (Requested by dave_levin on #webkit).
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::bytesPerComponent):
+        (WebKit::componentsPerPixel):
+        (WebKit::imageSizeInBytes):
+        (WebKit::WebGraphicsContext3DDefaultImpl::texImage2D):
+
+2010-11-17  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Converge means of querying a parent node into one way, which is Node::parentNode.
+        https://bugs.webkit.org/show_bug.cgi?id=49686
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::insertStyleText): Changed to use parentNode.
+        (WebKit::WebFrameImpl::setFindEndstateFocusAndSelection): Ditto.
+
+2010-11-16  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        WebGLRenderingContext needs to zero textures and renderbuffers
+        https://bugs.webkit.org/show_bug.cgi?id=49355
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Don't deal with texture initialization at this level.
+
+2010-11-17  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Clear the speech input mock explicitly before each test.
+        https://bugs.webkit.org/show_bug.cgi?id=49660
+
+        * public/WebSpeechInputControllerMock.h:
+        * src/WebSpeechInputControllerMockImpl.cpp:
+        (WebKit::WebSpeechInputControllerMockImpl::clearResults): Added method to clear results.
+        * src/WebSpeechInputControllerMockImpl.h:
+
+2010-11-17  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] implementation of async FileWriter for workers
+        https://bugs.webkit.org/show_bug.cgi?id=47681
+
+        Tests are in a separate changelist.
+
+        Added new files.
+        * WebKit.gyp:
+
+        * src/WorkerAsyncFileSystemChromium.cpp: Added WorkerAsyncFileWriterChromium construction.
+        * src/WorkerAsyncFileWriterChromium.cpp: Added.
+        * src/WorkerAsyncFileWriterChromium.h: Added.
+
+        This class bridges between the context and main threads for the WorkerAsyncFileWriterChromium.
+        * src/WorkerFileWriterCallbacksBridge.cpp: Added.
+        * src/WorkerFileWriterCallbacksBridge.h: Added.
+
+2010-11-17  John Mellor  <johnme@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Expose frame flattening setting in WebSettings.
+        https://bugs.webkit.org/show_bug.cgi?id=49621
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setFrameFlatteningEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-11-17  Jonathan Backer  <backer@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [Chromium] Resize initiated by renderer.
+        https://bugs.webkit.org/show_bug.cgi?id=49617
+
+        To address synchronization issues with resizing, make resize work like DARWIN.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+
+2010-11-17  Stuart Morgan  <stuartmorgan@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Fix click count for mouse-up events.
+        - clickCount for mouse up was lost in conversion from NSEvent
+        - clickCount was also lost when disptaching events through the
+        plugin mouse capture event codepath.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49290
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::handleInputEvent):
+        * src/mac/WebInputEventFactory.mm:
+        (WebKit::WebInputEventFactory::mouseEvent):
+
+2010-11-11  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Implement UNPACK_COLORSPACE_CONVERSION_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=47196
+
+        * src/WebImageDecoder.cpp:
+        (WebKit::WebImageDecoder::init): Add ignoreGammaAndColorProfile parameter.
+
+2010-11-12  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Refactor GL backend flags
+        https://bugs.webkit.org/show_bug.cgi?id=49460
+
+        * public/WebGraphicsContext3D.h: Remove GL flag queries at this level.
+        * src/GraphicsContext3DChromium.cpp: Ditto.
+        * src/GraphicsContext3DInternal.h: Ditto.
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Ditto.
+        * src/WebGraphicsContext3DDefaultImpl.h: Ditto.
+
+2010-11-16  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed. Chromium build fix.
+
+        * WebKit.gyp:
+        * scripts/concatenate_css_files.py: Renamed from WebKit/chromium/Build/concatenate_css_files.py.
+        * scripts/concatenate_js_files.py: Renamed from WebKit/chromium/Build/concatenate_js_files.py.
+        * scripts/generate_devtools_html.py: Renamed from WebKit/chromium/Build/generate_devtools_html.py.
+
+2010-11-16  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chrome DevTools: concatenate CSS files, do not link
+        missing JS files in release mode.
+        https://bugs.webkit.org/show_bug.cgi?id=49586
+
+        * Build/concatenate_css_files.py: Added.
+        * Build/concatenate_js_files.py: Added.
+        * Build/generate_devtools_html.py: Added.
+        * WebKit.gyp:
+
+2010-11-15  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make WebWidget actively notify client when compositing enables.
+        https://bugs.webkit.org/show_bug.cgi?id=49396
+
+        * public/WebWidgetClient.h:
+        (WebKit::WebWidgetClient::didAcceleratedCompositingEnable):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::setRootLayerNeedsDisplay):
+        (WebKit::WebViewImpl::scrollRootLayerRect):
+        (WebKit::WebViewImpl::invalidateRootLayerRect):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+
+2010-11-15  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Remove assumption that GL functions are function pointers
+        https://bugs.webkit.org/show_bug.cgi?id=49486
+
+        Added appropriate extension queries and no longer assume that GL
+        function names are function pointers which can be tested.
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::WebGraphicsContext3DDefaultImpl):
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::validateAttributes):
+        (WebKit::WebGraphicsContext3DDefaultImpl::resolveMultisampledFramebuffer):
+        (WebKit::WebGraphicsContext3DDefaultImpl::reshape):
+        (WebKit::WebGraphicsContext3DDefaultImpl::generateMipmap):
+        (WebKit::WebGraphicsContext3DDefaultImpl::getString):
+        * src/WebGraphicsContext3DDefaultImpl.h:
+
+2010-11-15  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Add capability for displaying warnings to autofill popup
+        Warnings are displayed in dark gray italic.
+        https://bugs.webkit.org/show_bug.cgi?id=49291
+        http://code.google.com/p/chromium/issues/detail?id=58509
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::canRemoveSuggestionAtIndex):
+          Updated logic -- can only remove Autocomplete suggestions, which have unique ID 0.
+        (WebKit::AutoFillPopupMenuClient::itemIsEnabled): False for warnings.
+        (WebKit::AutoFillPopupMenuClient::itemStyle): Dark gray italic for warnings.
+        (WebKit::AutoFillPopupMenuClient::menuStyle): Variable name changed.
+        (WebKit::AutoFillPopupMenuClient::itemIsWarning): True for unique ID < 0.
+        (WebKit::AutoFillPopupMenuClient::initialize): Updated cached styles (see above).
+        * src/AutoFillPopupMenuClient.h: Added itemIsEnabled(), variable to cache warning style.
+        * src/WebViewImpl.cpp: Minor cleanup.
+        (WebKit::WebViewImpl::applyAutoFillSuggestions): 
+
+2010-11-14  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Improve API for form validation message strings
+        https://bugs.webkit.org/show_bug.cgi?id=34945
+
+        * public/WebLocalizedString.h:
+        * src/LocalizedStrings.cpp:
+        (WebCore::validationMessageTypeMismatchForEmailText):
+        (WebCore::validationMessageTypeMismatchForMultipleEmailText):
+        (WebCore::validationMessageTypeMismatchForURLText):
+        (WebCore::validationMessageTooLongText):
+        (WebCore::validationMessageRangeUnderflowText):
+        (WebCore::validationMessageRangeOverflowText):
+        (WebCore::validationMessageStepMismatchText):
+
+2010-11-13  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] print doesn't work on http://nodejs.org/api.html
+        https://bugs.webkit.org/show_bug.cgi?id=49304
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::ChromePrintContext::begin):
+        (WebKit::WebFrameImpl::printBegin):
+
+2010-11-12  James Simonsen  <simonjam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Web Timing] Rename interfaces:
+        - Navigation -> PerformanceNavigation
+        - Timing -> PerformanceTiming
+        https://bugs.webkit.org/show_bug.cgi?id=48919
+
+        * src/WebPerformance.cpp:
+        (WebKit::WebPerformance::navigationType):
+
+2010-11-12  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by James Robinson.
+
+        WebGraphicsContext3DDefaultImpl does not run on top of OpenGL ES 2.0 implementations
+        https://bugs.webkit.org/show_bug.cgi?id=48282
+
+        Simple fix for a regression introduced in r71793.
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+
+2010-11-12  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove some trailing whitespace
+        https://bugs.webkit.org/show_bug.cgi?id=49433
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createPopupMenu):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::scrollRootLayerRect):
+        (WebKit::WebViewImpl::invalidateRootLayerRect):
+
+2010-11-11  MORITA Hajime  <morrita@google.com>
+
+        Unreviewed another attempt to fx windows build.
+
+        * src/WebBindings.cpp:
+        (WebKit::makeStringArrayImpl):
+
+2010-11-11  MORITA Hajime <morrita@google.com>
+
+        Unreviewed attempt to fx windows build.
+
+        * src/WebBindings.cpp:
+        (WebKit::makeStringArrayImpl):
+
+2010-11-11  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Kent Tamura.
+
+        editing/selection/context-menu-on-text.html fails on chromium
+        https://bugs.webkit.org/show_bug.cgi?id=45898
+
+        Added makeStringArray(), that is used by DumpRenderTree.
+        
+        * public/WebBindings.h:
+        * src/WebBindings.cpp:
+        (WebKit::makeStringArrayImpl): Added.
+        (WebKit::WebBindings::makeStringArray): Added.
+
+2010-11-11  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        [chromium] Convert WebPerformance doubles to seconds
+        https://bugs.webkit.org/show_bug.cgi?id=49232
+
+        This makes them suitable for passing to Time::FromDoubleT().
+
+        * src/WebPerformance.cpp:
+        (WebKit::millisecondsToSeconds):
+        (WebKit::WebPerformance::navigationStart):
+        (WebKit::WebPerformance::unloadEventEnd):
+        (WebKit::WebPerformance::redirectStart):
+        (WebKit::WebPerformance::redirectEnd):
+        (WebKit::WebPerformance::fetchStart):
+        (WebKit::WebPerformance::domainLookupStart):
+        (WebKit::WebPerformance::domainLookupEnd):
+        (WebKit::WebPerformance::connectStart):
+        (WebKit::WebPerformance::connectEnd):
+        (WebKit::WebPerformance::requestStart):
+        (WebKit::WebPerformance::requestEnd):
+        (WebKit::WebPerformance::responseStart):
+        (WebKit::WebPerformance::responseEnd):
+        (WebKit::WebPerformance::loadEventStart):
+        (WebKit::WebPerformance::loadEventEnd):
+
+2010-11-11  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        IndexedDB: signal IDBFactoryBackendInterface destruction to embedder
+        https://bugs.webkit.org/show_bug.cgi?id=49313
+
+        Implement ChromiumBridge::idbShutdown(), passing through to the
+        WebKitClient.
+
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::idbShutdown):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::idbShutdown):
+
+2010-11-10  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Clean up gfx::GetGLImplementation calls in WebGraphicsContext3DDefaultImpl
+        https://bugs.webkit.org/show_bug.cgi?id=49336
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::reshape):
+        (WebKit::WebGraphicsContext3DDefaultImpl::readBackFramebuffer):
+        (WebKit::WebGraphicsContext3DDefaultImpl::getIntegerv):
+
+2010-11-10  Evan Stade  <estade@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] menu key doesn't work when capslock or numslock is on
+        https://bugs.webkit.org/show_bug.cgi?id=49289
+
+        Add a special bitmask for the "input" modifier keys (shift, alt, crtl, meta). The Modifier
+        enum has grown to something that might be better termed State, but changing the nomenclature
+        now is difficult. The bitmask gets its name from the related function getWebInputModifiers.
+
+        * public/WebInputEvent.h: add InputModifiers mask for true modifier keys
+        * src/WebViewImpl.cpp: disregard non-modifier keys
+        (WebKit::WebViewImpl::keyEvent):
+
+2010-11-10  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        HTML5 Ruby support should be mandatory feature
+        https://bugs.webkit.org/show_bug.cgi?id=49272
+
+        Remove Ruby as optional feature.
+
+        * features.gypi:
+
+2010-11-10  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, add libvpx as a chromium dependency.
+
+        This should fix the chromium linux build.
+
+        * DEPS:
+
+2010-11-10  Peter Rybin  <peter.rybin@gmail.com>
+
+        Reviewed by Adam Barth.
+
+        HTML parser should provide script column position within HTML document to JavaScript engine
+        https://bugs.webkit.org/show_bug.cgi?id=45271
+
+        Replaces script line number with TextPosition structure.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::executeScript):
+        (WebKit::WebFrameImpl::executeScriptInIsolatedWorld):
+        (WebKit::WebFrameImpl::executeScriptAndReturnValue):
+
+2010-11-09  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        WebGraphicsContext3DDefaultImpl does not run on top of OpenGL ES 2.0 implementations
+        https://bugs.webkit.org/show_bug.cgi?id=48282
+
+        Fixed assumptions in WebGraphicsContext3DDefaultImpl that it was
+        running on top of desktop GL.
+
+        Tested various WebGL demos on Windows with ANGLE and
+        --in-process-webgl --disable-accelerated-compositing; all are now
+        working. Verified that --use-gl=desktop continues to work in the
+        same configuration.
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::WebGraphicsContext3DDefaultImpl):
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::validateAttributes):
+        (WebKit::WebGraphicsContext3DDefaultImpl::resolveMultisampledFramebuffer):
+        (WebKit::WebGraphicsContext3DDefaultImpl::isGLES2Compliant):
+        (WebKit::WebGraphicsContext3DDefaultImpl::reshape):
+        (WebKit::WebGraphicsContext3DDefaultImpl::readBackFramebuffer):
+        (WebKit::WebGraphicsContext3DDefaultImpl::getIntegerv):
+        (WebKit::WebGraphicsContext3DDefaultImpl::angleValidateShaderSource):
+        * src/WebGraphicsContext3DDefaultImpl.h:
+
+2010-11-09  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Add form validation message support to WebLocalizedString.h
+        https://bugs.webkit.org/show_bug.cgi?id=49239
+
+        * DEPS: Roll Chromium revision to r65502 to have crrev.com/65502
+        * public/WebLocalizedString.h: Add new symbols
+        * src/LocalizedStrings.cpp: Call query() with the new symbols in the following functions.
+        (WebCore::validationMessageValueMissingText):
+        (WebCore::validationMessageTypeMismatchText):
+        (WebCore::validationMessagePatternMismatchText):
+        (WebCore::validationMessageTooLongText):
+        (WebCore::validationMessageRangeUnderflowText):
+        (WebCore::validationMessageRangeOverflowText):
+        (WebCore::validationMessageStepMismatchText):
+
+2010-11-09  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, rolling chromium DEPS.
+
+        * DEPS: Roll to r65462.
+
+2010-11-09  Mihai Parparita  <mihaip@chromium.org>
+
+        Unreviewed Chromium Windows build fix.
+
+        Add isDisplayNone to the PopupMenuStyle constructor call in
+        PopupMenuTest (necessary after r71618).
+
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestPopupMenuClient::itemStyle):
+
+2010-11-09  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] display:none has no effect on <option> element
+        https://bugs.webkit.org/show_bug.cgi?id=49169
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::initialize):
+
+2010-11-09  James Simonsen  <simonjam@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Web Timing] Remove requestEnd
+        https://bugs.webkit.org/show_bug.cgi?id=48924
+
+        * public/WebPerformance.h:
+        * src/WebPerformance.cpp:
+
+2010-11-08  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Convert to and from DOMTimeStamp with converter functions
+        https://bugs.webkit.org/show_bug.cgi?id=49066
+
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::triggeringEventTime):
+
+
+2010-11-08  Pierre-Antoine LaFayette  <pierre.lafayette@gmail.com>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Adding hasUserGesture flag to the ResourceRequest
+        https://bugs.webkit.org/show_bug.cgi?id=37057
+
+        This flag is to be used on the browser side to indicate when a
+        download has been user initiated.
+
+        * public/WebURLRequest.h:
+        * src/WebURLRequest.cpp:
+        (WebKit::WebURLRequest::hasUserGesture):
+        (WebKit::WebURLRequest::setHasUserGesture):
+
+2010-11-08  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add an API to WebViewClient that report the load progress for a frame.
+        https://bugs.webkit.org/show_bug.cgi?id=49137
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::didChangeLoadProgress):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::postProgressEstimateChangedNotification):
+
+ 2010-11-08  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Darin Adler.
 

@@ -319,8 +319,10 @@ public:
      *
      * @param centerX x reference for the rectangle in CSS pixels
      * @param centerY y reference for the rectangle in CSS pixels
-     * @param hPadding How much to expand the rectangle horizontally
-     * @param vPadding How much to expand the rectangle vertically
+     * @param topPadding How much to expand the top of the rectangle
+     * @param rightPadding How much to expand the right of the rectangle
+     * @param bottomPadding How much to expand the bottom of the rectangle
+     * @param leftPadding How much to expand the left of the rectangle
      * @param ignoreClipping whether or not to ignore the root scroll frame when retrieving the element.
      *        If false, this method returns null for coordinates outside of the viewport.
      */
@@ -482,6 +484,10 @@ public:
     void setStateForNewFormElements(const Vector<String>&);
     bool hasStateForNewFormElements() const;
     bool takeStateForFormElement(AtomicStringImpl* name, AtomicStringImpl* type, String& state);
+
+    void registerFormElementWithFormAttribute(Element*);
+    void unregisterFormElementWithFormAttribute(Element*);
+    void resetFormElementsOwner(HTMLFormElement*);
 
     FrameView* view() const; // can be NULL
     Frame* frame() const { return m_frame; } // can be NULL
@@ -667,6 +673,7 @@ public:
     void scheduleForcedStyleRecalc();
     void scheduleStyleRecalc();
     void unscheduleStyleRecalc();
+    bool isPendingStyleRecalc() const;
     void styleRecalcTimerFired(Timer<Document>*);
 
     void attachNodeIterator(NodeIterator*);
@@ -1214,6 +1221,7 @@ private:
 
     typedef ListHashSet<Element*, 64> FormElementListHashSet;
     FormElementListHashSet m_formElementsWithState;
+    FormElementListHashSet m_formElementsWithFormAttribute;
 
     typedef HashMap<FormElementKey, Vector<String>, FormElementKeyHash, FormElementKeyHashTraits> FormElementStateMap;
     FormElementStateMap m_stateForNewFormElements;

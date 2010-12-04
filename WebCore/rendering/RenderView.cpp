@@ -307,11 +307,6 @@ void RenderView::repaintRectangleInViewAndCompositedLayers(const IntRect& ur, bo
     repaintViewRectangle(ur, immediate);
     
 #if USE(ACCELERATED_COMPOSITING)
-    // If we're a frame, repaintViewRectangle will have repainted via a RenderObject in the
-    // parent document.
-    if (document()->ownerElement())
-        return;
-
     if (compositor()->inCompositingMode())
         compositor()->repaintCompositedLayersAbsoluteRect(ur);
 #endif
@@ -325,6 +320,15 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
 
     if (printing())
         return;
+
+    if (style()->isFlippedBlocksWritingMode()) {
+        // We have to flip by hand since the view's logical height has not been determined.  We
+        // can use the viewport width and height.
+        if (style()->isHorizontalWritingMode())
+            rect.setY(viewHeight() - rect.bottom());
+        else
+            rect.setX(viewWidth() - rect.right());
+    }
 
 #ifdef ANDROID_FIXED_ELEMENTS
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)

@@ -65,6 +65,18 @@ bool SimpleFontData::shouldApplyMacAscentHack()
 
 void SimpleFontData::initGDIFont()
 {
+    if (!m_platformData.size()) {
+        m_ascent = 0;
+        m_descent = 0;
+        m_lineGap = 0;
+        m_lineSpacing = 0;
+        m_avgCharWidth = 0;
+        m_maxCharWidth = 0;
+        m_xHeight = 0;
+        m_unitsPerEm = 0;
+        return;
+    }
+
      HDC hdc = GetDC(0);
      HGDIOBJ oldFont = SelectObject(hdc, m_platformData.hfont());
      OUTLINETEXTMETRIC metrics;
@@ -94,10 +106,6 @@ void SimpleFontData::initGDIFont()
 
 void SimpleFontData::platformDestroy()
 {
-    // We don't hash this on Win32, so it's effectively owned by us.
-    delete m_smallCapsFontData;
-    m_smallCapsFontData = 0;
-
     ScriptFreeCache(&m_scriptCache);
     delete m_scriptFontProperties;
 }
@@ -115,7 +123,8 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
             GetObject(m_platformData.hfont(), sizeof(LOGFONT), &winfont);
             winfont.lfHeight = -lroundf(smallCapsHeight * (m_platformData.useGDI() ? 1 : 32));
             HFONT hfont = CreateFontIndirect(&winfont);
-            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, m_platformData.syntheticBold(), m_platformData.syntheticOblique(), m_platformData.useGDI()));
+            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, m_platformData.syntheticBold(), m_platformData.syntheticOblique(), m_platformData.useGDI()),
+                                                     isCustomFont(), false);
         }
     }
     return m_smallCapsFontData;

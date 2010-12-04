@@ -206,6 +206,10 @@ IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
 {
     if (platformWidget())
         return platformVisibleContentRect(includeScrollbars);
+
+    if (paintsEntireContents())
+        return IntRect(IntPoint(0, 0), contentsSize());
+
     return IntRect(IntPoint(m_scrollOffset.width(), m_scrollOffset.height()),
                    IntSize(max(0, width() - (verticalScrollbar() && !includeScrollbars ? verticalScrollbar()->width() : 0)), 
                            max(0, height() - (horizontalScrollbar() && !includeScrollbars ? horizontalScrollbar()->height() : 0))));
@@ -359,15 +363,17 @@ void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
         return;
     }
 
-    IntPoint newScrollPosition = scrollPoint.shrunkTo(maximumScrollPosition());
-    newScrollPosition.clampNegativeToZero();
-
 #if ENABLE(TILED_BACKING_STORE)
     if (delegatesScrolling()) {
         hostWindow()->delegatedScrollRequested(IntSize(scrollPoint.x(), scrollPoint.y()));
+        if (!m_actualVisibleContentRect.isEmpty())
+            m_actualVisibleContentRect.setLocation(scrollPoint);
         return;
     }
 #endif
+
+    IntPoint newScrollPosition = scrollPoint.shrunkTo(maximumScrollPosition());
+    newScrollPosition.clampNegativeToZero();
 
     if (newScrollPosition == scrollPosition())
         return;
@@ -402,7 +408,7 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
 
 void ScrollView::updateScrollbars(const IntSize& desiredOffset)
 {
-    if (m_inUpdateScrollbars || prohibitsScrolling() || platformWidget())
+    if (m_inUpdateScrollbars || prohibitsScrolling() || delegatesScrolling() || platformWidget())
         return;
 
     // If we came in here with the view already needing a layout, then go ahead and do that
@@ -872,10 +878,12 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     context->translate(x(), y());
     documentDirtyRect.move(-x(), -y());
 
-    context->translate(-scrollX(), -scrollY());
-    documentDirtyRect.move(scrollX(), scrollY());
+    if (!paintsEntireContents()) {
+        context->translate(-scrollX(), -scrollY());
+        documentDirtyRect.move(scrollX(), scrollY());
 
-    context->clip(visibleContentRect());
+        context->clip(visibleContentRect());
+    }
 
     paintContents(context, documentDirtyRect);
 

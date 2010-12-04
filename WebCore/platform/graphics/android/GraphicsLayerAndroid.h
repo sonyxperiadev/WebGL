@@ -119,7 +119,6 @@ private:
 
     void askForSync();
     void syncPositionState();
-    void needsSyncChildren();
     void syncChildren();
     void syncMask();
 
@@ -150,6 +149,8 @@ private:
     Vector<FloatRect> m_invalidatedRects;
 
     LayerAndroid* m_contentLayer;
+    LayerAndroid* m_foregroundLayer;
+    LayerAndroid* m_foregroundClipLayer;
 };
 
 } // namespace WebCore

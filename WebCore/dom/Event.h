@@ -24,6 +24,7 @@
 #ifndef Event_h
 #define Event_h
 
+#include "DOMTimeStamp.h"
 #include "EventTarget.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
@@ -31,9 +32,6 @@
 namespace WebCore {
 
     class Clipboard;
-
-    // FIXME: this should probably defined elsewhere.
-    typedef unsigned long long DOMTimeStamp;
 
     class Event : public RefCounted<Event> {
     public:
@@ -130,6 +128,9 @@ namespace WebCore {
 #if ENABLE(INDEXED_DATABASE)
         virtual bool isIDBErrorEvent() const;
         virtual bool isIDBSuccessEvent() const;
+#endif
+#if ENABLE(WEB_AUDIO)
+        virtual bool isAudioProcessingEvent() const;
 #endif
 #if ENABLE(WORKERS)
         virtual bool isErrorEvent() const;

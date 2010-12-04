@@ -27,6 +27,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/FrameNetworkingContextAndroid.cpp \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
+	android/WebCoreSupport/MemoryUsage.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
 	android/WebCoreSupport/UrlInterceptResponse.cpp \

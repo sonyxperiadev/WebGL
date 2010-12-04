@@ -402,7 +402,7 @@ namespace JSC {
         static const int sequenceGetByIdHotPathInstructionSpace = 36;
         static const int sequenceGetByIdHotPathConstantSpace = 4;
         // sequenceGetByIdSlowCase
-        static const int sequenceGetByIdSlowCaseInstructionSpace = 40;
+        static const int sequenceGetByIdSlowCaseInstructionSpace = 56;
         static const int sequenceGetByIdSlowCaseConstantSpace = 2;
         // sequencePutById
         static const int sequencePutByIdInstructionSpace = 36;
@@ -755,6 +755,7 @@ namespace JSC {
         void emit_op_get_global_var(Instruction*);
         void emit_op_get_scoped_var(Instruction*);
         void emit_op_init_lazy_reg(Instruction*);
+        void emit_op_check_has_instance(Instruction*);
         void emit_op_instanceof(Instruction*);
         void emit_op_jeq_null(Instruction*);
         void emit_op_jfalse(Instruction*);
@@ -783,7 +784,6 @@ namespace JSC {
         void emit_op_neq(Instruction*);
         void emit_op_neq_null(Instruction*);
         void emit_op_new_array(Instruction*);
-        void emit_op_new_error(Instruction*);
         void emit_op_new_func(Instruction*);
         void emit_op_new_func_exp(Instruction*);
         void emit_op_new_object(Instruction*);
@@ -828,6 +828,8 @@ namespace JSC {
         void emit_op_tear_off_activation(Instruction*);
         void emit_op_tear_off_arguments(Instruction*);
         void emit_op_throw(Instruction*);
+        void emit_op_throw_reference_error(Instruction*);
+        void emit_op_throw_syntax_error(Instruction*);
         void emit_op_to_jsnumber(Instruction*);
         void emit_op_to_primitive(Instruction*);
         void emit_op_unexpected_load(Instruction*);
@@ -854,6 +856,7 @@ namespace JSC {
         void emitSlow_op_get_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_argument_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_by_pname(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_check_has_instance(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_instanceof(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jfalse(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jnless(Instruction*, Vector<SlowCaseEntry>::iterator&);

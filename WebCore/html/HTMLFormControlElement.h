@@ -99,6 +99,9 @@ public:
     
     bool readOnly() const { return m_readOnly; }
 
+    void resetFormOwner(HTMLFormElement*);
+    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+
 protected:
     HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*);
 
@@ -195,6 +198,9 @@ public:
     void select();
     void setSelectionRange(int start, int end);
     PassRefPtr<Range> selection() const;
+
+    virtual int maxLength() const = 0;
+    virtual String value() const = 0;
 
 protected:
     HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);

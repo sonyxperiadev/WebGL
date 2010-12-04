@@ -47,8 +47,10 @@ class TestShell;
 namespace WebKit {
 class WebFrame;
 class WebDeviceOrientationClient;
+class WebDeviceOrientationClientMock;
 class WebGeolocationServiceMock;
 class WebSpeechInputController;
+class WebSpeechInputControllerMock;
 class WebSpeechInputListener;
 class WebURL;
 struct WebRect;
@@ -89,6 +91,12 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
 
     void addClearHeader(const WTF::String& header) { m_clearHeaders.add(header); }
     const HashSet<WTF::String>& clearHeaders() const { return m_clearHeaders; }
+    void closeWidget();
+
+    WebKit::WebContextMenuData* lastContextMenuData() const;
+    void clearContextMenuData();
+
+    WebKit::WebSpeechInputControllerMock* speechInputControllerMock() { return m_speechInputControllerMock.get(); }
 
     // NavigationHost
     virtual bool navigate(const TestNavigationEntry&, bool reload);
@@ -195,6 +203,9 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
     virtual bool allowScript(WebKit::WebFrame*, bool enabledPerSettings);
     virtual void openFileSystem(WebKit::WebFrame*, WebKit::WebFileSystem::Type, long long size, bool create, WebKit::WebFileSystemCallbacks*);
 
+    WebKit::WebDeviceOrientationClientMock* deviceOrientationClientMock();
+    MockSpellCheck* mockSpellCheck();
+
 private:
     LayoutTestController* layoutTestController() const;
 
@@ -294,10 +305,15 @@ private:
     WebKit::WebRect m_paintRect;
     bool m_isPainting;
 
+    OwnPtr<WebKit::WebContextMenuData> m_lastContextMenuData;
+
 #if !ENABLE(CLIENT_BASED_GEOLOCATION)
     // Geolocation
     OwnPtr<WebKit::WebGeolocationServiceMock> m_geolocationServiceMock;
 #endif
+
+    OwnPtr<WebKit::WebDeviceOrientationClientMock> m_deviceOrientationClientMock;
+    OwnPtr<WebKit::WebSpeechInputControllerMock> m_speechInputControllerMock;
 
     OwnPtr<TestNavigationController*> m_navigationController;
 };

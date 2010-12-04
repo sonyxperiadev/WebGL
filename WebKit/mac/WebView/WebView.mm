@@ -60,7 +60,7 @@
 #import "WebFormDelegatePrivate.h"
 #import "WebFrameInternal.h"
 #import "WebFrameViewInternal.h"
-#import "WebGeolocationControllerClient.h"
+#import "WebGeolocationClient.h"
 #import "WebGeolocationPositionInternal.h"
 #import "WebHTMLRepresentation.h"
 #import "WebHTMLViewInternal.h"
@@ -147,6 +147,7 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
+#import <WebCore/ResourceLoadScheduler.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SchemeRegistry.h>
 #import <WebCore/ScriptController.h>
@@ -621,7 +622,7 @@ static bool shouldEnableLoadDeferring()
 
 - (void)_dispatchPendingLoadRequests
 {
-    cache()->loader()->servePendingRequests();
+    resourceLoadScheduler()->servePendingRequests();
 }
 
 - (void)_registerDraggedTypes
@@ -706,7 +707,7 @@ static NSString *leakMailQuirksUserScriptPath()
     pageClients.inspectorClient = new WebInspectorClient(self);
     pageClients.pluginHalterClient = new WebPluginHalterClient(self);
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-    pageClients.geolocationControllerClient = new WebGeolocationControllerClient(self);
+    pageClients.geolocationClient = new WebGeolocationClient(self);
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
     pageClients.deviceOrientationClient = new WebDeviceOrientationClient(self);
@@ -2626,13 +2627,13 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     SchemeRegistry::registerURLSchemeAsSecure(scheme);
 }
 
-- (void)_scaleWebView:(float)scale
+- (void)_scaleWebView:(float)scale atOrigin:(NSPoint)origin
 {
     Frame* coreFrame = [self _mainCoreFrame];
     if (!coreFrame)
         return;
 
-    coreFrame->scalePage(scale);
+    coreFrame->scalePage(scale, IntPoint(origin));
 }
 
 - (float)_viewScaleFactor

@@ -1938,6 +1938,14 @@ bool RenderLayer::hasOverflowScroll() const
         return true;
     return false;
 }
+
+bool RenderLayer::hasOverflowParent() const
+{
+    const RenderLayer* layer = this;
+    while (layer && !layer->hasOverflowScroll())
+        layer = layer->parent();
+    return layer;
+}
 #endif
 
 void RenderLayer::positionOverflowControls(int tx, int ty)
@@ -2012,13 +2020,6 @@ void RenderLayer::computeScrollDimensions(bool* needHBar, bool* needVBar)
         *needHBar = rightPos > clientWidth;
     if (needVBar)
         *needVBar = bottomPos > clientHeight;
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (hasOverflowScroll()) {
-        compositor()->setCompositingLayersNeedRebuild(true);
-        compositor()->enableCompositingMode(true);
-        compositor()->updateCompositingLayers(CompositingUpdateAfterLayoutOrStyleChange, this);
-    }
-#endif
 }
 
 void RenderLayer::updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow)
@@ -2154,6 +2155,14 @@ RenderLayer::updateScrollInfoAfterLayout()
  
     if (renderer()->node() && renderer()->document()->hasListenerType(Document::OVERFLOWCHANGED_LISTENER))
         updateOverflowStatus(horizontalOverflow, verticalOverflow);
+
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (hasOverflowScroll()) {
+        rendererContentChanged();
+        dirtyStackingContextZOrderLists();
+        dirtyZOrderLists();
+    }
+#endif
 }
 
 void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty, const IntRect& damageRect)
@@ -3213,6 +3222,15 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         
         if (renderer()->hasOverflowClip()) {
             IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y);
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+            if (hasOverflowScroll()) {
+                RenderBox* box = toRenderBox(renderer());
+                newOverflowClip =
+                    IntRect(x, y,
+                        box->borderLeft() + box->borderRight() + m_scrollWidth,
+                        box->borderTop() + box->borderBottom() + m_scrollHeight);
+            }
+#endif
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
             if (renderer()->isPositioned() || renderer()->isRelPositioned())
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
@@ -3277,6 +3295,7 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
         // This layer establishes a clip of some kind.
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
         if (hasOverflowScroll()) {
+            // Use the entire foreground rectangle to record the contents.
             RenderBox* box = toRenderBox(renderer());
             foregroundRect =
                     IntRect(x, y,
@@ -3970,8 +3989,15 @@ void showLayerTree(const WebCore::RenderLayer* layer)
         return;
 
     if (WebCore::Frame* frame = layer->renderer()->frame()) {
-        WTF::String output = externalRepresentation(frame, WebCore::RenderAsTextShowAllLayers | WebCore::RenderAsTextShowLayerNesting | WebCore::RenderAsTextShowCompositedLayers | WebCore::RenderAsTextShowAddresses | WebCore::RenderAsTextShowIDAndClass);
+        WTF::String output = externalRepresentation(frame, WebCore::RenderAsTextShowAllLayers | WebCore::RenderAsTextShowLayerNesting | WebCore::RenderAsTextShowCompositedLayers | WebCore::RenderAsTextShowAddresses | WebCore::RenderAsTextShowIDAndClass | WebCore::RenderAsTextDontUpdateLayout | WebCore::RenderAsTextShowLayoutState);
         fprintf(stderr, "%s\n", output.utf8().data());
     }
+}
+
+void showLayerTree(const WebCore::RenderObject* renderer)
+{
+    if (!renderer)
+        return;
+    showLayerTree(renderer->enclosingLayer());
 }
 #endif

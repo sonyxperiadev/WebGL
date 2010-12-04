@@ -1502,9 +1502,10 @@ void LayoutTestController::setMockDeviceOrientation(const CppArgumentList& argum
         return;
 
     WebDeviceOrientation orientation(arguments[0].toBoolean(), arguments[1].toDouble(), arguments[2].toBoolean(), arguments[3].toDouble(), arguments[4].toBoolean(), arguments[5].toDouble());
-
-    ASSERT(m_deviceOrientationClientMock);
-    m_deviceOrientationClientMock->setOrientation(orientation);
+    // Note that we only call setOrientation on the main page's mock since this is all that the
+    // tests require. If necessary, we could get a list of WebViewHosts from the TestShell and
+    // call setOrientation on each DeviceOrientationClientMock.
+    m_shell->webViewHost()->deviceOrientationClientMock()->setOrientation(orientation);
 }
 
 void LayoutTestController::setGeolocationPermission(const CppArgumentList& arguments, CppVariant* result)
@@ -1542,14 +1543,7 @@ void LayoutTestController::setMockSpeechInputResult(const CppArgumentList& argum
     if (arguments.size() < 2 || !arguments[0].isString() || !arguments[1].isString())
         return;
 
-    m_speechInputControllerMock->setMockRecognitionResult(cppVariantToWebString(arguments[0]), cppVariantToWebString(arguments[1]));
-}
-
-WebKit::WebSpeechInputController* LayoutTestController::speechInputController(WebKit::WebSpeechInputListener* listener)
-{
-    if (!m_speechInputControllerMock.get())
-        m_speechInputControllerMock.set(WebSpeechInputControllerMock::create(listener));
-    return m_speechInputControllerMock.get();
+    m_shell->webViewHost()->speechInputControllerMock()->setMockRecognitionResult(cppVariantToWebString(arguments[0]), cppVariantToWebString(arguments[1]));
 }
 
 void LayoutTestController::layerTreeAsText(const CppArgumentList& args, CppVariant* result)
@@ -1564,13 +1558,6 @@ void LayoutTestController::markerTextForListItem(const CppArgumentList& args, Cp
         result->setNull();
     else
         result->set(element.document().frame()->markerTextForListItem(element).utf8());
-}
-
-WebDeviceOrientationClient* LayoutTestController::deviceOrientationClient()
-{
-    if (!m_deviceOrientationClientMock.get())
-        m_deviceOrientationClientMock.set(WebDeviceOrientationClientMock::create());
-    return m_deviceOrientationClientMock.get();
 }
 
 void LayoutTestController::hasSpellingMarker(const CppArgumentList& arguments, CppVariant* result)

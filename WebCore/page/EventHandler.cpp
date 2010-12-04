@@ -607,11 +607,11 @@ void EventHandler::updateSelectionForMouseDrag(Node* targetNode, const IntPoint&
     if (!targetNode)
         return;
 
+    if (!canMouseDragExtendSelect(targetNode))
+        return;
+
     RenderObject* targetRenderer = targetNode->renderer();
     if (!targetRenderer)
-        return;
-        
-    if (!canMouseDragExtendSelect(targetNode))
         return;
 
     VisiblePosition targetPosition(targetRenderer->positionForPoint(localPoint));
@@ -1787,8 +1787,6 @@ void EventHandler::updateMouseEventTargetNode(Node* targetNode, const PlatformMo
         // If the target node is a text node, dispatch on the parent node - rdar://4196646
         if (result && result->isTextNode())
             result = result->parentNode();
-        if (result)
-            result = result->shadowAncestorNode();
     }
     m_nodeUnderMouse = result;
 #if ENABLE(SVG)
@@ -2373,7 +2371,7 @@ void EventHandler::handleKeyboardSelectionMovement(KeyboardEvent* event)
     if (!event)
         return;
     
-    String key = event->keyIdentifier();           
+    const String& key = event->keyIdentifier();
     bool isShifted = event->getModifierState("Shift");
     bool isOptioned = event->getModifierState("Alt");
     bool isCommanded = event->getModifierState("Meta");

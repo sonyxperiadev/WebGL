@@ -392,7 +392,7 @@ WebInspector.NetworkPanel.prototype = {
         var maxTime = -1;
         for (var i = 0; i < this._resources.length; ++i) {
             var resource = this._resources[i];
-            transferSize += resource.cached ? 0 : resource.transferSize;
+            transferSize += (resource.cached || !resource.transferSize) ? 0 : resource.transferSize;
             if (resource.isMainResource)
                 baseTime = resource.startTime;
             if (resource.endTime > maxTime) 
@@ -864,7 +864,7 @@ WebInspector.NetworkPanel.prototype = {
         view.show(this._viewsContainerElement);
 
         if (line) {
-            view.selectContentTab(true);
+            view.selectContentTab();
             if (view.revealLine)
                 view.revealLine(line);
             if (view.highlightLine)
