@@ -95,8 +95,8 @@ WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
     net::CookieMonster::EnableFileScheme();
 
     FilePath cookiePath(databaseFilePath.c_str());
-    scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
-    m_cookieStore = new net::CookieMonster(cookieDb.get(), 0);
+    m_cookieDb = new SQLitePersistentCookieStore(cookiePath);
+    m_cookieStore = new net::CookieMonster(m_cookieDb.get(), 0);
 }
 
 bool WebCookieJar::allowCookies()
@@ -109,6 +109,11 @@ void WebCookieJar::setAllowCookies(bool allow)
 {
     MutexLocker lock(m_allowCookiesMutex);
     m_allowCookies = allow;
+}
+
+int WebCookieJar::getNumCookiesInDatabase()
+{
+    return m_cookieDb ? m_cookieDb->GetCookieCount() : 0;
 }
 
 // From CookiePolicy in chromium

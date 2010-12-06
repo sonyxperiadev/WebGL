@@ -54,9 +54,14 @@ public:
     net::CookieStore* cookieStore() { return m_cookieStore.get(); }
     net::CookiePolicy* cookiePolicy() { return this; }
 
+    // Get the number of cookies that have actually been saved to flash.
+    // (This is used to implement CookieManager.hasCookies() in the Java framework.)
+    int getNumCookiesInDatabase();
+
 private:
     WebCookieJar(const std::string& databaseFilePath);
 
+    scoped_refptr<SQLitePersistentCookieStore> m_cookieDb;
     scoped_refptr<net::CookieStore> m_cookieStore;
     bool m_allowCookies;
     WTF::Mutex m_allowCookiesMutex;
