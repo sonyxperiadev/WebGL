@@ -995,15 +995,17 @@ static const LayerAndroid* findScrollableLayer(const LayerAndroid* parent, int x
 }
 #endif
 
-int scrollableLayer(int x, int y)
+int scrollableLayer(int x, int y, SkIRect* layerRect)
 {
 #if USE(ACCELERATED_COMPOSITING)
     const LayerAndroid* layerRoot = compositeRoot();
     if (!layerRoot)
         return 0;
     const LayerAndroid* result = findScrollableLayer(layerRoot, x, y);
-    if (result)
+    if (result) {
+        result->getScrollRect(layerRect);
         return result->uniqueId();
+    }
 #endif
     return 0;
 }
@@ -2210,15 +2212,18 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 #endif
 }
 
-static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y)
+static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y, jobject rect)
 {
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->scrollableLayer(x, y);
+    SkIRect nativeRect;
+    int id = view->scrollableLayer(x, y, &nativeRect);
+    GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
+    return id;
 }
 
-static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint dx,
-        jint dy)
+static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
+        jint y)
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2228,7 +2233,7 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint dx,
     LayerAndroid* layer = root->findById(layerId);
     if (!layer)
         return false;
-    return layer->scrollBy(dx, dy);
+    return layer->scrollTo(x, y);
 #endif
     return false;
 }
@@ -2399,7 +2404,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeWordSelection },
     { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
-    { "nativeScrollableLayer", "(II)I",
+    { "nativeScrollableLayer", "(IILandroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
         (void*) nativeScrollLayer },
