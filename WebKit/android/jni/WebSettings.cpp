@@ -504,17 +504,11 @@ public:
         // (see chrome/browser/autofill/autofill_manager.cc:405). This
         // setting should probably be synced into Chromium also.
 
-        // If we toggle from disabled to enabled, then re search the document
-        // for forms.
-        bool oldAutoFillSetting = s->autoFillEnabled();
         s->setAutoFillEnabled(flag);
 
-        EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
-        WebAutoFill* webAutoFill = editorC->getAutoFill();
-        if (!oldAutoFillSetting && flag)
-            webAutoFill->searchDocument(pFrame);
-
         if (flag) {
+            EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
+            WebAutoFill* webAutoFill = editorC->getAutoFill();
             // Set the active AutoFillProfile data.
             jobject autoFillProfile = env->GetObjectField(obj, gFieldIds->mAutoFillProfile);
             if (autoFillProfile)

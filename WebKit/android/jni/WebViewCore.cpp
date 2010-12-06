@@ -1188,7 +1188,10 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         m_scale = scale;
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = m_maxXScroll * height / width;
-    if (ow != width || (!ignoreHeight && oh != height) || otw != textWrapWidth) {
+    // Don't reflow if the diff is small.
+    const bool reflow = otw && textWrapWidth &&
+        ((float) abs(otw - textWrapWidth) / textWrapWidth) >= 0.01f;
+    if (ow != width || (!ignoreHeight && oh != height) || reflow) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
                 screenWidth, screenHeight);
@@ -1200,7 +1203,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             WebCore::IntPoint offset;
             // If the text wrap changed, it is probably zoom change or
             // orientation change. Try to keep the anchor at the same place.
-            if (otw && textWrapWidth && otw != textWrapWidth) {
+            if (otw && textWrapWidth && otw != textWrapWidth &&
+                (anchorX != 0 || anchorY != 0)) {
                 WebCore::HitTestResult hitTestResult =
                         m_mainFrame->eventHandler()->hitTestResultAtPoint(
                                 anchorPoint, false);
@@ -2943,6 +2947,13 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
                     ->readOnly();
             if (ime) {
+#if ENABLE(WEB_AUTOFILL)
+                if (renderer->isTextField()) {
+                    EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(framePtr->page()->editorClient());
+                    WebAutoFill* autoFill = editorC->getAutoFill();
+                    autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
+                }
+#endif
                 RenderTextControl* rtc
                         = static_cast<RenderTextControl*> (renderer);
                 requestKeyboardWithSelection(focusNode, rtc->selectionStart(),

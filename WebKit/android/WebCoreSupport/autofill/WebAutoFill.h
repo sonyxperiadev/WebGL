@@ -54,8 +54,6 @@ class WebAutoFill : public Noncopyable
 public:
     WebAutoFill();
     virtual ~WebAutoFill();
-
-    void searchDocument(WebCore::Frame*);
     void formFieldFocused(WebCore::HTMLFormControlElement*);
     void fillFormFields(int queryId);
     void querySuccessful(const string16& value, const string16& label, int uniqueId);
@@ -70,8 +68,11 @@ public:
 
     bool updateProfileLabel();
 
+    void reset() { mLastSearchDomVersion = 0; }
+
 private:
     void init();
+    void searchDocument(WebCore::Frame*);
     void setEmptyProfile();
 
     OwnPtr<FormManager> mFormManager;
@@ -91,6 +92,8 @@ private:
     int mQueryId;
 
     WebViewCore* mWebViewCore;
+
+    int mLastSearchDomVersion;
 };
 
 }
