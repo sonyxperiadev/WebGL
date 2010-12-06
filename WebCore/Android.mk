@@ -542,6 +542,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/LocalizedStringsAndroid.cpp \
 	platform/android/PlatformTouchEventAndroid.cpp \
 	platform/android/PlatformTouchPointAndroid.cpp \
+	platform/android/PopupMenuAndroid.cpp \
 	platform/android/RenderThemeAndroid.cpp \
 	platform/android/PackageNotifier.cpp \
 	platform/android/ScreenAndroid.cpp \

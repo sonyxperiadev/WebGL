@@ -514,6 +514,10 @@ namespace android {
 
         DeviceMotionAndOrientationManager* deviceMotionAndOrientationManager() { return &m_deviceMotionAndOrientationManager; }
 
+        void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
+                size_t count, const int enabled[], size_t enabledCount,
+                bool multiple, const int selected[], size_t selectedCountOrSelection);
+
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore
@@ -551,10 +555,6 @@ namespace android {
         // Then check the old buttons to see if any are no longer needed.
         void updateButtonList(WTF::Vector<Container>* buttons);
         void reset(bool fromConstructor);
-
-        void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
-                size_t count, const int enabled[], size_t enabledCount,
-                bool multiple, const int selected[], size_t selectedCountOrSelection);
 
         friend class ListBoxReply;
         struct JavaGlue;

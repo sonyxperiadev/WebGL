@@ -26,24 +26,33 @@
 #ifndef SearchPopupMenuAndroid_h
 #define SearchPopupMenuAndroid_h
 
-#include "PopupMenuAndroid.h"
 #include "SearchPopupMenu.h"
 
 namespace WebCore {
 
-class PopupMenuClient;
+class IntRect;
+class PopupMenu;
 class FrameView;
+
+class DummyPopup : public PopupMenu {
+ public:
+     virtual ~DummyPopup() {}
+     virtual void show(const IntRect&, FrameView*, int index) { }
+     virtual void hide() { }
+     virtual void updateFromElement() { }
+     virtual void disconnectClient() { }
+};
 
 class SearchPopupMenuAndroid : public SearchPopupMenu {
 public:
-    SearchPopupMenuAndroid() : m_popup(adoptRef(new PopupMenuAndroid)) { }
+    SearchPopupMenuAndroid() : m_popup(adoptRef(new DummyPopup)) { }
     virtual PopupMenu* popupMenu() { return m_popup.get(); }
     virtual void saveRecentSearches(const AtomicString&, const Vector<String>&) { }
     virtual void loadRecentSearches(const AtomicString&, Vector<String>&) { }
     virtual bool enabled() { return false; }
 
 private:
-    RefPtr<PopupMenuAndroid> m_popup;
+    RefPtr<PopupMenu> m_popup;
 };
 
 }
