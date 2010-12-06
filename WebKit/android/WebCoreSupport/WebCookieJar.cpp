@@ -29,6 +29,7 @@
 #include "JNIUtility.h"
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
+#include "WebUrlLoaderClient.h"
 
 namespace android {
 
@@ -122,6 +123,65 @@ int WebCookieJar::CanSetCookie(const GURL&, const GURL&, const std::string&, net
 {
     MutexLocker lock(m_allowCookiesMutex);
     return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
+}
+
+class FlushSemaphore : public base::RefCounted<FlushSemaphore>
+{
+public:
+    FlushSemaphore()
+        : m_condition(&m_lock)
+        , m_count(0)
+    {}
+
+    void SendFlushRequest(net::CookieMonster* monster) {
+        // FlushStore() needs to run on a Chrome thread (because it will need
+        // to post the callback, and it may want to do so on its own thread.)
+        // We use the IO thread for this purpose.
+        //
+        // TODO(husky): Our threads are hidden away in various files. Clean this
+        // up and consider integrating with Chrome's browser_thread.h. Might be
+        // a better idea to use the DB thread here rather than the IO thread.
+
+        base::Thread* ioThread = WebUrlLoaderClient::ioThread();
+        if (ioThread) {
+            Task* callback = NewRunnableMethod(this, &FlushSemaphore::Callback);
+            ioThread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
+                monster, &net::CookieMonster::FlushStore, callback));
+        }
+    }
+
+    // Block until the given number of callbacks has been made.
+    void Wait(int numCallbacks) {
+        AutoLock al(m_lock);
+        while (m_count < numCallbacks) {
+            // TODO(husky): Maybe use TimedWait() here? But it's not obvious what
+            // to do if the flush fails. Might be okay just to let the OS kill us.
+            m_condition.Wait();
+        }
+        m_count -= numCallbacks;
+    }
+
+private:
+    friend class base::RefCounted<FlushSemaphore>;
+
+    void Callback() {
+        AutoLock al(m_lock);
+        m_count++;
+        m_condition.Broadcast();
+    }
+
+    Lock m_lock;
+    ConditionVariable m_condition;
+    volatile int m_count;
+};
+
+void WebCookieJar::flush()
+{
+    // Flush both cookie stores (private and non-private), wait for 2 callbacks.
+    static scoped_refptr<FlushSemaphore> semaphore(new FlushSemaphore());
+    semaphore->SendFlushRequest(get(false)->cookieStore()->GetCookieMonster());
+    semaphore->SendFlushRequest(get(true)->cookieStore()->GetCookieMonster());
+    semaphore->Wait(2);
 }
 
 }
