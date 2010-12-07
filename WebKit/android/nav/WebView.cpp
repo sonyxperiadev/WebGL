@@ -415,8 +415,13 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     if (!m_baseLayer)
         return false;
 
-    if (!m_glWebViewState)
+    if (!m_glWebViewState) {
         m_glWebViewState = new GLWebViewState();
+        if (m_baseLayer->content()) {
+            IntRect rect(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
+            m_glWebViewState->setBaseLayer(m_baseLayer, rect);
+        }
+    }
 
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
