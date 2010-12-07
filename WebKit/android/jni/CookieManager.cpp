@@ -83,7 +83,7 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
 static bool hasCookies(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    return !WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetAllCookies().empty();
+    return WebCookieJar::get(false)->getNumCookiesInDatabase() > 0;
 #else
     // The Android HTTP stack is implemented Java-side.
     ASSERT_NOT_REACHED();
@@ -101,6 +101,10 @@ static void removeAllCookie(JNIEnv*, jobject)
     // TODO: Consider adding an optimisation to not create the context if it
     // doesn't already exist.
     WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+
+    // The Java code removes cookies directly from the backing database, so we do the same,
+    // but with a NULL callback so it's asynchronous.
+    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->FlushStore(NULL);
 #endif
 }
 
@@ -158,8 +162,7 @@ static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
 static void flushCookieStore(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->FlushStore();
-    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->FlushStore();
+    WebCookieJar::flush();
 #endif
 }
 
