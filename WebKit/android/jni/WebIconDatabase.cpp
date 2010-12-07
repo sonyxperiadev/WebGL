@@ -28,6 +28,8 @@
 #include "config.h"
 #include "WebIconDatabase.h"
 
+#include "CString.h"
+#include "FileSystem.h"
 #include "GraphicsJNI.h"
 #include "IconDatabase.h"
 #include "Image.h"
@@ -138,10 +140,27 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
     iconDb->setClient(gIconDatabaseClient);
     LOG_ASSERT(path, "No path given to nativeOpen");
     WebCore::String pathStr = to_string(env, path);
-    LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
-    bool res = iconDb->open(pathStr);
-    if (!res)
-        LOGE("Open failed!");
+    WebCore::CString fullPath = WebCore::pathByAppendingComponent(pathStr,
+            WebCore::IconDatabase::defaultDatabaseFilename()).utf8();
+    mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    bool didSetPermissions = false;
+    if (access(fullPath.data(), F_OK) == 0) {
+        if (chmod(fullPath.data(), mode) == 0)
+            didSetPermissions = true;
+    } else {
+        int fd = open(fullPath.data(), O_CREAT, mode);
+        if (fd >= 0) {
+            close(fd);
+            didSetPermissions = true;
+        }
+    }
+    if (didSetPermissions) {
+        LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
+        bool res = iconDb->open(pathStr);
+        if (!res)
+            LOGE("Open failed!");
+    } else
+        LOGE("Failed to set permissions on '%s'", fullPath.data());
 }
 
 static void Close(JNIEnv* env, jobject obj)
