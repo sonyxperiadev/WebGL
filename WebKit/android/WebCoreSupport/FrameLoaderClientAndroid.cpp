@@ -74,6 +74,7 @@
 #include "WebHistory.h"
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"
+#include "WebViewClientError.h"
 #include "WebViewCore.h"
 #include "autofill/WebAutoFill.h"
 #include "android_graphics.h"
@@ -592,7 +593,7 @@ void FrameLoaderClientAndroid::setMainDocumentError(DocumentLoader* docLoader, c
         m_manualLoader = NULL;
         m_hasSentResponseToPlugin = false;
     } else {
-        if (!error.isNull() && error.errorCode() >= InternalErrorLast)
+        if (!error.isNull() && error.errorCode() >= InternalErrorLast && error.errorCode() != ERROR_OK)
             m_webFrame->reportError(error.errorCode(),
                     error.localizedDescription(), error.failingURL());
     }

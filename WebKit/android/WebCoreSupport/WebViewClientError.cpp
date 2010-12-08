@@ -101,6 +101,17 @@ WebViewClientError ToWebViewClientError(net::Error error) {
         case ERR_SSL_SNAP_START_NPN_MISPREDICTION:
         case ERR_SSL_CLIENT_AUTH_PRIVATE_KEY_ACCESS_DENIED:
         case ERR_SSL_CLIENT_AUTH_CERT_NO_PRIVATE_KEY:
+            return ERROR_FAILED_SSL_HANDSHAKE;
+
+        case ERR_PROXY_AUTH_UNSUPPORTED:
+        case ERR_PROXY_AUTH_REQUESTED:
+        case ERR_PROXY_CONNECTION_FAILED:
+        case ERR_UNEXPECTED_PROXY_AUTH:
+            return ERROR_PROXY_AUTHENTICATION;
+
+        /* The certificate errors are handled by their own dialog
+         * and don't need to be reported to the framework again.
+         */
         case ERR_CERT_COMMON_NAME_INVALID:
         case ERR_CERT_DATE_INVALID:
         case ERR_CERT_AUTHORITY_INVALID:
@@ -111,13 +122,7 @@ WebViewClientError ToWebViewClientError(net::Error error) {
         case ERR_CERT_INVALID:
         case ERR_CERT_WEAK_SIGNATURE_ALGORITHM:
         case ERR_CERT_NOT_IN_DNS:
-            return ERROR_FAILED_SSL_HANDSHAKE;
-
-        case ERR_PROXY_AUTH_UNSUPPORTED:
-        case ERR_PROXY_AUTH_REQUESTED:
-        case ERR_PROXY_CONNECTION_FAILED:
-        case ERR_UNEXPECTED_PROXY_AUTH:
-            return ERROR_PROXY_AUTHENTICATION;
+            return ERROR_OK;
 
         default:
             return ERROR_UNKNOWN;
