@@ -53,6 +53,11 @@ public:
         m_pixmapsGenerationThread->removeOperationsForPage(page);
     }
 
+    void scheduleOperation(QueuedOperation* operation)
+    {
+        m_pixmapsGenerationThread->scheduleOperation(operation);
+    }
+
     ShaderProgram* shader() { return &m_shader; }
 
     BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);

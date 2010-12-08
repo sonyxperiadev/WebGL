@@ -24,7 +24,9 @@
  */
 
 #include "config.h"
+#include "DeleteTextureOperation.h"
 #include "SharedTexture.h"
+#include "TilesManager.h"
 #include "GLUtils.h"
 
 #define LOG_NDEBUG 1
@@ -71,14 +73,18 @@ SharedTexture::SharedTexture() {
 }
 
 // called by the consumer when it no longer wants to consume and after it has
-// terminated all providers. It is up to the providers to terminate their
-// textures in the case that EGLImages are used
+// terminated all providers. If EGLImages are used, we schedule a delete
+// operation (see DeleteTextureOperation.h) to the textures generation thread.
 SharedTexture::~SharedTexture() {
     if (m_supportsEGLImage) {
-        eglDestroyImageKHR(m_display, m_eglImage);
-        glDeleteTextures(1, &m_targetTexture.m_textureId);
+        GLUtils::deleteTexture(&m_targetTexture.m_textureId);
+        // We need to delete the EGLImage and the source texture
+        // in the textures generation thread.
+        DeleteTextureOperation* operation = new DeleteTextureOperation(
+            m_sourceTexture.m_textureId, m_eglImage);
+        TilesManager::instance()->scheduleOperation(operation);
     } else {
-        glDeleteTextures(1, &m_sourceTexture.m_textureId);
+        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
     }
 }
 

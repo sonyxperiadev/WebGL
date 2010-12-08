@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
+#include "PaintTileSetOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -48,31 +49,6 @@
 #endif // DEBUG
 
 namespace WebCore {
-
-class PaintTileSetOperation : public QueuedOperation {
- public:
-    PaintTileSetOperation(TileSet* set)
-        : QueuedOperation(QueuedOperation::PaintTileSet, set->page())
-        , m_set(set) {}
-    virtual ~PaintTileSetOperation()
-    {
-        delete m_set;
-    }
-    virtual bool operator==(const QueuedOperation* operation)
-    {
-        if (operation->type() != type())
-            return false;
-        const PaintTileSetOperation* op = static_cast<const PaintTileSetOperation*>(operation);
-        return op->m_set == m_set;
-    }
-    virtual void run()
-    {
-        if (m_set)
-            m_set->paint();
-    }
- private:
-    TileSet* m_set;
-};
 
 void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
 {
