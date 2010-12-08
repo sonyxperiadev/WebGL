@@ -354,7 +354,8 @@ public:
 
     bool drewText() { return m_findCheck.drewText(); }
 
-    void setBest(const LayerAndroid* best, int x, int y) {
+    void setBest(const LayerAndroid* best, int x, int y)
+    {
         m_best = best;
         m_bestX = x;
         m_bestY = y;

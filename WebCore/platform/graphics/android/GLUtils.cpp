@@ -45,7 +45,8 @@ using namespace android;
 // Matrix utilities
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void GLUtils::toGLMatrix(GLfloat* flattened, const TransformationMatrix& m) {
+void GLUtils::toGLMatrix(GLfloat* flattened, const TransformationMatrix& m)
+{
     flattened[0] = m.m11(); // scaleX
     flattened[1] = m.m12(); // skewY
     flattened[2] = m.m13();
@@ -64,7 +65,8 @@ void GLUtils::toGLMatrix(GLfloat* flattened, const TransformationMatrix& m) {
     flattened[15] = m.m44(); // persp2
 }
 
-void GLUtils::toSkMatrix(SkMatrix& matrix, const TransformationMatrix& m) {
+void GLUtils::toSkMatrix(SkMatrix& matrix, const TransformationMatrix& m)
+{
     matrix[0] = m.m11(); // scaleX
     matrix[1] = m.m21(); // skewX
     matrix[2] = m.m41(); // transX
@@ -77,7 +79,8 @@ void GLUtils::toSkMatrix(SkMatrix& matrix, const TransformationMatrix& m) {
 }
 
 void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,
-                                    float right, float bottom, float nearZ, float farZ) {
+                                    float right, float bottom, float nearZ, float farZ)
+{
     float deltaX = right - left;
     float deltaY = top - bottom;
     float deltaZ = farZ - nearZ;
@@ -96,19 +99,19 @@ void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, flo
 // GL & EGL error checks
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void GLUtils::checkEglError(const char* op, EGLBoolean returnVal) {
-    if (returnVal != EGL_TRUE) {
+void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
+{
+    if (returnVal != EGL_TRUE)
         XLOG("EGL ERROR - %s() returned %d\n", op, returnVal);
-    } else {
+    else
         XLOG("EGL OK - %s() returned %d\n", op, returnVal);
-    }
 
-    for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError()) {
+    for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError())
         XLOG("after %s() eglError (0x%x)\n", op, error);
-    }
 }
 
-bool GLUtils::checkGlError(const char* op) {
+bool GLUtils::checkGlError(const char* op)
+{
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
         XLOG("GL ERROR - after %s() glError (0x%x)\n", op, error);
@@ -117,7 +120,8 @@ bool GLUtils::checkGlError(const char* op) {
     return ret;
 }
 
-bool GLUtils::checkGlErrorOn(void* p, const char* op) {
+bool GLUtils::checkGlErrorOn(void* p, const char* op)
+{
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
         XLOG("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
@@ -130,17 +134,19 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op) {
 // GL & EGL extension checks
 /////////////////////////////////////////////////////////////////////////////////////////
 
-bool GLUtils::isEGLImageSupported() {
+bool GLUtils::isEGLImageSupported()
+{
     const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
     const char* glExtensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
 
-    return eglExtensions && glExtensions &&
-           strstr(eglExtensions, "EGL_KHR_image_base") &&
-           strstr(eglExtensions, "EGL_KHR_gl_texture_2D_image") &&
-           strstr(glExtensions, "GL_OES_EGL_image");
+    return eglExtensions && glExtensions
+        && strstr(eglExtensions, "EGL_KHR_image_base")
+        && strstr(eglExtensions, "EGL_KHR_gl_texture_2D_image")
+        && strstr(glExtensions, "GL_OES_EGL_image");
 }
 
-bool GLUtils::isEGLFenceSyncSupported() {
+bool GLUtils::isEGLFenceSyncSupported()
+{
     const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
     return eglExtensions && strstr(eglExtensions, "EGL_KHR_fence_sync");
 }
@@ -151,39 +157,40 @@ bool GLUtils::isEGLFenceSyncSupported() {
 
 static GLenum getInternalFormat(SkBitmap::Config config)
 {
-    switch(config) {
-        case SkBitmap::kA8_Config:
-            return GL_ALPHA;
-        case SkBitmap::kARGB_4444_Config:
-            return GL_RGBA;
-        case SkBitmap::kARGB_8888_Config:
-            return GL_RGBA;
-        case SkBitmap::kRGB_565_Config:
-            return GL_RGB;
-        default:
-            return -1;
+    switch (config) {
+    case SkBitmap::kA8_Config:
+        return GL_ALPHA;
+    case SkBitmap::kARGB_4444_Config:
+        return GL_RGBA;
+    case SkBitmap::kARGB_8888_Config:
+        return GL_RGBA;
+    case SkBitmap::kRGB_565_Config:
+        return GL_RGB;
+    default:
+        return -1;
     }
 }
 
 static GLenum getType(SkBitmap::Config config)
 {
-    switch(config) {
-        case SkBitmap::kA8_Config:
-            return GL_UNSIGNED_BYTE;
-        case SkBitmap::kARGB_4444_Config:
-            return GL_UNSIGNED_SHORT_4_4_4_4;
-        case SkBitmap::kARGB_8888_Config:
-            return GL_UNSIGNED_BYTE;
-        case SkBitmap::kIndex8_Config:
-            return -1; // No type for compressed data.
-        case SkBitmap::kRGB_565_Config:
-            return GL_UNSIGNED_SHORT_5_6_5;
-        default:
-            return -1;
+    switch (config) {
+    case SkBitmap::kA8_Config:
+        return GL_UNSIGNED_BYTE;
+    case SkBitmap::kARGB_4444_Config:
+        return GL_UNSIGNED_SHORT_4_4_4_4;
+    case SkBitmap::kARGB_8888_Config:
+        return GL_UNSIGNED_BYTE;
+    case SkBitmap::kIndex8_Config:
+        return -1; // No type for compressed data.
+    case SkBitmap::kRGB_565_Config:
+        return GL_UNSIGNED_SHORT_5_6_5;
+    default:
+        return -1;
     }
 }
 
-static EGLConfig defaultPbufferConfig(EGLDisplay display) {
+static EGLConfig defaultPbufferConfig(EGLDisplay display)
+{
     EGLConfig config;
     EGLint numConfigs;
 
@@ -195,15 +202,15 @@ static EGLConfig defaultPbufferConfig(EGLDisplay display) {
 
     eglChooseConfig(display, configAttribs, &config, 1, &numConfigs);
     GLUtils::checkEglError("eglPbufferConfig");
-    if(numConfigs != 1) {
+    if (numConfigs != 1)
         LOGI("eglPbufferConfig failed (%d)\n", numConfigs);
-    }
 
     return config;
 }
 
 static EGLSurface createPbufferSurface(EGLDisplay display, const EGLConfig& config,
-                                       EGLint* errorCode) {
+                                       EGLint* errorCode)
+{
     const EGLint attribList[] = {
         EGL_WIDTH, 1,
         EGL_HEIGHT, 1,
@@ -222,7 +229,8 @@ static EGLSurface createPbufferSurface(EGLDisplay display, const EGLConfig& conf
     return surface;
 }
 
-EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext) {
+EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext)
+{
     checkEglError("<init>");
     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     checkEglError("eglGetDisplay");
@@ -246,8 +254,8 @@ EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext) {
     EGLint surfaceConfigId;
     EGLBoolean success = eglGetConfigAttrib(display, config, EGL_CONFIG_ID, &surfaceConfigId);
 
-    EGLint context_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
-    EGLContext context = eglCreateContext(display, config, sharedContext, context_attribs);
+    EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+    EGLContext context = eglCreateContext(display, config, sharedContext, contextAttribs);
     checkEglError("eglCreateContext");
     if (context == EGL_NO_CONTEXT) {
         XLOG("eglCreateContext failed\n");
@@ -264,13 +272,15 @@ EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext) {
     return context;
 }
 
-void GLUtils::deleteTexture(GLuint* texture) {
+void GLUtils::deleteTexture(GLuint* texture)
+{
     glDeleteTextures(1, texture);
     GLUtils::checkGlError("glDeleteTexture");
     *texture = 0;
 }
 
-GLuint GLUtils::createSampleTexture() {
+GLuint GLUtils::createSampleTexture()
+{
     GLuint texture;
     glGenTextures(1, &texture);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -289,7 +299,8 @@ GLuint GLUtils::createSampleTexture() {
     return texture;
 }
 
-void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter) {
+void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
+{
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);
     GLUtils::checkGlError("glBindTexture");
@@ -305,7 +316,8 @@ void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
-void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter) {
+void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
+{
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);
     GLUtils::checkGlError("glBindTexture");
@@ -321,7 +333,8 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
-void GLUtils::createEGLImageFromTexture(GLuint texture, EGLImageKHR* image) {
+void GLUtils::createEGLImageFromTexture(GLuint texture, EGLImageKHR* image)
+{
     EGLClientBuffer buffer = reinterpret_cast<EGLClientBuffer>(texture);
     static const EGLint attr[] = { EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE };
     *image = eglCreateImageKHR(eglGetCurrentDisplay(), eglGetCurrentContext(),
@@ -329,7 +342,8 @@ void GLUtils::createEGLImageFromTexture(GLuint texture, EGLImageKHR* image) {
     GLUtils::checkEglError("eglCreateImage", (*image != EGL_NO_IMAGE_KHR));
 }
 
-void GLUtils::createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter) {
+void GLUtils::createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter)
+{
     glBindTexture(GL_TEXTURE_2D, texture);
     GLUtils::checkGlError("glBindTexture");
     glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);

@@ -23,14 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SharedTexture__DEFINED
-#define SharedTexture__DEFINED
+#ifndef SharedTexture_h
+#define SharedTexture_h
 
-#include <utils/threads.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <utils/threads.h>
 
 namespace WebCore {
 
@@ -132,4 +132,4 @@ private:
 
 } // namespace WebCore
 
-#endif // SharedTexture__DEFINED
+#endif // SharedTexture_h

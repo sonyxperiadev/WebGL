@@ -25,10 +25,11 @@
 
 #include "config.h"
 #include "BackedDoubleBufferedTexture.h"
+
 #include "BaseTile.h"
 #include "DeleteTextureOperation.h"
-#include "TilesManager.h"
 #include "GLUtils.h"
+#include "TilesManager.h"
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "BackedDoubleBufferedTexture.cpp"
@@ -61,7 +62,7 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
 {
     int x = 0;
-    while (textures[x] != 0) {
+    while (textures[x]) {
         // We need to delete the source texture and EGLImage in the texture
         // generation thread. In theory we should be able to delete the EGLImage
         // from either thread, but it currently throws an error if not deleted

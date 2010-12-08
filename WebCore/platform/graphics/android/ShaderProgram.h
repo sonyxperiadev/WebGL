@@ -14,48 +14,48 @@
  * limitations under the License.
  */
 
-#ifndef SHADERPROGRAM_H_
-#define SHADERPROGRAM_H_
+#ifndef ShaderProgram_h
+#define ShaderProgram_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include <GLES2/gl2.h>
 #include "SkRect.h"
 #include "TransformationMatrix.h"
+#include <GLES2/gl2.h>
 
 namespace WebCore {
 
 class ShaderProgram {
  public:
-  ShaderProgram();
-  int projectionMatrix() { return m_hProjectionMatrix; }
-  int alpha() { return m_hAlpha; }
-  int textureSampler() { return m_hTexSampler; }
-  int program() { return m_program; }
+    ShaderProgram();
+    int projectionMatrix() { return m_hProjectionMatrix; }
+    int alpha() { return m_hAlpha; }
+    int textureSampler() { return m_hTexSampler; }
+    int program() { return m_program; }
 
-  // Drawing
-  void setViewport(SkRect& viewport);
-  void drawQuad(SkRect& geometry, int textureId, float opacity);
-  void drawLayerQuad(const TransformationMatrix& drawMatrix,
+    // Drawing
+    void setViewport(SkRect& viewport);
+    void drawQuad(SkRect& geometry, int textureId, float opacity);
+    void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity);
 
  private:
-  GLuint loadShader(GLenum shaderType, const char* pSource);
-  GLuint createProgram(const char* vertexSource, const char* fragmentSource);
-  void setProjectionMatrix(SkRect& geometry);
+    GLuint loadShader(GLenum shaderType, const char* pSource);
+    GLuint createProgram(const char* vertexSource, const char* fragmentSource);
+    void setProjectionMatrix(SkRect& geometry);
 
-  int m_program;
+    int m_program;
 
-  TransformationMatrix m_projectionMatrix;
-  GLuint m_textureBuffer[1];
+    TransformationMatrix m_projectionMatrix;
+    GLuint m_textureBuffer[1];
 
-  // uniforms
-  int m_hProjectionMatrix;
-  int m_hAlpha;
-  int m_hTexSampler;
+    // uniforms
+    int m_hProjectionMatrix;
+    int m_hAlpha;
+    int m_hTexSampler;
 };
 
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // SHADERPROGRAM_H_
+#endif // ShaderProgram_h

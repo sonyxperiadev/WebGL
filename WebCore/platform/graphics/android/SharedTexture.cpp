@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "SharedTexture.h"
+
 #include "GLUtils.h"
 
 #define LOG_NDEBUG 1
@@ -33,30 +34,35 @@
 
 namespace WebCore {
 
-TextureInfo::TextureInfo() {
+TextureInfo::TextureInfo()
+{
     m_textureId = GL_NO_TEXTURE;
     m_width = 0;
     m_height = 0;
     m_internalFormat = 0;
 }
 
-bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture) {
-    return otherTexture->m_width == m_width &&
-           otherTexture->m_height == m_height &&
-           otherTexture->m_internalFormat == m_internalFormat;
+bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)
+{
+    return otherTexture->m_width == m_width
+        && otherTexture->m_height == m_height
+        && otherTexture->m_internalFormat == m_internalFormat;
 }
 
-void TextureInfo::copyAttributes(const TextureInfo* sourceTexture) {
+void TextureInfo::copyAttributes(const TextureInfo* sourceTexture)
+{
     m_width = sourceTexture->m_width;
     m_height = sourceTexture->m_height;
     m_internalFormat = sourceTexture->m_internalFormat;
 }
 
-bool TextureInfo::operator==(const TextureInfo& otherTexture) {
+bool TextureInfo::operator==(const TextureInfo& otherTexture)
+{
     return otherTexture.m_textureId == m_textureId && equalsAttributes(&otherTexture);
 }
 
-SharedTexture::SharedTexture() {
+SharedTexture::SharedTexture()
+{
     m_display = eglGetCurrentDisplay();
     m_eglImage = EGL_NO_IMAGE_KHR;
     m_isNewImage = true;
@@ -64,7 +70,7 @@ SharedTexture::SharedTexture() {
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
     m_supportsEGLFenceSyncKHR = GLUtils::isEGLFenceSyncSupported();
 
-    //TODO temporarily disable fence sync until nvidia implementation is complete
+    // TODO temporarily disable fence sync until nvidia implementation is complete
     m_supportsEGLFenceSyncKHR = false;
 
     LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
@@ -74,28 +80,29 @@ SharedTexture::SharedTexture() {
 // terminated all providers. If EGLImages are used, the deletion of the
 // source texture and EGLImage is the responsibility of the caller. In the case
 // of double buffered textures this is handled in the onDestroy(...) method.
-SharedTexture::~SharedTexture() {
-    if (m_supportsEGLImage) {
+SharedTexture::~SharedTexture()
+{
+    if (m_supportsEGLImage)
         GLUtils::deleteTexture(&m_targetTexture.m_textureId);
-    } else {
+    else
         GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
-    }
 }
 
-void SharedTexture::initSourceTexture() {
+void SharedTexture::initSourceTexture()
+{
     glGenTextures(1, &m_sourceTexture.m_textureId);
 }
 
-TextureInfo* SharedTexture::lockSource() {
+TextureInfo* SharedTexture::lockSource()
+{
     m_lock.lock();
 
     if (m_supportsEGLFenceSyncKHR && m_syncObject != EGL_NO_SYNC_KHR) {
 
         EGLint status = eglClientWaitSyncKHR(m_display, m_syncObject, 0, 1000000);
 
-        if (status == EGL_TIMEOUT_EXPIRED_KHR) {
+        if (status == EGL_TIMEOUT_EXPIRED_KHR)
             LOGE("Sync timeout for shared texture (%d)", m_sourceTexture.m_textureId);
-        }
 
         eglDestroySyncKHR(m_display, m_syncObject);
         m_syncObject = EGL_NO_SYNC_KHR;
@@ -104,8 +111,8 @@ TextureInfo* SharedTexture::lockSource() {
     return &m_sourceTexture;
 }
 
-void SharedTexture::releaseSource() {
-
+void SharedTexture::releaseSource()
+{
     if (m_supportsEGLImage) {
         // delete the existing image if needed
         if (!m_sourceTexture.equalsAttributes(&m_targetTexture)) {
@@ -138,19 +145,20 @@ void SharedTexture::releaseSource() {
     m_lock.unlock();
 }
 
-TextureInfo* SharedTexture::lockTarget() {
+TextureInfo* SharedTexture::lockTarget()
+{
     m_lock.lock();
 
-    if ((!m_supportsEGLImage && m_targetTexture.m_textureId == GL_NO_TEXTURE) ||
-            (m_supportsEGLImage && m_eglImage == EGL_NO_IMAGE_KHR)) {
+    if ((!m_supportsEGLImage && m_targetTexture.m_textureId == GL_NO_TEXTURE)
+        || (m_supportsEGLImage && m_eglImage == EGL_NO_IMAGE_KHR)) {
         m_lock.unlock();
         return 0;
     }
 
     if (m_supportsEGLImage && (m_isNewImage || m_targetTexture.m_textureId == GL_NO_TEXTURE)) {
-        if (m_targetTexture.m_textureId == GL_NO_TEXTURE) {
+        if (m_targetTexture.m_textureId == GL_NO_TEXTURE)
             glGenTextures(1, &m_targetTexture.m_textureId);
-        }
+
         GLUtils::createTextureFromEGLImage(m_targetTexture.m_textureId, m_eglImage);
         LOGV("Generating Consumer Texture from 0x%x", m_eglImage);
         m_isNewImage = false;
@@ -159,13 +167,13 @@ TextureInfo* SharedTexture::lockTarget() {
     return &m_targetTexture;
 }
 
-void SharedTexture::releaseTarget() {
+void SharedTexture::releaseTarget()
+{
 
     if (m_supportsEGLFenceSyncKHR) {
-        if (m_syncObject != EGL_NO_SYNC_KHR) {
+        if (m_syncObject != EGL_NO_SYNC_KHR)
             eglDestroySyncKHR(m_display, m_syncObject);
-        }
-        m_syncObject = eglCreateSyncKHR(m_display, EGL_SYNC_FENCE_KHR, NULL);
+        m_syncObject = eglCreateSyncKHR(m_display, EGL_SYNC_FENCE_KHR, 0);
     } else {
         // TODO the flush currently prevents the screen from getting partial
         // updates but the only way to guarantee this is to call glFinish. Until
