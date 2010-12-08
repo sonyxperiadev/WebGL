@@ -22,6 +22,7 @@
 
 #if ENABLE(SVG)
 #include "SVGListPropertyTearOff.h"
+#include "SVGTransformList.h"
 
 namespace WebCore {
 
@@ -52,6 +53,10 @@ public:
         SVGTransformList& values = m_animatedProperty->values();
         ListWrapperCache& wrappers = m_animatedProperty->wrappers();
         ASSERT(values.size() == wrappers.size());
+
+        // Spec: If the list was empty, then a value of null is returned.
+        if (values.isEmpty())
+            return 0;
 
         m_animatedProperty->detachListWrappers(0);
         RefPtr<SVGPropertyTearOff<SVGTransform> > wrapper = SVGPropertyTearOff<SVGTransform>::create(values.consolidate());

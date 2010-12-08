@@ -120,6 +120,9 @@ private:
     PlatformImage m_layerImage;
     PlatformContext m_layerContext;
 
+    // Used for reference when canvas scale(x,y) was called.
+    FloatRect m_unscaledLayerRect;
+
     void blurLayerImage(unsigned char*, const IntSize& imageSize, int stride);
     void calculateLayerBoundingRect(const FloatRect& layerArea, const IntRect& clipRect);
 #if PLATFORM(CAIRO)

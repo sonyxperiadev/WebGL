@@ -6,6 +6,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -92,6 +93,8 @@
 #include "InspectorInstrumentation.h"
 #include "KeyboardEvent.h"
 #include "Logging.h"
+#include "MediaQueryList.h"
+#include "MediaQueryMatcher.h"
 #include "MessageEvent.h"
 #include "MouseEvent.h"
 #include "MouseEventWithHitTestResults.h"
@@ -586,9 +589,8 @@ Document::~Document()
     clearAXObjectCache();
 
     m_decoder = 0;
-    
-    unsigned count = sizeof(m_nameCollectionInfo) / sizeof(m_nameCollectionInfo[0]);
-    for (unsigned i = 0; i < count; i++)
+
+    for (size_t i = 0; i < m_nameCollectionInfo.size(); ++i)
         deleteAllValues(m_nameCollectionInfo[i]);
 
     if (m_styleSheets)
@@ -606,6 +608,16 @@ Document::~Document()
     }
 
     m_weakReference->clear();
+
+    if (m_mediaQueryMatcher)
+        m_mediaQueryMatcher->documentDestroyed();
+}
+
+MediaQueryMatcher* Document::mediaQueryMatcher()
+{
+    if (!m_mediaQueryMatcher)
+        m_mediaQueryMatcher = MediaQueryMatcher::create(this);
+    return m_mediaQueryMatcher.get();
 }
 
 #if USE(JSC)
@@ -1712,7 +1724,7 @@ PassRefPtr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets(Elem
 
     bool oldIgnore = m_ignorePendingStylesheets;
     m_ignorePendingStylesheets = true;
-    RefPtr<RenderStyle> style = styleSelector()->styleForElement(element, element->parent() ? element->parent()->computedStyle() : 0);
+    RefPtr<RenderStyle> style = styleSelector()->styleForElement(element, element->parentNode() ? element->parentNode()->computedStyle() : 0);
     m_ignorePendingStylesheets = oldIgnore;
     return style.release();
 }
@@ -1881,8 +1893,11 @@ void Document::clearAXObjectCache()
 #else
     // clear cache in top document
     if (m_axObjectCache) {
-        delete m_axObjectCache;
+        // Clear the cache member variable before calling delete because attempts
+        // are made to access it during destruction.
+        AXObjectCache* axObjectCache = m_axObjectCache;
         m_axObjectCache = 0;
+        delete axObjectCache;
         return;
     }
     
@@ -2968,6 +2983,9 @@ void Document::styleSelectorChanged(StyleSelectorUpdateFlag updateFlag)
         if (view())
             view()->scheduleRelayout();
     }
+
+    if (m_mediaQueryMatcher)
+        m_mediaQueryMatcher->styleSelectorChanged();
 }
 
 void Document::addStyleSheetCandidateNode(Node* node, bool createdByParser)
@@ -3143,24 +3161,24 @@ void Document::removeFocusedNodeOfSubtree(Node* node, bool amongChildrenOnly)
 
 void Document::hoveredNodeDetached(Node* node)
 {
-    if (!m_hoverNode || (node != m_hoverNode && (!m_hoverNode->isTextNode() || node != m_hoverNode->parent())))
+    if (!m_hoverNode || (node != m_hoverNode && (!m_hoverNode->isTextNode() || node != m_hoverNode->parentNode())))
         return;
 
-    m_hoverNode = node->parent();
+    m_hoverNode = node->parentNode();
     while (m_hoverNode && !m_hoverNode->renderer())
-        m_hoverNode = m_hoverNode->parent();
+        m_hoverNode = m_hoverNode->parentNode();
     if (frame())
         frame()->eventHandler()->scheduleHoverStateUpdate();
 }
 
 void Document::activeChainNodeDetached(Node* node)
 {
-    if (!m_activeNode || (node != m_activeNode && (!m_activeNode->isTextNode() || node != m_activeNode->parent())))
+    if (!m_activeNode || (node != m_activeNode && (!m_activeNode->isTextNode() || node != m_activeNode->parentNode())))
         return;
 
-    m_activeNode = node->parent();
+    m_activeNode = node->parentNode();
     while (m_activeNode && !m_activeNode->renderer())
-        m_activeNode = m_activeNode->parent();
+        m_activeNode = m_activeNode->parentNode();
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -4929,5 +4947,35 @@ PassRefPtr<TouchList> Document::createTouchList(ExceptionCode&) const
     return TouchList::create();
 }
 #endif
+
+static bool hasHeadSibling(const Document* document)
+{
+    Node* de = document->documentElement();
+    if (!de)
+        return false;
+
+    for (Node* i = de->firstChild(); i; i = i->nextSibling()) {
+        // A child of the document element which is rather than <head> is
+        // typically visible and FOUC safe. So we return true here.
+        if (!i->hasTagName(headTag))
+            return true;
+    }
+
+    return false;
+}
+
+bool Document::mayCauseFlashOfUnstyledContent() const
+{
+    // Some kind of FOUC is caused by a repaint request before page's <body> arrival
+    // because page authors often give background styles to <body>, not to <html>.
+    // (And these styles are unavailable before <style> or <link> is given.)
+    // This functions is used for checking such possibility of FOUCs.
+    // Note that the implementation considers only empty or <head> only contents as a FOUC cause
+    // rather than missing <body>, because non-HTML document like SVG and arbitrary XML from foreign namespace 
+    // should be painted even if there is no <body>.
+    if (didLayoutWithPendingStylesheets())
+        return true;
+    return !hasHeadSibling(this);
+}
 
 } // namespace WebCore

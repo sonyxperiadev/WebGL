@@ -27,12 +27,8 @@
 #ifndef RegexPattern_h
 #define RegexPattern_h
 
-
-#if ENABLE(YARR)
-
 #include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
-
 
 namespace JSC { namespace Yarr {
 
@@ -42,6 +38,7 @@ namespace JSC { namespace Yarr {
 #define RegexStackSpaceForBackTrackInfoAlternative 1 // One per alternative.
 #define RegexStackSpaceForBackTrackInfoParentheticalAssertion 1
 #define RegexStackSpaceForBackTrackInfoParenthesesOnce 1 // Only for !fixed quantifiers.
+#define RegexStackSpaceForBackTrackInfoParenthesesTerminal 1
 #define RegexStackSpaceForBackTrackInfoParentheses 4
 
 struct PatternDisjunction;
@@ -110,12 +107,13 @@ struct PatternTerm {
     union {
         UChar patternCharacter;
         CharacterClass* characterClass;
-        unsigned subpatternId;
+        unsigned backReferenceSubpatternId;
         struct {
             PatternDisjunction* disjunction;
             unsigned subpatternId;
             unsigned lastSubpatternId;
             bool isCopy;
+            bool isTerminal;
         } parentheses;
     };
     QuantifierType quantityType;
@@ -147,6 +145,7 @@ struct PatternTerm {
         parentheses.disjunction = disjunction;
         parentheses.subpatternId = subpatternId;
         parentheses.isCopy = false;
+        parentheses.isTerminal = false;
         quantityType = QuantifierFixedCount;
         quantityCount = 1;
     }
@@ -163,7 +162,7 @@ struct PatternTerm {
         : type(TypeBackReference)
         , invertOrCapture(false)
     {
-        subpatternId = spatternId;
+        backReferenceSubpatternId = spatternId;
         quantityType = QuantifierFixedCount;
         quantityCount = 1;
     }
@@ -428,7 +427,5 @@ private:
 };
 
 } } // namespace JSC::Yarr
-
-#endif
 
 #endif // RegexPattern_h

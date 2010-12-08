@@ -19,7 +19,7 @@ function test()
     shouldBeTrue("'webkitIndexedDB' in window");
     shouldBeFalse("webkitIndexedDB == null");
 
-    result = evalAndLog("webkitIndexedDB.open('name', 'description')");
+    result = evalAndLog("webkitIndexedDB.open('name')");
     verifyResult(result);
     result.onsuccess = openSuccess;
     result.onerror = unexpectedErrorCallback;
@@ -61,8 +61,8 @@ function addRemoveIDBObjects()
     var store = evalAndLog("store = db.createObjectStore('storeFail', null)");
     var index = evalAndLog("index = store.createIndex('indexFail', 'x', false)");
 
-    evalAndLog("db.removeObjectStore('storeFail')");
-    evalAndLog("store.removeIndex('indexFail')");
+    evalAndLog("db.deleteObjectStore('storeFail')");
+    evalAndLog("store.deleteIndex('indexFail')");
 
     trans.abort();
 }
@@ -86,8 +86,8 @@ function addRemoveAddIDBObjects()
     var store = evalAndLog("store = db.createObjectStore('storeFail', null)");
     var index = evalAndLog("index = store.createIndex('indexFail', 'x', false)");
 
-    evalAndLog("db.removeObjectStore('storeFail')");
-    evalAndLog("store.removeIndex('indexFail')");
+    evalAndLog("db.deleteObjectStore('storeFail')");
+    evalAndLog("store.deleteIndex('indexFail')");
 
     var store = evalAndLog("store = db.createObjectStore('storeFail', null)");
     var index = evalAndLog("index = store.createIndex('indexFail', 'x', false)");
@@ -160,8 +160,8 @@ function removeIDBObjects()
     trans.oncomplete = unexpectedCompleteCallback;
 
     var store = evalAndLog("store = trans.objectStore('storeFail')");
-    evalAndLog("store.removeIndex('indexFail')");
-    evalAndLog("db.removeObjectStore('storeFail')");
+    evalAndLog("store.deleteIndex('indexFail')");
+    evalAndLog("db.deleteObjectStore('storeFail')");
 
     trans.abort();
 }
@@ -182,16 +182,16 @@ function startSetVersion(versionName)
 
 function checkMetadataEmpty()
 {
-    shouldBe("window.db.objectStores", "[]");
-    shouldBe("window.db.objectStores.length", "0");
-    shouldBe("window.db.objectStores.contains('storeFail')", "false");
+    shouldBe("window.db.objectStoreNames", "[]");
+    shouldBe("window.db.objectStoreNames.length", "0");
+    shouldBe("window.db.objectStoreNames.contains('storeFail')", "false");
 }
 
 function checkMetadataExistingObjectStore()
 {
-    shouldBe("db.objectStores", "['storeFail']");
-    shouldBe("db.objectStores.length", "1");
-    shouldBe("db.objectStores.contains('storeFail')", "true");
+    shouldBe("db.objectStoreNames", "['storeFail']");
+    shouldBe("db.objectStoreNames.length", "1");
+    shouldBe("db.objectStoreNames.contains('storeFail')", "true");
 }
 
 function setNewVersion()

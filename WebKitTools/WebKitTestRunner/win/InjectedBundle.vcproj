@@ -18,7 +18,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -79,7 +79,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -140,7 +140,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -199,9 +199,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_Internal|Win32"
+			Name="Debug_Cairo_CFLite|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;..\Configurations\InjectedBundleCFLite.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -260,76 +260,10 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_CFLite|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			Name="Release_Cairo_CFLite|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_wincairo.vsprops;..\Configurations\InjectedBundleCFLite.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;..\Configurations\InjectedBundleCFLite.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release_CFLite|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;..\Configurations\InjectedBundleCFLite.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -389,7 +323,7 @@
 		<Configuration
 			Name="Release_LTCG|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\InjectedBundleCoreFoundation.vsprops;..\Configurations\InjectedBundleCommon.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>

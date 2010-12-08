@@ -33,21 +33,21 @@
 #include "PatternAttributes.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGResourcePattern.h"
-#include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGRenderSupport.h"
 #include "SVGSVGElement.h"
 #include "SVGStyledTransformableElement.h"
-#include "SVGTransformList.h"
 #include "SVGTransformable.h"
 #include "SVGUnitTypes.h"
-#include <math.h>
-#include <wtf/MathExtras.h>
-#include <wtf/OwnPtr.h>
-
-using namespace std;
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGPatternElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGPatternElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGPatternElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGPatternElement, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGPatternElement, SVGNames::patternTransformAttr, PatternTransform, patternTransform) 
 
 inline SVGPatternElement::SVGPatternElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
@@ -83,7 +83,7 @@ void SVGPatternElement::parseMappedAttribute(Attribute* attr)
             newList.clear();
 
         detachAnimatedPatternTransformListWrappers(newList.size());
-        patternTransformBaseValue() = newList;
+        setPatternTransformBaseValue(newList);
     } else if (attr->name() == SVGNames::xAttr)
         setXBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::yAttr)
@@ -158,6 +158,7 @@ void SVGPatternElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeViewBox();
         synchronizePreserveAspectRatio();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -177,11 +178,14 @@ void SVGPatternElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHeight();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
-    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
+    else if (attrName == SVGNames::viewBoxAttr)
         synchronizeViewBox();
+    else if (attrName == SVGNames::preserveAspectRatioAttr)
         synchronizePreserveAspectRatio();
-    } else if (SVGURIReference::isKnownAttribute(attrName))
+    else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 void SVGPatternElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)

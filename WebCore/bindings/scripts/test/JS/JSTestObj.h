@@ -96,6 +96,7 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodThatRequiresAl
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodThatRequiresAllArgsAndThrows(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionSerializedValue(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionIdbKey(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionOptionsObject(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithException(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionCustomMethod(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionCustomMethodWithArgs(JSC::ExecState*);
@@ -126,6 +127,10 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionClassMethodWithOptio
 JSC::JSValue jsTestObjReadOnlyIntAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 JSC::JSValue jsTestObjReadOnlyStringAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 JSC::JSValue jsTestObjReadOnlyTestObjAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
+JSC::JSValue jsTestObjShortAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
+void setJSTestObjShortAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
+JSC::JSValue jsTestObjUnsignedShortAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
+void setJSTestObjUnsignedShortAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
 JSC::JSValue jsTestObjIntAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 void setJSTestObjIntAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
 JSC::JSValue jsTestObjLongLongAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);

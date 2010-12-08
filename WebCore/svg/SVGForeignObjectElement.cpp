@@ -33,7 +33,13 @@
 
 namespace WebCore {
 
-SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, Document* document)
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGForeignObjectElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGForeignObjectElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGForeignObjectElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGForeignObjectElement, SVGNames::heightAttr, Height, height)
+
+inline SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
@@ -111,6 +117,7 @@ void SVGForeignObjectElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHeight();
         synchronizeExternalResourcesRequired();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -124,6 +131,8 @@ void SVGForeignObjectElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHeight();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 RenderObject* SVGForeignObjectElement::createRenderer(RenderArena* arena, RenderStyle*)

@@ -35,10 +35,14 @@
 #include "IDBRequest.h"
 #include "IDBTransaction.h"
 #include "ScriptExecutionContext.h"
+#include <limits>
 
 #if ENABLE(INDEXED_DATABASE)
 
 namespace WebCore {
+
+// FIXME: We need to spec this differently.
+const unsigned long defaultTimeout = 0; // Infinite.
 
 IDBDatabase::IDBDatabase(PassRefPtr<IDBDatabaseBackendInterface> backend)
     : m_backend(backend)
@@ -56,27 +60,41 @@ void IDBDatabase::setSetVersionTransaction(IDBTransactionBackendInterface* trans
     m_setVersionTransaction = transaction;
 }
 
-PassRefPtr<IDBObjectStore> IDBDatabase::createObjectStore(const String& name, const String& keyPath, bool autoIncrement, ExceptionCode& ec)
+PassRefPtr<IDBObjectStore> IDBDatabase::createObjectStore(const String& name, const OptionsObject& options, ExceptionCode& ec)
 {
     if (!m_setVersionTransaction) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
         return 0;
     }
 
-    RefPtr<IDBObjectStoreBackendInterface> objectStore = m_backend->createObjectStore(name, keyPath, autoIncrement, m_setVersionTransaction.get(), ec);
-    if (!objectStore)
+    String keyPath;
+    options.getKeyString("keyPath", keyPath);
+    bool autoIncrement = false;
+    options.getKeyBool("autoIncrement", autoIncrement);
+    // FIXME: Look up evictable and pass that on as well.
+
+    if (autoIncrement) {
+        // FIXME: Implement support for auto increment.
+        ec = IDBDatabaseException::UNKNOWN_ERR;
         return 0;
+    }
+
+    RefPtr<IDBObjectStoreBackendInterface> objectStore = m_backend->createObjectStore(name, keyPath, autoIncrement, m_setVersionTransaction.get(), ec);
+    if (!objectStore) {
+        ASSERT(ec);
+        return 0;
+    }
     return IDBObjectStore::create(objectStore.release(), m_setVersionTransaction.get());
 }
 
-void IDBDatabase::removeObjectStore(const String& name, ExceptionCode& ec)
+void IDBDatabase::deleteObjectStore(const String& name, ExceptionCode& ec)
 {
     if (!m_setVersionTransaction) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
         return;
     }
 
-    m_backend->removeObjectStore(name, m_setVersionTransaction.get(), ec);
+    m_backend->deleteObjectStore(name, m_setVersionTransaction.get(), ec);
 }
 
 PassRefPtr<IDBRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, const String& version, ExceptionCode& ec)
@@ -86,13 +104,42 @@ PassRefPtr<IDBRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, 
     return request;
 }
 
-PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* context, DOMStringList* storeNames, unsigned short mode, unsigned long timeout, ExceptionCode& ec)
+PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* context, const OptionsObject& options, ExceptionCode& ec)
 {
+    RefPtr<DOMStringList> storeNames = options.getKeyDOMStringList("objectStoreNames");
+    if (!storeNames) {
+        storeNames = DOMStringList::create();
+        String storeName;
+        if (options.getKeyString("objectStoreNames", storeName))
+            storeNames->append(storeName);
+    }
+
+    // Gets cast to an unsigned short.
+    int32_t mode = IDBTransaction::READ_ONLY;
+    options.getKeyInt32("mode", mode);
+    if (mode != IDBTransaction::READ_WRITE && mode != IDBTransaction::READ_ONLY) {
+        // FIXME: May need to change when specced: http://www.w3.org/Bugs/Public/show_bug.cgi?id=11406
+        ec = IDBDatabaseException::CONSTRAINT_ERR;
+        return 0;
+    }
+
+    // Gets cast to an unsigned long.
+    // FIXME: The spec needs to be updated on this. It should probably take a double.
+    int32_t timeout = defaultTimeout; 
+    options.getKeyInt32("timeout", timeout);
+    int64_t unsignedLongMax = std::numeric_limits<unsigned long>::max();
+    if (timeout < 0 || timeout > unsignedLongMax)
+        timeout = defaultTimeout; // Ignore illegal values.
+
     // We need to create a new transaction synchronously. Locks are acquired asynchronously. Operations
     // can be queued against the transaction at any point. They will start executing as soon as the
     // appropriate locks have been acquired.
     // Also note that each backend object corresponds to exactly one IDBTransaction object.
-    RefPtr<IDBTransactionBackendInterface> transactionBackend = m_backend->transaction(storeNames, mode, timeout, ec);
+    RefPtr<IDBTransactionBackendInterface> transactionBackend = m_backend->transaction(storeNames.get(), mode, timeout, ec);
+    if (!transactionBackend) {
+        ASSERT(ec);
+        return 0;
+    }
     RefPtr<IDBTransaction> transaction = IDBTransaction::create(context, transactionBackend, this);
     transactionBackend->setCallbacks(transaction.get());
     return transaction.release();

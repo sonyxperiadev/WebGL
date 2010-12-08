@@ -22,6 +22,7 @@
 #define SpatialNavigation_h
 
 #include "FocusDirection.h"
+#include "IntRect.h"
 #include "Node.h"
 
 #include <limits>
@@ -104,19 +105,12 @@ struct FocusCandidate {
         , parentDistance(maxDistance())
         , alignment(None)
         , parentAlignment(None)
+        , isOffscreen(true)
+        , isOffscreenAfterScrolling(true)
     {
     }
 
-    FocusCandidate(Node* n)
-        : node(n)
-        , enclosingScrollableBox(0)
-        , distance(maxDistance())
-        , parentDistance(maxDistance())
-        , alignment(None)
-        , parentAlignment(None)
-    {
-    }
-
+    FocusCandidate(Node* n, FocusDirection);
     bool isNull() const { return !node; }
     bool inScrollableContainer() const { return node && enclosingScrollableBox; }
     Document* document() const { return node ? node->document() : 0; }
@@ -127,16 +121,24 @@ struct FocusCandidate {
     long long parentDistance;
     RectsAlignment alignment;
     RectsAlignment parentAlignment;
+    IntRect rect;
+    bool isOffscreen;
+    bool isOffscreenAfterScrolling;
 };
 
-void distanceDataForNode(FocusDirection direction, Node* start, FocusCandidate& candidate);
-bool scrollInDirection(Frame*, FocusDirection, const FocusCandidate& candidate = FocusCandidate());
-void scrollIntoView(Element*);
-bool hasOffscreenRect(Node*);
-bool isInRootDocument(Node*);
-bool isScrollableContainerNode(Node*);
+bool scrollInDirection(Frame*, FocusDirection);
+bool scrollInDirection(Node* container, FocusDirection);
+bool hasOffscreenRect(Node*, FocusDirection direction = FocusDirectionNone);
+bool isScrollableContainerNode(const Node*);
 bool isNodeDeepDescendantOfDocument(Node*, Document*);
-
+Node* scrollableEnclosingBoxOrParentFrameForNodeInDirection(FocusDirection, Node* node);
+bool canScrollInDirection(FocusDirection, const Node* container);
+bool canScrollInDirection(FocusDirection, const Frame*);
+IntRect nodeRectInAbsoluteCoordinates(Node*, bool ignoreBorder = false);
+IntRect frameRectInAbsoluteCoordinates(Frame*);
+void distanceDataForNode(FocusDirection, FocusCandidate& current, FocusCandidate& candidate);
+bool canBeScrolledIntoView(FocusDirection, const FocusCandidate&);
+IntRect virtualRectForDirection(FocusDirection, const IntRect& startingRect);
 } // namspace WebCore
 
 #endif // SpatialNavigation_h

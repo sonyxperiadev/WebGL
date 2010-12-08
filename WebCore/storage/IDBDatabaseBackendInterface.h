@@ -51,12 +51,11 @@ public:
     virtual ~IDBDatabaseBackendInterface() { }
 
     virtual String name() const = 0;
-    virtual String description() const = 0;
     virtual String version() const = 0;
-    virtual PassRefPtr<DOMStringList> objectStores() const = 0;
+    virtual PassRefPtr<DOMStringList> objectStoreNames() const = 0;
 
     virtual PassRefPtr<IDBObjectStoreBackendInterface> createObjectStore(const String& name, const String& keyPath, bool autoIncrement, IDBTransactionBackendInterface*, ExceptionCode&) = 0;
-    virtual void removeObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&) = 0;
+    virtual void deleteObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&) = 0;
     virtual void setVersion(const String& version, PassRefPtr<IDBCallbacks>, ExceptionCode&) = 0;
     virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout, ExceptionCode&) = 0;
     virtual void close() = 0;

@@ -35,13 +35,24 @@
   <script src="/util.js"></script>
   <script src="/loupe.js"></script>
   <script src="/main.js"></script>
+  <script src="/queue.js"></script>
 </head>
 <body class="loading">
+
+<pre id="log" style="display: none"></pre>
+<div id="queue" style="display: none">
+  Queue:
+  <select id="queue-select" size="10"></select>
+  <button id="remove-queue-selection">Remove selection</button>
+  <button id="rebaseline-queue">Rebaseline queue</button>
+</div>
 
 <div id="header">
   <div id="controls">
     <!-- Add a dummy <select> node so that this lines up with the text on the left -->
     <select style="visibility: hidden"></select>
+    <span id="toggle-log" class="link">Log</span>
+    <span class="divider">|</span>
     <a href="/quitquitquit">Exit</a>
   </div>
 
@@ -62,7 +73,7 @@
     </label>
   </span>
 
-  <a id="test-link">View test</a>
+  <a id="test-link" target="_blank">View test</a>
 
   <span id="nav-buttons">
     <button id="previous-test">&laquo;</button>
@@ -86,7 +97,14 @@
     <tr>
       <td><img id="expected-image"></td>
       <td><img id="actual-image"></td>
-      <td><canvas id="diff-canvas" width="800" height="600"></canvas></td>
+      <td>
+        <canvas id="diff-canvas" width="800" height="600"></canvas>
+        <div id="diff-checksum" style="display: none">
+          <h3>Checksum mismatch</h3>
+          Expected: <span id="expected-checksum"></span><br>
+          Actual: <span id="actual-checksum"></span>
+        </div>
+      </td>
     </tr>
   </tbody>
   <tbody id="text-outputs" style="display: none">
@@ -100,6 +118,29 @@
     </tr>
   </tbody>
 </table>
+
+<div id="footer">
+  <label>State: <span id="state"></span></label>
+  <label>Existing baselines: <span id="current-baselines"></span></label>
+  <label>
+    Baseline target:
+    <select id="baseline-target"></select>
+  </label>
+  <label>
+    Move current baselines to:
+    <select id="baseline-move-to">
+      <option value="none">Nowhere (replace)</option>
+    </select>
+  </label>
+
+  <!-- Add a dummy <button> node so that this lines up with the text on the right -->
+  <button style="visibility: hidden; padding-left: 0; padding-right: 0;"></button>
+
+  <div id="action-buttons">
+    <span id="toggle-queue" class="link">Queue</span>
+    <button id="add-to-rebaseline-queue">Add to rebaseline queue</button>
+  </div>
+</div>
 
 <table id="loupe" style="display: none">
   <tr>

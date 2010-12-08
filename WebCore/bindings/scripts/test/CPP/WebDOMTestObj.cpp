@@ -24,9 +24,11 @@
 #include "HTMLNames.h"
 #include "IDBKey.h"
 #include "KURL.h"
+#include "OptionsObject.h"
 #include "SerializedScriptValue.h"
 #include "TestObj.h"
 #include "WebDOMIDBKey.h"
+#include "WebDOMOptionsObject.h"
 #include "WebDOMString.h"
 #include "WebExceptionHandler.h"
 #include "WebNativeEventListener.h"
@@ -101,6 +103,38 @@ WebDOMTestObj WebDOMTestObj::readOnlyTestObjAttr() const
         return WebDOMTestObj();
 
     return toWebKit(WTF::getPtr(impl()->readOnlyTestObjAttr()));
+}
+
+short WebDOMTestObj::shortAttr() const
+{
+    if (!impl())
+        return 0;
+
+    return impl()->shortAttr();
+}
+
+void WebDOMTestObj::setShortAttr(short newShortAttr)
+{
+    if (!impl())
+        return;
+
+    impl()->setShortAttr(newShortAttr);
+}
+
+unsigned short WebDOMTestObj::unsignedShortAttr() const
+{
+    if (!impl())
+        return 0;
+
+    return impl()->unsignedShortAttr();
+}
+
+void WebDOMTestObj::setUnsignedShortAttr(unsigned short newUnsignedShortAttr)
+{
+    if (!impl())
+        return;
+
+    impl()->setUnsignedShortAttr(newUnsignedShortAttr);
 }
 
 int WebDOMTestObj::intAttr() const
@@ -628,6 +662,14 @@ void WebDOMTestObj::idbKey(const WebDOMIDBKey& key)
         return;
 
     impl()->idbKey(toWebCore(key));
+}
+
+void WebDOMTestObj::optionsObject(const WebDOMOptionsObject& oo, const WebDOMOptionsObject& ooo)
+{
+    if (!impl())
+        return;
+
+    impl()->optionsObject(toWebCore(oo), toWebCore(ooo));
 }
 
 void WebDOMTestObj::methodWithException()

@@ -29,6 +29,7 @@
 #include "StringFunctions.h"
 #include "TestInvocation.h"
 #include <cstdio>
+#include <WebKit2/WKPageGroup.h>
 #include <WebKit2/WKContextPrivate.h>
 #include <WebKit2/WKPreferencesPrivate.h>
 #include <wtf/PassOwnPtr.h>
@@ -275,6 +276,7 @@ bool TestController::resetStateToConsistentValues()
     WKPreferencesSetOfflineWebApplicationCacheEnabled(preferences, true);
     WKPreferencesSetFontSmoothingLevel(preferences, kWKFontSmoothingLevelNoSubpixelAntiAliasing);
     WKPreferencesSetXSSAuditorEnabled(preferences, false);
+    WKPreferencesSetDeveloperExtrasEnabled(preferences, true);
 
     static WKStringRef standardFontFamily = WKStringCreateWithUTF8CString("Times");
     static WKStringRef cursiveFontFamily = WKStringCreateWithUTF8CString("Apple Chancery");

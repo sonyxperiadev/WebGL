@@ -71,9 +71,9 @@ String IDBDatabaseProxy::version() const
     return m_webIDBDatabase->version();
 }
 
-PassRefPtr<DOMStringList> IDBDatabaseProxy::objectStores() const
+PassRefPtr<DOMStringList> IDBDatabaseProxy::objectStoreNames() const
 {
-    return m_webIDBDatabase->objectStores();
+    return m_webIDBDatabase->objectStoreNames();
 }
 
 PassRefPtr<IDBObjectStoreBackendInterface> IDBDatabaseProxy::createObjectStore(const String& name, const String& keyPath, bool autoIncrement, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
@@ -87,12 +87,12 @@ PassRefPtr<IDBObjectStoreBackendInterface> IDBDatabaseProxy::createObjectStore(c
     return IDBObjectStoreProxy::create(objectStore);
 }
 
-void IDBDatabaseProxy::removeObjectStore(const String& name, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
+void IDBDatabaseProxy::deleteObjectStore(const String& name, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
 {
     // The transaction pointer is guaranteed to be a pointer to a proxy object as, in the renderer,
     // all implementations of IDB interfaces are proxy objects.
     IDBTransactionBackendProxy* transactionProxy = static_cast<IDBTransactionBackendProxy*>(transaction);
-    m_webIDBDatabase->removeObjectStore(name, *transactionProxy->getWebIDBTransaction(), ec);
+    m_webIDBDatabase->deleteObjectStore(name, *transactionProxy->getWebIDBTransaction(), ec);
 }
 
 void IDBDatabaseProxy::setVersion(const String& version, PassRefPtr<IDBCallbacks> callbacks, ExceptionCode& ec)
@@ -104,6 +104,10 @@ PassRefPtr<IDBTransactionBackendInterface> IDBDatabaseProxy::transaction(DOMStri
 {
     WebKit::WebDOMStringList names(storeNames);
     WebKit::WebIDBTransaction* transaction = m_webIDBDatabase->transaction(names, mode, timeout, ec);
+    if (!transaction) {
+        ASSERT(ec);
+        return 0;
+    }
     return IDBTransactionBackendProxy::create(transaction);
 }
 

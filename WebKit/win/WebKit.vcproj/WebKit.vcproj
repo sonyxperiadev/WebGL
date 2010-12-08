@@ -18,7 +18,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -70,7 +70,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -120,9 +120,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_Internal|Win32"
+			Name="Debug_Cairo_CFLite|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\cURL.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -172,63 +172,10 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_Cairo|Win32"
+			Name="Release_Cairo_CFLite|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_wincairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\cURL.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLibrarianTool"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release_Cairo|Win32"
-			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops;.\WebKitLibCommon.vsprops"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -279,7 +226,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -331,7 +278,7 @@
 		<Configuration
 			Name="Release_LTCG|Win32"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\WebKitLibCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\WebKitLibCommon.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -608,7 +555,7 @@
 				RelativePath="..\WebKitGraphics.h"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -616,7 +563,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -644,7 +591,7 @@
 				RelativePath="..\WebLocalizableStrings.h"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -652,7 +599,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -836,7 +783,7 @@
 				RelativePath="..\WebCookieManagerCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -844,7 +791,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -865,14 +812,6 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -920,7 +859,7 @@
 				RelativePath="..\WebDownloadCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -928,7 +867,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -949,14 +888,6 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1104,7 +1035,7 @@
 				RelativePath="..\WebURLAuthenticationChallengeSenderCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1112,7 +1043,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1133,14 +1064,6 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1200,7 +1123,7 @@
 				RelativePath="..\WebKitGraphics.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1208,7 +1131,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1353,16 +1276,7 @@
 				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Debug_Internal|Win32"
-				>
-				<Tool
-					Name="VCCLCompilerTool"
-					UsePrecompiledHeader="1"
-					PrecompiledHeaderThrough="WebKitPrefix.h"
-				/>
-			</FileConfiguration>
-			<FileConfiguration
-				Name="Debug_Cairo|Win32"
+				Name="Debug_Cairo_CFLite|Win32"
 				>
 				<Tool
 					Name="VCCLCompilerTool"
@@ -1370,7 +1284,7 @@
 				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Release_Cairo|Win32"
+				Name="Release_Cairo_CFLite|Win32"
 				>
 				<Tool
 					Name="VCCLCompilerTool"

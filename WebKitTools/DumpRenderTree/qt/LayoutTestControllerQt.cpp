@@ -198,7 +198,7 @@ int LayoutTestController::windowCount()
 void LayoutTestController::grantDesktopNotificationPermission(const QString& origin)
 {
     QWebFrame* frame = m_drt->webPage()->mainFrame();
-    m_drt->webPage()->setUserPermission(frame, QWebPage::NotificationsPermissionDomain, QWebPage::PermissionGranted);
+    m_drt->webPage()->setFeaturePermission(frame, QWebPage::Notifications, QWebPage::PermissionGrantedByUser);
     m_desktopNotificationAllowedOrigins.append(origin);
 }
 
@@ -707,6 +707,11 @@ bool LayoutTestController::isCommandEnabled(const QString& name) const
     return DumpRenderTreeSupportQt::isCommandEnabled(m_drt->webPage(), name);
 }
 
+bool LayoutTestController::findString(const QString& string, const QStringList& optionArray)
+{
+    return DumpRenderTreeSupportQt::findString(m_drt->webPage(), string, optionArray);
+}
+
 QString LayoutTestController::markerTextForListItem(const QWebElement& listItem)
 {
     return DumpRenderTreeSupportQt::markerTextForListItem(listItem);
@@ -768,7 +773,7 @@ void LayoutTestController::setMockGeolocationPosition(double latitude, double lo
     DumpRenderTreeSupportQt::setMockGeolocationPosition(latitude, longitude, accuracy);
 }
 
-void LayoutTestController::setMockSpeechInputResult(const QString& result, const QString& language)
+void LayoutTestController::addMockSpeechInputResult(const QString& result, double confidence, const QString& language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.

@@ -175,12 +175,20 @@ protected:
 
 private:
     bool shouldRepaint(const IntRect& r) const;
+<<<<<<< HEAD
         
 #ifdef ANDROID_FLATTEN_FRAMESET
 public: // used by layout function
 #endif
     int docHeight() const;
     int docWidth() const;
+=======
+    
+    int docTop() const;
+    int docHeight(int topOverflow) const;
+    int docLeft() const;
+    int docWidth(int leftOverflow) const;
+>>>>>>> webkit.org at r73109
 
     // These functions may only be accessed by LayoutStateMaintainer.
     bool pushLayoutState(RenderBox* renderer, const IntSize& offset, int pageHeight = 0, bool pageHeightChanged = false, ColumnInfo* colInfo = 0)

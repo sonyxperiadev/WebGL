@@ -1,3 +1,452 @@
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::getGuessesForWord):
+        * WebCoreSupport/EditorClientQt.h:
+
+2010-11-30  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Implement layoutTestController.findString
+        https://bugs.webkit.org/show_bug.cgi?id=50236
+
+        Add support for the new advanced findString().
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::findString):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-11-30  Ojan Vafai  <ojan@chromium.org>
+
+        Revert r72876. It caused a ~30% perf regression in chromium's bloat-http test
+        https://bugs.webkit.org/show_bug.cgi?id=50288
+
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+        https://bugs.webkit.org/show_bug.cgi?id=50182
+        A display-isolated URL can only be displayed (e.g., put in an iframe,
+        hyperlinked to) by documents from that scheme. In a sense, this is a
+        generalization of some of the protections we give file URLs, but
+        instead of lumping them all together into one "local" bucket, this
+        patch creates a separate bucket for each scheme.
+        For a while, I tried using a separate bucket for each origin. That
+        would have played nicely with what Blob URLs are trying to do, but some
+        "chrome" URL pages rely on being able to display other chrome URL
+        pages, even in different origins. For example, the New Tab Page shows
+        thumbnails from the "thumbnail" host.
+        This patch also removes a bunch of unused code. I've also propagated
+        the "deprecated" status of deprecatedCanDisplay to
+        deprecatedShouldTreatURLAsLocal because that method has no other
+        callers and is really asking for uppercase/lowercase bugs. I dream of
+        someday removing these functions.
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+         https://bugs.webkit.org/show_bug.cgi?id=50182
+        This patch adds a Chromium API for registering schemes as
+        display-isolated. In a subsequent patch, I'll change the "chrome"
+        scheme in Chrome to be display isolated instead of local. That will
+        prevent file URLs from linking to chrome URLs.
+
+        * Api/qwebsecurityorigin.cpp:
+        (QWebSecurityOrigin::localSchemes):
+
+2010-11-29  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Provide more fine grained control to ports over when to turn on accelerated
+        compositing.
+        https://bugs.webkit.org/show_bug.cgi?id=49998
+
+        As part of this change, the old hasAcceleratedCompositing method on the ChromeClient
+        has now been replaced by allowedCompositingTriggers which returns a bitfield of
+        all the features which can trigger the compositor.
+
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::allowedCompositingTriggers):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2010-11-30  Thiago Macieira  <thiago.macieira@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] QWebFrame::load(QNetworkRequest) should respect the CustomVerbAttribute
+
+        For CustomOperation requests, pass the CustomVerbAttribute on to
+        the WebCore::ResourceRequest.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::load):
+
+2010-11-25  Norbert Leser  <norbert.leser@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        Updated Symbian DEF file for ARM target due to API changes
+        via committs r72600-72603 (see bug# 46810)
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-11-25  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Andreas Kling and Simon Hausmann.
+
+        [Qt] Calculate the -webkit-pixel-radio using the device DPI.
+        http://webkit.org/b/50059
+
+        Also, update the documentation on what a DIP is and how to override
+        the device DPI in the case the system reports the wrong one (which
+        unfortunately is common on X11).
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate):
+        (QWebPage::viewportAttributesForSize):
+        * Api/qwebpage_p.h:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::scaleFactor):
+
+2010-11-24  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Fixed handling of QInputMethodEvents with nonzero replacementLength.
+
+        These types of events replace text that is already in the widget, but
+        WebKit did not check for replacementLength at all.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49787
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-11-24  Andras Becsi  <abecsi@inf.u-szeged.hu>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Make WebKit2 compile with !ENABLE(INSPECTOR).
+        https://bugs.webkit.org/show_bug.cgi?id=49973
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setJavaScriptProfilingEnabled):
+
+2010-11-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72650.
+        http://trac.webkit.org/changeset/72650
+        https://bugs.webkit.org/show_bug.cgi?id=50010
+
+        breaks focus in scenes focus item other than graphicswebiview
+        (Requested by tronical_ on #webkit).
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate):
+        (QGraphicsWebView::QGraphicsWebView):
+        (QGraphicsWebView::itemChange):
+        * Api/qgraphicswebview.h:
+        * tests/qgraphicswebview/tst_qgraphicswebview.cpp:
+
+2010-11-24  Jan Erik Hanssen  <jhanssen@sencha.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Html autofocus not working with QGraphicsWebView
+        https://bugs.webkit.org/show_bug.cgi?id=43169
+
+        QGraphicsScene does not propagate Qt::ActivateWindowFocusReason focus
+        events when there are no active items.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate):
+        (QGraphicsWebView::QGraphicsWebView):
+        (QGraphicsWebView::eventFilter):
+        (QGraphicsWebView::itemChange):
+        * Api/qgraphicswebview.h:
+        * tests/qgraphicswebview/tst_qgraphicswebview.cpp:
+        (FocusPage::FocusPage):
+        (FocusPage::event):
+        (FocusPage::gotFocus):
+        (tst_QGraphicsWebView::receivesFocusInOnShow):
+
+2010-11-23  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Adapt to setShouldDelegateScrolling not being a real setting anymore.
+        We now similarily to setUseFixedLayout and setPaintEntireContents
+        set it on the FrameView wen transitioning to a new page.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
+2010-11-23  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix compilation with !ENABLE(INSPECTOR)
+        https://bugs.webkit.org/show_bug.cgi?id=49942
+
+        Add ENABLE(INSPECTOR) to the Qt specific files following r71981.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::inspectorDestroyed):
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+        (WebCore::InspectorClientQt::sendMessageToFrontend):
+        * WebCoreSupport/InspectorServerQt.cpp:
+        (WebCore::InspectorServerRequestHandlerQt::webSocketReadyRead):
+
+2010-11-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Restore binary compatibility with the QtWebKit 2.1 branch
+
+        Re-order the enums by adding new enum entries to the end.
+
+        * Api/qwebsettings.h:
+
+2010-11-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Review the setUserPermission & friends API
+        https://bugs.webkit.org/show_bug.cgi?id=46810
+
+        Renamed requestPermissionFromUser to featurePermissionRequested
+        and cancelRequestsForPermission to featurePermissionRequestCanceled.
+
+        * Api/qwebpage.h:
+        * WebCoreSupport/GeolocationPermissionClientQt.cpp:
+        (WebCore::GeolocationPermissionClientQt::requestGeolocationPermissionForFrame):
+        (WebCore::GeolocationPermissionClientQt::cancelGeolocationPermissionRequestForFrame):
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::requestPermission):
+        (WebCore::NotificationPresenterClientQt::cancelRequestsForPermission):
+
+2010-11-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Review the setUserPermission & friends API
+        https://bugs.webkit.org/show_bug.cgi?id=46810
+
+        Rename setUserPermission to setFeaturePermission
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setFeaturePermission):
+        * Api/qwebpage.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (JSTestPage::requestPermission):
+
+2010-11-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Review the setUserPermission & friends API
+        https://bugs.webkit.org/show_bug.cgi?id=46810
+
+        Rename PermissionDomain to Feature, NotificationsPermissionDomain to Notifications
+        and GeolocationPermissionDomain to Geolocation.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setUserPermission):
+        * Api/qwebpage.h:
+        * WebCoreSupport/GeolocationPermissionClientQt.cpp:
+        (WebCore::GeolocationPermissionClientQt::requestGeolocationPermissionForFrame):
+        (WebCore::GeolocationPermissionClientQt::cancelGeolocationPermissionRequestForFrame):
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::requestPermission):
+        (WebCore::NotificationPresenterClientQt::cancelRequestsForPermission):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (JSTestPage::requestPermission):
+        (tst_QWebPage::geolocationRequestJS):
+
+2010-11-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Review the setUserPermission & friends API
+        https://bugs.webkit.org/show_bug.cgi?id=46810
+
+        Add a ByUser suffix to PermissionGranted/Denied. In the future
+        we can add PermissionGrantedByDefault.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setUserPermission):
+        * Api/qwebpage.h:
+        * WebCoreSupport/GeolocationPermissionClientQt.cpp:
+        (WebCore::GeolocationPermissionClientQt::setPermission):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (JSTestPage::requestPermission):
+
+2010-11-22  Jan Erik Hanssen  <jhanssen@sencha.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QWebElement::appendInside() doesn't work on head elements
+        https://bugs.webkit.org/show_bug.cgi?id=49166
+
+        Make QWebElement::appendInside() call 
+        Element::deprecatedCreateContextualFragment(), bypassing the check for
+        the HEAD tag in the HTMLElement implementation of this function.
+
+        * Api/qwebelement.cpp:
+        (QWebElement::appendInside):
+        * tests/qwebelement/tst_qwebelement.cpp:
+        (tst_QWebElement::addElementToHead):
+
+2010-11-20  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Dragging a selection should use a rendering of the selection as "cursor" for the drag
+        https://bugs.webkit.org/show_bug.cgi?id=49870
+
+        * WebCoreSupport/DragClientQt.cpp:
+        (WebCore::DragClientQt::startDrag): Pass the DragImage to QDrag::setPixmap()
+
+2010-11-20  Sam Magnuson  <smagnuso@gmail.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] crash when attempting to add a JS object
+        https://bugs.webkit.org/show_bug.cgi?id=49287
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::addToJavaScriptWindowObject):
+
+        Test: LayoutTests/fast/frames/sandboxed-iframe-plugins.html
+
+2010-11-20  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72471.
+        http://trac.webkit.org/changeset/72471
+        https://bugs.webkit.org/show_bug.cgi?id=49865
+
+        broke two IME tests on Qt (Requested by kling on #webkit).
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-11-19  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Fixed handling of QInputMethodEvents with nonzero replacementLength.
+
+        These types of events replace text that is already in the widget, but
+        WebKit did not check for replacementLength at all.
+
+        Also made sure that the preeditString is always respected, even if
+        there is committed text. This is how QLineEdit does it.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49787
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-11-19  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Transition and animation do not work with QWebView anymore
+        https://bugs.webkit.org/show_bug.cgi?id=49797
+
+        Accelerated compositing should not be enabled on QWebView without
+        texture mapper.
+
+        * WebCoreSupport/PageClientQt.h:
+        (WebCore::PageClientQWidget::allowsAcceleratedCompositing):
+
+2010-11-19  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Memory leak in QWebInspector
+        https://bugs.webkit.org/show_bug.cgi?id=49765
+
+        Delete QWebInspectorPrivate in ~QWebInspector()
+
+        * Api/qwebinspector.cpp:
+        (QWebInspector::~QWebInspector):
+
+2010-11-19  Sam Magnuson  <smagnuso@gmail.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Compile with QT_NO_UNDOCOMMAND
+        https://bugs.webkit.org/show_bug.cgi?id=49752
+
+        * WebCoreSupport/EditCommandQt.cpp:
+        (EditCommandQt::EditCommandQt):
+        * WebCoreSupport/EditCommandQt.h:
+
+2010-11-19  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49200
+        [Qt] bugs in Composition mode for QWebPage::inputMethodEvent & inputMethodQuery()
+
+        Make QWebPage work as following when editor is in composition mode:
+        1. anchor position and cursor position are the same and always >= 0
+        2. current selection is always null
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        (QWebPage::inputMethodQuery):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-11-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix - update error messages folllowing r72360.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-11-12  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Static platform plugin support
+        https://bugs.webkit.org/show_bug.cgi?id=49470
+
+        Adding support for statically linked platform plugins.
+
+        * WebCoreSupport/QtPlatformPlugin.cpp:
+        (WebCore::QtPlatformPlugin::loadStaticallyLinkedPlugin):
+        (WebCore::QtPlatformPlugin::plugin):
+        * WebCoreSupport/QtPlatformPlugin.h:
+
+2010-11-17  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Reuse the size of the actualVisibleContentRect when loading a new page
+        or navigating session history.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
 2010-11-17  Dimitri Glazkov  <dglazkov@chromium.org>
 
         Reviewed by Darin Adler.

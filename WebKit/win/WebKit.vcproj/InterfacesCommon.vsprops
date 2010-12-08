@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="InterfacesCommon"
+	OutputDirectory="$(WebKitOutputDir)\include\WebKit"
+	>
+	<Tool
+		Name="VCMIDLTool"
+		AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;;..\Interfaces;&quot;$(IntDir)\include&quot;"
+		TypeLibraryName="$(WebKitOutputDir)\lib\WebKit.tlb"
+		OutputDirectory="$(WebKitOutputDir)\obj\WebKit\$(ProjectName)"
+	/>
+</VisualStudioPropertySheet>

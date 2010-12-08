@@ -41,6 +41,7 @@ namespace WebCore {
 class FileError : public RefCounted<FileError> {
 public:
     enum ErrorCode {
+        OK = 0,
         NOT_FOUND_ERR = 1,
         SECURITY_ERR = 2,
         ABORT_ERR = 3,

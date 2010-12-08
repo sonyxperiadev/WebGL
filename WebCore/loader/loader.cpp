@@ -324,7 +324,8 @@ void Loader::didReceiveData(SubresourceLoader* loader, const char* data, int siz
         return;
 
     if (resource->response().httpStatusCode() >= 400) {
-        resource->httpStatusCodeError();
+        if (!resource->shouldIgnoreHTTPStatusCodeErrors())
+            resource->error(CachedResource::LoadError);
         return;
     }
 
@@ -337,7 +338,7 @@ void Loader::didReceiveData(SubresourceLoader* loader, const char* data, int siz
     } else if (request->isIncremental())
         resource->data(loader->resourceData(), false);
 }
-    
+
 void Loader::didReceiveCachedMetadata(SubresourceLoader* loader, const char* data, int size)
 {
     Request* request = m_requestsLoading.get(loader);

@@ -24,16 +24,19 @@
 
 #include "Attr.h"
 #include "FloatPoint.h"
-#include "FloatSize.h"
 #include "IntPoint.h"
 #include "IntSize.h"
 #include "SVGNames.h"
-#include "SVGNumberList.h"
 #include "SVGParserUtilities.h"
 
-#include <math.h>
-
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER_LIST(SVGFEConvolveMatrixElement, SVGNames::kernelMatrixAttr, KernelMatrix, kernelMatrix)
+DEFINE_ANIMATED_NUMBER(SVGFEConvolveMatrixElement, SVGNames::divisorAttr, Divisor, divisor)
+DEFINE_ANIMATED_NUMBER(SVGFEConvolveMatrixElement, SVGNames::biasAttr, Bias, bias)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEConvolveMatrixElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), KernelUnitLengthX, kernelUnitLengthX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEConvolveMatrixElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), KernelUnitLengthY, kernelUnitLengthY)
 
 inline SVGFEConvolveMatrixElement::SVGFEConvolveMatrixElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -92,7 +95,7 @@ void SVGFEConvolveMatrixElement::parseMappedAttribute(Attribute* attr)
         SVGNumberList newList;
         newList.parse(value);
         detachAnimatedKernelMatrixListWrappers(newList.size());
-        kernelMatrixBaseValue() = newList;
+        setKernelMatrixBaseValue(newList);
     } else if (attr->name() == SVGNames::divisorAttr)
         setDivisorBaseValue(value.toFloat());
     else if (attr->name() == SVGNames::biasAttr)
@@ -147,7 +150,7 @@ void SVGFEConvolveMatrixElement::svgAttributeChanged(const QualifiedName& attrNa
         invalidate();
 }
 
-PassRefPtr<FilterEffect> SVGFEConvolveMatrixElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEConvolveMatrixElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
 
@@ -189,7 +192,7 @@ PassRefPtr<FilterEffect> SVGFEConvolveMatrixElement::build(SVGFilterBuilder* fil
             divisorValue = 1;
     }
 
-    RefPtr<FilterEffect> effect = FEConvolveMatrix::create(
+    RefPtr<FilterEffect> effect = FEConvolveMatrix::create(filter,
                     IntSize(orderXValue, orderYValue), divisorValue,
                     bias(), IntPoint(targetXValue, targetYValue), static_cast<EdgeModeType>(edgeMode()),
                     FloatPoint(kernelUnitLengthX(), kernelUnitLengthX()), preserveAlpha(), kernelMatrix);

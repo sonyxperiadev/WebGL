@@ -388,15 +388,19 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                     if (unloadEventPolicy == UnloadEventPolicyUnloadAndPageHide)
                         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, m_frame->document()->inPageCache()), m_frame->document());
                     if (!m_frame->document()->inPageCache()) {
-                        m_frame->domWindow()->dispatchEvent(Event::create(eventNames().unloadEvent, false, false), m_frame->domWindow()->document());
-
-                        if (m_provisionalDocumentLoader) {
-                            DocumentLoadTiming* timing = m_provisionalDocumentLoader->timing();
+                        RefPtr<Event> unloadEvent(Event::create(eventNames().unloadEvent, false, false));
+                        // The DocumentLoader (and thus its DocumentLoadTiming) might get destroyed
+                        // while dispatching the event, so protect it to prevent writing the end
+                        // time into freed memory.
+                        if (RefPtr<DocumentLoader> documentLoader = m_provisionalDocumentLoader) {
+                            DocumentLoadTiming* timing = documentLoader->timing();
                             ASSERT(timing->navigationStart);
+                            ASSERT(!timing->unloadEventStart);
                             ASSERT(!timing->unloadEventEnd);
-                            timing->unloadEventEnd = currentTime();
-                            ASSERT(timing->unloadEventEnd >= timing->navigationStart);
-                        }
+                            m_frame->domWindow()->dispatchTimedEvent(unloadEvent, m_frame->domWindow()->document(), &timing->unloadEventStart, &timing->unloadEventEnd);
+                            ASSERT(timing->unloadEventStart >= timing->navigationStart);
+                        } else
+                            m_frame->domWindow()->dispatchEvent(unloadEvent, m_frame->domWindow()->document());
                     }
                 }
                 m_pageDismissalEventBeingDispatched = false;
@@ -2343,7 +2347,7 @@ CachePolicy FrameLoader::subresourceCachePolicy() const
         return CachePolicyRevalidate;
 
     if (request.cachePolicy() == ReturnCacheDataElseLoad)
-        return CachePolicyAllowStale;
+        return CachePolicyHistoryBuffer;
 
     return CachePolicyVerify;
 }

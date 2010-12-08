@@ -30,17 +30,18 @@ module storage {
     ] IDBDatabase {
         readonly attribute DOMString name;
         readonly attribute DOMString version;
-        readonly attribute DOMStringList objectStores;
+        readonly attribute DOMStringList objectStoreNames;
 
-        IDBObjectStore createObjectStore(in DOMString name, in [Optional, ConvertNullToNullString] DOMString keyPath, in [Optional] boolean autoIncrement)
+        IDBObjectStore createObjectStore(in DOMString name, in [Optional] OptionsObject options)
             raises (IDBDatabaseException);
-        void removeObjectStore(in DOMString name)
+        void deleteObjectStore(in DOMString name)
             raises (IDBDatabaseException);
         [CallWith=ScriptExecutionContext] IDBRequest setVersion(in DOMString version)
             raises (IDBDatabaseException);
-        [CallWith=ScriptExecutionContext] IDBTransaction transaction (in [Optional] DOMStringList storeNames, in [Optional] unsigned short mode, in [Optional] unsigned long timeout)
+        [CallWith=ScriptExecutionContext] IDBTransaction transaction (in [Optional] OptionsObject optionsObject)
             raises (IDBDatabaseException);
-        void close();
+        // FIXME: Implement.
+        //void close();
     };
 
 }

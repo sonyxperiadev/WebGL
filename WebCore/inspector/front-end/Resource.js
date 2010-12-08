@@ -163,11 +163,6 @@ WebInspector.Resource.prototype = {
 
     get responseReceivedTime()
     {
-        if (this.timing && this.timing.requestTime) {
-            // Calculate responseReceivedTime from timing data for better accuracy.
-            // Timing's requestTime is a baseline in seconds, rest of the numbers there are ticks in millis.
-            return this.timing.requestTime + this.timing.receiveHeadersEnd / 1000.0;
-        }
         return this._responseReceivedTime || -1;
     },
 
@@ -183,13 +178,15 @@ WebInspector.Resource.prototype = {
 
     set endTime(x)
     {
-        // In case of fast load (or in case of cached resources), endTime on network stack
-        // can be less then m_responseReceivedTime measured in WebCore. Normalize it here,
-        // prefer actualEndTime to m_responseReceivedTime.
-        if (x < this.responseReceivedTime)
-            this.responseReceivedTime = x;
-
-        this._endTime = x;
+        if (this.timing && this.timing.requestTime) {
+            // Check against accurate responseReceivedTime.
+            this._endTime = Math.max(x, this.responseReceivedTime);
+        } else {
+            // Prefer endTime since it might be from the network stack.
+            this._endTime = x;
+            if (this._responseReceivedTime > x)
+                this._responseReceivedTime = x;
+        }
     },
 
     get duration()
@@ -299,8 +296,15 @@ WebInspector.Resource.prototype = {
 
     set timing(x)
     {
-        if (!this._cached)
+        if (x && !this._cached) {
+            // Take startTime and responseReceivedTime from timing data for better accuracy.
+            // Timing's requestTime is a baseline in seconds, rest of the numbers there are ticks in millis.
+            this._startTime = x.requestTime;
+            this._responseReceivedTime = x.requestTime + x.receiveHeadersEnd / 1000.0;
+
             this._timing = x;
+            this.dispatchEventToListeners("timing changed");
+        }
     },
 
     get mimeType()
@@ -621,9 +625,69 @@ WebInspector.Resource.prototype = {
         return this._content;
     },
 
-    set content(content)
+    get contentTimestamp()
+    {
+        return this._contentTimestamp;
+    },
+
+    setInitialContent: function(content)
     {
         this._content = content;
+    },
+
+    isLocallyModified: function()
+    {
+        return !!this._baseRevision;
+    },
+
+    setContent: function(newContent, onRevert)
+    {
+        var revisionResource = new WebInspector.Resource(null, this.url);
+        revisionResource.type = this.type;
+        revisionResource.loader = this.loader;
+        revisionResource.timestamp = this.timestamp;
+        revisionResource._content = this._content;
+        revisionResource._actualResource = this;
+        revisionResource._fireOnRevert = onRevert;
+
+        if (this.finished)
+            revisionResource.finished = true;
+        else {
+            function finished()
+            {
+                this.removeEventListener("finished", finished);
+                revisionResource.finished = true;
+            }
+            this.addEventListener("finished", finished.bind(this));
+        }
+
+        if (!this._baseRevision)
+            this._baseRevision = revisionResource;
+        else
+            revisionResource._baseRevision = this._baseRevision;
+
+        var data = { revision: revisionResource };
+        this._content = newContent;
+        this.timestamp = new Date();
+        this.dispatchEventToListeners("content-changed", data);
+    },
+
+    revertToThis: function()
+    {
+        if (!this._actualResource || !this._fireOnRevert)
+            return;
+
+        function callback(content)
+        {
+            if (content)
+                this._fireOnRevert(content);
+        }
+        this.requestContent(callback.bind(this));
+    },
+
+    get baseRevision()
+    {
+        return this._baseRevision;
     },
 
     requestContent: function(callback)

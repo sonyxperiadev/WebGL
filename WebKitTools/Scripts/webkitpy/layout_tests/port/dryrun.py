@@ -95,31 +95,30 @@ class DryRunPort(object):
     def stop_websocket_server(self):
         pass
 
-    def create_driver(self, image_path, options):
-        return DryrunDriver(self, image_path, options, executive=None)
+    def create_driver(self, worker_number):
+        return DryrunDriver(self, worker_number)
 
 
 class DryrunDriver(base.Driver):
     """Dryrun implementation of the DumpRenderTree / Driver interface."""
 
-    def __init__(self, port, image_path, options, executive):
+    def __init__(self, port, worker_number):
         self._port = port
-        self._image_path = image_path
-        self._executive = executive
-        self._layout_tests_dir = None
+        self._worker_number = worker_number
+
+    def cmd_line(self):
+        return ['None']
 
     def poll(self):
         return None
 
-    def run_test(self, uri, timeoutms, image_hash):
+    def run_test(self, test_input):
         start_time = time.time()
-        test_name = self._port.uri_to_test_name(uri)
-        path = os.path.join(self._port.layout_tests_dir(), test_name)
-        text_output = self._port.expected_text(path)
+        text_output = self._port.expected_text(test_input.filename)
 
-        if image_hash is not None:
-            image = self._port.expected_image(path)
-            hash = self._port.expected_checksum(path)
+        if test_input.image_hash is not None:
+            image = self._port.expected_image(test_input.filename)
+            hash = self._port.expected_checksum(test_input.filename)
         else:
             image = None
             hash = None

@@ -229,7 +229,13 @@ JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSContextRe
 
 void LayoutTestController::waitForPolicyDelegate()
 {
-    // FIXME: Implement this.
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    setWaitToDump(true);
+    policyDelegate->setControllerToNotifyDone(this);
+    webView->setPolicyDelegate(policyDelegate);
 }
 
 size_t LayoutTestController::webHistoryItemCount()
@@ -405,7 +411,7 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     setGeolocationPermissionCommon(allow);
 }
 
-void LayoutTestController::setMockSpeechInputResult(JSStringRef result, JSStringRef language)
+void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.
@@ -898,6 +904,12 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
 
     SysFreeString(nameBSTR);
     SysFreeString(valueBSTR);
+}
+
+bool LayoutTestController::findString(JSContextRef /* context */, JSStringRef /* target */, JSObjectRef /* optionsArray */)
+{
+    // FIXME: Implement
+    return false;
 }
 
 void LayoutTestController::setCacheModel(int)

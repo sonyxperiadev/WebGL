@@ -198,9 +198,6 @@ namespace WebCore {
         void setShouldPrintBackgrounds(bool);
         bool shouldPrintBackgrounds() const { return m_shouldPrintBackgrounds; }
 
-        void setShouldDelegateScrolling(bool);
-        bool shouldDelegateScrolling() const { return m_shouldDelegateScrolling; }
-
         void setTextAreasAreResizable(bool);
         bool textAreasAreResizable() const { return m_textAreasAreResizable; }
 
@@ -350,6 +347,21 @@ namespace WebCore {
         void setAcceleratedCompositingEnabled(bool);
         bool acceleratedCompositingEnabled() const { return m_acceleratedCompositingEnabled; }
 
+        void setAcceleratedCompositingFor3DTransformsEnabled(bool);
+        bool acceleratedCompositingFor3DTransformsEnabled() const { return m_acceleratedCompositingFor3DTransformsEnabled; }
+
+        void setAcceleratedCompositingForVideoEnabled(bool);
+        bool acceleratedCompositingForVideoEnabled() const { return m_acceleratedCompositingForVideoEnabled; }
+
+        void setAcceleratedCompositingForPluginsEnabled(bool);
+        bool acceleratedCompositingForPluginsEnabled() const { return m_acceleratedCompositingForPluginsEnabled; }
+
+        void setAcceleratedCompositingForCanvasEnabled(bool);
+        bool acceleratedCompositingForCanvasEnabled() const { return m_acceleratedCompositingForCanvasEnabled; }
+
+        void setAcceleratedCompositingForAnimationEnabled(bool);
+        bool acceleratedCompositingForAnimationEnabled() const { return m_acceleratedCompositingForAnimationEnabled; }
+
         void setShowDebugBorders(bool);
         bool showDebugBorders() const { return m_showDebugBorders; }
 
@@ -473,6 +485,7 @@ namespace WebCore {
         unsigned m_sessionStorageQuota;
 #endif
         unsigned m_pluginAllowedRunTime;
+        unsigned m_editingBehaviorType;
         bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
@@ -489,7 +502,6 @@ namespace WebCore {
         bool m_javaScriptCanOpenWindowsAutomatically : 1;
         bool m_javaScriptCanAccessClipboard : 1;
         bool m_shouldPrintBackgrounds : 1;
-        bool m_shouldDelegateScrolling : 1;
         bool m_textAreasAreResizable : 1;
 #if ENABLE(DASHBOARD_SUPPORT)
         bool m_usesDashboardBackwardCompatibilityMode : 1;
@@ -517,10 +529,14 @@ namespace WebCore {
         bool m_enforceCSSMIMETypeInNoQuirksMode : 1;
         bool m_usesEncodingDetector : 1;
         bool m_allowScriptsToCloseWindows : 1;
-        unsigned m_editingBehaviorType : 1;
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;
+        bool m_acceleratedCompositingFor3DTransformsEnabled : 1;
+        bool m_acceleratedCompositingForVideoEnabled : 1;
+        bool m_acceleratedCompositingForPluginsEnabled : 1;
+        bool m_acceleratedCompositingForCanvasEnabled : 1;
+        bool m_acceleratedCompositingForAnimationEnabled : 1;
         bool m_showDebugBorders : 1;
         bool m_showRepaintCounter : 1;
         bool m_experimentalNotificationsEnabled : 1;

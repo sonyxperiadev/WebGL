@@ -24,6 +24,7 @@
 #include "ApplicationCacheStorage.h"
 #include "Chrome.h"
 #include "ChromeClientGtk.h"
+#include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
@@ -173,7 +174,7 @@ WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
         context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
 
     if (result.innerNonSharedNode())
-        node = static_cast<WebKitDOMNode*>(kit(result.innerNonSharedNode()));
+        node = kit(result.innerNonSharedNode());
 
     return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
                                                "link-uri", linkURI.get(),

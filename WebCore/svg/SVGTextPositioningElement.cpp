@@ -32,6 +32,13 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH_LIST(SVGTextPositioningElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH_LIST(SVGTextPositioningElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH_LIST(SVGTextPositioningElement, SVGNames::dxAttr, Dx, dx)
+DEFINE_ANIMATED_LENGTH_LIST(SVGTextPositioningElement, SVGNames::dyAttr, Dy, dy)
+DEFINE_ANIMATED_NUMBER_LIST(SVGTextPositioningElement, SVGNames::rotateAttr, Rotate, rotate)
+
 SVGTextPositioningElement::SVGTextPositioningElement(const QualifiedName& tagName, Document* document)
     : SVGTextContentElement(tagName, document)
 {
@@ -43,27 +50,27 @@ void SVGTextPositioningElement::parseMappedAttribute(Attribute* attr)
         SVGLengthList newList;
         newList.parse(attr->value(), LengthModeWidth);
         detachAnimatedXListWrappers(newList.size());
-        xBaseValue() = newList;
+        setXBaseValue(newList);
     } else if (attr->name() == SVGNames::yAttr) {
         SVGLengthList newList;
         newList.parse(attr->value(), LengthModeHeight);
         detachAnimatedYListWrappers(newList.size());
-        yBaseValue() = newList;
+        setYBaseValue(newList);
     } else if (attr->name() == SVGNames::dxAttr) {
         SVGLengthList newList;
         newList.parse(attr->value(), LengthModeWidth);
         detachAnimatedDxListWrappers(newList.size());
-        dxBaseValue() = newList;
+        setDxBaseValue(newList);
     } else if (attr->name() == SVGNames::dyAttr) {
         SVGLengthList newList;
         newList.parse(attr->value(), LengthModeHeight);
         detachAnimatedDyListWrappers(newList.size());
-        dyBaseValue() = newList;
+        setDyBaseValue(newList);
     } else if (attr->name() == SVGNames::rotateAttr) {
         SVGNumberList newList;
         newList.parse(attr->value());
         detachAnimatedRotateListWrappers(newList.size());
-        rotateBaseValue() = newList;
+        setRotateBaseValue(newList);
     } else
         SVGTextContentElement::parseMappedAttribute(attr);
 }

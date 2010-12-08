@@ -32,6 +32,9 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGStyledTransformableElement, SVGNames::transformAttr, Transform, transform)
+
 SVGStyledTransformableElement::SVGStyledTransformableElement(const QualifiedName& tagName, Document* document)
     : SVGStyledLocatableElement(tagName, document)
 {
@@ -72,7 +75,7 @@ void SVGStyledTransformableElement::parseMappedAttribute(Attribute* attr)
         if (!SVGTransformable::parseTransformAttribute(newList, attr->value()))
             newList.clear();
         detachAnimatedTransformListWrappers(newList.size());
-        transformBaseValue() = newList;
+        setTransformBaseValue(newList);
     } else 
         SVGStyledLocatableElement::parseMappedAttribute(attr);
 }

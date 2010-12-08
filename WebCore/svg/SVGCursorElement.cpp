@@ -30,6 +30,10 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGCursorElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGCursorElement, SVGNames::yAttr, Y, y)
+
 inline SVGCursorElement::SVGCursorElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
     , m_x(LengthModeWidth)
@@ -104,6 +108,7 @@ void SVGCursorElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeY();
         synchronizeExternalResourcesRequired();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -115,6 +120,8 @@ void SVGCursorElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
     else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 void SVGCursorElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

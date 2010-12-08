@@ -174,7 +174,7 @@ void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart, bo
     WKRetainPtr<WKStringRef> sourceWK = toWK(source);
     WKRetainPtr<WKBundleScriptWorldRef> scriptWorld(AdoptWK, WKBundleScriptWorldCreateWorld());
 
-    WKBundleAddUserScript(InjectedBundle::shared().bundle(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
+    WKBundleAddUserScript(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
         (runAtStart ? kWKInjectAtDocumentStart : kWKInjectAtDocumentEnd),
         (allFrames ? kWKInjectInAllFrames : kWKInjectInTopFrameOnly));
 }
@@ -184,7 +184,7 @@ void LayoutTestController::addUserStyleSheet(JSStringRef source, bool allFrames)
     WKRetainPtr<WKStringRef> sourceWK = toWK(source);
     WKRetainPtr<WKBundleScriptWorldRef> scriptWorld(AdoptWK, WKBundleScriptWorldCreateWorld());
 
-    WKBundleAddUserStyleSheet(InjectedBundle::shared().bundle(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
+    WKBundleAddUserStyleSheet(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
         (allFrames ? kWKInjectInAllFrames : kWKInjectInTopFrameOnly));
 }
 
@@ -233,6 +233,44 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef argument)
     WKBundlePageExecuteEditingCommand(InjectedBundle::shared().page()->page(), toWK(name).get(), toWK(argument).get());
 }
 
+bool LayoutTestController::findString(JSStringRef target, JSValueRef optionsArrayAsValue)
+{
+    WKFindOptions options = 0;
+
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(mainFrame);
+    JSRetainPtr<JSStringRef> lengthPropertyName(Adopt, JSStringCreateWithUTF8CString("length"));
+    JSObjectRef optionsArray = JSValueToObject(context, optionsArrayAsValue, 0);
+    JSValueRef lengthValue = JSObjectGetProperty(context, optionsArray, lengthPropertyName.get(), 0);
+    if (!JSValueIsNumber(context, lengthValue))
+        return false;
+
+    size_t length = static_cast<size_t>(JSValueToNumber(context, lengthValue, 0));
+    for (size_t i = 0; i < length; ++i) {
+        JSValueRef value = JSObjectGetPropertyAtIndex(context, optionsArray, i, 0);
+        if (!JSValueIsString(context, value))
+            continue;
+
+        JSRetainPtr<JSStringRef> optionName(Adopt, JSValueToStringCopy(context, value, 0));
+
+        if (JSStringIsEqualToUTF8CString(optionName.get(), "CaseInsensitive"))
+            options |= kWKFindOptionsCaseInsensitive;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "AtWordStarts"))
+            options |= kWKFindOptionsAtWordStarts;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "TreatMedialCapitalAsWordStart"))
+            options |= kWKFindOptionsTreatMedialCapitalAsWordStart;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "Backwards"))
+            options |= kWKFindOptionsBackwards;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "WrapAround"))
+            options |= kWKFindOptionsWrapAround;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "StartInSelection")) {
+            // FIXME: No kWKFindOptionsStartInSelection.
+        }
+    }
+
+    return WKBundlePageFindString(InjectedBundle::shared().page()->page(), toWK(target).get(), options);
+}
+
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
 {
     return WKBundlePageIsEditingCommandEnabled(InjectedBundle::shared().page()->page(), toWK(name).get());
@@ -246,7 +284,7 @@ void LayoutTestController::setCanOpenWindows(bool)
 
 void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 {
-    WKBundleOverrideXSSAuditorEnabledForTestRunner(InjectedBundle::shared().bundle(), true);
+    WKBundleOverrideXSSAuditorEnabledForTestRunner(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), true);
 }
 
 unsigned LayoutTestController::windowCount()

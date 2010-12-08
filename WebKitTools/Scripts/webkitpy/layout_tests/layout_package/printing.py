@@ -126,7 +126,6 @@ def print_options():
     ]
 
 
-
 def parse_print_options(print_options, verbose, child_processes,
                         is_fully_parallel):
     """Parse the options provided to --print and dedup and rank them.
@@ -182,8 +181,8 @@ def _configure_logging(stream, verbose):
     log_datefmt = '%y%m%d %H:%M:%S'
     log_level = logging.INFO
     if verbose:
-        log_fmt = ('%(asctime)s %(process)d %(filename)s:%(lineno)-4d %(levelname)s'
-                   '%(message)s')
+        log_fmt = ('%(asctime)s %(process)d %(filename)s:%(lineno)d '
+                   '%(levelname)s %(message)s')
         log_level = logging.DEBUG
 
     root = logging.getLogger()

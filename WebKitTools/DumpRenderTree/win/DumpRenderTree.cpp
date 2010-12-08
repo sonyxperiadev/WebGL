@@ -66,7 +66,7 @@
 
 using namespace std;
 
-#if !defined(NDEBUG) && (!defined(DEBUG_INTERNAL) || defined(DEBUG_ALL))
+#ifdef DEBUG_ALL
 const LPWSTR TestPluginDir = L"TestNetscapePlugin_Debug";
 #else
 const LPWSTR TestPluginDir = L"TestNetscapePlugin";
@@ -671,8 +671,10 @@ void dump()
         COMPtr<IWebURLResponse> response;
         if (SUCCEEDED(dataSource->response(&response)) && response) {
             BSTR mimeType;
-            if (SUCCEEDED(response->MIMEType(&mimeType)))
-                ::gLayoutTestController->setDumpAsText(::gLayoutTestController->dumpAsText() | !_tcscmp(mimeType, TEXT("text/plain")));
+            if (SUCCEEDED(response->MIMEType(&mimeType)) && !_tcscmp(mimeType, TEXT("text/plain"))) {
+                ::gLayoutTestController->setDumpAsText(true);
+                ::gLayoutTestController->setGeneratePixelResults(false);
+            }
             SysFreeString(mimeType);
         }
     }
@@ -763,7 +765,7 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
 
 static bool shouldEnableDeveloperExtras(const char* pathOrURL)
 {
-    return shouldOpenWebInspector(pathOrURL) || strstr(pathOrURL, "/inspector-enabled/") || strstr(pathOrURL, "\\inspector-enabled\\");
+    return true;
 }
 
 static void resetDefaultsToConsistentValues(IWebPreferences* preferences)

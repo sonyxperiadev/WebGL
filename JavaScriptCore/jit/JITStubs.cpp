@@ -801,7 +801,6 @@ JITThunks::JITThunks(JSGlobalData* globalData)
 
     ASSERT(OBJECT_OFFSETOF(struct JITStackFrame, registerFile) == REGISTER_FILE_OFFSET);
     ASSERT(OBJECT_OFFSETOF(struct JITStackFrame, callFrame) == CALLFRAME_OFFSET);
-    ASSERT(OBJECT_OFFSETOF(struct JITStackFrame, exception) == EXCEPTION_OFFSET);
     // The fifth argument is the first item already on the stack.
     ASSERT(OBJECT_OFFSETOF(struct JITStackFrame, enabledProfilerReference) == ENABLE_PROFILER_REFERENCE_OFFSET);
 
@@ -1067,13 +1066,13 @@ struct ExceptionHandler {
     void* catchRoutine;
     CallFrame* callFrame;
 };
-static ExceptionHandler jitThrow(JSGlobalData* globalData, CallFrame* callFrame, JSValue exceptionValue, ReturnAddressPtr faultLocation, bool explicitThrow)
+static ExceptionHandler jitThrow(JSGlobalData* globalData, CallFrame* callFrame, JSValue exceptionValue, ReturnAddressPtr faultLocation)
 {
     ASSERT(exceptionValue);
 
-    unsigned vPCIndex = callFrame->codeBlock()->bytecodeOffset(callFrame, faultLocation);
+    unsigned vPCIndex = callFrame->codeBlock()->bytecodeOffset(faultLocation);
     globalData->exception = JSValue();
-    HandlerInfo* handler = globalData->interpreter->throwException(callFrame, exceptionValue, vPCIndex, explicitThrow); // This may update callFrame & exceptionValue!
+    HandlerInfo* handler = globalData->interpreter->throwException(callFrame, exceptionValue, vPCIndex); // This may update callFrame & exceptionValue!
     globalData->exception = exceptionValue;
 
     void* catchRoutine = handler ? handler->nativeCode.executableAddress() : FunctionPtr(ctiOpThrowNotCaught).value();
@@ -1384,7 +1383,7 @@ DEFINE_STUB_FUNCTION(void*, register_file_check)
         // Rewind to the previous call frame because op_call already optimistically
         // moved the call frame forward.
         CallFrame* oldCallFrame = callFrame->callerFrame();
-        ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), ReturnAddressPtr(oldCallFrame->returnPC()), false);
+        ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), ReturnAddressPtr(oldCallFrame->returnPC()));
         STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
         callFrame = handler.callFrame;
     }
@@ -1937,7 +1936,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_func)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
     
-    ASSERT(stackFrame.callFrame->codeBlock()->codeType() != FunctionCode || !stackFrame.callFrame->codeBlock()->needsFullScopeChain() || stackFrame.callFrame->r(stackFrame.callFrame->codeBlock()->activationRegister()).jsValue());
+    ASSERT(stackFrame.callFrame->codeBlock()->codeType() != FunctionCode || !stackFrame.callFrame->codeBlock()->needsFullScopeChain() || stackFrame.callFrame->uncheckedR(stackFrame.callFrame->codeBlock()->activationRegister()).jsValue());
     return stackFrame.args[0].function()->make(stackFrame.callFrame, stackFrame.callFrame->scopeChain());
 }
 
@@ -2006,7 +2005,7 @@ DEFINE_STUB_FUNCTION(void*, op_call_arityCheck)
         if (!stackFrame.registerFile->grow(newEnd)) {
             // Rewind to the previous call frame because op_call already optimistically
             // moved the call frame forward.
-            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc, false);
+            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc);
             STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
             return handler.callFrame;
         }
@@ -2021,7 +2020,7 @@ DEFINE_STUB_FUNCTION(void*, op_call_arityCheck)
         if (!stackFrame.registerFile->grow(newEnd)) {
             // Rewind to the previous call frame because op_call already optimistically
             // moved the call frame forward.
-            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc, false);
+            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc);
             STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
             return handler.callFrame;
         }
@@ -2065,7 +2064,7 @@ DEFINE_STUB_FUNCTION(void*, op_construct_arityCheck)
         if (!stackFrame.registerFile->grow(newEnd)) {
             // Rewind to the previous call frame because op_call already optimistically
             // moved the call frame forward.
-            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc, false);
+            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc);
             STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
             return handler.callFrame;
         }
@@ -2080,7 +2079,7 @@ DEFINE_STUB_FUNCTION(void*, op_construct_arityCheck)
         if (!stackFrame.registerFile->grow(newEnd)) {
             // Rewind to the previous call frame because op_call already optimistically
             // moved the call frame forward.
-            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc, false);
+            ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), pc);
             STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
             return handler.callFrame;
         }
@@ -2741,7 +2740,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve_skip)
     bool checkTopLevel = codeBlock->codeType() == FunctionCode && codeBlock->needsFullScopeChain();
     ASSERT(skip || !checkTopLevel);
     if (checkTopLevel && skip--) {
-        if (callFrame->r(codeBlock->activationRegister()).jsValue())
+        if (callFrame->uncheckedR(codeBlock->activationRegister()).jsValue())
             ++iter;
     }
     while (skip--) {
@@ -3103,7 +3102,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_func_exp)
 
     FunctionExecutable* function = stackFrame.args[0].function();
     JSFunction* func = function->make(callFrame, callFrame->scopeChain());
-    ASSERT(callFrame->codeBlock()->codeType() != FunctionCode || !callFrame->codeBlock()->needsFullScopeChain() || callFrame->r(callFrame->codeBlock()->activationRegister()).jsValue());
+    ASSERT(callFrame->codeBlock()->codeType() != FunctionCode || !callFrame->codeBlock()->needsFullScopeChain() || callFrame->uncheckedR(callFrame->codeBlock()->activationRegister()).jsValue());
 
     /* 
         The Identifier in a FunctionExpression can be referenced from inside
@@ -3210,7 +3209,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_bitor)
 DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_eval)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
-    ASSERT(stackFrame.callFrame->codeBlock()->codeType() != FunctionCode || !stackFrame.callFrame->codeBlock()->needsFullScopeChain() || stackFrame.callFrame->r(stackFrame.callFrame->codeBlock()->activationRegister()).jsValue());
+    ASSERT(stackFrame.callFrame->codeBlock()->codeType() != FunctionCode || !stackFrame.callFrame->codeBlock()->needsFullScopeChain() || stackFrame.callFrame->uncheckedR(stackFrame.callFrame->codeBlock()->activationRegister()).jsValue());
 
     CallFrame* callFrame = stackFrame.callFrame;
     RegisterFile* registerFile = stackFrame.registerFile;
@@ -3238,7 +3237,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_eval)
 DEFINE_STUB_FUNCTION(void*, op_throw)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
-    ExceptionHandler handler = jitThrow(stackFrame.globalData, stackFrame.callFrame, stackFrame.args[0].jsValue(), STUB_RETURN_ADDRESS, true);
+    ExceptionHandler handler = jitThrow(stackFrame.globalData, stackFrame.callFrame, stackFrame.args[0].jsValue(), STUB_RETURN_ADDRESS);
     STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
     return handler.callFrame;
 }
@@ -3595,7 +3594,7 @@ DEFINE_STUB_FUNCTION(void*, vm_throw)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
     JSGlobalData* globalData = stackFrame.globalData;
-    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception, globalData->exceptionLocation, false);
+    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception, globalData->exceptionLocation);
     STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
     return handler.callFrame;
 }

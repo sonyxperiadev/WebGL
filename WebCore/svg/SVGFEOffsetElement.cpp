@@ -27,6 +27,10 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER(SVGFEOffsetElement, SVGNames::dxAttr, Dx, dx)
+DEFINE_ANIMATED_NUMBER(SVGFEOffsetElement, SVGNames::dyAttr, Dy, dy)
+
 inline SVGFEOffsetElement::SVGFEOffsetElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
@@ -79,14 +83,14 @@ void SVGFEOffsetElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeIn1();
 }
 
-PassRefPtr<FilterEffect> SVGFEOffsetElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEOffsetElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
 
     if (!input1)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEOffset::create(dx(), dy());
+    RefPtr<FilterEffect> effect = FEOffset::create(filter, dx(), dy());
     effect->inputEffects().append(input1);
     return effect.release();
 }

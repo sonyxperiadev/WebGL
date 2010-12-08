@@ -84,6 +84,45 @@ namespace WebCore {
 using namespace std;
 using namespace HTMLNames;
 
+static inline bool isAmbiguousBoundaryCharacter(UChar character)
+{
+    // These are characters that can behave as word boundaries, but can appear within words.
+    // If they are just typed, i.e. if they are immediately followed by a caret, we want to delay text checking until the next character has been typed.
+    // FIXME: this is required until 6853027 is fixed and text checking can do this for us.
+    return character == '\'' || character == rightSingleQuotationMark || character == hebrewPunctuationGershayim;
+}
+
+#if SUPPORT_AUTOCORRECTION_PANEL
+static const Vector<DocumentMarker::MarkerType>& markerTypesForAutocorrection()
+{
+    DEFINE_STATIC_LOCAL(Vector<DocumentMarker::MarkerType>, markerTypesForAutoCorrection, ());
+    if (markerTypesForAutoCorrection.isEmpty()) {
+        markerTypesForAutoCorrection.append(DocumentMarker::Replacement);
+        markerTypesForAutoCorrection.append(DocumentMarker::CorrectionIndicator);
+    }
+    return markerTypesForAutoCorrection;
+}
+
+static FloatRect boundingBoxForRange(Range* range)
+{
+    Vector<FloatQuad> textQuads;
+    range->getBorderAndTextQuads(textQuads);
+    FloatRect totalBoundingBox;
+    size_t size = textQuads.size();
+    for (size_t i = 0; i< size; ++i)
+        totalBoundingBox.unite(textQuads[i].boundingBox());
+    return totalBoundingBox;
+}
+#endif // SUPPORT_AUTOCORRECTION_PANEL
+
+static const Vector<DocumentMarker::MarkerType>& markerTypesForReplacement()
+{
+    DEFINE_STATIC_LOCAL(Vector<DocumentMarker::MarkerType>, markerTypesForReplacement, ());
+    if (markerTypesForReplacement.isEmpty())
+        markerTypesForReplacement.append(DocumentMarker::Replacement);
+    return markerTypesForReplacement;
+}
+
 // When an event handler has moved the selection outside of a text control
 // we should use the target control's selection for this editing operation.
 VisibleSelection Editor::selectionForCommand(Event* event)
@@ -492,13 +531,18 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection)
     size_t markerCount = markers.size();
     for (size_t i = 0; i < markerCount; ++i) {
         const DocumentMarker& marker = markers[i];
-        if (marker.type == DocumentMarker::CorrectionIndicator && static_cast<int>(marker.endOffset) == endOffset) {
+        if (((marker.type == DocumentMarker::CorrectionIndicator && marker.description.length()) || marker.type == DocumentMarker::Spelling) && static_cast<int>(marker.endOffset) == endOffset) {
             RefPtr<Range> wordRange = Range::create(frame()->document(), node, marker.startOffset, node, marker.endOffset);
             String currentWord = plainText(wordRange.get());
-            if (currentWord.length() > 0 && marker.description.length() > 0) {
+            if (currentWord.length()) {
                 m_correctionPanelInfo.m_rangeToBeReplaced = wordRange;
-                m_correctionPanelInfo.m_replacementString = marker.description;
-                startCorrectionPanelTimer(CorrectionPanelInfo::PanelTypeReversion);
+                m_correctionPanelInfo.m_replacedString = currentWord;
+                if (marker.type == DocumentMarker::Spelling)
+                    startCorrectionPanelTimer(CorrectionPanelInfo::PanelTypeSpellingSuggestions);
+                else {
+                    m_correctionPanelInfo.m_replacementString = marker.description;
+                    startCorrectionPanelTimer(CorrectionPanelInfo::PanelTypeReversion);
+                }
             }
             break;
         }
@@ -608,24 +652,11 @@ WritingDirection Editor::textDirectionForSelection(bool& hasNestedOrMultipleEmbe
     }
 
     if (m_frame->selection()->isCaret()) {
-        RefPtr<CSSMutableStyleDeclaration> typingStyle = m_frame->selection()->typingStyle();
-        if (typingStyle) {
-            RefPtr<CSSValue> unicodeBidi = typingStyle->getPropertyCSSValue(CSSPropertyUnicodeBidi);
-            if (unicodeBidi) {
-                ASSERT(unicodeBidi->isPrimitiveValue());
-                int unicodeBidiValue = static_cast<CSSPrimitiveValue*>(unicodeBidi.get())->getIdent();
-                if (unicodeBidiValue == CSSValueEmbed) {
-                    RefPtr<CSSValue> direction = typingStyle->getPropertyCSSValue(CSSPropertyDirection);
-                    ASSERT(!direction || direction->isPrimitiveValue());
-                    if (direction) {
-                        hasNestedOrMultipleEmbeddings = false;
-                        return static_cast<CSSPrimitiveValue*>(direction.get())->getIdent() == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
-                    }
-                } else if (unicodeBidiValue == CSSValueNormal) {
-                    hasNestedOrMultipleEmbeddings = false;
-                    return NaturalWritingDirection;
-                }
-            }
+        RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle();
+        WritingDirection direction;
+        if (typingStyle && typingStyle->textDirection(direction)) {
+            hasNestedOrMultipleEmbeddings = false;
+            return direction;
         }
         node = m_frame->selection()->selection().visibleStart().deepEquivalent().node();
     }
@@ -921,7 +952,7 @@ static TriState triStateOfStyle(CSSStyleDeclaration* desiredStyle, CSSStyleDecla
     RefPtr<CSSMutableStyleDeclaration> diff = getPropertiesNotIn(desiredStyle, styleToCompare);
 
     if (ignoreTextOnlyProperties)
-        diff->removePropertiesInSet(textOnlyProperties, sizeof(textOnlyProperties) / sizeof(textOnlyProperties[0]));
+        diff->removePropertiesInSet(textOnlyProperties, WTF_ARRAY_LENGTH(textOnlyProperties));
 
     if (!diff->length())
         return TrueTriState;
@@ -1937,7 +1968,7 @@ Vector<String> Editor::guessesForMisspelledSelection()
 
     Vector<String> guesses;
     if (client())
-        client()->getGuessesForWord(selectedString, guesses);
+        client()->getGuessesForWord(selectedString, String(), guesses);
     return guesses;
 }
 
@@ -2010,15 +2041,25 @@ void Editor::markMisspellingsAndBadGrammar(const VisibleSelection &movingSelecti
         markBadGrammar(movingSelection);
 }
 
-void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
+void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart, const VisibleSelection& selectionAfterTyping)
 {
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 #if SUPPORT_AUTOCORRECTION_PANEL
     // Apply pending autocorrection before next round of spell checking.
-    applyCorrectionPanelInfo(true);
+    bool doApplyCorrection = true;
+    VisiblePosition startOfSelection = selectionAfterTyping.visibleStart();
+    VisibleSelection currentWord = VisibleSelection(startOfWord(startOfSelection, LeftWordIfOnBoundary), endOfWord(startOfSelection, RightWordIfOnBoundary));
+    if (currentWord.visibleEnd() == startOfSelection) {
+        String wordText = plainText(currentWord.toNormalizedRange().get());
+        if (wordText.length() > 0 && isAmbiguousBoundaryCharacter(wordText[wordText.length() - 1]))
+            doApplyCorrection = false;
+    }
+    if (doApplyCorrection)
+        applyCorrectionPanelInfo(markerTypesForAutocorrection());
     m_correctionPanelInfo.m_rangeToBeReplaced.clear();
+#else
+    UNUSED_PARAM(selectionAfterTyping);
 #endif
-
     TextCheckingOptions textCheckingOptions = 0;
     if (isContinuousSpellCheckingEnabled())
         textCheckingOptions |= MarkSpelling;
@@ -2036,20 +2077,21 @@ void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
     if (isGrammarCheckingEnabled())
         textCheckingOptions |= MarkGrammar;
 
-    VisibleSelection adjacentWords = VisibleSelection(startOfWord(p, LeftWordIfOnBoundary), endOfWord(p, RightWordIfOnBoundary));
+    VisibleSelection adjacentWords = VisibleSelection(startOfWord(wordStart, LeftWordIfOnBoundary), endOfWord(wordStart, RightWordIfOnBoundary));
     if (textCheckingOptions & MarkGrammar) {
-        VisibleSelection selectedSentence = VisibleSelection(startOfSentence(p), endOfSentence(p));
+        VisibleSelection selectedSentence = VisibleSelection(startOfSentence(wordStart), endOfSentence(wordStart));
         markAllMisspellingsAndBadGrammarInRanges(textCheckingOptions, adjacentWords.toNormalizedRange().get(), selectedSentence.toNormalizedRange().get());
     } else {
         markAllMisspellingsAndBadGrammarInRanges(textCheckingOptions, adjacentWords.toNormalizedRange().get(), adjacentWords.toNormalizedRange().get());
     }
 #else
+    UNUSED_PARAM(selectionAfterTyping);
     if (!isContinuousSpellCheckingEnabled())
         return;
-    
+
     // Check spelling of one word
     RefPtr<Range> misspellingRange;
-    markMisspellings(VisibleSelection(startOfWord(p, LeftWordIfOnBoundary), endOfWord(p, RightWordIfOnBoundary)), misspellingRange);
+    markMisspellings(VisibleSelection(startOfWord(wordStart, LeftWordIfOnBoundary), endOfWord(wordStart, RightWordIfOnBoundary)), misspellingRange);
 
     // Autocorrect the misspelled word.
     if (!misspellingRange)
@@ -2081,7 +2123,7 @@ void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
         return;
     
     // Check grammar of entire sentence
-    markBadGrammar(VisibleSelection(startOfSentence(p), endOfSentence(p)));
+    markBadGrammar(VisibleSelection(startOfSentence(wordStart), endOfSentence(wordStart)));
 #endif
 }
     
@@ -2155,15 +2197,6 @@ void Editor::markBadGrammar(const VisibleSelection& selection)
 }
 
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-
-static inline bool isAmbiguousBoundaryCharacter(UChar character)
-{
-    // These are characters that can behave as word boundaries, but can appear within words.
-    // If they are just typed, i.e. if they are immediately followed by a caret, we want to delay text checking until the next character has been typed.
-    // FIXME: this is required until 6853027 is fixed and text checking can do this for us.
-    return character == '\'' || character == rightSingleQuotationMark || character == hebrewPunctuationGershayim;
-}
-
 void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCheckingOptions, Range* spellingRange, Range* grammarRange)
 {
     bool shouldMarkSpelling = textCheckingOptions & MarkSpelling;
@@ -2249,7 +2282,14 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
         const TextCheckingResult* result = &results[i];
         int resultLocation = result->location + offsetDueToReplacement;
         int resultLength = result->length;
-        if (shouldMarkSpelling && result->type == TextCheckingTypeSpelling && resultLocation >= spellingParagraph.checkingStart() && resultLocation + resultLength <= spellingRangeEndOffset) {
+        bool resultEndsAtAmbiguousBoundary = ambiguousBoundaryOffset >= 0 && resultLocation + resultLength == ambiguousBoundaryOffset;
+
+        // Only mark misspelling if:
+        // 1. Current text checking isn't done for autocorrection, in which case shouldMarkSpelling is false.
+        // 2. Result falls within spellingRange.
+        // 3. The word in question doesn't end at an ambiguous boundary. For instance, we would not mark
+        //    "wouldn'" as misspelled right after apostrophe is typed.
+        if (shouldMarkSpelling && result->type == TextCheckingTypeSpelling && resultLocation >= spellingParagraph.checkingStart() && resultLocation + resultLength <= spellingRangeEndOffset && !resultEndsAtAmbiguousBoundary) {
             ASSERT(resultLength > 0 && resultLocation >= 0);
             RefPtr<Range> misspellingRange = spellingParagraph.subrange(resultLocation, resultLength);
             misspellingRange->startContainer(ec)->document()->markers()->addMarker(misspellingRange.get(), DocumentMarker::Spelling);
@@ -2276,14 +2316,14 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                 continue;
 
             int replacementLength = result->replacement.length();
-            bool doReplacement = (replacementLength > 0);
+
+            // Apply replacement if:
+            // 1. The replacement length is non-zero.
+            // 2. The result doesn't end at an ambiguous boundary.
+            //    (FIXME: this is required until 6853027 is fixed and text checking can do this for us
+            bool doReplacement = replacementLength > 0 && !resultEndsAtAmbiguousBoundary;
             RefPtr<Range> rangeToReplace = paragraph.subrange(resultLocation, resultLength);
             VisibleSelection selectionToReplace(rangeToReplace.get(), DOWNSTREAM);
-        
-            // avoid correcting text after an ambiguous boundary character has been typed
-            // FIXME: this is required until 6853027 is fixed and text checking can do this for us
-            if (ambiguousBoundaryOffset >= 0 && resultLocation + resultLength == ambiguousBoundaryOffset)
-                doReplacement = false;
 
             // adding links should be done only immediately after they are typed
             if (result->type == TextCheckingTypeLink && selectionOffset > resultLocation + resultLength + 1)
@@ -2337,15 +2377,19 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                         m_correctionPanelInfo.m_replacedString = replacedString;
                         m_correctionPanelInfo.m_replacementString = result->replacement;
                         m_correctionPanelInfo.m_isActive = true;
-                        client()->showCorrectionPanel(m_correctionPanelInfo.m_panelType, totalBoundingBox, m_correctionPanelInfo.m_replacedString, result->replacement, this);
+                        client()->showCorrectionPanel(m_correctionPanelInfo.m_panelType, totalBoundingBox, m_correctionPanelInfo.m_replacedString, result->replacement, Vector<String>(), this);
                         doReplacement = false;
                     }
 #endif
                     if (doReplacement) {
                         replaceSelectionWithText(result->replacement, false, false);
                         offsetDueToReplacement += replacementLength - resultLength;
-                        if (resultLocation < selectionOffset)
+                        if (resultLocation < selectionOffset) {
                             selectionOffset += replacementLength - resultLength;
+                            if (ambiguousBoundaryOffset >= 0)
+                                ambiguousBoundaryOffset = selectionOffset - 1;
+                        }
+
                         if (result->type == TextCheckingTypeCorrection) {
                             // Add a marker so that corrections can easily be undone and won't be re-corrected.
                             RefPtr<Range> replacedRange = paragraph.subrange(resultLocation, replacementLength);
@@ -2411,39 +2455,66 @@ void Editor::markMisspellingsAndBadGrammar(const VisibleSelection& spellingSelec
 void Editor::correctionPanelTimerFired(Timer<Editor>*)
 {
 #if SUPPORT_AUTOCORRECTION_PANEL
-    if (m_correctionPanelInfo.m_panelType == CorrectionPanelInfo::PanelTypeCorrection) {
+    switch (m_correctionPanelInfo.m_panelType) {
+    case CorrectionPanelInfo::PanelTypeCorrection: {
         VisibleSelection selection(frame()->selection()->selection());
         VisiblePosition start(selection.start(), selection.affinity());
         VisiblePosition p = startOfWord(start, LeftWordIfOnBoundary);
         VisibleSelection adjacentWords = VisibleSelection(p, start);
         markAllMisspellingsAndBadGrammarInRanges(MarkSpelling | ShowCorrectionPanel, adjacentWords.toNormalizedRange().get(), 0);
-    } else {
-        String currentWord = plainText(m_correctionPanelInfo.m_rangeToBeReplaced.get());
-        Vector<FloatQuad> textQuads;
-        m_correctionPanelInfo.m_rangeToBeReplaced->getBorderAndTextQuads(textQuads);
-        Vector<FloatQuad>::const_iterator end = textQuads.end();
-        FloatRect totalBoundingBox;
-        for (Vector<FloatQuad>::const_iterator it = textQuads.begin(); it < end; ++it)
-            totalBoundingBox.unite(it->boundingBox());
+    }
+        break;
+    case CorrectionPanelInfo::PanelTypeReversion: {
         m_correctionPanelInfo.m_isActive = true;
-        m_correctionPanelInfo.m_replacedString = currentWord;
-        client()->showCorrectionPanel(m_correctionPanelInfo.m_panelType, totalBoundingBox, m_correctionPanelInfo.m_replacedString, m_correctionPanelInfo.m_replacementString, this);
+        m_correctionPanelInfo.m_replacedString = plainText(m_correctionPanelInfo.m_rangeToBeReplaced.get());
+        client()->showCorrectionPanel(m_correctionPanelInfo.m_panelType, boundingBoxForRange(m_correctionPanelInfo.m_rangeToBeReplaced.get()), m_correctionPanelInfo.m_replacedString, m_correctionPanelInfo.m_replacementString, Vector<String>(), this);
+    }
+        break;
+    case CorrectionPanelInfo::PanelTypeSpellingSuggestions: {
+        if (plainText(m_correctionPanelInfo.m_rangeToBeReplaced.get()) != m_correctionPanelInfo.m_replacedString)
+            break;
+        String paragraphText = plainText(TextCheckingParagraph(m_correctionPanelInfo.m_rangeToBeReplaced).paragraphRange().get());
+        Vector<String> suggestions;
+        client()->getGuessesForWord(m_correctionPanelInfo.m_replacedString, paragraphText, suggestions);
+        if (suggestions.isEmpty())
+            break;
+        String topSuggestion = suggestions.first();
+        suggestions.remove(0);
+        m_correctionPanelInfo.m_isActive = true;
+        client()->showCorrectionPanel(m_correctionPanelInfo.m_panelType, boundingBoxForRange(m_correctionPanelInfo.m_rangeToBeReplaced.get()), m_correctionPanelInfo.m_replacedString, topSuggestion, suggestions, this);
+    }
+        break;
     }
 #endif
 }
 
-void Editor::handleRejectedCorrection()
+void Editor::handleCorrectionPanelResult(const String& correction)
 {
     Range* replacedRange = m_correctionPanelInfo.m_rangeToBeReplaced.get();
     if (!replacedRange || m_frame->document() != replacedRange->ownerDocument())
         return;
 
-    if (m_correctionPanelInfo.m_panelType == CorrectionPanelInfo::PanelTypeCorrection)
+    String currentWord = plainText(m_correctionPanelInfo.m_rangeToBeReplaced.get());
+    // Check to see if the word we are about to correct has been changed between timer firing and callback being triggered.
+    if (currentWord != m_correctionPanelInfo.m_replacedString)
+        return;
+
+    m_correctionPanelInfo.m_isActive = false;
+
+    switch (m_correctionPanelInfo.m_panelType) {
+    case CorrectionPanelInfo::PanelTypeCorrection:
         replacedRange->startContainer()->document()->markers()->addMarker(replacedRange, DocumentMarker::RejectedCorrection, m_correctionPanelInfo.m_replacedString);
-    else {
-        m_correctionPanelInfo.m_isActive = false;
-        applyCorrectionPanelInfo(false);
+        break;
+    case CorrectionPanelInfo::PanelTypeReversion:
+        applyCorrectionPanelInfo(markerTypesForReplacement());
+    case CorrectionPanelInfo::PanelTypeSpellingSuggestions:
+        if (correction.length()) {
+            m_correctionPanelInfo.m_replacementString = correction;
+            applyCorrectionPanelInfo(markerTypesForReplacement());
+        }
+        break;
     }
+
     m_correctionPanelInfo.m_rangeToBeReplaced.clear();
 }
 
@@ -2467,6 +2538,7 @@ void Editor::stopCorrectionPanelTimer()
 {
 #if SUPPORT_AUTOCORRECTION_PANEL
     m_correctionPanelTimer.stop();
+    m_correctionPanelInfo.m_rangeToBeReplaced.clear();
 #endif
 }
 
@@ -2496,7 +2568,6 @@ void Editor::dismissCorrectionPanel(CorrectionWasRejectedOrNot correctionWasReje
     if (!m_correctionPanelInfo.m_isActive)
         return;
     m_correctionPanelInfo.m_isActive = false;
-    m_correctionPanelInfo.m_rangeToBeReplaced.clear();
     if (client())
         client()->dismissCorrectionPanel(correctionWasRejectedOrNot);
 #else
@@ -2600,7 +2671,7 @@ void Editor::removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemove
         document->markers()->removeMarkers(pairIterator->first.get(), pairIterator->second);
 }
 
-void Editor::applyCorrectionPanelInfo(bool addCorrectionIndicatorMarker)
+void Editor::applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd)
 {
     if (!m_correctionPanelInfo.m_rangeToBeReplaced)
         return;
@@ -2641,9 +2712,10 @@ void Editor::applyCorrectionPanelInfo(bool addCorrectionIndicatorMarker)
         caretPosition.moveToOffset(caretPosition.offsetInContainerNode() + m_correctionPanelInfo.m_replacementString.length() - m_correctionPanelInfo.m_replacedString.length());
         setEnd(paragraphRangeContainingCorrection.get(), endOfParagraph(caretPosition));
         RefPtr<Range> replacementRange = TextIterator::subrange(paragraphRangeContainingCorrection.get(), correctionStartOffsetInParagraph, m_correctionPanelInfo.m_replacementString.length());
-        replacementRange->startContainer()->document()->markers()->addMarker(replacementRange.get(), DocumentMarker::Replacement, m_correctionPanelInfo.m_replacementString);
-        if (addCorrectionIndicatorMarker)
-            replacementRange->startContainer()->document()->markers()->addMarker(replacementRange.get(), DocumentMarker::CorrectionIndicator, m_correctionPanelInfo.m_replacedString);
+        DocumentMarkerController* markers = replacementRange->startContainer()->document()->markers();
+        size_t size = markerTypesToAdd.size();
+        for (size_t i = 0; i < size; ++i)
+            markers->addMarker(replacementRange.get(), markerTypesToAdd[i], m_correctionPanelInfo.m_replacementString);
         m_frame->selection()->moveTo(caretPosition, false);
     }
 }
@@ -2826,39 +2898,39 @@ bool Editor::insideVisibleArea(Range* range) const
     return rectInFrameCoords.contains(resultRect);
 }
 
-PassRefPtr<Range> Editor::firstVisibleRange(const String& target, bool caseFlag)
+PassRefPtr<Range> Editor::firstVisibleRange(const String& target, FindOptions options)
 {
     RefPtr<Range> searchRange(rangeOfContents(m_frame->document()));
-    RefPtr<Range> resultRange = findPlainText(searchRange.get(), target, true, caseFlag);
+    RefPtr<Range> resultRange = findPlainText(searchRange.get(), target, options & ~Backwards);
     ExceptionCode ec = 0;
 
     while (!insideVisibleArea(resultRange.get())) {
         searchRange->setStartAfter(resultRange->endContainer(), ec);
         if (searchRange->startContainer() == searchRange->endContainer())
             return Range::create(m_frame->document());
-        resultRange = findPlainText(searchRange.get(), target, true, caseFlag);
+        resultRange = findPlainText(searchRange.get(), target, options & ~Backwards);
     }
     
     return resultRange;
 }
 
-PassRefPtr<Range> Editor::lastVisibleRange(const String& target, bool caseFlag)
+PassRefPtr<Range> Editor::lastVisibleRange(const String& target, FindOptions options)
 {
     RefPtr<Range> searchRange(rangeOfContents(m_frame->document()));
-    RefPtr<Range> resultRange = findPlainText(searchRange.get(), target, false, caseFlag);
+    RefPtr<Range> resultRange = findPlainText(searchRange.get(), target, options | Backwards);
     ExceptionCode ec = 0;
 
     while (!insideVisibleArea(resultRange.get())) {
         searchRange->setEndBefore(resultRange->startContainer(), ec);
         if (searchRange->startContainer() == searchRange->endContainer())
             return Range::create(m_frame->document());
-        resultRange = findPlainText(searchRange.get(), target, false, caseFlag);
+        resultRange = findPlainText(searchRange.get(), target, options | Backwards);
     }
     
     return resultRange;
 }
 
-PassRefPtr<Range> Editor::nextVisibleRange(Range* currentRange, const String& target, bool forward, bool caseFlag, bool wrapFlag)
+PassRefPtr<Range> Editor::nextVisibleRange(Range* currentRange, const String& target, FindOptions options)
 {
     if (m_frame->excludeFromTextSearch())
         return Range::create(m_frame->document());
@@ -2866,8 +2938,8 @@ PassRefPtr<Range> Editor::nextVisibleRange(Range* currentRange, const String& ta
     RefPtr<Range> resultRange = currentRange;
     RefPtr<Range> searchRange(rangeOfContents(m_frame->document()));
     ExceptionCode ec = 0;
-    
-    for ( ; !insideVisibleArea(resultRange.get()); resultRange = findPlainText(searchRange.get(), target, forward, caseFlag)) {
+    bool forward = !(options & Backwards);
+    for ( ; !insideVisibleArea(resultRange.get()); resultRange = findPlainText(searchRange.get(), target, options)) {
         if (resultRange->collapsed(ec)) {
             if (!resultRange->startContainer()->isInShadowTree())
                 break;
@@ -2899,13 +2971,13 @@ PassRefPtr<Range> Editor::nextVisibleRange(Range* currentRange, const String& ta
     if (insideVisibleArea(resultRange.get()))
         return resultRange;
     
-    if (!wrapFlag)
+    if (!(options & WrapAround))
         return Range::create(m_frame->document());
 
-    if (forward)
-        return firstVisibleRange(target, caseFlag);
+    if (options & Backwards)
+        return lastVisibleRange(target, options);
 
-    return lastVisibleRange(target, caseFlag);
+    return firstVisibleRange(target, options);
 }
 
 void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, bool closeTyping, bool clearTypingStyle)
@@ -3006,9 +3078,10 @@ void Editor::computeAndSetTypingStyle(CSSStyleDeclaration* style, EditAction edi
 
     // Calculate the current typing style.
     RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
-    if (m_frame->selection()->typingStyle()) {
-        m_frame->selection()->typingStyle()->merge(mutableStyle.get());
-        mutableStyle = m_frame->selection()->typingStyle();
+    RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle();
+    if (typingStyle && typingStyle->style()) {
+        typingStyle->style()->merge(mutableStyle.get());
+        mutableStyle = typingStyle->style();
     }
 
     RefPtr<CSSValue> unicodeBidi;
@@ -3068,7 +3141,7 @@ PassRefPtr<CSSMutableStyleDeclaration> Editor::selectionComputedStyle(bool& shou
     if (!m_frame->selection()->typingStyle())
         return mutableStyle;
 
-    RefPtr<EditingStyle> typingStyle = EditingStyle::create(m_frame->selection()->typingStyle());
+    RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle();
     typingStyle->removeNonEditingProperties();
     typingStyle->prepareToApplyAt(position);
     mutableStyle->merge(typingStyle->style());
@@ -3152,13 +3225,14 @@ RenderStyle* Editor::styleForSelectionStart(Node *&nodeToRemove) const
     if (!position.node())
         return 0;
 
-    if (!m_frame->selection()->typingStyle())
+    RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle();
+    if (!typingStyle || !typingStyle->style())
         return position.node()->renderer()->style();
 
     RefPtr<Element> styleElement = m_frame->document()->createElement(spanTag, false);
 
     ExceptionCode ec = 0;
-    String styleText = m_frame->selection()->typingStyle()->cssText() + " display: inline";
+    String styleText = typingStyle->style()->cssText() + " display: inline";
     styleElement->setAttribute(styleAttr, styleText.impl(), ec);
     ASSERT(!ec);
 
@@ -3175,6 +3249,12 @@ RenderStyle* Editor::styleForSelectionStart(Node *&nodeToRemove) const
 // Searches from the beginning of the document if nothing is selected.
 bool Editor::findString(const String& target, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection)
 {
+    FindOptions options = (forward ? 0 : Backwards) | (caseFlag ? 0 : CaseInsensitive) | (wrapFlag ? WrapAround : 0) | (startInSelection ? StartInSelection : 0);
+    return findString(target, options);
+}
+
+bool Editor::findString(const String& target, FindOptions options)
+{
     if (target.isEmpty())
         return false;
 
@@ -3186,6 +3266,8 @@ bool Editor::findString(const String& target, bool forward, bool caseFlag, bool 
     RefPtr<Range> searchRange(rangeOfContents(m_frame->document()));
     VisibleSelection selection = m_frame->selection()->selection();
 
+    bool forward = !(options & Backwards);
+    bool startInSelection = options & StartInSelection;
     if (forward)
         setStart(searchRange.get(), startInSelection ? selection.visibleStart() : selection.visibleEnd());
     else
@@ -3200,7 +3282,7 @@ bool Editor::findString(const String& target, bool forward, bool caseFlag, bool 
             searchRange->setStart(shadowTreeRoot.get(), 0, ec);
     }
 
-    RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, forward, caseFlag));
+    RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, options));
     // If we started in the selection and the found range exactly matches the existing selection, find again.
     // Build a selection with the found range to remove collapsed whitespace.
     // Compare ranges instead of selection objects to ignore the way that the current selection was made.
@@ -3219,7 +3301,7 @@ bool Editor::findString(const String& target, bool forward, bool caseFlag, bool 
                 searchRange->setStart(shadowTreeRoot.get(), 0, ec);
         }
 
-        resultRange = findPlainText(searchRange.get(), target, forward, caseFlag);
+        resultRange = findPlainText(searchRange.get(), target, options);
     }
 
     ExceptionCode exception = 0;
@@ -3232,20 +3314,20 @@ bool Editor::findString(const String& target, bool forward, bool caseFlag, bool 
         else
             searchRange->setEndBefore(shadowTreeRoot->shadowParentNode(), exception);
 
-        resultRange = findPlainText(searchRange.get(), target, forward, caseFlag);
+        resultRange = findPlainText(searchRange.get(), target, options);
     }
 
     if (!insideVisibleArea(resultRange.get())) {
-        resultRange = nextVisibleRange(resultRange.get(), target, forward, caseFlag, wrapFlag);
+        resultRange = nextVisibleRange(resultRange.get(), target, options);
         if (!resultRange)
             return false;
     }
 
     // If we didn't find anything and we're wrapping, search again in the entire document (this will
     // redundantly re-search the area already searched in some cases).
-    if (resultRange->collapsed(exception) && wrapFlag) {
+    if (resultRange->collapsed(exception) && options & WrapAround) {
         searchRange = rangeOfContents(m_frame->document());
-        resultRange = findPlainText(searchRange.get(), target, forward, caseFlag);
+        resultRange = findPlainText(searchRange.get(), target, options);
         // We used to return false here if we ended up with the same range that we started with
         // (e.g., the selection was already the only instance of this text). But we decided that
         // this should be a success case instead, so we'll just fall through in that case.
@@ -3259,7 +3341,7 @@ bool Editor::findString(const String& target, bool forward, bool caseFlag, bool 
     return true;
 }
 
-unsigned Editor::countMatchesForText(const String& target, bool caseFlag, unsigned limit, bool markMatches)
+unsigned Editor::countMatchesForText(const String& target, FindOptions options, unsigned limit, bool markMatches)
 {
     if (target.isEmpty())
         return 0;
@@ -3269,7 +3351,7 @@ unsigned Editor::countMatchesForText(const String& target, bool caseFlag, unsign
     ExceptionCode exception = 0;
     unsigned matchCount = 0;
     do {
-        RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, true, caseFlag));
+        RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, options & ~Backwards));
         if (resultRange->collapsed(exception)) {
             if (!resultRange->startContainer()->isInShadowTree())
                 break;

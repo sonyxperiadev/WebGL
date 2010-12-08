@@ -45,17 +45,16 @@ PassRefPtr<IDBTransactionBackendInterface> IDBTransactionBackendProxy::create(Pa
 IDBTransactionBackendProxy::IDBTransactionBackendProxy(PassOwnPtr<WebKit::WebIDBTransaction> transaction)
     : m_webIDBTransaction(transaction)
 {
-    if (!m_webIDBTransaction)
-        m_webIDBTransaction = adoptPtr(new WebKit::WebIDBTransaction());
+    ASSERT(m_webIDBTransaction);
 }
 
 IDBTransactionBackendProxy::~IDBTransactionBackendProxy()
 {
 }
 
-PassRefPtr<IDBObjectStoreBackendInterface> IDBTransactionBackendProxy::objectStore(const String& name)
+PassRefPtr<IDBObjectStoreBackendInterface> IDBTransactionBackendProxy::objectStore(const String& name, ExceptionCode& ec)
 {
-    WebKit::WebIDBObjectStore* objectStore = m_webIDBTransaction->objectStore(name);
+    WebKit::WebIDBObjectStore* objectStore = m_webIDBTransaction->objectStore(name, ec);
     if (!objectStore)
         return 0;
     return IDBObjectStoreProxy::create(objectStore);

@@ -70,11 +70,11 @@ public:
     virtual void removeClientFromCache(RenderObject*, bool markForInvalidation = true);
 
     virtual bool applyResource(RenderObject*, RenderStyle*, GraphicsContext*&, unsigned short resourceMode);
-    virtual void postApplyResource(RenderObject*, GraphicsContext*&, unsigned short resourceMode);
+    virtual void postApplyResource(RenderObject*, GraphicsContext*&, unsigned short resourceMode, const Path*);
 
     virtual FloatRect resourceBoundingBox(RenderObject*);
 
-    PassRefPtr<SVGFilterBuilder> buildPrimitives();
+    PassRefPtr<SVGFilterBuilder> buildPrimitives(Filter*);
 
     SVGUnitTypes::SVGUnitType filterUnits() const { return toUnitType(static_cast<SVGFilterElement*>(node())->filterUnits()); }
     SVGUnitTypes::SVGUnitType primitiveUnits() const { return toUnitType(static_cast<SVGFilterElement*>(node())->primitiveUnits()); }

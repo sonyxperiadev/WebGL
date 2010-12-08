@@ -55,7 +55,7 @@ public:
 
     // In order of the least to the highest precedent in terms of sort order.
     enum Type {
-        NullType = 0,
+        NullType = 0, // FIXME: Phase out support for null keys.
         StringType,
         NumberType
     };
@@ -78,8 +78,8 @@ public:
 
     bool isEqual(IDBKey* other);
     String whereSyntax(String qualifiedTableName = "") const;
-    String leftCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
-    String rightCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
+    String lowerCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
+    String upperCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
     int bind(SQLiteStatement& query, int column) const;
     void bindWithNulls(SQLiteStatement& query, int baseColumn) const;
 

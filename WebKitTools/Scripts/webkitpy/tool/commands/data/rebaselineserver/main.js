@@ -30,11 +30,22 @@
 
 var ALL_DIRECTORY_PATH = '[all]';
 
+var STATE_NEEDS_REBASELINE = 'needs_rebaseline';
+var STATE_REBASELINE_FAILED = 'rebaseline_failed';
+var STATE_REBASELINE_SUCCEEDED = 'rebaseline_succeeded';
+var STATE_IN_QUEUE = 'in_queue';
+var STATE_TO_DISPLAY_STATE = {};
+STATE_TO_DISPLAY_STATE[STATE_NEEDS_REBASELINE] = 'Needs rebaseline';
+STATE_TO_DISPLAY_STATE[STATE_REBASELINE_FAILED] = 'Rebaseline failed';
+STATE_TO_DISPLAY_STATE[STATE_REBASELINE_SUCCEEDED] = 'Rebaseline succeeded';
+STATE_TO_DISPLAY_STATE[STATE_IN_QUEUE] = 'In queue';
+
 var results;
 var testsByFailureType = {};
 var testsByDirectory = {};
 var selectedTests = [];
 var loupe;
+var queue;
 
 function main()
 {
@@ -44,7 +55,10 @@ function main()
     $('next-test').addEventListener('click', nextTest);
     $('previous-test').addEventListener('click', previousTest);
 
+    $('toggle-log').addEventListener('click', function() { toggle('log'); });
+
     loupe = new Loupe();
+    queue = new RebaselineQueue();
 
     document.addEventListener('keydown', function(event) {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -60,7 +74,30 @@ function main()
             event.preventDefault();
             nextTest();
             break;
+        case 'U+0051': // q
+            queue.addCurrentTest();
+            break;
+        case 'U+0058': // x
+            queue.removeCurrentTest();
+            break;
+        case 'U+0052': // r
+            queue.rebaseline();
+            break;
         }
+    });
+
+    loadText('/platforms.json', function(text) {
+        var platforms = JSON.parse(text);
+        platforms.platforms.forEach(function(platform) {
+            var platformOption = document.createElement('option');
+            platformOption.value = platform;
+            platformOption.textContent = platform;
+
+            var targetOption = platformOption.cloneNode(true);
+            targetOption.selected = platform == platforms.defaultPlatform;
+            $('baseline-target').appendChild(targetOption);
+            $('baseline-move-to').appendChild(platformOption.cloneNode(true));
+        });
     });
 
     loadText('/results.json', function(text) {
@@ -104,7 +141,7 @@ function displayResults()
 
     selectFailureType();
 
-    document.body.classList.remove('loading');
+    document.body.className = '';
 }
 
 /**
@@ -212,8 +249,61 @@ function selectTest()
         $('text-outputs').style.display = 'none';
     }
 
+    var currentBaselines = $('current-baselines');
+    currentBaselines.textContent = '';
+    var baselines = results.tests[selectedTest].baselines;
+    var testName = selectedTest.split('.').slice(0, -1).join('.');
+    getSortedKeys(baselines).forEach(function(platform, i) {
+        if (i != 0) {
+            currentBaselines.appendChild(document.createTextNode('; '));
+        }
+        var platformName = document.createElement('span');
+        platformName.className = 'platform';
+        platformName.textContent = platform;
+        currentBaselines.appendChild(platformName);
+        currentBaselines.appendChild(document.createTextNode(' ('));
+        getSortedKeys(baselines[platform]).forEach(function(extension, j) {
+            if (j != 0) {
+                currentBaselines.appendChild(document.createTextNode(', '));
+            }
+            var link = document.createElement('a');
+            var baselinePath = '';
+            if (platform != 'base') {
+                baselinePath += 'platform/' + platform + '/';
+            }
+            baselinePath += testName + '-expected' + extension;
+            link.href = getTracUrl(baselinePath);
+            if (extension == '.checksum') {
+                link.textContent = 'chk';
+            } else {
+                link.textContent = extension.substring(1);
+            }
+            link.target = '_blank';
+            if (baselines[platform][extension]) {
+                link.className = 'was-used-for-test';
+            }
+            currentBaselines.appendChild(link);
+        });
+        currentBaselines.appendChild(document.createTextNode(')'));
+    });
+
     updateState();
     loupe.hide();
+
+    prefetchNextImageTest();
+}
+
+function prefetchNextImageTest()
+{
+    var testSelector = $('test-selector');
+    if (testSelector.selectedIndex == testSelector.options.length - 1) {
+        return;
+    }
+    var nextTest = testSelector.options[testSelector.selectedIndex + 1].value;
+    if (results.tests[nextTest].actual.indexOf('IMAGE') != -1) {
+        new Image().src = getTestResultUrl(nextTest, 'expected-image');
+        new Image().src = getTestResultUrl(nextTest, 'actual-image');
+    }
 }
 
 function updateState()
@@ -227,8 +317,13 @@ function updateState()
     $('next-test').disabled = testIndex == testCount - 1;
     $('previous-test').disabled = testIndex == 0;
 
-    $('test-link').href =
-        'http://trac.webkit.org/browser/trunk/LayoutTests/' + testName;
+    $('test-link').href = getTracUrl(testName);
+
+    var state = results.tests[testName].state;
+    $('state').className = state;
+    $('state').innerHTML = STATE_TO_DISPLAY_STATE[state];
+
+    queue.updateState();
 }
 
 function getTestResultUrl(testName, mode)
@@ -266,6 +361,7 @@ function displayImageResults(testName)
 
     $('diff-canvas').className = 'loading';
     $('diff-canvas').style.display = '';
+    $('diff-checksum').style.display = 'none';
 }
 
 /**
@@ -317,6 +413,7 @@ function updateImageDiff() {
     var diffWidth = diffImageData.width;
     var diff = diffImageData.data;
 
+    var hadDiff = false;
     for (var x = 0; x < expectedWidth; x++) {
         for (var y = 0; y < expectedHeight; y++) {
             var expectedOffset = (y * expectedWidth + x) * 4;
@@ -326,6 +423,7 @@ function updateImageDiff() {
                 expected[expectedOffset + 1] != actual[actualOffset + 1] ||
                 expected[expectedOffset + 2] != actual[actualOffset + 2] ||
                 expected[expectedOffset + 3] != actual[actualOffset + 3]) {
+                hadDiff = true;
                 diff[diffOffset] = 255;
                 diff[diffOffset + 1] = 0;
                 diff[diffOffset + 2] = 0;
@@ -345,19 +443,27 @@ function updateImageDiff() {
         0, 0,
         diffImageData.width, diffImageData.height);
     diffCanvas.className = '';
+
+    if (!hadDiff) {
+        diffCanvas.style.display = 'none';
+        $('diff-checksum').style.display = '';
+        loadTextResult(currentExpectedImageTest, 'expected-checksum');
+        loadTextResult(currentExpectedImageTest, 'actual-checksum');
+    }
+}
+
+function loadTextResult(testName, mode)
+{
+    loadText(getTestResultUrl(testName, mode), function(text) {
+        $(mode).textContent = text;
+    });
 }
 
 function displayTextResults(testName)
 {
-    function loadTextResult(mode) {
-        loadText(getTestResultUrl(testName, mode), function(text) {
-            $(mode).textContent = text;
-        });
-    }
-
-    loadTextResult('expected-text');
-    loadTextResult('actual-text');
-    loadTextResult('diff-text');
+    loadTextResult(testName, 'expected-text');
+    loadTextResult(testName, 'actual-text');
+    loadTextResult(testName, 'diff-text');
 }
 
 function nextTest()

@@ -24,6 +24,7 @@
 #include "config.h"
 #include "WebKitDOMBinding.h"
 
+#include "DOMObjectCache.h"
 #include "Element.h"
 #include "Event.h"
 #include "EventException.h"
@@ -43,32 +44,6 @@ namespace WebKit {
 
 using namespace WebCore;
 using namespace WebCore::HTMLNames;
-
-// DOMObjectCache
-
-typedef HashMap<void*, gpointer> DOMObjectMap;
-
-static DOMObjectMap& domObjects()
-{
-    static DOMObjectMap staticDOMObjects;
-    return staticDOMObjects;
-}
-
-gpointer DOMObjectCache::get(void* objectHandle)
-{
-    return domObjects().get(objectHandle);
-}
-
-gpointer DOMObjectCache::put(void* objectHandle, gpointer wrapper)
-{
-    domObjects().set(objectHandle, wrapper);
-    return wrapper;
-}
-
-void DOMObjectCache::forget(void* objectHandle)
-{
-    domObjects().take(objectHandle);
-}
 
 // kit methods
 
@@ -94,26 +69,26 @@ static gpointer createWrapper(Node* node)
     return DOMObjectCache::put(node, wrappedNode);
 }
 
-gpointer kit(Node* node)
+WebKitDOMNode* kit(Node* node)
 {
     if (!node)
         return 0;
 
     gpointer kitNode = DOMObjectCache::get(node);
     if (kitNode)
-        return kitNode;
+        return static_cast<WebKitDOMNode*>(kitNode);
 
-    return createWrapper(node);
+    return static_cast<WebKitDOMNode*>(createWrapper(node));
 }
 
-gpointer kit(Element* element)
+WebKitDOMElement* kit(Element* element)
 {
     if (!element)
         return 0;
 
     gpointer kitElement = DOMObjectCache::get(element);
     if (kitElement)
-        return kitElement;
+        return static_cast<WebKitDOMElement*>(kitElement);
 
     gpointer wrappedElement;
 
@@ -122,17 +97,17 @@ gpointer kit(Element* element)
     else
         wrappedElement = wrapElement(element);
 
-    return DOMObjectCache::put(element, wrappedElement);
+    return static_cast<WebKitDOMElement*>(DOMObjectCache::put(element, wrappedElement));
 }
 
-gpointer kit(Event* event)
+WebKitDOMEvent* kit(Event* event)
 {
     if (!event)
         return 0;
 
     gpointer kitEvent = DOMObjectCache::get(event);
     if (kitEvent)
-        return kitEvent;
+        return static_cast<WebKitDOMEvent*>(kitEvent);
 
     gpointer wrappedEvent;
 
@@ -143,7 +118,7 @@ gpointer kit(Event* event)
     else
         wrappedEvent = wrapEvent(event);
 
-    return DOMObjectCache::put(event, wrappedEvent);
+    return static_cast<WebKitDOMEvent*>(DOMObjectCache::put(event, wrappedEvent));
 }
 
 static gpointer wrapEventTarget(EventTarget* target)
@@ -163,14 +138,14 @@ static gpointer wrapEventTarget(EventTarget* target)
     return DOMObjectCache::put(target, wrappedTarget);
 }
 
-gpointer kit(WebCore::EventTarget* obj)
+WebKitDOMEventTarget* kit(WebCore::EventTarget* obj)
 {
     g_return_val_if_fail(obj, 0);
 
     if (gpointer ret = DOMObjectCache::get(obj))
-        return ret;
+        return static_cast<WebKitDOMEventTarget*>(ret);
 
-    return DOMObjectCache::put(obj, WebKit::wrapEventTarget(obj));
+    return static_cast<WebKitDOMEventTarget*>(DOMObjectCache::put(obj, WebKit::wrapEventTarget(obj)));
 }
 
 } // namespace WebKit

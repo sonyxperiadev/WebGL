@@ -39,7 +39,7 @@ WebInspector.ResourceManager = function()
         "didFinishLoading",
         "didFailLoading",
         "didLoadResourceFromMemoryCache",
-        "setOverrideContent",
+        "setInitialContent",
         "didCommitLoadForFrame",
         "frameDetachedFromParent",
         "didCreateWebSocket",
@@ -141,9 +141,11 @@ WebInspector.ResourceManager.prototype = {
         var resource = this._resourcesById[identifier];
         if (!resource)
             return;
-        this._updateResourceWithResponse(resource, response);
-        resource.type = WebInspector.Resource.Type[resourceType];
+
         resource.responseReceivedTime = time;
+        resource.type = WebInspector.Resource.Type[resourceType];
+
+        this._updateResourceWithResponse(resource, response);
 
         WebInspector.panels.network.refreshResource(resource);
         this._resourceTreeModel.addResourceToFrame(resource.loader.frameId, resource);
@@ -170,9 +172,13 @@ WebInspector.ResourceManager.prototype = {
         else
             resource.timing = response.timing;
 
-        if (response.rawHeaders) {
-            resource.requestHeaders = response.rawHeaders.requestHeaders;
-            resource.responseHeaders = response.rawHeaders.responseHeaders;
+        if (response.loadInfo) {
+            if (response.loadInfo.httpStatusCode)
+                resource.statusCode = response.loadInfo.httpStatusCode;
+            if (response.loadInfo.httpStatusText)
+                resource.statusText = response.loadInfo.httpStatusText;
+            resource.requestHeaders = response.loadInfo.requestHeaders;
+            resource.responseHeaders = response.loadInfo.responseHeaders;
         }
     },
 
@@ -194,8 +200,8 @@ WebInspector.ResourceManager.prototype = {
         if (!resource)
             return;
 
-        resource.finished = true;
         resource.endTime = finishTime;
+        resource.finished = true;
 
         WebInspector.panels.network.refreshResource(resource);
         WebInspector.panels.audits.resourceFinished(resource);
@@ -242,14 +248,14 @@ WebInspector.ResourceManager.prototype = {
         this._updateResourceWithResponse(resource, cachedResource.response);
     },
 
-    setOverrideContent: function(identifier, sourceString, type)
+    setInitialContent: function(identifier, sourceString, type)
     {
         var resource = WebInspector.panels.network.resources[identifier];
         if (!resource)
             return;
 
         resource.type = WebInspector.Resource.Type[type];
-        resource.content = sourceString;
+        resource.setInitialContent(sourceString);
         WebInspector.panels.resources.refreshResource(resource);
         WebInspector.panels.network.refreshResource(resource);
     },
@@ -441,8 +447,9 @@ WebInspector.ResourceManager.createResourceView = function(resource)
     }
 }
 
-WebInspector.ResourceManager.resourceViewTypeMatchesResource = function(resource, resourceView)
+WebInspector.ResourceManager.resourceViewTypeMatchesResource = function(resource)
 {
+    var resourceView = resource._resourcesView;
     switch (resource.category) {
     case WebInspector.resourceCategories.documents:
     case WebInspector.resourceCategories.stylesheets:
@@ -465,6 +472,28 @@ WebInspector.ResourceManager.resourceViewForResource = function(resource)
     if (!resource._resourcesView)
         resource._resourcesView = WebInspector.ResourceManager.createResourceView(resource);
     return resource._resourcesView;
+}
+
+WebInspector.ResourceManager.recreateResourceView = function(resource)
+{
+    var newView = WebInspector.ResourceManager.createResourceView(resource);
+
+    var oldView = resource._resourcesView;
+    var oldViewParentNode = oldView.visible ? oldView.element.parentNode : null;
+    var scrollTop = oldView.scrollTop;
+
+    resource._resourcesView.detach();
+    delete resource._resourcesView;
+
+    resource._resourcesView = newView;
+
+    if (oldViewParentNode)
+        newView.show(oldViewParentNode);
+    if (scrollTop)
+        newView.scrollTop = scrollTop;
+
+    WebInspector.panels.scripts.viewRecreated(oldView, newView);
+    return newView;
 }
 
 WebInspector.ResourceManager.existingResourceViewForResource = function(resource)

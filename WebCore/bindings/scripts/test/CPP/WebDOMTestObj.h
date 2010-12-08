@@ -32,6 +32,7 @@ class TestObj;
 
 class WebDOMEventListener;
 class WebDOMIDBKey;
+class WebDOMOptionsObject;
 class WebDOMString;
 class WebDOMTestObj;
 
@@ -60,6 +61,10 @@ public:
     int readOnlyIntAttr() const;
     WebDOMString readOnlyStringAttr() const;
     WebDOMTestObj readOnlyTestObjAttr() const;
+    short shortAttr() const;
+    void setShortAttr(short);
+    unsigned short unsignedShortAttr() const;
+    void setUnsignedShortAttr(unsigned short);
     int intAttr() const;
     void setIntAttr(int);
     long long longLongAttr() const;
@@ -132,6 +137,7 @@ public:
     WebDOMTestObj methodThatRequiresAllArgsAndThrows(const WebDOMString& strArg, const WebDOMTestObj& objArg);
     void serializedValue(const WebDOMString& serializedArg);
     void idbKey(const WebDOMIDBKey& key);
+    void optionsObject(const WebDOMOptionsObject& oo, const WebDOMOptionsObject& ooo);
     void methodWithException();
     void customMethod();
     void customMethodWithArgs(int intArg, const WebDOMString& strArg, const WebDOMTestObj& objArg);

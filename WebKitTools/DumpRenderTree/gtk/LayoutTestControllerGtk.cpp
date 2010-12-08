@@ -500,7 +500,7 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     setGeolocationPermissionCommon(allow);
 }
 
-void LayoutTestController::setMockSpeechInputResult(JSStringRef result, JSStringRef language)
+void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.
@@ -558,6 +558,12 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     webkit_web_view_execute_core_command_by_name(view, cName, cValue);
     g_free(cName);
     g_free(cValue);
+}
+
+bool LayoutTestController::findString(JSContextRef /* context */, JSStringRef /* target */, JSObjectRef /* optionsArray */)
+{
+    // FIXME: Implement
+    return false;
 }
 
 bool LayoutTestController::isCommandEnabled(JSStringRef name)

@@ -26,7 +26,6 @@
     line-height: 17px;
     height: 37px;
     border-right: 1px solid rgb(210, 210, 210);
-    -webkit-user-select: none;
     vertical-align: middle;
 }
 
@@ -72,6 +71,11 @@
 
 .network-sidebar .data-grid td.name-column {
     font-weight: bold;
+    cursor: pointer;
+}
+
+.network.panel:not(.viewing-resource) .network-sidebar td.name-column:hover {
+    text-decoration: underline;
 }
 
 .network-sidebar .data-grid td.method-column,
@@ -97,11 +101,15 @@
 
 .network-cell-subtitle {
     font-weight: normal;
-    color: grey;
+    color: gray;
+}
+
+.network-sidebar tr.selected .network-cell-subtitle {
+    color: white;
 }
 
 .network-header-subtitle {
-    color: grey;
+    color: gray;
 }
 
 .network-sidebar .data-grid.small .network-cell-subtitle,
@@ -362,7 +370,7 @@
 
 .network-timing-row {
     position: relative;
-    height: 12px;
+    height: 16px;
 }
 
 .network-timing-bar {
@@ -370,10 +378,14 @@
     background-color: red;
     border-left: 1px solid red;
     opacity: 0.4;
+    top: 0;
+    bottom: 0;
 }
 
 .network-timing-bar-title {
     position: absolute;
+    color: black;
+    top: 1px;
 }
 
 .network-dim-cell {
@@ -629,17 +641,178 @@
     color: black;
 }
 
-#network-views .resource-view .tabbed-pane-header {
+#network-views .network-item-view .tabbed-pane-header {
     height: 31px;
     padding-top: 8px;
     padding-left: 25px;
+    white-space: nowrap;
 }
 
-#network-views.small .resource-view .tabbed-pane-header {
+#network-views.small .network-item-view .tabbed-pane-header {
     height: 23px;
     padding-top: 0;
 }
 
 .network.panel.viewing-resource .data-grid .data-container {
     padding-right: 0;
+}
+
+.network-item-view {
+    display: none;
+    position: absolute;
+    background: white;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.network-item-view.visible {
+    display: -webkit-box;
+}
+
+.network-item-view .tabbed-pane-header {
+    height: 20px;
+    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(236, 236, 236)), to(rgb(217, 217, 217)));
+    border-bottom: 1px solid rgb(163, 163, 163);
+}
+
+.network-item-view .scope-bar li {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.resource-headers-view {
+    display: none;
+    padding: 6px;
+    -webkit-user-select: text;    
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
+}
+
+.resource-headers-view.visible {
+    display: block;
+}
+
+.resource-headers-view .outline-disclosure .parent {
+    -webkit-user-select: none;
+    font-weight: bold;
+}
+
+.resource-headers-view .outline-disclosure .children li {
+    white-space: nowrap;
+}
+
+.resource-headers-view .outline-disclosure li.expanded .header-count {
+    display: none;
+}
+
+.resource-headers-view .outline-disclosure .header-name {
+    color: rgb(33%, 33%, 33%);
+    display: inline-block;
+    margin-right: 0.5em;
+    font-weight: bold;
+    vertical-align: top;
+    white-space: pre-wrap;
+}
+
+.resource-headers-view .outline-disclosure .header-value {
+    display: inline;
+    margin-right: 100px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 1px;
+}
+
+.resource-headers-view .outline-disclosure .raw-form-data {
+    white-space: pre-wrap;
+}
+
+.resource-cookies-view {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    overflow: auto;
+    padding: 12px;
+    height: 100%;
+}
+
+.resource-cookies-view.visible {
+    display: block;
+}
+
+.resource-cookies-view .data-grid {
+    height: 100%;
+}
+
+.resource-cookies-view .data-grid .row-group {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.resource-timing-view {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    padding: 6px;
+    font-weight: bold;
+    font-size: 11px;
+    color: rgb(30%, 30%, 30%);
+}
+
+.resource-timing-view table {
+    border-spacing: 21px 0;
+}
+
+.resource-timing-view .network-timing-bar {
+    opacity: 1;
+}
+
+.resource-timing-view .network-timing-bar.proxy {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(239, 228, 176)), to(rgb(139, 128, 76)));
+    border-left: 1px solid rgb(139, 128, 76);
+}
+
+.resource-timing-view .network-timing-bar.dns {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(153, 208, 216)), to(rgb(81, 174, 189)));
+    border-left: 1px solid rgb(81, 174, 189);
+}
+
+.resource-timing-view .network-timing-bar.connecting {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(203, 232, 145)), to(rgb(160, 214, 56)));
+    border-left: 1px solid rgb(160, 214, 56);
+}
+
+.resource-timing-view .network-timing-bar.ssl {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(21, 232, 145)), to(rgb(216, 149, 132)));
+    border-left: 1px solid rgb(216, 149, 132);
+}
+
+.resource-timing-view .network-timing-bar.sending {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(232, 192, 182)), to(rgb(216, 147, 130)));
+    border-left: 1px solid rgb(216, 147, 130);
+}
+
+.resource-timing-view .network-timing-bar.waiting {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(188, 179, 208)), to(rgb(141, 125, 175)));
+    border-left: 1px solid rgb(141, 125, 175);
+}
+
+.resource-timing-view .network-timing-bar.receiving {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(214, 214, 214)), to(rgb(182, 182, 182)));
+    border-left: 1px solid rgb(182, 182, 182);
+}
+
+.resource-timing-view.visible {
+    display: block;
 }

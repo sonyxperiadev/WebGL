@@ -99,7 +99,6 @@ SET(WebCore_IDL_INCLUDES
 
 SET(WebCore_IDL_PURE_FILES
     svg/ElementTimeControl.idl
-    svg/SVGAnimatedPathData.idl
     svg/SVGExternalResourcesRequired.idl
     svg/SVGFilterPrimitiveStandardAttributes.idl
     svg/SVGFitToViewBox.idl
@@ -129,6 +128,7 @@ SET(WebCore_IDL_FILES
     css/CSSValue.idl
     css/CSSValueList.idl
     css/MediaList.idl
+    css/MediaQueryList.idl
     css/Rect.idl
     css/RGBColor.idl
     css/StyleMedia.idl
@@ -293,6 +293,7 @@ SET(WebCore_IDL_FILES
     html/canvas/CanvasPattern.idl
     html/canvas/CanvasRenderingContext2D.idl
     html/canvas/CanvasRenderingContext.idl
+    html/canvas/DataView.idl
     html/canvas/Float32Array.idl
     html/canvas/Int16Array.idl
     html/canvas/Int32Array.idl
@@ -330,6 +331,9 @@ SET(WebCore_IDL_FILES
     page/PerformanceTiming.idl
     page/PositionError.idl
     page/Screen.idl
+    page/SpeechInputEvent.idl
+    page/SpeechInputResult.idl
+    page/SpeechInputResultList.idl
     page/WebKitPoint.idl
     page/WorkerNavigator.idl
 
@@ -535,12 +539,6 @@ IF (ENABLE_SVG)
 ENDIF()
 
 SET(WebCore_SOURCES
-    ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp
-    ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp
-    ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp
-    ${DERIVED_SOURCES_DIR}/ColorData.cpp
-    ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
-    ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
     ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp
     ${DERIVED_SOURCES_DIR}/JSWebSocket.cpp
 
@@ -575,24 +573,40 @@ SET(WebCore_SOURCES
     bindings/js/DOMWrapperWorld.cpp
     bindings/js/GCController.cpp
     bindings/js/IDBBindingUtilities.cpp
-    bindings/js/JavaScriptCallFrame.cpp
     bindings/js/JSAttrCustom.cpp
-    bindings/js/JSCallbackData.cpp
-    bindings/js/JSCanvasRenderingContext2DCustom.cpp
-    bindings/js/JSCanvasRenderingContextCustom.cpp
     bindings/js/JSCDATASectionCustom.cpp
-    bindings/js/JSClipboardCustom.cpp
-    bindings/js/JSConsoleCustom.cpp
-    bindings/js/JSCoordinatesCustom.cpp
+    bindings/js/JSCSSFontFaceRuleCustom.cpp
+    bindings/js/JSCSSImportRuleCustom.cpp
+    bindings/js/JSCSSMediaRuleCustom.cpp
+    bindings/js/JSCSSPageRuleCustom.cpp
     bindings/js/JSCSSRuleCustom.cpp
     bindings/js/JSCSSRuleListCustom.cpp
     bindings/js/JSCSSStyleDeclarationCustom.cpp
+    bindings/js/JSCSSStyleRuleCustom.cpp
     bindings/js/JSCSSValueCustom.cpp
+    bindings/js/JSCallbackData.cpp
+    bindings/js/JSCanvasRenderingContext2DCustom.cpp
+    bindings/js/JSCanvasRenderingContextCustom.cpp
+    bindings/js/JSClipboardCustom.cpp
+    bindings/js/JSConsoleCustom.cpp
+    bindings/js/JSCoordinatesCustom.cpp
     bindings/js/JSCustomPositionCallback.cpp
     bindings/js/JSCustomPositionErrorCallback.cpp
     bindings/js/JSCustomSQLStatementErrorCallback.cpp
     bindings/js/JSCustomVoidCallback.cpp
     bindings/js/JSCustomXPathNSResolver.cpp
+    bindings/js/JSDOMApplicationCacheCustom.cpp
+    bindings/js/JSDOMBinding.cpp
+    bindings/js/JSDOMFormDataCustom.cpp
+    bindings/js/JSDOMGlobalObject.cpp
+    bindings/js/JSDOMMimeTypeArrayCustom.cpp
+    bindings/js/JSDOMPluginArrayCustom.cpp
+    bindings/js/JSDOMPluginCustom.cpp
+    bindings/js/JSDOMStringMapCustom.cpp
+    bindings/js/JSDOMWindowBase.cpp
+    bindings/js/JSDOMWindowCustom.cpp
+    bindings/js/JSDOMWindowShell.cpp
+    bindings/js/JSDOMWrapper.cpp
     bindings/js/JSDataGridColumnListCustom.cpp
     bindings/js/JSDataGridDataSource.cpp
     bindings/js/JSDebugWrapperSet.cpp
@@ -600,15 +614,6 @@ SET(WebCore_SOURCES
     bindings/js/JSDeviceMotionEventCustom.cpp
     bindings/js/JSDeviceOrientationEventCustom.cpp
     bindings/js/JSDocumentCustom.cpp
-    bindings/js/JSDOMApplicationCacheCustom.cpp
-    bindings/js/JSDOMBinding.cpp
-    bindings/js/JSDOMFormDataCustom.cpp
-    bindings/js/JSDOMGlobalObject.cpp
-    bindings/js/JSDOMStringMapCustom.cpp
-    bindings/js/JSDOMWindowBase.cpp
-    bindings/js/JSDOMWindowCustom.cpp
-    bindings/js/JSDOMWindowShell.cpp
-    bindings/js/JSDOMWrapper.cpp
     bindings/js/JSElementCustom.cpp
     bindings/js/JSEventCustom.cpp
     bindings/js/JSEventListener.cpp
@@ -617,9 +622,6 @@ SET(WebCore_SOURCES
     bindings/js/JSExceptionBase.cpp
     bindings/js/JSFileReaderCustom.cpp
     bindings/js/JSGeolocationCustom.cpp
-    bindings/js/JSHistoryCustom.cpp
-    bindings/js/JSIDBAnyCustom.cpp
-    bindings/js/JSIDBKeyCustom.cpp
     bindings/js/JSHTMLAllCollectionCustom.cpp
     bindings/js/JSHTMLAppletElementCustom.cpp
     bindings/js/JSHTMLCanvasElementCustom.cpp
@@ -632,10 +634,15 @@ SET(WebCore_SOURCES
     bindings/js/JSHTMLFrameElementCustom.cpp
     bindings/js/JSHTMLFrameSetElementCustom.cpp
     bindings/js/JSHTMLInputElementCustom.cpp
+    bindings/js/JSHTMLLinkElementCustom.cpp
     bindings/js/JSHTMLObjectElementCustom.cpp
     bindings/js/JSHTMLOptionsCollectionCustom.cpp
     bindings/js/JSHTMLOutputElementCustom.cpp
     bindings/js/JSHTMLSelectElementCustom.cpp
+    bindings/js/JSHTMLStyleElementCustom.cpp
+    bindings/js/JSHistoryCustom.cpp
+    bindings/js/JSIDBAnyCustom.cpp
+    bindings/js/JSIDBKeyCustom.cpp
     bindings/js/JSImageConstructor.cpp
     bindings/js/JSImageDataCustom.cpp
     bindings/js/JSInjectedScriptHostCustom.cpp
@@ -647,7 +654,6 @@ SET(WebCore_SOURCES
     bindings/js/JSMessageChannelCustom.cpp
     bindings/js/JSMessageEventCustom.cpp
     bindings/js/JSMessagePortCustom.cpp
-    bindings/js/JSDOMMimeTypeArrayCustom.cpp
     bindings/js/JSNamedNodeMapCustom.cpp
     bindings/js/JSNavigatorCustom.cpp
     bindings/js/JSNodeCustom.cpp
@@ -656,15 +662,14 @@ SET(WebCore_SOURCES
     bindings/js/JSNodeIteratorCustom.cpp
     bindings/js/JSNodeListCustom.cpp
     bindings/js/JSOptionConstructor.cpp
-    bindings/js/JSDOMPluginArrayCustom.cpp
-    bindings/js/JSDOMPluginCustom.cpp
     bindings/js/JSPluginElementFunctions.cpp
     bindings/js/JSPopStateEventCustom.cpp
-    bindings/js/JSScriptProfileNodeCustom.cpp
-    bindings/js/JSSharedWorkerCustom.cpp
+    bindings/js/JSProcessingInstructionCustom.cpp
     bindings/js/JSSQLResultSetRowListCustom.cpp
     bindings/js/JSSQLTransactionCustom.cpp
     bindings/js/JSSQLTransactionSyncCustom.cpp
+    bindings/js/JSScriptProfileNodeCustom.cpp
+    bindings/js/JSSharedWorkerCustom.cpp
     bindings/js/JSStorageCustom.cpp
     bindings/js/JSStyleSheetCustom.cpp
     bindings/js/JSStyleSheetListCustom.cpp
@@ -672,6 +677,8 @@ SET(WebCore_SOURCES
     bindings/js/JSTouchCustom.cpp
     bindings/js/JSTouchListCustom.cpp
     bindings/js/JSTreeWalkerCustom.cpp
+    bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp
+    bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp
     bindings/js/JSWebKitCSSMatrixCustom.cpp
     bindings/js/JSWebKitPointCustom.cpp
     bindings/js/JSWebSocketCustom.cpp
@@ -682,6 +689,7 @@ SET(WebCore_SOURCES
     bindings/js/JSXMLHttpRequestCustom.cpp
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
     bindings/js/JSXSLTProcessorCustom.cpp
+    bindings/js/JavaScriptCallFrame.cpp
     bindings/js/ScheduledAction.cpp
     bindings/js/ScriptCachedFrameData.cpp
     bindings/js/ScriptCallStackFactory.cpp
@@ -763,6 +771,9 @@ SET(WebCore_SOURCES
     css/MediaQuery.cpp
     css/MediaQueryEvaluator.cpp
     css/MediaQueryExp.cpp
+    css/MediaQueryList.cpp
+    css/MediaQueryListListener.cpp
+    css/MediaQueryMatcher.cpp
     css/RGBColor.cpp
     css/ShadowValue.cpp
     css/StyleBase.cpp
@@ -1356,6 +1367,7 @@ SET(WebCore_SOURCES
     platform/image-decoders/webp/WEBPImageDecoder.cpp
 
     platform/mock/DeviceOrientationClientMock.cpp
+    platform/mock/GeolocationClientMock.cpp
     platform/mock/GeolocationServiceMock.cpp
 
     platform/network/AuthenticationChallengeBase.cpp
@@ -1601,6 +1613,25 @@ SET(WebCore_SOURCES
     xml/XSLTUnicodeSort.cpp
 )
 
+SET(WebCore_CSS_PROPERTY_NAMES
+    ${WEBCORE_DIR}/css/CSSPropertyNames.in
+)
+
+SET(WebCore_CSS_VALUE_KEYWORDS
+    ${WEBCORE_DIR}/css/CSSValueKeywords.in
+)
+
+SET(WebCore_USER_AGENT_STYLE_SHEETS
+    ${WEBCORE_DIR}/css/html.css
+    ${WEBCORE_DIR}/css/mathml.css
+    ${WEBCORE_DIR}/css/mediaControls.css
+    ${WEBCORE_DIR}/css/mediaControlsGtk.css
+    ${WEBCORE_DIR}/css/quirks.css
+    ${WEBCORE_DIR}/css/svg.css
+    ${WEBCORE_DIR}/css/view-source.css
+    ${WEBCORE_DIR}/css/wml.css
+)
+
 IF (ENABLE_BLOB)
     LIST(APPEND WebCore_SOURCES
         fileapi/FileReader.cpp
@@ -1678,6 +1709,7 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/FileEntrySync.cpp
         fileapi/FileSystemCallbacks.cpp
         fileapi/FileWriter.cpp
+        fileapi/FileWriterBase.cpp
         fileapi/FileWriterSync.cpp
         fileapi/LocalFileSystem.cpp
         platform/AsyncFileSystem.cpp
@@ -1714,7 +1746,6 @@ IF (ENABLE_SVG)
         bindings/js/JSSVGElementInstanceCustom.cpp
         bindings/js/JSSVGLengthCustom.cpp
         bindings/js/JSSVGPathSegCustom.cpp
-        bindings/js/JSSVGPathSegListCustom.cpp
         css/SVGCSSComputedStyleDeclaration.cpp
         css/SVGCSSParser.cpp
         css/SVGCSSStyleSelector.cpp
@@ -1778,7 +1809,6 @@ IF (ENABLE_SVG)
         svg/SVGAnimateElement.cpp
         svg/SVGAnimateMotionElement.cpp
         svg/SVGAnimateTransformElement.cpp
-        svg/SVGAnimatedPathData.cpp
         svg/SVGAnimationElement.cpp
         svg/SVGCircleElement.cpp
         svg/SVGClipPathElement.cpp
@@ -1858,20 +1888,9 @@ IF (ENABLE_SVG)
         svg/SVGPathElement.cpp
         svg/SVGPathParser.cpp
         svg/SVGPathParserFactory.cpp
-        svg/SVGPathSeg.cpp
-        svg/SVGPathSegArc.cpp
-        svg/SVGPathSegClosePath.cpp
-        svg/SVGPathSegCurvetoCubic.cpp
-        svg/SVGPathSegCurvetoCubicSmooth.cpp
-        svg/SVGPathSegCurvetoQuadratic.cpp
-        svg/SVGPathSegCurvetoQuadraticSmooth.cpp
-        svg/SVGPathSegLineto.cpp
-        svg/SVGPathSegLinetoHorizontal.cpp
-        svg/SVGPathSegLinetoVertical.cpp
         svg/SVGPathSegList.cpp
         svg/SVGPathSegListBuilder.cpp
         svg/SVGPathSegListSource.cpp
-        svg/SVGPathSegMoveto.cpp
         svg/SVGPathStringBuilder.cpp
         svg/SVGPathStringSource.cpp
         svg/SVGPathTraversalStateBuilder.cpp
@@ -1921,6 +1940,15 @@ IF (ENABLE_SVG)
         svg/graphics/filters/SVGFEImage.cpp
         svg/graphics/filters/SVGFilter.cpp
         svg/graphics/filters/SVGFilterBuilder.cpp
+        svg/properties/SVGPathSegListPropertyTearOff.cpp
+    )
+
+    LIST(APPEND WebCore_CSS_PROPERTY_NAMES
+        ${WEBCORE_DIR}/css/SVGCSSPropertyNames.in
+    )
+
+    LIST(APPEND WebCore_CSS_VALUE_KEYWORDS
+        ${WEBCORE_DIR}/css/SVGCSSValueKeywords.in
     )
 ENDIF()
 
@@ -2005,17 +2033,73 @@ GENERATE_INSPECTOR_FROM_IDL(inspector/Inspector.idl)
 LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
 
 
-GENERATE_ENTITIES(${WEBCORE_DIR}/html/parser/HTMLEntityNames.in ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/html/parser/create-html-entity-table)
-
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/ColorData.cpp)
+
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/html/DocTypeStrings)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp)
 
 
-GENERATE_TOKENIZER()
-GENERATE_USER_AGENT_STYLES()
+# Generate HTML entity table
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/html/parser/HTMLEntityNames.in
+    DEPENDS ${WEBCORE_DIR}/html/parser/create-html-entity-table
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/html/parser/create-html-entity-table -o ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/html/parser/HTMLEntityNames.in
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp)
+
+
+# Generate tokenizer
+FILE(TO_NATIVE_PATH ${PERL_EXECUTABLE} PERL_EXECUTABLE_NATIVE_PATH)
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/tokenizer.cpp
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/maketokenizer
+    DEPENDS ${WEBCORE_DIR}/css/tokenizer.flex
+    COMMAND ${FLEX_EXECUTABLE} -t ${WEBCORE_DIR}/css/tokenizer.flex | ${PERL_EXECUTABLE_NATIVE_PATH} ${WEBCORE_DIR}/css/maketokenizer > ${DERIVED_SOURCES_DIR}/tokenizer.cpp
+    VERBATIM)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
+
+
+# Generate CSS property names
+ADD_CUSTOM_COMMAND (
+    OUTPUT ${DERIVED_SOURCES_DIR}/CSSPropertyNames.in ${DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/makeprop.pl
+    DEPENDS ${WebCore_CSS_PROPERTY_NAMES}
+    WORKING_DIRECTORY ${DERIVED_SOURCES_DIR}
+    COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_PROPERTY_NAMES} > ${DERIVED_SOURCES_DIR}/CSSPropertyNames.in
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makeprop.pl
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
+
+
+# Generate CSS value keywords
+ADD_CUSTOM_COMMAND (
+    OUTPUT ${DERIVED_SOURCES_DIR}/CSSValueKeywords.in ${DERIVED_SOURCES_DIR}/CSSValueKeywords.h ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp ${DERIVED_SOURCES_DIR}/CSSValueKeywords.gperf
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/makevalues.pl
+    DEPENDS ${WebCore_CSS_VALUE_KEYWORDS}
+    WORKING_DIRECTORY ${DERIVED_SOURCES_DIR}
+    COMMAND ${PERL_EXECUTABLE} -ne "print lc" ${WebCore_CSS_VALUE_KEYWORDS} > ${DERIVED_SOURCES_DIR}/CSSValueKeywords.in
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makevalues.pl
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
+
+
+# Generate user agent styles
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp ${DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/make-css-file-arrays.pl
+    DEPENDS ${WebCore_USER_AGENT_STYLE_SHEETS}
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/make-css-file-arrays.pl ${DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp ${WebCore_USER_AGENT_STYLE_SHEETS}
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 
 GENERATE_GRAMMAR(cssyy ${WEBCORE_DIR}/css/CSSGrammar.y ${DERIVED_SOURCES_DIR}/CSSGrammar.h ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp)
@@ -2026,17 +2110,8 @@ GENERATE_GRAMMAR(xpathyy ${WEBCORE_DIR}/xml/XPathGrammar.y ${DERIVED_SOURCES_DIR
 LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp)
 
 
-GENERATE_CSS_PROPERTY_NAMES()
-GENERATE_CSS_VALUE_KEYWORDS()
 
-
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/HashTools.h DocTypeStrings.cpp CSSValueKeywords.cpp CSSPropertyNames.cpp ColorData.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 
 GENERATE_DOM_NAMES(HTML ${WEBCORE_DIR}/html/HTMLAttributeNames.in ${WEBCORE_DIR}/html/HTMLTagNames.in "${HTML_FEATURES}")

@@ -29,6 +29,9 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER_LIST(SVGFEColorMatrixElement, SVGNames::valuesAttr, Values, values)
+
 inline SVGFEColorMatrixElement::SVGFEColorMatrixElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_type(FECOLORMATRIX_TYPE_UNKNOWN)
@@ -59,7 +62,7 @@ void SVGFEColorMatrixElement::parseMappedAttribute(Attribute* attr)
         SVGNumberList newList;
         newList.parse(value);
         detachAnimatedValuesListWrappers(newList.size());
-        valuesBaseValue() = newList;
+        setValuesBaseValue(newList);
     } else
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
@@ -93,7 +96,7 @@ void SVGFEColorMatrixElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeValues();
 }
 
-PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
 
@@ -130,7 +133,7 @@ PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filter
             return 0;
     }
 
-    RefPtr<FilterEffect> effect = FEColorMatrix::create(filterType, filterValues);
+    RefPtr<FilterEffect> effect = FEColorMatrix::create(filter, filterType, filterValues);
     effect->inputEffects().append(input1);
     return effect.release();
 }

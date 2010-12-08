@@ -312,7 +312,7 @@ bool FrameView::didFirstLayout() const
 void FrameView::invalidateRect(const IntRect& rect)
 {
     if (!parent()) {
-        if (hostWindow())
+        if (hostWindow() && shouldUpdate())
             hostWindow()->invalidateContentsAndWindow(rect, false /*immediate*/);
         return;
     }
@@ -358,17 +358,7 @@ void FrameView::setMarginHeight(int h)
     m_margins.setHeight(h);
 }
 
-bool FrameView::delegatesScrolling()
-{
-    ASSERT(m_frame);
-
-    if (parent())
-        return false;
-
-    return m_frame->settings() && m_frame->settings()->shouldDelegateScrolling();
-}
-
-bool FrameView::avoidScrollbarCreation()
+bool FrameView::avoidScrollbarCreation() const
 {
     ASSERT(m_frame);
 
@@ -454,7 +444,11 @@ void FrameView::adjustViewSize()
     if (!root)
         return;
 
-    setContentsSize(IntSize(root->rightLayoutOverflow(), root->bottomLayoutOverflow()));
+    IntSize size = IntSize(root->rightLayoutOverflow() - root->leftLayoutOverflow(), root->bottomLayoutOverflow() - root->topLayoutOverflow());
+
+    ScrollView::setScrollOrigin(IntPoint(-root->leftLayoutOverflow(), -root->topLayoutOverflow()), size == contentsSize());
+    
+    setContentsSize(size);
 }
 
 void FrameView::applyOverflowToViewport(RenderObject* o, ScrollbarMode& hMode, ScrollbarMode& vMode)
@@ -1380,7 +1374,7 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
         return;
     }
     
-    if (!immediate && isOffscreen() && !shouldUpdateWhileOffscreen())
+    if (!shouldUpdate(immediate))
         return;
 
 #if ENABLE(TILED_BACKING_STORE)
@@ -1454,7 +1448,7 @@ void FrameView::checkStopDelayingDeferredRepaints()
 void FrameView::doDeferredRepaints()
 {
     ASSERT(!m_deferringRepaints);
-    if (isOffscreen() && !shouldUpdateWhileOffscreen()) {
+    if (!shouldUpdate()) {
         m_repaintRects.clear();
         m_repaintCount = 0;
         return;
@@ -1698,6 +1692,15 @@ bool FrameView::shouldUpdateWhileOffscreen() const
 void FrameView::setShouldUpdateWhileOffscreen(bool shouldUpdateWhileOffscreen)
 {
     m_shouldUpdateWhileOffscreen = shouldUpdateWhileOffscreen;
+}
+
+bool FrameView::shouldUpdate(bool immediateRequested) const
+{
+    if (!immediateRequested && isOffscreen() && !shouldUpdateWhileOffscreen())
+        return false;
+    if (!m_frame || !m_frame->document() || m_frame->document()->mayCauseFlashOfUnstyledContent())
+        return false;
+    return true;
 }
 
 void FrameView::scheduleEvent(PassRefPtr<Event> event, PassRefPtr<Node> eventTarget)

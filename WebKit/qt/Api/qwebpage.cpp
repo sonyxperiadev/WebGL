@@ -141,6 +141,11 @@
 
 using namespace WebCore;
 
+// from text/qfont.cpp
+QT_BEGIN_NAMESPACE
+extern Q_GUI_EXPORT int qt_defaultDpi();
+QT_END_NAMESPACE
+
 bool QWebPagePrivate::drtRun = false;
 
 // Lookup table mapping QWebPage::WebActions to the associated Editor commands
@@ -286,6 +291,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     , selectTrailingWhitespaceEnabled(false)
     , linkPolicy(QWebPage::DontDelegateLinks)
     , viewportSize(QSize(0, 0))
+    , pixelRatio(1)
 #ifndef QT_NO_CONTEXTMENU
     , currentContextMenu(0)
 #endif
@@ -1067,11 +1073,9 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
             if (node)
                 setSelectionRange(node, qMin(a.start, (a.start + a.length)), qMax(a.start, (a.start + a.length)));
 
-            if (!ev->preeditString().isEmpty()) {
-                editor->setComposition(ev->preeditString(), underlines,
-                                      (a.length < 0) ? a.start + a.length : a.start,
-                                      (a.length < 0) ? a.start : a.start + a.length);
-            } else {
+            if (!ev->preeditString().isEmpty())
+                editor->setComposition(ev->preeditString(), underlines, qMin(a.start, (a.start + a.length)), qMax(a.start, (a.start + a.length)));
+            else {
                 // If we are in the middle of a composition, an empty pre-edit string and a selection of zero
                 // cancels the current composition
                 if (editor->hasComposition() && (a.start + a.length == 0))
@@ -1082,10 +1086,16 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
         }
     }
 
-    if (!ev->commitString().isEmpty())
+    if (node && ev->replacementLength() > 0) {
+        int cursorPos = frame->selection()->extent().offsetInContainerNode();
+        int start = cursorPos + ev->replacementStart();
+        setSelectionRange(node, start, start + ev->replacementLength());
+        // Commit regardless of whether commitString is empty, to get rid of selection.
+        editor->confirmComposition(ev->commitString());
+    } else if (!ev->commitString().isEmpty())
         editor->confirmComposition(ev->commitString());
     else if (!hasSelection && !ev->preeditString().isEmpty())
-        editor->setComposition(ev->preeditString(), underlines, 0, ev->preeditString().length());
+        editor->setComposition(ev->preeditString(), underlines, 0, 0);
 
     ev->accept();
 }
@@ -1370,10 +1380,8 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
             return QVariant(QFont());
         }
         case Qt::ImCursorPosition: {
-            if (editor->hasComposition()) {
-                RefPtr<Range> range = editor->compositionRange();
-                return QVariant(frame->selection()->end().offsetInContainerNode() - TextIterator::rangeLength(range.get()));
-            }
+            if (editor->hasComposition())
+                return QVariant(frame->selection()->end().offsetInContainerNode());
             return QVariant(frame->selection()->extent().offsetInContainerNode());
         }
         case Qt::ImSurroundingText: {
@@ -1387,7 +1395,7 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
             return QVariant();
         }
         case Qt::ImCurrentSelection: {
-            if (renderTextControl) {
+            if (!editor->hasComposition() && renderTextControl) {
                 int start = frame->selection()->start().offsetInContainerNode();
                 int end = frame->selection()->end().offsetInContainerNode();
                 if (end > start)
@@ -1397,10 +1405,8 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
 
         }
         case Qt::ImAnchorPosition: {
-            if (editor->hasComposition()) {
-                RefPtr<Range> range = editor->compositionRange();
-                return QVariant(frame->selection()->start().offsetInContainerNode() - TextIterator::rangeLength(range.get()));
-            }
+            if (editor->hasComposition())
+                return QVariant(frame->selection()->start().offsetInContainerNode());
             return QVariant(frame->selection()->base().offsetInContainerNode());
         }
         case Qt::ImMaximumTextLength: {
@@ -2117,16 +2123,16 @@ bool QWebPage::shouldInterruptJavaScript()
 #endif
 }
 
-void QWebPage::setUserPermission(QWebFrame* frame, PermissionDomain domain, PermissionPolicy policy)
+void QWebPage::setFeaturePermission(QWebFrame* frame, Feature feature, PermissionPolicy policy)
 {
-    switch (domain) {
-    case NotificationsPermissionDomain:
+    switch (feature) {
+    case Notifications:
 #if ENABLE(NOTIFICATIONS)
-        if (policy == PermissionGranted)
+        if (policy == PermissionGrantedByUser)
             NotificationPresenterClientQt::notificationPresenter()->allowNotificationForFrame(frame->d->frame);
 #endif
         break;
-    case GeolocationPermissionDomain:
+    case Geolocation:
 #if ENABLE(GEOLOCATION)
         GeolocationPermissionClientQt::geolocationPermissionClient()->setPermission(frame, policy);
 #endif
@@ -2451,14 +2457,30 @@ static QSize queryDeviceSizeForScreenContainingWidget(const QWidget* widget)
     environment variables QTWEBKIT_DEVICE_WIDTH and QTWEBKIT_DEVICE_HEIGHT, which
     both needs to be set.
 
+    The ViewportAttributes includes a pixel density ratio, which will also be exposed to
+    the web author though the -webkit-pixel-ratio media feature. This is the ratio
+    between 1 density-independent pixel (DPI) and physical pixels.
+
+    A density-independent pixel is equivalent to one physical pixel on a 160 DPI screen,
+    so on our platform assumes that as the baseline density.
+
+    The conversion of DIP units to screen pixels is quite simple:
+
+    pixels = DIPs * (density / 160).
+
+    Thus, on a 240 DPI screen, 1 DIPs would equal 1.5 physical pixels.
+
     An invalid instance will be returned in the case an empty size is passed to the
     method.
+
+    \note The density is automatically obtained from the DPI of the screen where the page
+    is being shown, but as many X11 servers are reporting wrong DPI, it is possible to
+    override it using QX11Info::setAppDpiY().
 */
 
 QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& availableSize) const
 {
     static int desktopWidth = 980;
-    static int deviceDPI = 160;
 
     ViewportAttributes result;
 
@@ -2475,7 +2497,7 @@ QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& av
         deviceHeight = size.height();
     }
 
-    WebCore::ViewportAttributes conf = WebCore::computeViewportAttributes(d->viewportArguments(), desktopWidth, deviceWidth, deviceHeight, deviceDPI, availableSize);
+    WebCore::ViewportAttributes conf = WebCore::computeViewportAttributes(d->viewportArguments(), desktopWidth, deviceWidth, deviceHeight, qt_defaultDpi(), availableSize);
 
     result.m_isValid = true;
     result.m_size = conf.layoutSize;
@@ -2484,6 +2506,8 @@ QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& av
     result.m_maximumScaleFactor = conf.maximumScale;
     result.m_devicePixelRatio = conf.devicePixelRatio;
     result.m_isUserScalable = conf.userScalable;
+
+    d->pixelRatio = conf.devicePixelRatio;
 
     return result;
 }

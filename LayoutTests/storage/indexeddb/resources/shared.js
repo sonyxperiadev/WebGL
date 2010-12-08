@@ -87,11 +87,23 @@ function unexpectedCompleteCallback()
     done();
 }
 
+function evalAndExpectException(cmd, expected)
+{
+    debug("Expecting exception from " + cmd);
+    try {
+        eval(cmd);
+        testFailed("No exception thrown! Should have been " + expected);
+    } catch (e) {
+        code = e.code;
+        shouldBe("code", expected);
+    }
+}
+
 // FIXME: remove the onfinished parameter.
 function deleteAllObjectStores(db, onfinished)
 {
-    while (db.objectStores.length)
-        db.removeObjectStore(db.objectStores.item(0));
+    while (db.objectStoreNames.length)
+        db.deleteObjectStore(db.objectStoreNames.item(0));
 
     debug("Deleted all object stores.");
     onfinished();

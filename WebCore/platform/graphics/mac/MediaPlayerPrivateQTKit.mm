@@ -316,7 +316,7 @@ static void disableComponentsOnce()
         {'imdc', 'pdf ', 'appl', 0, 0},  
     };
 
-    for (size_t i = 0; i < sizeof(componentsToDisable)/sizeof(componentsToDisable[0]); ++i) 
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(componentsToDisable); ++i) 
         wkQTMovieDisableComponent(componentsToDisable[i]);
 }
 
@@ -896,12 +896,12 @@ void MediaPlayerPrivateQTKit::setPreservesPitch(bool preservesPitch)
     if ([[m_qtMovie.get() attributeForKey:QTMovieRateChangesPreservePitchAttribute] boolValue] == preservesPitch)
         return;
 
-    NSDictionary *movieAttributes = [[m_qtMovie.get() movieAttributes] mutableCopy];
+    RetainPtr<NSDictionary> movieAttributes(AdoptNS, [[m_qtMovie.get() movieAttributes] mutableCopy]);
     ASSERT(movieAttributes);
-    [movieAttributes setValue:[NSNumber numberWithBool:preservesPitch] forKey:QTMovieRateChangesPreservePitchAttribute];
+    [movieAttributes.get() setValue:[NSNumber numberWithBool:preservesPitch] forKey:QTMovieRateChangesPreservePitchAttribute];
     m_timeToRestore = currentTime();
 
-    createQTMovie([movieAttributes valueForKey:QTMovieURLAttribute], movieAttributes);
+    createQTMovie([movieAttributes.get() valueForKey:QTMovieURLAttribute], movieAttributes.get());
 }
 
 PassRefPtr<TimeRanges> MediaPlayerPrivateQTKit::buffered() const

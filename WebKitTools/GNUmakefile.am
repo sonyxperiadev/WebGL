@@ -73,6 +73,8 @@ Programs_DumpRenderTree_SOURCES = \
 	WebKitTools/DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp \
 	WebKitTools/DumpRenderTree/gtk/DumpRenderTree.cpp \
 	WebKitTools/DumpRenderTree/gtk/DumpRenderTreeGtk.h \
+	WebKitTools/DumpRenderTree/gtk/EditingCallbacks.h \
+	WebKitTools/DumpRenderTree/gtk/EditingCallbacks.cpp \
 	WebKitTools/DumpRenderTree/gtk/EventSender.h \
 	WebKitTools/DumpRenderTree/gtk/EventSender.cpp \
 	WebKitTools/DumpRenderTree/gtk/GCControllerGtk.cpp \
@@ -168,6 +170,7 @@ TestNetscapePlugin_libtestnetscapeplugin_la_SOURCES = \
 	WebKitTools/DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp \
 	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/DocumentOpenInDestroyStream.cpp \
 	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/EvaluateJSAfterRemovingPluginElement.cpp \
+	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/GetUserAgentWithNullNPPFromNPPNew.cpp \
 	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeObjectFromDestroyedPlugin.cpp \
 	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeRemoveProperty.cpp \
 	WebKitTools/DumpRenderTree/TestNetscapePlugIn/Tests/NullNPPGetValuePointer.cpp \

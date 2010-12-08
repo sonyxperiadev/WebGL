@@ -40,7 +40,6 @@
 #include "RenderSVGViewportContainer.h"
 #include "SMILTimeContainer.h"
 #include "SVGAngle.h"
-#include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
 #include "SVGTransform.h"
@@ -57,13 +56,14 @@ namespace WebCore {
 using namespace HTMLNames;
 using namespace SVGNames;
 
-SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::heightAttr, Height, height)
+
+inline SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledLocatableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
-    , SVGFitToViewBox()
-    , SVGZoomAndPan()
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth, "100%")
@@ -357,6 +357,7 @@ void SVGSVGElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
         synchronizeViewBox();
         synchronizePreserveAspectRatio();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -370,10 +371,12 @@ void SVGSVGElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHeight();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
-    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
+    else if (attrName == SVGNames::viewBoxAttr)
         synchronizeViewBox();
+    else if (attrName == SVGNames::preserveAspectRatioAttr)
         synchronizePreserveAspectRatio();
-    }
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 unsigned SVGSVGElement::suspendRedraw(unsigned /* maxWaitMilliseconds */)

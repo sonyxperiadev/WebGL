@@ -35,7 +35,7 @@ namespace Util {
 // Runs a platform runloop until the 'done' is true. 
 void run(bool* done);
 
-WKContextRef createContextForInjectedBundleTest(const std::string&);
+WKContextRef createContextForInjectedBundleTest(const std::string&, WKTypeRef userData = 0);
 
 WKStringRef createInjectedBundlePath();
 WKURLRef createURLForResource(const char* resource, const char* extension);

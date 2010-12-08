@@ -35,9 +35,11 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGTextElement, SVGNames::transformAttr, Transform, transform)
+
 inline SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document* doc)
     : SVGTextPositioningElement(tagName, doc)
-    , SVGTransformable()
 {
 }
 
@@ -54,7 +56,7 @@ void SVGTextElement::parseMappedAttribute(Attribute* attr)
             newList.clear();
 
         detachAnimatedTransformListWrappers(newList.size());
-        transformBaseValue() = newList;
+        setTransformBaseValue(newList);
     } else
         SVGTextPositioningElement::parseMappedAttribute(attr);
 }

@@ -104,13 +104,18 @@ public:
     virtual void setCanHaveScrollbars(bool);
     bool canHaveScrollbars() const { return horizontalScrollbarMode() != ScrollbarAlwaysOff || verticalScrollbarMode() != ScrollbarAlwaysOff; }
 
-    virtual bool delegatesScrolling() { return false; }
-    virtual bool avoidScrollbarCreation() { return false; }
+    virtual bool avoidScrollbarCreation() const { return false; }
 
     // By default you only receive paint events for the area that is visible. In the case of using a
     // tiled backing store, this function can be set, so that the view paints the entire contents.
     bool paintsEntireContents() const { return m_paintsEntireContents; }
     void setPaintsEntireContents(bool);
+
+    // By default programmatic scrolling is handled by WebCore and not by the UI application.
+    // In the case of using a tiled backing store, this mode can be set, so that the scroll requests
+    // are delegated to the UI application.
+    bool delegatesScrolling() const { return m_delegatesScrolling; }
+    void setDelegatesScrolling(bool);
 
     // Overridden by FrameView to create custom CSS scrollbars if applicable.
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
@@ -162,6 +167,9 @@ public:
     IntPoint scrollPosition() const { return visibleContentRect().location(); }
     IntSize scrollOffset() const { return visibleContentRect().location() - IntPoint(); } // Gets the scrolled position as an IntSize. Convenient for adding to other sizes.
     IntPoint maximumScrollPosition() const; // The maximum position we can be scrolled to.
+    IntPoint minimumScrollPosition() const; // The minimum position we can be scrolled to.
+    // Adjust the passed in scroll position to keep it between the minimum and maximum positions.
+    IntPoint adjustScrollPositionWithinRange(const IntPoint&) const; 
     int scrollX() const { return scrollPosition().x(); }
     int scrollY() const { return scrollPosition().y(); }
     
@@ -281,6 +289,9 @@ protected:
     // Scroll the content by invalidating everything.
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
 
+    void setScrollOrigin(const IntPoint&, bool updatePosition);
+    IntPoint scrollOrigin() { return m_scrollOrigin; }
+
 private:
     RefPtr<Scrollbar> m_horizontalScrollbar;
     RefPtr<Scrollbar> m_verticalScrollbar;
@@ -314,6 +325,20 @@ private:
     bool m_useFixedLayout;
 
     bool m_paintsEntireContents;
+    bool m_delegatesScrolling;
+
+    // There are 8 possible combinations of writing mode and direction.  Scroll origin will be non-zero in the x or y axis
+    // if there is any reversed direction or writing-mode.  The combinations are:
+    // writing-mode / direction     scrollOrigin.x() set    scrollOrigin.y() set
+    // horizontal-tb / ltr          NO                      NO
+    // horizontal-tb / rtl          YES                     NO
+    // horizontal-bt / ltr          NO                      YES
+    // horizontal-bt / rtl          YES                     YES
+    // vertical-lr / ltr            NO                      NO
+    // vertical-lr / rtl            NO                      YES
+    // vertical-rl / ltr            YES                     NO
+    // vertical-rl / rtl            YES                     YES
+    IntPoint m_scrollOrigin;
 
     void init();
     void destroy();
@@ -342,6 +367,8 @@ private:
     void platformSetScrollbarsSuppressed(bool repaintOnUnsuppress);
     void platformRepaintContentRectangle(const IntRect&, bool now);
     bool platformIsOffscreen() const;
+   
+    void platformSetScrollOrigin(const IntPoint&, bool updatePosition);
 
 #if PLATFORM(ANDROID)
     int platformActualWidth() const;

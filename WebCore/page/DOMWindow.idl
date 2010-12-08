@@ -140,6 +140,9 @@ module window {
         readonly attribute Document document;
 
         // CSSOM View Module
+        MediaQueryList matchMedia(in DOMString query);
+
+        // styleMedia has been removed from the CSSOM View specification.
         readonly attribute StyleMedia styleMedia;
 
         // DOM Level 2 Style Interface
@@ -496,6 +499,7 @@ module window {
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Int32ArrayConstructor Int32Array; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Uint32ArrayConstructor Uint32Array; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] DataViewConstructor DataView; // Usable with new operator
 
         attribute EventConstructor Event;
         attribute BeforeLoadEventConstructor BeforeLoadEvent;

@@ -415,7 +415,8 @@ static TextStream& operator<<(TextStream& ts, const RenderSVGPath& path)
     } else if (svgElement->hasTagName(SVGNames::pathTag)) {
         SVGPathElement* element = static_cast<SVGPathElement*>(svgElement);
         String pathString;
-        SVGPathParserFactory::self()->buildStringFromSVGPathSegList(element->pathSegList(), pathString, UnalteredParsing);
+        // FIXME: We should switch to UnalteredParsing here - this will affect the path dumping output of dozens of tests.
+        SVGPathParserFactory::self()->buildStringFromByteStream(element->pathByteStream(), pathString, NormalizedParsing);
         writeNameAndQuotedValue(ts, "data", pathString);
     } else
         ASSERT_NOT_REACHED();
@@ -558,10 +559,13 @@ void writeSVGResourceContainer(TextStream& ts, const RenderObject& object, int i
         writeNameValuePair(ts, "filterUnits", filter->filterUnits());
         writeNameValuePair(ts, "primitiveUnits", filter->primitiveUnits());
         ts << "\n";
-        if (RefPtr<SVGFilterBuilder> builder = filter->buildPrimitives()) {
+        // Creating a placeholder filter which is passed to the builder.
+        FloatRect dummyRect;
+        RefPtr<SVGFilter> dummyFilter = SVGFilter::create(AffineTransform(), dummyRect, dummyRect, dummyRect, true);
+        if (RefPtr<SVGFilterBuilder> builder = filter->buildPrimitives(dummyFilter.get())) {
             if (FilterEffect* lastEffect = builder->lastEffect())
                 lastEffect->externalRepresentation(ts, indent + 1);
-        }      
+        }
 #endif
     } else if (resource->resourceType() == ClipperResourceType) {
         RenderSVGResourceClipper* clipper = static_cast<RenderSVGResourceClipper*>(resource);

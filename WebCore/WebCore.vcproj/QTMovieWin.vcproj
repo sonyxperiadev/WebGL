@@ -18,7 +18,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;.\QTMovieWinCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;.\QTMovieWinCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -79,68 +79,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\QTMovieWinCommon.vsprops"
-			CharacterSet="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Debug_Internal|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;.\QTMovieWinCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\QTMovieWinCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -201,7 +140,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops;.\QTMovieWinCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;.\QTMovieWinCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -262,9 +201,131 @@
 		<Configuration
 			Name="Release_LTCG|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\QTMovieWinCommon.vsprops"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\QTMovieWinCommon.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release_Cairo_CFLite|Win32"
+			ConfigurationType="2"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;.\QTMovieWinCommon.vsprops"
+			CharacterSet="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug_Cairo_CFLite|Win32"
+			ConfigurationType="2"
+			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;.\QTMovieWinCommon.vsprops"
+			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"

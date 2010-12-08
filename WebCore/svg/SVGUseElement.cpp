@@ -57,6 +57,12 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::heightAttr, Height, height)
+
 inline SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
@@ -199,6 +205,7 @@ void SVGUseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHeight();
         synchronizeExternalResourcesRequired();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -214,6 +221,8 @@ void SVGUseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
     else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 static void updateContainerSize(SVGUseElement* useElement, SVGElementInstance* targetInstance)

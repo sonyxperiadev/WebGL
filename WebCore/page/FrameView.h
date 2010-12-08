@@ -76,8 +76,7 @@ public:
 
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
 
-    virtual bool delegatesScrolling();
-    virtual bool avoidScrollbarCreation();
+    virtual bool avoidScrollbarCreation() const;
 
     virtual void setContentsSize(const IntSize&);
 
@@ -140,6 +139,7 @@ public:
 
     bool shouldUpdateWhileOffscreen() const;
     void setShouldUpdateWhileOffscreen(bool);
+    bool shouldUpdate(bool = false) const;
 
     void adjustViewSize();
     
@@ -238,6 +238,8 @@ public:
     bool isFrameViewScrollCorner(RenderScrollbarPart* scrollCorner) const { return m_scrollCorner == scrollCorner; }
     void invalidateScrollCorner();
 
+    void calculateScrollbarModesForLayout(ScrollbarMode& hMode, ScrollbarMode& vMode);
+
     // Normal delay
     static void setRepaintThrottlingDeferredRepaintDelay(double p);
     // Negative value would mean that first few repaints happen without a delay
@@ -267,7 +269,6 @@ private:
     bool hasFixedObjects() const { return m_fixedObjectCount > 0; }
 
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
-    void calculateScrollbarModesForLayout(ScrollbarMode& hMode, ScrollbarMode& vMode);
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 

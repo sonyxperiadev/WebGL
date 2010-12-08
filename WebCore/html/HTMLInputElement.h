@@ -27,6 +27,7 @@
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "InputElement.h"
+#include "InputType.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
@@ -73,6 +74,7 @@ public:
     String stepBaseString() const;
     String stepString() const;
     String typeMismatchText() const;
+    String valueMissingText() const;
 
     // Implementations of HTMLInputElement::stepUp() and stepDown().
     void stepUp(int, ExceptionCode&);
@@ -107,7 +109,6 @@ public:
 
 #if ENABLE(INPUT_SPEECH)
     virtual bool isSpeechEnabled() const;
-    void dispatchWebkitSpeechChangeEvent();
 #endif
 
     bool checked() const { return m_checked; }

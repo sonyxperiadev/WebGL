@@ -109,6 +109,7 @@
                 'public/WebApplicationCacheHost.h',
                 'public/WebApplicationCacheHostClient.h',
                 'public/WebAttribute.h',
+                'public/WebAudioBus.h',
                 'public/WebBindings.h',
                 'public/WebBlobData.h',
                 'public/WebBlobRegistry.h',
@@ -172,6 +173,8 @@
                 'public/WebFontCache.h',
                 'public/WebFormControlElement.h',
                 'public/WebFormElement.h',
+                'public/WebGeolocationError.h',
+                'public/WebGeolocationPosition.h',
                 'public/WebGeolocationService.h',
                 'public/WebGeolocationServiceBridge.h',
                 'public/WebGeolocationServiceMock.h',
@@ -179,6 +182,7 @@
                 'public/WebGraphicsContext3D.h',
                 'public/WebHistoryItem.h',
                 'public/WebHTTPBody.h',
+                'public/WebHTTPLoadInfo.h',
                 'public/WebImage.h',
                 'public/WebImageDecoder.h',
                 'public/WebIDBCallbacks.h',
@@ -235,7 +239,6 @@
                 'public/WebRange.h',
                 'public/WebRect.h',
                 'public/WebRegularExpression.h',
-                'public/WebResourceRawHeaders.h',
                 'public/WebRuntimeFeatures.h',
                 'public/WebScrollbar.h',
                 'public/WebScrollbarClient.h',
@@ -289,6 +292,8 @@
                 'src/ApplicationCacheHost.cpp',
                 'src/ApplicationCacheHostInternal.h',
                 'src/AssertMatchingEnums.cpp',
+                'src/AssociatedURLLoader.cpp',
+                'src/AssociatedURLLoader.h',
                 'src/AsyncFileSystemChromium.cpp',
                 'src/AsyncFileSystemChromium.h',
                 'src/AsyncFileWriterChromium.cpp',
@@ -394,6 +399,7 @@
                 'src/WebAnimationControllerImpl.cpp',
                 'src/WebAnimationControllerImpl.h',
                 'src/WebAttribute.cpp',
+                'src/WebAudioBus.cpp',
                 'src/WebBindings.cpp',
                 'src/WebBlobData.cpp',
                 'src/WebCache.cpp',
@@ -438,6 +444,8 @@
                 'src/WebFormElement.cpp',
                 'src/WebFrameImpl.cpp',
                 'src/WebFrameImpl.h',
+                'src/WebGeolocationError.cpp',
+                'src/WebGeolocationPosition.cpp',
                 'src/WebGeolocationServiceBridgeImpl.cpp',
                 'src/WebGeolocationServiceBridgeImpl.h',
                 'src/WebGeolocationServiceMock.cpp',
@@ -447,6 +455,7 @@
                 'src/WebGraphicsContext3DDefaultImpl.h',
                 'src/WebHistoryItem.cpp',
                 'src/WebHTTPBody.cpp',
+                'src/WebHTTPLoadInfo.cpp',
                 'src/WebIDBCallbacksImpl.cpp',
                 'src/WebIDBCallbacksImpl.h',
                 'src/WebIDBCursorImpl.cpp',
@@ -454,7 +463,6 @@
                 'src/WebIDBDatabaseError.cpp',
                 'src/WebIDBDatabaseImpl.cpp',
                 'src/WebIDBDatabaseImpl.h',
-                'src/WebIDBFactory.cpp',
                 'src/WebIDBFactoryImpl.cpp',
                 'src/WebIDBFactoryImpl.h',
                 'src/WebIDBIndexImpl.cpp',
@@ -504,7 +512,6 @@
                 'src/WebPopupMenuImpl.h',
                 'src/WebRange.cpp',
                 'src/WebRegularExpression.cpp',
-                'src/WebResourceRawHeaders.cpp',
                 'src/WebRuntimeFeatures.cpp',
                 'src/WebScriptController.cpp',
                 'src/WebScrollbarImpl.cpp',
@@ -662,6 +669,11 @@
                         ['exclude', 'WebGeolocationService.*$'],
                         ['include', 'WebGeolocationServiceMock.*'],
                     ],
+                }, {
+                   'sources/': [
+                        ['exclude', 'WebGeolocationError.*'],
+                        ['exclude', 'WebGeolocationPosition.*'],
+                   ],
                 }]
             ],
         },
@@ -867,6 +879,7 @@
                 'ImageDiff',
                 'inspector_resources',
                 'TestNetscapePlugIn',
+                'copy_TestNetscapePlugIn',
                 'webkit',
                 '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf_config',
                 '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
@@ -974,19 +987,10 @@
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
                         '<(SHARED_INTERMEDIATE_DIR)/webkit/textAreaResizeCorner.png',
                     ],
-                    # Workaround for http://code.google.com/p/gyp/issues/detail?id=160
-                    'copies': [{
-                        'destination': '<(PRODUCT_DIR)/plugins/',
-                        'files': ['<(PRODUCT_DIR)/WebKitTestNetscapePlugIn.plugin/'],
-                    }],
                 },{ # OS!="mac"
                     'sources/': [
                         # .mm is already excluded by common.gypi
                         ['exclude', 'Mac\\.cpp$'],
-                    ],
-                    'dependencies': [
-                        # FIXME: Switch to webkit.org's plugin.
-                        '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
                     ],
                 }],
                 ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
@@ -1075,6 +1079,33 @@
                     # The .rc file requires that the name of the dll is npTestNetscapePlugin.dll.
                     # This adds the 'np' to the dll name.
                     'product_prefix': 'np',
+                }],
+            ],
+        },
+        {
+            'target_name': 'copy_TestNetscapePlugIn',
+            'type': 'none',
+            'dependencies': [
+                'TestNetscapePlugIn',
+            ],
+            'conditions': [
+                ['OS=="win"', {
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)/plugins',
+                        'files': ['<(PRODUCT_DIR)/npTestNetscapePlugIn.dll'],
+                    }],
+                }],
+                ['OS=="mac"', {
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)/plugins/',
+                        'files': ['<(PRODUCT_DIR)/WebKitTestNetscapePlugIn.plugin/'],
+                    }],
+                }],
+                ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)/plugins',
+                        'files': ['<(PRODUCT_DIR)/libTestNetscapePlugIn.so'],
+                    }],
                 }],
             ],
         },

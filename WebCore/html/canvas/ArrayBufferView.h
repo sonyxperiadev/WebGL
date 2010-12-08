@@ -46,6 +46,7 @@ class ArrayBufferView : public RefCounted<ArrayBufferView> {
     virtual bool isIntArray() const { return false; }
     virtual bool isUnsignedIntArray() const { return false; }
     virtual bool isFloatArray() const { return false; }
+    virtual bool isDataView() const { return false; }
 
     PassRefPtr<ArrayBuffer> buffer() const
     {
@@ -62,9 +63,7 @@ class ArrayBufferView : public RefCounted<ArrayBufferView> {
         return m_byteOffset;
     }
 
-    virtual unsigned length() const = 0;
     virtual unsigned byteLength() const = 0;
-    virtual PassRefPtr<ArrayBufferView> slice(int start, int end) const = 0;
 
     virtual ~ArrayBufferView();
 

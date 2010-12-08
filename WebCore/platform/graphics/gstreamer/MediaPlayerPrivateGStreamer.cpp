@@ -177,11 +177,25 @@ void mediaPlayerPrivateVolumeChangedCallback(GObject *element, GParamSpec *pspec
     mp->volumeChanged();
 }
 
+gboolean mediaPlayerPrivateVolumeChangeTimeoutCallback(MediaPlayerPrivateGStreamer* player)
+{
+    // This is the callback of the timeout source created in ::volumeChanged.
+    player->notifyPlayerOfVolumeChange();
+    return FALSE;
+}
+
 void mediaPlayerPrivateMuteChangedCallback(GObject *element, GParamSpec *pspec, gpointer data)
 {
     // This is called when playbin receives the notify::mute signal.
     MediaPlayerPrivateGStreamer* mp = reinterpret_cast<MediaPlayerPrivateGStreamer*>(data);
     mp->muteChanged();
+}
+
+gboolean mediaPlayerPrivateMuteChangeTimeoutCallback(MediaPlayerPrivateGStreamer* player)
+{
+    // This is the callback of the timeout source created in ::muteChanged.
+    player->notifyPlayerOfMute();
+    return FALSE;
 }
 
 static float playbackPosition(GstElement* playbin)
@@ -327,8 +341,18 @@ MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
     if (m_playBin) {
         gst_element_set_state(m_playBin, GST_STATE_NULL);
         gst_object_unref(GST_OBJECT(m_playBin));
+        m_playBin = 0;
     }
 
+    m_player = 0;
+
+    if (m_muteTimerHandler)
+        g_source_remove(m_muteTimerHandler);
+    m_muteTimerHandler = 0;
+
+    if (m_volumeTimerHandler)
+        g_source_remove(m_volumeTimerHandler);
+    m_volumeTimerHandler = 0;
 }
 
 void MediaPlayerPrivateGStreamer::load(const String& url)
@@ -584,8 +608,12 @@ void MediaPlayerPrivateGStreamer::setVolume(float volume)
     g_object_set(m_playBin, "volume", static_cast<double>(volume), NULL);
 }
 
-void MediaPlayerPrivateGStreamer::volumeChangedTimerFired(Timer<MediaPlayerPrivateGStreamer>*)
+void MediaPlayerPrivateGStreamer::notifyPlayerOfVolumeChange()
 {
+    m_volumeTimerHandler = 0;
+
+    if (!m_player || !m_playBin)
+        return;
     double volume;
     g_object_get(m_playBin, "volume", &volume, NULL);
     m_player->volumeChanged(static_cast<float>(volume));
@@ -593,8 +621,9 @@ void MediaPlayerPrivateGStreamer::volumeChangedTimerFired(Timer<MediaPlayerPriva
 
 void MediaPlayerPrivateGStreamer::volumeChanged()
 {
-    Timer<MediaPlayerPrivateGStreamer> volumeChangedTimer(this, &MediaPlayerPrivateGStreamer::volumeChangedTimerFired);
-    volumeChangedTimer.startOneShot(0);
+    if (m_volumeTimerHandler)
+        g_source_remove(m_volumeTimerHandler);
+    m_volumeTimerHandler = g_timeout_add(0, reinterpret_cast<GSourceFunc>(mediaPlayerPrivateVolumeChangeTimeoutCallback), this);
 }
 
 void MediaPlayerPrivateGStreamer::setRate(float rate)
@@ -1158,8 +1187,13 @@ void MediaPlayerPrivateGStreamer::setMuted(bool muted)
     g_object_set(m_playBin, "mute", muted, NULL);
 }
 
-void MediaPlayerPrivateGStreamer::muteChangedTimerFired(Timer<MediaPlayerPrivateGStreamer>*)
+void MediaPlayerPrivateGStreamer::notifyPlayerOfMute()
 {
+    m_muteTimerHandler = 0;
+
+    if (!m_player || !m_playBin)
+        return;
+
     gboolean muted;
     g_object_get(m_playBin, "mute", &muted, NULL);
     m_player->muteChanged(static_cast<bool>(muted));
@@ -1167,8 +1201,9 @@ void MediaPlayerPrivateGStreamer::muteChangedTimerFired(Timer<MediaPlayerPrivate
 
 void MediaPlayerPrivateGStreamer::muteChanged()
 {
-    Timer<MediaPlayerPrivateGStreamer> muteChangedTimer(this, &MediaPlayerPrivateGStreamer::muteChangedTimerFired);
-    muteChangedTimer.startOneShot(0);
+    if (m_muteTimerHandler)
+        g_source_remove(m_muteTimerHandler);
+    m_muteTimerHandler = g_timeout_add(0, reinterpret_cast<GSourceFunc>(mediaPlayerPrivateMuteChangeTimeoutCallback), this);
 }
 
 void MediaPlayerPrivateGStreamer::loadingFailed(MediaPlayer::NetworkState error)
@@ -1401,6 +1436,8 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin()
     g_signal_connect(bus, "message", G_CALLBACK(mediaPlayerPrivateMessageCallback), this);
     gst_object_unref(bus);
 
+    g_object_set(m_playBin, "mute", m_player->muted(), "volume", m_player->volume(), NULL);
+
     g_signal_connect(m_playBin, "notify::volume", G_CALLBACK(mediaPlayerPrivateVolumeChangedCallback), this);
     g_signal_connect(m_playBin, "notify::source", G_CALLBACK(mediaPlayerPrivateSourceChangedCallback), this);
     g_signal_connect(m_playBin, "notify::mute", G_CALLBACK(mediaPlayerPrivateMuteChangedCallback), this);
@@ -1412,16 +1449,17 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin()
     m_videoSinkBin = gst_bin_new("sink");
     GstElement* videoTee = gst_element_factory_make("tee", "videoTee");
     GstElement* queue = gst_element_factory_make("queue", 0);
+    GstElement* identity = gst_element_factory_make("identity", "videoValve");
 
     // Take ownership.
-    g_object_ref_sink(m_videoSinkBin);
+    gst_object_ref_sink(m_videoSinkBin);
 
     // Build a new video sink consisting of a bin containing a tee
     // (meant to distribute data to multiple video sinks) and our
     // internal video sink. For fullscreen we create an autovideosink
     // and initially block the data flow towards it and configure it
 
-    gst_bin_add_many(GST_BIN(m_videoSinkBin), videoTee, queue, NULL);
+    gst_bin_add_many(GST_BIN(m_videoSinkBin), videoTee, queue, identity, NULL);
 
     // Link a new src pad from tee to queue1.
     GstPad* srcPad = gst_element_get_request_pad(videoTee, "src%d");
@@ -1445,7 +1483,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin()
         }
     } else {
         gst_bin_add(GST_BIN(m_videoSinkBin), m_webkitVideoSink);
-        gst_element_link(queue, m_webkitVideoSink);
+        gst_element_link_many(queue, identity, m_webkitVideoSink, NULL);
     }
 
     // Add a ghostpad to the bin so it can proxy to tee.

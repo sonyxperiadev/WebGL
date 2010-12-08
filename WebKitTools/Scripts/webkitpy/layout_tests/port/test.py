@@ -226,8 +226,8 @@ class TestPort(base.Port):
     def setup_test_run(self):
         pass
 
-    def create_driver(self, image_path, options):
-        return TestDriver(self, image_path, options, executive=None)
+    def create_driver(self, worker_number):
+        return TestDriver(self, worker_number)
 
     def start_http_server(self):
         pass
@@ -281,25 +281,25 @@ WONTFIX SKIP : failures/expected/exception.html = CRASH
 class TestDriver(base.Driver):
     """Test/Dummy implementation of the DumpRenderTree interface."""
 
-    def __init__(self, port, image_path, options, executive):
+    def __init__(self, port, worker_number):
         self._port = port
-        self._image_path = image_path
-        self._executive = executive
-        self._image_written = False
+
+    def cmd_line(self):
+        return ['None']
 
     def poll(self):
         return True
 
-    def run_test(self, uri, timeoutms, image_hash):
+    def run_test(self, test_input):
         start_time = time.time()
-        test_name = self._port.uri_to_test_name(uri)
+        test_name = self._port.relative_test_filename(test_input.filename)
         test = self._port._tests[test_name]
         if test.keyboard:
             raise KeyboardInterrupt
         if test.exception:
             raise ValueError('exception from ' + test_name)
         if test.hang:
-            time.sleep((float(timeoutms) * 4) / 1000.0)
+            time.sleep((float(test_input.timeout) * 4) / 1000.0)
         return test_output.TestOutput(test.actual_text, test.actual_image,
                                       test.actual_checksum, test.crash,
                                       time.time() - start_time, test.timeout,

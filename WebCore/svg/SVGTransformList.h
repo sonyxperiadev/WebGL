@@ -22,9 +22,9 @@
 #define SVGTransformList_h
 
 #if ENABLE(SVG)
+#include "SVGPropertyTraits.h"
 #include "SVGTransform.h"
 #include <wtf/Vector.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -39,6 +39,13 @@ public:
     bool concatenate(AffineTransform& result) const;
  
     String valueAsString() const;
+};
+
+template<>
+struct SVGPropertyTraits<SVGTransformList> {
+    static SVGTransformList initialValue() { return SVGTransformList(); }
+    static String toString(const SVGTransformList& type) { return type.valueAsString(); }
+    typedef SVGTransform ListItemType;
 };
 
 } // namespace WebCore

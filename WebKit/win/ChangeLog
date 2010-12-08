@@ -1,3 +1,195 @@
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::getGuessesForWord):
+        * WebCoreSupport/WebEditorClient.h:
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WinCairo build should not use link-time code generation (LTCG)
+        https://bugs.webkit.org/show_bug.cgi?id=50353
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        vcproj changes can't be applied cleanly by the Windows EWS bot
+        https://bugs.webkit.org/show_bug.cgi?id=50328
+
+        * WebKit.vcproj/Interfaces.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/InterfacesCommon.vsprops: Added property svn:eol-style.
+        * WebKit.vcproj/WebKit.sln: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKit.submit.sln: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKit.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKitGUID.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKitGUIDCommon.vsprops: Added property svn:eol-style.
+        * WebKit.vcproj/WebKitLibCommon.vsprops: Added property svn:eol-style.
+
+2010-11-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        All projects on Windows should use cmd files for build events
+        https://bugs.webkit.org/show_bug.cgi?id=50213
+
+        * WebKit.vcproj/InterfacesCommon.vsprops:
+        * WebKit.vcproj/InterfacesPostBuild.cmd: Added.
+        * WebKit.vcproj/InterfacesPreBuild.cmd: Added.
+        * WebKit.vcproj/WebKitGUIDCommon.vsprops:
+        * WebKit.vcproj/WebKitGUIDPostBuild.cmd: Added.
+        * WebKit.vcproj/WebKitGUIDPreBuild.cmd: Added.
+        * WebKit.vcproj/WebKitLibCommon.vsprops:
+        * WebKit.vcproj/WebKitLibPostBuild.cmd: Added.
+        * WebKit.vcproj/WebKitLibPreBuild.cmd: Added.
+
+2010-11-29  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build correction.
+
+        * WebKit.vcproj/WebKit.vcproj: Update WebKit project to
+          use WinCairo.vsprops definition for appropriate build targets.
+
+2010-11-22  Adam Roben  <aroben@apple.com>
+
+        Use paths relative to $WebKitVSPropsRedirectionDir to access shared .vsprops files
+
+        Apple's Windows build allows placing header files and import libraries for WebKit's
+        dependencies (CoreGraphics, CFNetwork, SQLite, etc.) outside the source tree via the
+        $WebKitLibrariesDir environment variable. This is both required for production builds and
+        convenient for Apple-internal developer builds. Apple's production builds also require that
+        WebKit's shared .vsprops files be accessed relative to $WebKitLibrariesDir. In production
+        builds, the files are copied into that directory tree by the
+        WebKitLibraries/win/tools/WinTools.make file. In Apple-internal developer builds, the
+        copying is done by
+        JavaScriptCore/JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make.
+
+        This .vsprops copying is problematic in one very important case: when a developer updates
+        their source tree and then tries to build. Visual Studio only reads .vsprops files when a
+        project is first loaded. So, when Visual Studio is first opened after the .vsprops files are
+        updated, it reads in the old files that were already residing in $WebKitLibrariesDir. When a
+        build is started, JavaScriptCoreGenerated.make copies the new .vsprops files into
+        $WebKitLibrariesDir, but Visual Studio will not pick up the changes.  The rest of the build
+        will proceed with out-of-date .vsprops files, which will likely result in a build failure.
+
+        To fix this, we now use normal relative paths to access the .vsprops files in the source
+        tree rather than in $WebKitLibrariesDir, but prefix those paths with a new environment
+        variable, $WebKitVSPropsRedirectionDir. In developer builds, this environment variable is
+        unset, so the normal relative paths are used to read the .vsprops files out of the source
+        tree directly. In production builds, this environment variable is set to a fake directory
+        that will cause the .vsprops files in $WebKitLibrariesDir to be found when the relative path
+        is resolved.
+        
+        For example, JavaScriptCore.vcproj uses this path for FeatureDefines.vsprops:
+
+        $(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops
+
+        In developer builds, where $WebKitVSPropsRedirectionDir is unset, this will point to the
+        files in WebKitLibraries\win\tools\vsprops in the source tree. In production builds,
+        JavaScriptCore.make sets $WebKitVSPropsRedirectionDir to
+        "$(SRCROOT)\AppleInternal\tools\vsprops\OpenSource\1\2\3\", so the full path for
+        FeatureDefines.vsprops becomes:
+
+        $(SRCROOT)\AppleInternal\tools\vsprops\OpenSource\1\2\3\..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops
+
+        which resolves to:
+
+        $(SRCROOT)\AppleInternal\tools\vsprops\OpenSource\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops
+
+        (We rely on the fact that Windows doesn't care whether the directories "1", "2", and "3"
+        actually exist since they are matched by an equal number of ".." path components.)
+
+        Note that Visual Studio still won't pick up changes made to .vsprops files while Visual
+        Studio is open, but that problem hasn't seemed to cause developers many headaches so far.
+
+        Fixes <http://webkit.org/b/49181> Windows build fails mysteriously when .vsprops files are
+        updated
+
+        Reviewed by Dave Hyatt.
+
+        * WebKit.vcproj/WebKit.make: Set $WebKitVSPropsRedirectionDir so that production builds can
+        find the .vsprops files.
+
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+        Changed to use paths relative to $WebKitVSPropsRedirectionDir to access shared .vsprops
+        files.
+
+2010-11-19  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add Debug_Cairo_CFLite and Release_Cairo_CFLite configurations for all vcproj files
+        https://bugs.webkit.org/show_bug.cgi?id=49819
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.sln:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2010-11-19  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Normalize Cairo/CFLite project/solution configuration names
+        https://bugs.webkit.org/show_bug.cgi?id=49818
+
+        * WebKit.vcproj/WebKit.sln:
+        * WebKit.vcproj/WebKit.vcproj:
+
+2010-11-18  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Windows vcproj configuration names should be normalized across projects
+        https://bugs.webkit.org/show_bug.cgi?id=49776
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.sln:
+
+2010-11-18  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Remove leftover Windows Debug_Internal configurations
+        https://bugs.webkit.org/show_bug.cgi?id=49758
+
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2010-11-18  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Debug_Internal Windows configuration is unnecessary, should be removed
+        https://bugs.webkit.org/show_bug.cgi?id=49753
+
+        * WebKitPrefix.h:
+
+2010-11-17  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit Interfaces project should use vsprops file for common build settings
+        https://bugs.webkit.org/show_bug.cgi?id=49713
+        
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/InterfacesCommon.vsprops: Added.
+
 2010-11-16  Steve Falkenburg  <sfalken@apple.com>
 
         Reviewed by Adam Roben.

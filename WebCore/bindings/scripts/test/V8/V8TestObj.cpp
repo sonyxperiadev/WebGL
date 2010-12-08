@@ -25,6 +25,7 @@
 #include "HTMLNames.h"
 #include "IDBBindingUtilities.h"
 #include "IDBKey.h"
+#include "OptionsObject.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptArguments.h"
 #include "ScriptCallStack.h"
@@ -77,6 +78,38 @@ static v8::Handle<v8::Value> readOnlyTestObjAttrAttrGetter(v8::Local<v8::String>
             V8DOMWrapper::setHiddenReference(info.Holder(), wrapper);
     }
     return wrapper;
+}
+
+static v8::Handle<v8::Value> shortAttrAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.shortAttr._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8::Integer::New(imp->shortAttr());
+}
+
+static void shortAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.shortAttr._set");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    int v = toInt32(value);
+    imp->setShortAttr(v);
+    return;
+}
+
+static v8::Handle<v8::Value> unsignedShortAttrAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.unsignedShortAttr._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8::Integer::New(imp->unsignedShortAttr());
+}
+
+static void unsignedShortAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.unsignedShortAttr._set");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    int v = toUInt32(value);
+    imp->setUnsignedShortAttr(v);
+    return;
 }
 
 static v8::Handle<v8::Value> intAttrAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
@@ -695,6 +728,20 @@ static v8::Handle<v8::Value> idbKeyCallback(const v8::Arguments& args)
     return v8::Handle<v8::Value>();
 }
 
+static v8::Handle<v8::Value> optionsObjectCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.optionsObject");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    EXCEPTION_BLOCK(OptionsObject, oo, args[0]);
+    if (args.Length() <= 1) {
+        imp->optionsObject(oo);
+        return v8::Handle<v8::Value>();
+    }
+    EXCEPTION_BLOCK(OptionsObject, ooo, args[1]);
+    imp->optionsObject(oo, ooo);
+    return v8::Handle<v8::Value>();
+}
+
 static v8::Handle<v8::Value> methodWithExceptionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestObj.methodWithException");
@@ -717,13 +764,13 @@ static v8::Handle<v8::Value> customArgsAndExceptionCallback(const v8::Arguments&
     TestObj* imp = V8TestObj::toNative(args.Holder());
     ExceptionCode ec = 0;
     {
-    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 1));
+    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 1));
     size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;
-    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
+    RefPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
     if (!callStack)
         return v8::Undefined();
     EXCEPTION_BLOCK(log*, intArg, V8log::HasInstance(args[0]) ? V8log::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0);
-    imp->customArgsAndException(intArg, scriptArguments.release(), callStack.release(), ec);
+    imp->customArgsAndException(intArg, scriptArguments, callStack, ec);
     if (UNLIKELY(ec))
         goto fail;
     return v8::Handle<v8::Value>();
@@ -1094,6 +1141,10 @@ static const BatchedAttribute TestObjAttrs[] = {
     {"readOnlyStringAttr", TestObjInternal::readOnlyStringAttrAttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'readOnlyTestObjAttr' (Type: 'readonly attribute' ExtAttr: '')
     {"readOnlyTestObjAttr", TestObjInternal::readOnlyTestObjAttrAttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'shortAttr' (Type: 'attribute' ExtAttr: '')
+    {"shortAttr", TestObjInternal::shortAttrAttrGetter, TestObjInternal::shortAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'unsignedShortAttr' (Type: 'attribute' ExtAttr: '')
+    {"unsignedShortAttr", TestObjInternal::unsignedShortAttrAttrGetter, TestObjInternal::unsignedShortAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'intAttr' (Type: 'attribute' ExtAttr: '')
     {"intAttr", TestObjInternal::intAttrAttrGetter, TestObjInternal::intAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'longLongAttr' (Type: 'attribute' ExtAttr: '')
@@ -1165,6 +1216,7 @@ static const BatchedCallback TestObjCallbacks[] = {
     {"objMethod", TestObjInternal::objMethodCallback},
     {"serializedValue", TestObjInternal::serializedValueCallback},
     {"idbKey", TestObjInternal::idbKeyCallback},
+    {"optionsObject", TestObjInternal::optionsObjectCallback},
     {"methodWithException", TestObjInternal::methodWithExceptionCallback},
     {"customMethod", V8TestObj::customMethodCallback},
     {"customMethodWithArgs", V8TestObj::customMethodWithArgsCallback},
@@ -1217,8 +1269,8 @@ COMPILE_ASSERT(0x1abc == TestObj::CONST_VALUE_14, TestObjEnumCONST_VALUE_14IsWro
 static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestObjTemplate(v8::Persistent<v8::FunctionTemplate> desc)
 {
     v8::Local<v8::Signature> defaultSignature = configureTemplate(desc, "TestObj", v8::Persistent<v8::FunctionTemplate>(), V8TestObj::internalFieldCount,
-        TestObjAttrs, sizeof(TestObjAttrs) / sizeof(*TestObjAttrs),
-        TestObjCallbacks, sizeof(TestObjCallbacks) / sizeof(*TestObjCallbacks));
+        TestObjAttrs, WTF_ARRAY_LENGTH(TestObjAttrs),
+        TestObjCallbacks, WTF_ARRAY_LENGTH(TestObjCallbacks));
     v8::Local<v8::ObjectTemplate> instance = desc->InstanceTemplate();
     v8::Local<v8::ObjectTemplate> proto = desc->PrototypeTemplate();
     
@@ -1276,7 +1328,7 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestObjTemplate(v8::Persi
         proto->Set(v8::String::New("enabledAtRuntimeMethod1"), v8::FunctionTemplate::New(TestObjInternal::enabledAtRuntimeMethod1Callback, v8::Handle<v8::Value>(), defaultSignature));
     if (RuntimeEnabledFeatures::featureNameEnabled())
         proto->Set(v8::String::New("enabledAtRuntimeMethod2"), v8::FunctionTemplate::New(TestObjInternal::enabledAtRuntimeMethod2Callback, v8::Handle<v8::Value>(), defaultSignature));
-    batchConfigureConstants(desc, proto, TestObjConsts, sizeof(TestObjConsts) / sizeof(*TestObjConsts));
+    batchConfigureConstants(desc, proto, TestObjConsts, WTF_ARRAY_LENGTH(TestObjConsts));
 
     // Custom toString template
     desc->Set(getToStringName(), getToStringTemplate());

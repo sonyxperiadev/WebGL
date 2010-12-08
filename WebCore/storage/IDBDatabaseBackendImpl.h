@@ -43,39 +43,37 @@ class SQLiteDatabase;
 
 class IDBDatabaseBackendImpl : public IDBDatabaseBackendInterface {
 public:
-    static PassRefPtr<IDBDatabaseBackendImpl> create(const String& name, const String& description, IDBSQLiteDatabase* database, IDBTransactionCoordinator* coordinator, IDBFactoryBackendImpl* factory, const String& uniqueIdentifier)
+    static PassRefPtr<IDBDatabaseBackendImpl> create(const String& name, IDBSQLiteDatabase* database, IDBTransactionCoordinator* coordinator, IDBFactoryBackendImpl* factory, const String& uniqueIdentifier)
     {
-        return adoptRef(new IDBDatabaseBackendImpl(name, description, database, coordinator, factory, uniqueIdentifier));
+        return adoptRef(new IDBDatabaseBackendImpl(name, database, coordinator, factory, uniqueIdentifier));
     }
     virtual ~IDBDatabaseBackendImpl();
 
-    void setDescription(const String& description);
     SQLiteDatabase& sqliteDatabase() const;
 
     static const int64_t InvalidId = 0;
     int64_t id() const { return m_id; }
 
     virtual String name() const { return m_name; }
-    virtual String description() const { return m_description; }
     virtual String version() const { return m_version; }
-    virtual PassRefPtr<DOMStringList> objectStores() const;
+    virtual PassRefPtr<DOMStringList> objectStoreNames() const;
 
     virtual PassRefPtr<IDBObjectStoreBackendInterface> createObjectStore(const String& name, const String& keyPath, bool autoIncrement, IDBTransactionBackendInterface*, ExceptionCode&);
-    virtual void removeObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void deleteObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&);
     virtual void setVersion(const String& version, PassRefPtr<IDBCallbacks>, ExceptionCode&);
-    virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout, ExceptionCode&);
+    virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* objectStoreNames, unsigned short mode, unsigned long timeout, ExceptionCode&);
     virtual void close();
 
     PassRefPtr<IDBObjectStoreBackendInterface> objectStore(const String& name);
     IDBTransactionCoordinator* transactionCoordinator() const { return m_transactionCoordinator.get(); }
 
 private:
-    IDBDatabaseBackendImpl(const String& name, const String& description, IDBSQLiteDatabase* database, IDBTransactionCoordinator*, IDBFactoryBackendImpl*, const String& uniqueIdentifier);
+    IDBDatabaseBackendImpl(const String& name, IDBSQLiteDatabase* database, IDBTransactionCoordinator*, IDBFactoryBackendImpl*, const String& uniqueIdentifier);
 
     void loadObjectStores();
 
     static void createObjectStoreInternal(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendImpl>, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBTransactionBackendInterface>);
-    static void removeObjectStoreInternal(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendImpl>, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBTransactionBackendInterface>);
+    static void deleteObjectStoreInternal(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendImpl>, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBTransactionBackendInterface>);
     static void setVersionInternal(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendImpl>, const String& version, PassRefPtr<IDBCallbacks>, PassRefPtr<IDBTransactionBackendInterface>);
 
     // These are used as setVersion transaction abort tasks.
@@ -86,7 +84,6 @@ private:
     RefPtr<IDBSQLiteDatabase> m_sqliteDatabase;
     int64 m_id;
     String m_name;
-    String m_description;
     String m_version;
 
     String m_identifier;

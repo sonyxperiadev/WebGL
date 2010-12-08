@@ -101,6 +101,9 @@ public:
     void addUserScript(JSStringRef source, bool runAtStart, bool allFrames);
     void addUserStyleSheet(JSStringRef source, bool allFrames);
 
+    // Text search testing.
+    bool findString(JSStringRef, JSValueRef optionsArray);
+
     enum WhatToDump { RenderTree, MainFrameText, AllFramesText };
     WhatToDump whatToDump() const { return m_whatToDump; }
 

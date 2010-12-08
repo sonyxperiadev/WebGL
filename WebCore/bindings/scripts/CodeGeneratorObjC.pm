@@ -26,8 +26,6 @@
 
 package CodeGeneratorObjC;
 
-use File::stat;
-
 # Global Variables
 my $module = "";
 my $outputDir = "";
@@ -673,6 +671,9 @@ sub GetSVGPropertyTypes
     } elsif ($svgNativeType =~ /SVGTransformListPropertyTearOff/) {
         $svgListPropertyType = "WebCore::$svgWrappedNativeType";
         $svgListPropertyType =~ s/</\<WebCore::/;
+    } elsif ($svgNativeType =~ /SVGPathSegListPropertyTearOff/) {
+        $svgListPropertyType = "WebCore::$svgWrappedNativeType";
+        $svgListPropertyType =~ s/</\<WebCore::/;
     }
 
     return ($svgPropertyType, $svgListPropertyType, $svgNativeType);
@@ -1004,6 +1005,7 @@ sub GenerateHeader
         if ($svgListPropertyType) {
             push(@internalHeaderContent, "#import <WebCore/SVGAnimatedListPropertyTearOff.h>\n\n");
             push(@internalHeaderContent, "#import <WebCore/SVGTransformListPropertyTearOff.h>\n\n") if $svgListPropertyType =~ /SVGTransformList/;
+            push(@internalHeaderContent, "#import <WebCore/SVGPathSegListPropertyTearOff.h>\n\n") if $svgListPropertyType =~ /SVGPathSegList/;
         }
         push(@internalHeaderContent, $interfaceAvailabilityVersionCheck) if length $interfaceAvailabilityVersion;
 
@@ -1300,6 +1302,7 @@ sub GenerateImplementation
                 my $type = $attribute->signature->type;
                 if ($codeGenerator->IsSVGTypeNeedingTearOff($type) and not $implClassName =~ /List$/) {
                     my $idlTypeWithNamespace = GetSVGTypeWithNamespace($type);
+                    $implIncludes{"$type.h"} = 1 if not $codeGenerator->AvoidInclusionOfType($type);
                     if ($codeGenerator->IsSVGTypeWithWritablePropertiesNeedingTearOff($type) and not defined $attribute->signature->extendedAttributes->{"Immutable"}) {
                         $idlTypeWithNamespace =~ s/SVGPropertyTearOff</SVGStaticPropertyTearOff<$implClassNameWithNamespace, /;
                         $implIncludes{"SVGStaticPropertyTearOff.h"} = 1;
@@ -1310,13 +1313,13 @@ sub GenerateImplementation
                         my $updateMethod = "&${implClassNameWithNamespace}::update" . $codeGenerator->WK_ucfirst($getter);
                         $getterContentHead = "kit(WTF::getPtr(${idlTypeWithNamespace}::create(IMPL, $getterContentHead$getterContentTail, $updateMethod";
                         $getterContentTail .= "))";
+                    } elsif ($idlTypeWithNamespace =~ /SVG(Point|PathSeg)List/) {
+                        $getterContentHead = "kit(WTF::getPtr($getterContentHead";
+                        $getterContentTail .= "))";
                     } elsif ($idlTypeWithNamespace =~ /SVGStaticListPropertyTearOff/) {
                         my $extraImp = "WebCore::GetOwnerElementForType<$implClassNameWithNamespace, WebCore::IsDerivedFromSVGElement<$implClassNameWithNamespace>::value>::ownerElement(IMPL), ";
                         $getterContentHead = "kit(WTF::getPtr(${idlTypeWithNamespace}::create($extraImp$getterContentHead";
                         $getterContentTail .= ")))";
-                    } elsif ($idlTypeWithNamespace =~ /SVGPointList/) {
-                        $getterContentHead = "kit(WTF::getPtr($getterContentHead";
-                        $getterContentTail .= "))";
                     } else {
                         $getterContentHead = "kit(WTF::getPtr(${idlTypeWithNamespace}::create($getterContentHead";
                         $getterContentTail .= ")))";
@@ -1390,6 +1393,10 @@ sub GenerateImplementation
 
                 if ($svgPropertyType) {
                     $getterContentHead = "$getterExpressionPrefix";
+                    push(@implContent, "    if (IMPL->role() == WebCore::AnimValRole) {\n");
+                    push(@implContent, "        WebCore::raiseOnDOMError(WebCore::NO_MODIFICATION_ALLOWED_ERR);\n");
+                    push(@implContent, "        return;\n");
+                    push(@implContent, "    }\n");
                     push(@implContent, "    $svgPropertyType& podImpl = IMPL->propertyReference();\n");
                     my $ec = $hasSetterException ? ", ec" : "";
                     push(@implContent, "    $exceptionInit\n") if $hasSetterException;
@@ -1572,6 +1579,14 @@ sub GenerateImplementation
             my $content = $codeGenerator->WK_lcfirst($functionName) . "(" . join(", ", @parameterNames) . ")"; 
 
             if ($svgPropertyType) {
+                push(@functionContent, "    if (IMPL->role() == WebCore::AnimValRole) {\n");
+                push(@functionContent, "        WebCore::raiseOnDOMError(WebCore::NO_MODIFICATION_ALLOWED_ERR);\n");
+                if ($returnType eq "void") {
+                    push(@functionContent, "        return;\n");
+                } else {
+                    push(@functionContent, "        return nil;\n");
+                }
+                push(@functionContent, "    }\n");
                 push(@functionContent, "    $svgPropertyType& podImpl = IMPL->propertyReference();\n");
                 $content = "podImpl.$content"; 
             } else {

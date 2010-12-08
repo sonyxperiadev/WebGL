@@ -213,11 +213,9 @@ WebInspector.ScriptsPanel.prototype = {
         WebInspector.Panel.prototype.show.call(this);
         this.sidebarResizeElement.style.right = (this.sidebarElement.offsetWidth - 3) + "px";
 
-        if (this.visibleView) {
-            if (this.visibleView instanceof WebInspector.ResourceView)
-                this.visibleView.headersVisible = false;
+        if (this.visibleView)
             this.visibleView.show(this.viewsContainerElement);
-        }
+
         if (this._attachDebuggerWhenShown) {
             InspectorBackend.enableDebugger(false);
             delete this._attachDebuggerWhenShown;
@@ -308,7 +306,7 @@ WebInspector.ScriptsPanel.prototype = {
         return Preferences.canEditScriptSource;
     },
 
-    editScriptSource: function(sourceID, newContent, line, linesCountToShift, commitEditingCallback, cancelEditingCallback)
+    editScriptSource: function(editData, commitEditingCallback, cancelEditingCallback)
     {
         if (!this.canEditScripts())
             return;
@@ -325,18 +323,19 @@ WebInspector.ScriptsPanel.prototype = {
                 if (callFrames && callFrames.length)
                     this.debuggerPaused(callFrames);
             } else {
-                cancelEditingCallback();
+                if (cancelEditingCallback)
+                    cancelEditingCallback();
                 WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Warning);
             }
             for (var i = 0; i < breakpoints.length; ++i) {
                 var breakpoint = breakpoints[i];
                 var newLine = breakpoint.line;
-                if (success && breakpoint.line >= line)
-                    newLine += linesCountToShift;
-                WebInspector.breakpointManager.setBreakpoint(sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
+                if (success && breakpoint.line >= editData.line)
+                    newLine += editData.linesCountToShift;
+                WebInspector.breakpointManager.setBreakpoint(editData.sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
             }
         };
-        InspectorBackend.editScriptSource(sourceID, newContent, mycallback.bind(this));
+        InspectorBackend.editScriptSource(editData.sourceID, editData.content, mycallback.bind(this));
     },
 
     selectedCallFrameId: function()
@@ -385,10 +384,11 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._updateDebuggerButtons();
 
+        WebInspector.currentPanel = this;
+
         this.sidebarPanes.callstack.update(callFrames, this._sourceIDMap);
         this.sidebarPanes.callstack.selectedCallFrame = callFrames[0];
 
-        WebInspector.currentPanel = this;
         window.focus();
     },
 
@@ -597,10 +597,9 @@ WebInspector.ScriptsPanel.prototype = {
             return;
 
         var view;
-        if (scriptOrResource instanceof WebInspector.Resource) {
+        if (scriptOrResource instanceof WebInspector.Resource)
             view = WebInspector.ResourceManager.resourceViewForResource(scriptOrResource);
-            view.headersVisible = false;
-        } else if (scriptOrResource instanceof WebInspector.Script)
+        else if (scriptOrResource instanceof WebInspector.Script)
             view = this.scriptViewForScript(scriptOrResource);
 
         if (!view)

@@ -61,9 +61,10 @@ WebInspector.ResourcesPanel = function(database)
         this.sidebarTree.appendChild(this.fileSystemListTreeElement);
         this.fileSystemListTreeElement.expand();
     }
-       
+
     this.storageViews = document.createElement("div");
     this.storageViews.id = "storage-views";
+    this.storageViews.className = "diff-container";
     this.element.appendChild(this.storageViews);
 
     this.storageViewStatusBarItemsContainer = document.createElement("div");
@@ -99,11 +100,8 @@ WebInspector.ResourcesPanel.prototype = {
     {
         WebInspector.Panel.prototype.show.call(this);
 
-        if (this.visibleView instanceof WebInspector.ResourceView) {
-            // SourceViews are shared between the panels.
-            this.visibleView.headersVisible = false;
-            this.visibleView.show(this.storageViews);
-        }
+        if (this.visibleView instanceof WebInspector.ResourceView)
+            this._showResourceView(this.visibleView.resource);
 
         if (this._initializedDefaultSelection)
             return;
@@ -147,7 +145,6 @@ WebInspector.ResourcesPanel.prototype = {
         this._domStorage = [];
 
         this._cookieViews = {};
-        
         this._fileSystemView = null;
         
         this._applicationCacheView = null;
@@ -359,7 +356,6 @@ WebInspector.ResourcesPanel.prototype = {
 
         if (line) {
             var view = WebInspector.ResourceManager.resourceViewForResource(resource);
-            view.selectContentTab();
             if (view.revealLine)
                 view.revealLine(line);
             if (view.highlightLine)
@@ -371,8 +367,44 @@ WebInspector.ResourcesPanel.prototype = {
     _showResourceView: function(resource)
     {
         var view = WebInspector.ResourceManager.resourceViewForResource(resource);
-        view.headersVisible = false;
+
+        // Consider rendering diff markup here.
+        if (resource.baseRevision && view instanceof WebInspector.SourceView) {
+            function callback(baseContent)
+            {
+                if (baseContent)
+                    this._applyDiffMarkup(view, baseContent, resource.content);
+            }
+            resource.baseRevision.requestContent(callback.bind(this));
+        }
         this._innerShowView(view);
+    },
+
+    _applyDiffMarkup: function(view, baseContent, newContent) {
+        var oldLines = baseContent.split("\n");
+        var newLines = newContent.split("\n");
+
+        var diff = Array.diff(oldLines, newLines);
+
+        var diffData = {};
+        diffData.added = [];
+        diffData.removed = [];
+        diffData.changed = [];
+
+        var offset = 0;
+        var right = diff.right;
+        for (var i = 0; i < right.length; ++i) {
+            if (typeof right[i] === "string") {
+                if (right.length > i + 1 && right[i + 1].row === i + 1 - offset)
+                    diffData.changed.push(i);
+                else {
+                    diffData.added.push(i);
+                    offset++;
+                }
+            } else
+                offset = i - right[i].row;
+        }
+        view.sourceFrame.markDiff(diffData);
     },
 
     showDatabase: function(database, tableName)
@@ -813,7 +845,8 @@ WebInspector.BaseStorageTreeElement.prototype = {
     set titleText(titleText)
     {
         this._titleText = titleText;
-        this.titleElement.textContent = this._titleText;
+        if (this.titleElement)
+            this.titleElement.textContent = this._titleText;
     },
 
     isEventWithinDisclosureTriangle: function()
@@ -944,6 +977,7 @@ WebInspector.FrameResourceTreeElement = function(storagePanel, resource)
     WebInspector.BaseStorageTreeElement.call(this, storagePanel, resource, resource.displayName, "resource-sidebar-tree-item resources-category-" + resource.category.name);
     this._resource = resource;
     this._resource.addEventListener("errors-warnings-updated", this._errorsWarningsUpdated, this);
+    this._resource.addEventListener("content-changed", this._contentChanged, this);
     this.tooltip = resource.url;
 }
 
@@ -989,8 +1023,7 @@ WebInspector.FrameResourceTreeElement.prototype = {
 
     _ondragstart: function(event)
     {
-        event.dataTransfer.setData("text/plain", this._resource.url);
-        event.dataTransfer.setData("text/uri-list", this._resource.url + "\r\n");
+        event.dataTransfer.setData("text/plain", this._resource.content);
         event.dataTransfer.effectAllowed = "copy";
         return true;
     },
@@ -1054,6 +1087,17 @@ WebInspector.FrameResourceTreeElement.prototype = {
 
         if (this._resource.errors)
             this._bubbleElement.addStyleClass("error");
+    },
+
+    _contentChanged: function(event)
+    {
+        this.insertChild(new WebInspector.ResourceRevisionTreeElement(this._storagePanel, event.data.revision), 0);
+        var oldView = WebInspector.ResourceManager.existingResourceViewForResource(this._resource);
+        if (oldView) {
+            var newView = WebInspector.ResourceManager.recreateResourceView(this._resource);
+            if (oldView === this._storagePanel.visibleView)
+                this._storagePanel.visibleView = newView;
+        }
     }
 }
 
@@ -1180,6 +1224,47 @@ WebInspector.ApplicationCacheTreeElement.prototype = {
     }
 }
 WebInspector.ApplicationCacheTreeElement.prototype.__proto__ = WebInspector.BaseStorageTreeElement.prototype;
+
+WebInspector.ResourceRevisionTreeElement = function(storagePanel, revision)
+{
+    var title = revision.timestamp ? revision.timestamp.toLocaleTimeString() : "(original)";
+    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, title, "resource-sidebar-tree-item resources-category-" + revision.category.name);
+    if (revision.timestamp)
+        this.tooltip = revision.timestamp.toLocaleString();
+    this._resource = revision;
+}
+
+WebInspector.ResourceRevisionTreeElement.prototype = {
+    onattach: function()
+    {
+        WebInspector.BaseStorageTreeElement.prototype.onattach.call(this);
+        this.listItemElement.draggable = true;
+        this.listItemElement.addEventListener("dragstart", this._ondragstart.bind(this), false);
+        this.listItemElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), true);
+    },
+
+    onselect: function()
+    {
+        WebInspector.BaseStorageTreeElement.prototype.onselect.call(this);
+        this._storagePanel._showResourceView(this._resource);
+    },
+
+    _ondragstart: function(event)
+    {
+        event.dataTransfer.setData("text/plain", this._resource.content);
+        event.dataTransfer.effectAllowed = "copy";
+        return true;
+    },
+
+    _handleContextMenuEvent: function(event)
+    {
+        var contextMenu = new WebInspector.ContextMenu();
+        contextMenu.appendItem(WebInspector.UIString("Revert to this revision"), this._resource.revertToThis.bind(this._resource));
+        contextMenu.show(event);
+    }
+}
+
+WebInspector.ResourceRevisionTreeElement.prototype.__proto__ = WebInspector.BaseStorageTreeElement.prototype;
 
 WebInspector.FileSystemTreeElement = function(storagePanel, origin)
 {

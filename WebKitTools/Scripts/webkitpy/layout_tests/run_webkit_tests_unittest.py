@@ -72,12 +72,14 @@ def passing_run(extra_args=None, port_obj=None, record_results=False,
         args.extend(['--platform', 'test'])
     if not record_results:
         args.append('--no-record-results')
+    if not '--child-processes' in extra_args:
+        args.extend(['--worker-model', 'inline'])
     args.extend(extra_args)
     if not tests_included:
         # We use the glob to test that globbing works.
         args.extend(['passes',
                      'http/tests',
-                     'http/tests/websocket/tests',
+                     'websocket/tests',
                      'failures/expected/*'])
     options, parsed_args = run_webkit_tests.parse_args(args)
     if not port_obj:
@@ -92,21 +94,30 @@ def logging_run(extra_args=None, port_obj=None, tests_included=False):
     args = ['--no-record-results']
     if not '--platform' in extra_args:
         args.extend(['--platform', 'test'])
+    if not '--child-processes' in extra_args:
+        args.extend(['--worker-model', 'inline'])
     args.extend(extra_args)
     if not tests_included:
         args.extend(['passes',
                      'http/tests',
-                     'http/tests/websocket/tests',
+                     'websocket/tests',
                      'failures/expected/*'])
-    options, parsed_args = run_webkit_tests.parse_args(args)
-    user = MockUser()
-    if not port_obj:
-        port_obj = port.get(port_name=options.platform, options=options, user=user)
-    buildbot_output = array_stream.ArrayStream()
-    regular_output = array_stream.ArrayStream()
-    res = run_webkit_tests.run(port_obj, options, parsed_args,
-                               buildbot_output=buildbot_output,
-                               regular_output=regular_output)
+
+    oc = outputcapture.OutputCapture()
+    try:
+        oc.capture_output()
+        options, parsed_args = run_webkit_tests.parse_args(args)
+        user = MockUser()
+        if not port_obj:
+            port_obj = port.get(port_name=options.platform, options=options,
+                                user=user)
+        buildbot_output = array_stream.ArrayStream()
+        regular_output = array_stream.ArrayStream()
+        res = run_webkit_tests.run(port_obj, options, parsed_args,
+                                   buildbot_output=buildbot_output,
+                                   regular_output=regular_output)
+    finally:
+        oc.restore_output()
     return (res, buildbot_output, regular_output, user)
 
 
@@ -116,7 +127,7 @@ def get_tests_run(extra_args=None, tests_included=False, flatten_batches=False):
         '--print', 'nothing',
         '--platform', 'test',
         '--no-record-results',
-        '--child-processes', '1']
+        '--worker-model', 'inline']
     args.extend(extra_args)
     if not tests_included:
         # Not including http tests since they get run out of order (that
@@ -128,8 +139,8 @@ def get_tests_run(extra_args=None, tests_included=False, flatten_batches=False):
     test_batches = []
 
     class RecordingTestDriver(TestDriver):
-        def __init__(self, port, image_path, options):
-            TestDriver.__init__(self, port, image_path, options, executive=None)
+        def __init__(self, port, worker_number):
+            TestDriver.__init__(self, port, worker_number)
             self._current_test_batch = None
 
         def poll(self):
@@ -139,16 +150,17 @@ def get_tests_run(extra_args=None, tests_included=False, flatten_batches=False):
         def stop(self):
             self._current_test_batch = None
 
-        def run_test(self, uri, timeoutms, image_hash):
+        def run_test(self, test_input):
             if self._current_test_batch is None:
                 self._current_test_batch = []
                 test_batches.append(self._current_test_batch)
-            self._current_test_batch.append(self._port.uri_to_test_name(uri))
-            return TestDriver.run_test(self, uri, timeoutms, image_hash)
+            test_name = self._port.relative_test_filename(test_input.filename)
+            self._current_test_batch.append(test_name)
+            return TestDriver.run_test(self, test_input)
 
     class RecordingTestPort(TestPort):
-        def create_driver(self, image_path, options):
-            return RecordingTestDriver(self, image_path, options)
+        def create_driver(self, worker_number):
+            return RecordingTestDriver(self, worker_number)
 
     recording_port = RecordingTestPort(options=options, user=user)
     logging_run(extra_args=args, port_obj=recording_port, tests_included=True)
@@ -189,6 +201,13 @@ class MainTest(unittest.TestCase):
         self.assertTrue('Running 2 DumpRenderTrees in parallel\n'
                         in regular_output.get())
 
+    def test_dryrun(self):
+        batch_tests_run = get_tests_run(['--dry-run'])
+        self.assertEqual(batch_tests_run, [])
+
+        batch_tests_run = get_tests_run(['-n'])
+        self.assertEqual(batch_tests_run, [])
+
     def test_exception_raised(self):
         self.assertRaises(ValueError, logging_run,
             ['failures/expected/exception.html'], tests_included=True)
@@ -214,7 +233,7 @@ class MainTest(unittest.TestCase):
     def test_keyboard_interrupt(self):
         # Note that this also tests running a test marked as SKIP if
         # you specify it explicitly.
-        self.assertRaises(KeyboardInterrupt, passing_run,
+        self.assertRaises(KeyboardInterrupt, logging_run,
             ['failures/expected/keyboard.html'], tests_included=True)
 
     def test_last_results(self):
@@ -359,7 +378,22 @@ class MainTest(unittest.TestCase):
         test_port = get_port_for_run(base_args)
         self.assertEqual(None, test_port.tolerance_used_for_diff_image)
 
+    def test_worker_model__inline(self):
+        self.assertTrue(passing_run(['--worker-model', 'inline']))
+
+    def test_worker_model__threads(self):
+        self.assertTrue(passing_run(['--worker-model', 'threads']))
+
+    def test_worker_model__processes(self):
+        self.assertRaises(ValueError, logging_run,
+                          ['--worker-model', 'processes'])
+
+    def test_worker_model__unknown(self):
+        self.assertRaises(ValueError, logging_run,
+                          ['--worker-model', 'unknown'])
+
 MainTest = skip_if(MainTest, sys.platform == 'cygwin' and compare_version(sys, '2.6')[0] < 0, 'new-run-webkit-tests tests hang on Cygwin Python 2.5.2')
+
 
 
 def _mocked_open(original_open, file_list):
@@ -439,7 +473,8 @@ class TestRunnerTest(unittest.TestCase):
         mock_port.relative_test_filename = lambda name: name
         mock_port.filename_to_uri = lambda name: name
 
-        runner = run_webkit_tests.TestRunner(port=mock_port, options=Mock(), printer=Mock())
+        runner = run_webkit_tests.TestRunner(port=mock_port, options=Mock(),
+            printer=Mock(), message_broker=Mock())
         expected_html = u"""<html>
   <head>
     <title>Layout Test Results (time)</title>
@@ -453,20 +488,11 @@ class TestRunnerTest(unittest.TestCase):
         html = runner._results_html(["test_path"], {}, "Title", override_time="time")
         self.assertEqual(html, expected_html)
 
-    def queue_to_list(self, queue):
-        queue_list = []
-        while(True):
-            try:
-                queue_list.append(queue.get_nowait())
-            except Queue.Empty:
-                break
-        return queue_list
-
-    def test_get_test_file_queue(self):
-        # Test that _get_test_file_queue in run_webkit_tests.TestRunner really
+    def test_shard_tests(self):
+        # Test that _shard_tests in run_webkit_tests.TestRunner really
         # put the http tests first in the queue.
-        runner = TestRunnerWrapper(port=Mock(), options=Mock(), printer=Mock())
-        runner._options.experimental_fully_parallel = False
+        runner = TestRunnerWrapper(port=Mock(), options=Mock(),
+            printer=Mock(), message_broker=Mock())
 
         test_list = [
           "LayoutTests/websocket/tests/unicode.htm",
@@ -487,18 +513,15 @@ class TestRunnerTest(unittest.TestCase):
           'LayoutTests/http/tests/xmlhttprequest/supported-xml-content-types.html',
         ])
 
-        runner._options.child_processes = 1
-        test_queue_for_single_thread = runner._get_test_file_queue(test_list)
-        runner._options.child_processes = 2
-        test_queue_for_multi_thread = runner._get_test_file_queue(test_list)
-
-        single_thread_results = self.queue_to_list(test_queue_for_single_thread)
-        multi_thread_results = self.queue_to_list(test_queue_for_multi_thread)
+        # FIXME: Ideally the HTTP tests don't have to all be in one shard.
+        single_thread_results = runner._shard_tests(test_list, False)
+        multi_thread_results = runner._shard_tests(test_list, True)
 
         self.assertEqual("tests_to_http_lock", single_thread_results[0][0])
         self.assertEqual(expected_tests_to_http_lock, set(single_thread_results[0][1]))
         self.assertEqual("tests_to_http_lock", multi_thread_results[0][0])
         self.assertEqual(expected_tests_to_http_lock, set(multi_thread_results[0][1]))
+
 
 class DryrunTest(unittest.TestCase):
     # FIXME: it's hard to know which platforms are safe to test; the
@@ -518,115 +541,6 @@ class DryrunTest(unittest.TestCase):
     def test_test(self):
         self.assertTrue(passing_run(['--platform', 'dryrun-test',
                                            '--pixel-tests']))
-
-
-class TestThread(dump_render_tree_thread.WatchableThread):
-    def __init__(self, started_queue, stopping_queue):
-        dump_render_tree_thread.WatchableThread.__init__(self)
-        self._started_queue = started_queue
-        self._stopping_queue = stopping_queue
-        self._timeout = False
-        self._timeout_queue = Queue.Queue()
-
-    def run(self):
-        self._covered_run()
-
-    def _covered_run(self):
-        # FIXME: this is a separate routine to work around a bug
-        # in coverage: see http://bitbucket.org/ned/coveragepy/issue/85.
-        self._thread_id = thread.get_ident()
-        try:
-            self._started_queue.put('')
-            msg = self._stopping_queue.get()
-            if msg == 'KeyboardInterrupt':
-                raise KeyboardInterrupt
-            elif msg == 'Exception':
-                raise ValueError()
-            elif msg == 'Timeout':
-                self._timeout = True
-                self._timeout_queue.get()
-        except:
-            self._exception_info = sys.exc_info()
-
-    def next_timeout(self):
-        if self._timeout:
-            self._timeout_queue.put('done')
-            return time.time() - 10
-        return time.time()
-
-
-class TestHandler(logging.Handler):
-    def __init__(self, astream):
-        logging.Handler.__init__(self)
-        self._stream = astream
-
-    def emit(self, record):
-        self._stream.write(self.format(record))
-
-
-class WaitForThreadsToFinishTest(unittest.TestCase):
-    class MockTestRunner(run_webkit_tests.TestRunner):
-        def __init__(self):
-            pass
-
-        def __del__(self):
-            pass
-
-        def update_summary(self, result_summary):
-            pass
-
-    def run_one_thread(self, msg):
-        runner = self.MockTestRunner()
-        starting_queue = Queue.Queue()
-        stopping_queue = Queue.Queue()
-        child_thread = TestThread(starting_queue, stopping_queue)
-        child_thread.start()
-        started_msg = starting_queue.get()
-        stopping_queue.put(msg)
-        threads = [child_thread]
-        return runner._wait_for_threads_to_finish(threads, None)
-
-    def test_basic(self):
-        interrupted = self.run_one_thread('')
-        self.assertFalse(interrupted)
-
-    def test_interrupt(self):
-        interrupted = self.run_one_thread('KeyboardInterrupt')
-        self.assertTrue(interrupted)
-
-    def test_timeout(self):
-        oc = outputcapture.OutputCapture()
-        oc.capture_output()
-        interrupted = self.run_one_thread('Timeout')
-        self.assertFalse(interrupted)
-        oc.restore_output()
-
-    def test_exception(self):
-        self.assertRaises(ValueError, self.run_one_thread, 'Exception')
-
-
-class StandaloneFunctionsTest(unittest.TestCase):
-    def test_log_wedged_thread(self):
-        oc = outputcapture.OutputCapture()
-        oc.capture_output()
-        logger = run_webkit_tests._log
-        astream = array_stream.ArrayStream()
-        handler = TestHandler(astream)
-        logger.addHandler(handler)
-
-        starting_queue = Queue.Queue()
-        stopping_queue = Queue.Queue()
-        child_thread = TestThread(starting_queue, stopping_queue)
-        child_thread.start()
-        msg = starting_queue.get()
-
-        run_webkit_tests._log_wedged_thread(child_thread)
-        stopping_queue.put('')
-        child_thread.join(timeout=1.0)
-
-        self.assertFalse(astream.empty())
-        self.assertFalse(child_thread.isAlive())
-        oc.restore_output()
 
 
 if __name__ == '__main__':

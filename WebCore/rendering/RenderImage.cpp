@@ -332,10 +332,10 @@ void RenderImage::paint(PaintInfo& paintInfo, int tx, int ty)
     RenderReplaced::paint(paintInfo, tx, ty);
     
     if (paintInfo.phase == PaintPhaseOutline)
-        paintFocusRings(paintInfo, style());
+        paintFocusRing(paintInfo, style());
 }
     
-void RenderImage::paintFocusRings(PaintInfo& paintInfo, const RenderStyle* style)
+void RenderImage::paintFocusRing(PaintInfo& paintInfo, const RenderStyle* style)
 {
     // Don't draw focus rings if printing.
     if (document()->printing() || !frame()->selection()->isFocusedAndActive())
@@ -367,10 +367,9 @@ void RenderImage::paintFocusRings(PaintInfo& paintInfo, const RenderStyle* style
         HTMLAreaElement* areaElement = static_cast<HTMLAreaElement*>(areas->item(k));
         if (focusedNode != areaElement)
             continue;
-        
-        Vector<Path> focusRingPaths;
-        focusRingPaths.append(areaElement->getPath(this));
-        paintInfo.context->drawFocusRing(focusRingPaths, style->outlineWidth(), style->outlineOffset(), style->visitedDependentColor(CSSPropertyOutlineColor));
+
+        RenderStyle* styleToUse = areaElement->computedStyle();
+        paintInfo.context->drawFocusRing(areaElement->getPath(this), styleToUse->outlineWidth(), styleToUse->outlineOffset(), styleToUse->visitedDependentColor(CSSPropertyOutlineColor));
         break;
     }
 }
@@ -386,7 +385,7 @@ void RenderImage::paintIntoRect(GraphicsContext* context, const IntRect& rect)
 
     HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
     CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
-    bool useLowQualityScaling = shouldPaintAtLowQuality(context, m_imageResource->image(), rect.size());
+    bool useLowQualityScaling = shouldPaintAtLowQuality(context, m_imageResource->image(), 0, rect.size());
     context->drawImage(m_imageResource->image(rect.width(), rect.height()), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
 }
 

@@ -168,6 +168,7 @@ public slots:
     void setSelectTrailingWhitespaceEnabled(bool enable);
     void execCommand(const QString& name, const QString& value = QString());
     bool isCommandEnabled(const QString& name) const;
+    bool findString(const QString& string, const QStringList& optionArray);
 
     bool pauseAnimationAtTimeOnElementWithId(const QString& animationName, double time, const QString& elementId);
     bool pauseTransitionAtTimeOnElementWithId(const QString& propertyName, double time, const QString& elementId);
@@ -218,7 +219,7 @@ public slots:
     bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
     bool geolocationPermission() const { return m_geolocationPermission; }
 
-    void setMockSpeechInputResult(const QString& result, const QString& language);
+    void addMockSpeechInputResult(const QString& result, double confidence, const QString& language);
 
     // Empty stub method to keep parity with object model exposed by global LayoutTestController.
     void abortModal() {}

@@ -3,6 +3,7 @@
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Simon Hausmann <hausmann@kde.org>
  * Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
+ * Copyright (C) 2010 Sencha, Inc.
  *
  * All rights reserved.
  *
@@ -32,11 +33,12 @@
 #include "Image.h"
 
 #include "AffineTransform.h"
-#include "ImageObserver.h"
 #include "BitmapImage.h"
+#include "ContextShadow.h"
 #include "FloatRect.h"
-#include "PlatformString.h"
 #include "GraphicsContext.h"
+#include "ImageObserver.h"
+#include "PlatformString.h"
 #include "StillImageQt.h"
 #include "qwebsettings.h"
 
@@ -102,12 +104,13 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     if (!framePixmap) // If it's too early we won't have an image yet.
         return;
 
+    // Qt interprets 0 width/height as full width/height so just short circuit.
     QRectF dr = QRectF(destRect).normalized();
-    if (!dr.width() || !dr.height()) // Qt interprets 0 width/height as full width/height so just short circuit.
+    QRect tr = QRectF(tileRect).toRect().normalized();
+    if (!dr.width() || !dr.height() || !tr.width() || !tr.height())
         return;
 
     QPixmap pixmap = *framePixmap;
-    QRect tr = QRectF(tileRect).toRect().normalized();
     if (tr.x() || tr.y() || tr.width() != pixmap.width() || tr.height() != pixmap.height())
         pixmap = pixmap.copy(tr);
 
@@ -177,10 +180,13 @@ void BitmapImage::invalidatePlatformData()
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
                        const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op)
 {
-    FloatRect normalizedDst = dst.normalized();
-    FloatRect normalizedSrc = src.normalized();
+    QRectF normalizedDst = dst.normalized();
+    QRectF normalizedSrc = src.normalized();
 
     startAnimation();
+
+    if (normalizedSrc.isEmpty() || normalizedDst.isEmpty())
+        return;
 
     QPixmap* image = nativeImageForCurrentFrame();
     if (!image)
@@ -201,21 +207,14 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
     QPainter::CompositionMode lastCompositionMode = painter->compositionMode();
     painter->setCompositionMode(compositionMode);
 
-    FloatSize shadowOffset;
-    float shadowBlur;
-    Color shadowColor;
-    if (ctxt->getShadow(shadowOffset, shadowBlur, shadowColor)) {
-        FloatRect shadowImageRect(normalizedDst);
-        shadowImageRect.move(shadowOffset.width(), shadowOffset.height());
-
-        QImage shadowImage(QSize(static_cast<int>(normalizedSrc.width()), static_cast<int>(normalizedSrc.height())), QImage::Format_ARGB32_Premultiplied);
-        QPainter p(&shadowImage);
-        p.setCompositionMode(QPainter::CompositionMode_Source);
-        p.fillRect(shadowImage.rect(), shadowColor);
-        p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-        p.drawPixmap(QRect(0, 0, normalizedDst.width(), normalizedDst.height()), *image, normalizedSrc);
-        p.end();
-        painter->drawImage(shadowImageRect, shadowImage, normalizedSrc);
+    ContextShadow* shadow = ctxt->contextShadow();
+    if (shadow->m_type != ContextShadow::NoShadow) {
+        QPainter* shadowPainter = shadow->beginShadowLayer(painter, normalizedDst);
+        if (shadowPainter) {
+            shadowPainter->setOpacity(static_cast<qreal>(shadow->m_color.alpha()) / 255);
+            shadowPainter->drawPixmap(normalizedDst, *image, normalizedSrc);
+            shadow->endShadowLayer(painter);
+        }
     }
 
     // Test using example site at

@@ -22,8 +22,9 @@
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "FEConvolveMatrix.h"
+#include "SVGAnimatedNumber.h"
+#include "SVGAnimatedNumberList.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
-#include "SVGNumberList.h"
 
 namespace WebCore {
 
@@ -39,24 +40,25 @@ private:
 
     virtual void parseMappedAttribute(Attribute*);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
+
     static const AtomicString& orderXIdentifier();
     static const AtomicString& orderYIdentifier();
-
     static const AtomicString& kernelUnitLengthXIdentifier();
     static const AtomicString& kernelUnitLengthYIdentifier();
 
+    // Animated property declarations
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::inAttr, String, In1, in1)
     DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFEConvolveMatrixElement, SVGNames::orderAttr, orderXIdentifier(), long, OrderX, orderX)
     DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFEConvolveMatrixElement, SVGNames::orderAttr, orderYIdentifier(), long, OrderY, orderY)
-    DECLARE_ANIMATED_LIST_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::kernelMatrixAttr, SVGNumberList, KernelMatrix, kernelMatrix)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::divisorAttr, float, Divisor, divisor)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::biasAttr, float, Bias, bias)
+    DECLARE_ANIMATED_NUMBER_LIST(KernelMatrix, kernelMatrix)
+    DECLARE_ANIMATED_NUMBER(Divisor, divisor)
+    DECLARE_ANIMATED_NUMBER(Bias, bias)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::targetXAttr, long, TargetX, targetX)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::targetYAttr, long, TargetY, targetY)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::operatorAttr, int, EdgeMode, edgeMode)
-    DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFEConvolveMatrixElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), float, KernelUnitLengthX, kernelUnitLengthX)
-    DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFEConvolveMatrixElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), float, KernelUnitLengthY, kernelUnitLengthY)
+    DECLARE_ANIMATED_NUMBER(KernelUnitLengthX, kernelUnitLengthX)
+    DECLARE_ANIMATED_NUMBER(KernelUnitLengthY, kernelUnitLengthY)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEConvolveMatrixElement, SVGNames::preserveAlphaAttr, bool, PreserveAlpha, preserveAlpha)
 };
 

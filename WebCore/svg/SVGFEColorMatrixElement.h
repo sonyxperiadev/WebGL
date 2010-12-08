@@ -23,8 +23,8 @@
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "FEColorMatrix.h"
+#include "SVGAnimatedNumberList.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
-#include "SVGNumberList.h"
 
 namespace WebCore {
 
@@ -38,11 +38,12 @@ private:
     virtual void parseMappedAttribute(Attribute*);
     virtual void svgAttributeChanged(const QualifiedName&);
     virtual void synchronizeProperty(const QualifiedName&);
-    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
+    // Animated property declarations
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEColorMatrixElement, SVGNames::inAttr, String, In1, in1)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFEColorMatrixElement, SVGNames::typeAttr, int, Type, type)
-    DECLARE_ANIMATED_LIST_PROPERTY_NEW(SVGFEColorMatrixElement, SVGNames::valuesAttr, SVGNumberList, Values, values)
+    DECLARE_ANIMATED_NUMBER_LIST(Values, values)
 };
 
 } // namespace WebCore

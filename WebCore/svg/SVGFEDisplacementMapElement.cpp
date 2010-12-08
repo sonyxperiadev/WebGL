@@ -26,6 +26,9 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER(SVGFEDisplacementMapElement, SVGNames::scaleAttr, Scale, scale)
+
 inline SVGFEDisplacementMapElement::SVGFEDisplacementMapElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_xChannelSelector(CHANNEL_A)
@@ -106,7 +109,7 @@ void SVGFEDisplacementMapElement::synchronizeProperty(const QualifiedName& attrN
         synchronizeScale();
 }
 
-PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
     FilterEffect* input2 = filterBuilder->getEffectById(in2());
@@ -114,7 +117,7 @@ PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* fi
     if (!input1 || !input2)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEDisplacementMap::create(static_cast<ChannelSelectorType>(xChannelSelector()), 
+    RefPtr<FilterEffect> effect = FEDisplacementMap::create(filter, static_cast<ChannelSelectorType>(xChannelSelector()), 
                                                                 static_cast<ChannelSelectorType>(yChannelSelector()), scale());
     FilterEffectVector& inputEffects = effect->inputEffects();
     inputEffects.reserveCapacity(2);

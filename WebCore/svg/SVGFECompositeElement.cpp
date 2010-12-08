@@ -28,6 +28,12 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER(SVGFECompositeElement, SVGNames::k1Attr, K1, k1)
+DEFINE_ANIMATED_NUMBER(SVGFECompositeElement, SVGNames::k2Attr, K2, k2)
+DEFINE_ANIMATED_NUMBER(SVGFECompositeElement, SVGNames::k3Attr, K3, k3)
+DEFINE_ANIMATED_NUMBER(SVGFECompositeElement, SVGNames::k4Attr, K4, k4)
+
 inline SVGFECompositeElement::SVGFECompositeElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m__operator(FECOMPOSITE_OPERATOR_OVER)
@@ -116,7 +122,7 @@ void SVGFECompositeElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeK4();
 }
 
-PassRefPtr<FilterEffect> SVGFECompositeElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFECompositeElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
     FilterEffect* input2 = filterBuilder->getEffectById(in2());
@@ -124,7 +130,7 @@ PassRefPtr<FilterEffect> SVGFECompositeElement::build(SVGFilterBuilder* filterBu
     if (!input1 || !input2)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEComposite::create(static_cast<CompositeOperationType>(_operator()),
+    RefPtr<FilterEffect> effect = FEComposite::create(filter, static_cast<CompositeOperationType>(_operator()),
                                                           k1(), k2(), k3(), k4());
     FilterEffectVector& inputEffects = effect->inputEffects();
     inputEffects.reserveCapacity(2);

@@ -47,7 +47,7 @@ String resetButtonDefaultLabel()
     return String("Reset"); 
 }
 
-String defaultLanguage() 
+String platformDefaultLanguage() 
 { 
     return String("en"); 
 }
@@ -388,6 +388,36 @@ String validationMessageValueMissingText()
 {
     notImplemented();
     return String();
+}
+
+String validationMessageValueMissingForCheckboxText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForMultipleFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForRadioText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForSelectText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
 }
 
 String validationMessageTypeMismatchText()

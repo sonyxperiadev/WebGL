@@ -211,12 +211,20 @@ void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "No key supplied."));
         return;
     }
+    if (key->type() == IDBKey::NullType) {
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "NULL key is not allowed."));
+        return;
+    }
 
     Vector<RefPtr<IDBKey> > indexKeys;
     for (IndexMap::iterator it = objectStore->m_indexes.begin(); it != objectStore->m_indexes.end(); ++it) {
         RefPtr<IDBKey> key = fetchKeyFromKeyPath(value.get(), it->second->keyPath());
         if (!key) {
             callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "The key could not be fetched from an index's keyPath."));
+            return;
+        }
+        if (key->type() == IDBKey::NullType) {
+            callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "One of the derived (from a keyPath) keys for an index is NULL."));
             return;
         }
         if (!it->second->addingKeyAllowed(key.get())) {
@@ -267,16 +275,16 @@ void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<
     callbacks->onSuccess(key.get());
 }
 
-void IDBObjectStoreBackendImpl::remove(PassRefPtr<IDBKey> prpKey, PassRefPtr<IDBCallbacks> prpCallbacks, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
+void IDBObjectStoreBackendImpl::deleteFunction(PassRefPtr<IDBKey> prpKey, PassRefPtr<IDBCallbacks> prpCallbacks, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
 {
     RefPtr<IDBObjectStoreBackendImpl> objectStore = this;
     RefPtr<IDBKey> key = prpKey;
     RefPtr<IDBCallbacks> callbacks = prpCallbacks;
-    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::removeInternal, objectStore, key, callbacks)))
+    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::deleteInternal, objectStore, key, callbacks)))
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
 }
 
-void IDBObjectStoreBackendImpl::removeInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKey> key, PassRefPtr<IDBCallbacks> callbacks)
+void IDBObjectStoreBackendImpl::deleteInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKey> key, PassRefPtr<IDBCallbacks> callbacks)
 {
     SQLiteStatement query(objectStore->sqliteDatabase(), "DELETE FROM ObjectStoreData " + whereClause(key.get()));
     bool ok = query.prepare() == SQLResultOk;
@@ -357,7 +365,7 @@ static void doDelete(SQLiteDatabase& db, const char* sql, int64_t id)
     ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
 }
 
-void IDBObjectStoreBackendImpl::removeIndex(const String& name, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
+void IDBObjectStoreBackendImpl::deleteIndex(const String& name, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
 {
     RefPtr<IDBIndexBackendImpl> index = m_indexes.get(name);
     if (!index) {
@@ -367,7 +375,7 @@ void IDBObjectStoreBackendImpl::removeIndex(const String& name, IDBTransactionBa
 
     RefPtr<IDBObjectStoreBackendImpl> objectStore = this;
     RefPtr<IDBTransactionBackendInterface> transactionPtr = transaction;
-    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::removeIndexInternal, objectStore, index, transactionPtr),
+    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::deleteIndexInternal, objectStore, index, transactionPtr),
                                    createCallbackTask(&IDBObjectStoreBackendImpl::addIndexToMap, objectStore, index))) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
         return;
@@ -375,7 +383,7 @@ void IDBObjectStoreBackendImpl::removeIndex(const String& name, IDBTransactionBa
     m_indexes.remove(name);
 }
 
-void IDBObjectStoreBackendImpl::removeIndexInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBIndexBackendImpl> index, PassRefPtr<IDBTransactionBackendInterface> transaction)
+void IDBObjectStoreBackendImpl::deleteIndexInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBIndexBackendImpl> index, PassRefPtr<IDBTransactionBackendInterface> transaction)
 {
     doDelete(objectStore->sqliteDatabase(), "DELETE FROM Indexes WHERE id = ?", index->id());
     doDelete(objectStore->sqliteDatabase(), "DELETE FROM IndexData WHERE indexId = ?", index->id());
@@ -395,15 +403,15 @@ void IDBObjectStoreBackendImpl::openCursor(PassRefPtr<IDBKeyRange> prpRange, uns
 
 void IDBObjectStoreBackendImpl::openCursorInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBKeyRange> range, unsigned short tmpDirection, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<IDBTransactionBackendInterface> transaction)
 {
-    bool leftBound = range && (range->flags() & IDBKeyRange::LEFT_BOUND || range->flags() == IDBKeyRange::SINGLE);
-    bool rightBound = range && (range->flags() & IDBKeyRange::RIGHT_BOUND || range->flags() == IDBKeyRange::SINGLE);
+    bool lowerBound = range && range->lower();
+    bool upperBound = range && range->upper();
 
     // Several files depend on this order of selects.
     String sql = "SELECT id, keyString, keyDate, keyNumber, value FROM ObjectStoreData WHERE ";
-    if (leftBound)
-        sql += range->left()->leftCursorWhereFragment(range->leftWhereClauseComparisonOperator());
-    if (rightBound)
-        sql += range->right()->rightCursorWhereFragment(range->rightWhereClauseComparisonOperator());
+    if (lowerBound)
+        sql += range->lower()->lowerCursorWhereFragment(range->lowerWhereClauseComparisonOperator());
+    if (upperBound)
+        sql += range->upper()->upperCursorWhereFragment(range->upperWhereClauseComparisonOperator());
     sql += "objectStoreId = ? ORDER BY ";
 
     IDBCursor::Direction direction = static_cast<IDBCursor::Direction>(tmpDirection);
@@ -417,10 +425,10 @@ void IDBObjectStoreBackendImpl::openCursorInternal(ScriptExecutionContext*, Pass
     ASSERT_UNUSED(ok, ok); // FIXME: Better error handling?
 
     int currentColumn = 1;
-    if (leftBound)
-        currentColumn += range->left()->bind(*query, currentColumn);
-    if (rightBound)
-        currentColumn += range->right()->bind(*query, currentColumn);
+    if (lowerBound)
+        currentColumn += range->lower()->bind(*query, currentColumn);
+    if (upperBound)
+        currentColumn += range->upper()->bind(*query, currentColumn);
     query->bindInt64(currentColumn, objectStore->id());
 
     if (query->step() != SQLResultRow) {

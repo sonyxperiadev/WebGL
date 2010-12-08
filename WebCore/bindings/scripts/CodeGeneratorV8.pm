@@ -6,6 +6,7 @@
 # Copyright (C) 2007, 2008, 2009 Google Inc.
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 # Copyright (C) Research In Motion Limited 2010. All rights reserved.
+# Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
@@ -25,7 +26,6 @@
 
 package CodeGeneratorV8;
 
-use File::stat;
 use Digest::MD5;
 
 my $module = "";
@@ -681,18 +681,9 @@ sub GenerateNormalAttrGetter
     my $interfaceName = shift;
 
     my $attrExt = $attribute->signature->extendedAttributes;
-
     my $attrName = $attribute->signature->name;
-
     my $attrType = GetTypeFromSignature($attribute->signature);
-
     my $nativeType = GetNativeTypeFromSignature($attribute->signature, -1);
-    my $skipContext = 0;
-
-    # Special case: SVGZoomEvent's attributes are all read-only
-    if ($implClassName eq "SVGZoomEvent") {
-        $skipContext = 1;
-    }
 
     my $getterStringUsesImp = $implClassName ne "SVGNumber";
     my $svgNativeType = $codeGenerator->GetSVGTypeNeedingTearOff($implClassName);
@@ -836,14 +827,6 @@ END
         return;
     }
 
-    if (IsSVGTypeNeedingContextParameter($attrType) && !$skipContext) {
-        push(@implContentDecls, GenerateSVGContextRetrieval($implClassName, "    "));
-        # The templating associated with passing withSVGContext()'s return value directly into toV8 can get compilers confused,
-        # so just manually set the return value to a PassRefPtr of the expected type.
-        push(@implContentDecls, "    PassRefPtr<$attrType> resultAsPassRefPtr = V8Proxy::withSVGContext($result, context);\n");
-        $result = "resultAsPassRefPtr";
-    }
-
     if ($codeGenerator->IsSVGAnimatedType($implClassName) and $codeGenerator->IsSVGTypeNeedingTearOff($attrType)) {
         $implIncludes{"V8$attrType.h"} = 1;
         my $svgNativeType = $codeGenerator->GetSVGTypeNeedingTearOff($attrType);
@@ -881,7 +864,7 @@ END
         } elsif ($tearOffType =~ /SVGStaticListPropertyTearOff/) {
             my $extraImp = "GetOwnerElementForType<$implClassName, IsDerivedFromSVGElement<$implClassName>::value>::ownerElement(imp), ";
             push(@implContentDecls, "    return toV8(WTF::getPtr(${tearOffType}::create($extraImp$result)));\n");
-        } elsif ($tearOffType =~ /SVGPointList/) {
+        } elsif ($tearOffType =~ /SVG(Point|PathSeg)List/) {
             push(@implContentDecls, "    return toV8(WTF::getPtr($result));\n");
         } else {
             push(@implContentDecls, "    return toV8(WTF::getPtr(${tearOffType}::create($result)));\n");
@@ -934,11 +917,13 @@ sub GenerateNormalAttrSetter
     $svgNativeType* imp = V8${implClassName}::toNative(info.Holder());
 END
         } else {
-            push(@implContentDecls, <<END);
-    $svgNativeType* wrapper = V8${implClassName}::toNative(info.Holder());
-    $svgWrappedNativeType& impInstance = wrapper->propertyReference();
-    $svgWrappedNativeType* imp = &impInstance;
-END
+            push(@implContentDecls, "    $svgNativeType* wrapper = V8${implClassName}::toNative(info.Holder());\n");
+            push(@implContentDecls, "    if (wrapper->role() == AnimValRole) {\n");
+            push(@implContentDecls, "        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR);\n");
+            push(@implContentDecls, "        return;\n");
+            push(@implContentDecls, "    }\n");
+            push(@implContentDecls, "    $svgWrappedNativeType& impInstance = wrapper->propertyReference();\n");
+            push(@implContentDecls, "    $svgWrappedNativeType* imp = &impInstance;\n");
         }
     } elsif ($attrExt->{"v8OnProto"}) {
       if ($interfaceName eq "DOMWindow") {
@@ -1038,10 +1023,6 @@ END
         } else {
             push(@implContentDecls, "    wrapper->commitChange();\n");
         }
-    } elsif (IsSVGTypeNeedingContextParameter($implClassName)) {
-        $implIncludes{"SVGElement.h"} = 1;
-        push(@implContentDecls, "    if (SVGElement* context = V8Proxy::svgContext(imp))\n");
-        push(@implContentDecls, "        context->svgAttributeChanged(imp->associatedAttributeName());\n");
     }
 
     push(@implContentDecls, "    return;\n");
@@ -1239,8 +1220,12 @@ END
         if ($implClassName =~ /List$/) {
             push(@implContentDecls, "    $nativeClassName imp = V8${implClassName}::toNative(args.Holder());\n");
         } else {
-            my $svgWrappedNativeType = $codeGenerator->GetSVGWrappedTypeNeedingTearOff($implClassName);
             push(@implContentDecls, "    $nativeClassName wrapper = V8${implClassName}::toNative(args.Holder());\n");
+            push(@implContentDecls, "    if (wrapper->role() == AnimValRole) {\n");
+            push(@implContentDecls, "        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR);\n");
+            push(@implContentDecls, "        return v8::Handle<v8::Value>();\n");
+            push(@implContentDecls, "    }\n");
+            my $svgWrappedNativeType = $codeGenerator->GetSVGWrappedTypeNeedingTearOff($implClassName);
             push(@implContentDecls, "    $svgWrappedNativeType& impInstance = wrapper->propertyReference();\n");
             push(@implContentDecls, "    $svgWrappedNativeType* imp = &impInstance;\n");
         }
@@ -1281,9 +1266,9 @@ END
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         push(@implContentDecls, <<END);
-    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
+    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
     size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;
-    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
+    RefPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
     if (!callStack)
         return v8::Undefined();
 END
@@ -1538,11 +1523,6 @@ sub GenerateImplementationIndexer
     if ($interfaceName eq "HTMLOptionsCollection") {
         $hasGetter = 1;
     }
-    # FIXME: If the parent interface of $dataNode already has
-    # HasIndexGetter, we don't need to handle the getter here.
-    if ($interfaceName eq "WebKitCSSTransformValue") {
-        $hasGetter = 0;
-    }
 
     # FIXME: Investigate and remove this nastinesss. In V8, named property handling and indexer handling are apparently decoupled,
     # which means that object[X] where X is a number doesn't reach named property indexer. So we need to provide
@@ -1566,6 +1546,13 @@ sub GenerateImplementationIndexer
     # FIXME: Remove this once toV8 helper methods are implemented (see https://bugs.webkit.org/show_bug.cgi?id=32563).
     if ($interfaceName eq "WebKitCSSKeyframesRule") {
         $indexerType = "WebKitCSSKeyframeRule";
+    }
+
+    # FIXME: The item() getter is not inherited from CSSValueList, seemingly due to the way
+    # the CodeGenerator->AddMethodsConstantsAndAttributesFromParentClasses() method works,
+    # so we need to set the indexerType manually in this case.
+    if ($interfaceName eq "WebKitCSSTransformValue") {
+        $indexerType = "CSSValue";
     }
 
     if ($indexerType && !$hasCustomSetter) {
@@ -1937,7 +1924,7 @@ END
         push(@implContent, <<END);
 static v8::Persistent<v8::ObjectTemplate> ConfigureShadowObjectTemplate(v8::Persistent<v8::ObjectTemplate> templ)
 {
-    batchConfigureAttributes(templ, v8::Handle<v8::ObjectTemplate>(), shadowAttrs, sizeof(shadowAttrs) / sizeof(*shadowAttrs));
+    batchConfigureAttributes(templ, v8::Handle<v8::ObjectTemplate>(), shadowAttrs, WTF_ARRAY_LENGTH(shadowAttrs));
 
     // Install a security handler with V8.
     templ->SetAccessCheckCallbacks(V8DOMWindow::namedSecurityCheck, V8DOMWindow::indexedSecurityCheck, v8::External::Wrap(&V8DOMWindow::info));
@@ -1969,7 +1956,7 @@ END
     # Set up our attributes if we have them
     if ($has_attributes) {
         push(@implContent, <<END);
-        ${interfaceName}Attrs, sizeof(${interfaceName}Attrs) / sizeof(*${interfaceName}Attrs),
+        ${interfaceName}Attrs, WTF_ARRAY_LENGTH(${interfaceName}Attrs),
 END
     } else {
         push(@implContent, <<END);
@@ -1979,7 +1966,7 @@ END
 
     if ($has_callbacks) {
         push(@implContent, <<END);
-        ${interfaceName}Callbacks, sizeof(${interfaceName}Callbacks) / sizeof(*${interfaceName}Callbacks));
+        ${interfaceName}Callbacks, WTF_ARRAY_LENGTH(${interfaceName}Callbacks));
 END
     } else {
         push(@implContent, <<END);
@@ -2117,7 +2104,7 @@ END
 
     if ($has_constants) {
         push(@implContent, <<END);
-    batchConfigureConstants(desc, proto, ${interfaceName}Consts, sizeof(${interfaceName}Consts) / sizeof(*${interfaceName}Consts));
+    batchConfigureConstants(desc, proto, ${interfaceName}Consts, WTF_ARRAY_LENGTH(${interfaceName}Consts));
 END
     }
 
@@ -2554,8 +2541,6 @@ sub GetDomMapFunction
     my $type = shift;
     return "getDOMSVGElementInstanceMap()" if $type eq "SVGElementInstance";
     return "getDOMNodeMap()" if ($dataNode && IsNodeSubType($dataNode));
-    # Only use getDOMSVGObjectWithContextMap() for non-node svg objects
-    return "getDOMSVGObjectWithContextMap()" if $type =~ /SVG/ and not $codeGenerator->IsSVGTypeNeedingTearOff($type) and not $codeGenerator->IsSVGAnimatedType($type);
     return "" if $type eq "DOMImplementation";
     return "getActiveDOMObjectMap()" if IsActiveDomType($type);
     return "getDOMObjectMap()";
@@ -2574,7 +2559,6 @@ sub IsActiveDomType
     return 1 if $type eq "IDBRequest";
     return 1 if $type eq "FileReader";
     return 1 if $type eq "FileWriter";
-    return 1 if $type eq "FileWriterSync";
     return 0;
 }
 
@@ -2668,7 +2652,7 @@ sub GenerateFunctionCallString()
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         $functionString .= ", " if $index;
-        $functionString .= "scriptArguments.release(), callStack.release()";
+        $functionString .= "scriptArguments, callStack";
         $index += 2;
     }
 
@@ -2720,23 +2704,6 @@ sub GenerateFunctionCallString()
         my $svgNativeType = $codeGenerator->GetSVGTypeNeedingTearOff($returnType);
         $result .= $indent . "return toV8(WTF::getPtr(${svgNativeType}::create($return)));\n";
         return $result;
-    }
-
-    my $generatedSVGContextRetrieval = 0;
-    # If the return type needs an SVG context, output it
-    if (IsSVGTypeNeedingContextParameter($returnType)) {
-        $result .= GenerateSVGContextAssignment($implClassName, $return . ".get()", $indent);
-        $generatedSVGContextRetrieval = 1;
-    }
-
-    if (IsSVGTypeNeedingContextParameter($implClassName) && $implClassName =~ /List$/ && IsSVGListMutator($name)) {
-        if (!$generatedSVGContextRetrieval) {
-            $result .= GenerateSVGContextRetrieval($implClassName, $indent);
-            $generatedSVGContextRetrieval = 1;
-        }
-
-        $result .= $indent . "context->svgAttributeChanged(imp->associatedAttributeName());\n";
-        $implIncludes{"SVGElement.h"} = 1;
     }
 
     # If the implementing class is a POD type, commit changes
@@ -2839,6 +2806,7 @@ sub GetNativeType
     return "Node*" if $type eq "EventTarget" and $isParameter;
     return "double" if $type eq "Date";
     return "ScriptValue" if $type eq "DOMObject";
+    return "OptionsObject" if $type eq "OptionsObject";
 
     return "String" if $type eq "DOMUserData";  # FIXME: Temporary hack?
 
@@ -2853,6 +2821,8 @@ sub GetNativeType
     return "RefPtr<XPathNSResolver>" if $type eq "XPathNSResolver";
 
     return "RefPtr<${type}>" if IsRefPtrType($type) and not $isParameter;
+
+    return "RefPtr<MediaQueryListListener>" if $type eq "MediaQueryListListener";
 
     # Default, assume native type is a pointer with same type name as idl type
     return "${type}*";
@@ -2901,7 +2871,7 @@ sub JSValueToNative
     return "$value->BooleanValue()" if $type eq "boolean";
     return "static_cast<$type>($value->NumberValue())" if $type eq "float" or $type eq "double";
 
-    return "toInt32($value)" if $type eq "long";
+    return "toInt32($value)" if $type eq "long" or $type eq "short";
     return "toUInt32($value)" if $type eq "unsigned long" or $type eq "unsigned short";
     return "toInt64($value)" if $type eq "unsigned long long" or $type eq "long long";
     return "static_cast<Range::CompareHow>($value->Int32Value())" if $type eq "CompareHow";
@@ -2920,6 +2890,11 @@ sub JSValueToNative
         return "createIDBKeyFromValue($value)";
     }
 
+    if ($type eq "OptionsObject") {
+        $implIncludes{"OptionsObject.h"} = 1;
+        return $value;
+    }
+
     if ($type eq "DOMObject") {
         $implIncludes{"ScriptValue.h"} = 1;
         return "ScriptValue($value)";
@@ -2929,8 +2904,9 @@ sub JSValueToNative
         return "V8DOMWrapper::wrapNativeNodeFilter($value)";
     }
 
-    if ($type eq "SVGRect") {
-        $implIncludes{"FloatRect.h"} = 1;
+    if ($type eq "MediaQueryListListener") {
+        $implIncludes{"MediaQueryListListener.h"} = 1;
+        return "MediaQueryListListener::create(" . $value . ")";
     }
 
     # Default, assume autogenerated type conversion routines
@@ -3060,7 +3036,9 @@ my %non_wrapper_types = (
     'NodeFilter' => 1,
     'EventListener' => 1,
     'IDBKey' => 1,
-    'Date' => 1
+    'OptionsObject' => 1,
+    'Date' => 1,
+    'MediaQueryListListener' => 1
 );
 
 
@@ -3107,7 +3085,6 @@ sub ReturnNativeToJSValue
     my $indent = shift;
     my $type = GetTypeFromSignature($signature);
 
-    return "return v8::Date::New(static_cast<double>($value))" if $type eq "DOMTimeStamp";
     return "return v8Boolean($value)" if $type eq "boolean";
     return "return v8::Handle<v8::Value>()" if $type eq "void";     # equivalent to v8::Undefined()
 
@@ -3119,7 +3096,7 @@ sub ReturnNativeToJSValue
 
     return "return v8DateOrNull($value)" if $type eq "Date";
     # long long and unsigned long long are not representable in ECMAScript.
-    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long";
+    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long" or $type eq "DOMTimeStamp";
     return "return v8::Number::New($value)" if $codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType";
     return "return $value.v8Value()" if $nativeType eq "ScriptValue";
 
@@ -3206,64 +3183,6 @@ sub WriteData
 
         @headerContent = ();
     }
-}
-
-# FIXME: This method will go away once all SVG animated properties are converted to the new scheme.
-sub IsSVGTypeNeedingContextParameter
-{
-    my $implClassName = shift;
-
-    return 0 unless $implClassName =~ /SVG/;
-    return 0 if $implClassName =~ /Element/;
-    return 0 if $codeGenerator->IsSVGAnimatedType($implClassName);
-    return 0 if $codeGenerator->IsSVGTypeNeedingTearOff($implClassName);
-
-    my @noContextNeeded = ("SVGColor", "SVGDocument", "SVGPaintType", "SVGPaint", "SVGZoomEvent");
-    foreach (@noContextNeeded) {
-        return 0 if $implClassName eq $_;
-    }
-    return 1;
-}
-
-# FIXME: This method will go away once all SVG animated properties are converted to the new scheme.
-sub GenerateSVGContextAssignment
-{
-    my $srcType = shift;
-    my $value = shift;
-    my $indent = shift;
-
-    $result = GenerateSVGContextRetrieval($srcType, $indent);
-    $result .= $indent . "V8Proxy::setSVGContext($value, context);\n";
-
-    return $result;
-}
-
-# FIXME: This method will go away once all SVG animated properties are converted to the new scheme.
-sub GenerateSVGContextRetrieval
-{
-    my $srcType = shift;
-    my $indent = shift;
-
-    my $contextDecl = "imp";
-    if (IsSVGTypeNeedingContextParameter($srcType)) {
-        $contextDecl = "V8Proxy::svgContext($contextDecl)";
-    }
-
-    return $indent . "SVGElement* context = $contextDecl;\n";
-}
-
-sub IsSVGListMutator
-{
-    my $functionName = shift;
-
-    return 1 if $functionName eq "clear";
-    return 1 if $functionName eq "initialize";
-    return 1 if $functionName eq "insertItemBefore";
-    return 1 if $functionName eq "replaceItem";
-    return 1 if $functionName eq "removeItem";
-    return 1 if $functionName eq "appendItem";
-
-    return 0;
 }
 
 sub GetVisibleInterfaceName

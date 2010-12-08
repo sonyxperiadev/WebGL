@@ -55,15 +55,52 @@ a, .link {
   text-decoration: none;
 }
 
-#header {
+#log,
+#queue {
+  padding: .25em 0 0 .25em;
+  position: absolute;
+  right: 0;
+  height: 200px;
+  overflow: auto;
+  background: #fff;
+  -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, .5);
+}
+
+#log {
+  top: 2em;
+  width: 500px;
+}
+
+#queue {
+  bottom: 3em;
+  width: 400px;
+}
+
+#queue-select {
+  display: block;
+  width: 390px;
+}
+
+#header,
+#footer {
   padding: .5em 1em;
   background: #333;
   color: #fff;
   -webkit-box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+#header {
   margin-bottom: 1em;
 }
 
-#header label {
+#header .divider,
+#footer .divider {
+  opacity: .3;
+  padding: 0 .5em;
+}
+
+#header label,
+#footer label {
   padding-right: 1em;
   color: #ccc;
 }
@@ -72,7 +109,8 @@ a, .link {
   margin-right: 1em;
 }
 
-#header label span {
+#header label span,
+#footer label span {
   color: #fff;
   font-weight: bold;
 }
@@ -114,13 +152,18 @@ a, .link {
 }
 
 #image-outputs img,
-#image-outputs canvas {
+#image-outputs canvas,
+#image-outputs #diff-checksum {
   width: 800px;
   height: 600px;
   border: solid 1px #ddd;
   -webkit-user-select: none;
   -webkit-user-drag: none;
-  cursor: crosshair;  
+}
+
+#image-outputs img,
+#image-outputs canvas {
+  cursor: crosshair;
 }
 
 #image-outputs img.loading,
@@ -150,6 +193,59 @@ a, .link {
   background: #eee;
 }
 
+#footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin-top: 1em;
+}
+
+#state.needs_rebaseline {
+  color: yellow;
+}
+
+#state.rebaseline_failed {
+  color: red;
+}
+
+#state.rebaseline_succeeded {
+  color: green;
+}
+
+#state.in_queue {
+  color: gray;
+}
+
+#current-baselines {
+  font-weight: normal !important;
+}
+
+#current-baselines .platform {
+  font-weight: bold;
+}
+
+#current-baselines a {
+  color: #ddf;
+}
+
+#current-baselines .was-used-for-test {
+  color: #aaf;
+  font-weight: bold;
+}
+
+#action-buttons {
+  float: right;
+}
+
+#action-buttons .link {
+  margin-right: 1em;
+}
+
+#footer button {
+  padding: 1em;
+}
+
 #loupe {
   -webkit-box-shadow: 2px 2px 5px rgba(0, 0, 0, .5);
   position: absolute;
@@ -165,7 +261,7 @@ a, .link {
 
 #loupe td {
   padding: 0;
-  border: solid 1px #ccc;     
+  border: solid 1px #ccc;
 }
 
 #loupe label {

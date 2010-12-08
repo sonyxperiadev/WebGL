@@ -273,6 +273,7 @@ void RenderListItem::positionListMarker()
                 }
             }
         } else {
+            markerLogicalLeft = m_marker->logicalLeft() + paddingStart() + borderStart() + m_marker->marginEnd();
             int rightLineOffset = logicalRightOffsetForLine(blockOffset, logicalRightOffsetForLine(blockOffset, false), false);
             markerLogicalLeft = rightLineOffset - lineOffset + paddingStart() + borderStart() + m_marker->marginEnd();
             m_marker->inlineBoxWrapper()->adjustLineDirectionPosition(markerLogicalLeft - markerOldLogicalLeft);

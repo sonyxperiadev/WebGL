@@ -52,11 +52,12 @@ public:
     bool callShouldCloseOnWebView();
     JSStringRef copyDecodedHostName(JSStringRef name);
     JSStringRef copyEncodedHostName(JSStringRef name);
+    JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef id);
     void disableImageLoading();
     void dispatchPendingLoadRequests();
     void display();
     void execCommand(JSStringRef name, JSStringRef value);
-    JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef id);
+    bool findString(JSContextRef, JSStringRef, JSObjectRef optionsArray);
     bool isCommandEnabled(JSStringRef name);
     void keepWebHistory();
     JSValueRef computedStyleIncludingVisitedInfo(JSContextRef, JSValueRef);
@@ -94,7 +95,7 @@ public:
     void setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
     void setMockGeolocationError(int code, JSStringRef message);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
-    void setMockSpeechInputResult(JSStringRef result, JSStringRef language);
+    void addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language);
     void setPersistentUserStyleSheetLocation(JSStringRef path);
     void setPluginsEnabled(bool flag);
     void setPopupBlockingEnabled(bool flag);

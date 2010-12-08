@@ -33,6 +33,9 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGTextContentElement, SVGNames::textLengthAttr, TextLength, textLength)
+
 SVGTextContentElement::SVGTextContentElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
     , m_textLength(LengthModeOther)
@@ -190,6 +193,7 @@ void SVGTextContentElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeLengthAdjust();
         synchronizeTextLength();
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -199,6 +203,8 @@ void SVGTextContentElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeTextLength();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 void SVGTextContentElement::svgAttributeChanged(const QualifiedName& attrName)

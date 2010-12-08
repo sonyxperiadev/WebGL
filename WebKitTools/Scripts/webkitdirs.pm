@@ -253,7 +253,7 @@ sub jscPath($)
 {
     my ($productDir) = @_;
     my $jscName = "jsc";
-    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    $jscName .= "_debug"  if configurationForVisualStudio() eq "Debug_All";
     $jscName .= ".exe" if (isWindows() || isCygwin());
     return "$productDir/$jscName" if -e "$productDir/$jscName";
     return "$productDir/JavaScriptCore.framework/Resources/$jscName";
@@ -282,12 +282,8 @@ sub determineConfigurationForVisualStudio
 {
     return if defined $configurationForVisualStudio;
     determineConfiguration();
+    # FIXME: We should detect when Debug_All or Release_LTCG has been chosen.
     $configurationForVisualStudio = $configuration;
-    return unless $configuration eq "Debug";
-    setupCygwinEnv();
-    my $dir = $ENV{WEBKITLIBRARIESDIR};
-    chomp($dir = `cygpath -ua '$dir'`) if isCygwin();
-    $configurationForVisualStudio = "Debug_Internal" if -f File::Spec->catfile($dir, "bin", "CoreFoundation_debug.dll");
 }
 
 sub determineConfigurationProductDir
@@ -419,19 +415,19 @@ sub determinePassedConfiguration
         if ($opt =~ /^--debug$/i || $opt =~ /^--devel/i) {
             splice(@ARGV, $i, 1);
             $passedConfiguration = "Debug";
-            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
+            $passedConfiguration .= "_Cairo_CFLite" if ($isWinCairo && isCygwin());
             return;
         }
         if ($opt =~ /^--release$/i || $opt =~ /^--deploy/i) {
             splice(@ARGV, $i, 1);
             $passedConfiguration = "Release";
-            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
+            $passedConfiguration .= "_Cairo_CFLite" if ($isWinCairo && isCygwin());
             return;
         }
         if ($opt =~ /^--profil(e|ing)$/i) {
             splice(@ARGV, $i, 1);
             $passedConfiguration = "Profiling";
-            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
+            $passedConfiguration .= "_Cairo_CFLite" if ($isWinCairo && isCygwin());
             return;
         }
     }
@@ -548,7 +544,7 @@ sub safariPath
             my $path = "$configurationProductDir/Safari.exe";
             my $debugPath = "$configurationProductDir/Safari_debug.exe";
 
-            if (configurationForVisualStudio() =~ /Debug/ && -x $debugPath) {
+            if (configurationForVisualStudio() eq "Debug_All" && -x $debugPath) {
                 $safariBundle = $debugPath;
             } elsif (-x $path) {
                 $safariBundle = $path;
@@ -684,14 +680,25 @@ sub determineQtFeatureDefaults()
 sub checkForArgumentAndRemoveFromARGV
 {
     my $argToCheck = shift;
-    foreach my $opt (@ARGV) {
+    return checkForArgumentAndRemoveFromArrayRef($argToCheck, \@ARGV);
+}
+
+sub checkForArgumentAndRemoveFromArrayRef
+{
+    my ($argToCheck, $arrayRef) = @_;
+    my @indicesToRemove;
+    foreach my $index (0 .. $#$arrayRef) {
+        my $opt = $$arrayRef[$index];
         if ($opt =~ /^$argToCheck$/i ) {
-            @ARGV = grep(!/^$argToCheck$/i, @ARGV);
-            return 1;
+            push(@indicesToRemove, $index);
         }
     }
-    return 0;
+    foreach my $index (@indicesToRemove) {
+        splice(@$arrayRef, $index, 1);
+    }
+    return $#indicesToRemove > -1;
 }
+
 
 sub determineIsQt()
 {
@@ -1188,7 +1195,7 @@ sub buildXCodeProject($$@)
 
 sub usingVisualStudioExpress()
 {
-    determineConfigurationForVisualStudio();
+    setupCygwinEnv();
     return $willUseVCExpressWhenBuilding;
 }
 
@@ -1681,7 +1688,9 @@ sub buildChromium($@)
     my ($clean, @options) = @_;
 
     # We might need to update DEPS or re-run GYP if things have changed.
-    system("perl", "WebKitTools/Scripts/update-webkit-chromium") == 0 or die $!;
+    if (checkForArgumentAndRemoveFromArrayRef("--update-chromium", \@options)) {
+        system("perl", "WebKitTools/Scripts/update-webkit-chromium") == 0 or die $!;
+    }
 
     my $result = 1;
     if (isDarwin()) {

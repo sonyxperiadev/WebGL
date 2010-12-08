@@ -105,7 +105,7 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseAnimationProperty();
         PassRefPtr<CSSValue> parseAnimationTimingFunction();
 
-        void parseTransformOriginShorthand(RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        bool parseTransformOriginShorthand(RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parseCubicBezierTimingFunctionValue(CSSParserValueList*& args, double& result);
         bool parseAnimationProperty(int propId, RefPtr<CSSValue>&);
         bool parseTransitionShorthand(bool important);
@@ -230,6 +230,7 @@ namespace WebCore {
         AtomicString m_defaultNamespace;
 
         // tokenizer methods and data
+        bool m_inStyleRuleOrDeclaration;
         SourceRange m_selectorListRange;
         SourceRange m_ruleBodyRange;
         SourceRange m_propertyRange;

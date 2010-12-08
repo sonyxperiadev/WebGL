@@ -1,3 +1,362 @@
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::getGuessesForWord):
+        * WebCoreSupport/EditorClientGtk.h:
+
+2010-11-30  Nicolas Dufresne  <nicolas.dufresne@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Fix wrong type in assert return value
+        https://bugs.webkit.org/show_bug.cgi?id=50208
+
+        Use appropriate return type in different g_return_val_if_fail(). This
+        removes some compiler warning.
+
+        * webkit/webkitwebdatasource.cpp:
+        (webkit_web_data_source_is_loading):
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_page_number_for_element_by_id):
+        (webkit_web_frame_number_of_pages):
+
+2010-11-30  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [GTK] Implement ROLE_COMBO_BOX
+        https://bugs.webkit.org/show_bug.cgi?id=25678
+
+        New test to check the implementation of the combo boxes.
+
+        * tests/testatk.c:
+        (testWebkitAtkComboBox): New test, checking that the roles and the
+        implemented interfaces for a combo box and its descendants work.
+        (main): Added the new unit test.
+
+2010-11-30  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Test fast/events/mouseover-mouseout2.html crashes
+        https://bugs.webkit.org/show_bug.cgi?id=50214
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::mouseDidMoveOverElement):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_query_tooltip):
+
+2010-11-30  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72764.
+        http://trac.webkit.org/changeset/72764
+        https://bugs.webkit.org/show_bug.cgi?id=50215
+
+        This change is causing assertion failures on the debug bots.
+        (Requested by mrobinson on #webkit).
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::notifyStatus):
+        * tests/testatk.c:
+        (main):
+
+2010-11-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        * NEWS: update for 1.3.7 release.
+
+2010-11-29  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Tooltips should be fully keyboard accessible
+        https://bugs.webkit.org/show_bug.cgi?id=25525
+
+        Position the tooltip under the current focused element when the
+        tooltip has been triggered using the keyboard.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_query_tooltip):
+        (webkit_web_view_show_help):
+        (webkit_web_view_class_init):
+
+2010-11-29  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Tooltips not shown when scrolling
+        https://bugs.webkit.org/show_bug.cgi?id=50143
+
+        Convert tooltip area to window coordinates so that tooltips are
+        shown even after scrolling.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::mouseDidMoveOverElement):
+
+2010-11-26  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Inspector: add a way to inspect a WebKitDOMNode
+        https://bugs.webkit.org/show_bug.cgi?id=49903
+
+        * webkit/webkitwebinspector.cpp:
+        (webkit_web_inspector_inspect_node):
+        * webkit/webkitwebinspector.h:
+
+2010-11-26  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] events missing when a document is (re)loaded
+        https://bugs.webkit.org/show_bug.cgi?id=25831
+
+        Emit the right signals when reloading a document.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::notifyAccessibilityStatus): New function, to make sure
+        the signals involved in reloading a document are properly emitted.
+        (WebKit::notifyStatus): Also notify accessibility if enabled.
+
+        New unit test to check the signals are being actually emitted.
+
+        * tests/testatk.c:
+        (stateChangedCb): Callback for 'state-change' signal emitted by
+        the accessible object associated to the webView.
+        (documentReloadCb): Callback for 'reload' signal.
+        (documentLoadCompleteCb): Callback for 'load-complete' signal.
+        (webviewLoadStatusChangedCb): Callback for 'notify::load-status'
+        signal, emitted by the WebKitWebView object (not the AtkObject).
+        (testWebkitAtkDocumentReloadEvents): New unit test.
+        (main): Added the new unit test.
+
+2010-11-24  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Make kit() methods return the proper type instead of gpointer
+        https://bugs.webkit.org/show_bug.cgi?id=50034
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::shouldDeleteRange): get rid of unneeded cast.
+        (WebKit::EditorClient::shouldShowDeleteInterface): ditto.
+        (WebKit::EditorClient::shouldBeginEditing): ditto.
+        (WebKit::EditorClient::shouldEndEditing): ditto.
+        (WebKit::EditorClient::shouldInsertText): ditto.
+        (WebKit::EditorClient::shouldChangeSelectedRange): ditto.
+        (WebKit::EditorClient::shouldApplyStyle): ditto.
+        (WebKit::EditorClient::shouldInsertNode): ditto.
+        * webkit/webkitprivate.cpp:
+        (WebKit::kit): ditto.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_dom_document): ditto.
+
+2010-11-24  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Fix crashes in GTK+ bots. Use kit() instead of wrapFoo, otherwise
+        the DOM objects won't be in the cache and we'll ASSERT when
+        unreffing them.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::shouldDeleteRange): use kit to get the
+        GObject wrapper for the DOM object.
+        (WebKit::EditorClient::shouldShowDeleteInterface): ditto.
+        (WebKit::EditorClient::shouldBeginEditing): ditto.
+        (WebKit::EditorClient::shouldEndEditing): ditto.
+        (WebKit::EditorClient::shouldInsertText): ditto.
+        (WebKit::EditorClient::shouldChangeSelectedRange): ditto.
+        (WebKit::EditorClient::shouldApplyStyle): ditto.
+        (WebKit::EditorClient::shouldInsertNode): ditto.
+
+2010-11-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] The WebKitWebView should expose a set of signals encapsulating the behavior of the EditorClient
+        https://bugs.webkit.org/show_bug.cgi?id=49143
+
+        Add signals that encapsulate the functionality of the Mac EditingDelegate. These signals
+        are private for now, but DRT consumes them to produce proper output for editing tests.
+        After some time, these may be part of the public API.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::shouldDeleteRange): Fire the appropriate editing signal.
+        (WebKit::EditorClient::shouldShowDeleteInterface): Ditto.
+        (WebKit::EditorClient::shouldBeginEditing): Ditto.
+        (WebKit::EditorClient::shouldEndEditing): Ditto.
+        (WebKit::kit): Added helper function.
+        (WebKit::EditorClient::shouldInsertText): Fire the appropriate editing signal.
+        (WebKit::EditorClient::shouldChangeSelectedRange): Ditto.
+        (WebKit::EditorClient::shouldApplyStyle): Ditto.
+        (WebKit::EditorClient::didBeginEditing): Ditto.
+        (WebKit::EditorClient::respondToChangedContents): Ditto.
+        (WebKit::EditorClient::respondToChangedSelection): Ditto.
+        (WebKit::EditorClient::didEndEditing): Ditto.
+        (WebKit::EditorClient::shouldInsertNode): Ditto.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_real_should_allow_editing_action): Added this default signal
+        callback which explicitly allows cancellable editing actions.
+        (webkit_web_view_class_init): Add new editing signal declarations to the view.
+        * webkit/webkitwebview.h:
+        * webkitmarshal.list: Added some new marshaling definitions.
+
+2010-11-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r72499.
+        http://trac.webkit.org/changeset/72499
+        https://bugs.webkit.org/show_bug.cgi?id=50022
+
+        This change is causing crashes on the bots. (Requested by
+        mrobinson on #webkit).
+
+        * tests/testatk.c:
+        (main):
+
+2010-11-23  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Fix IFrame DOM bindings API
+        https://bugs.webkit.org/show_bug.cgi?id=49980
+
+        * tests/testdomdocument.c:
+        (test_dom_document_garbage_collection): change to use the fixed
+        IFrame APIs.
+
+2010-11-23  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        focus issue with links that have tooltips
+        https://bugs.webkit.org/show_bug.cgi?id=49498
+
+        Set the area of the widget where the tooltip should be shown when
+        a new tooltip is set. Since the widget is the same (the view), if
+        the tooltip area is not set and a new tooltip is triggered while
+        the previous one is still visible, the text of the tooltip is
+        updated but its position doesn't change.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::mouseDidMoveOverElement):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_query_tooltip):
+
+2010-11-21  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [GTK] Implement ROLE_COMBO_BOX
+        https://bugs.webkit.org/show_bug.cgi?id=25678
+
+        New test to check the implementation of the combo boxes.
+
+        * tests/testatk.c:
+        (testWebkitAtkComboBox): New test, checking that the roles and the
+        implemented interfaces for a combo box and its descendants work.
+        (main): Added the new unit test.
+
+2010-11-20  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Remove leftover code in unit test.
+
+        * GNUmakefile.am: remove unneeded utils file in dependency list.
+        * tests/testdomdocument.c:
+        (main): do not change to the directory of a non existing resource
+        list.
+
+2010-11-20  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Memory managament for DOM GObject wrappers
+        https://bugs.webkit.org/show_bug.cgi?id=40302
+
+        Initial attempt to have a kind of poor man's garbage collection
+        for GObject DOM objects. We tie the object's lifecycle to their
+        parent Frame and/or its document; that is, all objects will be
+        collected when their parent frame is destroyed or when that frame
+        transitions to a new document. Manual management (calling
+        g_object_unref on them) is also allowed, and is required for
+        objects that are not in the DOM tree (eg NodeLists).
+
+        * GNUmakefile.am: add testutils file to testdomdocument.c
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::setMainFrameDocumentReady): collect
+        DOM objects on document transition.
+        * tests/testdomdocument.c:
+        (dom_document_fixture_teardown): only destroy the view if it's not
+        already destroyed, since the new test detroys it on its own.
+        (test_dom_document_get_elements_by_tag_name): manually unref node list.
+        (test_dom_document_get_elements_by_class_name): ditto.
+        (test_dom_document_get_links): ditto.
+        (test_dom_document_garbage_collection): test all possible
+        scenarios for DOM object "garbage collection".
+        (main): add new test.
+        * tests/testdomnode.c:
+        (test_dom_node_hierarchy_navigation): manually unref node list.
+        (test_dom_node_insertion): ditto.
+        * webkit/webkithittestresult.cpp:
+        (webkit_hit_test_result_dispose): unref the inner node on dispose
+        now that the memory management model is clarified.
+        (webkit_hit_test_result_class_init): hook dispose.
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_core_frame_gone): clear DOM objects attached to this frame.
+        (webkit_web_frame_finalize): ditto.
+
+2010-11-18  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Fix introspection build, we were missing a -I flag.
+
+        * GNUmakefile.am:
+
+2010-11-18  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk]  atk_text_get_selection returns the wrong offsets after a link
+        https://bugs.webkit.org/show_bug.cgi?id=49514
+
+        Updated test case to also chech this specific subcase.
+
+        We need to explicitly check the case of having a selection in a
+        paragraph after an embedded object (i.e. a link) to make sure the
+        right calculations are being done when the paragraph is composed
+        of more than just one text object, and the current selection is
+        made only in one of them.
+
+        * tests/testatk.c:
+        (testWebkitAtkTextSelections): Make sure that a selection after a
+        link in a paragraph is working ok when asking for the text
+        selection from the point of view of the paragraph.
+
+2010-11-17  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Changing any GNUmakefile.am in the source tree forces a rebuld of the DOM bindings and WebKit APi
+        https://bugs.webkit.org/show_bug.cgi?id=49400
+
+        Add GNUmakefile.am and include all WebKit API build rules. Make webkitenum.*
+        depend on this new file, instead of the generated GNUmakefile.am.
+
+        * GNUmakefile.am: Copied from GNUmakefile.am.
+
 2010-11-17  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
 
         Reviewed by Martin Robinson.

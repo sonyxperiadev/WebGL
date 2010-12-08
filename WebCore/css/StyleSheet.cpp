@@ -20,28 +20,10 @@
 #include "config.h"
 #include "StyleSheet.h"
 
-#include "HTMLNames.h"
 #include "MediaList.h"
 #include "Node.h"
-#include "SVGNames.h"
 
 namespace WebCore {
-
-#if !ASSERT_DISABLED
-static bool isAcceptableStyleSheetParent(Node* parentNode)
-{
-    // Only these nodes can be parents of StyleSheets, and they need to call clearOwnerNode() when moved out of document.
-    return !parentNode
-        || parentNode->isDocumentNode()
-        || parentNode->hasTagName(HTMLNames::linkTag)
-        || parentNode->hasTagName(HTMLNames::styleTag)
-        || parentNode->nodeType() == Node::PROCESSING_INSTRUCTION_NODE
-#if ENABLE(SVG)
-        || parentNode->hasTagName(SVGNames::styleTag)
-#endif    
-    ;
-}
-#endif
 
 StyleSheet::StyleSheet(StyleSheet* parentSheet, const String& originalURL, const KURL& finalURL)
     : StyleList(parentSheet)
@@ -59,7 +41,6 @@ StyleSheet::StyleSheet(Node* parentNode, const String& originalURL, const KURL& 
     , m_finalURL(finalURL)
     , m_disabled(false)
 {
-    ASSERT(isAcceptableStyleSheetParent(parentNode));
 }
 
 StyleSheet::StyleSheet(StyleBase* owner, const String& originalURL, const KURL& finalURL)
@@ -75,6 +56,14 @@ StyleSheet::~StyleSheet()
 {
     if (m_media)
         m_media->setParent(0);
+
+    // For style rules outside the document, .parentStyleSheet can become null even if the style rule
+    // is still observable from JavaScript. This matches the behavior of .parentNode for nodes, but
+    // it's not ideal because it makes the CSSOM's behavior depend on the timing of garbage collection.
+    for (unsigned i = 0; i < length(); ++i) {
+        ASSERT(item(i)->parent() == this);
+        item(i)->setParent(0);
+    }
 }
 
 StyleSheet* StyleSheet::parentStyleSheet() const

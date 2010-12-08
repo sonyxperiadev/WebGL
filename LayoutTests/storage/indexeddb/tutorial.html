@@ -70,7 +70,7 @@ function start()
     // "addEventListener" if you'd like, but I'm using the simpler = syntax. Only one or the other
     // will fire. You're guaranteed that they won't fire until control is returned from JavaScript
     // execution.
-    var request = indexedDB.open("myDB", "This is a description of the database."); // Chromium/WebKit doesn't yet require the description, but it will soon.
+    var request = indexedDB.open("myDB");
     request.onsuccess = onOpen;
     request.onerror = unexpectedError;
 }
@@ -113,7 +113,7 @@ function onOpen()
 function onSetVersion()
 {
     // We are now in a setVersion transaction. Such a transaction is the only place where one
-    // can add or remove indexes and objectStores. The result (property of event) is an
+    // can add or delete indexes and objectStores. The result (property of event) is an
     // IDBTransaction object that has "complete", "abort", and "timeout" event handlers which tell
     // us when the transaction has committed, aborted, or timed out.
     window.currentTransaction = event.result;
@@ -121,8 +121,8 @@ function onSetVersion()
     currentTransaction.onabort = unexpectedAbort;
 
     // Delete existing object stores.
-    while (db.objectStores.length)
-        db.removeObjectStore(db.objectStores[0]);
+    while (db.objectStoreNames.length)
+        db.deleteObjectStore(db.objectStoreNames[0]);
 
     // Now that we have a blank slate, let's create an objectStore. An objectStore is simply an
     // ordered mapping of keys to values. We can iterate through ranges of keys or do individual
@@ -150,13 +150,25 @@ function onSetVersion()
     // a number attribute and at least one sibling). You can even go wild and say
     // "foo[0][2].bar[0].baz.test[1][2][3]". It's possible this will change in the future though.
     //
-    // If you set autoIncrement (the third optional parameter), IndexedDB will generate a key
+    // If you set autoIncrement (another optional parameter), IndexedDB will generate a key
     // for your entry automatically. And if you have a keyPath set, it'll set the value at
     // the location of the keyPath _in the database_ (i.e. it will not modify the value you pass
     // in to put/add). Unfortunately autoIncrement is not yet implemented in Chromium/WebKit.
     //
+    // Another optional parameter, "evictable" is not yet implemented. When it is, it'll hint
+    // which data should be deleted first if the browser decides this origin is using too much
+    // storage. (The alternative is that it'll suggest the user delete everything from the
+    // origin, so it's in your favor to set it approperately!) This is great for when you have
+    // some absolutely critical data (like unset emails) and a bunch of less critical, (but
+    // maybe still important!) data.
+    //
+    // All of these options can be passed into createObjectStore via its (optional) second
+    // parameter. So, if you wanted to define all, You'd do {keyPath: "something",
+    // evictable: true, autoIncrement: true}. You can also pass in subsets of all three or
+    // omit the object (since it's optional).
+    //
     // Let's now create an objectStore for people. We'll supply a key path in this case.
-    var objectStore = db.createObjectStore("people", "id");
+    var objectStore = db.createObjectStore("people", {keyPath: "id"});
 
     // Notice that it returned synchronously. The rule of thumb is that any call that touches (in
     // any way) keys or values is asynchronous and any other call (besides setVersion and open) are
@@ -170,9 +182,8 @@ function onSetVersion()
     var fname = objectStore.createIndex("fname", "fname", false);
     var lname = objectStore.createIndex("lname", "lname", false);
 
-    // Note that if you wanted to delete these indexes, you can either call objectStore.removeIndex
-    // or simply delete the objectStores that own the indexes. (Note that removeObjectStore and
-    // removeIndex may be changed to deleteObjectStore and deleteIndex in the future.)
+    // Note that if you wanted to delete these indexes, you can either call objectStore.deleteIndex
+    // or simply delete the objectStores that own the indexes.
     //
     // If we wanted to, we could populate the objectStore with some data here or do anything else
     // allowed in a normal (i.e. non-setVersion) transaction. This is useful so that data migrations
@@ -195,29 +206,29 @@ function unexpectedAbort()
 function onSetVersionComplete()
 {
     // Lets create a new transaction and then not schedule any work on it to watch it abort itself.
-    // Transactions (besides those created with setVersion) are created synchronously. All three
-    // parameters are optional for transaction.
+    // Transactions (besides those created with setVersion) are created synchronously. Like
+    // createObjectStore, transaction optionally takes in an object with various optional parameters.
     //
-    // The first specifies which object stores to lock. The spec specifies "dynamic transactions"
-    // which don't require this and which have finer grained locks, but no one yet supports this and
-    // it may even be dropped from the first version of the spec, so I don't suggest you rely on it.
-    // Chromium/WebKit also does not yet support anything finer grained than database level locking,
-    // so in this tutorial we'll just pass in the empty array which means "lock the world".
+    // First of all is the parameter "objectStoreNames". If you pass in a string, we lock just that
+    // objectStore.  If you pass in an array, we lock those. Otherwise (for example, if you omit it
+    // or pass in null/undefined) we lock the whole database. By specifying locks over fewer
+    // objectStores you make it possible for browsers to run transactions concurrently. That said,
+    // Chromium/WebKit does not support this yet.
     //
-    // The second parameter specifies the locking mode. The default is READ_ONLY (i.e. a shared lock).
+    // Next is "mode" which specifies the locking mode. The default is READ_ONLY (i.e. a shared lock).
     // That's fine for this case, but later we'll ask for IDBTransaction.READ_WRITE. At the moment,
-    // Chromium/WebKit pretends every transaction is READ_WRITE, which is kind of bad. (Note that
-    // SNAPSHOT_READ will soon be removed from the spec.)
+    // Chromium/WebKit pretends every transaction is READ_WRITE, which is kind of bad.
     //
-    // The last parameter is the timeout length. At the moment, Chromium/WebKit defaults to 0 which
-    // means never, but it's possible we'll change this in the future, so set it if you really care.
-    window.currentTransaction = db.transaction([], IDBTransaction.READ_WRITE, 0);
+    // Last is "timeout" which is measured in seconds. At the moment, Chromium/WebKit defaults to 0 which
+    // means never, but it's possible we'll change this in the future and other implementations may
+    // use something different, so set it if you really care.
+    window.currentTransaction = db.transaction({mode: IDBTransaction.READ_WRITE, timeout: 0});
     currentTransaction.oncomplete = unexpectedComplete;
     currentTransaction.onabort = onTransactionAborted;
 
-    // Verify that "people" is the only object store in existance. The objectStores attribute is
+    // Verify that "people" is the only object store in existance. The objectStoreNames attribute is
     // a DOMStringList which is somewhat like an array.
-    var objectStoreList = db.objectStores;
+    var objectStoreList = db.objectStoreNames;
     if (objectStoreList.length != 1
         || !objectStoreList.contains("people")
         || objectStoreList.item(0) != "people"
@@ -258,8 +269,10 @@ function unexpectedComplete()
 
 function onTransactionAborted()
 {
-    // Now let's make a real transaction and a person to our objectStore.
-    window.currentTransaction = db.transaction(["people"], IDBTransaction.READ_WRITE, 0);
+    // Now let's make a real transaction and a person to our objectStore. Just to show it's possible,
+    // we'll omit the objectStoreNames parameter which means we'll lock everything even though we only
+    // ever access "people".
+    window.currentTransaction = db.transaction({mode: IDBTransaction.READ_WRITE});
     currentTransaction.onabort = unexpectedAbort;
 
     var people = currentTransaction.objectStore("people");
@@ -276,7 +289,7 @@ function onTransactionAborted()
     people.put({fname: 'Jane', lname: 'Doe', id: 2}).onerror = unexpectedError;
     people.put({fname: 'Philip', lname: 'Fry', id: 3}).onerror = unexpectedError;
 
-    // Not shown here are the .remove method (which is soon to be renamed .delete) and .add (which is
+    // Not shown here are the .delete method and .add (which is
     // like .put except that it fires an onerror if the element already exists).
 }
 
@@ -295,8 +308,9 @@ function onPutSuccess()
 function onPutTransactionComplete()
 {
     // OK, now let's query the people objectStore in a couple different ways. First up, let's try get.
-    // It simply takes in a key and returns a request whose result will be the value.
-    window.currentTransaction = db.transaction(["people"], IDBTransaction.READ_WRITE, 0);
+    // It simply takes in a key and returns a request whose result will be the value. Note that here
+    // we're passing in an array for objectStoreNames rather than a simple string.
+    window.currentTransaction = db.transaction({objectStoreNames: ["people"], mode: IDBTransaction.READ_WRITE, timeout: 0});
     currentTransaction.onabort = unexpectedAbort;
 
     var people = currentTransaction.objectStore("people");
@@ -327,7 +341,7 @@ function onGetSuccess()
     // return unique entires (only applies to indexes with unique set to false), PREV to move backwards,
     // and PREV_NO_DUPLICATE.
     var keyRange = IDBKeyRange.bound(1, 3, true, false);
-    var request = people.openCursor(keyRange, IDBCursor.NEXT);
+    var request = people.openCursor({range: keyRange, direction: IDBCursor.NEXT});
     request.onsuccess = onObjectStoreCursor;
     request.onerror = unexpectedError;
 }
@@ -380,10 +394,10 @@ function onIndexGetSuccess()
     // different IDBKeyRanges just to demonstrate how to use them, but we won't bother to handle
     // the onsuccess conditions.
     var lname = event.source;
-    lname.openCursor(IDBKeyRange.leftBound("Doe", false), IDBCursor.NEXT_NO_DUPLICATE);
-    lname.openCursor(null, IDBCursor.PREV_NO_DUPLICATE);
-    lname.openCursor(IDBKeyRange.rightBound("ZZZZ"));
-    lname.openCursor(IDBKeyRange.only("Doe"), IDBCursor.PREV);
+    lname.openCursor({range: IDBKeyRange.lowerBound("Doe", false), direction: IDBCursor.NEXT_NO_DUPLICATE});
+    lname.openCursor({direction: IDBCursor.PREV_NO_DUPLICATE});
+    lname.openCursor({range: IDBKeyRange.upperBound("ZZZZ")});
+    lname.openCursor({range: IDBKeyRange.only("Doe"), direction: IDBCursor.PREV});
     lname.openCursor();
     lname.openKeyCursor();
 
@@ -396,7 +410,8 @@ function onIndexGetSuccess()
 function onAllDone()
 {
     log("Everything worked!");
-    layoutTestController.notifyDone();
+    if (window.layoutTestController)
+        layoutTestController.notifyDone();
 }
 
 // The way setVersion is supposed to work:

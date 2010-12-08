@@ -37,6 +37,12 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::heightAttr, Height, height)
+
 inline SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
@@ -135,6 +141,7 @@ void SVGImageElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizePreserveAspectRatio();
         synchronizeExternalResourcesRequired();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -152,6 +159,8 @@ void SVGImageElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
     else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 bool SVGImageElement::selfHasRelativeLengths() const

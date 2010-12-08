@@ -1262,6 +1262,8 @@ void RenderBlock::layoutBlock(bool relayoutChildren, int pageHeight)
     if (view()->layoutState()->m_pageHeight)
         setPageY(view()->layoutState()->pageY(y()));
 
+    updateLayerTransform();
+
     // Update our scroll information if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.
     updateScrollInfoAfterLayout();
@@ -1780,10 +1782,9 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatLogica
     MarginInfo marginInfo(this, beforeEdge, afterEdge);
 
     // Fieldsets need to find their legend and position it inside the border of the object.
-    // The legend then gets skipped during normal layout.
-    // FIXME: Make fieldsets work with block-flow.
-    // https://bugs.webkit.org/show_bug.cgi?id=46785
-    RenderObject* legend = layoutLegend(relayoutChildren);
+    // The legend then gets skipped during normal layout.  The same is true for ruby text.
+    // It doesn't get included in the normal layout process but is instead skipped.
+    RenderObject* childToExclude = layoutSpecialExcludedChild(relayoutChildren);
 
     int previousFloatLogicalBottom = 0;
     maxFloatLogicalBottom = 0;
@@ -1794,8 +1795,8 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatLogica
         RenderBox* child = next;
         next = child->nextSiblingBox();
 
-        if (legend == child)
-            continue; // Skip the legend, since it has already been positioned up in the fieldset's border.
+        if (childToExclude == child)
+            continue; // Skip this child, since it will be positioned by the specialized subclass (fieldsets and ruby runs).
 
         // Make sure we layout children if they need it.
         // FIXME: Technically percentage height objects only need a relayout if their percentage isn't going to be turned into
@@ -2007,6 +2008,8 @@ bool RenderBlock::layoutOnlyPositionedObjects()
     layoutPositionedObjects(false);
 
     statePusher.pop();
+    
+    updateLayerTransform();
 
     updateScrollInfoAfterLayout();
 
@@ -2039,7 +2042,7 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
                 r->setChildNeedsLayout(true, false);
                 
             // If relayoutChildren is set and we have percentage padding, we also need to invalidate the child's pref widths.
-            //if (relayoutChildren && (r->style()->paddingLeft().isPercent() || r->style()->paddingRight().isPercent()))
+            if (relayoutChildren && (r->style()->paddingStart().isPercent() || r->style()->paddingEnd().isPercent()))
                 r->setPreferredLogicalWidthsDirty(true, false);
             
             if (!r->needsLayout())
@@ -2232,7 +2235,7 @@ void RenderBlock::paintContents(PaintInfo& paintInfo, int tx, int ty)
     // Avoid painting descendants of the root element when stylesheets haven't loaded.  This eliminates FOUC.
     // It's ok not to draw, because later on, when all the stylesheets do load, updateStyleSelector on the Document
     // will do a full repaint().
-    if (document()->didLayoutWithPendingStylesheets() && !isRenderView())
+    if (document()->mayCauseFlashOfUnstyledContent() && !isRenderView())
         return;
 
     if (childrenInline())
@@ -4744,11 +4747,22 @@ void RenderBlock::computePreferredLogicalWidths()
                 m_minPreferredLogicalWidth = 0;
         }
 
+        int scrollbarWidth = 0;
+        if (hasOverflowClip() && style()->overflowY() == OSCROLL) {
+            layer()->setHasVerticalScrollbar(true);
+            scrollbarWidth = verticalScrollbarWidth();
+            m_maxPreferredLogicalWidth += scrollbarWidth;
+        }
+
         if (isTableCell()) {
             Length w = toRenderTableCell(this)->styleOrColLogicalWidth();
-            if (w.isFixed() && w.value() > 0)
+            if (w.isFixed() && w.value() > 0) {
                 m_maxPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(w.value()));
+                scrollbarWidth = 0;
+            }
         }
+        
+        m_minPreferredLogicalWidth += scrollbarWidth;
     }
     
     if (style()->logicalMinWidth().isFixed() && style()->logicalMinWidth().value() > 0) {
@@ -4761,14 +4775,9 @@ void RenderBlock::computePreferredLogicalWidths()
         m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->logicalMaxWidth().value()));
     }
 
-    int toAdd = 0;
-    toAdd = borderAndPaddingLogicalWidth();
-
-    if (hasOverflowClip() && style()->overflowY() == OSCROLL)
-        toAdd += verticalScrollbarWidth();
-
-    m_minPreferredLogicalWidth += toAdd;
-    m_maxPreferredLogicalWidth += toAdd;
+    int borderAndPadding = borderAndPaddingLogicalWidth();
+    m_minPreferredLogicalWidth += borderAndPadding;
+    m_maxPreferredLogicalWidth += borderAndPadding;
 
     setPreferredLogicalWidthsDirty(false);
 }
@@ -5245,7 +5254,7 @@ bool RenderBlock::hasLineIfEmpty() const
     if (node()->isContentEditable() && node()->rootEditableElement() == node())
         return true;
     
-    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag) || node()->shadowParentNode()->hasTagName(textareaTag)))
+    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag)))
         return true;
     
     return false;

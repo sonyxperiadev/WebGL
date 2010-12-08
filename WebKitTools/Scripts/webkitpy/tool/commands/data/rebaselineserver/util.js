@@ -55,3 +55,50 @@ function loadText(url, callback)
     xhr.addEventListener('load', function() { callback(xhr.responseText); });
     xhr.send();
 }
+
+function log(text, type)
+{
+    var node = $('log');
+    
+    if (type) {
+        var typeNode = document.createElement('span');
+        typeNode.textContent = type.text;
+        typeNode.style.color = type.color;
+        node.appendChild(typeNode);
+    }
+
+    node.appendChild(document.createTextNode(text + '\n'));
+    node.scrollTop = node.scrollHeight;
+}
+
+log.WARNING = {text: 'Warning: ', color: '#aa3'};
+log.SUCCESS = {text: 'Success: ', color: 'green'};
+log.ERROR = {text: 'Error: ', color: 'red'};
+
+function toggle(id)
+{
+    var element = $(id);
+    var toggler = $('toggle-' + id);
+    if (element.style.display == 'none') {
+        element.style.display = '';
+        toggler.className = 'link selected';
+    } else {
+        element.style.display = 'none';
+        toggler.className = 'link';
+    }
+}
+
+function getTracUrl(layoutTestPath)
+{
+  return 'http://trac.webkit.org/browser/trunk/LayoutTests/' + layoutTestPath;
+}
+
+function getSortedKeys(obj)
+{
+    var keys = [];
+    for (var key in obj) {
+        keys.push(key);
+    }
+    keys.sort();
+    return keys;
+}

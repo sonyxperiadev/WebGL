@@ -32,6 +32,12 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER(SVGFEDiffuseLightingElement, SVGNames::diffuseConstantAttr, DiffuseConstant, diffuseConstant)
+DEFINE_ANIMATED_NUMBER(SVGFEDiffuseLightingElement, SVGNames::surfaceScaleAttr, SurfaceScale, surfaceScale)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEDiffuseLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), KernelUnitLengthX, kernelUnitLengthX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEDiffuseLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), KernelUnitLengthY, kernelUnitLengthY)
+
 inline SVGFEDiffuseLightingElement::SVGFEDiffuseLightingElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_diffuseConstant(1)
@@ -112,7 +118,7 @@ void SVGFEDiffuseLightingElement::synchronizeProperty(const QualifiedName& attrN
     }
 }
 
-PassRefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
     
@@ -122,7 +128,7 @@ PassRefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* fi
     RefPtr<RenderStyle> filterStyle = styleForRenderer();
     Color color = filterStyle->svgStyle()->lightingColor();
     
-    RefPtr<FilterEffect> effect = FEDiffuseLighting::create(color, surfaceScale(), diffuseConstant(), 
+    RefPtr<FilterEffect> effect = FEDiffuseLighting::create(filter, color, surfaceScale(), diffuseConstant(), 
                                                                 kernelUnitLengthX(), kernelUnitLengthY(), findLights());
     effect->inputEffects().append(input1);
     return effect.release();

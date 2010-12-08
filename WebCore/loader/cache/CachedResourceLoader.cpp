@@ -116,7 +116,7 @@ void CachedResourceLoader::checkForReload(const KURL& fullURL)
     case CachePolicyRevalidate:
         cache()->revalidateResource(existing, this);
         break;
-    case CachePolicyAllowStale:
+    case CachePolicyHistoryBuffer:
         return;
     }
 
@@ -271,7 +271,8 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
 
     checkForReload(fullURL);
 
-    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload);
+    bool allowForHistoryOnlyResources = cachePolicy() == CachePolicyHistoryBuffer;
+    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload, allowForHistoryOnlyResources);
     if (resource) {
         // Check final URL of resource to catch redirects.
         // See <https://bugs.webkit.org/show_bug.cgi?id=21963>.

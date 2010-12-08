@@ -658,6 +658,9 @@ WebInspector.dispatch = function(message) {
 // This function is purposely put into the global scope for easy access.
 WebInspector_syncDispatch = function(message)
 {
+    if (window.dumpInspectorProtocolMessages)
+        console.log("backend: " + ((typeof message === "string") ? message : JSON.stringify(message)));
+
     var messageObject = (typeof message === "string") ? JSON.parse(message) : message;
 
     var arguments = [];
@@ -1228,6 +1231,7 @@ WebInspector.domContentEventFired = function(time)
     this.panels.audits.mainResourceDOMContentTime = time;
     if (this.panels.network)
         this.panels.network.mainResourceDOMContentTime = time;
+    this.extensionServer.notifyPageDOMContentLoaded((time - WebInspector.mainResource.startTime) * 1000);
     this.mainResourceDOMContentTime = time;
 }
 
@@ -1236,6 +1240,7 @@ WebInspector.loadEventFired = function(time)
     this.panels.audits.mainResourceLoadTime = time;
     if (this.panels.network)
         this.panels.network.mainResourceLoadTime = time;
+    this.extensionServer.notifyPageLoaded((time - WebInspector.mainResource.startTime) * 1000);
     this.mainResourceLoadTime = time;
 }
 
@@ -1400,7 +1405,6 @@ WebInspector.didCommitLoad = function()
 {
     // Cleanup elements panel early on inspected page refresh.
     WebInspector.setDocument(null);
-    this.extensionServer.notifyInspectedPageLoaded();
 }
 
 WebInspector.updateConsoleMessageExpiredCount = function(count)
@@ -1539,6 +1543,16 @@ WebInspector.setRecordingProfile = function(isProfiling)
             this.panels.profiles.removeProfileHeader(this._temporaryRecordingProfile);
     }
     this.panels.profiles.updateProfileTypeButtons();
+}
+
+WebInspector.addHeapSnapshotChunk = function(uid, chunk)
+{
+    this.panels.profiles.addHeapSnapshotChunk(uid, chunk);
+}
+
+WebInspector.finishHeapSnapshot = function(uid)
+{
+    this.panels.profiles.finishHeapSnapshot(uid);
 }
 
 WebInspector.drawLoadingPieChart = function(canvas, percent) {

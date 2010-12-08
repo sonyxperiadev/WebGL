@@ -28,6 +28,11 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, baseFrequencyXIdentifier(), BaseFrequencyX, baseFrequencyX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, baseFrequencyYIdentifier(), BaseFrequencyY, baseFrequencyY)
+DEFINE_ANIMATED_NUMBER(SVGFETurbulenceElement, SVGNames::seedAttr, Seed, seed)
+
 inline SVGFETurbulenceElement::SVGFETurbulenceElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_numOctaves(1)
@@ -119,12 +124,12 @@ void SVGFETurbulenceElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeNumOctaves();
 }
 
-PassRefPtr<FilterEffect> SVGFETurbulenceElement::build(SVGFilterBuilder*)
+PassRefPtr<FilterEffect> SVGFETurbulenceElement::build(SVGFilterBuilder*, Filter* filter)
 {
     if (baseFrequencyX() < 0 || baseFrequencyY() < 0)
         return 0;
 
-    return FETurbulence::create(static_cast<TurbulanceType>(type()), baseFrequencyX(), 
+    return FETurbulence::create(filter, static_cast<TurbulanceType>(type()), baseFrequencyX(), 
                 baseFrequencyY(), numOctaves(), seed(), stitchTiles() == SVG_STITCHTYPE_STITCH);
 }
 

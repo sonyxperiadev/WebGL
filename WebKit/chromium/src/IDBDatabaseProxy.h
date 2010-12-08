@@ -45,10 +45,10 @@ public:
     virtual String name() const;
     virtual String description() const;
     virtual String version() const;
-    virtual PassRefPtr<DOMStringList> objectStores() const;
+    virtual PassRefPtr<DOMStringList> objectStoreNames() const;
 
     virtual PassRefPtr<IDBObjectStoreBackendInterface> createObjectStore(const String& name, const String& keyPath, bool autoIncrement, IDBTransactionBackendInterface*, ExceptionCode&);
-    virtual void removeObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void deleteObjectStore(const String& name, IDBTransactionBackendInterface*, ExceptionCode&);
     virtual void setVersion(const String& version, PassRefPtr<IDBCallbacks>, ExceptionCode&);
     virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout, ExceptionCode&);
     virtual void close();

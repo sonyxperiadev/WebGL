@@ -41,6 +41,7 @@
 #include "RenderTextControlSingleLine.h"
 #include "ScrollbarTheme.h"
 #include "SpeechInput.h"
+#include "SpeechInputEvent.h"
 
 namespace WebCore {
 
@@ -51,6 +52,7 @@ public:
     RenderTextControlInnerBlock(Node* node, bool isMultiLine) : RenderBlock(node), m_multiLine(isMultiLine) { }
 
 private:
+    virtual bool hasLineIfEmpty() const { return true; }
     virtual VisiblePosition positionForPoint(const IntPoint&);
 
     bool m_multiLine;
@@ -110,11 +112,6 @@ void TextControlInnerElement::attachInnerElement(Node* parent, PassRefPtr<Render
     // Add the renderer to the render tree
     if (renderer)
         parent->renderer()->addChild(renderer);
-}
-
-bool TextControlInnerElement::isSpellCheckingEnabled() const
-{
-    return m_shadowParent && m_shadowParent->isSpellCheckingEnabled();
 }
 
 // ----------------------------
@@ -478,7 +475,7 @@ void InputFieldSpeechButtonElement::setRecognitionResult(int, const SpeechInputR
     // here, we take a temporary reference.
     RefPtr<HTMLInputElement> holdRef(input);
     input->setValue(results.isEmpty() ? "" : results[0]->utterance());
-    input->dispatchWebkitSpeechChangeEvent();
+    input->dispatchEvent(SpeechInputEvent::create(eventNames().webkitspeechchangeEvent, results));
     renderer()->repaint();
 }
 

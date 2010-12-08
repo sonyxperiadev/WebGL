@@ -26,6 +26,7 @@
 #ifndef WebIDBTransaction_h
 #define WebIDBTransaction_h
 
+#include "WebExceptionCode.h"
 #include "WebString.h"
 
 namespace WebCore { class IDBTransactionBackendInterface; }
@@ -45,7 +46,7 @@ public:
         WEBKIT_ASSERT_NOT_REACHED();
         return 0;
     }
-    virtual WebIDBObjectStore* objectStore(const WebString& name)
+    virtual WebIDBObjectStore* objectStore(const WebString& name, WebExceptionCode&)
     {
         WEBKIT_ASSERT_NOT_REACHED();
         return 0;
@@ -60,6 +61,8 @@ public:
         return 0;
     }
 
+protected:
+    WebIDBTransaction() {}
 };
 
 } // namespace WebKit

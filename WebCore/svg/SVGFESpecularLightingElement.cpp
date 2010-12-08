@@ -32,6 +32,13 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::specularConstantAttr, SpecularConstant, specularConstant)
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::specularExponentAttr, SpecularExponent, specularExponent)
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::surfaceScaleAttr, SurfaceScale, surfaceScale)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), KernelUnitLengthX, kernelUnitLengthX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), KernelUnitLengthY, kernelUnitLengthY)
+
 inline SVGFESpecularLightingElement::SVGFESpecularLightingElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_specularConstant(1)
@@ -120,7 +127,7 @@ PassRefPtr<LightSource> SVGFESpecularLightingElement::findLights() const
     return 0;
 }
 
-PassRefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
     
@@ -131,7 +138,7 @@ PassRefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* f
     
     Color color = filterStyle->svgStyle()->lightingColor();
 
-    RefPtr<FilterEffect> effect = FESpecularLighting::create(color, surfaceScale(), specularConstant(), 
+    RefPtr<FilterEffect> effect = FESpecularLighting::create(filter, color, surfaceScale(), specularConstant(), 
                                           specularExponent(), kernelUnitLengthX(), kernelUnitLengthY(), findLights());
     effect->inputEffects().append(input1);
     return effect.release();

@@ -139,6 +139,27 @@
 
 using namespace WebCore;
 
+namespace {
+
+GraphicsContext3D::Attributes getCompositorContextAttributes()
+{
+    // Explicitly disable antialiasing for the compositor. As of the time of
+    // this writing, the only platform that supported antialiasing for the
+    // compositor was Mac OS X, because the on-screen OpenGL context creation
+    // code paths on Windows and Linux didn't yet have multisampling support.
+    // Mac OS X essentially always behaves as though it's rendering offscreen.
+    // Multisampling has a heavy cost especially on devices with relatively low
+    // fill rate like most notebooks, and the Mac implementation would need to
+    // be optimized to resolve directly into the IOSurface shared between the
+    // GPU and browser processes. For these reasons and to avoid platform
+    // disparities we explicitly disable antialiasing.
+    GraphicsContext3D::Attributes attributes;
+    attributes.antialias = false;
+    return attributes;
+}
+
+} // anonymous namespace
+
 namespace WebKit {
 
 // Change the text zoom level by kTextSizeMultiplierRatio each time the user
@@ -937,7 +958,7 @@ void WebViewImpl::resize(const WebSize& newSize)
     }
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_layerRenderer) {
+    if (m_layerRenderer && isAcceleratedCompositingActive()) {
         m_layerRenderer->resizeOnscreenContent(IntSize(std::max(1, m_size.width),
                                                        std::max(1, m_size.height)));
     }
@@ -2251,17 +2272,15 @@ bool WebViewImpl::allowsAcceleratedCompositing()
 
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
-    bool wasActive = m_isAcceleratedCompositingActive;
     setIsAcceleratedCompositingActive(layer ? true : false);
     if (m_layerRenderer)
         m_layerRenderer->setRootLayer(layer);
-    if (wasActive != m_isAcceleratedCompositingActive) {
-        IntRect damagedRect(0, 0, m_size.width, m_size.height);
-        if (m_isAcceleratedCompositingActive)
-            invalidateRootLayerRect(damagedRect);
-        else
-            m_client->didInvalidateRect(damagedRect);
-    }
+
+    IntRect damagedRect(0, 0, m_size.width, m_size.height);
+    if (m_isAcceleratedCompositingActive)
+        invalidateRootLayerRect(damagedRect);
+    else
+        m_client->didInvalidateRect(damagedRect);
 }
 
 void WebViewImpl::setRootLayerNeedsDisplay()
@@ -2318,6 +2337,9 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
         }
     }
 
+    // Move the previous damage
+    m_rootLayerScrollDamage.move(scrollDelta.width(), scrollDelta.height());
+    // Union with the new damage rect.
     m_rootLayerScrollDamage.unite(damagedContentsRect);
 
     // Scroll any existing damage that intersects with clip rect
@@ -2357,7 +2379,8 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 
     if (!active) {
         m_isAcceleratedCompositingActive = false;
-        m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
+        if (m_layerRenderer)
+            m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
         m_client->didActivateAcceleratedCompositing(false);
         return;
     }
@@ -2373,13 +2396,13 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 
     RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
     if (!context) {
-        m_client->didActivateAcceleratedCompositing(true);
-        context = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+        context = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
         if (context)
             context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
     }
     m_layerRenderer = LayerRendererChromium::create(context.release());
     if (m_layerRenderer) {
+        m_client->didActivateAcceleratedCompositing(true);
         m_isAcceleratedCompositingActive = true;
         m_compositorCreationFailed = false;
     } else {
@@ -2509,8 +2532,7 @@ WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
         else if (m_temporaryOnscreenGraphicsContext3D)
             context = m_temporaryOnscreenGraphicsContext3D.get();
         else {
-            GraphicsContext3D::Attributes attributes;
-            m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+            m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
             if (m_temporaryOnscreenGraphicsContext3D)
                 m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
             context = m_temporaryOnscreenGraphicsContext3D.get();

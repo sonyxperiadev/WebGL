@@ -145,6 +145,7 @@ CSSParser::CSSParser(bool strictParsing)
     , m_hasFontFaceOnlyValues(false)
     , m_hadSyntacticallyValidCSSRule(false)
     , m_defaultNamespace(starAtom)
+    , m_inStyleRuleOrDeclaration(false)
     , m_selectorListRange(0, 0)
     , m_ruleBodyRange(0, 0)
     , m_propertyRange(UINT_MAX, UINT_MAX)
@@ -386,6 +387,7 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
     if (styleSourceData) {
         m_currentRuleData = CSSRuleSourceData::create();
         m_currentRuleData->styleSourceData = CSSStyleSourceData::create();
+        m_inStyleRuleOrDeclaration = true;
     }
 
     setupParser("@-webkit-decls{", string, "} ");
@@ -413,6 +415,7 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
     if (styleSourceData) {
         *styleSourceData = m_currentRuleData->styleSourceData.release();
         m_currentRuleData = 0;
+        m_inStyleRuleOrDeclaration = false;
     }
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
@@ -2095,7 +2098,7 @@ bool CSSParser::parseAnimationShorthand(bool important)
                                 CSSPropertyWebkitAnimationIterationCount,
                                 CSSPropertyWebkitAnimationDirection,
                                 CSSPropertyWebkitAnimationFillMode };
-    const int numProperties = sizeof(properties) / sizeof(properties[0]);
+    const int numProperties = WTF_ARRAY_LENGTH(properties);
 
     ShorthandScope scope(this, CSSPropertyWebkitAnimation);
 
@@ -2153,7 +2156,7 @@ bool CSSParser::parseTransitionShorthand(bool important)
                                CSSPropertyWebkitTransitionDuration,
                                CSSPropertyWebkitTransitionTimingFunction,
                                CSSPropertyWebkitTransitionDelay };
-    const int numProperties = sizeof(properties) / sizeof(properties[0]);
+    const int numProperties = WTF_ARRAY_LENGTH(properties);
 
     ShorthandScope scope(this, CSSPropertyWebkitTransition);
 
@@ -2936,16 +2939,21 @@ PassRefPtr<CSSValue> CSSParser::parseAnimationProperty()
     return 0;
 }
 
-void CSSParser::parseTransformOriginShorthand(RefPtr<CSSValue>& value1, RefPtr<CSSValue>& value2, RefPtr<CSSValue>& value3)
+bool CSSParser::parseTransformOriginShorthand(RefPtr<CSSValue>& value1, RefPtr<CSSValue>& value2, RefPtr<CSSValue>& value3)
 {
     parseFillPosition(value1, value2);
 
     // now get z
-    if (m_valueList->current() && validUnit(m_valueList->current(), FLength, m_strict))
-        value3 = CSSPrimitiveValue::create(m_valueList->current()->fValue,
-                                         (CSSPrimitiveValue::UnitTypes)m_valueList->current()->unit);
-    if (value3)
-        m_valueList->next();
+    if (m_valueList->current()) {
+        if (validUnit(m_valueList->current(), FLength, m_strict)) {
+            value3 = CSSPrimitiveValue::create(m_valueList->current()->fValue,
+                                             (CSSPrimitiveValue::UnitTypes)m_valueList->current()->unit);
+            m_valueList->next();
+            return true;
+        }
+        return false;
+    }
+    return true;
 }
 
 bool CSSParser::parseCubicBezierTimingFunctionValue(CSSParserValueList*& args, double& result)
@@ -3723,7 +3731,7 @@ bool CSSParser::parseFontFaceSrc()
             // There are two allowed functions: local() and format().
             CSSParserValueList* args = val->function->args.get();
             if (args && args->size() == 1) {
-                if (equalIgnoringCase(val->function->name, "local(") && !expectComma) {
+                if (equalIgnoringCase(val->function->name, "local(") && !expectComma && (args->current()->unit == CSSPrimitiveValue::CSS_STRING || args->current()->unit == CSSPrimitiveValue::CSS_IDENT)) {
                     expectComma = true;
                     allowFormat = false;
                     CSSParserValue* a = args->current();
@@ -5103,7 +5111,8 @@ bool CSSParser::parseTransformOrigin(int propId, int& propId1, int& propId2, int
 
     switch (propId) {
         case CSSPropertyWebkitTransformOrigin:
-            parseTransformOriginShorthand(value, value2, value3);
+            if (!parseTransformOriginShorthand(value, value2, value3))
+                return false;
             // parseTransformOriginShorthand advances the m_valueList pointer
             break;
         case CSSPropertyWebkitTransformOriginX: {
@@ -5218,11 +5227,11 @@ int CSSParser::lex(void* yylvalWithoutType)
         length--;
     case DEGS:
     case RADS:
-    case KHERZ:
+    case KHERTZ:
     case REMS:
         length--;
     case MSECS:
-    case HERZ:
+    case HERTZ:
     case EMS:
     case EXS:
     case PXS:
@@ -5567,6 +5576,7 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
             m_ruleRangeMap->set(result, m_currentRuleData.release());
             m_currentRuleData = CSSRuleSourceData::create();
             m_currentRuleData->styleSourceData = CSSStyleSourceData::create();
+            m_inStyleRuleOrDeclaration = false;
         }
     }
     resetSelectorListMarks();
@@ -5720,6 +5730,7 @@ void CSSParser::markRuleBodyStart()
         ++offset; // Skip the rule body opening brace.
     if (offset > m_ruleBodyRange.start)
         m_ruleBodyRange.start = offset;
+    m_inStyleRuleOrDeclaration = true;
 }
 
 void CSSParser::markRuleBodyEnd()
@@ -5731,11 +5742,15 @@ void CSSParser::markRuleBodyEnd()
 
 void CSSParser::markPropertyStart()
 {
+    if (!m_inStyleRuleOrDeclaration)
+        return;
     m_propertyRange.start = yytext - m_data;
 }
 
 void CSSParser::markPropertyEnd(bool isImportantFound, bool isPropertyParsed)
 {
+    if (!m_inStyleRuleOrDeclaration)
+        return;
     unsigned offset = yytext - m_data;
     if (*yytext == ';') // Include semicolon into the property text.
         ++offset;

@@ -310,6 +310,8 @@ void WebGLRenderingContext::bindFramebuffer(unsigned long target, WebGLFramebuff
     }
     m_framebufferBinding = buffer;
     m_context->bindFramebuffer(target, objectOrZero(buffer));
+    if (buffer)
+        buffer->setHasEverBeenBound();
     cleanupAfterGraphicsCall(false);
 }
 
@@ -328,6 +330,8 @@ void WebGLRenderingContext::bindRenderbuffer(unsigned long target, WebGLRenderbu
     }
     m_renderbufferBinding = renderBuffer;
     m_context->bindRenderbuffer(target, objectOrZero(renderBuffer));
+    if (renderBuffer)
+        renderBuffer->setHasEverBeenBound();
     cleanupAfterGraphicsCall(false);
 }
 
@@ -2080,6 +2084,9 @@ bool WebGLRenderingContext::isBuffer(WebGLBuffer* buffer)
     if (!buffer || isContextLost())
         return false;
 
+    if (!buffer->hasEverBeenBound())
+        return false;
+
     return m_context->isBuffer(buffer->object());
 }
 
@@ -2100,6 +2107,9 @@ bool WebGLRenderingContext::isFramebuffer(WebGLFramebuffer* framebuffer)
     if (!framebuffer || isContextLost())
         return false;
 
+    if (!framebuffer->hasEverBeenBound())
+        return false;
+
     return m_context->isFramebuffer(framebuffer->object());
 }
 
@@ -2116,6 +2126,9 @@ bool WebGLRenderingContext::isRenderbuffer(WebGLRenderbuffer* renderbuffer)
     if (!renderbuffer || isContextLost())
         return false;
 
+    if (!renderbuffer->hasEverBeenBound())
+        return false;
+
     return m_context->isRenderbuffer(renderbuffer->object());
 }
 
@@ -2130,6 +2143,9 @@ bool WebGLRenderingContext::isShader(WebGLShader* shader)
 bool WebGLRenderingContext::isTexture(WebGLTexture* texture)
 {
     if (!texture || isContextLost())
+        return false;
+
+    if (!texture->hasEverBeenBound())
         return false;
 
     return m_context->isTexture(texture->object());
@@ -2233,8 +2249,12 @@ void WebGLRenderingContext::readPixels(long x, long y, long width, long height, 
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
-    if (format != GraphicsContext3D::RGBA || type != GraphicsContext3D::UNSIGNED_BYTE) {
+    if (format != GraphicsContext3D::RGBA && type != GraphicsContext3D::UNSIGNED_BYTE) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+        return;
+    }
+    if (format != GraphicsContext3D::RGBA || type != GraphicsContext3D::UNSIGNED_BYTE) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
         return;
     }
     // Validate array type against pixel type.
@@ -2258,7 +2278,7 @@ void WebGLRenderingContext::readPixels(long x, long y, long width, long height, 
     // The last row needs no padding.
     unsigned long totalBytes = bytesPerRow * height - padding;
     unsigned long num = totalBytes / bytesPerComponent;
-    if (pixels->length() < num) {
+    if (pixels->byteLength() / bytesPerComponent < num) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }

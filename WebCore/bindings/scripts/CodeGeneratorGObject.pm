@@ -110,6 +110,7 @@ sub FixUpDecamelizedName {
     # FIXME: try to merge this somehow with the fixes in ClassNameToGobjectType
     $classname =~ s/x_path/xpath/;
     $classname =~ s/web_kit/webkit/;
+    $classname =~ s/htmli_frame/html_iframe/;
 
     return $classname;
 }
@@ -118,8 +119,8 @@ sub ClassNameToGObjectType {
     my $className = shift;
     my $CLASS_NAME = uc(decamelize($className));
     # Fixup: with our prefix being 'WebKitDOM' decamelize can't get
-    # WebKitDOMCSS right, so we have to fix it manually (and there
-    # might be more like this in the future)
+    # WebKitDOMCSS and similar names right, so we have to fix it
+    # manually.
     $CLASS_NAME =~ s/DOMCSS/DOM_CSS/;
     $CLASS_NAME =~ s/DOMHTML/DOM_HTML/;
     $CLASS_NAME =~ s/DOMDOM/DOM_DOM/;
@@ -127,6 +128,7 @@ sub ClassNameToGObjectType {
     $CLASS_NAME =~ s/DOMX_PATH/DOM_XPATH/;
     $CLASS_NAME =~ s/DOM_WEB_KIT/DOM_WEBKIT/;
     $CLASS_NAME =~ s/DOMUI/DOM_UI/;
+    $CLASS_NAME =~ s/HTMLI_FRAME/HTML_IFRAME/;
     return $CLASS_NAME;
 }
 
@@ -210,8 +212,11 @@ sub SkipFunction {
 
     # Skip functions that have ["Callback"] parameters, because this
     # code generator doesn't know how to auto-generate callbacks.
+    # Skip functions that have "MediaQueryListListener" parameters, because this
+    # code generator doesn't know how to auto-generate MediaQueryListListener.
     foreach my $param (@{$function->parameters}) {
-        if ($param->extendedAttributes->{"Callback"}) {
+        if ($param->extendedAttributes->{"Callback"} ||
+            $param->type eq "MediaQueryListListener") {
             return 1;
         }
     }
@@ -599,7 +604,8 @@ EOF
     push(@txtSetProps, $txtSetProps);
 
     foreach my $attribute (@readableProperties) {
-        if ($attribute->signature->type ne "EventListener") {
+        if ($attribute->signature->type ne "EventListener" &&
+            $attribute->signature->type ne "MediaQueryListListener") {
             GenerateProperty($attribute, $interfaceName, \@writeableProperties);
         }
     }
@@ -766,6 +772,7 @@ sub getIncludeHeader {
     return "" if $type eq "unsigned short";
     return "" if $type eq "DOMTimeStamp";
     return "" if $type eq "EventListener";
+    return "" if $type eq "MediaQueryListListener";
     return "" if $type eq "unsigned char";
     return "" if $type eq "DOMString";
     return "" if $type eq "float";
@@ -800,6 +807,10 @@ sub GenerateFunction {
 
     my $decamelize = FixUpDecamelizedName(decamelize($interfaceName));
 
+    if ($object eq "MediaQueryListListener") {
+        return;
+    }
+
     if (SkipFunction($function, $decamelize, $prefix)) {
         return;
     }
@@ -821,7 +832,7 @@ sub GenerateFunction {
 
     foreach my $param (@{$function->parameters}) {
         my $paramIDLType = $param->type;
-        if ($paramIDLType eq "EventListener") {
+        if ($paramIDLType eq "EventListener" || $paramIDLType eq "MediaQueryListListener") {
             push(@hBody, "\n/* TODO: event function ${functionName} */\n\n");
             push(@cBody, "\n/* TODO: event function ${functionName} */\n\n");
             return;
@@ -974,7 +985,7 @@ sub GenerateFunction {
     bool ok = item->${functionSigName}(${callImplParams}${exceptions});
     if (ok)
     {
-        ${returnType} res = static_cast<${returnType}>(WebKit::kit($returnParamName));
+        ${returnType} res = WebKit::kit($returnParamName);
         return res;
     }
 EOF
@@ -1029,7 +1040,7 @@ EOF
     if ($returnType ne "void" && !$functionHasCustomReturn) {
         if ($functionSigType ne "DOMObject") {
             if ($returnValueIsGDOMType) {
-                push(@cBody, "    ${returnType} res = static_cast<${returnType}>(WebKit::kit(g_res.get()));\n");
+                push(@cBody, "    ${returnType} res = WebKit::kit(g_res.get());\n");
             }
         }
         if ($functionSigType eq "DOMObject") {
@@ -1075,7 +1086,9 @@ sub GenerateFunctions {
 
     TOP:
     foreach my $attribute (@{$dataNode->attributes}) {
-        if (SkipAttribute($attribute) || $attribute->signature->type eq "EventListener") {
+        if (SkipAttribute($attribute) ||
+            $attribute->signature->type eq "EventListener" ||
+            $attribute->signature->type eq "MediaQueryListListener") {
             next TOP;
         }
         
@@ -1239,7 +1252,7 @@ EOF
 
     if ($className ne "WebKitDOMNode") {
         $text = << "EOF";
-    gpointer
+    ${className}*
     kit(WebCore::${interfaceName}* node);
 
 EOF
@@ -1322,6 +1335,7 @@ sub Generate {
 
     $implIncludes{"webkitmarshal.h"} = 1;
     $implIncludes{"webkitprivate.h"} = 1;
+    $implIncludes{"DOMObjectCache.h"} = 1;
     $implIncludes{"WebKitDOMBinding.h"} = 1;
     $implIncludes{"gobject/ConvertToUTF8String.h"} = 1;
     $implIncludes{"webkit/$className.h"} = 1;
@@ -1336,14 +1350,14 @@ sub Generate {
         my $converter = << "EOF";
 namespace WebKit {
     
-gpointer kit(WebCore::$interfaceName* obj)
+${className}* kit(WebCore::$interfaceName* obj)
 {
     g_return_val_if_fail(obj, 0);
 
     if (gpointer ret = DOMObjectCache::get(obj))
-        return ret;
+        return static_cast<${className}*>(ret);
 
-    return DOMObjectCache::put(obj, WebKit::wrap${interfaceName}(obj));
+    return static_cast<${className}*>(DOMObjectCache::put(obj, WebKit::wrap${interfaceName}(obj)));
 }
     
 } // namespace WebKit //

@@ -110,6 +110,7 @@ Settings::Settings(Page* page)
     , m_sessionStorageQuota(StorageMap::noQuota)
 #endif
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
+    , m_editingBehaviorType(editingBehaviorTypeForPlatform())
     , m_isSpatialNavigationEnabled(false)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
@@ -126,7 +127,6 @@ Settings::Settings(Page* page)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_javaScriptCanAccessClipboard(false)
     , m_shouldPrintBackgrounds(false)
-    , m_shouldDelegateScrolling(false)
     , m_textAreasAreResizable(false)
 #if ENABLE(DASHBOARD_SUPPORT)
     , m_usesDashboardBackwardCompatibilityMode(false)
@@ -154,12 +154,16 @@ Settings::Settings(Page* page)
     , m_enforceCSSMIMETypeInNoQuirksMode(true)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
-    , m_editingBehaviorType(editingBehaviorTypeForPlatform())
     // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
     // they can't use by. Leaving enabled for now to not change existing behavior.
     , m_downloadableBinaryFontsEnabled(true)
     , m_xssAuditorEnabled(false)
     , m_acceleratedCompositingEnabled(true)
+    , m_acceleratedCompositingFor3DTransformsEnabled(true)
+    , m_acceleratedCompositingForVideoEnabled(true)
+    , m_acceleratedCompositingForPluginsEnabled(true)
+    , m_acceleratedCompositingForCanvasEnabled(true)
+    , m_acceleratedCompositingForAnimationEnabled(true)
     , m_showDebugBorders(false)
     , m_showRepaintCounter(false)
     , m_experimentalNotificationsEnabled(false)
@@ -393,11 +397,6 @@ void Settings::setUserStyleSheetLocation(const KURL& userStyleSheetLocation)
 void Settings::setShouldPrintBackgrounds(bool shouldPrintBackgrounds)
 {
     m_shouldPrintBackgrounds = shouldPrintBackgrounds;
-}
-
-void Settings::setShouldDelegateScrolling(bool shouldDelegateScrolling)
-{
-    m_shouldDelegateScrolling = shouldDelegateScrolling;
 }
 
 void Settings::setTextAreasAreResizable(bool textAreasAreResizable)
@@ -790,6 +789,31 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
         
     m_acceleratedCompositingEnabled = enabled;
     setNeedsRecalcStyleInAllFrames(m_page);
+}
+
+void Settings::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
+{
+    m_acceleratedCompositingFor3DTransformsEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForVideoEnabled(bool enabled)
+{
+    m_acceleratedCompositingForVideoEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForPluginsEnabled(bool enabled)
+{
+    m_acceleratedCompositingForPluginsEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForCanvasEnabled(bool enabled)
+{
+    m_acceleratedCompositingForCanvasEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForAnimationEnabled(bool enabled)
+{
+    m_acceleratedCompositingForAnimationEnabled = enabled;
 }
 
 void Settings::setShowDebugBorders(bool enabled)

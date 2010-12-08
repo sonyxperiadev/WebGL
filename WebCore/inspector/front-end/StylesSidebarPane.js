@@ -34,6 +34,12 @@ WebInspector.StylesSidebarPane = function(computedStylePane)
     this.settingsSelectElement = document.createElement("select");
 
     var option = document.createElement("option");
+    option.value = "original";
+    option.action = this._changeColorFormat.bind(this);
+    option.label = WebInspector.UIString("As Authored");
+    this.settingsSelectElement.appendChild(option);
+
+    var option = document.createElement("option");
     option.value = "hex";
     option.action = this._changeColorFormat.bind(this);
     option.label = WebInspector.UIString("Hex Colors");
@@ -61,12 +67,14 @@ WebInspector.StylesSidebarPane = function(computedStylePane)
     this.settingsSelectElement.addEventListener("click", function(event) { event.stopPropagation() }, false);
     this.settingsSelectElement.addEventListener("change", this._changeSetting.bind(this), false);
     var format = WebInspector.settings.colorFormat;
-    if (format === "hex")
+    if (format === "original")
         this.settingsSelectElement[0].selected = true;
-    else if (format === "rgb")
+    else if (format === "hex")
         this.settingsSelectElement[1].selected = true;
-    else if (format === "hsl")
+    else if (format === "rgb")
         this.settingsSelectElement[2].selected = true;
+    else if (format === "hsl")
+        this.settingsSelectElement[3].selected = true;
 
     this.titleElement.appendChild(this.settingsSelectElement);
     this._computedStylePane = computedStylePane;
@@ -197,7 +205,7 @@ WebInspector.StylesSidebarPane.prototype = {
             // Add rules in reverse order to match the cascade order.
             for (var j = pseudoElementCSSRules.rules.length - 1; j >= 0; --j) {
                 var rule = pseudoElementCSSRules.rules[j];
-                styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule });
+                styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule, editable: !!(rule.style && rule.style.id) });
             }
             usedProperties = {};
             disabledComputedProperties = {};
@@ -216,7 +224,7 @@ WebInspector.StylesSidebarPane.prototype = {
                 continue;
             if (section.computedStyle)
                 section.styleRule.style = nodeComputedStyle;
-            var styleRule = { section: section, style: section.styleRule.style, computedStyle: section.computedStyle, rule: section.rule };
+            var styleRule = { section: section, style: section.styleRule.style, computedStyle: section.computedStyle, rule: section.rule, editable: !!(section.styleRule.style && section.styleRule.style.id) };
             styleRules.push(styleRule);
         }
         return styleRules;
@@ -252,7 +260,7 @@ WebInspector.StylesSidebarPane.prototype = {
             styleRules.push({ isStyleSeparator: true, text: WebInspector.UIString("Matched CSS Rules") });
         for (var i = styles.matchedCSSRules.length - 1; i >= 0; --i) {
             var rule = styles.matchedCSSRules[i];
-            styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule });
+            styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule, editable: !!(rule.style && rule.style.id) });
         }
 
         // Walk the node structure and identify styles with inherited properties.
@@ -288,7 +296,7 @@ WebInspector.StylesSidebarPane.prototype = {
                     insertInheritedNodeSeparator(parentNode);
                     separatorInserted = true;
                 }
-                styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule, isInherited: true });
+                styleRules.push({ style: rule.style, selectorText: rule.selectorText, sourceURL: rule.sourceURL, rule: rule, isInherited: true, editable: !!(rule.style && rule.style.id) });
             }
             parentNode = parentNode.parentNode;
         }
@@ -1248,7 +1256,9 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 swatchElement.addEventListener("dblclick", function(event) { event.stopPropagation() }, false);
 
                 var format;
-                if (Preferences.showColorNicknames && color.nickname)
+                if (WebInspector.settings.colorFormat === "original")
+                    format = "original";
+                else if (Preferences.showColorNicknames && color.nickname)
                     format = "nickname";
                 else if (WebInspector.settings.colorFormat === "rgb")
                     format = (color.simple ? "rgb" : "rgba");
@@ -1262,55 +1272,59 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 var colorValueElement = document.createElement("span");
                 colorValueElement.textContent = color.toString(format);
 
-                function changeColorDisplay(event)
+                function nextFormat(curFormat)
                 {
-                    switch (format) {
+                    // The format loop is as follows:
+                    // * original
+                    // * rgb(a)
+                    // * hsl(a)
+                    // * nickname (if the color has a nickname)
+                    // * if the color is simple:
+                    //   - shorthex (if has short hex)
+                    //   - hex
+                    switch (curFormat) {
+                        case "original":
+                            return color.simple ? "rgb" : "rgba";
+
                         case "rgb":
-                            format = "hsl";
-                            break;
-
-                        case "shorthex":
-                            format = "hex";
-                            break;
-
-                        case "hex":
-                            format = "rgb";
-                            break;
-
-                        case "nickname":
-                            if (color.simple) {
-                                if (color.hasShortHex())
-                                    format = "shorthex";
-                                else
-                                    format = "hex";
-                                break;
-                            }
-
-                            format = "rgba";
-                            break;
+                        case "rgba":
+                            return color.simple ? "hsl" : "hsla";
 
                         case "hsl":
-                            if (color.nickname)
-                                format = "nickname";
-                            else if (color.hasShortHex())
-                                format = "shorthex";
-                            else
-                                format = "hex";
-                            break;
-
-                        case "rgba":
-                            format = "hsla";
-                            break;
-
                         case "hsla":
                             if (color.nickname)
-                                format = "nickname";
+                                return "nickname";
+                            if (color.simple)
+                                return color.hasShortHex() ? "shorthex" : "hex";
                             else
-                                format = "rgba";
-                            break;
-                    }
+                                return "original";
 
-                    colorValueElement.textContent = color.toString(format);
+                        case "shorthex":
+                            return "hex";
+
+                        case "hex":
+                            return "original";
+
+                        case "nickname":
+                            if (color.simple)
+                                return color.hasShortHex() ? "shorthex" : "hex";
+                            else
+                                return "original";
+
+                        default:
+                            return null;
+                    }
+                }
+
+                function changeColorDisplay(event)
+                {
+                    do {
+                        format = nextFormat(format);
+                        var currentValue = color.toString(format || "");
+                    } while (format && currentValue === color.value && format !== "original");
+
+                    if (format)
+                        colorValueElement.textContent = currentValue;
                 }
 
                 var container = document.createDocumentFragment();
@@ -1771,7 +1785,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         // FIXME: this does not handle trailing comments.
         if (styleText.length && !/;\s*$/.test(styleText))
             styleText += ";";
-        this.property.setText(styleText, callback.bind(this));
+        this.property.setText(styleText, updateInterface, callback.bind(this));
     }
 }
 

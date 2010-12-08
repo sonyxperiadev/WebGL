@@ -32,6 +32,12 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::cxAttr, Cx, cx)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::cyAttr, Cy, cy)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::rxAttr, Rx, rx)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::ryAttr, Ry, ry)
+
 inline SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_cx(LengthModeWidth)
@@ -117,6 +123,7 @@ void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeRx();
         synchronizeRy();
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -130,6 +137,8 @@ void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeRy();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 void SVGEllipseElement::toPathData(Path& path) const

@@ -35,6 +35,8 @@ module test {
         readonly attribute long            readOnlyIntAttr;
         readonly attribute DOMString       readOnlyStringAttr;
         readonly attribute TestObj         readOnlyTestObjAttr;
+        attribute short                    shortAttr;
+        attribute unsigned short           unsignedShortAttr;
         attribute long                     intAttr;
         attribute long long                longLongAttr;
         attribute unsigned long long       unsignedLongLongAttr;
@@ -72,6 +74,7 @@ module test {
 
         void serializedValue(in SerializedScriptValue serializedArg);
         void idbKey(in IDBKey key);
+        void optionsObject(in OptionsObject oo, in [Optional] OptionsObject ooo);
 
         // Exceptions
         void methodWithException() raises(DOMException);

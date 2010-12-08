@@ -373,7 +373,7 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     [[[mainFrame webView] UIDelegate] didSetMockGeolocationPermission];
 }
 
-void LayoutTestController::setMockSpeechInputResult(JSStringRef result, JSStringRef language)
+void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
 {
     // FIXME: Implement for speech input layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.
@@ -581,6 +581,42 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     NSString *valueNS = (NSString *)valueCF.get();
 
     [[mainFrame webView] _executeCoreCommandByName:nameNS value:valueNS];
+}
+
+bool LayoutTestController::findString(JSContextRef context, JSStringRef target, JSObjectRef optionsArray)
+{
+    WebFindOptions options = 0;
+
+    JSRetainPtr<JSStringRef> lengthPropertyName(Adopt, JSStringCreateWithUTF8CString("length"));
+    JSValueRef lengthValue = JSObjectGetProperty(context, optionsArray, lengthPropertyName.get(), 0);
+    if (!JSValueIsNumber(context, lengthValue))
+        return false;
+
+    RetainPtr<CFStringRef> targetCFString(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, target));
+
+    size_t length = static_cast<size_t>(JSValueToNumber(context, lengthValue, 0));
+    for (size_t i = 0; i < length; ++i) {
+        JSValueRef value = JSObjectGetPropertyAtIndex(context, optionsArray, i, 0);
+        if (!JSValueIsString(context, value))
+            continue;
+
+        JSRetainPtr<JSStringRef> optionName(Adopt, JSValueToStringCopy(context, value, 0));
+
+        if (JSStringIsEqualToUTF8CString(optionName.get(), "CaseInsensitive"))
+            options |= WebFindOptionsCaseInsensitive;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "AtWordStarts"))
+            options |= WebFindOptionsAtWordStarts;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "TreatMedialCapitalAsWordStart"))
+            options |= WebFindOptionsTreatMedialCapitalAsWordStart;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "Backwards"))
+            options |= WebFindOptionsBackwards;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "WrapAround"))
+            options |= WebFindOptionsWrapAround;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "StartInSelection"))
+            options |= WebFindOptionsStartInSelection;
+    }
+
+    return [[mainFrame webView] findString:(NSString *)targetCFString.get() options:options];
 }
 
 void LayoutTestController::setCacheModel(int cacheModel)

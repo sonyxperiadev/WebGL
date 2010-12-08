@@ -274,6 +274,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
 
 MediaPlayer::~MediaPlayer()
 {
+    m_mediaPlayerClient = 0;
 }
 
 void MediaPlayer::load(const String& url, const ContentType& contentType)

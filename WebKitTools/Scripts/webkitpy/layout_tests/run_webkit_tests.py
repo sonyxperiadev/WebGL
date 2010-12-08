@@ -66,17 +66,16 @@ import traceback
 
 from layout_package import dump_render_tree_thread
 from layout_package import json_layout_results_generator
+from layout_package import message_broker
 from layout_package import printing
 from layout_package import test_expectations
 from layout_package import test_failures
 from layout_package import test_results
 from layout_package import test_results_uploader
-from test_types import image_diff
-from test_types import text_diff
-from test_types import test_type_base
 
 from webkitpy.common.system import user
 from webkitpy.thirdparty import simplejson
+from webkitpy.tool import grammar
 
 import port
 
@@ -102,6 +101,10 @@ class TestInput:
         # FIXME: filename should really be test_name as a relative path.
         self.filename = filename
         self.timeout = timeout
+        # The image_hash is used to avoid doing an image dump if the
+        # checksums match. The image_hash is set later, and only if it is needed
+        # for the test.
+        self.image_hash = None
 
 
 class ResultSummary(object):
@@ -237,26 +240,23 @@ class TestRunner:
     # in DumpRenderTree.
     DEFAULT_TEST_TIMEOUT_MS = 6 * 1000
 
-    def __init__(self, port, options, printer):
+    def __init__(self, port, options, printer, message_broker):
         """Initialize test runner data structures.
 
         Args:
           port: an object implementing port-specific
           options: a dictionary of command line options
           printer: a Printer object to record updates to.
+          message_broker: object used to communicate with workers.
         """
         self._port = port
         self._options = options
         self._printer = printer
+        self._message_broker = message_broker
 
         # disable wss server. need to install pyOpenSSL on buildbots.
         # self._websocket_secure_server = websocket_server.PyWebSocket(
         #        options.results_directory, use_tls=True, port=9323)
-
-        # a list of TestType objects
-        self._test_types = [text_diff.TestTextDiff]
-        if options.pixel_tests:
-            self._test_types.append(image_diff.ImageDiff)
 
         # a set of test files, and the same tests as a list
         self._test_files = set()
@@ -488,7 +488,7 @@ class TestRunner:
         """Returns the appropriate TestInput object for the file. Mostly this
         is used for looking up the timeout value (in ms) to use for the given
         test."""
-        if self._expectations.has_modifier(test_file, test_expectations.SLOW):
+        if self._test_is_slow(test_file):
             return TestInput(test_file, self._options.slow_time_out_ms)
         return TestInput(test_file, self._options.time_out_ms)
 
@@ -498,23 +498,30 @@ class TestRunner:
         split_path = test_file.split(os.sep)
         return 'http' in split_path or 'websocket' in split_path
 
-    def _get_test_file_queue(self, test_files):
-        """Create the thread safe queue of lists of (test filenames, test URIs)
-        tuples. Each TestShellThread pulls a list from this queue and runs
-        those tests in order before grabbing the next available list.
+    def _test_is_slow(self, test_file):
+        return self._expectations.has_modifier(test_file,
+                                               test_expectations.SLOW)
 
-        Shard the lists by directory. This helps ensure that tests that depend
-        on each other (aka bad tests!) continue to run together as most
-        cross-tests dependencies tend to occur within the same directory.
+    def _shard_tests(self, test_files, use_real_shards):
+        """Groups tests into batches.
+        This helps ensure that tests that depend on each other (aka bad tests!)
+        continue to run together as most cross-tests dependencies tend to
+        occur within the same directory. If use_real_shards is false, we
+        put each (non-HTTP/websocket) test into its own shard for maximum
+        concurrency instead of trying to do any sort of real sharding.
 
         Return:
-          The Queue of lists of TestInput objects.
+            A list of lists of TestInput objects.
         """
+        # FIXME: when we added http locking, we changed how this works such
+        # that we always lump all of the HTTP threads into a single shard.
+        # That will slow down experimental-fully-parallel, but it's unclear
+        # what the best alternative is completely revamping how we track
+        # when to grab the lock.
 
         test_lists = []
         tests_to_http_lock = []
-        if (self._options.experimental_fully_parallel or
-            self._is_single_threaded()):
+        if not use_real_shards:
             for test_file in test_files:
                 test_input = self._get_test_input_for_file(test_file)
                 if self._test_requires_lock(test_file):
@@ -553,23 +560,7 @@ class TestRunner:
             tests_to_http_lock.reverse()
             test_lists.insert(0, ("tests_to_http_lock", tests_to_http_lock))
 
-        filename_queue = Queue.Queue()
-        for item in test_lists:
-            filename_queue.put(item)
-        return filename_queue
-
-    def _get_test_args(self, index):
-        """Returns the tuple of arguments for tests and for DumpRenderTree."""
-        test_args = test_type_base.TestArguments()
-        test_args.png_path = None
-        if self._options.pixel_tests:
-            png_path = os.path.join(self._options.results_directory,
-                                    "png_result%s.png" % index)
-            test_args.png_path = png_path
-        test_args.new_baseline = self._options.new_baseline
-        test_args.reset_results = self._options.reset_results
-
-        return test_args
+        return test_lists
 
     def _contains_tests(self, subdir):
         for test_file in self._test_files:
@@ -577,39 +568,8 @@ class TestRunner:
                 return True
         return False
 
-    def _instantiate_dump_render_tree_threads(self, test_files,
-                                              result_summary):
-        """Instantitates and starts the TestShellThread(s).
-
-        Return:
-          The list of threads.
-        """
-        filename_queue = self._get_test_file_queue(test_files)
-
-        # Instantiate TestShellThreads and start them.
-        threads = []
-        for i in xrange(int(self._options.child_processes)):
-            # Create separate TestTypes instances for each thread.
-            test_types = []
-            for test_type in self._test_types:
-                test_types.append(test_type(self._port,
-                                    self._options.results_directory))
-
-            test_args = self._get_test_args(i)
-            thread = dump_render_tree_thread.TestShellThread(self._port,
-                self._options, filename_queue, self._result_queue,
-                test_types, test_args)
-            if self._is_single_threaded():
-                thread.run_in_main_thread(self, result_summary)
-            else:
-                thread.start()
-            threads.append(thread)
-
-        return threads
-
-    def _is_single_threaded(self):
-        """Returns whether we should run all the tests in the main thread."""
-        return int(self._options.child_processes) == 1
+    def _num_workers(self):
+        return int(self._options.child_processes)
 
     def _run_tests(self, file_list, result_summary):
         """Runs the tests in the file_list.
@@ -625,59 +585,48 @@ class TestRunner:
               in the form {filename:filename, test_run_time:test_run_time}
             result_summary: summary object to populate with the results
         """
-        # FIXME: We should use webkitpy.tool.grammar.pluralize here.
-        plural = ""
-        if not self._is_single_threaded():
-            plural = "s"
-        self._printer.print_update('Starting %s%s ...' %
-                                   (self._port.driver_name(), plural))
-        threads = self._instantiate_dump_render_tree_threads(file_list,
-                                                             result_summary)
-        self._printer.print_update("Starting testing ...")
 
-        keyboard_interrupted = self._wait_for_threads_to_finish(threads,
-                                                                result_summary)
-        (thread_timings, test_timings, individual_test_timings) = \
+        self._printer.print_update('Sharding tests ...')
+        num_workers = self._num_workers()
+        test_lists = self._shard_tests(file_list,
+            num_workers > 1 and not self._options.experimental_fully_parallel)
+        filename_queue = Queue.Queue()
+        for item in test_lists:
+            filename_queue.put(item)
+
+        self._printer.print_update('Starting %s ...' %
+                                   grammar.pluralize('worker', num_workers))
+        message_broker = self._message_broker
+        self._current_filename_queue = filename_queue
+        self._current_result_summary = result_summary
+
+        if not self._options.dry_run:
+            threads = message_broker.start_workers(self)
+        else:
+            threads = {}
+
+        self._printer.print_update("Starting testing ...")
+        keyboard_interrupted = False
+        if not self._options.dry_run:
+            try:
+                message_broker.run_message_loop()
+            except KeyboardInterrupt:
+                _log.info("Interrupted, exiting")
+                message_broker.cancel_workers()
+                keyboard_interrupted = True
+            except:
+                # Unexpected exception; don't try to clean up workers.
+                _log.info("Exception raised, exiting")
+                raise
+
+        thread_timings, test_timings, individual_test_timings = \
             self._collect_timing_info(threads)
 
         return (keyboard_interrupted, thread_timings, test_timings,
                 individual_test_timings)
 
-    def _wait_for_threads_to_finish(self, threads, result_summary):
-        keyboard_interrupted = False
-        try:
-            # Loop through all the threads waiting for them to finish.
-            some_thread_is_alive = True
-            while some_thread_is_alive:
-                some_thread_is_alive = False
-                t = time.time()
-                for thread in threads:
-                    exception_info = thread.exception_info()
-                    if exception_info is not None:
-                        # Re-raise the thread's exception here to make it
-                        # clear that testing was aborted. Otherwise,
-                        # the tests that did not run would be assumed
-                        # to have passed.
-                        raise exception_info[0], exception_info[1], exception_info[2]
-
-                    if thread.isAlive():
-                        some_thread_is_alive = True
-                        next_timeout = thread.next_timeout()
-                        if (next_timeout and t > next_timeout):
-                            _log_wedged_thread(thread)
-                            thread.clear_next_timeout()
-
-                self.update_summary(result_summary)
-
-                if some_thread_is_alive:
-                    time.sleep(0.01)
-
-        except KeyboardInterrupt:
-            keyboard_interrupted = True
-            for thread in threads:
-                thread.cancel()
-
-        return keyboard_interrupted
+    def update(self):
+        self.update_summary(self._current_result_summary)
 
     def _collect_timing_info(self, threads):
         test_timings = {}
@@ -793,16 +742,18 @@ class TestRunner:
             self._expectations, result_summary, retry_summary)
         self._printer.print_unexpected_results(unexpected_results)
 
-        if self._options.record_results:
+        if (self._options.record_results and not self._options.dry_run and
+            not keyboard_interrupted):
             # Write the same data to log files and upload generated JSON files
             # to appengine server.
             self._upload_json_files(unexpected_results, result_summary,
                                     individual_test_timings)
 
         # Write the summary to disk (results.html) and display it if requested.
-        wrote_results = self._write_results_html_file(result_summary)
-        if self._options.show_results and wrote_results:
-            self._show_results_html_file()
+        if not self._options.dry_run:
+            wrote_results = self._write_results_html_file(result_summary)
+            if self._options.show_results and wrote_results:
+                self._show_results_html_file()
 
         # Now that we've completed all the processing we can, we re-raise
         # a KeyboardInterrupt if necessary so the caller can handle it.
@@ -947,12 +898,15 @@ class TestRunner:
                        (self._options.time_out_ms,
                         self._options.slow_time_out_ms))
 
-        if self._is_single_threaded():
+        if self._num_workers() == 1:
             p.print_config("Running one %s" % self._port.driver_name())
         else:
             p.print_config("Running %s %ss in parallel" %
                            (self._options.child_processes,
                             self._port.driver_name()))
+        p.print_config('Command line: ' +
+                       ' '.join(self._port.driver_cmd_line()))
+        p.print_config("Worker model: %s" % self._options.worker_model)
         p.print_config("")
 
     def _print_expected_results_of_type(self, result_summary,
@@ -1067,8 +1021,7 @@ class TestRunner:
         for test_tuple in individual_test_timings:
             filename = test_tuple.filename
             is_timeout_crash_or_slow = False
-            if self._expectations.has_modifier(filename,
-                                               test_expectations.SLOW):
+            if self._test_is_slow(filename):
                 is_timeout_crash_or_slow = True
                 slow_tests.append(test_tuple)
 
@@ -1342,11 +1295,13 @@ def run(port, options, args, regular_output=sys.stderr,
         printer.cleanup()
         return 0
 
+    broker = message_broker.get(port, options)
+
     # We wrap any parts of the run that are slow or likely to raise exceptions
     # in a try/finally to ensure that we clean up the logging configuration.
     num_unexpected_results = -1
     try:
-        test_runner = TestRunner(port, options, printer)
+        test_runner = TestRunner(port, options, printer, broker)
         test_runner._print_config()
 
         printer.print_update("Collecting tests ...")
@@ -1375,6 +1330,7 @@ def run(port, options, args, regular_output=sys.stderr,
             _log.debug("Testing completed, Exit status: %d" %
                        num_unexpected_results)
     finally:
+        broker.cleanup()
         printer.cleanup()
 
     return num_unexpected_results
@@ -1383,8 +1339,11 @@ def run(port, options, args, regular_output=sys.stderr,
 def _set_up_derived_options(port_obj, options):
     """Sets the options values that depend on other options values."""
 
+    if options.worker_model == 'inline':
+        if options.child_processes and int(options.child_processes) > 1:
+            _log.warning("--worker-model=inline overrides --child-processes")
+        options.child_processes = "1"
     if not options.child_processes:
-        # FIXME: Investigate perf/flakiness impact of using cpu_count + 1.
         options.child_processes = os.environ.get("WEBKIT_TEST_CHILD_PROCESSES",
                                                  str(port_obj.default_child_processes()))
 
@@ -1568,6 +1527,9 @@ def parse_args(args=None):
         optparse.make_option("--no-build", dest="build",
             action="store_false", help="Don't check to see if the "
                                        "DumpRenderTree build is up-to-date."),
+        optparse.make_option("-n", "--dry-run", action="store_true",
+            default=False,
+            help="Do everything but actually run the tests or upload results."),
         # old-run-webkit-tests has --valgrind instead of wrapper.
         optparse.make_option("--wrapper",
             help="wrapper command to insert before invocations of "
@@ -1607,6 +1569,9 @@ def parse_args(args=None):
         optparse.make_option("--child-processes",
             help="Number of DumpRenderTrees to run in parallel."),
         # FIXME: Display default number of child processes that will run.
+        optparse.make_option("--worker-model", action="store",
+            default="threads", help=("controls worker model. Valid values are "
+            "'inline' and 'threads' (default).")),
         optparse.make_option("--experimental-fully-parallel",
             action="store_true", default=False,
             help="run all tests in parallel"),
@@ -1618,7 +1583,7 @@ def parse_args(args=None):
         #      Number of times to run the set of tests (e.g. ABCABCABC)
         optparse.make_option("--print-last-failures", action="store_true",
             default=False, help="Print the tests in the last run that "
-            "had unexpected failures (or passes)."),
+            "had unexpected failures (or passes) and then exit."),
         optparse.make_option("--retest-last-failures", action="store_true",
             default=False, help="re-test the tests in the last run that "
             "had unexpected failures (or passes)."),
@@ -1662,26 +1627,14 @@ def parse_args(args=None):
                    old_run_webkit_tests_compat)
     option_parser = optparse.OptionParser(option_list=option_list)
 
-    options, args = option_parser.parse_args(args)
-
-    return options, args
-
-
-def _log_wedged_thread(thread):
-    """Log information about the given thread state."""
-    id = thread.id()
-    stack = dump_render_tree_thread.find_thread_stack(id)
-    assert(stack is not None)
-    _log.error("")
-    _log.error("thread %s (%d) is wedged" % (thread.getName(), id))
-    dump_render_tree_thread.log_stack(stack)
-    _log.error("")
+    return option_parser.parse_args(args)
 
 
 def main():
     options, args = parse_args()
     port_obj = port.get(options.platform, options)
     return run(port_obj, options, args)
+
 
 if '__main__' == __name__:
     try:

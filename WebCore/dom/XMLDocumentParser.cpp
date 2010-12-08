@@ -181,9 +181,9 @@ void XMLDocumentParser::enterText()
 }
 
 #if !USE(QXMLSTREAM)
-static inline String toString(const xmlChar* str, unsigned len)
-{
-    return UTF8Encoding().decode(reinterpret_cast<const char*>(str), len);
+static inline String toString(const xmlChar* string, size_t size) 
+{ 
+    return String::fromUTF8(reinterpret_cast<const char*>(string), size); 
 }
 #endif
 
@@ -359,7 +359,7 @@ void XMLDocumentParser::notifyFinished(CachedResource* unusedResource)
     if (errorOccurred)
         scriptElement->dispatchErrorEvent();
     else {
-        m_view->frame()->script()->executeScript(sourceCode);
+        scriptElement->executeScript(sourceCode);
         scriptElement->dispatchLoadEvent();
     }
 

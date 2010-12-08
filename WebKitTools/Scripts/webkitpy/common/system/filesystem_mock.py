@@ -39,11 +39,7 @@ class MockFileSystem(object):
         Args:
             files: a dict of filenames -> file contents. A file contents
                 value of None is used to indicate that the file should
-                not exist (even if standalone is False).
-            standalone: If True, only the files listed in _files_ exist.
-                If False, the object will pass through read calls to the
-                underlying filesystem. Writes are never passed through.
-
+                not exist.
         """
         self.files = files
 

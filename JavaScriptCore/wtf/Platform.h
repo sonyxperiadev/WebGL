@@ -541,6 +541,7 @@
 #define WTF_USE_ICCJPEG 1
 #else
 #define WTF_PLATFORM_SKIA 1
+#define WTF_USE_CHROMIUM_NET 1
 #endif
 #endif
 
@@ -665,7 +666,7 @@
 #endif
 #endif
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && !OS(WINCE)
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 0
 #endif
@@ -994,7 +995,7 @@
 
 /* Configure the JIT */
 #if ENABLE(JIT)
-    #if CPU(ARM_TRADITIONAL)
+    #if CPU(ARM)
     #if !defined(ENABLE_JIT_USE_SOFT_MODULO) && WTF_ARM_ARCH_AT_LEAST(5)
     #define ENABLE_JIT_USE_SOFT_MODULO 1
     #endif
@@ -1034,14 +1035,8 @@
 #define ENABLE_REGEXP_TRACING 0
 
 /* Yet Another Regex Runtime - turned on by default for JIT enabled ports. */
-#if ENABLE(JIT) && !defined(ENABLE_YARR) && !defined(ENABLE_YARR_JIT)
-#define ENABLE_YARR 1
+#if ENABLE(JIT) && !defined(ENABLE_YARR_JIT)
 #define ENABLE_YARR_JIT 1
-#endif
-
-/* Sanity Check */
-#if ENABLE(YARR_JIT) && !ENABLE(YARR)
-#error "YARR_JIT requires YARR"
 #endif
 
 #if ENABLE(JIT) || ENABLE(YARR_JIT)
@@ -1141,4 +1136,3 @@
 #endif
 
 #endif /* WTF_Platform_h */
-

@@ -26,10 +26,12 @@
 
 #include "Console.h"
 #include "DumpRenderTreeSupportGtk.h"
+#include "Element.h"
 #include "FileSystem.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
+#include "FrameView.h"
 #include "GtkVersioning.h"
 #include "HTMLNames.h"
 #include "IntRect.h"
@@ -520,6 +522,13 @@ void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned mo
         g_signal_emit_by_name(m_webView, "hovering-over-link", 0, 0);
         m_hoveredLinkURL = KURL();
     }
+
+    if (Node* node = hit.innerNonSharedNode()) {
+        Frame* frame = node->document()->frame();
+        FrameView* view = frame ? frame->view() : 0;
+        m_webView->priv->tooltipArea = view ? view->contentsToWindow(node->getRect()) : IntRect();
+    } else
+        m_webView->priv->tooltipArea = IntRect();
 }
 
 void ChromeClient::setToolTip(const String& toolTip, TextDirection)

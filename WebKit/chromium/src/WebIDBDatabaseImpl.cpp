@@ -54,32 +54,29 @@ WebString WebIDBDatabaseImpl::name() const
     return m_databaseBackend->name();
 }
 
-WebString WebIDBDatabaseImpl::description() const
-{
-    return m_databaseBackend->description();
-}
-
 WebString WebIDBDatabaseImpl::version() const
 {
     return m_databaseBackend->version();
 }
 
-WebDOMStringList WebIDBDatabaseImpl::objectStores() const
+WebDOMStringList WebIDBDatabaseImpl::objectStoreNames() const
 {
-    return m_databaseBackend->objectStores();
+    return m_databaseBackend->objectStoreNames();
 }
 
 WebIDBObjectStore* WebIDBDatabaseImpl::createObjectStore(const WebString& name, const WebString& keyPath, bool autoIncrement, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
     RefPtr<IDBObjectStoreBackendInterface> objectStore = m_databaseBackend->createObjectStore(name, keyPath, autoIncrement, transaction.getIDBTransactionBackendInterface(), ec);
-    if (!objectStore)
+    if (!objectStore) {
+        ASSERT(ec);
         return 0;
+    }
     return new WebIDBObjectStoreImpl(objectStore);
 }
 
-void WebIDBDatabaseImpl::removeObjectStore(const WebString& name, const WebIDBTransaction& transaction, WebExceptionCode& ec)
+void WebIDBDatabaseImpl::deleteObjectStore(const WebString& name, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
-    m_databaseBackend->removeObjectStore(name, transaction.getIDBTransactionBackendInterface(), ec);
+    m_databaseBackend->deleteObjectStore(name, transaction.getIDBTransactionBackendInterface(), ec);
 }
 
 void WebIDBDatabaseImpl::setVersion(const WebString& version, WebIDBCallbacks* callbacks, WebExceptionCode& ec)
@@ -91,8 +88,10 @@ WebIDBTransaction* WebIDBDatabaseImpl::transaction(const WebDOMStringList& names
 {
     RefPtr<DOMStringList> nameList = PassRefPtr<DOMStringList>(names);
     RefPtr<IDBTransactionBackendInterface> transaction = m_databaseBackend->transaction(nameList.get(), mode, timeout, ec);
-    if (!transaction)
+    if (!transaction) {
+        ASSERT(ec);
         return 0;
+    }
     return new WebIDBTransactionImpl(transaction);
 }
 

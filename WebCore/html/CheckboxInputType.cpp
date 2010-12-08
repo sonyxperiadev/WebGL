@@ -32,6 +32,8 @@
 #include "CheckboxInputType.h"
 
 #include "HTMLInputElement.h"
+#include "KeyboardEvent.h"
+#include "LocalizedStrings.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
@@ -49,6 +51,20 @@ const AtomicString& CheckboxInputType::formControlType() const
 bool CheckboxInputType::valueMissing(const String&) const
 {
     return !element()->checked();
+}
+
+String CheckboxInputType::valueMissingText() const
+{
+    return validationMessageValueMissingForCheckboxText();
+}
+
+bool CheckboxInputType::handleKeyupEvent(KeyboardEvent* event)
+{
+    const String& key = event->keyIdentifier();
+    if (key != "U+0020")
+        return false;
+    dispatchSimulatedClickIfActive(event);
+    return true;
 }
 
 } // namespace WebCore

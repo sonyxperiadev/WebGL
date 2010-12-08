@@ -26,8 +26,6 @@
 #ifndef RegexInterpreter_h
 #define RegexInterpreter_h
 
-#if ENABLE(YARR)
-
 #include "RegexParser.h"
 #include "RegexPattern.h"
 #include <wtf/PassOwnPtr.h>
@@ -83,6 +81,8 @@ struct ByteTerm {
         TypeParenthesesSubpattern,
         TypeParenthesesSubpatternOnceBegin,
         TypeParenthesesSubpatternOnceEnd,
+        TypeParenthesesSubpatternTerminalBegin,
+        TypeParenthesesSubpatternTerminalEnd,
         TypeParentheticalAssertionBegin,
         TypeParentheticalAssertionEnd,
         TypeCheckInput,
@@ -365,10 +365,9 @@ private:
 };
 
 PassOwnPtr<BytecodePattern> byteCompileRegex(const UString& pattern, unsigned& numSubpatterns, const char*& error, BumpPointerAllocator*, bool ignoreCase = false, bool multiline = false);
+PassOwnPtr<BytecodePattern> byteCompileRegex(RegexPattern& pattern, BumpPointerAllocator*);
 int interpretRegex(BytecodePattern* v_regex, const UChar* input, unsigned start, unsigned length, int* output);
 
 } } // namespace JSC::Yarr
-
-#endif
 
 #endif // RegexInterpreter_h

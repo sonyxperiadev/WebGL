@@ -38,6 +38,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <string>
 
 using namespace std;
@@ -52,13 +53,13 @@ extern "C" {
 static void executeScript(const PluginObject* obj, const char* script);
 
 static NPError
-webkit_test_plugin_new_instance(NPMIMEType /*mimetype*/,
+webkit_test_plugin_new_instance(NPMIMEType mimetype,
                                 NPP instance,
-                                uint16_t /*mode*/,
+                                uint16_t mode,
                                 int16_t argc,
                                 char *argn[],
                                 char *argv[],
-                                NPSavedData* /*savedData*/)
+                                NPSavedData* savedData)
 {
     if (browser->version >= 14) {
         PluginObject* obj = (PluginObject*)browser->createobject(instance, getPluginClass());
@@ -99,6 +100,8 @@ webkit_test_plugin_new_instance(NPMIMEType /*mimetype*/,
         browser->getvalue(instance, NPNVprivateModeBool, (void *)&obj->cachedPrivateBrowsingMode);
 
         obj->pluginTest = PluginTest::create(instance, testIdentifier);
+
+        return obj->pluginTest->NPP_New(mimetype, mode, argc, argn, argv, savedData);
     }
 
     return NPERR_NO_ERROR;
@@ -261,6 +264,13 @@ webkit_test_plugin_print(NPP /*instance*/, NPPrint* /*platformPrint*/)
 {
 }
 
+static char keyEventToChar(XKeyEvent* event)
+{
+    char c = ' ';
+    XLookupString(event, &c, sizeof(c), 0, 0);
+    return c;
+}
+
 static int16_t
 webkit_test_plugin_handle_event(NPP instance, void* event)
 {
@@ -278,10 +288,10 @@ webkit_test_plugin_handle_event(NPP instance, void* event)
             pluginLog(instance, "mouseDown at (%d, %d)", evt->xbutton.x, evt->xbutton.y);
             break;
         case KeyRelease:
-            pluginLog(instance, "keyUp '%c'", evt->xkey.keycode);
+            pluginLog(instance, "keyUp '%c'", keyEventToChar(&evt->xkey));
             break;
         case KeyPress:
-            pluginLog(instance, "keyDown '%c'", evt->xkey.keycode);
+            pluginLog(instance, "keyDown '%c'", keyEventToChar(&evt->xkey));
             break;
         case MotionNotify:
         case EnterNotify:

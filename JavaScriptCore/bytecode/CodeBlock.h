@@ -102,7 +102,6 @@ namespace JSC {
         {
         }
 
-        unsigned bytecodeOffset;
         CodeLocationNearCall callReturnLocation;
         CodeLocationDataLabelPtr hotPathBegin;
         CodeLocationNearCall hotPathOther;
@@ -154,17 +153,6 @@ namespace JSC {
         CodeLocationDataLabelPtr structureLabel;
         Structure* cachedStructure;
         Structure* cachedPrototypeStructure;
-    };
-
-    struct FunctionRegisterInfo {
-        FunctionRegisterInfo(unsigned bytecodeOffset, int functionRegisterIndex)
-            : bytecodeOffset(bytecodeOffset)
-            , functionRegisterIndex(functionRegisterIndex)
-        {
-        }
-
-        unsigned bytecodeOffset;
-        int functionRegisterIndex;
     };
 
     struct GlobalResolveInfo {
@@ -254,15 +242,6 @@ namespace JSC {
     }
 #endif
 
-    struct ExceptionInfo : FastAllocBase {
-        Vector<ExpressionRangeInfo> m_expressionInfo;
-        Vector<LineInfo> m_lineInfo;
-
-#if ENABLE(JIT)
-        Vector<CallReturnOffsetToBytecodeOffset> m_callReturnIndexVector;
-#endif
-    };
-
     class CodeBlock : public FastAllocBase {
         friend class JIT;
     protected:
@@ -307,8 +286,8 @@ namespace JSC {
         }
 
         HandlerInfo* handlerForBytecodeOffset(unsigned bytecodeOffset);
-        int lineNumberForBytecodeOffset(CallFrame*, unsigned bytecodeOffset);
-        void expressionRangeForBytecodeOffset(CallFrame*, unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset);
+        int lineNumberForBytecodeOffset(unsigned bytecodeOffset);
+        void expressionRangeForBytecodeOffset(unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset);
 
 #if ENABLE(JIT)
         void addCaller(CallLinkInfo* caller)
@@ -345,17 +324,18 @@ namespace JSC {
             return *(binaryChop<MethodCallLinkInfo, void*, getMethodCallLinkInfoReturnLocation>(m_methodCallLinkInfos.begin(), m_methodCallLinkInfos.size(), returnAddress.value()));
         }
 
-        unsigned bytecodeOffset(CallFrame* callFrame, ReturnAddressPtr returnAddress)
+        unsigned bytecodeOffset(ReturnAddressPtr returnAddress)
         {
-            if (!reparseForExceptionInfoIfNecessary(callFrame))
+            if (!m_rareData)
                 return 1;
-            return binaryChop<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
+            Vector<CallReturnOffsetToBytecodeOffset>& callIndices = m_rareData->m_callReturnIndexVector;
+            if (!callIndices.size())
+                return 1;
+            return binaryChop<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callIndices.begin(), callIndices.size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
         }
-        
-        bool functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex);
 #endif
 #if ENABLE(INTERPRETER)
-        unsigned bytecodeOffset(CallFrame*, Instruction* returnAddress)
+        unsigned bytecodeOffset(Instruction* returnAddress)
         {
             return static_cast<Instruction*>(returnAddress) - instructions().begin();
         }
@@ -443,8 +423,6 @@ namespace JSC {
 
         void addMethodCallLinkInfos(unsigned n) { m_methodCallLinkInfos.grow(n); }
         MethodCallLinkInfo& methodCallLinkInfo(int index) { return m_methodCallLinkInfos[index]; }
-
-        void addFunctionRegisterInfo(unsigned bytecodeOffset, int functionIndex) { createRareDataIfNecessary(); m_rareData->m_functionRegisterInfos.append(FunctionRegisterInfo(bytecodeOffset, functionIndex)); }
 #endif
 
         // Exception handling support
@@ -453,18 +431,36 @@ namespace JSC {
         void addExceptionHandler(const HandlerInfo& hanler) { createRareDataIfNecessary(); return m_rareData->m_exceptionHandlers.append(hanler); }
         HandlerInfo& exceptionHandler(int index) { ASSERT(m_rareData); return m_rareData->m_exceptionHandlers[index]; }
 
-        bool hasExceptionInfo() const { return m_exceptionInfo; }
-        void clearExceptionInfo() { m_exceptionInfo.clear(); }
-        PassOwnPtr<ExceptionInfo> extractExceptionInfo();
+        void addExpressionInfo(const ExpressionRangeInfo& expressionInfo)
+        {
+            createRareDataIfNecessary();
+            m_rareData->m_expressionInfo.append(expressionInfo);
+        }
 
-        void addExpressionInfo(const ExpressionRangeInfo& expressionInfo) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_expressionInfo.append(expressionInfo); }
+        void addLineInfo(unsigned bytecodeOffset, int lineNo)
+        {
+            createRareDataIfNecessary();
+            Vector<LineInfo>& lineInfo = m_rareData->m_lineInfo;
+            if (!lineInfo.size() || lineInfo.last().lineNumber != lineNo) {
+                LineInfo info = { bytecodeOffset, lineNo };
+                lineInfo.append(info);
+            }
+        }
 
-        size_t numberOfLineInfos() const { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_lineInfo.size(); }
-        void addLineInfo(const LineInfo& lineInfo) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_lineInfo.append(lineInfo); }
-        LineInfo& lastLineInfo() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_lineInfo.last(); }
+        bool hasExpressionInfo() { return m_rareData && m_rareData->m_expressionInfo.size(); }
+        bool hasLineInfo() { return m_rareData && m_rareData->m_lineInfo.size(); }
+        bool needsCallReturnIndices()
+        {
+            return m_rareData &&
+                (m_rareData->m_expressionInfo.size() || m_rareData->m_lineInfo.size() || m_rareData->m_exceptionHandlers.size());
+        }
 
 #if ENABLE(JIT)
-        Vector<CallReturnOffsetToBytecodeOffset>& callReturnIndexVector() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_callReturnIndexVector; }
+        Vector<CallReturnOffsetToBytecodeOffset>& callReturnIndexVector()
+        {
+            createRareDataIfNecessary();
+            return m_rareData->m_callReturnIndexVector;
+        }
 #endif
 
         // Constant Pool
@@ -532,8 +528,6 @@ namespace JSC {
         void printPutByIdOp(ExecState*, int location, Vector<Instruction>::const_iterator&, const char* op) const;
 #endif
 
-        bool reparseForExceptionInfoIfNecessary(CallFrame*) WARN_UNUSED_RETURN;
-
         void createRareDataIfNecessary()
         {
             if (!m_rareData)
@@ -584,8 +578,6 @@ namespace JSC {
 
         SymbolTable* m_symbolTable;
 
-        OwnPtr<ExceptionInfo> m_exceptionInfo;
-
         struct RareData : FastAllocBase {
             Vector<HandlerInfo> m_exceptionHandlers;
 
@@ -599,8 +591,12 @@ namespace JSC {
 
             EvalCodeCache m_evalCodeCache;
 
+            // Expression info - present if debugging.
+            Vector<ExpressionRangeInfo> m_expressionInfo;
+            // Line info - present if profiling or debugging.
+            Vector<LineInfo> m_lineInfo;
 #if ENABLE(JIT)
-            Vector<FunctionRegisterInfo> m_functionRegisterInfos;
+            Vector<CallReturnOffsetToBytecodeOffset> m_callReturnIndexVector;
 #endif
         };
         OwnPtr<RareData> m_rareData;
@@ -676,12 +672,6 @@ namespace JSC {
         }
     };
 
-    inline PassOwnPtr<ExceptionInfo> CodeBlock::extractExceptionInfo()
-    {
-        ASSERT(m_exceptionInfo);
-        return m_exceptionInfo.release();
-    }
-
     inline Register& ExecState::r(int index)
     {
         CodeBlock* codeBlock = this->codeBlock();
@@ -690,6 +680,12 @@ namespace JSC {
         return this[index];
     }
 
+    inline Register& ExecState::uncheckedR(int index)
+    {
+        ASSERT(index < FirstConstantRegisterIndex);
+        return this[index];
+    }
+    
 } // namespace JSC
 
 #endif // CodeBlock_h

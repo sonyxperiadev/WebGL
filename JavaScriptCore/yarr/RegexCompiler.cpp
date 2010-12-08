@@ -31,8 +31,6 @@
 #include "RegexPattern.h"
 #include <wtf/Vector.h>
 
-#if ENABLE(YARR)
-
 using namespace WTF;
 
 namespace JSC { namespace Yarr {
@@ -522,7 +520,7 @@ public:
             PatternTerm& term = currentAlternative->lastTerm();
             ASSERT((term.type == PatternTerm::TypeParenthesesSubpattern) || (term.type == PatternTerm::TypeParentheticalAssertion));
 
-            if ((term.type == PatternTerm::TypeParenthesesSubpattern) && term.invertOrCapture && (subpatternId == term.subpatternId)) {
+            if ((term.type == PatternTerm::TypeParenthesesSubpattern) && term.invertOrCapture && (subpatternId == term.parentheses.subpatternId)) {
                 m_alternative->m_terms.append(PatternTerm::ForwardReference());
                 return;
             }
@@ -597,7 +595,7 @@ public:
             term.quantify(min, QuantifierFixedCount);
             m_alternative->m_terms.append(copyTerm(term));
             // NOTE: this term is interesting from an analysis perspective, in that it can be ignored.....
-            m_alternative->lastTerm().quantify((max == UINT_MAX) ? max : max - min, greedy ? QuantifierGreedy : QuantifierNonGreedy);
+            m_alternative->lastTerm().quantify((max == quantifyInfinite) ? max : max - min, greedy ? QuantifierGreedy : QuantifierNonGreedy);
             if (m_alternative->lastTerm().type == PatternTerm::TypeParenthesesSubpattern)
                 m_alternative->lastTerm().parentheses.isCopy = true;
         }
@@ -669,14 +667,17 @@ public:
             case PatternTerm::TypeParenthesesSubpattern:
                 // Note: for fixed once parentheses we will ensure at least the minimum is available; others are on their own.
                 term.frameLocation = currentCallFrameSize;
-                if ((term.quantityCount == 1) && !term.parentheses.isCopy) {
-                    if (term.quantityType == QuantifierFixedCount) {
-                        currentCallFrameSize = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize, currentInputPosition);
-                        currentInputPosition += term.parentheses.disjunction->m_minimumSize;
-                    } else {
+                if (term.quantityCount == 1 && !term.parentheses.isCopy) {
+                    if (term.quantityType != QuantifierFixedCount)
                         currentCallFrameSize += RegexStackSpaceForBackTrackInfoParenthesesOnce;
-                        currentCallFrameSize = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize, currentInputPosition);
-                    }
+                    currentCallFrameSize = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize, currentInputPosition);
+                    // If quantity is fixed, then pre-check its minimum size.
+                    if (term.quantityType == QuantifierFixedCount)
+                        currentInputPosition += term.parentheses.disjunction->m_minimumSize;
+                    term.inputPosition = currentInputPosition;
+                } else if (term.parentheses.isTerminal) {
+                    currentCallFrameSize += RegexStackSpaceForBackTrackInfoParenthesesTerminal;
+                    currentCallFrameSize = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize, currentInputPosition);
                     term.inputPosition = currentInputPosition;
                 } else {
                     term.inputPosition = currentInputPosition;
@@ -728,6 +729,34 @@ public:
     void setupOffsets()
     {
         setupDisjunctionOffsets(m_pattern.m_body, 0, 0);
+    }
+
+    // This optimization identifies sets of parentheses that we will never need to backtrack.
+    // In these cases we do not need to store state from prior iterations.
+    // We can presently avoid backtracking for:
+    //   * where the parens are at the end of the regular expression (last term in any of the
+    //     alternatives of the main body disjunction).
+    //   * where the parens are non-capturing, and quantified unbounded greedy (*).
+    //   * where the parens do not contain any capturing subpatterns.
+    void checkForTerminalParentheses()
+    {
+        // This check is much too crude; should be just checking whether the candidate
+        // node contains nested capturing subpatterns, not the whole expression!
+        if (m_pattern.m_numSubpatterns)
+            return;
+
+        Vector<PatternAlternative*>& alternatives = m_pattern.m_body->m_alternatives;
+        for (size_t i = 0; i < alternatives.size(); ++i) {
+            Vector<PatternTerm>& terms = alternatives[i]->m_terms;
+            if (terms.size()) {
+                PatternTerm& term = terms.last();
+                if (term.type == PatternTerm::TypeParenthesesSubpattern
+                    && term.quantityType == QuantifierGreedy
+                    && term.quantityCount == quantifyInfinite
+                    && !term.capture())
+                    term.parentheses.isTerminal = true;
+            }
+        }
     }
 
     void optimizeBOL()
@@ -932,6 +961,7 @@ const char* compileRegex(const UString& patternString, RegexPattern& pattern)
         ASSERT(numSubpatterns == pattern.m_numSubpatterns);
     }
 
+    constructor.checkForTerminalParentheses();
     constructor.optimizeBOL();
         
     constructor.setupOffsets();
@@ -942,5 +972,3 @@ const char* compileRegex(const UString& patternString, RegexPattern& pattern)
 
 
 } }
-
-#endif

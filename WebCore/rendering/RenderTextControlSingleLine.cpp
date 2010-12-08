@@ -589,16 +589,15 @@ int RenderTextControlSingleLine::preferredDecorationWidthRight() const
 void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineHeight)
 {
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0) {
-        toRenderBlock(resultsRenderer)->computeLogicalHeight();
+        resultsRenderer->computeLogicalHeight();
         setHeight(max(height(),
                   resultsRenderer->borderTop() + resultsRenderer->borderBottom() +
                   resultsRenderer->paddingTop() + resultsRenderer->paddingBottom() +
                   resultsRenderer->marginTop() + resultsRenderer->marginBottom()));
         lineHeight = max(lineHeight, resultsRenderer->height());
     }
-
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0) {
-        toRenderBlock(cancelRenderer)->computeLogicalHeight();
+        cancelRenderer->computeLogicalHeight();
         setHeight(max(height(),
                   cancelRenderer->borderTop() + cancelRenderer->borderBottom() +
                   cancelRenderer->paddingTop() + cancelRenderer->paddingBottom() +
@@ -669,6 +668,21 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
         }
     }
 }
+
+#if ENABLE(INPUT_SPEECH)
+void RenderTextControlSingleLine::speechAttributeChanged()
+{
+    // The inner text element of this renderer has different styles depending on whether the
+    // speech button is visible or not. So when the speech attribute changes, we reset the
+    // whole thing and recreate to get the right styles and layout.
+    if (m_speechButton)
+        m_speechButton->detach();
+    setChildrenInline(true);
+    RenderStyle* parentStyle = m_innerBlock ? m_innerBlock->renderer()->style() : style();
+    setStyle(createInnerTextStyle(parentStyle));
+    updateFromElement();
+}
+#endif
 
 void RenderTextControlSingleLine::updateFromElement()
 {

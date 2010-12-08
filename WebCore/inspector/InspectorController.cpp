@@ -330,7 +330,7 @@ void InspectorController::setConsoleMessagesEnabled(bool enabled)
         m_consoleMessages[i]->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
 }
 
-void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack)
+void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
     if (!enabled())
         return;
@@ -381,7 +381,7 @@ void InspectorController::clearConsoleMessages()
         m_frontend->consoleMessagesCleared();
 }
 
-void InspectorController::startGroup(PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack, bool collapsed)
+void InspectorController::startGroup(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack, bool collapsed)
 {
     ++m_groupLevel;
 
@@ -924,7 +924,7 @@ void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identi
         addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, "XHR finished loading: \"" + url + "\".", sendLineNumber, sendURL);
 
     if (m_resourceAgent)
-        m_resourceAgent->setOverrideContent(identifier, sourceString, "XHR");
+        m_resourceAgent->setInitialContent(identifier, sourceString, "XHR");
 }
 
 void InspectorController::scriptImported(unsigned long identifier, const String& sourceString)
@@ -933,7 +933,7 @@ void InspectorController::scriptImported(unsigned long identifier, const String&
         return;
 
     if (m_resourceAgent)
-        m_resourceAgent->setOverrideContent(identifier, sourceString, "Script");
+        m_resourceAgent->setInitialContent(identifier, sourceString, "Script");
 }
 
 void InspectorController::ensureSettingsLoaded()
@@ -1537,21 +1537,18 @@ static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, co
     // of outline (because inflating a quad is hard)
     {
         context.save();
-        context.addPath(quadPath);
         context.clipOut(quadPath);
 
-        context.addPath(quadPath);
         context.setStrokeThickness(outlineThickness);
         context.setStrokeColor(outlineColor, ColorSpaceDeviceRGB);
-        context.strokePath();
+        context.strokePath(quadPath);
 
         context.restore();
     }
 
     // Now do the fill
-    context.addPath(quadPath);
     context.setFillColor(fillColor, ColorSpaceDeviceRGB);
-    context.fillPath();
+    context.fillPath(quadPath);
 }
 
 static void drawOutlinedQuadWithClip(GraphicsContext& context, const FloatQuad& quad, const FloatQuad& clipQuad, const Color& fillColor)

@@ -28,6 +28,10 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEMorphologyElement, SVGNames::radiusAttr, radiusXIdentifier(), RadiusX, radiusX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEMorphologyElement, SVGNames::radiusAttr, radiusYIdentifier(), RadiusY, radiusY)
+
 inline SVGFEMorphologyElement::SVGFEMorphologyElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m__operator(FEMORPHOLOGY_OPERATOR_ERODE)
@@ -110,7 +114,7 @@ void SVGFEMorphologyElement::synchronizeProperty(const QualifiedName& attrName)
     }
 }
 
-PassRefPtr<FilterEffect> SVGFEMorphologyElement::build(SVGFilterBuilder* filterBuilder)
+PassRefPtr<FilterEffect> SVGFEMorphologyElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
 {
     FilterEffect* input1 = filterBuilder->getEffectById(in1());
     float xRadius = radiusX();
@@ -122,7 +126,7 @@ PassRefPtr<FilterEffect> SVGFEMorphologyElement::build(SVGFilterBuilder* filterB
     if (xRadius < 0 || yRadius < 0)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEMorphology::create(static_cast<MorphologyOperatorType>(_operator()), xRadius, yRadius);
+    RefPtr<FilterEffect> effect = FEMorphology::create(filter, static_cast<MorphologyOperatorType>(_operator()), xRadius, yRadius);
     effect->inputEffects().append(input1);
     return effect.release();
 }
