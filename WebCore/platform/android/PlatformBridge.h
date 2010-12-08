@@ -82,13 +82,10 @@ class NPObject;
 
 namespace WebCore {
 
-<<<<<<< HEAD
 class Document;
 class FrameView;
 class Node;
-=======
 class ScrollView;
->>>>>>> webkit.org at r73109
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
@@ -112,7 +109,6 @@ public:
     static bool cookiesEnabled(const Document*);
     // Plugin
     static NPObject* pluginScriptableObject(Widget*);
-<<<<<<< HEAD
     // Popups
     static bool popupsAllowed(NPP);
 
@@ -141,10 +137,8 @@ public:
     static void updateViewport(FrameView*);
 
     static void updateTextfield(FrameView*, Node*, bool changeToPassword, const WTF::String& text);
-=======
 
     static void setScrollPosition(ScrollView*, int x, int y);
->>>>>>> webkit.org at r73109
 
     // Language
     static String computeDefaultLanguage();

@@ -100,10 +100,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
-<<<<<<< HEAD
 	bindings/js/JSDOMWrapper.cpp \
-=======
->>>>>>> webkit.org at r73109
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCallback.cpp \
@@ -163,11 +160,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSNodeListCustom.cpp \
 	bindings/js/JSOptionConstructor.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
-<<<<<<< HEAD
 	bindings/js/JSPopStateEventCustom.cpp \
-=======
 	bindings/js/JSProcessingInstructionCustom.cpp \
->>>>>>> webkit.org at r73109
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
 	bindings/js/JSSQLTransactionSyncCustom.cpp \
@@ -183,14 +177,11 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSTouchCustom.cpp \
 	bindings/js/JSTouchListCustom.cpp \
 	bindings/js/JSTreeWalkerCustom.cpp \
-<<<<<<< HEAD
 	bindings/js/JSUint16ArrayCustom.cpp \
 	bindings/js/JSUint32ArrayCustom.cpp \
 	bindings/js/JSUint8ArrayCustom.cpp \
-=======
 	bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp \
 	bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
->>>>>>> webkit.org at r73109
 	bindings/js/JSWebKitCSSMatrixCustom.cpp \
 	bindings/js/JSWebKitPointCustom.cpp \
 	bindings/js/JSWorkerContextBase.cpp \
