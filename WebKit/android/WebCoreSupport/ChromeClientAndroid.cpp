@@ -531,9 +531,9 @@ bool ChromeClientAndroid::selectItemWritingDirectionIsNatural()
     return false;
 }
 
-PassRefPtr<PopupMenu> ChromeClientAndroid::createPopupMenu(PopupMenuClient*) const
+PassRefPtr<PopupMenu> ChromeClientAndroid::createPopupMenu(PopupMenuClient* client) const
 {
-    return adoptRef(new PopupMenuAndroid);
+    return adoptRef(new PopupMenuAndroid(client));
 }
 
 PassRefPtr<SearchPopupMenu> ChromeClientAndroid::createSearchPopupMenu(PopupMenuClient*) const

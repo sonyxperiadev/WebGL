@@ -2490,26 +2490,11 @@ public:
         , m_viewImpl(view)
     {}
 
-    // Response used if the listbox only allows single selection.
-    // index is listIndex of the selected item, or -1 if nothing is selected.
+    // Response used for a multiple selection listbox if the user did not change
+    // anything, in which case -2 is used.
     virtual void replyInt(int index)
     {
-        if (-2 == index) {
-            // Special value for cancel. Do nothing.
-            return;
-        }
-        // If the select element no longer exists, due to a page change, etc,
-        // silently return.
-        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
-                m_frame, m_select))
-            return;
-        // Use a pointer to HTMLSelectElement's superclass, where
-        // listToOptionIndex is public.
-        SelectElement* selectElement = m_select;
-        int optionIndex = selectElement->listToOptionIndex(index);
-        m_select->setSelectedIndex(optionIndex, true);
-        m_select->dispatchFormControlChangeEvent();
-        m_viewImpl->contentInvalidate(m_select->getRect());
+        LOG_ASSERT(-2 == index, "ListBoxReply::replyInt should only be called with -2");
     }
 
     // Response if the listbox allows multiple selection.  array stores the listIndices
@@ -2521,9 +2506,6 @@ public:
         if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
                 m_frame, m_select))
             return;
-
-        // If count is 1 or 0, use replyInt.
-        SkASSERT(count > 1);
 
         const WTF::Vector<Element*>& items = m_select->listItems();
         int totalItems = static_cast<int>(items.size());
@@ -2872,7 +2854,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         }
 
         WebCore::RenderObject* renderer = nodePtr->renderer();
-        if (renderer && (renderer->isMenuList() || renderer->isListBox())) {
+        if (renderer && renderer->isListBox()) {
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
             const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
@@ -2907,7 +2889,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             listBoxRequest(reply, names.begin(), size, enabledArray.begin(), enabledArray.count(),
                     multiple, selectedArray.begin(), multiple ? selectedArray.count() :
                     selectElement->optionToListIndex(select->selectedIndex()));
-            DBG_NAV_LOG("menu list");
+            DBG_NAV_LOG("list box");
             return true;
         }
     }

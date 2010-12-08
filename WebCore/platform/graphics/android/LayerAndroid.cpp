@@ -476,41 +476,44 @@ SkPicture* LayerAndroid::recordContext()
     return 0;
 }
 
-bool LayerAndroid::scrollBy(int dx, int dy) {
-    if (!contentIsScrollable())
+bool LayerAndroid::scrollTo(int x, int y) {
+    SkIRect scrollBounds;
+    getScrollRect(&scrollBounds);
+    if (scrollBounds.fRight == 0 && scrollBounds.fBottom == 0)
         return false;
+
+    SkScalar newX = SkScalarPin(x, 0, scrollBounds.fRight);
+    SkScalar newY = SkScalarPin(y, 0, scrollBounds.fBottom);
+    // Check for no change.
+    if (newX == scrollBounds.fLeft && newY == scrollBounds.fTop)
+        return false;
+
+    SkScalar diffX = newX - scrollBounds.fLeft;
+    SkScalar diffY = newY - scrollBounds.fTop;
+    const SkPoint& pos = getPosition();
+    setPosition(pos.fX - diffX, pos.fY - diffY);
+    return true;
+}
+
+void LayerAndroid::getScrollRect(SkIRect* out) const {
+    if (!contentIsScrollable())
+        return;
 
     // Scrollable layers have a mask layer and then the actual main layer.
     if (getParent() == 0 || getParent()->getParent() == 0)
-        return false;
+        return;
     LayerAndroid* realLayer = static_cast<LayerAndroid*>(getParent()->getParent());
 
     SkRect scrollBounds;
     realLayer->bounds(&scrollBounds);
 
     const SkPoint& maskLayerPosition = getParent()->getPosition();
+    const SkPoint& pos = getPosition();
     // Our original position is the offset of the mask layer's position.
-    SkScalar maxX = -maskLayerPosition.fX;
-    SkScalar maxY = -maskLayerPosition.fY;
-    SkScalar minX = maxX - (getSize().width() - scrollBounds.width());
-    SkScalar minY = maxY - (getSize().height() - scrollBounds.height());
-
-    // Move the layer's position by the difference and pin the result to within
-    // the scrollable range.
-    SkPoint diff;
-    diff.iset(dx, dy);
-    SkPoint pos = getPosition() - diff;
-    pos.fX = SkScalarPin(pos.fX, minX, maxX);
-    pos.fY = SkScalarPin(pos.fY, minY, maxY);
-
-    // Update the difference to reflect the changes.
-    diff = getPosition() - pos;
-    if (diff.equals(0, 0))
-        // no change
-        return false;
-
-    setPosition(pos.fX, pos.fY);
-    return true;
+    out->fLeft = maskLayerPosition.fX - pos.fX;
+    out->fTop = maskLayerPosition.fY - pos.fY;
+    out->fRight = getSize().width() - scrollBounds.width();
+    out->fBottom = getSize().height() - scrollBounds.height();
 }
 
 bool LayerAndroid::prepareContext(bool force)

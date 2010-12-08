@@ -32,13 +32,17 @@
 namespace WebCore {
 
 class FrameView;
+class PopupMenuClient;
 
 class PopupMenuAndroid : public PopupMenu {
 public:
-    virtual void show(const IntRect&, FrameView*, int) { }
+    PopupMenuAndroid(PopupMenuClient* client);
+    virtual void show(const IntRect&, FrameView*, int);
     virtual void hide() { }
     virtual void updateFromElement() { }
     virtual void disconnectClient() { }
+private:
+    PopupMenuClient* m_popupClient;
 };
 
 }

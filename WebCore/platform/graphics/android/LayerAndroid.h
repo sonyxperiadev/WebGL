@@ -132,7 +132,13 @@ public:
     SkPicture* recordContext();
 
     // Returns true if the content position has changed.
-    bool scrollBy(int dx, int dy);
+    bool scrollTo(int dx, int dy);
+    // Fills the rect with the current scroll offset and the maximum scroll.
+    // fLeft   = scrollX
+    // fTop    = scrollY
+    // fRight  = maxX
+    // fBottom = maxY
+    void getScrollRect(SkIRect* out) const;
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
