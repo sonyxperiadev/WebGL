@@ -83,10 +83,11 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
 #endif
 }
 
-TiledPage::~TiledPage() {
+TiledPage::~TiledPage()
+{
     // In order to delete the page we must ensure that none of its BaseTiles are
     // currently painting or scheduled to be painted by the TextureGenerator
-    TilesManager::instance()->removeSetsWithPage(this);
+    TilesManager::instance()->removeOperationsForPage(this);
     delete[] m_baseTiles;
 #ifdef DEBUG_COUNT
     gTilePageCount--;
@@ -160,7 +161,7 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         // ensure there is a texture associated with the tile and then check to
         // see if the texture is dirty and in need of repainting
         currentTile->reserveTexture();
-        if(currentTile->isDirty())
+        if (currentTile->isDirty())
             set->add(currentTile);
     }
 }
@@ -300,7 +301,7 @@ void TiledPage::draw(float transparency, SkRect& viewport, const SkIRect& tileBo
     XLOG("WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        if(tileBounds.contains(tile.x(), tile.y())) {
+        if (tileBounds.contains(tile.x(), tile.y())) {
 
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;

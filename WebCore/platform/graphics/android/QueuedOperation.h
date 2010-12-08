@@ -23,44 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TexturesGenerator_h
-#define TexturesGenerator_h
+#ifndef QueuedOperation_h
+#define QueuedOperation_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
-#include "QueuedOperation.h"
-#include "TileSet.h"
 #include "TiledPage.h"
-#include <utils/threads.h>
 
 namespace WebCore {
 
-using namespace android;
-
-class TexturesGenerator : public Thread {
-public:
-    TexturesGenerator() : Thread()
-        , m_waitForCompletion(false) { }
-    virtual ~TexturesGenerator() { }
-    virtual status_t readyToRun();
-
-    void schedulePaintForTileSet(TileSet* set);
-    void removeOperationsForPage(TiledPage* page);
-
-    void scheduleOperation(QueuedOperation* operation);
-
-private:
-    virtual bool threadLoop();
-    Vector<QueuedOperation*> mRequestedOperations;
-    android::Mutex mRequestedOperationsLock;
-    android::Condition mRequestedOperationsCond;
-    android::Mutex m_newRequestLock;
-    android::Condition m_newRequestCond;
-    QueuedOperation* m_currentOperation;
-    bool m_waitForCompletion;
+class QueuedOperation {
+ public:
+    enum OperationType { Undefined, PaintTileSet, DeleteTexture };
+    QueuedOperation(OperationType type, TiledPage* page)
+        : m_type(type)
+        , m_page(page) {}
+    virtual ~QueuedOperation() {}
+    virtual void run() = 0;
+    virtual bool operator==(const QueuedOperation* operation) = 0;
+    OperationType type() const { return m_type; }
+    TiledPage* page() const { return m_page; }
+ private:
+    OperationType m_type;
+    TiledPage* m_page;
 };
 
-} // namespace WebCore
+}
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // TexturesGenerator_h
+#endif // QueuedOperation_h
