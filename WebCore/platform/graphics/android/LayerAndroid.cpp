@@ -6,16 +6,33 @@
 #include "AndroidAnimation.h"
 #include "DrawExtra.h"
 #include "GLUtils.h"
+#include "PaintLayerOperation.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
 #include "SkBounder.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
+#include "TilesManager.h"
 #include <wtf/CurrentTime.h>
 
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
+
+#ifdef DEBUG
+
+#include <cutils/log.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
+
+#else
+
+#undef XLOG
+#define XLOG(...)
+
+#endif // DEBUG
 
 namespace WebCore {
 
@@ -51,12 +68,19 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveClip(false),
     m_isFixed(false),
+    m_preserves3D(false),
+    m_anchorPointZ(0),
     m_recordingPicture(0),
     m_contentsImage(0),
     m_extra(0),
-    m_uniqueId(++gUniqueId)
+    m_uniqueId(++gUniqueId),
+    m_texture(0),
+    m_pictureUsed(0)
 {
     m_backgroundColor = 0;
+
+    m_preserves3D = false;
+    m_dirty = false;
 
     gDebugLayerAndroidInstances++;
 }
@@ -65,7 +89,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isRootLayer(layer.m_isRootLayer),
     m_haveClip(layer.m_haveClip),
     m_extra(0), // deliberately not copied
-    m_uniqueId(layer.m_uniqueId)
+    m_uniqueId(layer.m_uniqueId),
+    m_texture(0)
 {
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
@@ -87,6 +112,13 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
+    m_preserves3D = layer.m_preserves3D;
+    m_anchorPointZ = layer.m_anchorPointZ;
+    m_drawTransform = layer.m_drawTransform;
+    m_childrenTransform = layer.m_childrenTransform;
+    m_dirty = layer.m_dirty;
+    m_pictureUsed = layer.m_pictureUsed;
+
     for (int i = 0; i < layer.countChildren(); i++)
         addChild(layer.getChild(i)->copy())->unref();
 
@@ -104,15 +136,19 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_recordingPicture(picture),
     m_contentsImage(0),
     m_extra(0),
-    m_uniqueId(-1)
+    m_uniqueId(-1),
+    m_texture(0)
 {
     m_backgroundColor = 0;
+    m_dirty = false;
     SkSafeRef(m_recordingPicture);
     gDebugLayerAndroidInstances++;
 }
 
 LayerAndroid::~LayerAndroid()
 {
+    if (m_texture)
+        m_texture->release(this);
     removeChildren();
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
@@ -158,6 +194,8 @@ bool LayerAndroid::evaluateAnimations(double time) const
 
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> anim)
 {
+    if (m_animations.get(anim->name()))
+        removeAnimation(anim->name());
     m_animations.add(anim->name(), anim);
 }
 
@@ -416,13 +454,12 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
 void LayerAndroid::updatePositions()
 {
     // apply the viewport to us
-    SkMatrix matrix;
     if (!m_isFixed) {
         // turn our fields into a matrix.
         //
         // TODO: this should happen in the caller, and we should remove these
         // fields from our subclass
-        matrix.reset();
+        SkMatrix matrix;
         GLUtils::toSkMatrix(matrix, m_transform);
         this->setMatrix(matrix);
     }
@@ -433,30 +470,214 @@ void LayerAndroid::updatePositions()
         this->getChild(i)->updatePositions();
 }
 
+void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix, float opacity)
+{
+    IntSize bounds(getSize().width(), getSize().height());
+    FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
+    FloatPoint position(getPosition().fX, getPosition().fY);
+    float centerOffsetX = (0.5f - anchorPoint.x()) * bounds.width();
+    float centerOffsetY = (0.5f - anchorPoint.y()) * bounds.height();
+    float originX = anchorPoint.x() * bounds.width();
+    float originY = anchorPoint.y() * bounds.height();
+    TransformationMatrix localMatrix = parentMatrix;
+    localMatrix.translate3d(originX + position.x(),
+                            originY + position.y(),
+                            anchorPointZ());
+    FloatPoint p(0, 0);
+    p = localMatrix.mapPoint(p);
+    p = m_transform.mapPoint(p);
+
+    localMatrix.multLeft(m_transform);
+    localMatrix.translate3d(-originX,
+                            -originY,
+                            -anchorPointZ());
+    p = localMatrix.mapPoint(p);
+
+    setDrawTransform(localMatrix);
+    opacity *= getOpacity();
+    setDrawOpacity(opacity);
+
+    int count = this->countChildren();
+    if (!count)
+        return;
+
+    // Flatten to 2D if the layer doesn't preserve 3D.
+    if (!preserves3D()) {
+        localMatrix.setM13(0);
+        localMatrix.setM23(0);
+        localMatrix.setM31(0);
+        localMatrix.setM32(0);
+        localMatrix.setM33(1);
+        localMatrix.setM34(0);
+        localMatrix.setM43(0);
+    }
+    // now apply it to our children
+
+    if (!m_childrenTransform.isIdentity()) {
+        localMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
+        localMatrix.multLeft(m_childrenTransform);
+        localMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
+    }
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->updateGLPositions(localMatrix, opacity);
+}
+
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
 {
     SkRefCnt_SafeAssign(m_contentsImage, img);
 }
 
-void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
+bool LayerAndroid::needsTexture()
 {
-    if (m_haveClip) {
-        SkRect r;
-        r.set(0, 0, getSize().width(), getSize().height());
-        canvas->clipRect(r);
+    return !m_isRootLayer && prepareContext() && m_recordingPicture->width() && m_recordingPicture->height();
+}
+
+void LayerAndroid::reserveGLTextures()
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->reserveGLTextures();
+
+    if (needsTexture()) {
+        LayerTexture* texture;
+        texture = TilesManager::instance()->getExistingTextureForLayer(this);
+        // SMP flush
+        android::AutoMutex lock(m_atomicSync);
+        m_texture = texture;
+    }
+}
+
+void LayerAndroid::createGLTextures()
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->createGLTextures();
+
+    if (needsTexture() && !m_texture) {
+        LayerTexture* texture;
+        texture = TilesManager::instance()->createTextureForLayer(this);
+        // SMP flush + keep dirty bit in sync
+        android::AutoMutex lock(m_atomicSync);
+        m_texture = texture;
+        m_dirty = true;
+    }
+
+    checkForObsolescence();
+}
+
+void LayerAndroid::checkForObsolescence()
+{
+    m_atomicSync.lock();
+    if (!m_texture) {
+        m_atomicSync.unlock();
         return;
     }
 
-    if (!prepareContext())
+    if (!m_pictureUsed || m_texture->pictureUsed() != m_pictureUsed) {
+        XLOG("We mark layer %d as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
+             uniqueId(), m_pictureUsed, m_texture->pictureUsed());
+        m_texture->setPictureUsed(m_pictureUsed);
+        m_dirty = true;
+    }
+
+    if (!m_texture->isReady())
+        m_dirty = true;
+
+    bool dirty = m_dirty;
+    m_atomicSync.unlock();
+
+    if (!dirty)
         return;
 
-    // we just have this save/restore for opacity...
-    SkAutoCanvasRestore restore(canvas, true);
+    XLOG("We schedule a paint for layer %d, because isReady %d or m_dirty %d",
+         uniqueId(), m_texture->isReady(), m_dirty);
+    PaintLayerOperation* operation = new PaintLayerOperation(this);
+    TilesManager::instance()->scheduleOperation(operation);
+}
 
-    int canvasOpacity = SkScalarRound(opacity * 255);
-    if (canvasOpacity < 255)
-        canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
+static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
+{
+    const TransformationMatrix& transformA = a->drawTransform();
+    const TransformationMatrix& transformB = b->drawTransform();
 
+    return transformA.m43() < transformB.m43();
+}
+
+bool LayerAndroid::drawGL(SkMatrix& matrix)
+{
+    if (prepareContext() && m_texture) {
+        TextureInfo* textureInfo = m_texture->consumerLock();
+        if (textureInfo && m_texture->isReady()) {
+            SkRect rect;
+            rect.set(0, 0, getSize().width(), getSize().height());
+            TransformationMatrix m = drawTransform();
+            TilesManager::instance()->shader()->drawLayerQuad(m, rect,
+                                                              textureInfo->m_textureId,
+                                                              m_drawOpacity);
+        }
+        m_texture->consumerRelease();
+    }
+
+    bool askPaint = false;
+    int count = this->countChildren();
+    if (count > 0) {
+        Vector <LayerAndroid*> sublayers;
+        for (int i = 0; i < count; i++)
+            sublayers.append(this->getChild(i));
+
+        // now we sort for the transparency
+        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
+        for (int i = 0; i < count; i++) {
+            LayerAndroid* layer = sublayers[i];
+            askPaint |= layer->drawGL(matrix);
+        }
+    }
+
+    return askPaint;
+}
+
+// This is called from the texture generation thread
+void LayerAndroid::paintBitmapGL()
+{
+    XLOG("LayerAndroid paintBitmapGL (layer %d)", uniqueId());
+    // We acquire the values below atomically. This ensures that we are reading
+    // values correctly across cores. Further, once we have these values they
+    // can be updated by other threads without consequence.
+    m_atomicSync.lock();
+    LayerTexture* texture = m_texture;
+    m_atomicSync.unlock();
+
+    if (!texture) {
+        XLOG("Layer %d doesn't have a texture!", uniqueId());
+        return;
+    }
+
+    texture->producerAcquireContext();
+    TextureInfo* textureInfo = texture->producerLock();
+
+    // at this point we can safely check the ownership (if the texture got
+    // transferred to another BaseTile under us)
+    if (texture->owner() != this) {
+        texture->producerRelease();
+        return;
+    }
+
+    XLOG("LayerAndroid %d paintBitmapGL WE ARE PAINTING", uniqueId());
+    SkCanvas* canvas = texture->canvas();
+
+    canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+    contentDraw(canvas);
+
+    XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
+    m_atomicSync.lock();
+    m_dirty = false;
+    m_atomicSync.unlock();
+    texture->producerUpdate(textureInfo);
+    XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
+}
+
+void LayerAndroid::contentDraw(SkCanvas* canvas)
+{
     if (m_contentsImage) {
       SkRect dest;
       dest.set(0, 0, getSize().width(), getSize().height());
@@ -488,6 +709,28 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
       canvas->drawRect(m_fixedRect, paint);
     }
 #endif
+}
+
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
+{
+    if (m_haveClip) {
+        SkRect r;
+        r.set(0, 0, getSize().width(), getSize().height());
+        canvas->clipRect(r);
+        return;
+    }
+
+    if (!prepareContext())
+        return;
+
+    // we just have this save/restore for opacity...
+    SkAutoCanvasRestore restore(canvas, true);
+
+    int canvasOpacity = SkScalarRound(opacity * 255);
+    if (canvasOpacity < 255)
+        canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
+
+    contentDraw(canvas);
 }
 
 SkPicture* LayerAndroid::recordContext()

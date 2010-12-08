@@ -55,6 +55,7 @@ public:
     virtual void removeFromParent();
 
     virtual void setPosition(const FloatPoint&);
+    virtual void setPreserves3D(bool b);
     virtual void setAnchorPoint(const FloatPoint3D&);
     virtual void setSize(const FloatSize&);
 

@@ -30,6 +30,7 @@
 
 #include "BaseTile.h"
 #include "SkCanvas.h"
+#include "SkDevice.h"
 #include "SkPaint.h"
 #include <cutils/atomic.h>
 
@@ -59,20 +60,27 @@
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
+// Define a maximum amount of ram used by layers
+#define MAX_LAYERS_ALLOCATION 20971520 // 20Mb
+#define BYTES_PER_PIXEL 4 // 8888 config
+
 namespace WebCore {
 
 TilesManager::TilesManager()
-    : m_generatorReady(false)
+    : m_layersMemoryUsage(0)
+    , m_generatorReady(false)
 {
+    XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     for (int i = 0; i < MAX_TEXTURE_ALLOCATION; i++) {
         BackedDoubleBufferedTexture* texture = new BackedDoubleBufferedTexture(
             tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
-        m_textures.append(
-            (BackedDoubleBufferedTexture*)android_atomic_acquire_load((int32_t*)&texture));
+        m_textures.append(reinterpret_cast<BackedDoubleBufferedTexture*>(
+            android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture))));
     }
+    XLOG("TilesManager ctor");
 
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
@@ -86,6 +94,7 @@ void TilesManager::enableTextures()
         BackedDoubleBufferedTexture* texture = m_textures[i];
         texture->producerAcquireContext();
     }
+    XLOG("enableTextures");
 }
 
 void TilesManager::printTextures()
@@ -215,6 +224,74 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     printTextures();
 #endif // DEBUG
     return 0;
+}
+
+LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer)
+{
+    android::Mutex::Autolock lock(m_texturesLock);
+    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
+        if (m_layersTextures[i]->id() != layer->uniqueId())
+            continue;
+        if (layer->getSize() != m_layersTextures[i]->getSize())
+            continue;
+
+        XLOG("return layer %d (%x) for tile %d (%x)",
+             i, m_layersTextures[i],
+             layer->uniqueId(), layer);
+
+        if (m_layersTextures[i]->acquire(layer))
+            return m_layersTextures[i];
+    }
+    return 0;
+}
+
+void TilesManager::printLayersTextures(const char* s)
+{
+#ifdef DEBUG
+    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
+        XLOG("[%d] %s, texture %x for layer %d, owner: %x", i, s, m_layersTextures[i],
+             m_layersTextures[i]->id(), m_layersTextures[i]->owner());
+    }
+#endif
+}
+
+void TilesManager::cleanupLayersTextures(bool forceCleanup)
+{
+    android::Mutex::Autolock lock(m_texturesLock);
+#ifdef DEBUG
+    printLayersTextures("cleanup");
+#endif
+    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
+        LayerTexture* texture = m_layersTextures[i];
+
+        if (forceCleanup)
+            texture->setOwner(0);
+
+        if (!texture->owner()) {
+            m_layersMemoryUsage -= (int) texture->getSize().fWidth
+                * (int) texture->getSize().fHeight * BYTES_PER_PIXEL;
+            m_layersTextures.remove(i);
+            delete texture;
+        }
+    }
+}
+
+LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer)
+{
+    int w = layer->getWidth();
+    int h = layer->getHeight();
+    int size = w * h * BYTES_PER_PIXEL;
+
+    if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
+        cleanupLayersTextures(true);
+
+    android::Mutex::Autolock lock(m_texturesLock);
+    LayerTexture* texture = new LayerTexture(w, h);
+    texture->setId(layer->uniqueId());
+    m_layersTextures.append(texture);
+    texture->acquire(layer);
+    m_layersMemoryUsage += size;
+    return texture;
 }
 
 int TilesManager::maxTextureCount()

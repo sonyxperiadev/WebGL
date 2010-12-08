@@ -23,48 +23,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef QueuedOperation_h
-#define QueuedOperation_h
+#ifndef LayerTexture_h
+#define LayerTexture_h
 
-#include "TiledPage.h"
+#include "BackedDoubleBufferedTexture.h"
 
 namespace WebCore {
 
-class QueuedOperation {
+class LayerTexture : public BackedDoubleBufferedTexture {
  public:
-    enum OperationType { Undefined, PaintTileSet, PaintLayer, DeleteTexture };
-    QueuedOperation(OperationType type, TiledPage* page)
-        : m_type(type)
-        , m_page(page) {}
-    virtual ~QueuedOperation() {}
-    virtual void run() = 0;
-    virtual bool operator==(const QueuedOperation* operation) = 0;
-    OperationType type() const { return m_type; }
-    TiledPage* page() const { return m_page; }
+    LayerTexture(uint32_t w, uint32_t h,
+                 SkBitmap::Config config = SkBitmap::kARGB_8888_Config)
+        : BackedDoubleBufferedTexture(w, h, config)
+        , m_id(0)
+        , m_pictureUsed(0)
+        , m_textureUpdates(0)
+    {}
+
+    int id() { return m_id; }
+    void setId(int id) { m_id = id; }
+
+    unsigned int pictureUsed() { return m_pictureUsed; }
+    void setPictureUsed(unsigned pictureUsed) { m_pictureUsed = pictureUsed; }
+    bool isReady();
+    virtual void producerUpdate(TextureInfo* textureInfo);
+
  private:
-    OperationType m_type;
-    TiledPage* m_page;
+    void update();
+
+    int m_id;
+    unsigned int m_pictureUsed;
+    unsigned int m_textureUpdates;
 };
 
-class OperationFilter {
- public:
-    virtual ~OperationFilter() {}
-    virtual bool check(QueuedOperation* operation) = 0;
-};
+} // namespace WebCore
 
-class PageFilter : public OperationFilter {
- public:
-    PageFilter(TiledPage* page) : m_page(page) {}
-    virtual bool check(QueuedOperation* operation)
-    {
-        if (operation->page() == m_page)
-            return true;
-        return false;
-    }
- private:
-    TiledPage* m_page;
-};
-
-}
-
-#endif // QueuedOperation_h
+#endif // LayerTexture_h

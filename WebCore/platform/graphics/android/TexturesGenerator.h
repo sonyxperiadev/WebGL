@@ -37,6 +37,9 @@ namespace WebCore {
 
 using namespace android;
 
+class BaseLayerAndroid;
+class LayerAndroid;
+
 class TexturesGenerator : public Thread {
 public:
     TexturesGenerator() : Thread()
@@ -46,6 +49,7 @@ public:
     virtual status_t readyToRun();
 
     void removeOperationsForPage(TiledPage* page);
+    void removeOperationsForBaseLayer(BaseLayerAndroid* layer);
     void removeOperationsForFilter(OperationFilter* filter);
 
     void scheduleOperation(QueuedOperation* operation);

@@ -23,48 +23,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef QueuedOperation_h
-#define QueuedOperation_h
+#ifndef PaintLayerOperation_h
+#define PaintLayerOperation_h
 
-#include "TiledPage.h"
+#include "QueuedOperation.h"
+
+class SkLayer;
 
 namespace WebCore {
 
-class QueuedOperation {
+class LayerAndroid;
+
+class PaintLayerOperation : public QueuedOperation {
  public:
-    enum OperationType { Undefined, PaintTileSet, PaintLayer, DeleteTexture };
-    QueuedOperation(OperationType type, TiledPage* page)
-        : m_type(type)
-        , m_page(page) {}
-    virtual ~QueuedOperation() {}
-    virtual void run() = 0;
-    virtual bool operator==(const QueuedOperation* operation) = 0;
-    OperationType type() const { return m_type; }
-    TiledPage* page() const { return m_page; }
+    PaintLayerOperation(LayerAndroid* layer)
+        : QueuedOperation(QueuedOperation::PaintLayer, 0)
+        , m_layer(layer) {}
+    virtual ~PaintLayerOperation() {}
+    virtual bool operator==(const QueuedOperation* operation);
+    virtual void run();
+    SkLayer* baseLayer();
+
  private:
-    OperationType m_type;
-    TiledPage* m_page;
+    LayerAndroid* m_layer;
 };
 
-class OperationFilter {
+class PaintLayerFilter : public OperationFilter {
  public:
-    virtual ~OperationFilter() {}
-    virtual bool check(QueuedOperation* operation) = 0;
-};
+    PaintLayerFilter(SkLayer* layer) : m_baseLayer(layer) {}
+    virtual bool check(QueuedOperation* operation);
 
-class PageFilter : public OperationFilter {
- public:
-    PageFilter(TiledPage* page) : m_page(page) {}
-    virtual bool check(QueuedOperation* operation)
-    {
-        if (operation->page() == m_page)
-            return true;
-        return false;
-    }
  private:
-    TiledPage* m_page;
+    SkLayer* m_baseLayer;
 };
 
 }
 
-#endif // QueuedOperation_h
+#endif // PaintLayerOperation_h

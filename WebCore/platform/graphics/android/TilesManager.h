@@ -30,6 +30,8 @@
 
 #include "BackedDoubleBufferedTexture.h"
 #include "BaseTile.h"
+#include "LayerAndroid.h"
+#include "LayerTexture.h"
 #include "ShaderProgram.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
@@ -48,6 +50,11 @@ public:
         m_pixmapsGenerationThread->removeOperationsForPage(page);
     }
 
+    void removeOperationsForBaseLayer(BaseLayerAndroid* layer)
+    {
+        m_pixmapsGenerationThread->removeOperationsForBaseLayer(layer);
+    }
+
     void scheduleOperation(QueuedOperation* operation)
     {
         m_pixmapsGenerationThread->scheduleOperation(operation);
@@ -56,6 +63,11 @@ public:
     ShaderProgram* shader() { return &m_shader; }
 
     BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);
+
+    void printLayersTextures(const char* s);
+    void cleanupLayersTextures(bool forceCleanup = false);
+    LayerTexture* getExistingTextureForLayer(LayerAndroid* layer);
+    LayerTexture* createTextureForLayer(LayerAndroid* layer);
 
     void markGeneratorAsReady()
     {
@@ -84,6 +96,9 @@ private:
     }
 
     Vector<BackedDoubleBufferedTexture*> m_textures;
+    Vector<LayerTexture*> m_layersTextures;
+
+    unsigned int m_layersMemoryUsage;
 
     bool m_generatorReady;
 

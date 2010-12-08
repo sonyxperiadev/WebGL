@@ -19,9 +19,13 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "FloatPoint.h"
+#include "FloatPoint3D.h"
+#include "LayerTexture.h"
 #include "RefPtr.h"
 #include "SkColor.h"
 #include "SkLayer.h"
+#include "TextureOwner.h"
 #include "TransformationMatrix.h"
 
 #include <wtf/HashMap.h>
@@ -76,8 +80,11 @@ struct SkLength {
 namespace WebCore {
 
 class AndroidAnimation;
+class BackedDoubleBufferedTexture;
+class LayerAndroidFindState;
+class TiledPage;
 
-class LayerAndroid : public SkLayer {
+class LayerAndroid : public SkLayer, public TextureOwner {
 
 public:
     LayerAndroid(bool isRootLayer);
@@ -85,11 +92,39 @@ public:
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
+    // TextureOwner methods
+    virtual void removeTexture()
+    {
+        android::AutoMutex lock(m_atomicSync);
+        m_texture = 0;
+    }
+    virtual TiledPage* page() { return 0; }
+
     static int instancesCount();
 
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
     SkRect bounds() const;
+    // called on the root layer
+    void reserveGLTextures();
+    void createGLTextures();
+
+    bool needsTexture();
+    void checkForObsolescence();
+
+    bool drawGL(SkMatrix&);
+    void paintBitmapGL();
+    void updateGLPositions(const TransformationMatrix& parentMatrix, float opacity);
+    void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
+
+    bool preserves3D() { return m_preserves3D; }
+    void setPreserves3D(bool value) { m_preserves3D = value; }
+    void setAnchorPointZ(float z) { m_anchorPointZ = z; }
+    float anchorPointZ() { return m_anchorPointZ; }
+    void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = transform; }
+    const TransformationMatrix& drawTransform() const { return m_drawTransform; }
+    void setChildrenTransform(const TransformationMatrix& t) { m_childrenTransform = t; }
+
     void setFixedPosition(SkLength left, // CSS left property
                           SkLength top, // CSS top property
                           SkLength right, // CSS right property
@@ -177,11 +212,16 @@ public:
         m_recordingPicture and m_contentsImage.
     */
     void setContentsImage(SkBitmapRef* img);
+    bool hasContentsImage() { return m_contentsImage; }
 
     void bounds(SkRect*) const;
 
     virtual bool contentIsScrollable() const { return false; }
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
+
+    void needsRepaint() { m_pictureUsed++; }
+    unsigned int pictureUsed() { return m_pictureUsed; }
+    void contentDraw(SkCanvas*);
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
@@ -216,6 +256,12 @@ private:
 
     SkColor m_backgroundColor;
 
+    bool m_preserves3D;
+    float m_anchorPointZ;
+    float m_drawOpacity;
+    TransformationMatrix m_drawTransform;
+    TransformationMatrix m_childrenTransform;
+
     // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
     // m_recordingPicture is used when WebKit is asked to paint the layer's
     // content, while m_contentsImage contains an image that we directly
@@ -230,6 +276,17 @@ private:
     KeyframesMap m_animations;
     DrawExtra* m_extra;
     int m_uniqueId;
+
+    // GL textures management
+    LayerTexture* m_texture;
+    // used to signal that the tile is out-of-date and needs to be redrawn
+    bool m_dirty;
+    unsigned int m_pictureUsed;
+
+    // This mutex serves two purposes. (1) It ensures that certain operations
+    // happen atomically and (2) it makes sure those operations are synchronized
+    // across all threads and cores.
+    android::Mutex m_atomicSync;
 
     typedef SkLayer INHERITED;
 };

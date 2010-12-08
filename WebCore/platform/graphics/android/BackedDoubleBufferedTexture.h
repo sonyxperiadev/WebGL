@@ -53,7 +53,7 @@ public:
 
     // updates the texture with current bitmap and releases (and if needed also
     // swaps) the texture.
-    void producerUpdate(TextureInfo* textureInfo);
+    virtual void producerUpdate(TextureInfo* textureInfo);
 
     // The level can be one of the following values:
     //  * -1 for an unused texture.
@@ -68,7 +68,9 @@ public:
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(TextureOwner* owner);
     void release(TextureOwner* owner);
-    void release();
+
+    // set the texture owner if not busy. Return false if busy, true otherwise.
+    bool setOwner(TextureOwner* owner);
 
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread

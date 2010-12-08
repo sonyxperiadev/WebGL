@@ -28,7 +28,9 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "BaseLayerAndroid.h"
 #include "GLUtils.h"
+#include "PaintLayerOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -74,6 +76,11 @@ void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 {
     removeOperationsForFilter(new PageFilter(page));
+}
+
+void TexturesGenerator::removeOperationsForBaseLayer(BaseLayerAndroid* layer)
+{
+    removeOperationsForFilter(new PaintLayerFilter(layer));
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)

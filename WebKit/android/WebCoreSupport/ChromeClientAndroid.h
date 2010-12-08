@@ -171,6 +171,7 @@ namespace android {
         virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* g);
         virtual void setNeedsOneShotDrawingSynchronization();
         virtual void scheduleCompositingLayerSync();
+        virtual bool allowsAcceleratedCompositing() const { return true; }
         WebCore::GraphicsLayer* layersSync();
 #endif
 

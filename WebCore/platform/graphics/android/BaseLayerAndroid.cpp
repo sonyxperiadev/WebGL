@@ -75,6 +75,9 @@ BaseLayerAndroid::BaseLayerAndroid()
 
 BaseLayerAndroid::~BaseLayerAndroid()
 {
+#if USE(ACCELERATED_COMPOSITING)
+    TilesManager::instance()->removeOperationsForBaseLayer(this);
+#endif
     m_content.clear();
 #ifdef DEBUG_COUNT
     gBaseLayerAndroidCount--;
@@ -255,6 +258,33 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     glUniform1i(shader->textureSampler(), 0);
 
     ret = drawBasePictureInGL(visibleRect, scale);
+
+    if (countChildren() >= 1) {
+        LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
+        TransformationMatrix ident;
+        compositedRoot->updateFixedLayersPositions(visibleRect);
+        compositedRoot->updateGLPositions(ident, 1);
+        SkMatrix matrix;
+        matrix.setTranslate(left, top);
+
+        // At this point, the previous LayerAndroid* root has been destroyed,
+        // which will have removed the layers as owners of the textures.
+        // Let's now do a pass to reserve the textures for the current tree;
+        // it will only reserve existing textures, not create them on demand.
+#ifdef DEBUG
+        TilesManager::instance()->printLayersTextures("reserve");
+#endif
+        compositedRoot->reserveGLTextures();
+        // Now that we marked the textures being used, we delete the unnecessary
+        // ones to make space...
+        TilesManager::instance()->cleanupLayersTextures();
+        // Finally do another pass to create new textures if needed
+        compositedRoot->createGLTextures();
+
+        if (compositedRoot->drawGL(matrix))
+            ret = true;
+    }
+    glDisable(GL_SCISSOR_TEST);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;

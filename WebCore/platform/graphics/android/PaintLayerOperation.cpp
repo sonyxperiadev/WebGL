@@ -23,48 +23,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef QueuedOperation_h
-#define QueuedOperation_h
+#include "config.h"
+#include "PaintLayerOperation.h"
 
-#include "TiledPage.h"
+#include "LayerAndroid.h"
 
-namespace WebCore {
-
-class QueuedOperation {
- public:
-    enum OperationType { Undefined, PaintTileSet, PaintLayer, DeleteTexture };
-    QueuedOperation(OperationType type, TiledPage* page)
-        : m_type(type)
-        , m_page(page) {}
-    virtual ~QueuedOperation() {}
-    virtual void run() = 0;
-    virtual bool operator==(const QueuedOperation* operation) = 0;
-    OperationType type() const { return m_type; }
-    TiledPage* page() const { return m_page; }
- private:
-    OperationType m_type;
-    TiledPage* m_page;
-};
-
-class OperationFilter {
- public:
-    virtual ~OperationFilter() {}
-    virtual bool check(QueuedOperation* operation) = 0;
-};
-
-class PageFilter : public OperationFilter {
- public:
-    PageFilter(TiledPage* page) : m_page(page) {}
-    virtual bool check(QueuedOperation* operation)
-    {
-        if (operation->page() == m_page)
-            return true;
+bool PaintLayerOperation::operator==(const QueuedOperation* operation)
+{
+    if (operation->type() != type())
         return false;
-    }
- private:
-    TiledPage* m_page;
-};
-
+    const PaintLayerOperation* op = static_cast<const PaintLayerOperation*>(operation);
+    return op->m_layer == m_layer;
 }
 
-#endif // QueuedOperation_h
+void PaintLayerOperation::run()
+{
+    if (m_layer)
+        m_layer->paintBitmapGL();
+}
+
+SkLayer* PaintLayerOperation::baseLayer()
+{
+    if (!m_layer)
+        return 0;
+
+    return m_layer->getRootLayer();
+}
+
+bool PaintLayerFilter::check(QueuedOperation* operation)
+{
+    if (operation->type() == QueuedOperation::PaintLayer) {
+        PaintLayerOperation* op = static_cast<PaintLayerOperation*>(operation);
+        if (op->baseLayer() == m_baseLayer)
+            return true;
+    }
+    return false;
+}
