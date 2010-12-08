@@ -121,6 +121,11 @@ bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
     if (m_owner == owner)
         return true;
 
+    return setOwner(owner);
+}
+
+bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
+{
     // if the writable texture is busy (i.e. currently being written to) then we
     // can't change the owner out from underneath that texture
     android::Mutex::Autolock lock(m_busyLock);
@@ -137,11 +142,6 @@ void BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
     if (m_owner == owner)
         m_owner = 0;
-}
-
-void BackedDoubleBufferedTexture::release()
-{
-    m_owner = 0;
 }
 
 } // namespace WebCore

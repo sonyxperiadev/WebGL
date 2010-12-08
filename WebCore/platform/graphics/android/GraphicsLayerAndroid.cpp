@@ -276,12 +276,23 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
     askForSync();
 }
 
+void GraphicsLayerAndroid::setPreserves3D(bool preserves3D)
+{
+    if (preserves3D == m_preserves3D)
+        return;
+
+    GraphicsLayer::setPreserves3D(preserves3D);
+    m_contentLayer->setPreserves3D(preserves3D);
+    askForSync();
+}
+
 void GraphicsLayerAndroid::setAnchorPoint(const FloatPoint3D& point)
 {
     if (point == m_anchorPoint)
         return;
     GraphicsLayer::setAnchorPoint(point);
     m_contentLayer->setAnchorPoint(point.x(), point.y());
+    m_contentLayer->setAnchorPointZ(point.z());
     askForSync();
 }
 
@@ -303,7 +314,6 @@ void GraphicsLayerAndroid::setTransform(const TransformationMatrix& t)
 
     GraphicsLayer::setTransform(t);
     m_contentLayer->setTransform(t);
-
     askForSync();
 }
 
@@ -314,6 +324,7 @@ void GraphicsLayerAndroid::setChildrenTransform(const TransformationMatrix& t)
     LOG("(%x) setChildrenTransform", this);
 
     GraphicsLayer::setChildrenTransform(t);
+    m_contentLayer->setChildrenTransform(t);
     for (unsigned int i = 0; i < m_children.size(); i++) {
         GraphicsLayer* layer = m_children[i];
         layer->setTransform(t);
@@ -523,6 +534,7 @@ bool GraphicsLayerAndroid::repaint()
             m_contentLayer->getSize().width(),
             m_contentLayer->getSize().height());
 
+        m_contentLayer->needsRepaint();
         m_needsRepaint = false;
         m_invalidatedRects.clear();
 

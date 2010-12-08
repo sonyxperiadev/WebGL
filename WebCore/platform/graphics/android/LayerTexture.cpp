@@ -23,48 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef QueuedOperation_h
-#define QueuedOperation_h
+#include "config.h"
+#include "LayerTexture.h"
 
-#include "TiledPage.h"
+#define DOUBLE_BUFFERED_TEXTURE_MINIMUM_ACCESS 3
 
-namespace WebCore {
-
-class QueuedOperation {
- public:
-    enum OperationType { Undefined, PaintTileSet, PaintLayer, DeleteTexture };
-    QueuedOperation(OperationType type, TiledPage* page)
-        : m_type(type)
-        , m_page(page) {}
-    virtual ~QueuedOperation() {}
-    virtual void run() = 0;
-    virtual bool operator==(const QueuedOperation* operation) = 0;
-    OperationType type() const { return m_type; }
-    TiledPage* page() const { return m_page; }
- private:
-    OperationType m_type;
-    TiledPage* m_page;
-};
-
-class OperationFilter {
- public:
-    virtual ~OperationFilter() {}
-    virtual bool check(QueuedOperation* operation) = 0;
-};
-
-class PageFilter : public OperationFilter {
- public:
-    PageFilter(TiledPage* page) : m_page(page) {}
-    virtual bool check(QueuedOperation* operation)
-    {
-        if (operation->page() == m_page)
-            return true;
-        return false;
-    }
- private:
-    TiledPage* m_page;
-};
-
+void LayerTexture::producerUpdate(TextureInfo* textureInfo)
+{
+    update();
+    BackedDoubleBufferedTexture::producerUpdate(textureInfo);
 }
 
-#endif // QueuedOperation_h
+void LayerTexture::update()
+{
+    // FIXME: fix the double buffered texture class instead of doing this
+    // this is a stop gap measure and should be removed.
+    // Right now we have to update the textures 3 times (one create, two
+    // updates) before we can be sure to have a non-corrupted texture
+    // to display.
+    if (m_textureUpdates < DOUBLE_BUFFERED_TEXTURE_MINIMUM_ACCESS)
+        m_textureUpdates++;
+}
+
+bool LayerTexture::isReady()
+{
+    return m_textureUpdates == DOUBLE_BUFFERED_TEXTURE_MINIMUM_ACCESS;
+}
