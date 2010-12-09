@@ -172,6 +172,7 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
+	wtf/OSAllocatorPosix.cpp \
 	wtf/PageAllocation.cpp \
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
@@ -237,4 +238,10 @@ $(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
 $(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
 	$(transform-generated-source)
 
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)
+REGEXP_JIT_TABLES := $(intermediates)/RegExpJitTables.h
+$(REGEXP_JIT_TABLES): PRIVATE_PATH := $(LOCAL_PATH)
+$(REGEXP_JIT_TABLES): PRIVATE_CUSTOM_TOOL = python $(PRIVATE_PATH)/create_regex_tables > $@
+$(REGEXP_JIT_TABLES): $(LOCAL_PATH)/create_regex_tables
+	$(transform-generated-source)
+
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES) $(REGEXP_JIT_TABLES)

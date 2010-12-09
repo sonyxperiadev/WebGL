@@ -73,6 +73,7 @@ GEN := \
     $(intermediates)/css/JSCSSValueList.h \
     $(intermediates)/css/JSCounter.h \
     $(intermediates)/css/JSMediaList.h \
+    $(intermediates)/css/JSMediaQueryList.h \
     $(intermediates)/css/JSRGBColor.h \
     $(intermediates)/css/JSRect.h \
     $(intermediates)/css/JSStyleMedia.h \
@@ -308,6 +309,7 @@ GEN := \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \
+    $(intermediates)/html/canvas/JSDataView.h \
     $(intermediates)/html/canvas/JSFloat32Array.h \
     $(intermediates)/html/canvas/JSInt8Array.h \
     $(intermediates)/html/canvas/JSInt16Array.h \
@@ -358,6 +360,7 @@ GEN := \
     $(intermediates)/page/JSNavigator.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSScreen.h \
+    $(intermediates)/page/JSSpeechInputEvent.h \
     $(intermediates)/page/JSWebKitPoint.h \
     $(intermediates)/page/JSWorkerNavigator.h
 

@@ -94,7 +94,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/npruntime.cpp \
 	\
 	bindings/v8/custom/V8ArrayBufferCustom.cpp \
-	bindings/v8/custom/V8ArrayBufferViewCustom.cpp \
 	bindings/v8/custom/V8CSSRuleCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
 	bindings/v8/custom/V8CSSStyleSheetCustom.cpp \
@@ -116,6 +115,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8DOMTokenListCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
+	bindings/v8/custom/V8DataViewCustom.cpp \
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
 	bindings/v8/custom/V8DeviceMotionEventCustom.cpp \
 	bindings/v8/custom/V8DeviceOrientationEventCustom.cpp \

@@ -56,6 +56,7 @@ GEN := \
     $(intermediates)/bindings/V8CSSValueList.h \
     $(intermediates)/bindings/V8Counter.h \
     $(intermediates)/bindings/V8MediaList.h \
+    $(intermediates)/bindings/V8MediaQueryList.h \
     $(intermediates)/bindings/V8Rect.h \
     $(intermediates)/bindings/V8RGBColor.h \
     $(intermediates)/bindings/V8StyleMedia.h \
@@ -293,6 +294,7 @@ GEN := \
     $(intermediates)/bindings/V8CanvasPixelArray.h \
     $(intermediates)/bindings/V8CanvasRenderingContext.h \
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
+    $(intermediates)/bindings/V8DataView.h \
     $(intermediates)/bindings/V8Float32Array.h \
     $(intermediates)/bindings/V8Int8Array.h \
     $(intermediates)/bindings/V8Int16Array.h \
@@ -352,6 +354,7 @@ GEN := \
     $(intermediates)/bindings/V8Navigator.h \
     $(intermediates)/bindings/V8PositionError.h \
     $(intermediates)/bindings/V8Screen.h \
+    $(intermediates)/bindings/V8SpeechInputEvent.h \
     $(intermediates)/bindings/V8WebKitPoint.h \
     $(intermediates)/bindings/V8WorkerNavigator.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)

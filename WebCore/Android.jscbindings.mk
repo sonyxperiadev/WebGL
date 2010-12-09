@@ -65,7 +65,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/GCController.cpp \
 	bindings/js/IDBBindingUtilities.cpp \
 	bindings/js/JSArrayBufferCustom.cpp \
-	bindings/js/JSArrayBufferViewCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
 	bindings/js/JSAudioConstructor.cpp \
 	bindings/js/JSCDATASectionCustom.cpp \
@@ -103,7 +102,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWrapper.cpp \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
-	bindings/js/JSDatabaseCallback.cpp \
+	bindings/js/JSDataViewCustom.cpp \
 	bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDeviceMotionEventCustom.cpp \
@@ -168,7 +167,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSSVGElementInstanceCustom.cpp \
 	bindings/js/JSSVGLengthCustom.cpp \
 	bindings/js/JSSVGPathSegCustom.cpp \
-	bindings/js/JSSVGPathSegListCustom.cpp \
 	bindings/js/JSSharedWorkerCustom.cpp \
 	bindings/js/JSStorageCustom.cpp \
 	bindings/js/JSStyleSheetCustom.cpp \

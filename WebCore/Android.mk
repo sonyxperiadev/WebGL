@@ -75,6 +75,9 @@ LOCAL_SRC_FILES := \
 	css/MediaQuery.cpp \
 	css/MediaQueryEvaluator.cpp \
 	css/MediaQueryExp.cpp \
+	css/MediaQueryList.cpp \
+	css/MediaQueryListListener.cpp \
+	css/MediaQueryMatcher.cpp \
 	css/RGBColor.cpp \
 
 ifeq ($(ENABLE_SVG), true)
@@ -351,7 +354,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/ArrayBuffer.cpp \
 	html/canvas/ArrayBufferView.cpp \
 	html/canvas/CanvasGradient.cpp \
-	html/canvas/WebGLObject.cpp \
+	html/canvas/DataView.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
 	html/canvas/CanvasRenderingContext.cpp \
@@ -364,6 +367,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/Uint16Array.cpp \
 	html/canvas/Uint32Array.cpp \
 	html/canvas/Uint8Array.cpp \
+	html/canvas/WebGLObject.cpp \
 	\
 	html/parser/HTMLConstructionSite.cpp \
 	html/parser/HTMLDocumentParser.cpp \
@@ -1117,7 +1121,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	svg/graphics/filters/SVGFEImage.cpp \
 	svg/graphics/filters/SVGFilter.cpp \
-	svg/graphics/filters/SVGFilterBuilder.cpp
+	svg/graphics/filters/SVGFilterBuilder.cpp \
+	\
+	svg/properties/SVGPathSegListPropertyTearOff.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
