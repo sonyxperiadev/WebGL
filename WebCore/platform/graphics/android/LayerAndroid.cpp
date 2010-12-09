@@ -51,7 +51,6 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
-    m_contentScrollable(false),
     m_recordingPicture(0),
     m_contentsImage(0),
     m_extra(0),
@@ -68,7 +67,6 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isRootLayer(layer.m_isRootLayer),
     m_haveClip(layer.m_haveClip),
-    m_contentScrollable(layer.m_contentScrollable),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId)
 {
@@ -96,7 +94,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     SkSafeRef(m_recordingPicture);
 
     for (int i = 0; i < layer.countChildren(); i++)
-        addChild(new LayerAndroid(*layer.getChild(i)))->unref();
+        addChild(layer.getChild(i)->copy())->unref();
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
@@ -110,7 +108,6 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
-    m_contentScrollable(false),
     m_recordingPicture(picture),
     m_contentsImage(0),
     m_extra(0),
@@ -474,46 +471,6 @@ SkPicture* LayerAndroid::recordContext()
     if (prepareContext(true))
         return m_recordingPicture;
     return 0;
-}
-
-bool LayerAndroid::scrollTo(int x, int y) {
-    SkIRect scrollBounds;
-    getScrollRect(&scrollBounds);
-    if (scrollBounds.fRight == 0 && scrollBounds.fBottom == 0)
-        return false;
-
-    SkScalar newX = SkScalarPin(x, 0, scrollBounds.fRight);
-    SkScalar newY = SkScalarPin(y, 0, scrollBounds.fBottom);
-    // Check for no change.
-    if (newX == scrollBounds.fLeft && newY == scrollBounds.fTop)
-        return false;
-
-    SkScalar diffX = newX - scrollBounds.fLeft;
-    SkScalar diffY = newY - scrollBounds.fTop;
-    const SkPoint& pos = getPosition();
-    setPosition(pos.fX - diffX, pos.fY - diffY);
-    return true;
-}
-
-void LayerAndroid::getScrollRect(SkIRect* out) const {
-    if (!contentIsScrollable())
-        return;
-
-    // Scrollable layers have a mask layer and then the actual main layer.
-    if (getParent() == 0 || getParent()->getParent() == 0)
-        return;
-    LayerAndroid* realLayer = static_cast<LayerAndroid*>(getParent()->getParent());
-
-    SkRect scrollBounds;
-    realLayer->bounds(&scrollBounds);
-
-    const SkPoint& maskLayerPosition = getParent()->getPosition();
-    const SkPoint& pos = getPosition();
-    // Our original position is the offset of the mask layer's position.
-    out->fLeft = maskLayerPosition.fX - pos.fX;
-    out->fTop = maskLayerPosition.fY - pos.fY;
-    out->fRight = getSize().width() - scrollBounds.width();
-    out->fBottom = getSize().height() - scrollBounds.height();
 }
 
 bool LayerAndroid::prepareContext(bool force)

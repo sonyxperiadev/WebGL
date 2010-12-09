@@ -44,6 +44,7 @@
 #include "Node.h"
 #include "PlatformGraphicsContext.h"
 #include "PlatformString.h"
+#include "ScrollableLayerAndroid.h"
 #include "SelectText.h"
 #include "SkCanvas.h"
 #include "SkDumpCanvas.h"
@@ -983,12 +984,12 @@ bool motionUp(int x, int y, int slop)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-static const LayerAndroid* findScrollableLayer(const LayerAndroid* parent, int x, int y) {
+static const ScrollableLayerAndroid* findScrollableLayer(const LayerAndroid* parent, int x, int y) {
     SkRect bounds;
     parent->bounds(&bounds);
     // Check the parent bounds first; this will clip to within a masking layer's
     // bounds.
-    if (!bounds.contains(x, y))
+    if (parent->masksToBounds() && !bounds.contains(x, y))
         return 0;
     // Move the hit test local to parent.
     x -= bounds.fLeft;
@@ -996,12 +997,12 @@ static const LayerAndroid* findScrollableLayer(const LayerAndroid* parent, int x
     int count = parent->countChildren();
     for (int i = 0; i < count; i++) {
         const LayerAndroid* child = parent->getChild(i);
-        const LayerAndroid* result = findScrollableLayer(child, x, y);
+        const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y);
         if (result)
             return result;
     }
     if (parent->contentIsScrollable())
-        return parent;
+        return static_cast<const ScrollableLayerAndroid*>(parent);
     return 0;
 }
 #endif
@@ -1012,7 +1013,7 @@ int scrollableLayer(int x, int y, SkIRect* layerRect)
     const LayerAndroid* layerRoot = compositeRoot();
     if (!layerRoot)
         return 0;
-    const LayerAndroid* result = findScrollableLayer(layerRoot, x, y);
+    const ScrollableLayerAndroid* result = findScrollableLayer(layerRoot, x, y);
     if (result) {
         result->getScrollRect(layerRect);
         return result->uniqueId();
@@ -2242,9 +2243,9 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
     if (!root)
         return false;
     LayerAndroid* layer = root->findById(layerId);
-    if (!layer)
+    if (!layer || !layer->contentIsScrollable())
         return false;
-    return layer->scrollTo(x, y);
+    return static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
 #endif
     return false;
 }

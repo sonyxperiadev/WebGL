@@ -2945,6 +2945,14 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
         candidateLayer = hitLayer;
     }
 
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (hasOverflowParent()) {
+        ClipRects clipRects;
+        calculateClipRects(rootLayer, clipRects, useTemporaryClipRects);
+        fgRect.intersect(clipRects.hitTestClip());
+        bgRect.intersect(clipRects.hitTestClip());
+    }
+#endif
     // Next we want to see if the mouse pos is inside the child RenderObjects of the layer.
     if (fgRect.intersects(hitTestArea) && isSelfPaintingLayer()) {
         // Hit test with a temporary HitTestResult, because we only want to commit to 'result' if we know we're frontmost.
@@ -3223,12 +3231,12 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         if (renderer()->hasOverflowClip()) {
             IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y);
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
+            clipRects.setHitTestClip(intersection(newOverflowClip, clipRects.hitTestClip()));
             if (hasOverflowScroll()) {
                 RenderBox* box = toRenderBox(renderer());
                 newOverflowClip =
-                    IntRect(x, y,
-                        box->borderLeft() + box->borderRight() + m_scrollWidth,
-                        box->borderTop() + box->borderBottom() + m_scrollHeight);
+                    IntRect(x + box->borderLeft(), y + box->borderTop(),
+                            m_scrollWidth, m_scrollHeight);
             }
 #endif
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
@@ -3298,9 +3306,8 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
             // Use the entire foreground rectangle to record the contents.
             RenderBox* box = toRenderBox(renderer());
             foregroundRect =
-                    IntRect(x, y,
-                            box->borderLeft() + box->borderRight() + m_scrollWidth,
-                            box->borderTop() + box->borderBottom() + m_scrollHeight);
+                IntRect(x + box->borderLeft(), y + box->borderTop(),
+                        m_scrollWidth, m_scrollHeight);
         } else
 #endif
         if (renderer()->hasOverflowClip())
