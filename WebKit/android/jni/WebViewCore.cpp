@@ -1346,9 +1346,15 @@ WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(int x, int y)
         return 0;
     }
     Node* node = hitTestResult.innerNode();
-    if (!node->hasTagName(WebCore::HTMLNames::aTag))
+    Node* element = node;
+    while (element && !element->isElementNode())
+        element = element->parentNode();
+    DBG_NAV_LOGD("node=%p element=%p x=%d y=%d nodeName=%s tagName=%s", node,
+        element, x, y, node->nodeName().utf8().data(),
+        ((Element*) element)->tagName().utf8().data());
+    if (!element->hasTagName(WebCore::HTMLNames::aTag))
         return 0;
-    return static_cast<WebCore::HTMLAnchorElement*>(node);
+    return static_cast<WebCore::HTMLAnchorElement*>(element);
 }
 
 WTF::String WebViewCore::retrieveHref(int x, int y)
