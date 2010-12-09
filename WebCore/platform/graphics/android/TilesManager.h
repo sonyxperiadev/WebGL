@@ -43,11 +43,6 @@ class TilesManager {
 public:
     static TilesManager* instance();
 
-    void schedulePaintForTileSet(TileSet* set)
-    {
-        m_pixmapsGenerationThread->schedulePaintForTileSet(set);
-    }
-
     void removeOperationsForPage(TiledPage* page)
     {
         m_pixmapsGenerationThread->removeOperationsForPage(page);

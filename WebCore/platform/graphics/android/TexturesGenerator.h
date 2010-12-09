@@ -44,7 +44,6 @@ public:
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
-    void schedulePaintForTileSet(TileSet* set);
     void removeOperationsForPage(TiledPage* page);
 
     void scheduleOperation(QueuedOperation* operation);
