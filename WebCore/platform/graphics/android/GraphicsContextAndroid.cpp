@@ -839,10 +839,15 @@ void GraphicsContext::clipOut(const IntRect& r)
 }
 
 #if ENABLE(SVG)
-void GraphicsContext::clipPath(WindRule clipRule)
+void GraphicsContext::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     if (paintingDisabled())
         return;
+
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToClip);
+
     const SkPath* oldPath = m_data->getPath();
     SkPath path(*oldPath);
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
@@ -959,7 +964,7 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>&, int, int, const Colo
     // Do nothing, since we draw the focus ring independently.
 }
 
-void GraphicsContext::drawFocusRing(const Vector<Path>&, int, int, const Color&)
+void GraphicsContext::drawFocusRing(const Path&, int, int, const Color&)
 {
     // Do nothing, since we draw the focus ring independently.
 }
@@ -1171,12 +1176,16 @@ void GraphicsContext::addPath(const Path& p)
     m_data->addPath(*p.platformPath());
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& pathToFill)
 {
-    SkPath* path = m_data->getPath();
-    if (paintingDisabled() || !path)
+    if (paintingDisabled())
         return;
 
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToFill);
+
+    SkPath* path = m_data->getPath();
     switch (this->fillRule()) {
     case RULE_NONZERO:
         path->setFillType(SkPath::kWinding_FillType);
@@ -1196,11 +1205,14 @@ void GraphicsContext::fillPath()
     GC2CANVAS(this)->drawPath(*path, paint);
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& pathToStroke)
 {
-    const SkPath* path = m_data->getPath();
-    if (paintingDisabled() || !path)
+    if (paintingDisabled())
         return;
+
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToStroke);
 
     SkPaint paint;
     m_data->setupPaintStroke(&paint, 0);
@@ -1209,6 +1221,7 @@ void GraphicsContext::strokePath()
                  m_common->state.strokePattern.get(),
                  m_common->state.strokeGradient.get());
 
+    const SkPath* path = m_data->getPath();
     GC2CANVAS(this)->drawPath(*path, paint);
 }
 
