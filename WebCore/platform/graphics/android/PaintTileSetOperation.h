@@ -23,44 +23,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TexturesGenerator_h
-#define TexturesGenerator_h
-
-#if USE(ACCELERATED_COMPOSITING)
+#ifndef PaintTileSetOperation_h
+#define PaintTileSetOperation_h
 
 #include "QueuedOperation.h"
 #include "TileSet.h"
-#include "TiledPage.h"
-#include <utils/threads.h>
 
 namespace WebCore {
 
-using namespace android;
-
-class TexturesGenerator : public Thread {
-public:
-    TexturesGenerator() : Thread()
-        , m_waitForCompletion(false) { }
-    virtual ~TexturesGenerator() { }
-    virtual status_t readyToRun();
-
-    void schedulePaintForTileSet(TileSet* set);
-    void removeOperationsForPage(TiledPage* page);
-
-    void scheduleOperation(QueuedOperation* operation);
-
-private:
-    virtual bool threadLoop();
-    Vector<QueuedOperation*> mRequestedOperations;
-    android::Mutex mRequestedOperationsLock;
-    android::Condition mRequestedOperationsCond;
-    android::Mutex m_newRequestLock;
-    android::Condition m_newRequestCond;
-    QueuedOperation* m_currentOperation;
-    bool m_waitForCompletion;
+class PaintTileSetOperation : public QueuedOperation {
+ public:
+    PaintTileSetOperation(TileSet* set)
+        : QueuedOperation(QueuedOperation::PaintTileSet, set->page())
+        , m_set(set) {}
+    virtual ~PaintTileSetOperation()
+    {
+        delete m_set;
+    }
+    virtual bool operator==(const QueuedOperation* operation)
+    {
+        if (operation->type() != type())
+            return false;
+        const PaintTileSetOperation* op = static_cast<const PaintTileSetOperation*>(operation);
+        return op->m_set == m_set;
+    }
+    virtual void run()
+    {
+        if (m_set)
+            m_set->paint();
+    }
+ private:
+    TileSet* m_set;
 };
 
-} // namespace WebCore
+}
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // TexturesGenerator_h
+#endif // PaintTileSetOperation_h

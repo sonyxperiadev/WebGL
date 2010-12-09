@@ -23,44 +23,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TexturesGenerator_h
-#define TexturesGenerator_h
+#ifndef DeleteTextureOperation_h
+#define DeleteTextureOperation_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
+#include "GLUtils.h"
 #include "QueuedOperation.h"
-#include "TileSet.h"
-#include "TiledPage.h"
-#include <utils/threads.h>
 
 namespace WebCore {
 
-using namespace android;
-
-class TexturesGenerator : public Thread {
-public:
-    TexturesGenerator() : Thread()
-        , m_waitForCompletion(false) { }
-    virtual ~TexturesGenerator() { }
-    virtual status_t readyToRun();
-
-    void schedulePaintForTileSet(TileSet* set);
-    void removeOperationsForPage(TiledPage* page);
-
-    void scheduleOperation(QueuedOperation* operation);
-
-private:
-    virtual bool threadLoop();
-    Vector<QueuedOperation*> mRequestedOperations;
-    android::Mutex mRequestedOperationsLock;
-    android::Condition mRequestedOperationsCond;
-    android::Mutex m_newRequestLock;
-    android::Condition m_newRequestCond;
-    QueuedOperation* m_currentOperation;
-    bool m_waitForCompletion;
+class DeleteTextureOperation : public QueuedOperation {
+ public:
+    DeleteTextureOperation(GLuint textureId, EGLImageKHR eglImage)
+        : QueuedOperation(QueuedOperation::DeleteTexture, 0)
+        , m_textureId(textureId)
+        , m_eglImage(eglImage) {}
+    virtual bool operator==(const QueuedOperation* operation)
+    {
+        if (operation->type() != type())
+            return false;
+        const DeleteTextureOperation* op = static_cast<const DeleteTextureOperation*>(operation);
+        return op->m_textureId == m_textureId;
+    }
+    virtual void run()
+    {
+        if (m_textureId)
+            GLUtils::deleteTexture(&m_textureId);
+        if (m_eglImage)
+            eglDestroyImageKHR(eglGetCurrentDisplay(), m_eglImage);
+    }
+ private:
+    GLuint m_textureId;
+    EGLImageKHR m_eglImage;
 };
 
-} // namespace WebCore
+}
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // TexturesGenerator_h
+#endif // DeleteTextureOperation_h

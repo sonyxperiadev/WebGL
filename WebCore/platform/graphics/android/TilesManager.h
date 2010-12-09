@@ -48,9 +48,14 @@ public:
         m_pixmapsGenerationThread->schedulePaintForTileSet(set);
     }
 
-    void removeSetsWithPage(TiledPage* page)
+    void removeOperationsForPage(TiledPage* page)
     {
-        m_pixmapsGenerationThread->removeSetsWithPage(page);
+        m_pixmapsGenerationThread->removeOperationsForPage(page);
+    }
+
+    void scheduleOperation(QueuedOperation* operation)
+    {
+        m_pixmapsGenerationThread->scheduleOperation(operation);
     }
 
     ShaderProgram* shader() { return &m_shader; }

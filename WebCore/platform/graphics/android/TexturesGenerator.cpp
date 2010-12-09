@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
+#include "PaintTileSetOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -51,55 +52,60 @@ namespace WebCore {
 
 void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
 {
-    android::Mutex::Autolock lock(mRequestedPixmapsLock);
-    for (unsigned int i = 0; i < mRequestedPixmaps.size(); i++) {
-        TileSet** s = &mRequestedPixmaps[i];
-        // A similar set is already in the queue. The newer set may have additional
-        // dirty tiles so delete the existing set and replace it with the new one.
-        if (*s && **s == *set) {
-            TileSet* oldSet = *s;
-            *s = set;
-            delete oldSet;
+    PaintTileSetOperation* operation = new PaintTileSetOperation(set);
+    scheduleOperation(operation);
+}
+
+void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
+{
+    android::Mutex::Autolock lock(mRequestedOperationsLock);
+    for (unsigned int i = 0; i < mRequestedOperations.size(); i++) {
+        QueuedOperation** s = &mRequestedOperations[i];
+        // A similar operation is already in the queue. The newer operation may
+        // have additional dirty tiles so delete the existing operation and
+        // replace it with the new one.
+        if (*s && *s == operation) {
+            QueuedOperation* oldOperation = *s;
+            *s = operation;
+            delete oldOperation;
             return;
         }
     }
 
-    XLOG("%x schedulePaintForTileSet (%x) %d, %d, %d, %d", this, set,
-        set->firstTileX(), set->firstTileY(), set->nbRows(), set->nbCols());
-    mRequestedPixmaps.append(set);
+    mRequestedOperations.append(operation);
     m_newRequestLock.lock();
     m_newRequestCond.signal();
     m_newRequestLock.unlock();
 }
 
-void TexturesGenerator::removeSetsWithPage(TiledPage* page)
+void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 {
-    mRequestedPixmapsLock.lock();
-    typedef Vector<TileSet*>::const_iterator iterator;
-    iterator end = mRequestedPixmaps.end();
-    for (iterator it = mRequestedPixmaps.begin(); it != end; ++it) {
-        TileSet* set = static_cast<TileSet*>(*it);
-        if (set->page() == page)
+    mRequestedOperationsLock.lock();
+    typedef Vector<QueuedOperation*>::const_iterator iterator;
+    iterator end = mRequestedOperations.end();
+    for (iterator it = mRequestedOperations.begin(); it != end; ++it) {
+        QueuedOperation* operation = static_cast<QueuedOperation*>(*it);
+        if (operation->page() == page)
             delete *it;
     }
-    TileSet* set = m_currentSet;
-    if (set && set->page() != page)
-        set = 0;
-    if (set)
+    QueuedOperation* operation = m_currentOperation;
+    if (operation && operation->page() != page)
+        operation = 0;
+    if (operation)
         m_waitForCompletion = true;
-    mRequestedPixmapsLock.unlock();
+    mRequestedOperationsLock.unlock();
 
-    if (!set)
+    if (!operation)
         return;
 
-    // At this point, it means that we are currently painting a set that
+    // At this point, it means that we are currently painting a operation that
     // we want to be removed -- we should wait until it is painted, so that
     // when we return our caller can be sure that there is no more TileSet
     // in the queue for that TiledPage and can safely deallocate the BaseTiles.
-    mRequestedPixmapsLock.lock();
-    mRequestedPixmapsCond.wait(mRequestedPixmapsLock);
+    mRequestedOperationsLock.lock();
+    mRequestedOperationsCond.wait(mRequestedOperationsLock);
     m_waitForCompletion = false;
-    mRequestedPixmapsLock.unlock();
+    mRequestedOperationsLock.unlock();
 }
 
 status_t TexturesGenerator::readyToRun()
@@ -115,44 +121,50 @@ status_t TexturesGenerator::readyToRun()
 
 bool TexturesGenerator::threadLoop()
 {
-    mRequestedPixmapsLock.lock();
+    mRequestedOperationsLock.lock();
 
-    if (!mRequestedPixmaps.size()) {
+    if (!mRequestedOperations.size()) {
         XLOG("threadLoop, waiting for signal");
         m_newRequestLock.lock();
-        mRequestedPixmapsLock.unlock();
+        mRequestedOperationsLock.unlock();
         m_newRequestCond.wait(m_newRequestLock);
         m_newRequestLock.unlock();
         XLOG("threadLoop, got signal");
     } else {
         XLOG("threadLoop going as we already have something in the queue");
-        mRequestedPixmapsLock.unlock();
+        mRequestedOperationsLock.unlock();
     }
 
-    m_currentSet = 0;
+    m_currentOperation = 0;
     bool stop = false;
     while (!stop) {
-        mRequestedPixmapsLock.lock();
-        if (mRequestedPixmaps.size()) {
-            m_currentSet = mRequestedPixmaps.first();
-            mRequestedPixmaps.remove(0);
+        XLOG("threadLoop evaluating the requests");
+        mRequestedOperationsLock.lock();
+        if (mRequestedOperations.size()) {
+            m_currentOperation = mRequestedOperations.first();
+            mRequestedOperations.remove(0);
+            XLOG("threadLoop, popping the first request (%d requests left)",
+                 mRequestedOperations.size());
         }
-        mRequestedPixmapsLock.unlock();
+        mRequestedOperationsLock.unlock();
 
-        if (m_currentSet)
-            m_currentSet->paint();
-
-        mRequestedPixmapsLock.lock();
-        if (m_currentSet) {
-            delete m_currentSet;
-            m_currentSet = 0;
-            mRequestedPixmapsCond.signal();
+        if (m_currentOperation) {
+            XLOG("threadLoop, painting the request");
+            m_currentOperation->run();
+            XLOG("threadLoop, painting the request - DONE");
         }
-        if (!mRequestedPixmaps.size())
+
+        mRequestedOperationsLock.lock();
+        if (m_currentOperation) {
+            delete m_currentOperation;
+            m_currentOperation = 0;
+            mRequestedOperationsCond.signal();
+        }
+        if (!mRequestedOperations.size())
             stop = true;
         if (m_waitForCompletion)
-            mRequestedPixmapsCond.signal();
-        mRequestedPixmapsLock.unlock();
+            mRequestedOperationsCond.signal();
+        mRequestedOperationsLock.unlock();
     }
 
     return true;
