@@ -184,6 +184,13 @@ void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool c
     webViewCore->updateTextfield(nodePtr, changeToPassword, text);
 }
 
+void PlatformBridge::setScrollPosition(ScrollView* scrollView, int x, int y) {
+    // Check to make sure the view is the main FrameView.
+    android::WebViewCore *webViewCore = android::WebViewCore::getWebViewCore(scrollView);
+    if (webViewCore->mainFrame()->view() == scrollView)
+        webViewCore->scrollTo(x, y);
+}
+
 int PlatformBridge::lowMemoryUsageMB()
 {
     return MemoryUsage::lowMemoryUsageMb();
