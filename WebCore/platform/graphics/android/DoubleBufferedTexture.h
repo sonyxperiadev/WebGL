@@ -50,6 +50,12 @@ public:
     TextureInfo* consumerLock();
     void consumerRelease();
 
+protected:
+    // enables sub-classes to signal the provider thread that the consumer is
+    // being deleted and therefore should clean up any producer specific
+    // textures or EGLImages
+    virtual void onDestroy(SharedTexture** textures) { };
+
 private:
     SharedTexture* getReadableTexture();
     SharedTexture* getWriteableTexture();
