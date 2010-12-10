@@ -75,7 +75,7 @@ public:
     void setScale(float scale) { m_scale = scale; m_invScale = 1 / scale; }
 
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
-
+    void setUsable(bool usable);
 private:
     void updateTileState(const SkIRect& tileBounds);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);

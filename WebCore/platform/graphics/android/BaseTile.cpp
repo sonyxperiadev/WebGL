@@ -73,6 +73,7 @@ BaseTile::BaseTile()
     , m_texture(0)
     , m_scale(1)
     , m_dirty(true)
+    , m_usable(true)
     , m_lastDirtyPicture(0)
     , m_lastPaintedPicture(0)
 {
@@ -84,7 +85,7 @@ BaseTile::BaseTile()
 BaseTile::~BaseTile()
 {
     setUsedLevel(-1);
-    if(m_texture)
+    if (m_texture)
         m_texture->release(this);
 
 #ifdef DEBUG_COUNT
@@ -138,6 +139,13 @@ void BaseTile::markAsDirty(int unsigned pictureCount)
         m_dirty = true;
 }
 
+void BaseTile::setUsable(bool usable)
+{
+    android::AutoMutex lock(m_atomicSync);
+    m_usable = usable;
+}
+
+
 bool BaseTile::isDirty()
 {
     android::AutoMutex lock(m_atomicSync);
@@ -156,6 +164,12 @@ void BaseTile::draw(float transparency, SkRect& rect)
     // the consumer thread.
     if (!m_texture) {
         XLOG("%x (%d, %d) trying to draw, but no m_texture!", this, x(), y());
+        return;
+    }
+
+    // Early return if set to un-usable in purpose!
+    if (!m_usable) {
+        XLOG("early return at BaseTile::draw b/c tile set to unusable !");
         return;
     }
 
@@ -201,7 +215,7 @@ void BaseTile::paintBitmap()
     float scale = m_scale;
     m_atomicSync.unlock();
 
-    if(!dirty || !texture)
+    if (!dirty || !texture)
         return;
 
     const int x = m_x;
@@ -251,8 +265,10 @@ void BaseTile::paintBitmap()
 
     m_atomicSync.lock();
     m_lastPaintedPicture = pictureCount;
-    if (m_lastPaintedPicture >= m_lastDirtyPicture)
+    if (m_lastPaintedPicture >= m_lastDirtyPicture) {
         m_dirty = false;
+        m_usable = true;
+    }
     m_atomicSync.unlock();
 }
 

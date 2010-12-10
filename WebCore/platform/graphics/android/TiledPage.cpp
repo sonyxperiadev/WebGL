@@ -105,6 +105,15 @@ BaseTile* TiledPage::getBaseTile(int x, int y) const
     return 0;
 }
 
+void TiledPage::setUsable(bool usable)
+{
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        tile.setUsable(usable);
+    }
+    return;
+}
+
 void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureCount)
 {
     // Given the current scale level we need to mark the appropriate tiles as dirty

@@ -81,7 +81,7 @@ public:
 
     void markAsDirty(const unsigned int pictureCount);
     bool isDirty();
-
+    void setUsable(bool usable);
     float scale() const { return m_scale; }
     void setScale(float scale);
 
@@ -101,6 +101,8 @@ private:
     float m_scale;
     // used to signal that the that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
+    // used to signal whether or not the draw can use this tile.
+    bool m_usable;
     // stores the id of the latest picture from webkit that caused this tile to
     // become dirty. A tile is no longer dirty when it has been painted with a
     // picture that is newer than this value.

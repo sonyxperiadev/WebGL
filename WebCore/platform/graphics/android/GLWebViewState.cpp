@@ -97,6 +97,10 @@ GLWebViewState::~GLWebViewState()
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
+    if (!layer) {
+        m_tiledPageA->setUsable(false);
+        m_tiledPageB->setUsable(false);
+    }
     if (m_baseLayer && layer)
         m_baseLayer->swapExtra(layer);
     m_baseLayer = layer;
@@ -233,7 +237,8 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
             static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
 }
 
-bool GLWebViewState::hasContent() {
+bool GLWebViewState::hasContent()
+{
     android::Mutex::Autolock lock(m_baseLayerLock);
     return m_baseLayer;
 }
