@@ -67,6 +67,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
+	android/jni/JniUtil.cpp \
 	android/jni/MIMETypeRegistry.cpp \
 	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
