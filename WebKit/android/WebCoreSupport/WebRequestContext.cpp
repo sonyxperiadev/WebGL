@@ -143,7 +143,6 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles()
         return false;
 
     WebCookieJar::cleanup(true);
-    WebCache::cleanup(true);
     return true;
 }
 
