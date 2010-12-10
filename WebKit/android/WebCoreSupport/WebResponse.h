@@ -71,7 +71,15 @@ private:
     std::string m_mime;
     std::string m_url;
 
-    std::map<std::string, std::string> m_headerFields;
+    struct CaseInsensitiveLessThan {
+        bool operator()(const std::string& lhs, const std::string& rhs) const {
+            return strcasecmp(lhs.c_str(), rhs.c_str()) < 0;
+        }
+    };
+
+    // Header fields are case insensitive, so we use a case-insensitive map.
+    // See RFC 822, 3.4.7, "CASE INDEPENDENCE".
+    std::map<std::string, std::string, CaseInsensitiveLessThan> m_headerFields;
 
     void setMimeType(const std::string &mimeType);
 };

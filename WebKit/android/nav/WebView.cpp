@@ -231,6 +231,12 @@ void hideCursor()
     if (!root)
         return;
     DBG_NAV_LOG("");
+    hideCursor(root);
+}
+
+void hideCursor(CachedRoot* root)
+{
+    DBG_NAV_LOG("inner");
     m_viewImpl->m_hasCursorBounds = false;
     root->hideCursor();
     viewInvalidate();
@@ -405,7 +411,7 @@ void drawCursorPostamble()
         invalBounds.intersect(m_ring.m_absBounds);
         postInvalidateDelayed(m_ringAnimationEnd - time, invalBounds);
     } else {
-        hideCursor();
+        hideCursor(const_cast<CachedRoot*>(m_ring.m_root));
     }
 }
 

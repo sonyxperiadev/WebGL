@@ -75,6 +75,9 @@ public:
     // This is to be only used for debugging on the producer thread
     bool busy() { return m_busy; }
 
+protected:
+    virtual void onDestroy(SharedTexture** textures);
+
 private:
     SkBitmap m_bitmap;
     SkCanvas* m_canvas;

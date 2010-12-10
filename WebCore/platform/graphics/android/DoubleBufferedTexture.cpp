@@ -58,6 +58,8 @@ DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
 
 DoubleBufferedTexture::~DoubleBufferedTexture()
 {
+    SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
+    onDestroy(textures);
 #ifdef DEBUG_COUNT
     gDoubleBufferedTextureCount--;
 #endif

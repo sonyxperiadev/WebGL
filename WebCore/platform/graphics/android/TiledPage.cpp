@@ -30,6 +30,7 @@
 
 #include "GLUtils.h"
 #include "IntRect.h"
+#include "PaintTileSetOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -270,9 +271,10 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
             prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, highResSet);
     }
 
-    // schedulePaintForTileSet will take ownership of the highResSet here,
-    // so no delete necessary.
-    TilesManager::instance()->schedulePaintForTileSet(highResSet);
+    // The paint operation will take ownership of the tileSet here, so no delete
+    // is necessary.
+    PaintTileSetOperation* operation = new PaintTileSetOperation(highResSet);
+    TilesManager::instance()->scheduleOperation(operation);
 }
 
 bool TiledPage::ready(const SkIRect& tileBounds)

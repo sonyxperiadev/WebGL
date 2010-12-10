@@ -29,7 +29,6 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
-#include "PaintTileSetOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -49,12 +48,6 @@
 #endif // DEBUG
 
 namespace WebCore {
-
-void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
-{
-    PaintTileSetOperation* operation = new PaintTileSetOperation(set);
-    scheduleOperation(operation);
-}
 
 void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 {

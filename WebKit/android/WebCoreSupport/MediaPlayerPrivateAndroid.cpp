@@ -413,7 +413,16 @@ public:
     }
 
     void onPrepared(int duration, int width, int height) {
-        m_duration = duration / 1000.0f;
+        // Android media player gives us a duration of 0 for a live
+        // stream, so in that case set the real duration to infinity.
+        // We'll still be able to handle the case that we genuinely
+        // get an audio clip with a duration of 0s as we'll get the
+        // ended event when it stops playing.
+        if (duration > 0) {
+            m_duration = duration / 1000.0f;
+        } else {
+            m_duration = std::numeric_limits<float>::infinity();
+        }
         m_player->durationChanged();
         m_player->sizeChanged();
         m_player->prepareToPlay();
