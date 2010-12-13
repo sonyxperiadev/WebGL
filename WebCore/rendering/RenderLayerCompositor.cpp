@@ -1178,9 +1178,20 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
         return true;
     HTMLFrameOwnerElement* ownerElement = enclosingIFrameElement();
     RenderObject* renderer = ownerElement ? ownerElement->renderer() : 0;
-    // FIXME: Disabled for now until navigation is fixed.
-    if (false && layer->isRootLayer() && renderer && renderer->isRenderIFrame())
-        return true;
+    if (layer->isRootLayer() && renderer && renderer->isRenderIFrame()) {
+        if (layer->renderer()->frame()) {
+            FrameView* view = layer->renderer()->frame()->view();
+            if (view) {
+                // Enable compositing if the frame can scroll and the contents
+                // are larger than the layout dimensions.
+                ScrollbarMode h,v;
+                view->scrollbarModes(h, v);
+                if ((h != ScrollbarAlwaysOff && view->layoutWidth() < view->contentsWidth()) ||
+                    (v != ScrollbarAlwaysOff && view->layoutHeight() < view->contentsHeight()))
+                    return true;
+            }
+        }
+    }
 #endif
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // First, check if we are in an iframe, and if so bail out
