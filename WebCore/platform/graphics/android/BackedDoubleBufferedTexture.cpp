@@ -115,7 +115,7 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
     producerReleaseAndSwap();
 }
 
-bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
+bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
 {
     if (m_owner == owner)
         return true;
@@ -132,7 +132,7 @@ bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
     return false;
 }
 
-void BackedDoubleBufferedTexture::release(BaseTile* owner)
+void BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
     if (m_owner == owner)
         m_owner = 0;
