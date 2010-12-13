@@ -43,6 +43,7 @@ public:
 
     // Returns true if the content position has changed.
     bool scrollTo(int dx, int dy);
+
     // Fills the rect with the current scroll offset and the maximum scroll.
     // fLeft   = scrollX
     // fTop    = scrollY
@@ -51,7 +52,7 @@ public:
     void getScrollRect(SkIRect* out) const;
 
     void setScrollLimits(float x, float y, float width, float height) {
-        m_scrollLimits.set(x, y, width, height);
+        m_scrollLimits.set(x, y, x + width, y + height);
     }
 
 private:
