@@ -51,6 +51,15 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
     // Initialize chromium logging, needs to be done before any chromium code is called.
     initChromium();
 
+    if (m_isPrivateBrowsing) {
+        MutexLocker lock(numPrivateBrowsingInstancesMutex);
+        // Delete the old files if this is the first private browsing instance
+        // They are probably leftovers from a power cycle
+        if (!numPrivateBrowsingInstances)
+            cleanupPrivateBrowsingFiles();
+        numPrivateBrowsingInstances++;
+    }
+
     WebCache* cache = WebCache::get(m_isPrivateBrowsing);
     host_resolver_ = cache->hostResolver();
     http_transaction_factory_ = cache->cache();
@@ -61,11 +70,6 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
 
     // Also hardcoded in FrameLoader.java
     accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
-
-    if (m_isPrivateBrowsing) {
-        MutexLocker lock(numPrivateBrowsingInstancesMutex);
-        numPrivateBrowsingInstances++;
-    }
 }
 
 WebRequestContext::~WebRequestContext()
@@ -73,6 +77,10 @@ WebRequestContext::~WebRequestContext()
     if (m_isPrivateBrowsing) {
         MutexLocker lock(numPrivateBrowsingInstancesMutex);
         numPrivateBrowsingInstances--;
+
+        // This is the last private browsing context, delete the cookies
+        if (!numPrivateBrowsingInstances)
+            cleanupPrivateBrowsingFiles();
     }
 }
 
