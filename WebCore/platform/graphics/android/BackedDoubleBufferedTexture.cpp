@@ -53,9 +53,11 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 {
     m_bitmap.reset();
     delete m_canvas;
+    SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
+    destroyTextures(textures);
 }
 
-void BackedDoubleBufferedTexture::onDestroy(SharedTexture** textures)
+void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
 {
     int x = 0;
     while (textures[x] != 0) {
@@ -134,6 +136,11 @@ void BackedDoubleBufferedTexture::release(BaseTile* owner)
 {
     if (m_owner == owner)
         m_owner = 0;
+}
+
+void BackedDoubleBufferedTexture::release()
+{
+    m_owner = 0;
 }
 
 } // namespace WebCore
