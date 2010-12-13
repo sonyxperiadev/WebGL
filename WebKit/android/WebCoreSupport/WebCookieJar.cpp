@@ -94,6 +94,16 @@ WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
     // This is needed for the page cycler. See http://b/2944150
     net::CookieMonster::EnableFileScheme();
 
+    // Setup the permissions for the file
+    const char* cDatabasePath = databaseFilePath.c_str();
+    mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    if (access(cDatabasePath, F_OK) == 0)
+        chmod(cDatabasePath, mode);
+    else {
+        int fd = open(cDatabasePath, O_CREAT, mode);
+        if (fd >= 0)
+            close(fd);
+    }
     FilePath cookiePath(databaseFilePath.c_str());
     m_cookieDb = new SQLitePersistentCookieStore(cookiePath);
     m_cookieStore = new net::CookieMonster(m_cookieDb.get(), 0);
