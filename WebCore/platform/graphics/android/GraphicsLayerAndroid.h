@@ -32,6 +32,8 @@ class Image;
 
 namespace WebCore {
 
+class ScrollableLayerAndroid;
+
 class GraphicsLayerAndroid : public GraphicsLayer {
 public:
 
@@ -149,7 +151,7 @@ private:
     Vector<FloatRect> m_invalidatedRects;
 
     LayerAndroid* m_contentLayer;
-    LayerAndroid* m_foregroundLayer;
+    ScrollableLayerAndroid* m_foregroundLayer;
     LayerAndroid* m_foregroundClipLayer;
 };
 

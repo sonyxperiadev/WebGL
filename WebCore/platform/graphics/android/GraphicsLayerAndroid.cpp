@@ -32,6 +32,7 @@
 #include "RenderView.h"
 #include "RotateTransformOperation.h"
 #include "ScaleTransformOperation.h"
+#include "ScrollableLayerAndroid.h"
 #include "SkCanvas.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
@@ -263,6 +264,8 @@ void GraphicsLayerAndroid::updateFixedPosition()
 
 void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 {
+    if (point == m_currentPosition)
+        return;
     m_currentPosition = point;
     m_needsDisplay = true;
 #ifdef LAYER_DEBUG_2
@@ -276,6 +279,8 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 
 void GraphicsLayerAndroid::setAnchorPoint(const FloatPoint3D& point)
 {
+    if (point == m_anchorPoint)
+        return;
     GraphicsLayer::setAnchorPoint(point);
     m_contentLayer->setAnchorPoint(point.x(), point.y());
     askForSync();
@@ -283,14 +288,13 @@ void GraphicsLayerAndroid::setAnchorPoint(const FloatPoint3D& point)
 
 void GraphicsLayerAndroid::setSize(const FloatSize& size)
 {
-    if ((size.width() != m_size.width())
-          || (size.height() != m_size.height())) {
-        MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
-        GraphicsLayer::setSize(size);
-        m_contentLayer->setSize(size.width(), size.height());
-        updateFixedPosition();
-        askForSync();
-    }
+    if (size == m_size)
+        return;
+    MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
+    GraphicsLayer::setSize(size);
+    m_contentLayer->setSize(size.width(), size.height());
+    updateFixedPosition();
+    askForSync();
 }
 
 void GraphicsLayerAndroid::setTransform(const TransformationMatrix& t)
@@ -329,7 +333,7 @@ void GraphicsLayerAndroid::setChildrenTransform(const TransformationMatrix& t)
 void GraphicsLayerAndroid::setMaskLayer(GraphicsLayer* layer)
 {
     if (layer == m_maskLayer)
-      return;
+        return;
 
     GraphicsLayer::setMaskLayer(layer);
     m_needsSyncMask = true;
@@ -338,6 +342,8 @@ void GraphicsLayerAndroid::setMaskLayer(GraphicsLayer* layer)
 
 void GraphicsLayerAndroid::setMasksToBounds(bool masksToBounds)
 {
+    if (masksToBounds == m_masksToBounds)
+        return;
     GraphicsLayer::setMasksToBounds(masksToBounds);
     m_needsSyncMask = true;
     askForSync();
@@ -345,20 +351,30 @@ void GraphicsLayerAndroid::setMasksToBounds(bool masksToBounds)
 
 void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 {
+    if (drawsContent == m_drawsContent)
+        return;
     GraphicsLayer::setDrawsContent(drawsContent);
     if (m_contentLayer->isRootLayer())
         return;
     if (m_drawsContent) {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
         RenderLayer* layer = renderLayerFromClient(m_client);
-        if (layer && layer->hasOverflowScroll() && !m_foregroundLayer) {
-            m_foregroundLayer = new LayerAndroid(false);
-            m_foregroundLayer->setContentScrollable(true);
-            m_foregroundClipLayer = new LayerAndroid(false);
-            m_foregroundClipLayer->setMasksToBounds(true);
+        if (layer) {
+            if (layer->hasOverflowScroll() && !m_foregroundLayer) {
+                m_foregroundLayer = new ScrollableLayerAndroid();
+                m_foregroundClipLayer = new LayerAndroid(false);
+                m_foregroundClipLayer->setMasksToBounds(true);
 
-            m_foregroundClipLayer->addChild(m_foregroundLayer);
-            m_contentLayer->addChild(m_foregroundClipLayer);
+                m_foregroundClipLayer->addChild(m_foregroundLayer);
+                m_contentLayer->addChild(m_foregroundClipLayer);
+            } else if (false /* FIXME: disable until navigation is fixed */ &&
+                       layer->isRootLayer() &&
+                       layer->renderer()->frame()->ownerRenderer()) {
+                // Replace the content layer with a scrollable layer.
+                LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
+                m_contentLayer->unref();
+                m_contentLayer = layer;
+            }
         }
 #endif
 
@@ -370,6 +386,8 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 
 void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 {
+    if (color == m_backgroundColor)
+        return;
     LOG("(%x) setBackgroundColor", this);
     GraphicsLayer::setBackgroundColor(color);
     SkColor c = SkColorSetARGB(color.alpha(), color.red(), color.green(), color.blue());
@@ -387,6 +405,8 @@ void GraphicsLayerAndroid::clearBackgroundColor()
 
 void GraphicsLayerAndroid::setContentsOpaque(bool opaque)
 {
+    if (opaque == m_contentsOpaque)
+        return;
     LOG("(%x) setContentsOpaque (%d)", this, opaque);
     GraphicsLayer::setContentsOpaque(opaque);
     m_haveContents = true;
@@ -449,6 +469,7 @@ bool GraphicsLayerAndroid::repaint()
         // with SkPicture, we request the entire layer's content.
         IntRect layerBounds(0, 0, m_size.width(), m_size.height());
 
+        RenderLayer* layer = renderLayerFromClient(m_client);
         if (m_foregroundLayer) {
             PaintingPhase phase(this);
             // Paint the background into a separate context.
@@ -456,7 +477,6 @@ bool GraphicsLayerAndroid::repaint()
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
 
-            RenderLayer* layer = renderLayerFromClient(m_client);
             // Construct the foreground layer and draw.
             RenderBox* box = layer->renderBox();
             int outline = box->view()->maximalOutlineSize();
@@ -485,11 +505,20 @@ bool GraphicsLayerAndroid::repaint()
             // Need to offset the foreground layer by the clip layer in order
             // for the contents to be in the correct position.
             m_foregroundLayer->setPosition(-x, -y);
+            // Set the scrollable bounds of the layer.
+            m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
+            // Check for a scrollable iframe and report the scrolling
+            // limits based on the view size.
+            if (m_contentLayer->contentIsScrollable()) {
+                FrameView* view = layer->renderer()->frame()->view();
+                static_cast<ScrollableLayerAndroid*>(m_contentLayer)->setScrollLimits(
+                    m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight());
+            }
         }
 
         TLOG("(%x) repaint() on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
@@ -579,7 +608,7 @@ bool GraphicsLayerAndroid::addAnimation(const KeyframeValueList& valueList,
                                         double beginTime)
 {
     if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() != 2)
-    return false;
+        return false;
 
     bool createdAnimations = false;
     if (valueList.property() == AnimatedPropertyWebkitTransform) {
@@ -882,6 +911,8 @@ void GraphicsLayerAndroid::setDebugBorder(const Color& color, float borderWidth)
 
 void GraphicsLayerAndroid::setZPosition(float position)
 {
+    if (position == m_zPosition)
+        return;
     LOG("(%x) setZPosition: %.2f", this, position);
     GraphicsLayer::setZPosition(position);
     askForSync();

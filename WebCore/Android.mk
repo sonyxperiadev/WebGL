@@ -614,6 +614,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
+	platform/graphics/android/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/ShaderProgram.cpp \
 	platform/graphics/android/SharedTexture.cpp \

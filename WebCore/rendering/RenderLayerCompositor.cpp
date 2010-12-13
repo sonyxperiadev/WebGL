@@ -1176,6 +1176,11 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (layer->hasOverflowScroll())
         return true;
+    HTMLFrameOwnerElement* ownerElement = enclosingIFrameElement();
+    RenderObject* renderer = ownerElement ? ownerElement->renderer() : 0;
+    // FIXME: Disabled for now until navigation is fixed.
+    if (false && layer->isRootLayer() && renderer && renderer->isRenderIFrame())
+        return true;
 #endif
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // First, check if we are in an iframe, and if so bail out

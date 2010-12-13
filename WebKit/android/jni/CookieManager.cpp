@@ -39,16 +39,6 @@ namespace android {
 // JNI for android.webkit.CookieManager
 static const char* javaCookieManagerClass = "android/webkit/CookieManager";
 
-// WebCookieJar is threadsafe, as is CookieMonster.
-static bool useChromiumHttpStack(JNIEnv*, jobject)
-{
-#if USE(CHROME_NETWORK_STACK)
-    return true;
-#else
-    return false;
-#endif
-}
-
 static bool acceptCookie(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
@@ -167,7 +157,6 @@ static void flushCookieStore(JNIEnv*, jobject)
 }
 
 static JNINativeMethod gCookieManagerMethods[] = {
-    { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
     { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
     { "nativeGetCookie", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getCookie },
     { "nativeHasCookies", "()Z", (void*) hasCookies },

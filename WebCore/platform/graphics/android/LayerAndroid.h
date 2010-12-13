@@ -131,15 +131,6 @@ public:
 
     SkPicture* recordContext();
 
-    // Returns true if the content position has changed.
-    bool scrollTo(int dx, int dy);
-    // Fills the rect with the current scroll offset and the maximum scroll.
-    // fLeft   = scrollX
-    // fTop    = scrollY
-    // fRight  = maxX
-    // fBottom = maxY
-    void getScrollRect(SkIRect* out) const;
-
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
     bool evaluateAnimations() const;
@@ -193,12 +184,8 @@ public:
 
     void bounds(SkRect* ) const;
 
-    bool contentIsScrollable() const { return m_contentScrollable; }
-
-    // Set when building the layer hierarchy for scrollable elements.
-    void setContentScrollable(bool scrollable) {
-        m_contentScrollable = scrollable;
-    }
+    virtual bool contentIsScrollable() const { return false; }
+    virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
@@ -219,7 +206,6 @@ private:
     bool m_doRotation;
     bool m_isFixed;
     bool m_backgroundColorSet;
-    bool m_contentScrollable;
 
     SkLength m_fixedLeft;
     SkLength m_fixedTop;
