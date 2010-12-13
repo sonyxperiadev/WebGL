@@ -43,15 +43,9 @@ public:
     WebRequestContext(bool isPrivateBrowsing);
 
     // These methods are threadsafe.
-    static bool cleanupPrivateBrowsingFiles();
     void setUserAgent(const WTF::String&);
     static void setAcceptLanguage(const WTF::String&);
     static const WTF::String& acceptLanguage();
-
-    // A helper function used by the cache and cookie managers. Should probably
-    // find a better home, but wait for the refactoring in b/3113804 to be
-    // completed.
-    static void removeFileOrDirectory(const char* filename);
 
 private:
     WebRequestContext();

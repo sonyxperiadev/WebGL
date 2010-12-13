@@ -31,6 +31,9 @@
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
 
+
+#include <dirent.h>
+
 namespace android {
 
 static WTF::Mutex instanceMutex;
@@ -52,6 +55,29 @@ static const std::string& databaseDirectory()
     return databaseDirectory;
 }
 
+static void removeFileOrDirectory(const char* filename)
+{
+    struct stat filetype;
+    if (stat(filename, &filetype) != 0)
+        return;
+    if (S_ISDIR(filetype.st_mode)) {
+        DIR* directory = opendir(filename);
+        if (directory) {
+            while (struct dirent* entry = readdir(directory)) {
+                if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+                    continue;
+                std::string entryName(filename);
+                entryName.append("/");
+                entryName.append(entry->d_name);
+                removeFileOrDirectory(entryName.c_str());
+            }
+            closedir(directory);
+            rmdir(filename);
+        }
+        return;
+    }
+    unlink(filename);
+}
 
 static std::string databaseDirectory(bool isPrivateBrowsing)
 {
@@ -85,7 +111,7 @@ void WebCookieJar::cleanup(bool isPrivateBrowsing)
     MutexLocker lock(instanceMutex);
     scoped_refptr<WebCookieJar>* instancePtr = instance(isPrivateBrowsing);
     *instancePtr = 0;
-    WebRequestContext::removeFileOrDirectory(databaseDirectory(isPrivateBrowsing).c_str());
+    removeFileOrDirectory(databaseDirectory(isPrivateBrowsing).c_str());
 }
 
 WebCookieJar::WebCookieJar(const std::string& databaseFilePath)

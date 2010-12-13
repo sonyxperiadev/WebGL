@@ -2109,15 +2109,6 @@ static void nativeMoveSelection(JNIEnv *env, jobject obj, int x, int y)
     GET_NATIVE_VIEW(env, obj)->moveSelection(x, y);
 }
 
-static jboolean nativeCleanupPrivateBrowsingFiles(JNIEnv*, jobject)
-{
-#if USE(CHROME_NETWORK_STACK)
-    return WebRequestContext::cleanupPrivateBrowsingFiles();
-#else
-    return JNI_FALSE;
-#endif
-}
-
 static void nativeResetSelection(JNIEnv *env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->resetSelection();
@@ -2368,8 +2359,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(II)V",
         (void*) nativeMoveSelection },
-    { "nativeCleanupPrivateBrowsingFiles", "()Z",
-        (void*) nativeCleanupPrivateBrowsingFiles },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
     { "nativeRecordButtons", "(ZZZ)V",
