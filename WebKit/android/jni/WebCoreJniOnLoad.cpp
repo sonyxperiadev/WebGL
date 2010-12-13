@@ -75,6 +75,7 @@ namespace android {
 
 extern int registerWebFrame(JNIEnv*);
 extern int registerJavaBridge(JNIEnv*);
+extern int registerJniUtil(JNIEnv*);
 extern int registerResourceLoader(JNIEnv*);
 extern int registerWebViewCore(JNIEnv*);
 extern int registerWebHistory(JNIEnv*);
@@ -102,6 +103,7 @@ struct RegistrationMethod {
 
 static RegistrationMethod gWebCoreRegMethods[] = {
     { "JavaBridge", android::registerJavaBridge },
+    { "JniUtil", android::registerJniUtil },
     { "WebFrame", android::registerWebFrame },
     { "WebCoreResourceLoader", android::registerResourceLoader },
     { "WebViewCore", android::registerWebViewCore },
