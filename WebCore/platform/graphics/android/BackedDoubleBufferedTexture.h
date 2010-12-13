@@ -67,6 +67,7 @@ public:
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(BaseTile* owner);
     void release(BaseTile* owner);
+    void release();
 
     // private member accessor functions
     BaseTile* owner() { return m_owner; } // only used by the consumer thread
@@ -75,10 +76,9 @@ public:
     // This is to be only used for debugging on the producer thread
     bool busy() { return m_busy; }
 
-protected:
-    virtual void onDestroy(SharedTexture** textures);
-
 private:
+    void destroyTextures(SharedTexture** textures);
+
     SkBitmap m_bitmap;
     SkCanvas* m_canvas;
     int m_usedLevel;
