@@ -67,16 +67,17 @@ void GLUtils::toGLMatrix(GLfloat* flattened, const TransformationMatrix& m) {
 void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,
                                     float right, float bottom, float nearZ, float farZ) {
     float deltaX = right - left;
-    float deltaY = bottom - top;
+    float deltaY = top - bottom;
     float deltaZ = farZ - nearZ;
+    if (!deltaX || !deltaY || !deltaZ)
+        return;
 
     ortho.setM11(2.0f / deltaX);
-    ortho.setM22(2.0 / deltaY);
-    ortho.setM33(2.0f / deltaZ);
     ortho.setM41(-(right + left) / deltaX);
+    ortho.setM22(2.0f / deltaY);
     ortho.setM42(-(top + bottom) / deltaY);
-    ortho.setM43(-(farZ + nearZ) / deltaZ);
-    ortho.setM44(1);
+    ortho.setM33(-2.0f / deltaZ);
+    ortho.setM43(-(nearZ + farZ) / deltaZ);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
