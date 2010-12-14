@@ -163,7 +163,7 @@ public:
     void updatePositions();
 
     void clipArea(SkTDArray<SkRect>* region) const;
-    const LayerAndroid* find(int x, int y, SkPicture* root) const;
+    const LayerAndroid* find(int* xPtr, int* yPtr, SkPicture* root) const;
     const LayerAndroid* findById(int uniqueID) const {
         return const_cast<LayerAndroid*>(this)->findById(uniqueID);
     }

@@ -1674,16 +1674,12 @@ SkPicture* CachedRoot::pictureAt(int* xPtr, int* yPtr, int* id) const
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (mRootLayer) {
-        const LayerAndroid* layer = mRootLayer->find(*xPtr, *yPtr, mPicture);
+        const LayerAndroid* layer = mRootLayer->find(xPtr, yPtr, mPicture);
         if (layer) {
             SkPicture* picture = layer->picture();
             DBG_NAV_LOGD("layer %d picture=%p (%d,%d)", layer->uniqueId(),
                 picture, picture ? picture->width() : 0,
                 picture ? picture->height() : 0);
-            SkRect localBounds;
-            layer->bounds(&localBounds);
-            *xPtr -= localBounds.fLeft;
-            *yPtr -= localBounds.fTop;
             if (picture) {
                 if (id)
                     *id = layer->uniqueId();

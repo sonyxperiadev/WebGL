@@ -60,8 +60,17 @@ public:
     int m_selectX;
     int m_selectY;
 private:
+    class FirstCheck;
+    class EdgeCheck;
     void drawSelectionPointer(SkCanvas* , IntRect* );
     void drawSelectionRegion(SkCanvas* , IntRect* );
+    SkIRect findClosest(FirstCheck& , const SkPicture& , int* base);
+    SkIRect findEdge(const SkPicture& , const SkIRect& area,
+        int x, int y, bool left, int* base);
+    SkIRect findLeft(const SkPicture& picture, const SkIRect& area,
+        int x, int y, int* base);
+    SkIRect findRight(const SkPicture& picture, const SkIRect& area,
+        int x, int y, int* base);
     static void getSelectionArrow(SkPath* );
     void getSelectionCaret(SkPath* );
     bool hitCorner(int cx, int cy, int x, int y) const;
@@ -73,6 +82,7 @@ private:
     SkIRect m_selEnd;
     SkIRect m_lastStart;
     SkIRect m_lastEnd;
+    SkIRect m_wordBounds;
     int m_startBase;
     int m_endBase;
     int m_layerId;
@@ -86,6 +96,8 @@ private:
     bool m_flipped;
     bool m_hitTopLeft;
     bool m_startSelection;
+    bool m_wordSelection;
+    bool m_outsideWord;
 };
 
 }
