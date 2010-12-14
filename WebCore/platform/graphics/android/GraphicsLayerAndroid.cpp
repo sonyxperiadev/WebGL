@@ -367,7 +367,8 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 
                 m_foregroundClipLayer->addChild(m_foregroundLayer);
                 m_contentLayer->addChild(m_foregroundClipLayer);
-            } else if (layer->isRootLayer() &&
+            } else if (false /* FIXME: disable until navigation is fixed */ &&
+                       layer->isRootLayer() &&
                        layer->renderer()->frame()->ownerRenderer()) {
                 // Replace the content layer with a scrollable layer.
                 LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);

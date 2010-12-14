@@ -55,7 +55,6 @@
 #include "RenderListBox.h"
 #include "RenderSkinCombo.h"
 #include "RenderTextControl.h"
-#include "RenderView.h"
 #include "RenderWidget.h"
 #include "SkCanvas.h"
 #include "SkPoint.h"
@@ -95,9 +94,7 @@ Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) {
 }
 
 CacheBuilder::LayerTracker::~LayerTracker() {
-    // Check for a stacking context to prevent a crash in layers without a
-    // parent.
-    if (mRenderLayer && mRenderLayer->stackingContext())
+    if (mRenderLayer)
         // Restore the scroll position of the layer.  Does not affect layers
         // without overflow scroll as the layer will not be scrolled.
         mRenderLayer->scrollToOffset(mScroll.x(), mScroll.y(), false, false);
@@ -1026,13 +1023,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedRoot->setFocusBounds(focused->getRect());
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
-#if USE(ACCELERATED_COMPOSITING)
-    // The frame itself might be composited so we need to track the layer.  Do
-    // not track the base frame's layer as the main content is draw as part of
-    // BaseLayerAndroid's picture.
-    if (frame != root && frame->contentRenderer()->usesCompositing() && node->lastChild())
-        TrackLayer(layerTracker, frame->contentRenderer(), node->lastChild(), globalOffsetX, globalOffsetY);
-#endif
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
 #if DUMP_NAV_CACHE
         nodeIndex++;
@@ -1115,8 +1105,37 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #if USE(ACCELERATED_COMPOSITING)
             // If this renderer has its own layer and the layer is composited,
             // start tracking it.
-            if (lastChild && nodeRenderer->hasLayer() && toRenderBox(nodeRenderer)->layer()->backing())
-                TrackLayer(layerTracker, nodeRenderer, lastChild, globalOffsetX, globalOffsetY);
+            if (lastChild && nodeRenderer->hasLayer() && toRenderBox(nodeRenderer)->layer()->backing()) {
+                TrackLayer(layerTracker, nodeRenderer, lastChild,
+                    globalOffsetX, globalOffsetY);
+                size_t size = tracker.size();
+                LayerAndroid* layer = layerTracker.last().mLayer;
+                if (layer) {
+                    int id = layer->uniqueId();
+                    const RenderLayer* renderLayer =
+                            layerTracker.last().mRenderLayer;
+                    // Global location
+                    IntPoint loc = renderLayer->absoluteBoundingBox().location();
+                    loc.move(globalOffsetX, globalOffsetY);
+                    // if this is a child of a CachedNode, add a layer
+                    size_t limit = cachedFrame->layerCount() == 0 ? 0 :
+                        cachedFrame->lastLayer()->cachedNodeIndex();
+                    for (size_t index = 1; index < tracker.size(); index++) {
+                        const FocusTracker& cursorNode = tracker.at(index);
+                        size_t index = cursorNode.mCachedNodeIndex;
+                        if (index <= limit) { // already added?
+                            DBG_NAV_LOGD("index=%d limit=%d id=%d", index,
+                                limit, id);
+                            continue;
+                        }
+                        DBG_NAV_LOGD("call add layer %d", id);
+                        CachedNode* trackedNode = cachedFrame->getIndex(index);
+                        trackedNode->setIsInLayer(true);
+                        trackedNode->setIsUnclipped(true);
+                        AddLayer(cachedFrame, index, loc, id);
+                    }
+                }
+            }
 #endif
         }
         bool more = walk.mMore;
@@ -2917,9 +2936,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
         aLayer = aLayer->getChild(0)->getChild(0);
     if (!aLayer)
         return;
-    // Prevent a crash when scrolling a layer that does not have a parent.
-    if (layer->stackingContext())
-        layer->scrollToOffset(0, 0, false, false);
+    layer->scrollToOffset(0, 0, false, false);
 #endif
     layerTracker.grow(layerTracker.size() + 1);
     LayerTracker& indexTracker = layerTracker.last();
