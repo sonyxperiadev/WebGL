@@ -77,10 +77,13 @@ public:
     // This is to be only used for debugging on the producer thread
     bool busy() { return m_busy; }
 
+    const SkSize& getSize() const { return m_size; }
+
 private:
     void destroyTextures(SharedTexture** textures);
 
     SkBitmap m_bitmap;
+    SkSize m_size;
     SkCanvas* m_canvas;
     int m_usedLevel;
     TextureOwner* m_owner;

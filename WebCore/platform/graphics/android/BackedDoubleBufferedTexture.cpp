@@ -43,6 +43,7 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
     , m_owner(0)
     , m_busy(false)
 {
+    m_size.set(w, h);
     m_bitmap.setConfig(config, w, h);
     m_bitmap.allocPixels();
     m_bitmap.eraseColor(0);
