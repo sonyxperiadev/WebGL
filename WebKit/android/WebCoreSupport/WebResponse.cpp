@@ -46,7 +46,6 @@ WebResponse::WebResponse(URLRequest* request)
     m_url = request->url().spec();
     m_host = request->url().HostNoBrackets();
     request->GetMimeType(&m_mime);
-    setMimeType(m_mime);
 
     request->GetCharset(&m_encoding);
     m_expectedSize = request->GetExpectedContentSize();
@@ -73,12 +72,11 @@ WebResponse::WebResponse(const string &url, const string &mimeType, long long ex
     , m_mime(mimeType)
     , m_url(url)
 {
-    setMimeType(mimeType);
 }
 
 WebCore::ResourceResponse WebResponse::createResourceResponse()
 {
-    WebCore::ResourceResponse resourceResponse(createKurl(), m_mime.c_str(), m_expectedSize, m_encoding.c_str(), "");
+    WebCore::ResourceResponse resourceResponse(createKurl(), getMimeType().c_str(), m_expectedSize, m_encoding.c_str(), "");
     resourceResponse.setHTTPStatusCode(m_httpStatusCode);
     resourceResponse.setHTTPStatusText(m_httpStatusText.c_str());
 
@@ -112,20 +110,26 @@ void WebResponse::setUrl(const string& url)
     m_url = url;
 }
 
-const string& WebResponse::getMimeType() const
+// Calls WebCore APIs so should only be called from the WebCore thread.
+// TODO: can we return a WTF::String directly? Need to check all callsites.
+const string& WebResponse::getMimeType()
 {
-    return m_mime;
-}
-
-void WebResponse::setMimeType(const std::string &mimeType)
-{
-    if (mimeType.length() == 0 && m_url.length() > 0) {
+    if (!m_mime.length() && m_url.length()) {
         WTF::String wtfMime(m_url.c_str(), m_url.length());
+        // Need to strip fragment and/or query if present.
+        size_t position = wtfMime.reverseFind('#');
+        if (position != WTF::notFound)
+            wtfMime.truncate(position);
+
+        position = wtfMime.reverseFind('?');
+        if (position != WTF::notFound)
+            wtfMime.truncate(position);
+
         wtfMime = WebCore::MIMETypeRegistry::getMIMETypeForPath(wtfMime);
         m_mime = std::string(wtfMime.utf8().data(), wtfMime.length());
-    } else {
-        m_mime = mimeType;
     }
+
+    return m_mime;
 }
 
 bool WebResponse::getHeader(const string& header, string* result) const

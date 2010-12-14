@@ -52,7 +52,7 @@ public:
     const std::string& getUrl() const;
     void setUrl(const std::string&);
 
-    const std::string& getMimeType() const;
+    const std::string& getMimeType(); // Use only on WebCore thread.
     bool getHeader(const std::string& header, std::string* result) const;
     long long getExpectedSize() const;
 
@@ -81,7 +81,6 @@ private:
     // See RFC 822, 3.4.7, "CASE INDEPENDENCE".
     std::map<std::string, std::string, CaseInsensitiveLessThan> m_headerFields;
 
-    void setMimeType(const std::string &mimeType);
 };
 
 } // namespace android
