@@ -32,6 +32,7 @@
 #include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
+#include "TextureOwner.h"
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -40,8 +41,8 @@
 
 namespace WebCore {
 
-class BackedDoubleBufferedTexture;
 class TiledPage;
+class BackedDoubleBufferedTexture;
 
 /**
  * An individual tile that is used to construct part of a webpage's BaseLayer of
@@ -59,7 +60,7 @@ class TiledPage;
  * 5. The tile is destroyed when the user navigates to a new page.
  *
  */
-class BaseTile {
+class BaseTile : public TextureOwner {
 public:
 #ifdef DEBUG_COUNT
     static int count();
@@ -71,7 +72,6 @@ public:
     bool isAvailable() const { return !m_texture; }
 
     void reserveTexture();
-    void removeTexture();
     void setUsedLevel(int);
     bool isTileReady();
     void draw(float transparency, SkRect& rect);
@@ -81,14 +81,17 @@ public:
 
     void markAsDirty(const unsigned int pictureCount);
     bool isDirty();
-
+    void setUsable(bool usable);
     float scale() const { return m_scale; }
     void setScale(float scale);
 
-    TiledPage* page() { return m_page; }
     int x() const { return m_x; }
     int y() const { return m_y; }
     BackedDoubleBufferedTexture* texture() { return m_texture; }
+
+    // TextureOwner implementation
+    virtual void removeTexture();
+    virtual TiledPage* page() { return m_page; }
 
 private:
     // these variables are only set when the object is constructed
@@ -101,6 +104,8 @@ private:
     float m_scale;
     // used to signal that the that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
+    // used to signal whether or not the draw can use this tile.
+    bool m_usable;
     // stores the id of the latest picture from webkit that caused this tile to
     // become dirty. A tile is no longer dirty when it has been painted with a
     // picture that is newer than this value.

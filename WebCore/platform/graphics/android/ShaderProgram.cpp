@@ -149,11 +149,7 @@ void ShaderProgram::setViewport(SkRect& viewport) {
     TransformationMatrix ortho;
     GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
                                    viewport.fRight, viewport.fBottom, -1000, 1000);
-    TransformationMatrix invert;
-    invert.scale3d(1.0, -1.0, 1.0);
-    TransformationMatrix total = invert;
-    total.multLeft(ortho);
-    m_projectionMatrix = total;
+    m_projectionMatrix = ortho;
 }
 
 void ShaderProgram::setProjectionMatrix(SkRect& geometry) {
@@ -173,6 +169,31 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry) {
 
 void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity) {
     setProjectionMatrix(geometry);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindAttribLocation(program(), 1, "vPosition");
+    glUniform1f(alpha(), opacity);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    GLUtils::checkGlError("drawQuad");
+}
+
+void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
+                                  SkRect& geometry, int textureId, float opacity) {
+
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    renderMatrix.multiply(m_projectionMatrix);
+
+    GLfloat projectionMatrix[16];
+    GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
+    glUniformMatrix4fv(m_hProjectionMatrix, 1, GL_FALSE, projectionMatrix);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureId);

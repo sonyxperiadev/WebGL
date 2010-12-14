@@ -36,6 +36,8 @@ class ShaderProgram {
   // Drawing
   void setViewport(SkRect& viewport);
   void drawQuad(SkRect& geometry, int textureId, float opacity);
+  void drawLayerQuad(const TransformationMatrix& drawMatrix,
+                     SkRect& geometry, int textureId, float opacity);
 
  private:
   GLuint loadShader(GLenum shaderType, const char* pSource);

@@ -23,39 +23,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebRequestContext_h
-#define WebRequestContext_h
+#ifndef TextureOwner_h
+#define TextureOwner_h
 
-#include "ChromiumIncludes.h"
-#include "PlatformString.h"
+namespace WebCore {
 
-#include <wtf/ThreadingPrimitives.h>
+class TiledPage;
 
-namespace android {
-
-// This class is generally not threadsafe.
-class WebRequestContext : public URLRequestContext {
+class TextureOwner {
 public:
-    // URLRequestContext overrides.
-    virtual const std::string& GetUserAgent(const GURL&) const;
-    virtual const std::string& GetAcceptLanguage() const;
-
-    WebRequestContext(bool isPrivateBrowsing);
-
-    // These methods are threadsafe.
-    void setUserAgent(const WTF::String&);
-    static void setAcceptLanguage(const WTF::String&);
-    static const WTF::String& acceptLanguage();
-
-private:
-    WebRequestContext();
-    ~WebRequestContext();
-
-    std::string m_userAgent;
-    mutable WTF::Mutex m_userAgentMutex;
-    bool m_isPrivateBrowsing;
+    virtual ~TextureOwner() {}
+    virtual void removeTexture() = 0;
+    virtual TiledPage* page() = 0;
 };
 
-} // namespace android
+}
 
-#endif
+#endif // TextureOwner_h

@@ -43,6 +43,7 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
     , m_owner(0)
     , m_busy(false)
 {
+    m_size.set(w, h);
     m_bitmap.setConfig(config, w, h);
     m_bitmap.allocPixels();
     m_bitmap.eraseColor(0);
@@ -53,9 +54,11 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 {
     m_bitmap.reset();
     delete m_canvas;
+    SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
+    destroyTextures(textures);
 }
 
-void BackedDoubleBufferedTexture::onDestroy(SharedTexture** textures)
+void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
 {
     int x = 0;
     while (textures[x] != 0) {
@@ -113,7 +116,7 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
     producerReleaseAndSwap();
 }
 
-bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
+bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
 {
     if (m_owner == owner)
         return true;
@@ -130,10 +133,15 @@ bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
     return false;
 }
 
-void BackedDoubleBufferedTexture::release(BaseTile* owner)
+void BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
     if (m_owner == owner)
         m_owner = 0;
+}
+
+void BackedDoubleBufferedTexture::release()
+{
+    m_owner = 0;
 }
 
 } // namespace WebCore

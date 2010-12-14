@@ -46,6 +46,27 @@ class QueuedOperation {
     TiledPage* m_page;
 };
 
+class OperationFilter
+{
+ public:
+  virtual ~OperationFilter() {}
+  virtual bool check(QueuedOperation* operation) = 0;
+};
+
+class PageFilter : public OperationFilter
+{
+ public:
+    PageFilter(TiledPage* page) : m_page(page) {}
+    virtual bool check(QueuedOperation* operation)
+    {
+        if (operation->page() == m_page)
+            return true;
+        return false;
+    }
+ private:
+    TiledPage* m_page;
+};
+
 }
 
 #endif // QueuedOperation_h

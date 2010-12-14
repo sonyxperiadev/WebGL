@@ -28,6 +28,7 @@
 
 #include "DoubleBufferedTexture.h"
 #include "GLWebViewState.h"
+#include "TextureOwner.h"
 #include <SkBitmap.h>
 
 class SkCanvas;
@@ -65,24 +66,27 @@ public:
 
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
-    bool acquire(BaseTile* owner);
-    void release(BaseTile* owner);
+    bool acquire(TextureOwner* owner);
+    void release(TextureOwner* owner);
+    void release();
 
     // private member accessor functions
-    BaseTile* owner() { return m_owner; } // only used by the consumer thread
+    TextureOwner* owner() { return m_owner; } // only used by the consumer thread
     SkCanvas* canvas() { return m_canvas; } // only used by the producer thread
 
     // This is to be only used for debugging on the producer thread
     bool busy() { return m_busy; }
 
-protected:
-    virtual void onDestroy(SharedTexture** textures);
+    const SkSize& getSize() const { return m_size; }
 
 private:
+    void destroyTextures(SharedTexture** textures);
+
     SkBitmap m_bitmap;
+    SkSize m_size;
     SkCanvas* m_canvas;
     int m_usedLevel;
-    BaseTile* m_owner;
+    TextureOwner* m_owner;
 
     // This values signals that the texture is currently in use by the consumer.
     // This allows us to prevent the owner of the texture from changing while the

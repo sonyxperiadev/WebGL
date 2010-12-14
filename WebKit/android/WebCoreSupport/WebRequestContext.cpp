@@ -31,7 +31,6 @@
 #include "WebCache.h"
 #include "WebCookieJar.h"
 
-#include <dirent.h>
 #include <wtf/text/CString.h>
 
 static std::string acceptLanguageStdString("");
@@ -39,7 +38,6 @@ static WTF::String acceptLanguageWtfString("");
 static WTF::Mutex acceptLanguageMutex;
 
 static int numPrivateBrowsingInstances;
-static WTF::Mutex numPrivateBrowsingInstancesMutex;
 
 using namespace WTF;
 
@@ -51,6 +49,14 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
     // Initialize chromium logging, needs to be done before any chromium code is called.
     initChromium();
 
+    if (m_isPrivateBrowsing) {
+        // Delete the old files if this is the first private browsing instance
+        // They are probably leftovers from a power cycle
+        if (!numPrivateBrowsingInstances)
+            WebCookieJar::cleanup(true);
+        numPrivateBrowsingInstances++;
+    }
+
     WebCache* cache = WebCache::get(m_isPrivateBrowsing);
     host_resolver_ = cache->hostResolver();
     http_transaction_factory_ = cache->cache();
@@ -61,18 +67,16 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
 
     // Also hardcoded in FrameLoader.java
     accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
-
-    if (m_isPrivateBrowsing) {
-        MutexLocker lock(numPrivateBrowsingInstancesMutex);
-        numPrivateBrowsingInstances++;
-    }
 }
 
 WebRequestContext::~WebRequestContext()
 {
     if (m_isPrivateBrowsing) {
-        MutexLocker lock(numPrivateBrowsingInstancesMutex);
         numPrivateBrowsingInstances--;
+
+        // This is the last private browsing context, delete the cookies
+        if (!numPrivateBrowsingInstances)
+            WebCookieJar::cleanup(true);
     }
 }
 
@@ -105,46 +109,6 @@ const String& WebRequestContext::acceptLanguage()
 {
     MutexLocker lock(acceptLanguageMutex);
     return acceptLanguageWtfString;
-}
-
-void WebRequestContext::removeFileOrDirectory(const char* filename)
-{
-    struct stat filetype;
-    if (stat(filename, &filetype) != 0)
-        return;
-    if (S_ISDIR(filetype.st_mode)) {
-        DIR* directory = opendir(filename);
-        if (directory) {
-            while (struct dirent* entry = readdir(directory)) {
-                if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
-                    continue;
-                std::string entryName(filename);
-                entryName.append("/");
-                entryName.append(entry->d_name);
-                removeFileOrDirectory(entryName.c_str());
-            }
-            closedir(directory);
-            rmdir(filename);
-        }
-        return;
-    }
-    unlink(filename);
-}
-
-bool WebRequestContext::cleanupPrivateBrowsingFiles()
-{
-    // This is called on the UI thread.
-    // TODO: This should be done on a different thread. Moving to the WebKit
-    // thread should be straightforward and safe. See b/3243891.
-    MutexLocker lock(numPrivateBrowsingInstancesMutex);
-
-    // If there are private browsing contexts in use, do nothing.
-    if (numPrivateBrowsingInstances)
-        return false;
-
-    WebCookieJar::cleanup(true);
-    WebCache::cleanup(true);
-    return true;
 }
 
 } // namespace android

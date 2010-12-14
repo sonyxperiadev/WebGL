@@ -38,7 +38,6 @@ namespace android {
 class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
     static WebCache* get(bool isPrivateBrowsing);
-    static void cleanup(bool isPrivateBrowsing);
 
     ~WebCache();
     void clear();
@@ -46,7 +45,7 @@ public:
     net::HttpCache* cache() { return m_cache.get(); }
 
 private:
-    WebCache(const std::string& storageDirectory);
+    WebCache(bool isPrivateBrowsing);
 
     // For clear()
     void doClear();

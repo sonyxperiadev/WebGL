@@ -86,6 +86,7 @@ void HTMLMetaElement::process()
     else if ((equalIgnoringCase(name(), "HandheldFriendly")
             && equalIgnoringCase(m_content, "true") ||
             equalIgnoringCase(name(), "MobileOptimized"))
+            && document()->settings()
             && document()->settings()->viewportWidth() == -1) {
         // fit mobile sites directly in the screen
         document()->settings()->setMetadataSettings("width", "device-width");

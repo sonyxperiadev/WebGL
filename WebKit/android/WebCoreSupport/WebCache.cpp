@@ -55,15 +55,12 @@ static const std::string& rootDirectory()
     return cacheDirectory;
 }
 
-static std::string storageDirectory(bool isPrivateBrowsing)
+static std::string storageDirectory()
 {
-    // TODO: Where is the right place to put the db for private browsing? Should
-    // it be kept in memory?
+    // Private cache is currently in memory only
     static const char* const kDirectory = "/webviewCacheChromium";
-    static const char* const kDirectoryPrivate = "/webviewCacheChromiumPrivate";
-
     std::string storageDirectory = rootDirectory();
-    storageDirectory.append(isPrivateBrowsing ? kDirectoryPrivate : kDirectory);
+    storageDirectory.append(kDirectory);
     return storageDirectory;
 }
 
@@ -79,7 +76,7 @@ WebCache* WebCache::get(bool isPrivateBrowsing)
     MutexLocker lock(instanceMutex);
     scoped_refptr<WebCache>* instancePtr = instance(isPrivateBrowsing);
     if (!instancePtr->get())
-        *instancePtr = new WebCache(storageDirectory(isPrivateBrowsing));
+        *instancePtr = new WebCache(isPrivateBrowsing);
     return instancePtr->get();
 }
 
@@ -90,16 +87,7 @@ WebCache::~WebCache()
     m_hostResolver.leakPtr();
 }
 
-void WebCache::cleanup(bool isPrivateBrowsing)
-{
-    // This is called on the UI thread.
-    MutexLocker lock(instanceMutex);
-    scoped_refptr<WebCache>* instancePtr = instance(isPrivateBrowsing);
-    *instancePtr = 0;
-    WebRequestContext::removeFileOrDirectory(storageDirectory(isPrivateBrowsing).c_str());
-}
-
-WebCache::WebCache(const std::string& storageDirectory)
+WebCache::WebCache(bool isPrivateBrowsing)
     : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
     , m_doneCallback(this, &WebCache::onClearDone)
     , m_isClearInProgress(false)
@@ -108,10 +96,16 @@ WebCache::WebCache(const std::string& storageDirectory)
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
 
     static const int kMaximumCacheSizeBytes = 20 * 1024 * 1024;
-    FilePath directoryPath(storageDirectory.c_str());
-    net::HttpCache::DefaultBackend* backendFactory = new net::HttpCache::DefaultBackend(net::DISK_CACHE, directoryPath, kMaximumCacheSizeBytes, cacheMessageLoopProxy);
-
     m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
+
+    net::HttpCache::BackendFactory* backendFactory;
+    if (isPrivateBrowsing)
+        backendFactory = net::HttpCache::DefaultBackend::InMemory(kMaximumCacheSizeBytes / 2);
+    else {
+        FilePath directoryPath(storageDirectory().c_str());
+        backendFactory = new net::HttpCache::DefaultBackend(net::DISK_CACHE, directoryPath, kMaximumCacheSizeBytes, cacheMessageLoopProxy);
+    }
+
     m_cache = new net::HttpCache(m_hostResolver.get(),
                                  0, // dnsrr_resolver
                                  net::ProxyService::CreateDirect(),

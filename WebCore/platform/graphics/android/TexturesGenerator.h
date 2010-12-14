@@ -40,11 +40,13 @@ using namespace android;
 class TexturesGenerator : public Thread {
 public:
     TexturesGenerator() : Thread()
-        , m_waitForCompletion(false) { }
+        , m_waitForCompletion(false)
+        , m_currentOperation(0) { }
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
     void removeOperationsForPage(TiledPage* page);
+    void removeOperationsForFilter(OperationFilter* filter);
 
     void scheduleOperation(QueuedOperation* operation);
 
@@ -55,8 +57,8 @@ private:
     android::Condition mRequestedOperationsCond;
     android::Mutex m_newRequestLock;
     android::Condition m_newRequestCond;
-    QueuedOperation* m_currentOperation;
     bool m_waitForCompletion;
+    QueuedOperation* m_currentOperation;
 };
 
 } // namespace WebCore
