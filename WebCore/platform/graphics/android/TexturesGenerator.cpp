@@ -73,22 +73,30 @@ void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 
 void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 {
-    mRequestedOperationsLock.lock();
-    typedef Vector<QueuedOperation*>::const_iterator iterator;
-    iterator end = mRequestedOperations.end();
-    for (iterator it = mRequestedOperations.begin(); it != end; ++it) {
-        QueuedOperation* operation = static_cast<QueuedOperation*>(*it);
-        if (operation->page() == page)
-            delete *it;
-    }
-    QueuedOperation* operation = m_currentOperation;
-    if (operation && operation->page() != page)
-        operation = 0;
-    if (operation)
-        m_waitForCompletion = true;
-    mRequestedOperationsLock.unlock();
+    removeOperationsForFilter(new PageFilter(page));
+}
 
-    if (!operation)
+void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
+{
+    mRequestedOperationsLock.lock();
+    for (unsigned int i = 0; i < mRequestedOperations.size();) {
+        QueuedOperation* operation = mRequestedOperations[i];
+        if (filter->check(operation)) {
+            mRequestedOperations.remove(i);
+            delete operation;
+        } else {
+            i++;
+        }
+    }
+
+    QueuedOperation* operation = m_currentOperation;
+    if (operation && filter->check(operation))
+        m_waitForCompletion = true;
+
+    mRequestedOperationsLock.unlock();
+    delete filter;
+
+    if (!m_waitForCompletion)
         return;
 
     // At this point, it means that we are currently painting a operation that
