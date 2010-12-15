@@ -50,11 +50,14 @@ namespace WebCore {
     class Color;
     class FrameView;
     class HTMLAnchorElement;
+    class HTMLElement;
+    class HTMLImageElement;
     class HTMLSelectElement;
     class RenderPart;
     class RenderText;
     class Node;
     class PlatformKeyboardEvent;
+    class QualifiedName;
     class RenderTextControl;
     class ScrollView;
     class TimerBase;
@@ -287,9 +290,9 @@ namespace android {
         // Followings support calls from Java to native WebCore
         //
 
-
         WTF::String retrieveHref(int x, int y);
         WTF::String retrieveAnchorText(int x, int y);
+        WTF::String retrieveImageSource(int x, int y);
         WTF::String requestLabel(WebCore::Frame* , WebCore::Node* );
 
         // If the focus is a textfield (<input>), textarea, or contentEditable,
@@ -610,6 +613,9 @@ namespace android {
         void sendNotifyProgressFinished();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
+        WebCore::HTMLElement* retrieveElement(int x, int y,
+            const WebCore::QualifiedName& );
+        WebCore::HTMLImageElement* retrieveImageElement(int x, int y);
         // below are members responsible for accessibility support
         String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
         String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
