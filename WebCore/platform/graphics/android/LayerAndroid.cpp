@@ -201,12 +201,14 @@ void LayerAndroid::bounds(SkRect* rect) const
     const SkSize& size = this->getSize();
 
     // The returned rect has the translation applied
-    FloatPoint p(0, 0);
+    // FIXME: apply the full transform to the rect,
+    // and fix the text selection accordingly
+    FloatPoint p(pos.fX, pos.fY);
     p = m_transform.mapPoint(p);
     rect->fLeft = p.x();
     rect->fTop = p.y();
     rect->fRight = p.x() + size.width();
-    rect->fBottom = p.y() + size.width();
+    rect->fBottom = p.y() + size.height();
 }
 
 static bool boundsIsUnique(const SkTDArray<SkRect>& region,
