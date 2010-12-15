@@ -32,6 +32,8 @@ namespace android {
 
 // This enum must be kept in sync with WebViewClient.java
 enum WebViewClientError {
+    /** Success */
+    ERROR_OK = 0,
     /** Generic error */
     ERROR_UNKNOWN = -1,
     /** Server or proxy hostname lookup failed */

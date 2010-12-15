@@ -215,6 +215,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mGetFileSize;
     jmethodID   mGetFile;
     jmethodID   mDidReceiveAuthenticationChallenge;
+    jmethodID   mReportSslCertError;
     jmethodID   mDownloadStart;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
@@ -281,6 +282,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
             "(ILjava/lang/String;Ljava/lang/String;Z)V");
+    mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     env->DeleteLocalRef(clazz);
@@ -308,6 +310,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
     LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
+    LOG_ASSERT(mJavaFrame->mReportSslCertError, "Could not find method reportSslCertError");
     LOG_ASSERT(mJavaFrame->mDownloadStart, "Could not find method downloadStart");
 
     mUserAgent = WTF::String();
@@ -859,6 +862,26 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
             mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
     env->DeleteLocalRef(jHost);
     env->DeleteLocalRef(jRealm);
+    checkException(env);
+}
+
+void
+WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+    int jHandle = reinterpret_cast<int>(client);
+
+    int len = cert.length();
+    jbyteArray jCert = env->NewByteArray(len);
+    jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
+    cert.copy(reinterpret_cast<char*>(bytes), len);
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert);
+    env->DeleteLocalRef(jCert);
     checkException(env);
 }
 
@@ -1876,6 +1899,18 @@ static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
     client->cancelAuth();
 }
 
+static void SslCertErrorProceed(JNIEnv *env, jobject obj, int handle)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    client->proceedSslCertError();
+}
+
+static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_error)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    client->cancelSslCertError(cert_error);
+}
+
 #else
 
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
@@ -1886,6 +1921,16 @@ static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring 
 static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
 {
     LOGW("Chromium authentication API called, but libchromium is not available");
+}
+
+static void SslCertErrorProceed(JNIEnv *env, jobject obj, int handle)
+{
+    LOGW("Chromium SSL API called, but libchromium is not available");
+}
+
+static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_error)
+{
+    LOGW("Chromium SSL API called, but libchromium is not available");
 }
 
 #endif // USE(CHROME_NETWORK_STACK)
@@ -1950,6 +1995,10 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) AuthenticationProceed },
     { "nativeAuthenticationCancel", "(I)V",
         (void*) AuthenticationCancel },
+    { "nativeSslCertErrorProceed", "(I)V",
+        (void*) SslCertErrorProceed },
+    { "nativeSslCertErrorCancel", "(II)V",
+        (void*) SslCertErrorCancel },
 };
 
 int registerWebFrame(JNIEnv* env)

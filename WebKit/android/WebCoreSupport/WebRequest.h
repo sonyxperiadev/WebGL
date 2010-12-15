@@ -80,6 +80,8 @@ public:
     void setAuth(const string16& username, const string16& password);
     void cancelAuth();
     void followDeferredRedirect();
+    void proceedSslCertError();
+    void cancelSslCertError(int cert_error);
 
     const std::string& getUrl() const;
     const std::string& getUserAgent() const;

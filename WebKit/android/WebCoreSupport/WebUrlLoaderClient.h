@@ -72,6 +72,8 @@ public:
     void pauseLoad(bool pause) {} // Android method, does nothing for now
     void setAuth(const std::string& username, const std::string& password);
     void cancelAuth();
+    void proceedSslCertError();
+    void cancelSslCertError(int cert_error);
 
     typedef void CallbackFunction(void*);
 
@@ -88,6 +90,7 @@ public:
     void didFail(PassOwnPtr<WebResponse>);
     void willSendRequest(PassOwnPtr<WebResponse>);
     void authRequired(scoped_refptr<net::AuthChallengeInfo>, bool firstTime);
+    void reportSslCertError(int cert_error, net::X509Certificate* cert);
 
     // Handle to the chrome IO thread
     static base::Thread* ioThread();
