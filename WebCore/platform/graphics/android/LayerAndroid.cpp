@@ -255,7 +255,7 @@ protected:
 
     virtual bool onIRectGlyph(const SkIRect& , const SkBounder::GlyphRec& )
     {
-        m_drewText = true;
+        m_drew = m_drewText = true;
         return false;
     }
 
@@ -281,6 +281,8 @@ public:
     FindState(int x, int y)
         : m_x(x)
         , m_y(y)
+        , m_bestX(x)
+        , m_bestY(y)
         , m_best(0)
     {
         m_bitmap.setConfig(SkBitmap::kARGB_8888_Config, TOUCH_SLOP * 2,
@@ -290,6 +292,8 @@ public:
     }
 
     const LayerAndroid* best() const { return m_best; }
+    int bestX() const { return m_bestX; }
+    int bestY() const { return m_bestY; }
 
     bool drew(SkPicture* picture, const SkRect& localBounds) {
         m_findCheck.reset();
@@ -301,7 +305,11 @@ public:
 
     bool drewText() { return m_findCheck.drewText(); }
 
-    void setBest(const LayerAndroid* best) { m_best = best; }
+    void setBest(const LayerAndroid* best) { 
+        m_best = best;
+        m_bestX = m_x;
+        m_bestY = m_y;
+    }
     int x() const { return m_x; }
     int y() const { return m_y; }
 
@@ -313,6 +321,8 @@ public:
 protected:
     int m_x;
     int m_y;
+    int m_bestX;
+    int m_bestY;
     const LayerAndroid* m_best;
     FindCheck m_findCheck;
     SkBitmap m_bitmap;
@@ -340,14 +350,16 @@ void LayerAndroid::findInner(LayerAndroid::FindState& state) const
     state.setBest(this); // set last match (presumably on top)
 }
 
-const LayerAndroid* LayerAndroid::find(int x, int y, SkPicture* root) const
+const LayerAndroid* LayerAndroid::find(int* xPtr, int* yPtr, SkPicture* root) const
 {
-    FindState state(x, y);
+    FindState state(*xPtr, *yPtr);
     SkRect rootBounds;
     rootBounds.setEmpty();
     if (root && state.drew(root, rootBounds) && state.drewText())
         return 0; // use the root picture only if it contains the text
     findInner(state);
+    *xPtr = state.bestX();
+    *yPtr = state.bestY();
     return state.best();
 }
 
