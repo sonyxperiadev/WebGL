@@ -554,6 +554,18 @@ void FrameView::updateCompositingLayers()
     RenderView* view = m_frame->contentRenderer();
     if (!view)
         return;
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    // Enter compositing mode for child frames that have layout dimensions.  The
+    // decision to enable compositing for the RenderView will be done in the
+    // compositor.
+    if (m_frame->ownerRenderer() && (layoutWidth() | layoutHeight()) && !view->usesCompositing()) {
+        ScrollbarMode h,v;
+        scrollbarModes(h, v);
+        if ((h != ScrollbarAlwaysOff && layoutWidth() < contentsWidth()) ||
+            (v != ScrollbarAlwaysOff && layoutHeight() < contentsHeight()))
+            enterCompositingMode();
+    }
+#endif
 
     // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
     view->compositor()->cacheAcceleratedCompositingFlags();
