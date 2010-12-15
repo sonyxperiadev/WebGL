@@ -43,6 +43,7 @@ public:
     void clear();
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
+    net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
 
 private:
     WebCache(bool isPrivateBrowsing);
@@ -54,6 +55,9 @@ private:
 
     OwnPtr<net::HostResolver> m_hostResolver;
     OwnPtr<net::HttpCache> m_cache;
+    // This is owned by the ProxyService, which is owned by the HttpNetworkLayer,
+    // which is owned by the HttpCache, which is owned by this class.
+    net::ProxyConfigServiceAndroid* m_proxyConfigService;
 
     // For clear()
     net::CompletionCallbackImpl<WebCache> m_doomAllEntriesCallback;
