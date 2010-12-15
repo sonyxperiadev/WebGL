@@ -22,6 +22,7 @@
 #include "RefPtr.h"
 #include "SkColor.h"
 #include "SkLayer.h"
+#include "TransformationMatrix.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
@@ -30,7 +31,7 @@
 #define BZERO_DEFINED
 // http://www.opengroup.org/onlinepubs/000095399/functions/bzero.html
 // For maximum portability, it is recommended to replace the function call to bzero() as follows:
-#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#define bzero(b, len) (memset((b), '\0', (len)), (void) 0)
 #endif
 
 class SkBitmapRef;
@@ -48,23 +49,26 @@ struct SkLength {
     enum SkLengthType { Undefined, Auto, Relative, Percent, Fixed, Static, Intrinsic, MinIntrinsic };
     SkLengthType type;
     SkScalar value;
-    SkLength() {
+    SkLength()
+    {
         type = Undefined;
         value = 0;
     }
-    bool defined() const {
+    bool defined() const
+    {
         if (type == Undefined)
             return false;
         return true;
     }
-    float calcFloatValue(float max) const {
+    float calcFloatValue(float max) const
+    {
         switch (type) {
-            case Percent:
-                return (max * value) / 100.0f;
-            case Fixed:
-                return value;
-            default:
-                return value;
+        case Percent:
+            return (max * value) / 100.0f;
+        case Fixed:
+            return value;
+        default:
+            return value;
         }
     }
 };
@@ -83,27 +87,16 @@ public:
 
     static int instancesCount();
 
-    void setTranslation(SkScalar x, SkScalar y) { m_translation.set(x, y); }
-    void setRotation(SkScalar a) { m_angleTransform = a; m_doRotation = true; }
-    void setScale(SkScalar x, SkScalar y) { m_scale.set(x, y); }
-    SkPoint translation() const { return m_translation; }
-    SkRect  bounds() const {
-        const SkPoint& pos = this->getPosition();
-        const SkSize& size = this->getSize();
-        SkRect rect;
-        rect.set(pos.fX, pos.fY,
-                 pos.fX + size.width(),
-                 pos.fY + size.height());
-        rect.offset(m_translation.fX, m_translation.fY);
-        return rect;
-    }
-    void setFixedPosition(SkLength left,   // CSS left property
-                          SkLength top,    // CSS top property
-                          SkLength right,  // CSS right property
+    void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
+    FloatPoint translation() const;
+    SkRect bounds() const;
+    void setFixedPosition(SkLength left, // CSS left property
+                          SkLength top, // CSS top property
+                          SkLength right, // CSS right property
                           SkLength bottom, // CSS bottom property
-                          SkLength marginLeft,   // CSS margin-left property
-                          SkLength marginTop,    // CSS margin-top property
-                          SkLength marginRight,  // CSS margin-right property
+                          SkLength marginLeft, // CSS margin-left property
+                          SkLength marginTop, // CSS margin-top property
+                          SkLength marginRight, // CSS margin-right property
                           SkLength marginBottom, // CSS margin-bottom property
                           SkRect viewRect) { // view rect, can be smaller than the layer's
         m_fixedLeft = left;
@@ -121,7 +114,8 @@ public:
 
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
-    void setMasksToBounds(bool masksToBounds) {
+    void setMasksToBounds(bool masksToBounds)
+    {
         m_haveClip = masksToBounds;
     }
     bool masksToBounds() const { return m_haveClip; }
@@ -164,14 +158,16 @@ public:
 
     void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int* xPtr, int* yPtr, SkPicture* root) const;
-    const LayerAndroid* findById(int uniqueID) const {
+    const LayerAndroid* findById(int uniqueID) const
+    {
         return const_cast<LayerAndroid*>(this)->findById(uniqueID);
     }
     LayerAndroid* findById(int uniqueID);
-    LayerAndroid* getChild(int index) const {
+    LayerAndroid* getChild(int index) const
+    {
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
-    void setExtra(DrawExtra* extra);  // does not assign ownership
+    void setExtra(DrawExtra* extra); // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
     bool isFixed() { return m_isFixed; }
 
@@ -182,7 +178,7 @@ public:
     */
     void setContentsImage(SkBitmapRef* img);
 
-    void bounds(SkRect* ) const;
+    void bounds(SkRect*) const;
 
     virtual bool contentIsScrollable() const { return false; }
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
@@ -196,14 +192,13 @@ private:
     friend class CachedLayer::Debug; // debugging access only
 #endif
 
-    void findInner(FindState& ) const;
+    void findInner(FindState&) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
     bool m_isRootLayer;
     bool m_drawsContent;
     bool m_haveClip;
-    bool m_doRotation;
     bool m_isFixed;
     bool m_backgroundColorSet;
 
@@ -215,11 +210,10 @@ private:
     SkLength m_fixedMarginTop;
     SkLength m_fixedMarginRight;
     SkLength m_fixedMarginBottom;
-    SkRect   m_fixedRect;
+    SkRect m_fixedRect;
 
-    SkPoint m_translation;
-    SkPoint m_scale;
-    SkScalar m_angleTransform;
+    TransformationMatrix m_transform;
+
     SkColor m_backgroundColor;
 
     // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
@@ -265,4 +259,4 @@ private:
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-#endif  // LayerAndroid_h
+#endif // LayerAndroid_h

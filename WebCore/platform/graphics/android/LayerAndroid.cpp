@@ -49,16 +49,12 @@ class OpacityDrawFilter : public SkDrawFilter {
 LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveClip(false),
-    m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(0),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId)
 {
-    m_angleTransform = 0;
-    m_translation.set(0, 0);
-    m_scale.set(1, 1);
     m_backgroundColor = 0;
 
     gDebugLayerAndroidInstances++;
@@ -70,14 +66,11 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId)
 {
-    m_doRotation = layer.m_doRotation;
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
     m_contentsImage->safeRef();
 
-    m_angleTransform = layer.m_angleTransform;
-    m_translation = layer.m_translation;
-    m_scale = layer.m_scale;
+    m_transform = layer.m_transform;
     m_backgroundColor = layer.m_backgroundColor;
 
     m_fixedLeft = layer.m_fixedLeft;
@@ -106,16 +99,12 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_isRootLayer(true),
     m_haveClip(false),
-    m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(picture),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(-1)
 {
-    m_angleTransform = 0;
-    m_translation.set(0, 0);
-    m_scale.set(1, 1);
     m_backgroundColor = 0;
     SkSafeRef(m_recordingPicture);
     gDebugLayerAndroidInstances++;
@@ -159,9 +148,8 @@ bool LayerAndroid::evaluateAnimations(double time) const
     for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
         gDebugNbAnims++;
         LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
-        if ((it->second)->evaluate(currentLayer, time)) {
+        if ((it->second)->evaluate(currentLayer, time))
             hasRunningAnimations = true;
-        }
     }
 
     return hasRunningAnimations;
@@ -192,14 +180,33 @@ void LayerAndroid::setBackgroundColor(SkColor color)
 
 static int gDebugChildLevel;
 
+FloatPoint LayerAndroid::translation() const
+{
+    TransformationMatrix::DecomposedType tDecomp;
+    m_transform.decompose(tDecomp);
+    FloatPoint p(tDecomp.translateX, tDecomp.translateY);
+    return p;
+}
+
+SkRect LayerAndroid::bounds() const
+{
+    SkRect rect;
+    bounds(&rect);
+    return rect;
+}
+
 void LayerAndroid::bounds(SkRect* rect) const
 {
     const SkPoint& pos = this->getPosition();
     const SkSize& size = this->getSize();
-    rect->fLeft = pos.fX + m_translation.fX;
-    rect->fTop = pos.fY + m_translation.fY;
-    rect->fRight = rect->fLeft + size.width();
-    rect->fBottom = rect->fTop + size.height();
+
+    // The returned rect has the translation applied
+    FloatPoint p(0, 0);
+    p = m_transform.mapPoint(p);
+    rect->fLeft = p.x();
+    rect->fTop = p.y();
+    rect->fRight = p.x() + size.width();
+    rect->fBottom = p.y() + size.width();
 }
 
 static bool boundsIsUnique(const SkTDArray<SkRect>& region,
@@ -295,7 +302,8 @@ public:
     int bestX() const { return m_bestX; }
     int bestY() const { return m_bestY; }
 
-    bool drew(SkPicture* picture, const SkRect& localBounds) {
+    bool drew(SkPicture* picture, const SkRect& localBounds)
+    {
         m_findCheck.reset();
         SkScalar localX = SkIntToScalar(m_x - TOUCH_SLOP) - localBounds.fLeft;
         SkScalar localY = SkIntToScalar(m_y - TOUCH_SLOP) - localBounds.fTop;
@@ -313,7 +321,8 @@ public:
     int x() const { return m_x; }
     int y() const { return m_y; }
 
-    void setLocation(int x, int y) {
+    void setLocation(int x, int y)
+    {
         m_x = x;
         m_y = y;
     }
@@ -395,12 +404,12 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
     }
 
     int count = this->countChildren();
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++)
         this->getChild(i)->updateFixedLayersPositions(viewport);
-    }
 }
 
-void LayerAndroid::updatePositions() {
+void LayerAndroid::updatePositions()
+{
     // apply the viewport to us
     SkMatrix matrix;
     if (!m_isFixed) {
@@ -408,26 +417,33 @@ void LayerAndroid::updatePositions() {
         //
         // TODO: this should happen in the caller, and we should remove these
         // fields from our subclass
-        matrix.setTranslate(m_translation.fX, m_translation.fY);
-        if (m_doRotation) {
-            matrix.preRotate(m_angleTransform);
-        }
-        matrix.preScale(m_scale.fX, m_scale.fY);
+        TransformationMatrix::DecomposedType tDecomp;
+        m_transform.decompose(tDecomp);
+        matrix.reset();
+        matrix.setScaleX(tDecomp.scaleX);
+        matrix.setScaleY(tDecomp.scaleY);
+        matrix.setSkewX(tDecomp.skewXZ);
+        matrix.setSkewY(tDecomp.skewYZ);
+        matrix.setTranslateX(tDecomp.translateX);
+        matrix.setTranslateY(tDecomp.translateY);
+        matrix.setPerspX(tDecomp.perspectiveX);
+        matrix.setPerspY(tDecomp.perspectiveY);
         this->setMatrix(matrix);
     }
 
     // now apply it to our children
     int count = this->countChildren();
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++)
         this->getChild(i)->updatePositions();
-    }
 }
 
-void LayerAndroid::setContentsImage(SkBitmapRef* img) {
+void LayerAndroid::setContentsImage(SkBitmapRef* img)
+{
     SkRefCnt_SafeAssign(m_contentsImage, img);
 }
 
-void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
+{
     if (m_haveClip) {
         SkRect r;
         r.set(0, 0, getSize().width(), getSize().height());
@@ -620,7 +636,8 @@ void writeRect(FILE* file, int indentLevel, const char* str, SkRect rect)
 
 void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
 {
-    if (!length.defined()) return;
+    if (!length.defined())
+        return;
     writeIndent(file, indentLevel);
     fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
 }
@@ -638,12 +655,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());
     writePoint(file, indentLevel + 1, "position", getPosition());
-    writePoint(file, indentLevel + 1, "translation", m_translation);
     writePoint(file, indentLevel + 1, "anchor", getAnchorPoint());
-    writePoint(file, indentLevel + 1, "scale", m_scale);
-
-    if (m_doRotation)
-        writeFloatVal(file, indentLevel + 1, "angle", m_angleTransform);
 
     if (m_isFixed) {
         writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
