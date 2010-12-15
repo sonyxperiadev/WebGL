@@ -5,6 +5,7 @@
 
 #include "AndroidAnimation.h"
 #include "DrawExtra.h"
+#include "GLUtils.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
 #include "SkBounder.h"
@@ -419,17 +420,8 @@ void LayerAndroid::updatePositions()
         //
         // TODO: this should happen in the caller, and we should remove these
         // fields from our subclass
-        TransformationMatrix::DecomposedType tDecomp;
-        m_transform.decompose(tDecomp);
         matrix.reset();
-        matrix.setScaleX(tDecomp.scaleX);
-        matrix.setScaleY(tDecomp.scaleY);
-        matrix.setSkewX(tDecomp.skewXZ);
-        matrix.setSkewY(tDecomp.skewYZ);
-        matrix.setTranslateX(tDecomp.translateX);
-        matrix.setTranslateY(tDecomp.translateY);
-        matrix.setPerspX(tDecomp.perspectiveX);
-        matrix.setPerspY(tDecomp.perspectiveY);
+        GLUtils::toSkMatrix(matrix, m_transform);
         this->setMatrix(matrix);
     }
 
