@@ -561,6 +561,14 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
 
 void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
+    for (unsigned int i = 0; i < m_children.size(); i++) {
+        GraphicsLayer* layer = m_children[i];
+        if (layer) {
+           FloatRect childrenRect = m_transform.mapRect(rect);
+           layer->setNeedsDisplayInRect(childrenRect);
+        }
+    }
+
     if (!m_haveImage && !drawsContent()) {
         LOG("(%x) setNeedsDisplay(%.2f,%.2f,%.2f,%.2f) doesn't have content, bypass...",
             this, rect.x(), rect.y(), rect.width(), rect.height());
@@ -577,8 +585,8 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
     }
 
 #ifdef LAYER_DEBUG
-    LOG("(%x) setNeedsDisplayInRect(%d) - (%.2f, %.2f, %.2f, %.2f)", this,
-        m_needsRepaint, rect.x(), rect.y(), rect.width(), rect.height());
+    LOG("(%x) layer %d setNeedsDisplayInRect(%d) - (%.2f, %.2f, %.2f, %.2f)", this,
+        m_contentLayer->uniqueId(), m_needsRepaint, rect.x(), rect.y(), rect.width(), rect.height());
 #endif
 
     if (addInval) {
