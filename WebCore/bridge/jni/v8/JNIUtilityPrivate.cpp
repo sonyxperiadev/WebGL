@@ -64,7 +64,11 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                 break;
             }
 
-            jsize length = static_cast<jsize>(NPVARIANT_TO_INT32(npvLength));
+            jsize length = 0;
+            if (NPVARIANT_IS_INT32(npvLength))
+                length = static_cast<jsize>(NPVARIANT_TO_INT32(npvLength));
+            else if (NPVARIANT_IS_DOUBLE(npvLength))
+                length = static_cast<jsize>(NPVARIANT_TO_DOUBLE(npvLength));
 
             if (!strcmp(javaClassName, "[Ljava.lang.String;")) {
                 // Match JSC behavior by only allowing Object arrays if they are Strings.
@@ -87,10 +91,13 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    jbyte bVal = 0;
                     if (NPVARIANT_IS_INT32(npvValue)) {
-                        jbyte bVal = static_cast<jbyte>(NPVARIANT_TO_INT32(npvValue));
-                        env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
+                        bVal = static_cast<jbyte>(NPVARIANT_TO_INT32(npvValue));
+                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        bVal = static_cast<jbyte>(NPVARIANT_TO_DOUBLE(npvValue));
                     }
+                    env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
                 }
              } else if (!strcmp(javaClassName, "[C")) {
                 // array of chars
@@ -139,10 +146,13 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    jint iVal = 0;
                     if (NPVARIANT_IS_INT32(npvValue)) {
-                        jint iVal = NPVARIANT_TO_INT32(npvValue);
-                        env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
+                        iVal = NPVARIANT_TO_INT32(npvValue);
+                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        iVal = static_cast<jint>(NPVARIANT_TO_DOUBLE(npvValue));
                     }
+                    env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
                 }
              } else if (!strcmp(javaClassName, "[J")) {
                 // array of longs
@@ -151,10 +161,13 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    jlong jVal = 0;
                     if (NPVARIANT_IS_INT32(npvValue)) {
-                        jlong jVal = static_cast<jlong>(NPVARIANT_TO_INT32(npvValue));
-                        env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
+                        jVal = static_cast<jlong>(NPVARIANT_TO_INT32(npvValue));
+                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        jVal = static_cast<jlong>(NPVARIANT_TO_DOUBLE(npvValue));
                     }
+                    env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
                 }
              } else if (!strcmp(javaClassName, "[S")) {
                 // array of shorts
@@ -163,10 +176,13 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    jshort sVal = 0;
                     if (NPVARIANT_IS_INT32(npvValue)) {
-                        jshort sVal = static_cast<jshort>(NPVARIANT_TO_INT32(npvValue));
-                        env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
+                        sVal = static_cast<jshort>(NPVARIANT_TO_INT32(npvValue));
+                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        sVal = static_cast<jshort>(NPVARIANT_TO_DOUBLE(npvValue));
                     }
+                    env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
                 }
              } else if (!strcmp(javaClassName, "[Z")) {
                 // array of booleans
@@ -274,7 +290,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case byte_type:
         {
             if (type == NPVariantType_Int32)
-                result.b = static_cast<char>(NPVARIANT_TO_INT32(value));
+                result.b = static_cast<jbyte>(NPVARIANT_TO_INT32(value));
+            else if (type == NPVariantType_Double)
+                result.b = static_cast<jbyte>(NPVARIANT_TO_DOUBLE(value));
             else
                 memset(&result, 0, sizeof(jvalue));
         }
@@ -302,6 +320,8 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
         {
             if (type == NPVariantType_Int32)
                 result.s = static_cast<jshort>(NPVARIANT_TO_INT32(value));
+            else if (type == NPVariantType_Double)
+                result.s = static_cast<jshort>(NPVARIANT_TO_DOUBLE(value));
             else
                 memset(&result, 0, sizeof(jvalue));
         }
@@ -311,6 +331,8 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
         {
             if (type == NPVariantType_Int32)
                 result.i = static_cast<jint>(NPVARIANT_TO_INT32(value));
+            else if (type == NPVariantType_Double)
+                result.i = static_cast<jint>(NPVARIANT_TO_DOUBLE(value));
             else
                 memset(&result, 0, sizeof(jvalue));
         }
