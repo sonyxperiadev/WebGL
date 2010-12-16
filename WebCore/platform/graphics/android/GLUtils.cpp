@@ -46,22 +46,34 @@ using namespace android;
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void GLUtils::toGLMatrix(GLfloat* flattened, const TransformationMatrix& m) {
-    flattened[0] = m.m11();
-    flattened[1] = m.m12();
+    flattened[0] = m.m11(); // scaleX
+    flattened[1] = m.m12(); // skewY
     flattened[2] = m.m13();
-    flattened[3] = m.m14();
-    flattened[4] = m.m21();
-    flattened[5] = m.m22();
+    flattened[3] = m.m14(); // persp0
+    flattened[4] = m.m21(); // skewX
+    flattened[5] = m.m22(); // scaleY
     flattened[6] = m.m23();
-    flattened[7] = m.m24();
+    flattened[7] = m.m24(); // persp1
     flattened[8] = m.m31();
     flattened[9] = m.m32();
     flattened[10] = m.m33();
     flattened[11] = m.m34();
-    flattened[12] = m.m41();
-    flattened[13] = m.m42();
+    flattened[12] = m.m41(); // transX
+    flattened[13] = m.m42(); // transY
     flattened[14] = m.m43();
-    flattened[15] = m.m44();
+    flattened[15] = m.m44(); // persp2
+}
+
+void GLUtils::toSkMatrix(SkMatrix& matrix, const TransformationMatrix& m) {
+    matrix[0] = m.m11(); // scaleX
+    matrix[1] = m.m21(); // skewX
+    matrix[2] = m.m41(); // transX
+    matrix[3] = m.m12(); // skewY
+    matrix[4] = m.m22(); // scaleY
+    matrix[5] = m.m42(); // transY
+    matrix[6] = m.m14(); // persp0
+    matrix[7] = m.m24(); // persp1
+    matrix[8] = m.m44(); // persp2
 }
 
 void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,

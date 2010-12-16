@@ -224,6 +224,25 @@ void WebUrlLoaderClient::cancelAuth()
     thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancelAuth));
 }
 
+void WebUrlLoaderClient::proceedSslCertError()
+{
+    base::Thread* thread = ioThread();
+    if (!thread) {
+        return;
+    }
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::proceedSslCertError));
+}
+
+void WebUrlLoaderClient::cancelSslCertError(int cert_error)
+{
+    base::Thread* thread = ioThread();
+    if (!thread) {
+        return;
+    }
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancelSslCertError, cert_error));
+}
+
+
 void WebUrlLoaderClient::finish()
 {
     m_finished = true;
@@ -347,6 +366,14 @@ void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> auth
     std::string realm = base::SysWideToUTF8(authChallengeInfo->realm);
 
     m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, firstTime);
+}
+
+void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate* cert)
+{
+    if (!isActive()) return;
+    std::vector<std::string> chain_bytes;
+    cert->GetChainDEREncodedBytes(&chain_bytes);
+    m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0]);
 }
 
 } // namespace android

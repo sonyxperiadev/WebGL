@@ -1330,7 +1330,8 @@ void WebViewCore::dumpNavTree()
 #endif
 }
 
-WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(int x, int y)
+HTMLElement* WebViewCore::retrieveElement(int x, int y,
+    const QualifiedName& tagName)
 {
     HitTestResult hitTestResult = m_mainFrame->eventHandler()
         ->hitTestResultAtPoint(IntPoint(x, y), false, false,
@@ -1347,14 +1348,26 @@ WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(int x, int y)
     }
     Node* node = hitTestResult.innerNode();
     Node* element = node;
-    while (element && !element->isElementNode())
+    while (element && (!element->isElementNode()
+        || !element->hasTagName(tagName))) {
         element = element->parentNode();
+    }
     DBG_NAV_LOGD("node=%p element=%p x=%d y=%d nodeName=%s tagName=%s", node,
         element, x, y, node->nodeName().utf8().data(),
-        ((Element*) element)->tagName().utf8().data());
-    if (!element->hasTagName(WebCore::HTMLNames::aTag))
-        return 0;
-    return static_cast<WebCore::HTMLAnchorElement*>(element);
+        element ? ((Element*) element)->tagName().utf8().data() : "<none>");
+    return static_cast<WebCore::HTMLElement*>(element);
+}
+
+HTMLAnchorElement* WebViewCore::retrieveAnchorElement(int x, int y)
+{
+    return static_cast<HTMLAnchorElement*>
+        (retrieveElement(x, y, HTMLNames::aTag));
+}
+
+HTMLImageElement* WebViewCore::retrieveImageElement(int x, int y)
+{
+    return static_cast<HTMLImageElement*>
+        (retrieveElement(x, y, HTMLNames::imgTag));
 }
 
 WTF::String WebViewCore::retrieveHref(int x, int y)
@@ -1367,6 +1380,12 @@ WTF::String WebViewCore::retrieveAnchorText(int x, int y)
 {
     WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(x, y);
     return anchor ? anchor->text() : WTF::String();
+}
+
+WTF::String WebViewCore::retrieveImageSource(int x, int y)
+{
+    HTMLImageElement* image = retrieveImageElement(x, y);
+    return image ? image->src().string() : WTF::String();
 }
 
 WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
@@ -3714,6 +3733,11 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
     return 0;
 }
 
+static jstring RetrieveImageSource(JNIEnv *env, jobject obj, jint x, jint y)
+{
+    WTF::String result = GET_NATIVE_VIEW(env, obj)->retrieveImageSource(x, y);
+    return !result.isEmpty() ? WtfStringToJstring(env, result) : 0;
+}
 
 static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
 {
@@ -4100,6 +4124,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RetrieveHref },
     { "nativeRetrieveAnchorText", "(II)Ljava/lang/String;",
         (void*) RetrieveAnchorText },
+    { "nativeRetrieveImageSource", "(II)Ljava/lang/String;",
+        (void*) RetrieveImageSource },
     { "nativeUpdateFrameCache", "()V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",

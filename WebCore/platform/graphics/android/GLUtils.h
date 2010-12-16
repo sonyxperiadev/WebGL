@@ -33,6 +33,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include "SkBitmap.h"
+#include "SkMatrix.h"
 #include "TransformationMatrix.h"
 
 namespace WebCore {
@@ -42,6 +43,7 @@ class GLUtils {
 public:
    // Matrix utilities
    static void toGLMatrix(GLfloat* flattened, const TransformationMatrix& matrix);
+   static void toSkMatrix(SkMatrix& skmatrix, const TransformationMatrix& matrix);
    static void setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,
                                      float right, float bottom, float nearZ, float farZ);
 

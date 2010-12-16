@@ -26,6 +26,7 @@
 #include "LayerAndroid.h"
 #include "RefPtr.h"
 #include "Timer.h"
+#include "TransformOperation.h"
 #include "Vector.h"
 
 namespace WebCore {
@@ -42,7 +43,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     virtual PassRefPtr<AndroidAnimation> copy() = 0;
     float currentProgress(double time);
     bool checkIterationsAndProgress(double time, float* finalProgress);
-    virtual void swapDirection() = 0;
+    virtual void swapDirection() { m_currentDirection = !m_currentDirection; }
     virtual bool evaluate(LayerAndroid* layer, double time) = 0;
     static long instancesCount();
     void setName(const String& name) { m_name = name; }
@@ -55,6 +56,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     int m_iterationCount;
     int m_currentIteration;
     int m_direction;
+    bool m_currentDirection;
     RefPtr<TimingFunction> m_timingFunction;
     String m_name;
 };
@@ -71,7 +73,6 @@ class AndroidOpacityAnimation : public AndroidAnimation {
     AndroidOpacityAnimation(AndroidOpacityAnimation* anim);
     virtual PassRefPtr<AndroidAnimation> copy();
 
-    virtual void swapDirection();
     virtual bool evaluate(LayerAndroid* layer, double time);
 
   private:
@@ -83,31 +84,19 @@ class AndroidTransformAnimation : public AndroidAnimation {
   public:
     static PassRefPtr<AndroidTransformAnimation> create(
                                                      const Animation* animation,
+                                                     KeyframeValueList* operations,
                                                      double beginTime);
-    AndroidTransformAnimation(const Animation* animation, double beginTime);
+    AndroidTransformAnimation(const Animation* animation,
+                              KeyframeValueList* operations,
+                              double beginTime);
 
     AndroidTransformAnimation(AndroidTransformAnimation* anim);
     virtual PassRefPtr<AndroidAnimation> copy();
 
-    void setOriginalPosition(FloatPoint position) { m_position = position; }
-    void setRotation(float fA, float tA);
-    void setTranslation(float fX, float fY, float fZ,
-                        float tX, float tY, float tZ);
-    void setScale(float fX, float fY, float fZ,
-                  float tX, float tY, float tZ);
-    virtual void swapDirection();
     virtual bool evaluate(LayerAndroid* layer, double time);
 
   private:
-    bool m_doTranslation;
-    bool m_doScaling;
-    bool m_doRotation;
-    FloatPoint m_position;
-    float m_fromX, m_fromY, m_fromZ;
-    float m_toX, m_toY, m_toZ;
-    float m_fromAngle, m_toAngle;
-    float m_fromScaleX, m_fromScaleY, m_fromScaleZ;
-    float m_toScaleX, m_toScaleY, m_toScaleZ;
+    KeyframeValueList* m_operations;
 };
 
 } // namespace WebCore

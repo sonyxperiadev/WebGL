@@ -24,9 +24,26 @@
 
 #include "Timer.h"
 #include "TimingFunction.h"
+#include "TranslateTransformOperation.h"
 #include "UnitBezier.h"
 
 #include <wtf/CurrentTime.h>
+
+#ifdef DEBUG
+
+#include <cutils/log.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "AndroidAnimation", __VA_ARGS__)
+
+#else
+
+#undef XLOG
+#define XLOG(...)
+
+#endif // DEBUG
+
 
 namespace WebCore {
 
@@ -38,13 +55,14 @@ long AndroidAnimation::instancesCount()
 }
 
 AndroidAnimation::AndroidAnimation(const Animation* animation,
-                                   double beginTime) :
-    m_beginTime(beginTime),
-    m_duration(animation->duration()),
-    m_iterationCount(animation->iterationCount()),
-    m_currentIteration(0),
-    m_direction(animation->direction()),
-    m_timingFunction(animation->timingFunction())
+                                   double beginTime)
+    : m_beginTime(beginTime)
+    , m_duration(animation->duration())
+    , m_iterationCount(animation->iterationCount())
+    , m_currentIteration(0)
+    , m_direction(animation->direction())
+    , m_currentDirection(false)
+    , m_timingFunction(animation->timingFunction())
 {
     ASSERT(m_timingFunction);
 
@@ -54,13 +72,14 @@ AndroidAnimation::AndroidAnimation(const Animation* animation,
     gDebugAndroidAnimationInstances++;
 }
 
-AndroidAnimation::AndroidAnimation(AndroidAnimation* anim) :
-    m_beginTime(anim->m_beginTime),
-    m_duration(anim->m_duration),
-    m_iterationCount(anim->m_iterationCount),
-    m_currentIteration(0),
-    m_direction(anim->m_direction),
-    m_timingFunction(anim->m_timingFunction)
+AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
+    : m_beginTime(anim->m_beginTime)
+    , m_duration(anim->m_duration)
+    , m_iterationCount(anim->m_iterationCount)
+    , m_currentIteration(0)
+    , m_direction(anim->m_direction)
+    , m_currentDirection(false)
+    , m_timingFunction(anim->m_timingFunction)
 {
     gDebugAndroidAnimationInstances++;
 }
@@ -129,28 +148,22 @@ PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
 AndroidOpacityAnimation::AndroidOpacityAnimation(float fromValue, float toValue,
                                                  const Animation* animation,
                                                  double beginTime)
-    : AndroidAnimation(animation, beginTime),
-      m_fromValue(fromValue), m_toValue(toValue)
+    : AndroidAnimation(animation, beginTime)
+    , m_fromValue(fromValue)
+    , m_toValue(toValue)
 {
 }
 
 AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
-    : AndroidAnimation(anim),
-    m_fromValue(anim->m_fromValue),
-    m_toValue(anim->m_toValue)
+    : AndroidAnimation(anim)
+    , m_fromValue(anim->m_fromValue)
+    , m_toValue(anim->m_toValue)
 {
 }
 
 PassRefPtr<AndroidAnimation> AndroidOpacityAnimation::copy()
 {
     return adoptRef(new AndroidOpacityAnimation(this));
-}
-
-void AndroidOpacityAnimation::swapDirection()
-{
-    float v = m_toValue;
-    m_toValue = m_fromValue;
-    m_fromValue = m_toValue;
 }
 
 bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
@@ -169,96 +182,29 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
 
 PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(
                                                      const Animation* animation,
+                                                     KeyframeValueList* operations,
                                                      double beginTime)
 {
-    return adoptRef(new AndroidTransformAnimation(animation, beginTime));
+    return adoptRef(new AndroidTransformAnimation(animation, operations, beginTime));
 }
 
 AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
+                                                     KeyframeValueList* operations,
                                                      double beginTime)
-    : AndroidAnimation(animation, beginTime),
-    m_doTranslation(false),
-    m_doScaling(false),
-    m_doRotation(false)
+    : AndroidAnimation(animation, beginTime)
+    , m_operations(operations)
 {
 }
 
 AndroidTransformAnimation::AndroidTransformAnimation(AndroidTransformAnimation* anim)
-    : AndroidAnimation(anim),
-    m_doTranslation(anim->m_doTranslation),
-    m_doScaling(anim->m_doScaling),
-    m_doRotation(anim->m_doRotation),
-    m_position(anim->m_position),
-    m_fromX(anim->m_fromX), m_fromY(anim->m_fromY), m_fromZ(anim->m_fromZ),
-    m_toX(anim->m_toX), m_toY(anim->m_toY), m_toZ(anim->m_toZ),
-    m_fromAngle(anim->m_fromAngle), m_toAngle(anim->m_toAngle),
-    m_fromScaleX(anim->m_fromScaleX), m_fromScaleY(anim->m_fromScaleY), m_fromScaleZ(anim->m_fromScaleZ),
-    m_toScaleX(anim->m_toScaleX), m_toScaleY(anim->m_toScaleY), m_toScaleZ(anim->m_toScaleZ)
+    : AndroidAnimation(anim)
+    , m_operations(anim->m_operations)
 {
 }
 
 PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
 {
     return adoptRef(new AndroidTransformAnimation(this));
-}
-
-void AndroidTransformAnimation::setRotation(float fA, float tA)
-{
-    m_fromAngle = fA;
-    m_toAngle = tA;
-    m_doRotation = true;
-}
-
-void AndroidTransformAnimation::setTranslation(float fX, float fY, float fZ,
-    float tX, float tY, float tZ)
-{
-    m_fromX = fX;
-    m_fromY = fY;
-    m_fromZ = fZ;
-    m_toX = tX;
-    m_toY = tY;
-    m_toZ = tZ;
-    m_doTranslation = true;
-}
-
-void AndroidTransformAnimation::setScale(float fX, float fY, float fZ,
-                                         float tX, float tY, float tZ)
-{
-    m_fromScaleX = fX;
-    m_fromScaleY = fY;
-    m_fromScaleZ = fZ;
-    m_toScaleX   = tX;
-    m_toScaleY   = tY;
-    m_toScaleZ   = tZ;
-    m_doScaling = true;
-}
-
-void AndroidTransformAnimation::swapDirection()
-{
-    if (m_doTranslation) {
-        float tx = m_toX;
-        m_toX = m_fromX;
-        m_fromX = tx;
-        float ty = m_toY;
-        m_toY = m_fromY;
-        m_fromY = ty;
-        float tz = m_toZ;
-        m_toZ = m_fromZ;
-        m_fromZ = tz;
-    }
-    if (m_doScaling) {
-        float sx = m_toScaleX;
-        m_toScaleX = m_fromScaleX;
-        m_fromScaleX = sx;
-        float sy = m_toScaleY;
-        m_toScaleY = m_fromScaleY;
-        m_fromScaleY = sy;
-    }
-    if (m_doRotation) {
-        float a = m_toAngle;
-        m_toAngle = m_fromAngle;
-        m_fromAngle = a;
-    }
 }
 
 bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
@@ -270,22 +216,88 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
     if (progress < 0) // we still want to be evaluated until we get progress > 0
         return true;
 
-    float x = m_fromX + (m_toX - m_fromX) * progress;
-    float y = m_fromY + (m_toY - m_fromY) * progress;
-    float z = m_fromZ + (m_toZ - m_fromZ) * progress;
-    float sx = m_fromScaleX + (m_toScaleX - m_fromScaleX) * progress;
-    float sy = m_fromScaleY + (m_toScaleY - m_fromScaleY) * progress;
-    float sz = m_fromScaleZ + (m_toScaleZ - m_fromScaleZ) * progress;
-    float a = m_fromAngle + (m_toAngle - m_fromAngle) * progress;
+    IntSize size(layer->getSize().width(), layer->getSize().height());
+    TransformationMatrix matrix;
+    XLOG("Evaluate transforms animations, %d operations, progress %.2f for layer %d (%d, %d)"
+         , m_operations->size(), progress, layer->uniqueId(), size.width(), size.height());
 
-    if (m_doTranslation)
-        layer->setTranslation(x, y);
+    if (!m_operations->size())
+        return true;
 
-    if (m_doScaling)
-        layer->setScale(sx, sy);
+    // First, we need to get the from and to values
 
-    if (m_doRotation)
-        layer->setRotation(a);
+    TransformAnimationValue* fromValue = 0;
+    TransformAnimationValue* toValue = 0;
+
+    float distance = 0;
+    unsigned int foundAt = 0;
+    for (unsigned int i = 0; i < m_operations->size(); i++) {
+        TransformAnimationValue* value = (TransformAnimationValue*) m_operations->at(i);
+        TransformOperations* values = (TransformOperations*) value->value();
+        float key = value->keyTime();
+        float d = fabs(progress - key);
+        XLOG("[%d] Key %.2f, %d values", i, key, values->size());
+        if (!fromValue || (d < distance && i + 1 < m_operations->size())) {
+            fromValue = value;
+            distance = d;
+            foundAt = i;
+        }
+    }
+
+    if (foundAt + 1 < m_operations->size())
+        toValue = (TransformAnimationValue*) m_operations->at(foundAt + 1);
+    else
+        toValue = fromValue;
+
+    XLOG("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
+         layer->uniqueId(),
+         fromValue, fromValue->keyTime(),
+         toValue, toValue->keyTime(), progress);
+
+    // We now have the correct two values to work with, let's compute the
+    // progress value
+
+    float delta = toValue->keyTime() - fromValue->keyTime();
+    float rprogress = (progress - fromValue->keyTime()) / delta;
+    XLOG("We picked keys %.2f to %.2f for progress %.2f, real progress %.2f",
+         fromValue->keyTime(), toValue->keyTime(), progress, rprogress);
+    progress = rprogress;
+
+
+    // With both values and the progress, we also need to check out that
+    // the operations are compatible (i.e. we are animating the same number
+    // of values; if not we do a matrix blend)
+
+    TransformationMatrix transformMatrix;
+    bool valid = true;
+    unsigned int fromSize = fromValue->value()->size();
+    if (fromSize) {
+        if (toValue->value()->size() != fromSize)
+            valid = false;
+        else {
+            for (unsigned int j = 0; j < fromSize && valid; j++) {
+                if (!fromValue->value()->operations()[j]->isSameType(
+                    *toValue->value()->operations()[j]))
+                    valid = false;
+            }
+        }
+    }
+
+    if (valid) {
+        for (size_t i = 0; i < toValue->value()->size(); ++i)
+            toValue->value()->operations()[i]->blend(fromValue->value()->at(i),
+                                                     progress)->apply(transformMatrix, size);
+    } else {
+        TransformationMatrix source;
+
+        fromValue->value()->apply(size, source);
+        toValue->value()->apply(size, transformMatrix);
+
+        transformMatrix.blend(source, progress);
+    }
+
+    // Set the final transform on the layer
+    layer->setTransform(transformMatrix);
 
     return true;
 }

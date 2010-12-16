@@ -115,6 +115,8 @@ class WebFrame : public WebCoreRefObject {
 
     void didReceiveAuthenticationChallenge(WebUrlLoaderClient*, const std::string& host, const std::string& realm, bool useCachedCredentials);
 
+    void reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert);
+
     void downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength);
 
     void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);

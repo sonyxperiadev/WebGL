@@ -72,6 +72,7 @@
 #include <net/http/http_cache.h>
 #include <net/http/http_network_layer.h>
 #include <net/http/http_response_headers.h>
+#include <net/proxy/proxy_config_service_android.h>
 #include <net/proxy/proxy_service.h>
 #include <net/url_request/url_request.h>
 #include <net/url_request/url_request_context.h>

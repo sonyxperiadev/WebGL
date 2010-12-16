@@ -98,6 +98,7 @@ WebCache::WebCache(bool isPrivateBrowsing)
     static const int kMaximumCacheSizeBytes = 20 * 1024 * 1024;
     m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
 
+    m_proxyConfigService = new ProxyConfigServiceAndroid();
     net::HttpCache::BackendFactory* backendFactory;
     if (isPrivateBrowsing)
         backendFactory = net::HttpCache::DefaultBackend::InMemory(kMaximumCacheSizeBytes / 2);
@@ -108,7 +109,7 @@ WebCache::WebCache(bool isPrivateBrowsing)
 
     m_cache = new net::HttpCache(m_hostResolver.get(),
                                  0, // dnsrr_resolver
-                                 net::ProxyService::CreateDirect(),
+                                 net::ProxyService::CreateWithoutProxyResolver(m_proxyConfigService, 0 /* net_log */),
                                  net::SSLConfigService::CreateSystemSSLConfigService(),
                                  net::HttpAuthHandlerFactory::CreateDefault(m_hostResolver.get()),
                                  0, // network_delegate

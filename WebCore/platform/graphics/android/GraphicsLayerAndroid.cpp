@@ -25,7 +25,6 @@
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "Length.h"
-#include "SkLayer.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderLayerBacking.h"
@@ -34,6 +33,7 @@
 #include "ScaleTransformOperation.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkCanvas.h"
+#include "SkLayer.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
 
@@ -88,21 +88,24 @@ PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
     return new GraphicsLayerAndroid(client);
 }
 
-SkLength convertLength(Length l) {
-  SkLength length;
-  length.type = SkLength::Undefined;
-  length.value = 0;
-  if (l.type() == WebCore::Percent) {
-    length.type = SkLength::Percent;
-    length.value = l.percent();
-  } if (l.type() == WebCore::Fixed) {
-    length.type = SkLength::Fixed;
-    length.value = l.value();
-  }
-  return length;
+SkLength convertLength(Length len)
+{
+    SkLength length;
+    length.type = SkLength::Undefined;
+    length.value = 0;
+    if (len.type() == WebCore::Percent) {
+        length.type = SkLength::Percent;
+        length.value = len.percent();
+    }
+    if (len.type() == WebCore::Fixed) {
+        length.type = SkLength::Fixed;
+        length.value = len.value();
+    }
+    return length;
 }
 
-static RenderLayer* renderLayerFromClient(GraphicsLayerClient* client) {
+static RenderLayer* renderLayerFromClient(GraphicsLayerClient* client)
+{
     if (client)
         return static_cast<RenderLayerBacking*>(client)->owningLayer();
     return 0;
@@ -113,23 +116,17 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsSyncChildren(false),
     m_needsSyncMask(false),
     m_needsRepaint(false),
-    m_needsDisplay(false),
     m_needsNotifyClient(false),
     m_haveContents(false),
     m_haveImage(false),
-    m_translateX(0),
-    m_translateY(0),
-    m_currentTranslateX(0),
-    m_currentTranslateY(0),
-    m_currentPosition(0, 0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
     m_contentLayer = new LayerAndroid(true);
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
     if (renderLayer) {
-        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer() &&
-                !(renderLayer->renderer()->frame()->ownerElement()));
+        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer()
+            && !(renderLayer->renderer()->frame()->ownerElement()));
     }
     gDebugGraphicsLayerAndroidInstances++;
 }
@@ -264,16 +261,18 @@ void GraphicsLayerAndroid::updateFixedPosition()
 
 void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 {
-    if (point == m_currentPosition)
+    if (point == m_position)
         return;
-    m_currentPosition = point;
-    m_needsDisplay = true;
+
+    GraphicsLayer::setPosition(point);
+
 #ifdef LAYER_DEBUG_2
     LOG("(%x) setPosition(%.2f,%.2f) pos(%.2f, %.2f) anchor(%.2f,%.2f) size(%.2f, %.2f)",
-        this, point.x(), point.y(), m_currentPosition.x(), m_currentPosition.y(),
+        this, point.x(), point.y(), m_position.x(), m_position.y(),
         m_anchorPoint.x(), m_anchorPoint.y(), m_size.width(), m_size.height());
 #endif
     updateFixedPosition();
+    m_contentLayer->setPosition(point.x(), point.y());
     askForSync();
 }
 
@@ -299,19 +298,13 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
 
 void GraphicsLayerAndroid::setTransform(const TransformationMatrix& t)
 {
-    TransformationMatrix::DecomposedType tDecomp;
-    t.decompose(tDecomp);
-    LOG("(%x) setTransform, translate (%.2f, %.2f), mpos(%.2f,%.2f)",
-        this, tDecomp.translateX, tDecomp.translateY,
-        m_position.x(), m_position.y());
+    if (t == m_transform)
+        return;
 
-    if ((m_currentTranslateX != tDecomp.translateX)
-          || (m_currentTranslateY != tDecomp.translateY)) {
-        m_currentTranslateX = tDecomp.translateX;
-        m_currentTranslateY = tDecomp.translateY;
-        m_needsDisplay = true;
-        askForSync();
-    }
+    GraphicsLayer::setTransform(t);
+    m_contentLayer->setTransform(t);
+
+    askForSync();
 }
 
 void GraphicsLayerAndroid::setChildrenTransform(const TransformationMatrix& t)
@@ -367,9 +360,8 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 
                 m_foregroundClipLayer->addChild(m_foregroundLayer);
                 m_contentLayer->addChild(m_foregroundClipLayer);
-            } else if (false /* FIXME: disable until navigation is fixed */ &&
-                       layer->isRootLayer() &&
-                       layer->renderer()->frame()->ownerRenderer()) {
+            } else if (layer->isRootLayer()
+                       && layer->renderer()->frame()->ownerRenderer()) {
                 // Replace the content layer with a scrollable layer.
                 LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
                 m_contentLayer->unref();
@@ -443,20 +435,23 @@ public:
         : m_layer(layer)
         , m_originalPhase(layer->paintingPhase()) {}
 
-    ~PaintingPhase() {
+    ~PaintingPhase()
+    {
         m_layer->setPaintingPhase(m_originalPhase);
     }
 
-    void set(GraphicsLayerPaintingPhase phase) {
+    void set(GraphicsLayerPaintingPhase phase)
+    {
         m_layer->setPaintingPhase(phase);
     }
 
-    void clear(GraphicsLayerPaintingPhase phase) {
+    void clear(GraphicsLayerPaintingPhase phase)
+    {
         m_layer->setPaintingPhase(
                 (GraphicsLayerPaintingPhase) (m_originalPhase & ~phase));
     }
 private:
-    GraphicsLayer*             m_layer;
+    GraphicsLayer* m_layer;
     GraphicsLayerPaintingPhase m_originalPhase;
 };
 
@@ -542,7 +537,7 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
     SkAutoPictureRecord arp(context, rect.width(), rect.height());
     SkCanvas* canvas = arp.getRecordingCanvas();
 
-    if (canvas == 0)
+    if (!canvas)
         return false;
 
     PlatformGraphicsContext platformContext(canvas, 0);
@@ -554,15 +549,6 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
 
 void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        GraphicsLayer* layer = m_children[i];
-        if (layer) {
-            FloatRect childrenRect(m_position.x() + m_translateX + rect.x(),
-                                   m_position.y() + m_translateY + rect.y(),
-                                   rect.width(), rect.height());
-            layer->setNeedsDisplayInRect(childrenRect);
-        }
-    }
     if (!m_haveImage && !drawsContent()) {
         LOG("(%x) setNeedsDisplay(%.2f,%.2f,%.2f,%.2f) doesn't have content, bypass...",
             this, rect.x(), rect.y(), rect.width(), rect.height());
@@ -607,7 +593,7 @@ bool GraphicsLayerAndroid::addAnimation(const KeyframeValueList& valueList,
                                         const String& keyframesName,
                                         double beginTime)
 {
-    if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() != 2)
+    if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() < 2)
         return false;
 
     bool createdAnimations = false;
@@ -623,7 +609,8 @@ bool GraphicsLayerAndroid::addAnimation(const KeyframeValueList& valueList,
                                                          keyframesName,
                                                          beginTime);
     }
-    askForSync();
+    if (createdAnimations)
+        askForSync();
     return createdAnimations;
 }
 
@@ -678,174 +665,25 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
     TLOG("createTransformAnimationFromKeyframes, name(%s) beginTime(%.2f)",
         keyframesName.latin1().data(), beginTime);
 
-    TransformOperationList functionList;
-    bool listsMatch, hasBigRotation;
-    fetchTransformOperationList(valueList, functionList, listsMatch, hasBigRotation);
-
-    // If functionLists don't match we do a matrix animation, otherwise we do a component hardware animation.
-    // Also, we can't do component animation unless we have valueFunction, so we need to do matrix animation
-    // if that's not true as well.
-
-    bool isMatrixAnimation = !listsMatch;
-    size_t numAnimations = isMatrixAnimation ? 1 : functionList.size();
-    bool isKeyframe = valueList.size() > 2;
-
-    float fromTranslateX = 0;
-    float fromTranslateY = 0;
-    float fromTranslateZ = 0;
-    float toTranslateX   = 0;
-    float toTranslateY   = 0;
-    float toTranslateZ   = 0;
-    float fromAngle      = 0;
-    float toAngle        = 0;
-    float fromScaleX     = 1;
-    float fromScaleY     = 1;
-    float fromScaleZ     = 1;
-    float toScaleX       = 1;
-    float toScaleY       = 1;
-    float toScaleZ       = 1;
-
-    bool doTranslation = false;
-    bool doRotation = false;
-    bool doScaling = false;
-
-    TLOG("(%x) animateTransform, valueList(%d) functionList(%d) duration(%.2f)", this,
-        valueList.size(), functionList.size(), animation->duration());
-
-    // FIXME: add support for the translate 3d operations (when
-    // we'll have an OpenGL backend)
-
+    KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyWebkitTransform);
     for (unsigned int i = 0; i < valueList.size(); i++) {
-        const TransformOperations* operation = ((TransformAnimationValue*)valueList.at(i))->value();
-        Vector<RefPtr<TransformOperation> > ops = operation->operations();
-        TLOG("(%x) animateTransform, dealing with the %d operation, with %d ops", this, i, ops.size());
-        for (unsigned int j = 0; j < ops.size(); j++) {
-            TransformOperation* op = ops[j].get();
-            TLOG("(%x) animateTransform, dealing with the %d:%d operation, current op: %d (translate is %d, rotate %d, scale %d)",
-                this, i, j, op->getOperationType(), TransformOperation::TRANSLATE, TransformOperation::ROTATE, TransformOperation::SCALE);
-            if ((op->getOperationType() == TransformOperation::TRANSLATE) ||
-                (op->getOperationType() == TransformOperation::TRANSLATE_3D)) {
-                TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
-                IntSize bounds(m_size.width(), m_size.height());
-                float x = translateOperation->x(bounds);
-                float y = translateOperation->y(bounds);
-                float z = translateOperation->z(bounds);
-                if (!i) {
-                    fromTranslateX = x;
-                    fromTranslateY = y;
-                    fromTranslateZ = z;
-                } else {
-                    toTranslateX = x;
-                    toTranslateY = y;
-                    toTranslateZ = z;
-                }
-                TLOG("(%x) animateTransform, the %d operation is a translation(%.2f,%.2f,%.2f)",
-                    this, j, x, y, z);
-                doTranslation = true;
-            } else if (op->getOperationType() == TransformOperation::TRANSLATE_X) {
-                TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
-                IntSize bounds(m_size.width(), m_size.height());
-                float x = translateOperation->x(bounds);
-                if (!i)
-                    fromTranslateX = x;
-                else
-                    toTranslateX = x;
-                TLOG("(%x) animateTransform, the %d operation is a translation_x(%.2f)",
-                    this, j, x);
-                doTranslation = true;
-            } else if (op->getOperationType() == TransformOperation::TRANSLATE_Y) {
-                TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
-                IntSize bounds(m_size.width(), m_size.height());
-                float y = translateOperation->y(bounds);
-                if (!i)
-                    fromTranslateY = y;
-                else
-                    toTranslateY = y;
-                TLOG("(%x) animateTransform, the %d operation is a translation_y(%.2f)",
-                    this, j, y);
-                doTranslation = true;
-            } else if (op->getOperationType() == TransformOperation::TRANSLATE_Z) {
-                TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
-                IntSize bounds(m_size.width(), m_size.height());
-                float z = translateOperation->z(bounds);
-                if (!i)
-                    fromTranslateZ = z;
-                else
-                    toTranslateZ = z;
-                TLOG("(%x) animateTransform, the %d operation is a translation_z(%.2f)",
-                    this, j, z);
-                doTranslation = true;
-            } else if ((op->getOperationType() == TransformOperation::ROTATE)
-                          || (op->getOperationType() == TransformOperation::ROTATE_X)
-                          || (op->getOperationType() == TransformOperation::ROTATE_Y)) {
-                LOG("(%x) animateTransform, the %d operation is a rotation", this, j);
-                RotateTransformOperation* rotateOperation = (RotateTransformOperation*) op;
-                float angle = rotateOperation->angle();
-                TLOG("(%x) animateTransform, the %d operation is a rotation (%d), of angle %.2f",
-                    this, j, op->getOperationType(), angle);
-
-                if (!i)
-                    fromAngle = angle;
-                else
-                    toAngle = angle;
-                doRotation = true;
-            } else if (op->getOperationType() == TransformOperation::SCALE_X) {
-                ScaleTransformOperation* scaleOperation = (ScaleTransformOperation*) op;
-                if (!i)
-                    fromScaleX = scaleOperation->x();
-                else
-                    toScaleX = scaleOperation->x();
-                doScaling = true;
-            } else if (op->getOperationType() == TransformOperation::SCALE_Y) {
-                ScaleTransformOperation* scaleOperation = (ScaleTransformOperation*) op;
-                if (!i)
-                    fromScaleY = scaleOperation->y();
-                else
-                    toScaleY = scaleOperation->y();
-                doScaling = true;
-            } else if (op->getOperationType() == TransformOperation::SCALE_Z) {
-                ScaleTransformOperation* scaleOperation = (ScaleTransformOperation*) op;
-                if (!i)
-                    fromScaleZ = scaleOperation->z();
-                else
-                    toScaleZ = scaleOperation->z();
-                doScaling = true;
-            } else if (op->getOperationType() == TransformOperation::SCALE) {
-                ScaleTransformOperation* scaleOperation = (ScaleTransformOperation*) op;
-                if (!i) {
-                    fromScaleX = scaleOperation->x();
-                    fromScaleY = scaleOperation->y();
-                    fromScaleZ = scaleOperation->z();
-                } else {
-                    toScaleX = scaleOperation->x();
-                    toScaleY = scaleOperation->y();
-                    toScaleZ = scaleOperation->z();
-                }
-                doScaling = true;
-            } else {
-                TLOG("(%x) animateTransform, the %d operation is not a rotation (%d)",
-                    this, j, op->getOperationType());
-            }
-        }
+        TransformAnimationValue* originalValue = (TransformAnimationValue*)valueList.at(i);
+        TransformAnimationValue* value = new TransformAnimationValue(originalValue->keyTime(),
+                                                                     originalValue->value(), 0);
+        // TODO: pass the timing function originalValue->timingFunction());
+        operationsList->insert(value);
     }
 
-    RefPtr<AndroidTransformAnimation> anim = AndroidTransformAnimation::create(animation, beginTime);
+    RefPtr<AndroidTransformAnimation> anim = AndroidTransformAnimation::create(animation,
+                                                                               operationsList,
+                                                                               beginTime);
 
     if (keyframesName.isEmpty())
         anim->setName(propertyIdToString(valueList.property()));
     else
         anim->setName(keyframesName);
 
-    anim->setOriginalPosition(m_position);
 
-    if (doTranslation)
-        anim->setTranslation(fromTranslateX, fromTranslateY, fromTranslateZ,
-                         toTranslateX, toTranslateY, toTranslateZ);
-    if (doRotation)
-        anim->setRotation(fromAngle, toAngle);
-    if (doScaling)
-        anim->setScale(fromScaleX, fromScaleY, fromScaleZ,
-                       toScaleX, toScaleY, toScaleZ);
     m_contentLayer->addAnimation(anim.release());
 
     needsNotifyClient();
@@ -953,18 +791,6 @@ void GraphicsLayerAndroid::syncMask()
     }
 }
 
-void GraphicsLayerAndroid::syncPositionState()
-{
-     if (m_needsDisplay) {
-         m_translateX = m_currentTranslateX;
-         m_translateY = m_currentTranslateY;
-         m_position = m_currentPosition;
-         m_contentLayer->setTranslation(m_currentTranslateX, m_currentTranslateY);
-         m_contentLayer->setPosition(m_currentPosition.x(), m_currentPosition.y());
-         m_needsDisplay = false;
-     }
-}
-
 void GraphicsLayerAndroid::syncCompositingState()
 {
     for (unsigned int i = 0; i < m_children.size(); i++)
@@ -972,7 +798,6 @@ void GraphicsLayerAndroid::syncCompositingState()
 
     syncChildren();
     syncMask();
-    syncPositionState();
 
     if (!gPaused || WTF::currentTime() >= gPausedDelay)
         repaint();

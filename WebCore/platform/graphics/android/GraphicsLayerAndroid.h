@@ -135,18 +135,10 @@ private:
     bool m_needsSyncChildren;
     bool m_needsSyncMask;
     bool m_needsRepaint;
-    bool m_needsDisplay;
     bool m_needsNotifyClient;
 
     bool m_haveContents;
     bool m_haveImage;
-
-    float m_translateX;
-    float m_translateY;
-    float m_currentTranslateX;
-    float m_currentTranslateY;
-
-    FloatPoint m_currentPosition;
 
     Vector<FloatRect> m_invalidatedRects;
 
