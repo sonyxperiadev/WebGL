@@ -202,7 +202,7 @@ void CachedLayer::Debug::printLayerAndroid(const LayerAndroid* layer)
         spaces, "                   ", layer, layer->uniqueId(),
         bounds.fLeft, bounds.fTop, bounds.width(), bounds.height(),
         layer->getPosition().fX, layer->getPosition().fY,
-        layer->translation().fX, layer->translation().fY,
+        layer->translation().x(), layer->translation().y(),
         layer->getAnchorPoint().fX, layer->getAnchorPoint().fY,
         layer->getMatrix().getTranslateX(), layer->getMatrix().getTranslateY(),
         layer->getChildrenMatrix().getTranslateX(),

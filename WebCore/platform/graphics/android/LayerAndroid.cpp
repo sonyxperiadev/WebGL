@@ -316,10 +316,10 @@ public:
 
     bool drewText() { return m_findCheck.drewText(); }
 
-    void setBest(const LayerAndroid* best) { 
+    void setBest(const LayerAndroid* best, int x, int y) {
         m_best = best;
-        m_bestX = m_x;
-        m_bestY = m_y;
+        m_bestX = x;
+        m_bestY = y;
     }
     int x() const { return m_x; }
     int y() const { return m_y; }
@@ -354,12 +354,14 @@ void LayerAndroid::findInner(LayerAndroid::FindState& state) const
     for (int i = 0; i < countChildren(); i++)
         getChild(i)->findInner(state);
     // Move back into the parent coordinates.
+    int testX = state.x();
+    int testY = state.y();
     state.setLocation(x + localBounds.fLeft, y + localBounds.fTop);
     if (!m_recordingPicture)
         return;
-    if (!state.drew(m_recordingPicture, localBounds))
+    if (!contentIsScrollable() && !state.drew(m_recordingPicture, localBounds))
         return;
-    state.setBest(this); // set last match (presumably on top)
+    state.setBest(this, testX, testY); // set last match (presumably on top)
 }
 
 const LayerAndroid* LayerAndroid::find(int* xPtr, int* yPtr, SkPicture* root) const

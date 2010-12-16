@@ -189,6 +189,7 @@ public:
         , mPaint(0)
     {
         mLastGlyph.fGlyphID = static_cast<uint16_t>(-1);
+        mLastCandidate.fGlyphID = static_cast<uint16_t>(-1);
         reset();
     }
 
@@ -260,6 +261,8 @@ public:
 
     bool isSpace(const SkBounder::GlyphRec& rec)
     {
+        if (mLastGlyph.fGlyphID == static_cast<uint16_t>(-1))
+            return true;
         DBG_NAV_LOGD("mLastGlyph=((%g, %g),(%g, %g), %d)"
             " rec=((%g, %g),(%g, %g), %d)"
             " mMinSpaceWidth=%g mLastUni=0x%04x '%c'",
@@ -319,7 +322,7 @@ public:
             charPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
             SkScalar width = charPaint.measureText(" ", 1);
             mMinSpaceWidth = SkScalarToFixed(width * mMatrix->getScaleX());
-            DBG_NAV_LOGD("width=%g matrix sx/sy=(%g, %g) tx/ty=(%g, %g)"
+            DBG_NAV_LOGV("width=%g matrix sx/sy=(%g, %g) tx/ty=(%g, %g)"
                 " mMinSpaceWidth=%g", width,
                 mMatrix->getScaleX(), mMatrix->getScaleY(),
                 mMatrix->getTranslateX(), mMatrix->getTranslateY(),
@@ -416,6 +419,8 @@ public:
 
     void finish(const SkRegion& selectedRgn)
     {
+        if (!mParagraphs.count() && mLast.isEmpty())
+            return;
         processLine();
         bool above = false;
         bool below = false;
@@ -548,27 +553,59 @@ public:
          * multiply centerX and comparison x by 2 to retain better precision
          */
         SkIRect testBounds = {rect.fLeft, top(), rect.fRight, bottom()};
+        // dx and dy are the distances from the tested edge
+        // The edge distance is paramount if the test point is far away
         int dx = std::max(0, std::max(testBounds.fLeft - mFocusX,
             mFocusX - testBounds.fRight));
         int dy = std::max(0, std::max(testBounds.fTop - mFocusY,
             mFocusY - testBounds.fBottom));
-        bool overlaps = testBounds.fTop < mBestBounds.fBottom
-            && testBounds.fBottom > mBestBounds.fTop;
 #ifdef EXTRA_NOISY_LOGGING
         if (dy < 10) {
             SkUnichar ch = getUniChar(rec);
             DBG_NAV_LOGD("FirstCheck dx/y=(%d,%d) mDx/y=(%d,%d)"
                 " testBounds=(%d,%d,r=%d,b=%d) mBestBounds=(%d,%d,r=%d,b=%d)"
-                " overlaps=%s ch=%c", dx, dy, mDx, mDy,
+                " ch=%c", dx, dy, mDx, mDy,
                 testBounds.fLeft, testBounds.fTop, testBounds.fRight,
                 testBounds.fBottom, mBestBounds.fLeft, mBestBounds.fTop,
-                mBestBounds.fRight, mBestBounds.fBottom,
-                overlaps ? "true" : "false", ch < 0x7f ? ch : '?');
+                mBestBounds.fRight, mBestBounds.fBottom, ch < 0x7f ? ch : '?');
         }
 #endif
-        if ((mDy <= dy || overlaps)
-            && ((mDy != dy && !overlaps) || mDx <= dx)) {
+        if (dy > 0 && (mDy < dy || (mDy == dy && dx > 0 && mDx <= dx))) {
+#ifdef EXTRA_NOISY_LOGGING
+            if (dy < 10) DBG_NAV_LOG("FirstCheck reject edge");
+#endif
             return false;
+        }
+        // cx and cy are the distances from the tested center
+        // The center distance is used when the test point is over the text
+        int cx = INT_MAX;
+        int cy = INT_MAX;
+        if (dy == 0) {
+            cy = std::abs(((testBounds.fTop + testBounds.fBottom) >> 1)
+                - mFocusY);
+            if (mCy < cy) {
+#ifdef EXTRA_NOISY_LOGGING
+                DBG_NAV_LOGD("FirstCheck reject cy=%d mCy=%d", cy, mCy);
+#endif
+                return false;
+            }
+            if (mCy == cy) {
+                if (dx == 0) {
+                    cx = std::abs(((testBounds.fLeft + testBounds.fRight) >> 1)
+                    - mFocusX);
+                    if (mCx < cx) {
+#ifdef EXTRA_NOISY_LOGGING
+                        DBG_NAV_LOGD("FirstCheck reject cx=%d mCx=%d", cx, mCx);
+#endif
+                        return false;
+                    }
+                } else if (dx > 0 && mDx <= dx) {
+#ifdef EXTRA_NOISY_LOGGING
+                    DBG_NAV_LOGD("FirstCheck reject dx=%d mDx=%d", dx, mDx);
+#endif
+                    return false;
+                }
+            }
         }
         bool testInColumn = false;
         bool inBetween = false;
@@ -578,9 +615,9 @@ public:
         }
 #ifdef EXTRA_NOISY_LOGGING
         if (dy < 10) {
-            DBG_NAV_LOGD("FirstCheck bestIn=%s testIn=%s focusIn=%s",
-                mBestInColumn ? "true" : "false", testInColumn ? "true" : "false",
-                inBetween ? "true" : "false");
+            DBG_NAV_LOGD("FirstCheck cx/y=(%d,%d) bestIn=%s testIn=%s focusIn=%s",
+                cx, cy, mBestInColumn ? "true" : "false",
+                testInColumn ? "true" : "false", inBetween ? "true" : "false");
         }
 #endif
         if ((mBestInColumn || inBetween) && !testInColumn)
@@ -592,13 +629,18 @@ public:
         if (dy < 10 && dx < 10)
 #endif
         {
+#if DEBUG_NAV_UI
+            SkUnichar ch = getUniChar(rec);
+#endif
             DBG_NAV_LOGD("FirstCheck dx/y=(%d,%d) mFocus=(%d,%d)"
-                " mBestBounds={%d,%d,r=%d,b=%d} inColumn=%s",
+                " mBestBounds={%d,%d,r=%d,b=%d} inColumn=%s ch=%c",
                 dx, dy, mFocusX, mFocusY,
                 mBestBounds.fLeft, mBestBounds.fTop,
                 mBestBounds.fRight, mBestBounds.fBottom,
-                mBestInColumn ? "true" : "false");
+                mBestInColumn ? "true" : "false", ch < 0x7f ? ch : '?');
         }
+        mCx = cx;
+        mCy = cy;
         mDx = dx;
         mDy = dy;
         if (mRecordGlyph)
@@ -609,7 +651,7 @@ public:
     void reset()
     {
         mBestBounds.setEmpty();
-        mDx = mDy = INT_MAX;
+        mDx = mDy = mCx = mCy = INT_MAX;
     }
 
     void setLines(const LineCheck* lineCheck) { mLineCheck = lineCheck; }
@@ -619,6 +661,8 @@ protected:
     const LineCheck* mLineCheck;
     int mBestBase;
     SkIRect mBestBounds;
+    int mCx;
+    int mCy;
     int mDx;
     int mDy;
     int mFocusX;
