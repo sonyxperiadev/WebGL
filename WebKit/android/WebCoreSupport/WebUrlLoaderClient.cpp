@@ -33,6 +33,7 @@
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
+#include "UserGestureIndicator.h"
 #include "WebCoreFrameBridge.h"
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
@@ -330,6 +331,11 @@ void WebUrlLoaderClient::willSendRequest(PassOwnPtr<WebResponse> webResponse)
 {
     if (!isActive())
         return;
+
+    // FIXME: This implies that the original request was from a user gesture.
+    // For now, this is probably ok as this is just here to get the auto-login
+    // demo working.  b/3291580.
+    WebCore::UserGestureIndicator gesture(WebCore::DefinitelyProcessingUserGesture);
 
     KURL url = webResponse->createKurl();
     OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(url));
