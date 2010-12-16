@@ -567,9 +567,8 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNavigationAction(FramePoli
     if (action.type() == NavigationTypeFormResubmitted) {
         m_webFrame->decidePolicyForFormResubmission(func);
         return;
-    } else {
+    } else
         (m_frame->loader()->policyChecker()->*func)(PolicyUse);
-    }
 }
 
 void FrameLoaderClientAndroid::dispatchWillSubmitForm(FramePolicyFunction func, PassRefPtr<FormState>) {
