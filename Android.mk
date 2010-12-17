@@ -93,7 +93,9 @@ endif
 # The Chrome stack can not be used with JSC and hence can not be used be used
 # with the simulator.
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
-  HTTP_STACK = android
+  ifeq ($(HTTP_STACK),chrome)
+    $(error Can not build with JSC and the Chrome HTTP stack)
+  endif
 endif
 
 # Read the environment variable to determine if Autofill is compiled.
