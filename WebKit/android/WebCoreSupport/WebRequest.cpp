@@ -120,9 +120,16 @@ void WebRequest::finish(bool success)
         m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
                 m_urlLoader.get(), &WebUrlLoaderClient::didFinishLoading));
     } else {
-        OwnPtr<WebResponse> webResponse(new WebResponse(m_request.get()));
-        m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-                m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
+        if (m_interceptResponse == NULL) {
+            OwnPtr<WebResponse> webResponse(new WebResponse(m_request.get()));
+            m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                    m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
+        } else {
+            OwnPtr<WebResponse> webResponse(new WebResponse(m_url, m_interceptResponse->mimeType(), 0,
+                    m_interceptResponse->encoding(), m_interceptResponse->status()));
+            m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+                    m_urlLoader.get(), &WebUrlLoaderClient::didFail, webResponse.release()));
+        }
     }
     m_networkBuffer = 0;
     m_request = 0;
