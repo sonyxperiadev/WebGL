@@ -45,6 +45,12 @@ namespace android {
 base::Thread* WebUrlLoaderClient::ioThread()
 {
     static base::Thread* networkThread = 0;
+    static Lock networkThreadLock;
+
+    // Multiple threads appear to access the ioThread so we must ensure the
+    // critical section ordering.
+    AutoLock lock(networkThreadLock);
+
     if (!networkThread)
         networkThread = new base::Thread("network");
 
