@@ -121,6 +121,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kEventInterfaceV0_ANPGetValue       ((NPNVariable)1011)
 
 #define kAudioTrackInterfaceV1_ANPGetValue  ((NPNVariable)1012)
+#define kOpenGLInterfaceV0_ANPGetValue      ((NPNVariable)1013)
 
 /** queries for the drawing models supported on this device.
 
@@ -182,6 +183,7 @@ enum ANPDrawingModels {
         surface object.
      */
     kSurface_ANPDrawingModel = 1 << 1,
+    kOpenGL_ANPDrawingModel  = 1 << 2,
 };
 typedef int32_t ANPDrawingModel;
 
@@ -929,6 +931,10 @@ struct ANPEvent {
             // use based on the value in model
             union {
                 ANPBitmap   bitmap;
+                struct {
+                    int32_t width;
+                    int32_t height;
+                } surface;
             } data;
         } draw;
         int32_t     other[8];

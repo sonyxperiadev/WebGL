@@ -14,6 +14,7 @@
 #include "SkPaint.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
+#include "MediaLayer.h"
 #include <wtf/CurrentTime.h>
 
 #define LAYER_DEBUG // Add diagonals for debugging
@@ -619,6 +620,12 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
         m_texture->consumerRelease();
     }
 
+    return drawChildrenGL(matrix);
+}
+
+
+bool LayerAndroid::drawChildrenGL(SkMatrix& matrix)
+{
     bool askPaint = false;
     int count = this->countChildren();
     if (count > 0) {

@@ -751,6 +751,18 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
     }
 }
 
+void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
+{
+    if (m_contentLayer != mediaLayer) {
+        m_contentLayer->unref();
+        m_contentLayer = mediaLayer;
+        m_contentLayer->ref();
+        setNeedsDisplay();
+    }
+
+    askForSync();
+}
+
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
 {
     LOG("platformLayer");

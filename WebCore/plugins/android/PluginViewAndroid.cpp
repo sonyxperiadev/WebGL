@@ -83,6 +83,7 @@
 #include "PluginWidgetAndroid.h"
 
 #include "android_npapi.h"
+#include "ANPOpenGL_npapi.h"
 #include "ANPSurface_npapi.h"
 #include "ANPSystem_npapi.h"
 #include "SkANP.h"
@@ -104,6 +105,7 @@ extern void ANPSurfaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV0_Init(ANPInterface* value);
+extern void ANPOpenGLInterfaceV0_Init(ANPInterface* value);
 
 struct VarProcPair {
     int         enumValue;
@@ -128,6 +130,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
     { VARPROCLINE(SystemInterfaceV0)        },
+    { VARPROCLINE(OpenGLInterfaceV0)        },
 };
 
 /*  return true if var was an interface request (error will be set accordingly)
@@ -185,6 +188,11 @@ bool PluginView::platformStart()
 void PluginView::platformDestroy()
 {
     delete m_window;
+}
+
+PlatformLayer* PluginView::platformLayer() const
+{
+    return (PlatformLayer*) m_window->getLayer();
 }
 
 #if ENABLE(TOUCH_EVENTS)
