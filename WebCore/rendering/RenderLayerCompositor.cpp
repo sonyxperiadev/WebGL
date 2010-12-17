@@ -1178,7 +1178,7 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
         return true;
     HTMLFrameOwnerElement* ownerElement = enclosingIFrameElement();
     RenderObject* renderer = ownerElement ? ownerElement->renderer() : 0;
-    if (layer->isRootLayer() && renderer && renderer->isRenderIFrame()) {
+    if (false && layer->isRootLayer() && renderer && renderer->isRenderIFrame()) {
         if (layer->renderer()->frame()) {
             FrameView* view = layer->renderer()->frame()->view();
             if (view) {

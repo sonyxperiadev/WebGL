@@ -558,7 +558,7 @@ void FrameView::updateCompositingLayers()
     // Enter compositing mode for child frames that have layout dimensions.  The
     // decision to enable compositing for the RenderView will be done in the
     // compositor.
-    if (m_frame->ownerRenderer() && (layoutWidth() | layoutHeight()) && !view->usesCompositing()) {
+    if (false && m_frame->ownerRenderer() && (layoutWidth() | layoutHeight()) && !view->usesCompositing()) {
         ScrollbarMode h,v;
         scrollbarModes(h, v);
         if ((h != ScrollbarAlwaysOff && layoutWidth() < contentsWidth()) ||
