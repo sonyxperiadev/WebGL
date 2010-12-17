@@ -168,8 +168,12 @@ void BaseTile::draw(float transparency, SkRect& rect)
     }
 
     // Early return if set to un-usable in purpose!
-    if (!m_usable) {
-        XLOG("early return at BaseTile::draw b/c tile set to unusable !");
+    m_atomicSync.lock();
+    bool usable = m_usable;
+    bool isTexturePainted = m_lastPaintedPicture;
+    m_atomicSync.unlock();
+    if (!usable || !isTexturePainted) {
+        XLOG("early return at BaseTile::draw b/c tile set to unusable or not painted !");
         return;
     }
 
@@ -180,13 +184,8 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
-    m_atomicSync.lock();
-    bool isTexturePainted = m_lastPaintedPicture;
-    m_atomicSync.unlock();
-
-    if (isTexturePainted)
-        TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
-                                                     transparency);
+    TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
+                                                 transparency);
 
     m_texture->consumerRelease();
 }

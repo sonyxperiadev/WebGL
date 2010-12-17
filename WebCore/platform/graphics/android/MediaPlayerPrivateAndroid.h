@@ -115,7 +115,7 @@ protected:
     MediaPlayer::ReadyState m_readyState;
     MediaPlayer::NetworkState m_networkState;
 
-    SkBitmap* m_poster;  // not owned
+    SkBitmap* m_poster; // not owned
     String m_posterUrl;
 
     IntSize m_naturalSize;
@@ -124,7 +124,7 @@ protected:
     bool m_isVisible;
 };
 
-}  // namespace WebCore
+} // namespace WebCore
 
 #endif
 

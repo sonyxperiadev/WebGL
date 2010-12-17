@@ -33,6 +33,7 @@
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
+#include "UserGestureIndicator.h"
 #include "WebCoreFrameBridge.h"
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
@@ -44,6 +45,12 @@ namespace android {
 base::Thread* WebUrlLoaderClient::ioThread()
 {
     static base::Thread* networkThread = 0;
+    static Lock networkThreadLock;
+
+    // Multiple threads appear to access the ioThread so we must ensure the
+    // critical section ordering.
+    AutoLock lock(networkThreadLock);
+
     if (!networkThread)
         networkThread = new base::Thread("network");
 
@@ -330,6 +337,11 @@ void WebUrlLoaderClient::willSendRequest(PassOwnPtr<WebResponse> webResponse)
 {
     if (!isActive())
         return;
+
+    // FIXME: This implies that the original request was from a user gesture.
+    // For now, this is probably ok as this is just here to get the auto-login
+    // demo working.  b/3291580.
+    WebCore::UserGestureIndicator gesture(WebCore::DefinitelyProcessingUserGesture);
 
     KURL url = webResponse->createKurl();
     OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(url));

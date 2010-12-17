@@ -28,9 +28,9 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include <GLES2/gl2.h>
 #include "GLUtils.h"
 
+#include <GLES2/gl2.h>
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
@@ -59,10 +59,11 @@ static const char gFragmentShader[] =
     "  gl_FragColor.a *= alpha; "
     "}\n";
 
-GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource) {
+GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
+{
     GLuint shader = glCreateShader(shaderType);
     if (shader) {
-        glShaderSource(shader, 1, &pSource, NULL);
+        glShaderSource(shader, 1, &pSource, 0);
         glCompileShader(shader);
         GLint compiled = 0;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
@@ -72,7 +73,7 @@ GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource) {
             if (infoLen) {
                 char* buf = (char*) malloc(infoLen);
                 if (buf) {
-                glGetShaderInfoLog(shader, infoLen, NULL, buf);
+                glGetShaderInfoLog(shader, infoLen, 0, buf);
                 XLOG("could not compile shader %d:\n%s\n", shaderType, buf);
                 free(buf);
             }
@@ -84,16 +85,15 @@ GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource) {
     return shader;
 }
 
-GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragmentSource) {
+GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragmentSource)
+{
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
-    if (!vertexShader) {
+    if (!vertexShader)
         return 0;
-    }
 
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
-    if (!pixelShader) {
+    if (!pixelShader)
         return 0;
-    }
 
     GLuint program = glCreateProgram();
     if (program) {
@@ -110,7 +110,7 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
             if (bufLength) {
                 char* buf = (char*) malloc(bufLength);
                 if (buf) {
-                    glGetProgramInfoLog(program, bufLength, NULL, buf);
+                    glGetProgramInfoLog(program, bufLength, 0, buf);
                     XLOG("could not link program:\n%s\n", buf);
                     free(buf);
                 }
@@ -122,7 +122,8 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
     return program;
 }
 
-ShaderProgram::ShaderProgram() {
+ShaderProgram::ShaderProgram()
+{
     m_program = createProgram(gVertexShader, gFragmentShader);
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
@@ -130,10 +131,10 @@ ShaderProgram::ShaderProgram() {
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
 
     const GLfloat coord[] = {
-        0.0f, 0.0f, //C
-        1.0f, 0.0f, //D
-        0.0f, 1.0f, //A
-        1.0f, 1.0f  //B
+        0.0f, 0.0f, // C
+        1.0f, 0.0f, // D
+        0.0f, 1.0f, // A
+        1.0f, 1.0f // B
     };
 
     glGenBuffers(1, m_textureBuffer);
@@ -145,14 +146,16 @@ ShaderProgram::ShaderProgram() {
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderProgram::setViewport(SkRect& viewport) {
+void ShaderProgram::setViewport(SkRect& viewport)
+{
     TransformationMatrix ortho;
     GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
                                    viewport.fRight, viewport.fBottom, -1000, 1000);
     m_projectionMatrix = ortho;
 }
 
-void ShaderProgram::setProjectionMatrix(SkRect& geometry) {
+void ShaderProgram::setProjectionMatrix(SkRect& geometry)
+{
     TransformationMatrix translate;
     translate.translate3d(geometry.fLeft, geometry.fTop, 0.0);
     TransformationMatrix scale;
@@ -167,7 +170,8 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry) {
     glUniformMatrix4fv(m_hProjectionMatrix, 1, GL_FALSE, projectionMatrix);
 }
 
-void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity) {
+void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity)
+{
     setProjectionMatrix(geometry);
 
     glActiveTexture(GL_TEXTURE0);
@@ -185,7 +189,8 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity) {
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
-                                  SkRect& geometry, int textureId, float opacity) {
+                                  SkRect& geometry, int textureId, float opacity)
+{
 
     TransformationMatrix renderMatrix = drawMatrix;
     renderMatrix.scale3d(geometry.width(), geometry.height(), 1);

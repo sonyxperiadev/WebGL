@@ -5,10 +5,11 @@
 
 namespace WebCore {
 
-bool ScrollableLayerAndroid::scrollTo(int x, int y) {
+bool ScrollableLayerAndroid::scrollTo(int x, int y)
+{
     SkIRect scrollBounds;
     getScrollRect(&scrollBounds);
-    if (scrollBounds.fRight == 0 && scrollBounds.fBottom == 0)
+    if (!scrollBounds.fRight && !scrollBounds.fBottom)
         return false;
 
     SkScalar newX = SkScalarPin(x, 0, scrollBounds.fRight);
@@ -24,7 +25,8 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y) {
     return true;
 }
 
-void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const {
+void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const
+{
     const SkPoint& pos = getPosition();
     out->fLeft = m_scrollLimits.fLeft - pos.fX;
     out->fTop = m_scrollLimits.fTop - pos.fY;

@@ -141,11 +141,8 @@ void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nat
     LOG_ASSERT(response, "nativeSetResponseHeader must take a valid response pointer!");
 
     LOG_ASSERT(key, "How did a null value become a key?");
-    if (val) {
-        WTF::String valStr = jstringToWtfString(env, val);
-        if (!valStr.isEmpty())
-            response->setHTTPHeaderField(jstringToWtfString(env, key), valStr);
-    }
+    if (val)
+        response->setHTTPHeaderField(jstringToWtfString(env, key), jstringToWtfString(env, val));
 }
 
 jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url, jint statusCode,

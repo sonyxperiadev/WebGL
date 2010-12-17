@@ -32,7 +32,8 @@ public:
         : LayerAndroid(layer)
         , m_scrollLimits(layer.m_scrollLimits) {}
     ScrollableLayerAndroid(const LayerAndroid& layer)
-        : LayerAndroid(layer) {
+        : LayerAndroid(layer)
+    {
         m_scrollLimits.setEmpty();
     }
     virtual ~ScrollableLayerAndroid() {};
@@ -51,7 +52,8 @@ public:
     // fBottom = maxY
     void getScrollRect(SkIRect* out) const;
 
-    void setScrollLimits(float x, float y, float width, float height) {
+    void setScrollLimits(float x, float y, float width, float height)
+    {
         m_scrollLimits.set(x, y, x + width, y + height);
     }
 
@@ -63,4 +65,4 @@ private:
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-#endif  // LayerAndroid_h
+#endif // LayerAndroid_h
