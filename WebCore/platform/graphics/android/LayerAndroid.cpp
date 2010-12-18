@@ -531,7 +531,8 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 
 bool LayerAndroid::needsTexture()
 {
-    return !m_isRootLayer && prepareContext() && m_recordingPicture->width() && m_recordingPicture->height();
+    return m_contentsImage || (!m_isRootLayer && prepareContext()
+        && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
 void LayerAndroid::reserveGLTextures()
