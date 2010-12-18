@@ -6,6 +6,7 @@
 #include "AndroidAnimation.h"
 #include "DrawExtra.h"
 #include "GLUtils.h"
+#include "MediaLayer.h"
 #include "PaintLayerOperation.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
@@ -14,7 +15,6 @@
 #include "SkPaint.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
-#include "MediaLayer.h"
 #include <wtf/CurrentTime.h>
 
 #define LAYER_DEBUG // Add diagonals for debugging
@@ -472,7 +472,8 @@ void LayerAndroid::updatePositions()
         this->getChild(i)->updatePositions();
 }
 
-void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix, float opacity)
+void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
+                                     const FloatRect& clipping, float opacity)
 {
     IntSize bounds(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
@@ -499,6 +500,16 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix, f
     opacity *= getOpacity();
     setDrawOpacity(opacity);
 
+    if (m_haveClip) {
+        FloatRect clip;
+        clip.setLocation(p);
+        clip.setWidth(getSize().width());
+        clip.setHeight(getSize().height());
+        setDrawClip(clip);
+    } else {
+        setDrawClip(clipping);
+    }
+
     int count = this->countChildren();
     if (!count)
         return;
@@ -521,7 +532,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix, f
         localMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateGLPositions(localMatrix, opacity);
+        this->getChild(i)->updateGLPositions(localMatrix, drawClip(), opacity);
 }
 
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
@@ -608,13 +619,15 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 
 bool LayerAndroid::drawGL(SkMatrix& matrix)
 {
+    SkRect rect;
+    rect.set(0, 0, getSize().width(), getSize().height());
+
+    TilesManager::instance()->shader()->clip(drawTransform(), m_clippingRect);
+
     if (prepareContext() && m_texture) {
         TextureInfo* textureInfo = m_texture->consumerLock();
         if (textureInfo && m_texture->isReady()) {
-            SkRect rect;
-            rect.set(0, 0, getSize().width(), getSize().height());
-            TransformationMatrix m = drawTransform();
-            TilesManager::instance()->shader()->drawLayerQuad(m, rect,
+            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity);
         }

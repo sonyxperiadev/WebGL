@@ -152,6 +152,7 @@ void ShaderProgram::setViewport(SkRect& viewport)
     GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
                                    viewport.fRight, viewport.fBottom, -1000, 1000);
     m_projectionMatrix = ortho;
+    m_viewport = viewport;
 }
 
 void ShaderProgram::setProjectionMatrix(SkRect& geometry)
@@ -186,6 +187,42 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity)
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     GLUtils::checkGlError("drawQuad");
+}
+
+void ShaderProgram::setViewRect(const IntRect& viewRect)
+{
+    m_viewRect = viewRect;
+
+    // We do clipping using glScissor, which needs to take
+    // coordinates in screen space. The following matrix transform
+    // content coordinates in screen coordinates.
+    TransformationMatrix translate;
+    translate.translate(1.0, 1.0);
+    TransformationMatrix scale;
+    scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
+
+    m_clippingMatrix = m_projectionMatrix;
+    m_clippingMatrix.multiply(translate);
+    m_clippingMatrix.multiply(scale);
+}
+
+void ShaderProgram::clip(const TransformationMatrix& drawMatrix,
+                         const FloatRect& rect)
+{
+    if (rect == m_clipRect)
+        return;
+
+    FloatRect srect(0, 0, rect.width(), rect.height());
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.multiply(m_clippingMatrix);
+    FloatRect clip = renderMatrix.mapRect(srect);
+
+    // we should only call glScissor in this function, so that we can easily
+    // track the current clipping rect.
+    glScissor(m_viewRect.x() + clip.x(), m_viewRect.y() + clip.y(),
+              clip.width(), clip.height());
+
+    m_clipRect = rect;
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,

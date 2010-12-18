@@ -256,6 +256,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     ShaderProgram* shader = TilesManager::instance()->shader();
     glUseProgram(shader->program());
     glUniform1i(shader->textureSampler(), 0);
+    shader->setViewRect(viewRect);
 
     ret = drawBasePictureInGL(visibleRect, scale);
 
@@ -263,7 +264,8 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
         TransformationMatrix ident;
         compositedRoot->updateFixedLayersPositions(visibleRect);
-        compositedRoot->updateGLPositions(ident, 1);
+        FloatRect clip(0, 0, viewRect.width(), viewRect.height());
+        compositedRoot->updateGLPositions(ident, clip, 1);
         SkMatrix matrix;
         matrix.setTranslate(left, top);
 
