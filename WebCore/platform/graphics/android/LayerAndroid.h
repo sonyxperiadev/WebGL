@@ -21,6 +21,7 @@
 
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
+#include "FloatRect.h"
 #include "LayerTexture.h"
 #include "RefPtr.h"
 #include "SkColor.h"
@@ -115,7 +116,8 @@ public:
     virtual bool drawGL(SkMatrix&);
     bool drawChildrenGL(SkMatrix&);
     virtual void paintBitmapGL();
-    void updateGLPositions(const TransformationMatrix& parentMatrix, float opacity);
+    void updateGLPositions(const TransformationMatrix& parentMatrix,
+                           const FloatRect& clip, float opacity);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
 
     bool preserves3D() { return m_preserves3D; }
@@ -125,6 +127,8 @@ public:
     void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = transform; }
     const TransformationMatrix& drawTransform() const { return m_drawTransform; }
     void setChildrenTransform(const TransformationMatrix& t) { m_childrenTransform = t; }
+    void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
+    const FloatRect& drawClip() { return m_clippingRect; }
 
     void setFixedPosition(SkLength left, // CSS left property
                           SkLength top, // CSS top property
@@ -264,6 +268,7 @@ private:
     float m_drawOpacity;
     TransformationMatrix m_drawTransform;
     TransformationMatrix m_childrenTransform;
+    FloatRect m_clippingRect;
 
     // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
     // m_recordingPicture is used when WebKit is asked to paint the layer's

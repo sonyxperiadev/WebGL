@@ -19,6 +19,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "FloatRect.h"
+#include "IntRect.h"
 #include "SkRect.h"
 #include "TransformationMatrix.h"
 #include <GLES2/gl2.h>
@@ -38,6 +40,8 @@ class ShaderProgram {
     void drawQuad(SkRect& geometry, int textureId, float opacity);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity);
+    void setViewRect(const IntRect& viewRect);
+    void clip(const TransformationMatrix& drawMatrix, const FloatRect& rect);
 
  private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
@@ -48,6 +52,11 @@ class ShaderProgram {
 
     TransformationMatrix m_projectionMatrix;
     GLuint m_textureBuffer[1];
+
+    TransformationMatrix m_clippingMatrix;
+    SkRect m_viewport;
+    IntRect m_viewRect;
+    FloatRect m_clipRect;
 
     // uniforms
     int m_hProjectionMatrix;
