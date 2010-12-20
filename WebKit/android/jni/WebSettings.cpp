@@ -44,6 +44,7 @@
 #include "Page.h"
 #include "PageCache.h"
 #include "RenderTable.h"
+#include "SQLiteFileSystem.h"
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
@@ -55,6 +56,7 @@
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
+#include <wtf/text/CString.h>
 
 namespace android {
 
@@ -480,8 +482,17 @@ public:
         GeolocationPermissions::setAlwaysDeny(!flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
         if (str) {
-            GeolocationPermissions::setDatabasePath(jstringToWtfString(env,str));
-            WebCore::GeolocationPositionCache::setDatabasePath(jstringToWtfString(env,str));
+            String path = jstringToWtfString(env, str);
+            GeolocationPermissions::setDatabasePath(path);
+            GeolocationPositionCache::setDatabasePath(path);
+            // This database is created when the first Geolocation object is
+            // instantiated. If the file doesn't exist, we create it and set its
+            // permissions. The filename must match that in
+            // GeolocationPositionCache.cpp.
+            String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(path, "CachedGeoposition.db");
+            int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+            if (fd >= 0)
+                close(fd);
         }
 
         flag = env->GetBooleanField(obj, gFieldIds->mXSSAuditorEnabled);
