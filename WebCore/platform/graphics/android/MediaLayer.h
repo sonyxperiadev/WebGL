@@ -44,6 +44,7 @@ public:
 
     virtual bool drawGL(SkMatrix&);
     virtual void paintBitmapGL() const { };
+    virtual bool needsTexture() { return false; }
 
     virtual bool isMedia() const { return true; }
     virtual LayerAndroid* copy() const { return new MediaLayer(*this); }
