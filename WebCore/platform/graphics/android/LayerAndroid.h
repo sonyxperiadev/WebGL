@@ -109,7 +109,7 @@ public:
     void reserveGLTextures();
     void createGLTextures();
 
-    bool needsTexture();
+    virtual bool needsTexture();
     void checkForObsolescence();
 
     virtual bool drawGL(SkMatrix&);
