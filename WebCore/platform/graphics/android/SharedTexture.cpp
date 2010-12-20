@@ -63,17 +63,16 @@ bool TextureInfo::operator==(const TextureInfo& otherTexture)
 
 SharedTexture::SharedTexture()
 {
-    m_display = eglGetCurrentDisplay();
     m_eglImage = EGL_NO_IMAGE_KHR;
     m_isNewImage = true;
     m_syncObject = EGL_NO_SYNC_KHR;
-    m_supportsEGLImage = GLUtils::isEGLImageSupported();
-    m_supportsEGLFenceSyncKHR = GLUtils::isEGLFenceSyncSupported();
 
-    // TODO temporarily disable fence sync until nvidia implementation is complete
+    // Defer initialization of these values until we initialize the source
+    // texture. This ensures that this initialization happens in the appropriate
+    // thread.
+    m_display = 0;
+    m_supportsEGLImage = false;
     m_supportsEGLFenceSyncKHR = false;
-
-    LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
 }
 
 // called by the consumer when it no longer wants to consume and after it has
@@ -90,6 +89,16 @@ SharedTexture::~SharedTexture()
 
 void SharedTexture::initSourceTexture()
 {
+
+    m_display = eglGetCurrentDisplay();
+    m_supportsEGLImage = GLUtils::isEGLImageSupported();
+    m_supportsEGLFenceSyncKHR = GLUtils::isEGLFenceSyncSupported();
+
+    //TODO temporarily disable fence sync until nvidia implementation is complete
+    m_supportsEGLFenceSyncKHR = false;
+
+    LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
+
     glGenTextures(1, &m_sourceTexture.m_textureId);
 }
 

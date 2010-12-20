@@ -100,6 +100,7 @@ public:
     virtual void resumeAnimations();
 
     virtual void setContentsToImage(Image*);
+    virtual void setContentsToMedia(PlatformLayer*);
     virtual PlatformLayer* platformLayer() const;
 
     void pauseDisplay(bool state);

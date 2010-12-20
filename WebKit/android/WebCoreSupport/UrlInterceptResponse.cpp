@@ -102,14 +102,14 @@ UrlInterceptResponse::UrlInterceptResponse(JNIEnv* env, jobject response) {
     jstring encodingStr = (jstring) env->GetObjectField(response, encoding);
 
     if (mimeStr) {
-        m_mimeType.assign(env->GetStringUTFChars(mimeStr, NULL),
-                          env->GetStringUTFLength(mimeStr));
-        env->ReleaseStringUTFChars(mimeStr, NULL);
+        const char* s = env->GetStringUTFChars(mimeStr, NULL);
+        m_mimeType.assign(s, env->GetStringUTFLength(mimeStr));
+        env->ReleaseStringUTFChars(mimeStr, s);
     }
     if (encodingStr) {
-        m_encoding.assign(env->GetStringUTFChars(encodingStr, NULL),
-                          env->GetStringUTFLength(encodingStr));
-        env->ReleaseStringUTFChars(encodingStr, NULL);
+        const char* s = env->GetStringUTFChars(encodingStr, NULL);
+        m_encoding.assign(s, env->GetStringUTFLength(encodingStr));
+        env->ReleaseStringUTFChars(encodingStr, s);
     }
 
     env->DeleteLocalRef(javaResponse);

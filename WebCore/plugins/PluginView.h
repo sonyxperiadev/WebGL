@@ -276,6 +276,8 @@ namespace WebCore {
 #if USE(ACCELERATED_COMPOSITING)
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API) && PLATFORM(QT)
         virtual PlatformLayer* platformLayer() const;
+#elif ENABLE(NETSCAPE_PLUGIN_API) && defined(ANDROID_PLUGINS)
+        virtual PlatformLayer* platformLayer() const;
 #else
         virtual PlatformLayer* platformLayer() const { return 0; }
 #endif

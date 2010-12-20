@@ -66,10 +66,9 @@ void WebAutoFill::init()
     mFormManager = new FormManager();
     // We use the WebView's WebRequestContext, which may be a private browsing context.
     ASSERT(mWebViewCore);
-    AndroidURLRequestContextGetter::Get()->SetURLRequestContext(mWebViewCore->webRequestContext());
-    AndroidURLRequestContextGetter::Get()->SetIOThread(WebUrlLoaderClient::ioThread());
     mAutoFillManager = new AutoFillManager(mTabContents.get());
     mAutoFillHost = new AutoFillHostAndroid(this);
+    mTabContents->SetProfileRequestContext(new AndroidURLRequestContextGetter(mWebViewCore->webRequestContext(), WebUrlLoaderClient::ioThread()));
     mTabContents->SetAutoFillHost(mAutoFillHost.get());
 }
 
