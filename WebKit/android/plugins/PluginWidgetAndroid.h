@@ -29,6 +29,7 @@
 #include "android_npapi.h"
 #include "IntPoint.h"
 #include "IntRect.h"
+#include "MediaLayer.h"
 #include "SkRect.h"
 #include <jni.h>
 
@@ -78,6 +79,8 @@ struct PluginWidgetAndroid {
         view).
      */
     bool isSurfaceDrawingModel() const { return kSurface_ANPDrawingModel == m_drawingModel; }
+
+    bool isOpenGLDrawingModel() const { return kOpenGL_ANPDrawingModel == m_drawingModel; }
 
     /*  Returns true (and optionally updates rect with the dirty bounds in the
         page coordinate) if the plugin has invalidate us.
@@ -163,9 +166,13 @@ struct PluginWidgetAndroid {
      */
     void requestCenterFitZoom();
 
+    WebCore::MediaLayer* getLayer() const { return m_layer; }
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
+
+    WebCore::MediaLayer*   m_layer;
 
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;

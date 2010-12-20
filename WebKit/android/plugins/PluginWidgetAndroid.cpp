@@ -71,6 +71,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_embeddedViewAttached = false;
     m_acceptEvents = false;
     m_isSurfaceClippedOut = false;
+    m_layer = 0;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -93,6 +94,9 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
     }
 
     m_flipPixelRef->safeUnref();
+
+    if (m_layer)
+        m_layer->unref();
 }
 
 void PluginWidgetAndroid::init(android::WebViewCore* core) {
@@ -135,6 +139,17 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 }
 
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
+
+    if (model == kOpenGL_ANPDrawingModel && m_layer == 0)
+        m_layer = new WebCore::MediaLayer();
+    else if (model != kOpenGL_ANPDrawingModel && m_layer != 0)
+        m_layer->unref();
+
+    if (m_drawingModel != model) {
+        // Trigger layer computation in RenderLayerCompositor
+        m_pluginView->getElement()->setNeedsStyleRecalc(SyntheticStyleChange);
+    }
+
     m_drawingModel = model;
     return true;
 }
@@ -346,6 +361,17 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
             visibleDocRect.bottom, zoom);
 #endif
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
+
+    // notify the plugin of the new size
+    // TODO what if the plugin changes sizes?
+    if (m_drawingModel == kOpenGL_ANPDrawingModel && m_zoomLevel != zoom) {
+        ANPEvent event;
+        SkANP::InitEvent(&event, kDraw_ANPEventType);
+        event.data.draw.model = kOpenGL_ANPDrawingModel;
+        event.data.draw.data.surface.width = m_pluginWindow->width * zoom;
+        event.data.draw.data.surface.height = m_pluginWindow->height * zoom;
+        sendEvent(event);
+    }
 
     int oldScreenW = m_visibleDocRect.width();
     int oldScreenH = m_visibleDocRect.height();

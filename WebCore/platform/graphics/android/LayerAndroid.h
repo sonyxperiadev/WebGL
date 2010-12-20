@@ -112,8 +112,9 @@ public:
     bool needsTexture();
     void checkForObsolescence();
 
-    bool drawGL(SkMatrix&);
-    void paintBitmapGL();
+    virtual bool drawGL(SkMatrix&);
+    bool drawChildrenGL(SkMatrix&);
+    virtual void paintBitmapGL();
     void updateGLPositions(const TransformationMatrix& parentMatrix, float opacity);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
 
@@ -222,6 +223,8 @@ public:
     void needsRepaint() { m_pictureUsed++; }
     unsigned int pictureUsed() { return m_pictureUsed; }
     void contentDraw(SkCanvas*);
+
+    virtual bool isMedia() const { return false; }
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
