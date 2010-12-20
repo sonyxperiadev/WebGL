@@ -44,6 +44,7 @@
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
+#include "WebCache.h"
 #include "WebCoreJni.h"
 
 #include <JNIHelp.h>
@@ -108,6 +109,7 @@ public:
     static void AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames);
     static void AddPackageName(JNIEnv* env, jobject obj, jstring packageName);
     static void RemovePackageName(JNIEnv* env, jobject obj, jstring packageName);
+    static void UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy);
 
 
 private:
@@ -453,6 +455,15 @@ void JavaBridge::RemovePackageName(JNIEnv* env, jobject obj, jstring packageName
     packageNotifier().removePackageName(jstringToWtfString(env, packageName));
 }
 
+void JavaBridge::UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy)
+{
+#if USE(CHROME_NETWORK_STACK)
+    std::string proxy = jstringToStdString(env, newProxy);
+    WebCache::get(false)->proxy()->UpdateProxySettings(proxy);
+    WebCache::get(true)->proxy()->UpdateProxySettings(proxy);
+#endif
+}
+
 
 // ----------------------------------------------------------------------------
 
@@ -482,7 +493,9 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
     { "addPackageName", "(Ljava/lang/String;)V",
         (void*) JavaBridge::AddPackageName },
     { "removePackageName", "(Ljava/lang/String;)V",
-        (void*) JavaBridge::RemovePackageName }
+        (void*) JavaBridge::RemovePackageName },
+    { "updateProxy", "(Ljava/lang/String;)V",
+        (void*) JavaBridge::UpdateProxy }
 };
 
 int registerJavaBridge(JNIEnv* env)
