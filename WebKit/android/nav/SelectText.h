@@ -54,7 +54,7 @@ public:
     void setDrawPointer(bool drawPointer) { m_drawPointer = drawPointer; }
     void setExtendSelection(bool extend) { m_extendSelection = extend; }
     bool startSelection(const CachedRoot* , const IntRect& vis, int x, int y);
-    bool wordSelection();
+    bool wordSelection(const CachedRoot* , const IntRect& vis, int x, int y);
 public:
     float m_inverseScale; // inverse scale, x, y used for drawing select path
     int m_selectX;
