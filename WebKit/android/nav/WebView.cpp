@@ -1111,11 +1111,10 @@ bool startSelection(int x, int y)
 
 bool wordSelection(int x, int y)
 {
-    if (!startSelection(x, y))
+    const CachedRoot* root = getFrameCache(DontAllowNewer);
+    if (!root)
         return false;
-    extendSelection(x, y);
-    m_selectText.setDrawPointer(false);
-    return m_selectText.wordSelection();
+    return m_selectText.wordSelection(root, getVisibleRect(), x, y);
 }
 
 bool extendSelection(int x, int y)

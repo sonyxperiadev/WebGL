@@ -160,14 +160,16 @@ public:
 
 class SpaceCanvas : public ParseCanvas {
 public:
-    SpaceCanvas(const SkIRect& area)
+    SpaceCanvas()
     {
         setBounder(&mBounder);
         SkBitmap bitmap;
-        bitmap.setConfig(SkBitmap::kARGB_8888_Config, area.width(),
-            area.height());
+        // Configure a very large bitmap so the pair of glyphs can be anywhere
+        // on the page. Skia constrains the bitmap to be 2^31-1 bytes. The
+        // bitmap is never allocated, but this constraint avoids triggering
+        // a failure when the configuration is checked.
+        bitmap.setConfig(SkBitmap::kA1_Config, 16383, 1048576);
         setBitmapDevice(bitmap);
-        translate(SkIntToScalar(-area.fLeft), SkIntToScalar(-area.fTop));
     }
 
     SpaceBounds mBounder;
@@ -185,18 +187,17 @@ public:
     CommonCheck(const SkIRect& area)
         : mArea(area)
         , mLastUni(0)
-        , mMatrix(0)
-        , mPaint(0)
     {
         mLastGlyph.fGlyphID = static_cast<uint16_t>(-1);
         mLastCandidate.fGlyphID = static_cast<uint16_t>(-1);
+        mMatrix.reset();
         reset();
     }
 
     int base() {
         if (mBase == INT_MAX) {
             SkPoint result;
-            mMatrix->mapXY(0, mY, &result);
+            mMatrix.mapXY(0, mY, &result);
             mBase = SkScalarFloor(result.fY);
         }
         return mBase;
@@ -206,8 +207,8 @@ public:
         if (mBottom == INT_MAX) {
             SkPoint result;
             SkPaint::FontMetrics metrics;
-            mPaint->getFontMetrics(&metrics);
-            mMatrix->mapXY(0, metrics.fDescent + mY, &result);
+            mPaint.getFontMetrics(&metrics);
+            mMatrix.mapXY(0, metrics.fDescent + mY, &result);
             mBottom = SkScalarCeil(result.fY);
         }
         return mBottom;
@@ -253,9 +254,10 @@ public:
     SkUnichar getUniChar(const SkBounder::GlyphRec& rec)
     {
         SkUnichar unichar;
-        SkPaint utfPaint = *mPaint;
-        utfPaint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
-        utfPaint.glyphsToUnichars(&rec.fGlyphID, 1, &unichar);
+        SkPaint::TextEncoding save = mPaint.getTextEncoding();
+        mPaint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
+        mPaint.glyphsToUnichars(&rec.fGlyphID, 1, &unichar);
+        mPaint.setTextEncoding(save);
         return unichar;
     }
 
@@ -285,12 +287,10 @@ public:
         uint16_t test[2];
         test[0] = mLastGlyph.fGlyphID;
         test[1] = rec.fGlyphID;
-        SkIRect area;
-        area.set(0, 0, area.width(), area.height());
-        SpaceCanvas spaceChecker(area);
+        SpaceCanvas spaceChecker;
         spaceChecker.drawText(test, sizeof(test),
             SkFixedToScalar(mLastGlyph.fLSB.fX),
-            SkFixedToScalar(mLastGlyph.fLSB.fY), *mPaint);
+            SkFixedToScalar(mLastGlyph.fLSB.fY), mPaint);
         const SkBounder::GlyphRec& g1 = spaceChecker.mBounder.mFirstGlyph;
         const SkBounder::GlyphRec& g2 = spaceChecker.mBounder.mLastGlyph;
         DBG_NAV_LOGD("g1=(%g, %g, %g, %g) g2=(%g, %g, %g, %g)",
@@ -318,14 +318,15 @@ public:
     SkFixed minSpaceWidth()
     {
         if (mMinSpaceWidth == SK_FixedMax) {
-            SkPaint charPaint = *mPaint;
-            charPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
-            SkScalar width = charPaint.measureText(" ", 1);
-            mMinSpaceWidth = SkScalarToFixed(width * mMatrix->getScaleX());
+            SkPaint::TextEncoding save = mPaint.getTextEncoding();
+            mPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
+            SkScalar width = mPaint.measureText(" ", 1);
+            mMinSpaceWidth = SkScalarToFixed(width * mMatrix.getScaleX());
+            mPaint.setTextEncoding(save);
             DBG_NAV_LOGV("width=%g matrix sx/sy=(%g, %g) tx/ty=(%g, %g)"
                 " mMinSpaceWidth=%g", width,
-                mMatrix->getScaleX(), mMatrix->getScaleY(),
-                mMatrix->getTranslateX(), mMatrix->getTranslateY(),
+                mMatrix.getScaleX(), mMatrix.getScaleY(),
+                mMatrix.getTranslateX(), mMatrix.getTranslateY(),
                 SkFixedToScalar(mMinSpaceWidth));
         }
         return mMinSpaceWidth;
@@ -361,8 +362,8 @@ public:
     void setUp(const SkPaint& paint, const SkMatrix& matrix, SkScalar y,
             const void* text)
     {
-        mMatrix = &matrix;
-        mPaint = &paint;
+        mMatrix = matrix;
+        mPaint = paint;
         mText = static_cast<const uint16_t*>(text);
         mY = y;
         reset();
@@ -372,8 +373,8 @@ public:
         if (mTop == INT_MAX) {
             SkPoint result;
             SkPaint::FontMetrics metrics;
-            mPaint->getFontMetrics(&metrics);
-            mMatrix->mapXY(0, metrics.fAscent + mY, &result);
+            mPaint.getFontMetrics(&metrics);
+            mMatrix.mapXY(0, metrics.fAscent + mY, &result);
             mTop = SkScalarFloor(result.fY);
         }
         return mTop;
@@ -393,8 +394,8 @@ protected:
     SkBounder::GlyphRec mLastGlyph;
     SkUnichar mLastUni;
     SkUnichar mLastUniCandidate;
-    const SkMatrix* mMatrix;
-    const SkPaint* mPaint;
+    SkMatrix mMatrix;
+    SkPaint mPaint;
     const uint16_t* mText;
     SkScalar mY;
 private:
@@ -470,6 +471,16 @@ public:
         for (int index = 0; index < mSelected.count(); index++) {
             const SkIRect& rect = mSelected[index];
             if (rect.fRight > test.fLeft && rect.fLeft < test.fRight)
+                return true;
+        }
+        return false;
+    }
+
+    bool inColumn(int x, int y) const
+    {
+        for (int index = 0; index < mSelected.count(); index++) {
+            const SkIRect& rect = mSelected[index];
+            if (rect.contains(x, y))
                 return true;
         }
         return false;
@@ -559,18 +570,37 @@ public:
             mFocusX - testBounds.fRight));
         int dy = std::max(0, std::max(testBounds.fTop - mFocusY,
             mFocusY - testBounds.fBottom));
+        bool testInColumn = false;
+        bool inBetween = false;
+        bool inFocus = false;
+        if (mLineCheck) {
+            testInColumn = mLineCheck->inColumn(testBounds);
+            inBetween = mLineCheck->inBetween();
+            inFocus = mLineCheck->inColumn(mFocusX, mFocusY);
+        }
 #ifdef EXTRA_NOISY_LOGGING
         if (dy < 10) {
             SkUnichar ch = getUniChar(rec);
-            DBG_NAV_LOGD("FirstCheck dx/y=(%d,%d) mDx/y=(%d,%d)"
-                " testBounds=(%d,%d,r=%d,b=%d) mBestBounds=(%d,%d,r=%d,b=%d)"
-                " ch=%c", dx, dy, mDx, mDy,
+            DBG_NAV_LOGD("FC dx/y=%d,%d mDx/y=%d,%d test=%d,%d,%d,%d"
+                " best=%d,%d,%d,%d bestIn=%s tween=%s testIn=%s focus=%s ch=%c",
+                dx, dy, mDx, mDy,
                 testBounds.fLeft, testBounds.fTop, testBounds.fRight,
                 testBounds.fBottom, mBestBounds.fLeft, mBestBounds.fTop,
-                mBestBounds.fRight, mBestBounds.fBottom, ch < 0x7f ? ch : '?');
+                mBestBounds.fRight, mBestBounds.fBottom, 
+                mBestInColumn ? "true" : "false", inBetween ? "true" : "false",
+                testInColumn ? "true" : "false", inFocus ? "true" : "false",
+                ch < 0x7f ? ch : '?');
         }
 #endif
-        if (dy > 0 && (mDy < dy || (mDy == dy && dx > 0 && mDx <= dx))) {
+        if ((mBestInColumn || inBetween) && !testInColumn) {
+#ifdef EXTRA_NOISY_LOGGING
+            if (dy < 10) DBG_NAV_LOG("FirstCheck reject column");
+#endif
+            return false;
+        }
+        bool ignoreColumn = mBestInColumn == testInColumn || !inFocus;
+        if (ignoreColumn && dy > 0 && (mDy < dy
+            || (mDy == dy && dx > 0 && mDx <= dx))) {
 #ifdef EXTRA_NOISY_LOGGING
             if (dy < 10) DBG_NAV_LOG("FirstCheck reject edge");
 #endif
@@ -580,7 +610,7 @@ public:
         // The center distance is used when the test point is over the text
         int cx = INT_MAX;
         int cy = INT_MAX;
-        if (dy == 0) {
+        if (ignoreColumn && dy == 0 && mDy == 0) {
             cy = std::abs(((testBounds.fTop + testBounds.fBottom) >> 1)
                 - mFocusY);
             if (mCy < cy) {
@@ -590,7 +620,7 @@ public:
                 return false;
             }
             if (mCy == cy) {
-                if (dx == 0) {
+                if (dx == 0 && mDx == 0) {
                     cx = std::abs(((testBounds.fLeft + testBounds.fRight) >> 1)
                     - mFocusX);
                     if (mCx < cx) {
@@ -607,21 +637,11 @@ public:
                 }
             }
         }
-        bool testInColumn = false;
-        bool inBetween = false;
-        if (mLineCheck) {
-            testInColumn = mLineCheck->inColumn(testBounds);
-            inBetween = mLineCheck->inBetween();
-        }
 #ifdef EXTRA_NOISY_LOGGING
         if (dy < 10) {
-            DBG_NAV_LOGD("FirstCheck cx/y=(%d,%d) bestIn=%s testIn=%s focusIn=%s",
-                cx, cy, mBestInColumn ? "true" : "false",
-                testInColumn ? "true" : "false", inBetween ? "true" : "false");
+            DBG_NAV_LOGD("FirstCheck cx/y=(%d,%d)", cx, cy);
         }
 #endif
-        if ((mBestInColumn || inBetween) && !testInColumn)
-            return false;
         mBestBase = base();
         mBestBounds = testBounds;
         mBestInColumn = testInColumn;
@@ -1582,10 +1602,14 @@ void SelectText::extendSelection(const IntRect& vis, int x, int y)
             clipRect.sort();
             clipRect.inset(-m_visibleRect.width(), -m_visibleRect.height());
         }
-        DBG_NAV_LOGD("selStart clip=(%d,%d,%d,%d)", clipRect.fLeft,
-            clipRect.fTop, clipRect.fRight, clipRect.fBottom);
         FirstCheck center(m_original.fX, m_original.fY, clipRect);
         m_selStart = m_selEnd = findClosest(center, *m_picture, &base);
+        if (m_selStart.isEmpty())
+            return;
+        DBG_NAV_LOGD("selStart clip=(%d,%d,%d,%d) m_original=%d,%d"
+            " m_selStart=(%d,%d,%d,%d)", clipRect.fLeft, clipRect.fTop,
+            clipRect.fRight, clipRect.fBottom, m_original.fX, m_original.fY,
+            m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom);
         m_startBase = m_endBase = base;
         m_startSelection = false;
         m_extendSelection = true;
@@ -1600,8 +1624,8 @@ void SelectText::extendSelection(const IntRect& vis, int x, int y)
         clipRect.sort();
         clipRect.inset(-m_visibleRect.width(), -m_visibleRect.height());
     }
-    DBG_NAV_LOGD("extend clip=(%d,%d,%d,%d) wordSel=%s outsideWord=%s",
-        clipRect.fLeft, clipRect.fTop, clipRect.fRight, clipRect.fBottom,
+    DBG_NAV_LOGD("extend clip=(%d,%d,%d,%d) x/y=%d,%d wordSel=%s outsideWord=%s",
+        clipRect.fLeft, clipRect.fTop, clipRect.fRight, clipRect.fBottom, x, y,
         m_wordSelection ? "true" : "false", m_outsideWord ? "true" : "false");
     FirstCheck extension(x, y, clipRect);
     SkIRect found = findClosest(extension, *m_picture, &base);
@@ -1666,10 +1690,11 @@ SkIRect SelectText::findEdge(const SkPicture& picture, const SkIRect& area,
     center.setRecordGlyph();
     int closestBase;
     SkIRect closest = findClosest(center, picture, &closestBase);
-    closest.inset(-TOUCH_SLOP, -TOUCH_SLOP);
-    if (!closest.contains(x, y)) {
-        DBG_NAV_LOGD("closest=(%d, %d, %d, %d) area=(%d, %d, %d, %d) x/y=%d,%d",
-            closest.fLeft, closest.fTop, closest.fRight, closest.fBottom,
+    SkIRect sloppy = closest;
+    sloppy.inset(-TOUCH_SLOP, -TOUCH_SLOP);
+    if (!sloppy.contains(x, y)) {
+        DBG_NAV_LOGD("sloppy=(%d, %d, %d, %d) area=(%d, %d, %d, %d) x/y=%d,%d",
+            sloppy.fLeft, sloppy.fTop, sloppy.fRight, sloppy.fBottom,
             area.fLeft, area.fTop, area.fRight, area.fBottom, x, y);
         return result;
     }
@@ -1681,6 +1706,12 @@ SkIRect SelectText::findEdge(const SkPicture& picture, const SkIRect& area,
         checker.drawPicture(const_cast<SkPicture&>(picture));
         edge.finishGlyph();
         if (!edge.adjacent()) {
+            if (result.isEmpty()) {
+                *base = closestBase;
+                DBG_NAV_LOGD("closest=%d,%d,%d,%d", closest.fLeft,
+                    closest.fTop, closest.fRight, closest.fBottom);
+                return closest;
+            }
             DBG_NAV_LOG("adjacent break");
             break;
         }
@@ -1903,10 +1934,31 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
 * FIXME: digit find isn't implemented yet
 * returns true if a word was selected
 */
-bool SelectText::wordSelection()
+bool SelectText::wordSelection(const CachedRoot* root, const IntRect& vis,
+    int x, int y)
 {
-    int x = m_selStart.fLeft;
-    int y = (m_selStart.fTop + m_selStart.fBottom) >> 1;
+    IntRect tapArea = IntRect(x - TOUCH_SLOP, y - TOUCH_SLOP, TOUCH_SLOP * 2,
+        TOUCH_SLOP * 2);
+    if (!startSelection(root, tapArea, x, y))
+        return false;
+    extendSelection(tapArea, x, y);
+    if (m_selStart.isEmpty())
+        return false;
+    setDrawPointer(false);
+    setVisibleRect(vis);
+    SkIRect ivisBounds = m_visibleRect;
+    ivisBounds.join(m_selStart);
+    ivisBounds.join(m_selEnd);
+    DBG_NAV_LOGD("m_selStart=(%d,%d,r=%d,b=%d) m_selEnd=(%d,%d,r=%d,b=%d)"
+        " ivisBounds=(%d,%d,r=%d,b=%d)",
+        m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
+        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom,
+        ivisBounds.fLeft, ivisBounds.fTop, ivisBounds.fRight, ivisBounds.fBottom);
+    m_selRegion.setEmpty();
+    buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
+        m_selEnd, m_endBase, &m_selRegion);
+    x = m_selStart.fLeft;
+    y = (m_selStart.fTop + m_selStart.fBottom) >> 1;
     SkIRect clipRect = m_visibleRect;
     clipRect.fLeft -= m_visibleRect.width() >> 1;
     int base;
