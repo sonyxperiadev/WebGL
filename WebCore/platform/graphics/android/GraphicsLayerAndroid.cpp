@@ -373,10 +373,15 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
                 m_contentLayer->addChild(m_foregroundClipLayer);
             } else if (layer->isRootLayer()
                        && layer->renderer()->frame()->ownerRenderer()) {
-                // Replace the content layer with a scrollable layer.
-                LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
-                m_contentLayer->unref();
-                m_contentLayer = layer;
+                // We have to do another check for scrollable content since an
+                // iframe might be compositing for other reasons.
+                FrameView* view = layer->renderer()->frame()->view();
+                if (view->hasOverflowScroll()) {
+                    // Replace the content layer with a scrollable layer.
+                    LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
+                    m_contentLayer->unref();
+                    m_contentLayer = layer;
+                }
             }
         }
 #endif

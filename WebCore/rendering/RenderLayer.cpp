@@ -2159,8 +2159,9 @@ RenderLayer::updateScrollInfoAfterLayout()
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (hasOverflowScroll()) {
         rendererContentChanged();
+        if (parent())
+            parent()->dirtyNormalFlowList();
         dirtyStackingContextZOrderLists();
-        dirtyZOrderLists();
     }
 #endif
 }
