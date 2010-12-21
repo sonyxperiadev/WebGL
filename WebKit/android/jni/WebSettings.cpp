@@ -462,8 +462,18 @@ public:
         if (flag) {
             // If the user has set the database path, sync it to the DatabaseTracker.
             str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
-            if (str)
-                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(jstringToWtfString(env, str));
+            if (str) {
+                String path = jstringToWtfString(env, str);
+                DatabaseTracker::tracker().setDatabaseDirectoryPath(path);
+                // This database is created when the first HTML5 Database object is
+                // instantiated. If the file doesn't exist, we create it and set its
+                // permissions. The filename must match that in
+                // DatabaseTracker.cpp.
+                String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(path, "Databases.db");
+                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                if (fd >= 0)
+                    close(fd);
+            }
         }
 #endif
 #if ENABLE(DOM_STORAGE)
