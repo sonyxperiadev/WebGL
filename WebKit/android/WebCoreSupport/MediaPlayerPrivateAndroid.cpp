@@ -186,6 +186,9 @@ public:
     }
     bool canLoadPoster() const { return true; }
     void setPoster(const String& url) {
+        if (m_posterUrl == url)
+            return;
+
         m_posterUrl = url;
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_glue->m_javaProxy || !m_posterUrl.length())
