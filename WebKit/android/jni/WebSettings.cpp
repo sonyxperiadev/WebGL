@@ -36,6 +36,7 @@
 #include "Database.h"
 #include "Document.h"
 #include "EditorClientAndroid.h"
+#include "FileSystem.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
@@ -59,6 +60,8 @@
 #include <wtf/text/CString.h>
 
 namespace android {
+
+static const int permissionFlags660 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 
 struct FieldIds {
     FieldIds(JNIEnv* env, jclass clazz) {
@@ -418,13 +421,20 @@ public:
         s->setOfflineWebApplicationCacheEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
         if (str) {
-            WTF::String path = jstringToWtfString(env, str);
-            if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
-                WebCore::cacheStorage().setCacheDirectory(path);
+            String path = jstringToWtfString(env, str);
+            if (path.length() && cacheStorage().cacheDirectory().isNull()) {
+                cacheStorage().setCacheDirectory(path);
+                // This database is created on the first load. If the file
+                // doesn't exist, we create it and set its permissions. The
+                // filename must match that in ApplicationCacheStorage.cpp.
+                String filename = pathByAppendingComponent(path, "ApplicationCache.db");
+                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
+                if (fd >= 0)
+                    close(fd);
             }
         }
         jlong maxsize = env->GetLongField(obj, gFieldIds->mAppCacheMaxSize);
-        WebCore::cacheStorage().setMaximumSize(maxsize);
+        cacheStorage().setMaximumSize(maxsize);
 #endif
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
@@ -470,7 +480,7 @@ public:
                 // permissions. The filename must match that in
                 // DatabaseTracker.cpp.
                 String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(path, "Databases.db");
-                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
                 if (fd >= 0)
                     close(fd);
             }
@@ -500,7 +510,7 @@ public:
             // permissions. The filename must match that in
             // GeolocationPositionCache.cpp.
             String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(path, "CachedGeoposition.db");
-            int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+            int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
             if (fd >= 0)
                 close(fd);
         }
