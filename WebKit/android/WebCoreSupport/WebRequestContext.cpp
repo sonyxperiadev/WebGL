@@ -52,6 +52,7 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
     if (m_isPrivateBrowsing) {
         // Delete the old files if this is the first private browsing instance
         // They are probably leftovers from a power cycle
+        // We do not need to clear the cache as it is in memory only for private browsing
         if (!numPrivateBrowsingInstances)
             WebCookieJar::cleanup(true);
         numPrivateBrowsingInstances++;
@@ -74,9 +75,11 @@ WebRequestContext::~WebRequestContext()
     if (m_isPrivateBrowsing) {
         numPrivateBrowsingInstances--;
 
-        // This is the last private browsing context, delete the cookies
-        if (!numPrivateBrowsingInstances)
+        // This is the last private browsing context, delete the cookies and cache
+        if (!numPrivateBrowsingInstances) {
             WebCookieJar::cleanup(true);
+            WebCache::cleanup(true);
+        }
     }
 }
 
