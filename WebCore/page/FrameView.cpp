@@ -555,16 +555,9 @@ void FrameView::updateCompositingLayers()
     if (!view)
         return;
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // Enter compositing mode for child frames that have layout dimensions.  The
-    // decision to enable compositing for the RenderView will be done in the
-    // compositor.
-    if (false && m_frame->ownerRenderer() && (layoutWidth() | layoutHeight()) && !view->usesCompositing()) {
-        ScrollbarMode h,v;
-        scrollbarModes(h, v);
-        if ((h != ScrollbarAlwaysOff && layoutWidth() < contentsWidth()) ||
-            (v != ScrollbarAlwaysOff && layoutHeight() < contentsHeight()))
-            enterCompositingMode();
-    }
+    // Enter compositing mode for child frames that have layout dimensions.
+    if (hasOverflowScroll())
+        enterCompositingMode();
 #endif
 
     // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
@@ -579,6 +572,28 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
         page->chrome()->client()->setNeedsOneShotDrawingSynchronization();
 }
 
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+bool FrameView::hasOverflowScroll() const
+{
+    RenderObject* ownerRenderer = m_frame->ownerRenderer();
+    if (!ownerRenderer || !ownerRenderer->isRenderIFrame())
+        return false;
+    RenderLayer* layer = ownerRenderer->enclosingLayer();
+    // Make sure the layer has visible content or descendants.
+    if (!layer->hasVisibleContent() && !layer->hasVisibleDescendant())
+        return false;
+    // If either layout dimension is 0, return false.
+    if (!layoutWidth() || !layoutHeight())
+        return false;
+    ScrollbarMode h, v;
+    scrollbarModes(h, v);
+    if (h == ScrollbarAlwaysOff || v == ScrollbarAlwaysOff)
+        return false;
+    if (contentsWidth() <= layoutWidth() && contentsHeight() <= layoutHeight())
+        return false;
+    return true;
+}
+#endif
 #endif // USE(ACCELERATED_COMPOSITING)
 
 bool FrameView::hasCompositedContent() const
