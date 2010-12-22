@@ -120,6 +120,12 @@ bool JSDOMWindowBase::supportsProfiling() const
 
 bool JSDOMWindowBase::supportsRichSourceInfo() const
 {
+#if PLATFORM(ANDROID)
+    // TODO: better to get upstream to fix the line info without enabling
+    // DEBUGGER or INSPECTOR.
+    // See webkit change: http://trac.webkit.org/changeset/72360
+    return true;
+#endif
 #if !ENABLE(JAVASCRIPT_DEBUGGER) || !ENABLE(INSPECTOR)
     return false;
 #else
