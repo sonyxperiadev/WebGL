@@ -312,6 +312,10 @@ public:
         env->DeleteLocalRef(clazz);
         checkException(env);
     }
+
+    float maxTimeSeekable() const {
+        return m_duration;
+    }
 };
 
 class MediaPlayerAudioPrivate : public MediaPlayerPrivate {
