@@ -87,13 +87,6 @@ void WebCache::cleanup(bool isPrivateBrowsing)
     *instancePtr = 0;
 }
 
-WebCache::~WebCache()
-{
-    // We currently leak the HostResolver object to avoid a crash.
-    // TODO: Fix this. See b/3243797
-    m_hostResolver.leakPtr();
-}
-
 WebCache::WebCache(bool isPrivateBrowsing)
     : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
     , m_doneCallback(this, &WebCache::onClearDone)

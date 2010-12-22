@@ -39,7 +39,6 @@ class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
     static WebCache* get(bool isPrivateBrowsing);
 
-    ~WebCache();
     void clear();
     static void cleanup(bool isPrivateBrowsing);
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
