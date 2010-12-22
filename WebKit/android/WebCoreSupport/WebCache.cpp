@@ -80,6 +80,13 @@ WebCache* WebCache::get(bool isPrivateBrowsing)
     return instancePtr->get();
 }
 
+void WebCache::cleanup(bool isPrivateBrowsing)
+{
+    MutexLocker lock(instanceMutex);
+    scoped_refptr<WebCache>* instancePtr = instance(isPrivateBrowsing);
+    *instancePtr = 0;
+}
+
 WebCache::~WebCache()
 {
     // We currently leak the HostResolver object to avoid a crash.

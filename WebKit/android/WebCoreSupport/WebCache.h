@@ -41,6 +41,7 @@ public:
 
     ~WebCache();
     void clear();
+    static void cleanup(bool isPrivateBrowsing);
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
     net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
