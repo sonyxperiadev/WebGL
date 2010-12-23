@@ -876,11 +876,11 @@ public:
                 layers->getBounds().fRight, layers->getBounds().fBottom,
                 collectGlyphs ? "true" : "false",
                 mTestBounds.intersects(*layers) ? "true" : "false",
-                mTestBounds.contains(*layers) ? "true" : "false");
+                mTextSlop.contains(*layers) ? "true" : "false");
             if (collectGlyphs && layerType == kDrawGlyph_Type) {
                 if (!mTestBounds.intersects(*layers))
                     continue;
-                if (!mTestBounds.contains(*layers))
+                if (!mTextSlop.contains(*layers))
                     return false;
                 foundGlyph = true;
             }
