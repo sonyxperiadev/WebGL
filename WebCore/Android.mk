@@ -354,12 +354,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/ArrayBuffer.cpp \
 	html/canvas/ArrayBufferView.cpp \
 	html/canvas/CanvasGradient.cpp \
-	html/canvas/DataView.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
 	html/canvas/CanvasRenderingContext.cpp \
 	html/canvas/CanvasRenderingContext2D.cpp \
 	html/canvas/CanvasStyle.cpp \
+	html/canvas/DataView.cpp \
 	html/canvas/Float32Array.cpp \
 	html/canvas/Int16Array.cpp \
 	html/canvas/Int32Array.cpp \
