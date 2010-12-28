@@ -114,7 +114,8 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 #if USE(ACCELERATED_COMPOSITING)
     android::Mutex::Autolock lock(m_drawLock);
 #endif
-    if (!m_content.isEmpty())
+    // TODO: After the isEmpty check fixed, we can remove the GL dependency here.
+    if (m_glWebViewState || !m_content.isEmpty())
         m_content.draw(canvas);
     // TODO : replace with !m_extra.isEmpty() once such a call exists
     if (m_extra.width() > 0)
@@ -124,7 +125,8 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 #if USE(ACCELERATED_COMPOSITING)
 bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
 {
-    if (m_content.isEmpty())
+    // TODO: After the isEmpty check fixed, we can remove the GL dependency here.
+    if (!m_glWebViewState && m_content.isEmpty())
         return false;
     if (!m_glWebViewState)
         return false;
