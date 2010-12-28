@@ -898,7 +898,11 @@ protected:
                 && mType != kDrawSprite_Type && mType != kDrawBitmap_Type)
             return false;
         if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType
-            || !mAppendLikeTypes) {
+            || !mAppendLikeTypes
+            // if the last was a rect, and the current one is also a rect,
+            // but the two rects have a gap between, don't join them -- push
+            // an empty between them
+            || (mType == kDrawRect_Type && !joinable(rect))) {
             push(mType, mEmpty);
         }
         DBG_NAV_LOGD("RingCheck join %s (%d,%d,r=%d,b=%d) '%c'",
@@ -993,6 +997,20 @@ private:
             DBG_NAV_LOGD("RingCheck last best=%d", testLayer - mLayers.begin());
             mBestLayer = testLayer;
         }
+    }
+
+    bool joinable(const SkIRect& rect)
+    {
+        SkRegion region = mLayers.last();
+        if (!region.isRect())
+            return false;
+        const SkIRect& bounds1 = region.getBounds();
+        int area1 = bounds1.width() * bounds1.height();
+        area1 += rect.width() * rect.height();
+        region.op(rect, SkRegion::kUnion_Op);
+        const SkIRect& bounds2 = region.getBounds();
+        int area2 = bounds2.width() * bounds2.height();
+        return area2 <= area1;
     }
 
     void popEmpty()
