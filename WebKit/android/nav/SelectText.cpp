@@ -1853,6 +1853,25 @@ void SelectText::reset()
     m_layerId = 0;
 }
 
+IntPoint SelectText::selectableText(const CachedRoot* root)
+{
+    int x = 0;
+    int y = 0;
+    SkPicture* picture = root->pictureAt(&x, &y, &m_layerId);
+    if (!picture) {
+        DBG_NAV_LOG("picture==0");
+        return IntPoint(0, 0);
+    }
+    int width = picture->width();
+    int height = picture->height();
+    IntRect vis(0, 0, width, height);
+    FirstCheck center(width >> 1, height >> 1, vis);
+    int base;
+    const SkIRect& closest = findClosest(center, *picture, &base);
+    return IntPoint((closest.fLeft + closest.fRight) >> 1,
+        (closest.fTop + closest.fBottom) >> 1);
+}
+
 void SelectText::selectAll()
 {
     if (!m_picture)

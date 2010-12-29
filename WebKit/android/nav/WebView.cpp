@@ -1081,6 +1081,14 @@ void moveSelection(int x, int y)
     m_selectText.moveSelection(getVisibleRect(), x, y);
 }
 
+IntPoint selectableText()
+{
+    const CachedRoot* root = getFrameCache(DontAllowNewer);
+    if (!root)
+        return IntPoint(0, 0);
+    return m_selectText.selectableText(root);
+}
+
 void selectAll()
 {
     m_selectText.selectAll();
@@ -2113,6 +2121,16 @@ static void nativeResetSelection(JNIEnv *env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->resetSelection();
 }
 
+static jobject nativeSelectableText(JNIEnv* env, jobject obj)
+{
+    IntPoint pos = GET_NATIVE_VIEW(env, obj)->selectableText();
+    jclass pointClass = env->FindClass("android/graphics/Point");
+    jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
+    jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
+    env->DeleteLocalRef(pointClass);
+    return point;
+}
+
 static void nativeSelectAll(JNIEnv* env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->selectAll();
@@ -2364,6 +2382,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeRecordButtons },
     { "nativeResetSelection", "()V",
         (void*) nativeResetSelection },
+    { "nativeSelectableText", "()Landroid/graphics/Point;",
+        (void*) nativeSelectableText },
     { "nativeSelectAll", "()V",
         (void*) nativeSelectAll },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",

@@ -27,6 +27,7 @@
 #define SELECT_TEXT_H
 
 #include "DrawExtra.h"
+#include "IntPoint.h"
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "SkPath.h"
@@ -48,6 +49,7 @@ public:
     bool hitSelection(int x, int y) const;
     void moveSelection(const IntRect& vis, int x, int y);
     void reset();
+    IntPoint selectableText(const CachedRoot* );
     void selectAll();
     int selectionX() const;
     int selectionY() const;
