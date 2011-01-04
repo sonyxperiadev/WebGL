@@ -569,6 +569,7 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
 bool FrameView::hasOverflowScroll() const
 {
+#ifndef ANDROID_FLATTEN_IFRAME
     RenderObject* ownerRenderer = m_frame->ownerRenderer();
     if (!ownerRenderer || !ownerRenderer->isRenderIFrame())
         return false;
@@ -586,6 +587,8 @@ bool FrameView::hasOverflowScroll() const
     if (contentsWidth() <= layoutWidth() && contentsHeight() <= layoutHeight())
         return false;
     return true;
+#endif
+    return false;
 }
 #endif
 #endif // USE(ACCELERATED_COMPOSITING)
