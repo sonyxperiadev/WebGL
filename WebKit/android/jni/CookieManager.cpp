@@ -27,7 +27,6 @@
 
 #include "ChromiumIncludes.h"
 #include "WebCookieJar.h"
-#include "WebRequestContext.h"
 #include "WebCoreJni.h"
 #include <JNIHelp.h>
 
