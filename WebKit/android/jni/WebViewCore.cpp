@@ -282,6 +282,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_getPluginClass;
     jmethodID   m_showFullScreenPlugin;
     jmethodID   m_hideFullScreenPlugin;
+    jmethodID   m_createSurface;
     jmethodID   m_addSurface;
     jmethodID   m_updateSurface;
     jmethodID   m_destroySurface;
@@ -376,6 +377,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;I)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
+    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Landroid/view/View;)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_addSurface = GetJMethod(env, clazz, "addSurface", "(Landroid/view/View;IIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
@@ -3268,6 +3270,15 @@ void WebViewCore::hideFullScreenPlugin()
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_hideFullScreenPlugin);
     checkException(env);
+}
+
+jobject WebViewCore::createSurface(jobject view)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
+                                           m_javaGlue->m_createSurface, view);
+    checkException(env);
+    return result;
 }
 
 jobject WebViewCore::addSurface(jobject view, int x, int y, int width, int height)

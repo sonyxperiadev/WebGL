@@ -454,6 +454,9 @@ namespace android {
         // Instructs the UI thread to discard the plugin's full-screen surface
         void hideFullScreenPlugin();
 
+        // Creates a childView for the plugin but does not attach to the view hierarchy
+        jobject createSurface(jobject view);
+
         // Adds the plugin's view (aka surface) to the view hierarchy
         jobject addSurface(jobject view, int x, int y, int width, int height);
 
