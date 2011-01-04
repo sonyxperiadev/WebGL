@@ -1934,7 +1934,7 @@ bool RenderLayer::hasOverflowControls() const
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
 bool RenderLayer::hasOverflowScroll() const
 {
-    if (!enclosingElement() || !enclosingElement()->hasTagName(HTMLNames::divTag))
+    if (!enclosingElement())
         return false;
     if (m_scrollDimensionsDirty)
         return false;
