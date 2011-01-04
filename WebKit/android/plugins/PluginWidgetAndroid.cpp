@@ -536,7 +536,29 @@ void PluginWidgetAndroid::scrollToVisiblePluginRect() {
 }
 
 void PluginWidgetAndroid::requestFullScreen() {
-    if (m_isFullScreen || !m_embeddedView) {
+    if (m_isFullScreen) {
+        return;
+    }
+
+    if (!m_embeddedView && m_drawingModel == kOpenGL_ANPDrawingModel) {
+        WebCore::PluginPackage* pkg = m_pluginView->plugin();
+        NPP instance = m_pluginView->instance();
+
+        jobject pluginSurface;
+        pkg->pluginFuncs()->getvalue(instance, kJavaSurface_ANPGetValue,
+                                     static_cast<void*>(&pluginSurface));
+
+        // create the surface, but do not add it to the view hierarchy
+        jobject tempObj = m_core->createSurface(pluginSurface);
+
+        if (tempObj) {
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            m_embeddedView = env->NewGlobalRef(tempObj);
+            m_embeddedViewAttached = false;
+        }
+    }
+
+    if (!m_embeddedView) {
         return;
     }
 
@@ -547,7 +569,8 @@ void PluginWidgetAndroid::requestFullScreen() {
     sendEvent(event);
 
     // remove the embedded surface from the view hierarchy
-    m_core->destroySurface(m_embeddedView);
+    if (m_drawingModel != kOpenGL_ANPDrawingModel)
+        m_core->destroySurface(m_embeddedView);
 
     // add the full screen view
     m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance());
@@ -565,8 +588,9 @@ void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
     }
 
     // add the embedded view back
-    m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
-                          m_pluginWindow->width, m_pluginWindow->height);
+    if (m_drawingModel != kOpenGL_ANPDrawingModel)
+        m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
+                m_pluginWindow->width, m_pluginWindow->height);
 
     // send event to notify plugin of full screen change
     ANPEvent event;
