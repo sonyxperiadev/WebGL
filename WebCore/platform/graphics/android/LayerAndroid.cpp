@@ -475,13 +475,13 @@ void LayerAndroid::updatePositions()
 void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
                                      const FloatRect& clipping, float opacity)
 {
-    IntSize bounds(getSize().width(), getSize().height());
+    IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
     FloatPoint position(getPosition().fX, getPosition().fY);
-    float centerOffsetX = (0.5f - anchorPoint.x()) * bounds.width();
-    float centerOffsetY = (0.5f - anchorPoint.y()) * bounds.height();
-    float originX = anchorPoint.x() * bounds.width();
-    float originY = anchorPoint.y() * bounds.height();
+    float centerOffsetX = (0.5f - anchorPoint.x()) * layerSize.width();
+    float centerOffsetY = (0.5f - anchorPoint.y()) * layerSize.height();
+    float originX = anchorPoint.x() * layerSize.width();
+    float originY = anchorPoint.y() * layerSize.height();
     TransformationMatrix localMatrix = parentMatrix;
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
@@ -501,10 +501,8 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     setDrawOpacity(opacity);
 
     if (m_haveClip) {
-        FloatRect clip;
-        clip.setLocation(p);
-        clip.setWidth(getSize().width());
-        clip.setHeight(getSize().height());
+        FloatRect clip = (FloatRect) bounds();
+        clip.intersect(clipping);
         setDrawClip(clip);
     } else {
         setDrawClip(clipping);
