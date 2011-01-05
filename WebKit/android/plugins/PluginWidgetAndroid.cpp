@@ -415,6 +415,24 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
     }
 }
 
+ANPRectI PluginWidgetAndroid::visibleRect() {
+
+    SkIRect visibleRect;
+    visibleRect.setEmpty();
+
+    // compute the interesection of the visible screen and the plugin
+    bool visible = visibleRect.intersect(m_visibleDocRect, m_pluginBounds);
+    if (visible) {
+        // convert from absolute coordinates to the plugin's relative coordinates
+        visibleRect.offset(-m_pluginBounds.fLeft, -m_pluginBounds.fTop);
+    }
+
+    // convert from SkRect to ANPRect
+    ANPRectI result;
+    memcpy(&result, &visibleRect, sizeof(ANPRectI));
+    return result;
+}
+
 void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count) {
 #if DEBUG_VISIBLE_RECTS
     PLUGIN_LOG("%s count=%d", __FUNCTION__, count);
