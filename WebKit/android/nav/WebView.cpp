@@ -1711,6 +1711,12 @@ static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
     return input ? input->maxLength() : false;
 }
 
+static jint nativeFocusCandidateIsAutoComplete(JNIEnv *env, jobject obj)
+{
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->autoComplete() : false;
+}
+
 static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
@@ -2328,6 +2334,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateLineHeight },
     { "nativeFocusCandidateMaxLength", "()I",
         (void*) nativeFocusCandidateMaxLength },
+    { "nativeFocusCandidateIsAutoComplete", "()Z",
+        (void*) nativeFocusCandidateIsAutoComplete },
     { "nativeFocusCandidateName", "()Ljava/lang/String;",
         (void*) nativeFocusCandidateName },
     { "nativeFocusCandidateNodeBounds", "()Landroid/graphics/Rect;",

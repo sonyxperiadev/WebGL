@@ -51,6 +51,7 @@ public:
         URL = 7
     };
 
+    bool autoComplete() const { return mAutoComplete; }
     void* formPointer() const { return mForm; }
     void init();
     void setTypeFromElement(WebCore::HTMLInputElement*);
@@ -65,6 +66,7 @@ public:
     int paddingLeft() const { return mPaddingLeft; }
     int paddingRight() const { return mPaddingRight; }
     int paddingTop() const { return mPaddingTop; }
+    void setAutoComplete(bool autoComplete) { mAutoComplete = autoComplete; }
     void setFormPointer(void* form) { mForm = form; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
@@ -91,6 +93,7 @@ private:
     int mPaddingTop;
     float mTextSize;
     Type mType;
+    bool mAutoComplete : 1;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
     bool mIsTextArea : 1;

@@ -79,6 +79,7 @@ static void printWebCoreString(const char* label,
 void CachedInput::Debug::print() const
 {
     CachedInput* b = base();
+    DEBUG_PRINT_BOOL(mAutoComplete);
     DUMP_NAV_LOGD("// void* mForm=%p;\n", b->mForm);
     printWebCoreString("// char* mName=\"", b->mName);
     DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
