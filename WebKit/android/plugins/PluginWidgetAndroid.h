@@ -117,6 +117,12 @@ struct PluginWidgetAndroid {
      */
     void setVisibleScreen(const ANPRectI& visibleScreenRect, float zoom);
 
+    /** Returns a rectangle representing the visible area of the plugin on
+        screen. The coordinates are relative to the size of the plugin in the
+        document and will not be negative or exceed the plugin's size.
+     */
+    ANPRectI visibleRect();
+
     /** Registers a set of rectangles that the plugin would like to keep on
         screen. The rectangles are listed in order of priority with the highest
         priority rectangle in location rects[0].  The browser will attempt to keep

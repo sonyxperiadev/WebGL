@@ -122,6 +122,7 @@ typedef uint32_t ANPMatrixFlag;
 
 #define kAudioTrackInterfaceV1_ANPGetValue  ((NPNVariable)1012)
 #define kOpenGLInterfaceV0_ANPGetValue      ((NPNVariable)1013)
+#define kWindowInterfaceV1_ANPGetValue      ((NPNVariable)1014)
 
 /** queries for the drawing models supported on this device.
 
@@ -680,6 +681,14 @@ struct ANPWindowInterfaceV0 : ANPInterface {
     /** Called when a plugin wishes to be zoomed and centered in the current view.
      */
     void    (*requestCenterFitZoom)(NPP instance);
+};
+
+struct ANPWindowInterfaceV1 : ANPWindowInterfaceV0 {
+    /** Returns a rectangle representing the visible area of the plugin on
+        screen. The coordinates are relative to the size of the plugin in the
+        document and therefore will never be negative or exceed the plugin's size.
+     */
+    ANPRectI (*visibleRect)(NPP instance);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

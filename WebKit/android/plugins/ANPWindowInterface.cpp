@@ -73,6 +73,12 @@ static void anp_requestCenterFitZoom(NPP instance) {
     pluginWidget->requestCenterFitZoom();
 }
 
+static ANPRectI anp_visibleRect(NPP instance) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    return pluginWidget->visibleRect();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -86,4 +92,12 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, requestFullScreen);
     ASSIGN(i, exitFullScreen);
     ASSIGN(i, requestCenterFitZoom);
+}
+
+void ANPWindowInterfaceV1_Init(ANPInterface* value) {
+    // initialize the functions from the previous interface
+    ANPWindowInterfaceV0_Init(value);
+    // add any new functions or override existing functions
+    ANPWindowInterfaceV1* i = reinterpret_cast<ANPWindowInterfaceV1*>(value);
+    ASSIGN(i, visibleRect);
 }
