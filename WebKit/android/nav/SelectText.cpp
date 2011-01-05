@@ -486,7 +486,7 @@ public:
         return false;
     }
 
-    virtual bool onIRectGlyph(const SkIRect& rect, const SkBounder::GlyphRec& )
+    virtual bool onIRect(const SkIRect& rect)
     {
         SkIRect bounds;
         bounds.set(rect.fLeft, top(), rect.fRight, bottom());
@@ -1980,6 +1980,7 @@ bool SelectText::wordSelection(const CachedRoot* root, const IntRect& vis,
     y = (m_selStart.fTop + m_selStart.fBottom) >> 1;
     SkIRect clipRect = m_visibleRect;
     clipRect.fLeft -= m_visibleRect.width() >> 1;
+    clipRect.fLeft = std::max(clipRect.fLeft, 0);
     int base;
     SkIRect left = findLeft(*m_picture, clipRect, x, y, &base);
     if (!left.isEmpty()) {

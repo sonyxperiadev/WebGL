@@ -1030,8 +1030,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     // The frame itself might be composited so we need to track the layer.  Do
     // not track the base frame's layer as the main content is draw as part of
     // BaseLayerAndroid's picture.
-    if (frame != root && frame->contentRenderer()->usesCompositing() && node->lastChild())
-        TrackLayer(layerTracker, frame->contentRenderer(), node->lastChild(), globalOffsetX, globalOffsetY);
+    if (frame != root && frame->contentRenderer()
+        && frame->contentRenderer()->usesCompositing() && node->lastChild())
+        TrackLayer(layerTracker, frame->contentRenderer(), node->lastChild(),
+            globalOffsetX, globalOffsetY);
 #endif
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
 #if DUMP_NAV_CACHE
