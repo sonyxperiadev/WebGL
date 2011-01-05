@@ -1,4 +1,3 @@
-
 # Copyright (C) 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
 # Copyright (C) 2006 Anders Carlsson <andersca@mac.com>
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
@@ -40,6 +39,7 @@ my @implFixedHeader = ();
 my @implContent = ();
 my @implContentDecls = ();
 my %implIncludes = ();
+my %headerIncludes = ();
 
 my @allParents = ();
 
@@ -205,8 +205,11 @@ sub GetSVGPropertyTypes
         $implIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
     } elsif ($svgNativeType =~ /SVGTransformListPropertyTearOff/) {
         $svgListPropertyType = $svgWrappedNativeType;
-        $implIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
-        $implIncludes{"SVGTransformListPropertyTearOff.h"} = 1;
+        $headerIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
+        $headerIncludes{"SVGTransformListPropertyTearOff.h"} = 1;
+    } elsif ($svgNativeType =~ /SVGPathSegListPropertyTearOff/) {
+        $svgListPropertyType = $svgWrappedNativeType;
+        $headerIncludes{"SVGPathSegListPropertyTearOff.h"} = 1;
     }
 
     if ($svgPropertyType) {
@@ -234,7 +237,6 @@ sub GenerateHeader
     # - Add default header template
     push(@headerContent, GenerateHeaderContentHeader($dataNode));
 
-    my %headerInclues = ();
     $headerIncludes{"wtf/text/StringHash.h"} = 1;
     $headerIncludes{"WrapperTypeInfo.h"} = 1;
     $headerIncludes{"V8DOMWrapper.h"} = 1;
@@ -250,7 +252,7 @@ sub GenerateHeader
 
     push(@headerContent, "#include <v8.h>\n");
     push(@headerContent, "#include <wtf/HashMap.h>\n");
-    
+
     push(@headerContent, "\nnamespace WebCore {\n");
     push(@headerContent, "\ntemplate<typename PropertyType> class SVGPropertyTearOff;\n") if $svgPropertyType;
     if ($svgNativeType) {
