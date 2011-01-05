@@ -34,9 +34,6 @@
 #include "DateComponents.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include <wtf/CurrentTime.h>
-#include <wtf/DateMath.h>
-#include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
@@ -54,21 +51,6 @@ PassOwnPtr<InputType> TimeInputType::create(HTMLInputElement* element)
 const AtomicString& TimeInputType::formControlType() const
 {
     return InputTypeNames::time();
-}
-
-double TimeInputType::defaultValueForStepUp() const
-{
-    double current = currentTimeMS();
-    double utcOffset = calculateUTCOffset();
-    double dstOffset = calculateDSTOffset(current, utcOffset);
-    int offset = static_cast<int>((utcOffset + dstOffset) / msPerMinute);
-    current += offset * msPerMinute;
-
-    DateComponents date;
-    date.setMillisecondsSinceMidnight(current);
-    double milliseconds = date.millisecondsSinceEpoch();
-    ASSERT(isfinite(milliseconds));
-    return milliseconds;
 }
 
 double TimeInputType::minimum() const

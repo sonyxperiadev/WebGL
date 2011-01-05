@@ -680,25 +680,14 @@ sub determineQtFeatureDefaults()
 sub checkForArgumentAndRemoveFromARGV
 {
     my $argToCheck = shift;
-    return checkForArgumentAndRemoveFromArrayRef($argToCheck, \@ARGV);
-}
-
-sub checkForArgumentAndRemoveFromArrayRef
-{
-    my ($argToCheck, $arrayRef) = @_;
-    my @indicesToRemove;
-    foreach my $index (0 .. $#$arrayRef) {
-        my $opt = $$arrayRef[$index];
+    foreach my $opt (@ARGV) {
         if ($opt =~ /^$argToCheck$/i ) {
-            push(@indicesToRemove, $index);
+            @ARGV = grep(!/^$argToCheck$/i, @ARGV);
+            return 1;
         }
     }
-    foreach my $index (@indicesToRemove) {
-        splice(@$arrayRef, $index, 1);
-    }
-    return $#indicesToRemove > -1;
+    return 0;
 }
-
 
 sub determineIsQt()
 {
@@ -1688,9 +1677,7 @@ sub buildChromium($@)
     my ($clean, @options) = @_;
 
     # We might need to update DEPS or re-run GYP if things have changed.
-    if (checkForArgumentAndRemoveFromArrayRef("--update-chromium", \@options)) {
-        system("perl", "WebKitTools/Scripts/update-webkit-chromium") == 0 or die $!;
-    }
+    system("perl", "WebKitTools/Scripts/update-webkit-chromium") == 0 or die $!;
 
     my $result = 1;
     if (isDarwin()) {

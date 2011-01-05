@@ -23,12 +23,10 @@
 
 #if ENABLE(SVG)
 #include "SVGAnimatedPropertyMacros.h"
-#include "SVGExternalResourcesRequired.h"
-#include "SVGFitToViewBox.h"
-#include "SVGPreserveAspectRatio.h"
-#include "SVGRect.h"
 #include "SVGStringList.h"
 #include "SVGStyledElement.h"
+#include "SVGExternalResourcesRequired.h"
+#include "SVGFitToViewBox.h"
 #include "SVGZoomAndPan.h"
 
 namespace WebCore {

@@ -26,7 +26,6 @@
 #ifndef RenderLayerCompositor_h
 #define RenderLayerCompositor_h
 
-#include "ChromeClient.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 
@@ -68,9 +67,7 @@ public:
     
     // Returns true if the accelerated compositing is enabled
     bool hasAcceleratedCompositing() const { return m_hasAcceleratedCompositing; }
-
-    bool canRender3DTransforms() const;
-
+    
     bool showDebugBorders() const { return m_showDebugBorders; }
     bool showRepaintCounter() const { return m_showRepaintCounter; }
     
@@ -240,8 +237,6 @@ private:
     Timer<RenderLayerCompositor> m_updateCompositingLayersTimer;
 
     bool m_hasAcceleratedCompositing;
-    ChromeClient::CompositingTriggerFlags m_compositingTriggers;
-
     bool m_showDebugBorders;
     bool m_showRepaintCounter;
     bool m_compositingConsultsOverlap;

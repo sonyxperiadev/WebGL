@@ -152,7 +152,8 @@ public:
     // to do an eager layout before the drawing.
     virtual void scheduleCompositingLayerSync();
 
-    virtual CompositingTriggerFlags allowedCompositingTriggers() const;
+    // Returns true if accelerated compositing is supported.
+    virtual bool allowsAcceleratedCompositing() const;
 #endif
 
     virtual bool supportsFullscreenForNode(const WebCore::Node*);

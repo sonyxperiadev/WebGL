@@ -586,22 +586,6 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
     createRequest(ec);
 }
 
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
-void XMLHttpRequest::send(ArrayBuffer* body, ExceptionCode& ec)
-{
-    if (!initSend(ec))
-        return;
-
-    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
-        m_requestEntityBody = FormData::create(body->data(), body->byteLength());
-        if (m_upload)
-            m_requestEntityBody->setAlwaysStream(true);
-    }
-
-    createRequest(ec);
-}
-#endif
-
 void XMLHttpRequest::createRequest(ExceptionCode& ec)
 {
 #if ENABLE(BLOB)
@@ -1023,7 +1007,7 @@ void XMLHttpRequest::didSendData(unsigned long long bytesSent, unsigned long lon
         return;
 
     if (m_uploadEventsAllowed)
-        m_upload->dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().progressEvent, true, bytesSent, totalBytesToBeSent));
+        m_upload->dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().progressEvent, true, static_cast<unsigned>(bytesSent), static_cast<unsigned>(totalBytesToBeSent)));
 
     if (bytesSent == totalBytesToBeSent && !m_uploadComplete) {
         m_uploadComplete = true;
@@ -1092,7 +1076,7 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
 
         if (m_async) {
             bool lengthComputable = expectedLength && m_receivedLength <= expectedLength;
-            m_progressEventThrottle.dispatchProgressEvent(lengthComputable, m_receivedLength, expectedLength);
+            m_progressEventThrottle.dispatchProgressEvent(lengthComputable, static_cast<unsigned>(m_receivedLength), static_cast<unsigned>(expectedLength));
         }
 
         if (m_state != LOADING)

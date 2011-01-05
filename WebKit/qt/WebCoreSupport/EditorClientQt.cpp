@@ -558,7 +558,7 @@ bool EditorClientQt::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientQt::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
+void EditorClientQt::getGuessesForWord(const String&, Vector<String>&)
 {
     notImplemented();
 }

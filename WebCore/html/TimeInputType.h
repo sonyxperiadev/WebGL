@@ -42,7 +42,6 @@ public:
 private:
     TimeInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
     virtual const AtomicString& formControlType() const;
-    virtual double defaultValueForStepUp() const;
     virtual double minimum() const;
     virtual double maximum() const;
     virtual double defaultStep() const;

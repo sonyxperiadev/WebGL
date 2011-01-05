@@ -906,12 +906,6 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     SysFreeString(valueBSTR);
 }
 
-bool LayoutTestController::findString(JSContextRef /* context */, JSStringRef /* target */, JSObjectRef /* optionsArray */)
-{
-    // FIXME: Implement
-    return false;
-}
-
 void LayoutTestController::setCacheModel(int)
 {
     // FIXME: Implement

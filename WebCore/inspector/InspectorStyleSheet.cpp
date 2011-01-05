@@ -178,9 +178,7 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
         p.parseDeclaration(tempMutableStyle.get(), propertyText + " -webkit-boguz-propertee: none", &sourceData);
         Vector<CSSPropertySourceData>& propertyData = sourceData->propertyData;
         unsigned propertyCount = propertyData.size();
-
-        // At least one property + the bogus property added just above should be present.
-        if (propertyCount < 2)
+        if (!propertyCount)
             return false;
 
         // Check for a proper propertyText termination (the parser could at least restore to the PROPERTY_NAME state).
@@ -590,7 +588,6 @@ void InspectorStyleSheet::reparseStyleSheet(const String& text)
     for (unsigned i = 0, size = m_pageStyleSheet->length(); i < size; ++i)
         m_pageStyleSheet->remove(i);
     m_pageStyleSheet->parseString(text, m_pageStyleSheet->useStrictParsing());
-    m_pageStyleSheet->styleSheetChanged();
     m_inspectorStyles.clear();
 }
 
@@ -989,9 +986,6 @@ bool InspectorStyleSheet::originalStyleSheetText(String* result) const
 
 bool InspectorStyleSheet::resourceStyleSheetText(String* result) const
 {
-    if (m_origin == "user" || m_origin == "user-agent")
-        return false;
-
     if (!m_pageStyleSheet || !ownerDocument())
         return false;
 

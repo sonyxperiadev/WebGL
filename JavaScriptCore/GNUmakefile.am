@@ -554,13 +554,11 @@ javascriptcore_sources += \
 
 if TARGET_WIN32
 javascriptcore_sources += \
-	JavaScriptCore/runtime/MarkStackWin.cpp \
-	JavaScriptCore/wtf/OSAllocatorWin.cpp
+	JavaScriptCore/runtime/MarkStackWin.cpp
 else
 javascriptcore_sources += \
 	JavaScriptCore/jit/ExecutableAllocatorFixedVMPool.cpp \
-	JavaScriptCore/runtime/MarkStackPosix.cpp \
-	JavaScriptCore/wtf/OSAllocatorPosix.cpp
+	JavaScriptCore/runtime/MarkStackPosix.cpp
 endif
 
 # ----

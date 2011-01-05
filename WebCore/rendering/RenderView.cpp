@@ -142,9 +142,7 @@ void RenderView::layout()
 
     // Reset overflow and then replace it with docWidth and docHeight.
     m_overflow.clear();
-    int leftOverflow = docLeft();
-    int topOverflow = docTop();
-    addLayoutOverflow(IntRect(leftOverflow, topOverflow, docWidth(leftOverflow), docHeight(topOverflow)));
+    addLayoutOverflow(IntRect(0, 0, docWidth(), docHeight()));
 
     ASSERT(layoutDelta() == IntSize());
     ASSERT(m_layoutStateDisableCount == 0);
@@ -656,18 +654,9 @@ IntRect RenderView::viewRect() const
     return IntRect();
 }
 
-int RenderView::docTop() const
+int RenderView::docHeight() const
 {
-    // Clip out top overflow in vertical LTR pages or horizontal-tb pages.
-    if ((!style()->isHorizontalWritingMode() && style()->isLeftToRightDirection()) || style()->writingMode() == TopToBottomWritingMode)
-        return 0;
-    return std::min(0, topmostPosition());
-}
-
-int RenderView::docHeight(int topOverflow) const
-{
-    int h = ((!style()->isHorizontalWritingMode() && style()->isLeftToRightDirection()) || style()->writingMode() == TopToBottomWritingMode) ?
-                lowestPosition() : height() - topOverflow;
+    int h = lowestPosition();
 
     // FIXME: This doesn't do any margin collapsing.
     // Instead of this dh computation we should keep the result
@@ -682,18 +671,9 @@ int RenderView::docHeight(int topOverflow) const
     return h;
 }
 
-int RenderView::docLeft() const
+int RenderView::docWidth() const
 {
-    // Clip out left overflow in horizontal LTR pages or vertical-lr pages.
-    if ((style()->isHorizontalWritingMode() && style()->isLeftToRightDirection()) || style()->writingMode() == LeftToRightWritingMode)
-        return 0;
-    return std::min(0, leftmostPosition());
-}
-
-int RenderView::docWidth(int leftOverflow) const
-{
-    int w = ((style()->isHorizontalWritingMode() && style()->isLeftToRightDirection()) || style()->writingMode() == LeftToRightWritingMode) ? 
-                rightmostPosition() : width() - leftOverflow;
+    int w = rightmostPosition();
 
     for (RenderBox* c = firstChildBox(); c; c = c->nextSiblingBox()) {
         int dw = c->width() + c->marginLeft() + c->marginRight();

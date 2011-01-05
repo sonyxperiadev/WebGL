@@ -84,11 +84,6 @@ public:
         m_z *= sz;
     }
 
-    bool isZero() const
-    {
-        return !m_x && !m_y && !m_z;
-    }
-
     void normalize();
 
     float dot(const FloatPoint3D& a) const
@@ -120,8 +115,6 @@ public:
 
     float lengthSquared() const { return this->dot(*this); }
     float length() const { return sqrtf(lengthSquared()); }
-    
-    float distanceTo(const FloatPoint3D& a) const;
 
 private:
     float m_x;
@@ -165,21 +158,6 @@ inline float operator*(const FloatPoint3D& a, const FloatPoint3D& b)
 {
     // dot product
     return a.dot(b);
-}
-
-inline FloatPoint3D operator*(float k, const FloatPoint3D& v)
-{
-    return FloatPoint3D(k * v.x(), k * v.y(), k * v.z());
-}
-
-inline FloatPoint3D operator*(const FloatPoint3D& v, float k)
-{
-    return FloatPoint3D(k * v.x(), k * v.y(), k * v.z());
-}
-
-inline float FloatPoint3D::distanceTo(const FloatPoint3D& a) const
-{
-    return (*this - a).length();
 }
 
 } // namespace WebCore

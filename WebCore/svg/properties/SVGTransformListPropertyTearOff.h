@@ -22,7 +22,6 @@
 
 #if ENABLE(SVG)
 #include "SVGListPropertyTearOff.h"
-#include "SVGTransformList.h"
 
 namespace WebCore {
 

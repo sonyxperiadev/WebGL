@@ -27,7 +27,6 @@
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "InputElement.h"
-#include "InputType.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {

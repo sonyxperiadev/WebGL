@@ -157,8 +157,6 @@ public:
     void addOverflowFromChild(RenderBox* child) { addOverflowFromChild(child, IntSize(child->x(), child->y())); }
     void addOverflowFromChild(RenderBox* child, const IntSize& delta);
     void clearLayoutOverflow();
-    
-    void updateLayerTransform();
 
     void blockDirectionOverflow(bool isLineHorizontal, int& logicalTopLayoutOverflow, int& logicalBottomLayoutOverflow,
                                 int& logicalTopVisualOverflow, int& logicalBottomVisualOverflow);

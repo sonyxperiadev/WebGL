@@ -28,7 +28,7 @@ namespace WebCore {
 
 class HTMLProgressElement : public HTMLFormControlElement {
 public:
-    static PassRefPtr<HTMLProgressElement> create(const QualifiedName&, Document*, HTMLFormElement*);
+    static PassRefPtr<HTMLProgressElement> create(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     double value() const;
     void setValue(double, ExceptionCode&);

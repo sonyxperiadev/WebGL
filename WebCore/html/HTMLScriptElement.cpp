@@ -35,16 +35,16 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLScriptElement::HTMLScriptElement(const QualifiedName& tagName, Document* document, bool wasInsertedByParser, bool wasAlreadyStarted)
+inline HTMLScriptElement::HTMLScriptElement(const QualifiedName& tagName, Document* document, bool createdByParser, bool isEvaluated)
     : HTMLElement(tagName, document)
-    , ScriptElement(this, wasInsertedByParser, wasAlreadyStarted)
+    , ScriptElement(this, createdByParser, isEvaluated)
 {
     ASSERT(hasTagName(scriptTag));
 }
 
-PassRefPtr<HTMLScriptElement> HTMLScriptElement::create(const QualifiedName& tagName, Document* document, bool wasInsertedByParser)
+PassRefPtr<HTMLScriptElement> HTMLScriptElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    return adoptRef(new HTMLScriptElement(tagName, document, wasInsertedByParser, false));
+    return adoptRef(new HTMLScriptElement(tagName, document, createdByParser, false));
 }
 
 bool HTMLScriptElement::isURLAttribute(Attribute* attr) const
@@ -175,7 +175,7 @@ void HTMLScriptElement::dispatchErrorEvent()
 
 PassRefPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren() const
 {
-    return adoptRef(new HTMLScriptElement(tagQName(), document(), false, wasAlreadyStarted()));
+    return adoptRef(new HTMLScriptElement(tagQName(), document(), false, isEvaluated()));
 }
 
 }

@@ -326,6 +326,7 @@
 			ConfigurationType="2"
 			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;.\TestNetscapePluginCommon.vsprops"
 			CharacterSet="1"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -395,10 +396,6 @@
 			</File>
 			<File
 				RelativePath="..\Tests\EvaluateJSAfterRemovingPluginElement.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Tests\GetUserAgentWithNullNPPFromNPPNew.cpp"
 				>
 			</File>
 			<File

@@ -26,7 +26,6 @@
 #ifndef TextIterator_h
 #define TextIterator_h
 
-#include "FindOptions.h"
 #include "InlineTextBox.h"
 #include "Range.h"
 #include <wtf/Vector.h>
@@ -59,9 +58,7 @@ inline bool isCollapsibleWhitespace(UChar c)
 }
 
 String plainText(const Range*, TextIteratorBehavior defaultBehavior = TextIteratorDefaultBehavior);
-UChar* plainTextToMallocAllocatedBuffer(const Range*, unsigned& bufferLength, bool isDisplayString, TextIteratorBehavior = TextIteratorDefaultBehavior);
-PassRefPtr<Range> findPlainText(const Range*, const String&, FindOptions);
-// FIXME: Switch callers over to the FindOptions version and retire this one.
+UChar* plainTextToMallocAllocatedBuffer(const Range*, unsigned& bufferLength, bool isDisplayString, TextIteratorBehavior defaultBehavior = TextIteratorDefaultBehavior);
 PassRefPtr<Range> findPlainText(const Range*, const String&, bool forward, bool caseSensitive);
 
 class BitStack {

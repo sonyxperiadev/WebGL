@@ -31,15 +31,10 @@ DYLIB=$(OUTPUT_DIR)/DumpRenderTreeSupport.dylib
 DUMPRENDERTREE=$(OUTPUT_DIR)/DumpRenderTree
 PERL=/usr/bin/perl
 
-OSX_VERSION = $(shell sw_vers -productVersion | cut -d. -f 2)
-ifeq "$(OSX_VERSION)" "4"
-GENERATE_WRAPPER = NO
-endif
-ifeq "$(OSX_VERSION)" "7"
-GENERATE_WRAPPER = NO
-endif
+OSX_VERSION=$(shell sw_vers -productVersion | cut -d. -f 2)
 
-ifneq "$(GENERATE_WRAPPER)" "NO"
+ifneq "$(OSX_VERSION)" "4"
+
 
 SWIG=/usr/bin/swig
 
@@ -55,12 +50,12 @@ else
 
 all: $(DYLIB) $(PERL_MODULE)
 
-$(WRAPPER): DumpRenderTreeSupport_wrapPregenerated.c $(DUMPRENDERTREE)
+$(WRAPPER): DumpRenderTreeSupport_wrapTiger.c $(DUMPRENDERTREE)
 	mkdir -p $(WRAPPER_DIR)
-	cp DumpRenderTreeSupport_wrapPregenerated.c $(WRAPPER)
+	cp DumpRenderTreeSupport_wrapTiger.c $(WRAPPER)
 
-$(PERL_MODULE): DumpRenderTreeSupportPregenerated.pm $(DUMPRENDERTREE)
-	cp DumpRenderTreeSupportPregenerated.pm $(PERL_MODULE)
+$(PERL_MODULE): DumpRenderTreeSupportTiger.pm $(DUMPRENDERTREE)
+	cp DumpRenderTreeSupportTiger.pm $(PERL_MODULE)
 
 
 endif

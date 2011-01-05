@@ -33,8 +33,6 @@
 
 namespace JSC { namespace Yarr {
 
-static const unsigned quantifyInfinite = UINT_MAX;
-
 enum BuiltInCharacterClassID {
     DigitClassID,
     SpaceClassID,
@@ -58,7 +56,6 @@ private:
         ParenthesesUnmatched,
         ParenthesesTypeInvalid,
         CharacterClassUnmatched,
-        CharacterClassInvalidRange,
         CharacterClassOutOfOrder,
         EscapeUnterminated,
         NumberOfErrorCodes
@@ -78,7 +75,7 @@ private:
         CharacterClassParserDelegate(Delegate& delegate, ErrorCode& err)
             : m_delegate(delegate)
             , m_err(err)
-            , m_state(Empty)
+            , m_state(empty)
         {
         }
 
@@ -93,60 +90,54 @@ private:
         }
 
         /*
-         * atomPatternCharacter():
+         * atomPatternCharacterUnescaped():
          *
-         * This method is called either from parseCharacterClass() (for an unescaped
-         * character in a character class), or from parseEscape(). In the former case
-         * the value true will be passed for the argument 'hyphenIsRange', and in this
-         * mode we will allow a hypen to be treated as indicating a range (i.e. /[a-z]/
-         * is different to /[a\-z]/).
+         * This method is called directly from parseCharacterClass(), to report a new
+         * pattern character token.  This method differs from atomPatternCharacter(),
+         * which will be called from parseEscape(), since a hypen provided via this
+         * method may be indicating a character range, but a hyphen parsed by
+         * parseEscape() cannot be interpreted as doing so.
          */
-        void atomPatternCharacter(UChar ch, bool hyphenIsRange = false)
+        void atomPatternCharacterUnescaped(UChar ch)
         {
             switch (m_state) {
-            case AfterCharacterClass:
-                // Following a builtin character class we need look out for a hyphen.
-                // We're looking for invalid ranges, such as /[\d-x]/ or /[\d-\d]/.
-                // If we see a hyphen following a charater class then unlike usual
-                // we'll report it to the delegate immediately, and put ourself into
-                // a poisoned state. Any following calls to add another character or
-                // character class will result in an error. (A hypen following a
-                // character-class is itself valid, but only  at the end of a regex).
-                if (hyphenIsRange && ch == '-') {
-                    m_delegate.atomCharacterClassAtom('-');
-                    m_state = AfterCharacterClassHyphen;
-                    return;
-                }
-                // Otherwise just fall through - cached character so treat this as Empty.
-
-            case Empty:
+            case empty:
                 m_character = ch;
-                m_state = CachedCharacter;
-                return;
+                m_state = cachedCharacter;
+                break;
 
-            case CachedCharacter:
-                if (hyphenIsRange && ch == '-')
-                    m_state = CachedCharacterHyphen;
+            case cachedCharacter:
+                if (ch == '-')
+                    m_state = cachedCharacterHyphen;
                 else {
                     m_delegate.atomCharacterClassAtom(m_character);
                     m_character = ch;
                 }
-                return;
+                break;
 
-            case CachedCharacterHyphen:
-                if (ch < m_character) {
+            case cachedCharacterHyphen:
+                if (ch >= m_character)
+                    m_delegate.atomCharacterClassRange(m_character, ch);
+                else
                     m_err = CharacterClassOutOfOrder;
-                    return;
-                }
-                m_delegate.atomCharacterClassRange(m_character, ch);
-                m_state = Empty;
-                return;
-
-            case AfterCharacterClassHyphen:
-                // Error! We have something like /[\d-x]/.
-                m_err = CharacterClassInvalidRange;
-                return;
+                m_state = empty;
             }
+        }
+
+        /*
+         * atomPatternCharacter():
+         *
+         * Adds a pattern character, called by parseEscape(), as such will not
+         * interpret a hyphen as indicating a character range.
+         */
+        void atomPatternCharacter(UChar ch)
+        {
+            // Flush if a character is already pending to prevent the
+            // hyphen from begin interpreted as indicating a range.
+            if((ch == '-') && (m_state == cachedCharacter))
+                flush();
+
+            atomPatternCharacterUnescaped(ch);
         }
 
         /*
@@ -156,25 +147,8 @@ private:
          */
         void atomBuiltInCharacterClass(BuiltInCharacterClassID classID, bool invert)
         {
-            switch (m_state) {
-            case CachedCharacter:
-                // Flush the currently cached character, then fall through.
-                m_delegate.atomCharacterClassAtom(m_character);
-
-            case Empty:
-            case AfterCharacterClass:
-                m_state = AfterCharacterClass;
-                m_delegate.atomCharacterClassBuiltIn(classID, invert);
-                return;
-
-            case CachedCharacterHyphen:
-            case AfterCharacterClassHyphen:
-                // Error! If we hit either of these cases, we have an
-                // invalid range that looks something like /[x-\d]/
-                // or /[\d-\d]/.
-                m_err = CharacterClassInvalidRange;
-                return;
-            }
+            flush();
+            m_delegate.atomCharacterClassBuiltIn(classID, invert);
         }
 
         /*
@@ -184,12 +158,7 @@ private:
          */
         void end()
         {
-            if (m_state == CachedCharacter)
-                m_delegate.atomCharacterClassAtom(m_character);
-            else if (m_state == CachedCharacterHyphen) {
-                m_delegate.atomCharacterClassAtom(m_character);
-                m_delegate.atomCharacterClassAtom('-');
-            }
+            flush();
             m_delegate.atomCharacterClassEnd();
         }
 
@@ -199,14 +168,21 @@ private:
         void atomBackReference(unsigned) { ASSERT_NOT_REACHED(); }
 
     private:
+        void flush()
+        {
+            if (m_state != empty) // either cachedCharacter or cachedCharacterHyphen
+                m_delegate.atomCharacterClassAtom(m_character);
+            if (m_state == cachedCharacterHyphen)
+                m_delegate.atomCharacterClassAtom('-');
+            m_state = empty;
+        }
+    
         Delegate& m_delegate;
         ErrorCode& m_err;
         enum CharacterClassConstructionState {
-            Empty,
-            CachedCharacter,
-            CachedCharacterHyphen,
-            AfterCharacterClass,
-            AfterCharacterClassHyphen,
+            empty,
+            cachedCharacter,
+            cachedCharacterHyphen,
         } m_state;
         UChar m_character;
     };
@@ -452,7 +428,7 @@ private:
                 break;
 
             default:
-                characterClassConstructor.atomPatternCharacter(consume(), true);
+                characterClassConstructor.atomPatternCharacterUnescaped(consume());
             }
 
             if (m_err)
@@ -596,13 +572,13 @@ private:
 
             case '*':
                 consume();
-                parseQuantifier(lastTokenWasAnAtom, 0, quantifyInfinite);
+                parseQuantifier(lastTokenWasAnAtom, 0, UINT_MAX);
                 lastTokenWasAnAtom = false;
                 break;
 
             case '+':
                 consume();
-                parseQuantifier(lastTokenWasAnAtom, 1, quantifyInfinite);
+                parseQuantifier(lastTokenWasAnAtom, 1, UINT_MAX);
                 lastTokenWasAnAtom = false;
                 break;
 
@@ -621,7 +597,7 @@ private:
                     unsigned max = min;
                     
                     if (tryConsume(','))
-                        max = peekIsDigit() ? consumeNumber() : quantifyInfinite;
+                        max = peekIsDigit() ? consumeNumber() : UINT_MAX;
 
                     if (tryConsume('}')) {
                         if (min <= max)
@@ -681,7 +657,6 @@ private:
             "unmatched parentheses",
             "unrecognized character after (?",
             "missing terminating ] for character class",
-            "invalid range in character class",
             "range out of order in character class",
             "\\ at end of pattern"
         };
@@ -863,7 +838,7 @@ private:
  */
 
 template<class Delegate>
-const char* parse(Delegate& delegate, const UString& pattern, unsigned backReferenceLimit = quantifyInfinite)
+const char* parse(Delegate& delegate, const UString& pattern, unsigned backReferenceLimit = UINT_MAX)
 {
     return Parser<Delegate>(delegate, pattern, backReferenceLimit).parse();
 }

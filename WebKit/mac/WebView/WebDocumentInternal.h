@@ -28,7 +28,6 @@
 
 #import <WebKit/WebDocumentPrivate.h>
 #import <WebKit/WebHTMLView.h>
-#import <WebKit/WebViewPrivate.h>
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 #define WebNSUInteger unsigned int
@@ -62,14 +61,12 @@
 @protocol WebMultipleTextMatches <NSObject>
 - (void)setMarkedTextMatchesAreHighlighted:(BOOL)newValue;
 - (BOOL)markedTextMatchesAreHighlighted;
-- (WebNSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
+- (WebNSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(WebNSUInteger)limit;
+- (WebNSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
 - (void)unmarkAllTextMatches;
 - (NSArray *)rectsForTextMatches;
 @end
 
-@protocol WebDocumentOptionsSearching <NSObject>
-- (BOOL)findString:(NSString *)string options:(WebFindOptions)options;
-@end
 
 /* Used to save and restore state in the view, typically when going back/forward */
 @protocol _WebDocumentViewState <NSObject>
@@ -79,7 +76,7 @@
 - (void)setViewState:(id)statePList;
 @end
 
-@interface WebHTMLView (WebDocumentInternalProtocols) <WebDocumentElement, WebMultipleTextMatches, WebDocumentOptionsSearching>
+@interface WebHTMLView (WebDocumentInternalProtocols) <WebDocumentElement, WebMultipleTextMatches>
 @end
 
 #undef WebNSUInteger

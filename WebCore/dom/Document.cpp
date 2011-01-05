@@ -1724,7 +1724,7 @@ PassRefPtr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets(Elem
 
     bool oldIgnore = m_ignorePendingStylesheets;
     m_ignorePendingStylesheets = true;
-    RefPtr<RenderStyle> style = styleSelector()->styleForElement(element, element->parentNode() ? element->parentNode()->computedStyle() : 0);
+    RefPtr<RenderStyle> style = styleSelector()->styleForElement(element, element->parent() ? element->parent()->computedStyle() : 0);
     m_ignorePendingStylesheets = oldIgnore;
     return style.release();
 }
@@ -1893,11 +1893,8 @@ void Document::clearAXObjectCache()
 #else
     // clear cache in top document
     if (m_axObjectCache) {
-        // Clear the cache member variable before calling delete because attempts
-        // are made to access it during destruction.
-        AXObjectCache* axObjectCache = m_axObjectCache;
+        delete m_axObjectCache;
         m_axObjectCache = 0;
-        delete axObjectCache;
         return;
     }
     
@@ -3161,24 +3158,24 @@ void Document::removeFocusedNodeOfSubtree(Node* node, bool amongChildrenOnly)
 
 void Document::hoveredNodeDetached(Node* node)
 {
-    if (!m_hoverNode || (node != m_hoverNode && (!m_hoverNode->isTextNode() || node != m_hoverNode->parentNode())))
+    if (!m_hoverNode || (node != m_hoverNode && (!m_hoverNode->isTextNode() || node != m_hoverNode->parent())))
         return;
 
-    m_hoverNode = node->parentNode();
+    m_hoverNode = node->parent();
     while (m_hoverNode && !m_hoverNode->renderer())
-        m_hoverNode = m_hoverNode->parentNode();
+        m_hoverNode = m_hoverNode->parent();
     if (frame())
         frame()->eventHandler()->scheduleHoverStateUpdate();
 }
 
 void Document::activeChainNodeDetached(Node* node)
 {
-    if (!m_activeNode || (node != m_activeNode && (!m_activeNode->isTextNode() || node != m_activeNode->parentNode())))
+    if (!m_activeNode || (node != m_activeNode && (!m_activeNode->isTextNode() || node != m_activeNode->parent())))
         return;
 
-    m_activeNode = node->parentNode();
+    m_activeNode = node->parent();
     while (m_activeNode && !m_activeNode->renderer())
-        m_activeNode = m_activeNode->parentNode();
+        m_activeNode = m_activeNode->parent();
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)

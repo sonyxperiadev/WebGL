@@ -30,7 +30,6 @@ import unittest
 
 from webkitpy.common.system import filesystem_mock
 from webkitpy.layout_tests.port import base
-from webkitpy.layout_tests.port.webkit import WebKitPort
 from webkitpy.tool.commands import rebaselineserver
 
 
@@ -38,7 +37,7 @@ class GetBaselinesTest(unittest.TestCase):
     def test_no_baselines(self):
         self._assertBaselines(
             test_files=(),
-            test_name='fast/missing.html',
+            test='fast/missing.html',
             expected_baselines={})
 
     def test_text_baselines(self):
@@ -47,11 +46,8 @@ class GetBaselinesTest(unittest.TestCase):
                 'fast/text-expected.txt',
                 'platform/mac/fast/text-expected.txt',
             ),
-            test_name='fast/text.html',
-            expected_baselines={
-                'mac': {'.txt': True},
-                'base': {'.txt': False},
-            })
+            test='fast/text.html',
+            expected_baselines={'mac': ('.txt',), 'base': ('.txt',)})
 
     def test_image_and_text_baselines(self):
         self._assertBaselines(
@@ -62,11 +58,11 @@ class GetBaselinesTest(unittest.TestCase):
                 'platform/win/fast/image-expected.png',
                 'platform/win/fast/image-expected.checksum',
             ),
-            test_name='fast/image.html',
+            test='fast/image.html',
             expected_baselines={
-                'base': {'.txt': True},
-                'mac': {'.checksum': True, '.png': True},
-                'win': {'.checksum': False, '.png': False},
+                'base': ('.txt',),
+                'mac': ('.checksum', '.png'),
+                'win': ('.checksum', '.png'),
             })
 
     def test_extra_baselines(self):
@@ -75,25 +71,18 @@ class GetBaselinesTest(unittest.TestCase):
                 'fast/text-expected.txt',
                 'platform/nosuchplatform/fast/text-expected.txt',
             ),
-            test_name='fast/text.html',
-            expected_baselines={'base': {'.txt': True}})
+            test='fast/text.html',
+            expected_baselines={'base': ('.txt',)})
 
-    def _assertBaselines(self, test_files, test_name, expected_baselines):
+    def _assertBaselines(self, test_files, test, expected_baselines):
         layout_tests_directory = base.Port().layout_tests_dir()
         mock_filesystem = filesystem_mock.MockFileSystem()
-        for file in test_files + (test_name,):
+        for file in test_files + (test,):
             file_path = mock_filesystem.join(layout_tests_directory, file)
             mock_filesystem.files[file_path] = ''
-
-        class TestMacPort(WebKitPort):
-            def __init__(self):
-                WebKitPort.__init__(self, filesystem=mock_filesystem)
-                self._name = 'mac'
-
         actual_baselines = rebaselineserver._get_test_baselines(
-            test_name,
-            TestMacPort(),
+            test,
             layout_tests_directory,
             ('mac', 'win', 'linux'),
             mock_filesystem)
-        self.assertEqual(expected_baselines, actual_baselines)
+        self.assertEqual(actual_baselines, expected_baselines)

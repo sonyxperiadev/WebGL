@@ -44,8 +44,7 @@ namespace WebCore {
 struct CorrectionPanelInfo {
     enum PanelType {
         PanelTypeCorrection = 0,
-        PanelTypeReversion,
-        PanelTypeSpellingSuggestions
+        PanelTypeReversion
     };
 
     RefPtr<Range> m_rangeToBeReplaced;

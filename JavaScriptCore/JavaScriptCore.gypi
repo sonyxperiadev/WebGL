@@ -400,8 +400,6 @@
             'wtf/NonCopyingSort.h',
             'wtf/Noncopyable.h',
             'wtf/NotFound.h',
-            'wtf/OSAllocatorWin.cpp',
-            'wtf/OSAllocator.h',
             'wtf/OwnArrayPtr.h',
             'wtf/OwnFastMallocPtr.h',
             'wtf/OwnPtr.h',

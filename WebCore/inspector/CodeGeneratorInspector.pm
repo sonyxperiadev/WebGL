@@ -669,7 +669,6 @@ sub generateSource
     push(@sourceContent, "\n#include \"config.h\"");
     push(@sourceContent, "#include \"$className.h\"");
     push(@sourceContent, "#include <wtf/text/StringConcatenate.h>");
-    push(@sourceContent, "#include <wtf/text/CString.h>");
     push(@sourceContent, "");
     push(@sourceContent, "#if ENABLE(INSPECTOR)");
     push(@sourceContent, "");

@@ -306,7 +306,7 @@ WebInspector.ScriptsPanel.prototype = {
         return Preferences.canEditScriptSource;
     },
 
-    editScriptSource: function(editData, commitEditingCallback, cancelEditingCallback)
+    editScriptSource: function(sourceID, newContent, line, linesCountToShift, commitEditingCallback, cancelEditingCallback)
     {
         if (!this.canEditScripts())
             return;
@@ -323,19 +323,18 @@ WebInspector.ScriptsPanel.prototype = {
                 if (callFrames && callFrames.length)
                     this.debuggerPaused(callFrames);
             } else {
-                if (cancelEditingCallback)
-                    cancelEditingCallback();
+                cancelEditingCallback();
                 WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Warning);
             }
             for (var i = 0; i < breakpoints.length; ++i) {
                 var breakpoint = breakpoints[i];
                 var newLine = breakpoint.line;
-                if (success && breakpoint.line >= editData.line)
-                    newLine += editData.linesCountToShift;
-                WebInspector.breakpointManager.setBreakpoint(editData.sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
+                if (success && breakpoint.line >= line)
+                    newLine += linesCountToShift;
+                WebInspector.breakpointManager.setBreakpoint(sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
             }
         };
-        InspectorBackend.editScriptSource(editData.sourceID, editData.content, mycallback.bind(this));
+        InspectorBackend.editScriptSource(sourceID, newContent, mycallback.bind(this));
     },
 
     selectedCallFrameId: function()

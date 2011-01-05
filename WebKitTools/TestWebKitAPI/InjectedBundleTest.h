@@ -34,11 +34,10 @@ class InjectedBundleTest {
 public:
     virtual ~InjectedBundleTest() { }
 
-    virtual void initialize(WKBundleRef, WKTypeRef) { }
+    virtual void initialize(WKBundleRef) { }
 
     virtual void didCreatePage(WKBundleRef, WKBundlePageRef) { }
     virtual void willDestroyPage(WKBundleRef, WKBundlePageRef) { }
-    virtual void didInitializePageGroup(WKBundleRef, WKBundlePageGroupRef) { }
     virtual void didReceiveMessage(WKBundleRef, WKStringRef messageName, WKTypeRef messageBody) { }
 
     std::string name() const { return m_identifier; }

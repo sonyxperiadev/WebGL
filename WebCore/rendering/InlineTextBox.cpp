@@ -1085,11 +1085,10 @@ unsigned InlineTextBox::caretMaxRenderedOffset() const
 
 int InlineTextBox::textPos() const
 {
-    // When computing the width of a text run, RenderBlock::computeInlineDirectionPositionsForLine() doesn't include the actual offset
-    // from the containing block edge in its measurement. textPos() should be consistent so the text are rendered in the same width.
     if (logicalLeft() == 0)
         return 0;
-    return logicalLeft() - root()->logicalLeft();
+    RenderBlock* blockElement = renderer()->containingBlock();
+    return logicalLeft() - blockElement->borderStart() - blockElement->paddingStart();
 }
 
 int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) const

@@ -2272,15 +2272,17 @@ bool WebViewImpl::allowsAcceleratedCompositing()
 
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
+    bool wasActive = m_isAcceleratedCompositingActive;
     setIsAcceleratedCompositingActive(layer ? true : false);
     if (m_layerRenderer)
         m_layerRenderer->setRootLayer(layer);
-
-    IntRect damagedRect(0, 0, m_size.width, m_size.height);
-    if (m_isAcceleratedCompositingActive)
-        invalidateRootLayerRect(damagedRect);
-    else
-        m_client->didInvalidateRect(damagedRect);
+    if (wasActive != m_isAcceleratedCompositingActive) {
+        IntRect damagedRect(0, 0, m_size.width, m_size.height);
+        if (m_isAcceleratedCompositingActive)
+            invalidateRootLayerRect(damagedRect);
+        else
+            m_client->didInvalidateRect(damagedRect);
+    }
 }
 
 void WebViewImpl::setRootLayerNeedsDisplay()
@@ -2379,8 +2381,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 
     if (!active) {
         m_isAcceleratedCompositingActive = false;
-        if (m_layerRenderer)
-            m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
+        m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
         m_client->didActivateAcceleratedCompositing(false);
         return;
     }
@@ -2517,6 +2518,7 @@ void WebViewImpl::reallocateRenderer()
     m_layerRenderer = layerRenderer;
 
     // Enable or disable accelerated compositing and request a refresh.
+    m_isAcceleratedCompositingActive = false;
     setRootGraphicsLayer(m_layerRenderer ? m_layerRenderer->rootLayer() : 0);
 }
 #endif

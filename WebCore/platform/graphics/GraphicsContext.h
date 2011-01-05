@@ -135,6 +135,7 @@ namespace WebCore {
     class GraphicsContextPrivate;
     class ImageBuffer;
     class KURL;
+    class Path;
     class Pattern;
     class SharedGraphicsContext3D;
     class TextRun;
@@ -203,7 +204,6 @@ namespace WebCore {
 #if PLATFORM(CG)
         void applyStrokePattern();
         void applyFillPattern();
-        void drawPath(const Path&);
 #endif
 
 #if PLATFORM(ANDROID)
@@ -245,8 +245,9 @@ namespace WebCore {
         void drawEllipse(const IntRect&);
         void drawConvexPolygon(size_t numPoints, const FloatPoint*, bool shouldAntialias = false);
 
-        void fillPath(const Path&);
-        void strokePath(const Path&);
+        void drawPath();
+        void fillPath();
+        void strokePath();
 
         // Arc drawing (used by border-radius in CSS) just supports stroking at the moment.
         void strokeArc(const IntRect&, int startAngle, int angleSpan);
@@ -287,7 +288,7 @@ namespace WebCore {
         void addInnerRoundedRectClip(const IntRect&, int thickness);
         void clipOut(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
-        void clipPath(const Path&, WindRule);
+        void clipPath(WindRule);
         void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias = true);
         void clipToImageBuffer(ImageBuffer*, const FloatRect&);
 
@@ -336,10 +337,8 @@ namespace WebCore {
 
         void setCompositeOperation(CompositeOperator);
 
-#if PLATFORM(SKIA) || PLATFORM(WX) || PLATFORM(OPENVG) || OS(WINCE)
         void beginPath();
         void addPath(const Path&);
-#endif
 
         void clip(const Path&);
 
@@ -429,6 +428,7 @@ namespace WebCore {
 
 #if PLATFORM(QT)
         bool inTransparencyLayer() const;
+        PlatformPath* currentPath();
         void pushTransparencyLayerInternal(const QRect &rect, qreal opacity, QPixmap& alphaMask);
         void takeOwnershipOfPlatformContext();
         static QPainter::CompositionMode toQtCompositionMode(CompositeOperator op);

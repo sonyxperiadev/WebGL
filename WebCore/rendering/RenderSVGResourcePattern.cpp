@@ -182,16 +182,16 @@ bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* 
     return true;
 }
 
-void RenderSVGResourcePattern::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode, const Path* path)
+void RenderSVGResourcePattern::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode)
 {
     ASSERT(context);
     ASSERT(resourceMode != ApplyToDefaultMode);
 
-    if (path && !(resourceMode & ApplyToTextMode)) {
+    if (!(resourceMode & ApplyToTextMode)) {
         if (resourceMode & ApplyToFillMode)
-            context->fillPath(*path);
+            context->fillPath();
         else if (resourceMode & ApplyToStrokeMode)
-            context->strokePath(*path);
+            context->strokePath();
     }
 
     context->restore();

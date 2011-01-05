@@ -97,7 +97,6 @@ void WKBundleInitialize(WKBundleRef bundle, WKTypeRef initializationUserData)
         0,
         didCreatePage,
         willDestroyPage,
-        0, // didInitializePageGroup
         didRecieveMessage
     };
     WKBundleSetClient(bundle, &client);

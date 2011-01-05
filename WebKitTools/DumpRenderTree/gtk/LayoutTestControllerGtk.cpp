@@ -560,12 +560,6 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     g_free(cValue);
 }
 
-bool LayoutTestController::findString(JSContextRef /* context */, JSStringRef /* target */, JSObjectRef /* optionsArray */)
-{
-    // FIXME: Implement
-    return false;
-}
-
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
 {
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);

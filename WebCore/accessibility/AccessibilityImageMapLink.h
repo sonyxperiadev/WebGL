@@ -44,12 +44,12 @@ public:
     virtual ~AccessibilityImageMapLink();
     
     void setHTMLAreaElement(HTMLAreaElement* element) { m_areaElement = element; }
-    HTMLAreaElement* areaElement() const { return m_areaElement.get(); }
+    HTMLAreaElement* areaElement() const { return m_areaElement; }
     
     void setHTMLMapElement(HTMLMapElement* element) { m_mapElement = element; }    
-    HTMLMapElement* mapElement() const { return m_mapElement.get(); }
+    HTMLMapElement* mapElement() const { return m_mapElement; }
     
-    virtual Node* node() const { return m_areaElement.get(); }
+    virtual Node* node() const { return m_areaElement; }
     void setParent(AccessibilityObject* parent) { m_parent = parent; }
         
     virtual AccessibilityRole roleValue() const;
@@ -72,8 +72,8 @@ public:
     virtual IntRect elementRect() const;
 
 private:    
-    RefPtr<HTMLAreaElement> m_areaElement;
-    RefPtr<HTMLMapElement> m_mapElement;
+    HTMLAreaElement* m_areaElement;
+    HTMLMapElement* m_mapElement;
     AccessibilityObject* m_parent;
     
     virtual bool isImageMapLink() const { return true; }

@@ -26,6 +26,8 @@
 
 package CodeGeneratorObjC;
 
+use File::stat;
+
 # Global Variables
 my $module = "";
 my $outputDir = "";
@@ -1302,7 +1304,6 @@ sub GenerateImplementation
                 my $type = $attribute->signature->type;
                 if ($codeGenerator->IsSVGTypeNeedingTearOff($type) and not $implClassName =~ /List$/) {
                     my $idlTypeWithNamespace = GetSVGTypeWithNamespace($type);
-                    $implIncludes{"$type.h"} = 1 if not $codeGenerator->AvoidInclusionOfType($type);
                     if ($codeGenerator->IsSVGTypeWithWritablePropertiesNeedingTearOff($type) and not defined $attribute->signature->extendedAttributes->{"Immutable"}) {
                         $idlTypeWithNamespace =~ s/SVGPropertyTearOff</SVGStaticPropertyTearOff<$implClassNameWithNamespace, /;
                         $implIncludes{"SVGStaticPropertyTearOff.h"} = 1;

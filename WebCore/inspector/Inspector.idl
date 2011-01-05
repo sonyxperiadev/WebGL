@@ -58,12 +58,10 @@ module core {
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         [notify] void addProfileHeader(out Object header);
-        [notify] void addHeapSnapshotChunk(out unsigned long uid, out String chunk);
         [notify] void attachDebuggerWhenShown();
         [notify] void debuggerWasEnabled();
         [notify] void debuggerWasDisabled();
         [notify] void failedToParseScriptSource(out String url, out String data, out int firstLine, out int errorLine, out String errorMessage);
-        [notify] void finishHeapSnapshot(out unsigned long uid);
         [notify] void parsedScriptSource(out String sourceID, out String url, out String data, out int firstLine, out int scriptWorldType);
         [notify] void pausedScript(out Object details);
         [notify] void profilerWasEnabled();
@@ -216,7 +214,7 @@ module core {
         [handler=CSS] void getAllStyles2(out Array styleSheetIds);
         [handler=CSS] void getStyleSheet2(in String styleSheetId, out Value styleSheet);
         [handler=CSS] void getStyleSheetText2(in String styleSheetId, out String url, out String text);
-        [handler=CSS] void setStyleSheetText2(in String styleSheetId, in String text, out boolean success);
+        [handler=CSS] void setStyleSheetText2(in String styleSheetId, in String text);
         [handler=CSS] void setPropertyText2(in Object styleId, in long propertyIndex, in String text, in boolean overwrite, out Value style);
         [handler=CSS] void toggleProperty2(in Object styleId, in long propertyIndex, in boolean disable, out Value style);
         [handler=CSS] void setRuleSelector2(in Object ruleId, in String selector, out Value rule);

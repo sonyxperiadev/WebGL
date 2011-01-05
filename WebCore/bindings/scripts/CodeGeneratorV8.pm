@@ -1,3 +1,4 @@
+
 # Copyright (C) 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
 # Copyright (C) 2006 Anders Carlsson <andersca@mac.com>
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
@@ -26,6 +27,7 @@
 
 package CodeGeneratorV8;
 
+use File::stat;
 use Digest::MD5;
 
 my $module = "";
@@ -38,7 +40,6 @@ my @implFixedHeader = ();
 my @implContent = ();
 my @implContentDecls = ();
 my %implIncludes = ();
-my %headerIncludes = ();
 
 my @allParents = ();
 
@@ -204,11 +205,8 @@ sub GetSVGPropertyTypes
         $implIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
     } elsif ($svgNativeType =~ /SVGTransformListPropertyTearOff/) {
         $svgListPropertyType = $svgWrappedNativeType;
-        $headerIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
-        $headerIncludes{"SVGTransformListPropertyTearOff.h"} = 1;
-    } elsif ($svgNativeType =~ /SVGPathSegListPropertyTearOff/) {
-        $svgListPropertyType = $svgWrappedNativeType;
-        $headerIncludes{"SVGPathSegListPropertyTearOff.h"} = 1;
+        $implIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
+        $implIncludes{"SVGTransformListPropertyTearOff.h"} = 1;
     }
 
     if ($svgPropertyType) {
@@ -236,6 +234,7 @@ sub GenerateHeader
     # - Add default header template
     push(@headerContent, GenerateHeaderContentHeader($dataNode));
 
+    my %headerInclues = ();
     $headerIncludes{"wtf/text/StringHash.h"} = 1;
     $headerIncludes{"WrapperTypeInfo.h"} = 1;
     $headerIncludes{"V8DOMWrapper.h"} = 1;
@@ -251,7 +250,7 @@ sub GenerateHeader
 
     push(@headerContent, "#include <v8.h>\n");
     push(@headerContent, "#include <wtf/HashMap.h>\n");
-
+    
     push(@headerContent, "\nnamespace WebCore {\n");
     push(@headerContent, "\ntemplate<typename PropertyType> class SVGPropertyTearOff;\n") if $svgPropertyType;
     if ($svgNativeType) {
@@ -1266,9 +1265,9 @@ END
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         push(@implContentDecls, <<END);
-    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
+    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
     size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;
-    RefPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
+    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
     if (!callStack)
         return v8::Undefined();
 END
@@ -2652,7 +2651,7 @@ sub GenerateFunctionCallString()
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         $functionString .= ", " if $index;
-        $functionString .= "scriptArguments, callStack";
+        $functionString .= "scriptArguments.release(), callStack.release()";
         $index += 2;
     }
 
@@ -2904,6 +2903,10 @@ sub JSValueToNative
         return "V8DOMWrapper::wrapNativeNodeFilter($value)";
     }
 
+    if ($type eq "SVGRect") {
+        $implIncludes{"FloatRect.h"} = 1;
+    }
+
     if ($type eq "MediaQueryListListener") {
         $implIncludes{"MediaQueryListListener.h"} = 1;
         return "MediaQueryListListener::create(" . $value . ")";
@@ -3085,6 +3088,7 @@ sub ReturnNativeToJSValue
     my $indent = shift;
     my $type = GetTypeFromSignature($signature);
 
+    return "return v8::Date::New(static_cast<double>($value))" if $type eq "DOMTimeStamp";
     return "return v8Boolean($value)" if $type eq "boolean";
     return "return v8::Handle<v8::Value>()" if $type eq "void";     # equivalent to v8::Undefined()
 
@@ -3096,7 +3100,7 @@ sub ReturnNativeToJSValue
 
     return "return v8DateOrNull($value)" if $type eq "Date";
     # long long and unsigned long long are not representable in ECMAScript.
-    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long" or $type eq "DOMTimeStamp";
+    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long";
     return "return v8::Number::New($value)" if $codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType";
     return "return $value.v8Value()" if $nativeType eq "ScriptValue";
 

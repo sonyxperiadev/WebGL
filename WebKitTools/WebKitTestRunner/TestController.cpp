@@ -29,7 +29,6 @@
 #include "StringFunctions.h"
 #include "TestInvocation.h"
 #include <cstdio>
-#include <WebKit2/WKPageGroup.h>
 #include <WebKit2/WKContextPrivate.h>
 #include <WebKit2/WKPreferencesPrivate.h>
 #include <wtf/PassOwnPtr.h>

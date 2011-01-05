@@ -35,11 +35,6 @@
 
 namespace WebCore {
 
-PassRefPtr<ScriptCallStack> ScriptCallStack::create(Vector<ScriptCallFrame>& frames)
-{
-    return adoptRef(new ScriptCallStack(frames));
-}
-
 ScriptCallStack::ScriptCallStack(Vector<ScriptCallFrame>& frames)
 {
     m_frames.swap(frames);
@@ -49,13 +44,13 @@ ScriptCallStack::~ScriptCallStack()
 {
 }
 
-const ScriptCallFrame &ScriptCallStack::at(size_t index) const
+const ScriptCallFrame &ScriptCallStack::at(size_t index)
 {
     ASSERT(m_frames.size() > index);
     return m_frames[index];
 }
 
-size_t ScriptCallStack::size() const
+size_t ScriptCallStack::size()
 {
     return m_frames.size();
 }

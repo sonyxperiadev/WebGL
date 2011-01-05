@@ -2,19 +2,15 @@
 CONFIG += building-libs
 CONFIG += depend_includepath
 
-V8_DIR = "$$[QT_INSTALL_PREFIX]/src/3rdparty/v8"
-
-v8:exists($${V8_DIR}/include/v8.h) {
+v8:exists($$[QT_INSTALL_PREFIX]/src/3rdparty/v8/include/v8.h) {
     message(Using V8 with QtScript)
     QT += script
-    INCLUDEPATH += $${V8_DIR}/include
+    INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/v8/include
 
     DEFINES *= V8_BINDING=1
     DEFINES += WTF_CHANGES=1
     DEFINES *= WTF_USE_V8=1
     DEFINES += USING_V8_SHARED
-
-    linux-*:LIBS += -lv8
 }
 
 symbian: {
@@ -1235,7 +1231,6 @@ SOURCES += \
     platform/text/SegmentedString.cpp \
     platform/SharedBuffer.cpp \
     platform/text/String.cpp \
-    platform/text/TextBoundaries.cpp \
     platform/text/TextCodec.cpp \
     platform/text/TextCodecLatin1.cpp \
     platform/text/TextCodecUserDefined.cpp \
@@ -1717,7 +1712,6 @@ HEADERS += \
     editing/EditingBehavior.h \
     editing/EditingBoundary.h \
     editing/Editor.h \
-    editing/FindOptions.h \
     editing/FormatBlockCommand.h \
     editing/htmlediting.h \
     editing/HTMLInterchange.h \
@@ -2183,7 +2177,6 @@ HEADERS += \
     platform/text/qt/TextCodecQt.h \
     platform/text/RegularExpression.h \
     platform/text/SegmentedString.h \
-    platform/text/TextBoundaries.h \
     platform/text/TextCodec.h \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
@@ -2513,7 +2506,6 @@ HEADERS += \
     svg/SVGPolylineElement.h \
     svg/SVGPreserveAspectRatio.h \
     svg/SVGRadialGradientElement.h \
-    svg/SVGRect.h \
     svg/SVGRectElement.h \
     svg/SVGScriptElement.h \
     svg/SVGSetElement.h \

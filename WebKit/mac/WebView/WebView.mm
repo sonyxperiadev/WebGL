@@ -2645,21 +2645,6 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     return coreFrame->pageScaleFactor();
 }
 
-- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit
-{
-    return [self countMatchesForText:string options:(caseFlag ? 0 : WebFindOptionsCaseInsensitive) highlight:highlight limit:limit markMatches:YES];
-}
-
-- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
-{
-    return [self countMatchesForText:string options:(caseFlag ? 0 : WebFindOptionsCaseInsensitive) highlight:highlight limit:limit markMatches:markMatches];
-}
-
-- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
-{
-    return [self findString:string options:((forward ? 0 : WebFindOptionsBackwards) | (caseFlag ? 0 : WebFindOptionsCaseInsensitive) | (wrapFlag ? WebFindOptionsWrapAround : 0) | (startInSelection ? WebFindOptionsStartInSelection : 0))];
-}
-
 @end
 
 @implementation _WebSafeForwarder
@@ -3839,12 +3824,12 @@ static bool needsWebViewInitThreadWorkaround()
     [super setNextKeyView:view];
 }
 
-static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
+static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
 {
     Frame* coreFrame = core(frame);
-    return kit((options & WebFindOptionsBackwards)
-        ? coreFrame->tree()->traversePreviousWithWrap(options & WebFindOptionsWrapAround)
-        : coreFrame->tree()->traverseNextWithWrap(options & WebFindOptionsWrapAround));
+    return kit(forward
+        ? coreFrame->tree()->traverseNextWithWrap(wrapFlag)
+        : coreFrame->tree()->traversePreviousWithWrap(wrapFlag));
 }
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag
@@ -4270,16 +4255,7 @@ static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
         core(self)->removeSchedulePair(SchedulePair::create(runLoop, (CFStringRef)mode));
 }
 
-static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *string, WebFindOptions options)
-{
-    if ([searchView conformsToProtocol:@protocol(WebDocumentOptionsSearching)])
-        return [(NSView <WebDocumentOptionsSearching> *)searchView findString:string options:options];
-    if ([searchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
-        return [(NSView <WebDocumentIncrementalSearching> *)searchView searchFor:string direction:!(options & WebFindOptionsBackwards) caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:!!(options & WebFindOptionsWrapAround) startInSelection:!!(options & WebFindOptionsStartInSelection)];
-    return [searchView searchFor:string direction:!(options & WebFindOptionsBackwards) caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:!!(options & WebFindOptionsWrapAround)];
-}
-
-- (BOOL)findString:(NSString *)string options:(WebFindOptions)options
+- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
 {
     if (_private->closed)
         return NO;
@@ -4291,7 +4267,7 @@ static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *stri
     NSView <WebDocumentSearching> *startSearchView = nil;
     WebFrame *frame = startFrame;
     do {
-        WebFrame *nextFrame = incrementFrame(frame, options);
+        WebFrame *nextFrame = incrementFrame(frame, forward, wrapFlag);
         
         BOOL onlyOneFrame = (frame == nextFrame);
         ASSERT(!onlyOneFrame || frame == startFrame);
@@ -4303,13 +4279,18 @@ static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *stri
             if (frame == startFrame)
                 startSearchView = searchView;
             
+            BOOL foundString;
             // In some cases we have to search some content twice; see comment later in this method.
-            // We can avoid ever doing this in the common one-frame case by passing the wrap option through 
+            // We can avoid ever doing this in the common one-frame case by passing YES for wrapFlag 
             // here, and then bailing out before we get to the code that would search again in the
             // same content.
-            WebFindOptions optionsForThisPass = onlyOneFrame ? options : (options & ~WebFindOptionsWrapAround);
-
-            if (findString(searchView, string, optionsForThisPass)) {
+            BOOL wrapOnThisPass = wrapFlag && onlyOneFrame;
+            if ([searchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
+                foundString = [(NSView <WebDocumentIncrementalSearching> *)searchView searchFor:string direction:forward caseSensitive:caseFlag wrap:wrapOnThisPass startInSelection:startInSelection];
+            else
+                foundString = [searchView searchFor:string direction:forward caseSensitive:caseFlag wrap:wrapOnThisPass];
+            
+            if (foundString) {
                 if (frame != startFrame)
                     [startFrame _clearSelection];
                 [[self window] makeFirstResponder:searchView];
@@ -4322,13 +4303,18 @@ static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *stri
         frame = nextFrame;
     } while (frame && frame != startFrame);
     
-    // If there are multiple frames and WebFindOptionsWrapAround is set and we've visited each one without finding a result, we still need to search in the 
+    // If there are multiple frames and wrapFlag is true and we've visited each one without finding a result, we still need to search in the 
     // first-searched frame up to the selection. However, the API doesn't provide a way to search only up to a particular point. The only 
-    // way to make sure the entire frame is searched is to pass WebFindOptionsWrapAround. When there are no matches, this will search
+    // way to make sure the entire frame is searched is to pass YES for the wrapFlag. When there are no matches, this will search again
     // some content that we already searched on the first pass. In the worst case, we could search the entire contents of this frame twice.
     // To fix this, we'd need to add a mechanism to specify a range in which to search.
-    if ((options & WebFindOptionsWrapAround) && startSearchView) {
-        if (findString(startSearchView, string, options)) {
+    if (wrapFlag && startSearchView) {
+        BOOL foundString;
+        if ([startSearchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
+            foundString = [(NSView <WebDocumentIncrementalSearching> *)startSearchView searchFor:string direction:forward caseSensitive:caseFlag wrap:YES startInSelection:startInSelection];
+        else
+            foundString = [startSearchView searchFor:string direction:forward caseSensitive:caseFlag wrap:YES];
+        if (foundString) {
             [[self window] makeFirstResponder:startSearchView];
             return YES;
         }
@@ -4510,13 +4496,21 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
         if (view && ![view conformsToProtocol:@protocol(WebMultipleTextMatches)])
             return NO;
         
-        frame = incrementFrame(frame);
+        frame = incrementFrame(frame, YES, NO);
     } while (frame);
     
     return YES;
 }
 
-- (NSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit
+{
+    if (_private->closed)
+        return 0;
+
+    return [self countMatchesForText:string caseSensitive:caseFlag highlight:highlight limit:limit markMatches:YES];
+}
+
+- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
 {
     if (_private->closed)
         return 0;
@@ -4530,14 +4524,14 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
                 [(NSView <WebMultipleTextMatches>*)view setMarkedTextMatchesAreHighlighted:highlight];
         
             ASSERT(limit == 0 || matchCount < limit);
-            matchCount += [(NSView <WebMultipleTextMatches>*)view countMatchesForText:string options:options limit:(limit == 0 ? 0 : limit - matchCount) markMatches:markMatches];
+            matchCount += [(NSView <WebMultipleTextMatches>*)view countMatchesForText:string caseSensitive:caseFlag limit:limit == 0 ? 0 : limit - matchCount markMatches:markMatches];
 
             // Stop looking if we've reached the limit. A limit of 0 means no limit.
             if (limit > 0 && matchCount >= limit)
                 break;
         }
         
-        frame = incrementFrame(frame);
+        frame = incrementFrame(frame, YES, NO);
     } while (frame);
     
     return matchCount;
@@ -4554,7 +4548,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
         if ([view conformsToProtocol:@protocol(WebMultipleTextMatches)])
             [(NSView <WebMultipleTextMatches>*)view unmarkAllTextMatches];
         
-        frame = incrementFrame(frame);
+        frame = incrementFrame(frame, YES, NO);
     } while (frame);
 }
 
@@ -4592,7 +4586,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
             [pool drain];
         }
         
-        frame = incrementFrame(frame);
+        frame = incrementFrame(frame, YES, NO);
     } while (frame);
     
     return result;

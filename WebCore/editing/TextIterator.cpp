@@ -38,8 +38,6 @@
 #include "RenderTableRow.h"
 #include "RenderTextControl.h"
 #include "RenderTextFragment.h"
-#include "TextBoundaries.h"
-#include "TextBreakIterator.h"
 #include "VisiblePosition.h"
 #include "visible_units.h"
 
@@ -58,18 +56,14 @@ using namespace HTMLNames;
 // Buffer that knows how to compare with a search target.
 // Keeps enough of the previous text to be able to search in the future, but no more.
 // Non-breaking spaces are always equal to normal spaces.
-// Case folding is also done if the CaseInsensitive option is specified.
-// Matches are further filtered if the AtWordStarts option is specified, although some
-// matches inside a word are permitted if TreatMedialCapitalAsWordStart is specified as well.
+// Case folding is also done if <isCaseSensitive> is false.
 class SearchBuffer : public Noncopyable {
 public:
-    SearchBuffer(const String& target, FindOptions);
+    SearchBuffer(const String& target, bool isCaseSensitive);
     ~SearchBuffer();
 
     // Returns number of characters appended; guaranteed to be in the range [1, length].
     size_t append(const UChar*, size_t length);
-    bool needsMoreContext() const;
-    void prependContext(const UChar*, size_t length);
     void reachedBreak();
 
     // Result is the size in characters of what was found.
@@ -81,16 +75,11 @@ public:
 
 private:
     bool isBadMatch(const UChar*, size_t length) const;
-    bool isWordStartMatch(size_t start, size_t length) const;
 
     String m_target;
-    FindOptions m_options;
-
     Vector<UChar> m_buffer;
     size_t m_overlap;
-    size_t m_prefixLength;
     bool m_atBreak;
-    bool m_needsMoreContext;
 
     bool m_targetRequiresKanaWorkaround;
     Vector<UChar> m_normalizedTarget;
@@ -103,7 +92,7 @@ private:
     size_t length() const;
 
     String m_target;
-    FindOptions m_options;
+    bool m_isCaseSensitive;
 
     Vector<UChar> m_buffer;
     Vector<bool> m_isCharacterStartBuffer;
@@ -1839,46 +1828,9 @@ static void normalizeCharacters(const UChar* characters, unsigned length, Vector
     ASSERT(status == U_STRING_NOT_TERMINATED_WARNING);
 }
 
-static bool isNonLatin1Separator(UChar32 character)
-{
-    ASSERT_ARG(character, character >= 256);
-
-    return U_GET_GC_MASK(character) & (U_GC_S_MASK | U_GC_P_MASK | U_GC_Z_MASK | U_GC_CF_MASK);
-}
-
-static inline bool isSeparator(UChar32 character)
-{
-    static const bool latin1SeparatorTable[256] = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // space ! " # $ % & ' ( ) * + , - . /
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, //                         : ; < = > ?
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //   @
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, //                         [ \ ] ^ _
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //   `
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, //                           { | } ~
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-
-    if (character < 256)
-        return latin1SeparatorTable[character];
-
-    return isNonLatin1Separator(character);
-}
-
-inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
+inline SearchBuffer::SearchBuffer(const String& target, bool isCaseSensitive)
     : m_target(target)
-    , m_options(options)
-    , m_prefixLength(0)
     , m_atBreak(true)
-    , m_needsMoreContext(options & AtWordStarts)
     , m_targetRequiresKanaWorkaround(containsKanaLetters(m_target))
 {
     ASSERT(!m_target.isEmpty());
@@ -1892,17 +1844,6 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
     m_buffer.reserveInitialCapacity(max(targetLength * 8, minimumSearchBufferSize));
     m_overlap = m_buffer.capacity() / 4;
 
-    if ((m_options & AtWordStarts) && targetLength) {
-        UChar32 targetFirstCharacter;
-        U16_GET(m_target.characters(), 0, 0, targetLength, targetFirstCharacter);
-        // Characters in the separator category never really occur at the beginning of a word,
-        // so if the target begins with such a character, we just ignore the AtWordStart option.
-        if (isSeparator(targetFirstCharacter)) {
-            m_options &= ~AtWordStarts;
-            m_needsMoreContext = false;
-        }
-    }
-
     // Grab the single global searcher.
     // If we ever have a reason to do more than once search buffer at once, we'll have
     // to move to multiple searchers.
@@ -1911,7 +1852,7 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
     UStringSearch* searcher = WebCore::searcher();
     UCollator* collator = usearch_getCollator(searcher);
 
-    UCollationStrength strength = m_options & CaseInsensitive ? UCOL_PRIMARY : UCOL_TERTIARY;
+    UCollationStrength strength = isCaseSensitive ? UCOL_TERTIARY : UCOL_PRIMARY;
     if (ucol_getStrength(collator) != strength) {
         ucol_setStrength(collator, strength);
         usearch_reset(searcher);
@@ -1937,11 +1878,9 @@ inline size_t SearchBuffer::append(const UChar* characters, size_t length)
 
     if (m_atBreak) {
         m_buffer.shrink(0);
-        m_prefixLength = 0;
         m_atBreak = false;
     } else if (m_buffer.size() == m_buffer.capacity()) {
         memcpy(m_buffer.data(), m_buffer.data() + m_buffer.size() - m_overlap, m_overlap * sizeof(UChar));
-        m_prefixLength -= min(m_prefixLength, m_buffer.size() - m_overlap);
         m_buffer.shrink(m_overlap);
     }
 
@@ -1951,35 +1890,6 @@ inline size_t SearchBuffer::append(const UChar* characters, size_t length)
     m_buffer.append(characters, usableLength);
     foldQuoteMarksAndSoftHyphens(m_buffer.data() + oldLength, usableLength);
     return usableLength;
-}
-
-inline bool SearchBuffer::needsMoreContext() const
-{
-    return m_needsMoreContext;
-}
-
-inline void SearchBuffer::prependContext(const UChar* characters, size_t length)
-{
-    ASSERT(m_needsMoreContext);
-    ASSERT(m_prefixLength == m_buffer.size());
-
-    if (!length)
-        return;
-
-    m_atBreak = false;
-
-    size_t wordBoundaryContextStart = length;
-    if (wordBoundaryContextStart) {
-        U16_BACK_1(characters, 0, wordBoundaryContextStart);
-        wordBoundaryContextStart = startOfLastWordBoundaryContext(characters, wordBoundaryContextStart);
-    }
-
-    size_t usableLength = min(m_buffer.capacity() - m_prefixLength, length - wordBoundaryContextStart);
-    m_buffer.prepend(characters + length - usableLength, usableLength);
-    m_prefixLength += usableLength;
-
-    if (wordBoundaryContextStart || m_prefixLength == m_buffer.capacity())
-        m_needsMoreContext = false;
 }
 
 inline bool SearchBuffer::atBreak() const
@@ -2052,55 +1962,6 @@ inline bool SearchBuffer::isBadMatch(const UChar* match, size_t matchLength) con
     }
 }
 
-inline bool SearchBuffer::isWordStartMatch(size_t start, size_t length) const
-{
-    ASSERT(m_options & AtWordStarts);
-
-    if (!start)
-        return true;
-
-    if (m_options & TreatMedialCapitalAsWordStart) {
-        int size = m_buffer.size();
-        int offset = start;
-        UChar32 firstCharacter;
-        U16_GET(m_buffer.data(), 0, offset, size, firstCharacter);
-        UChar32 previousCharacter;
-        U16_PREV(m_buffer.data(), 0, offset, previousCharacter);
-
-        if (isSeparator(firstCharacter)) {
-            // The start of a separator run is a word start (".org" in "webkit.org").
-            if (!isSeparator(previousCharacter))
-                return true;
-        } else if (isASCIIUpper(firstCharacter)) {
-            // The start of an uppercase run is a word start ("Kit" in "WebKit").
-            if (!isASCIIUpper(previousCharacter))
-                return true;
-            // The last character of an uppercase run followed by a non-separator, non-digit
-            // is a word start ("Request" in "XMLHTTPRequest").
-            offset = start;
-            U16_FWD_1(m_buffer.data(), offset, size);
-            UChar32 nextCharacter = 0;
-            if (offset < size)
-                U16_GET(m_buffer.data(), 0, offset, size, nextCharacter);
-            if (!isASCIIUpper(nextCharacter) && !isASCIIDigit(nextCharacter) && !isSeparator(nextCharacter))
-                return true;
-        } else if (isASCIIDigit(firstCharacter)) {
-            // The start of a digit run is a word start ("2" in "WebKit2").
-            if (!isASCIIDigit(previousCharacter))
-                return true;
-        } else if (isSeparator(previousCharacter) || isASCIIDigit(previousCharacter)) {
-            // The start of a non-separator, non-uppercase, non-digit run is a word start,
-            // except after an uppercase. ("org" in "webkit.org", but not "ore" in "WebCore").
-            return true;
-        }
-    }
-
-    size_t wordBreakSearchStart = start + length;
-    while (wordBreakSearchStart > start)
-        wordBreakSearchStart = findNextWordFromIndex(m_buffer.data(), m_buffer.size(), wordBreakSearchStart, false /* backwards */);
-    return wordBreakSearchStart == start;
-}
-
 inline size_t SearchBuffer::search(size_t& start)
 {
     size_t size = m_buffer.size();
@@ -2118,10 +1979,7 @@ inline size_t SearchBuffer::search(size_t& start)
     usearch_setText(searcher, m_buffer.data(), size, &status);
     ASSERT(status == U_ZERO_ERROR);
 
-    usearch_setOffset(searcher, m_prefixLength, &status);
-    ASSERT(status == U_ZERO_ERROR);
-
-    int matchStart = usearch_next(searcher, &status);
+    int matchStart = usearch_first(searcher, &status);
     ASSERT(status == U_ZERO_ERROR);
 
 nextMatch:
@@ -2134,18 +1992,8 @@ nextMatch:
     // The same match may appear later, matching more characters,
     // possibly including a combining character that's not yet in the buffer.
     if (!m_atBreak && static_cast<size_t>(matchStart) >= size - m_overlap) {
-        size_t overlap = m_overlap;
-        if (m_options & AtWordStarts) {
-            // Ensure that there is sufficient context before matchStart the next time around for
-            // determining if it is at a word boundary.
-            int wordBoundaryContextStart = matchStart;
-            U16_BACK_1(m_buffer.data(), 0, wordBoundaryContextStart);
-            wordBoundaryContextStart = startOfLastWordBoundaryContext(m_buffer.data(), wordBoundaryContextStart);
-            overlap = min(size - 1, max(overlap, size - wordBoundaryContextStart));
-        }
-        memcpy(m_buffer.data(), m_buffer.data() + size - overlap, overlap * sizeof(UChar));
-        m_prefixLength -= min(m_prefixLength, size - overlap);
-        m_buffer.shrink(overlap);
+        memcpy(m_buffer.data(), m_buffer.data() + size - m_overlap, m_overlap * sizeof(UChar));
+        m_buffer.shrink(m_overlap);
         return 0;
     }
 
@@ -2153,7 +2001,7 @@ nextMatch:
     ASSERT(matchStart + matchedLength <= size);
 
     // If this match is "bad", move on to the next match.
-    if (isBadMatch(m_buffer.data() + matchStart, matchedLength) || ((m_options & AtWordStarts) && !isWordStartMatch(matchStart, matchedLength))) {
+    if (isBadMatch(m_buffer.data() + matchStart, matchedLength)) {
         matchStart = usearch_next(searcher, &status);
         ASSERT(status == U_ZERO_ERROR);
         goto nextMatch;
@@ -2161,7 +2009,6 @@ nextMatch:
 
     size_t newSize = size - (matchStart + 1);
     memmove(m_buffer.data(), m_buffer.data() + matchStart + 1, newSize * sizeof(UChar));
-    m_prefixLength -= min<size_t>(m_prefixLength, matchStart + 1);
     m_buffer.shrink(newSize);
 
     start = size - matchStart;
@@ -2170,9 +2017,9 @@ nextMatch:
 
 #else // !ICU_UNICODE
 
-inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
-    : m_target(options & CaseInsensitive ? target.foldCase() : target)
-    , m_options(options)
+inline SearchBuffer::SearchBuffer(const String& target, bool isCaseSensitive)
+    : m_target(isCaseSensitive ? target : target.foldCase())
+    , m_isCaseSensitive(isCaseSensitive)
     , m_buffer(m_target.length())
     , m_isCharacterStartBuffer(m_target.length())
     , m_isBufferFull(false)
@@ -2211,7 +2058,7 @@ inline void SearchBuffer::append(UChar c, bool isStart)
 inline size_t SearchBuffer::append(const UChar* characters, size_t length)
 {
     ASSERT(length);
-    if (!(m_options & CaseInsensitive)) {
+    if (m_isCaseSensitive) {
         append(characters[0], true);
         return 1;
     }
@@ -2229,16 +2076,6 @@ inline size_t SearchBuffer::append(const UChar* characters, size_t length)
             append(foldedCharacters[i], false);
     }
     return 1;
-}
-
-inline bool SearchBuffer::needsMoreContext() const
-{
-    return false;
-}
-
-void SearchBuffer::prependContext(const UChar*, size_t)
-{
-    ASSERT_NOT_REACHED();
 }
 
 inline size_t SearchBuffer::search(size_t& start)
@@ -2495,24 +2332,12 @@ static PassRefPtr<Range> collapsedToBoundary(const Range* range, bool forward)
     return result.release();
 }
 
-static size_t findPlainText(CharacterIterator& it, const String& target, FindOptions options, size_t& matchStart)
+static size_t findPlainText(CharacterIterator& it, const String& target, bool forward, bool caseSensitive, size_t& matchStart)
 {
     matchStart = 0;
     size_t matchLength = 0;
 
-    SearchBuffer buffer(target, options);
-
-    if (buffer.needsMoreContext()) {
-        RefPtr<Range> startRange = it.range();
-        RefPtr<Range> beforeStartRange = startRange->ownerDocument()->createRange();
-        ExceptionCode ec = 0;
-        beforeStartRange->setEnd(startRange->startContainer(), startRange->startOffset(), ec);
-        for (SimplifiedBackwardsTextIterator backwardsIterator(beforeStartRange.get()); !backwardsIterator.atEnd(); backwardsIterator.advance()) {
-            buffer.prependContext(backwardsIterator.characters(), backwardsIterator.length());
-            if (!buffer.needsMoreContext())
-                break;
-        }
-    }
+    SearchBuffer buffer(target, caseSensitive);
 
     while (!it.atEnd()) {
         it.advance(buffer.append(it.characters(), it.length()));
@@ -2526,7 +2351,7 @@ tryAgain:
             matchLength = newMatchLength;
             // If searching forward, stop on the first match.
             // If searching backward, don't stop, so we end up with the last match.
-            if (!(options & Backwards))
+            if (forward)
                 break;
             goto tryAgain;
         }
@@ -2541,19 +2366,14 @@ tryAgain:
 
 PassRefPtr<Range> findPlainText(const Range* range, const String& target, bool forward, bool caseSensitive)
 {
-    return findPlainText(range, target, (forward ? 0 : Backwards) | (caseSensitive ? 0 : CaseInsensitive));
-}
-
-PassRefPtr<Range> findPlainText(const Range* range, const String& target, FindOptions options)
-{
     // First, find the text.
     size_t matchStart;
     size_t matchLength;
     {
         CharacterIterator findIterator(range, TextIteratorEntersTextControls);
-        matchLength = findPlainText(findIterator, target, options, matchStart);
+        matchLength = findPlainText(findIterator, target, forward, caseSensitive, matchStart);
         if (!matchLength)
-            return collapsedToBoundary(range, !(options & Backwards));
+            return collapsedToBoundary(range, forward);
     }
 
     // Then, find the document position of the start and the end of the text.

@@ -248,7 +248,6 @@ void RenderIFrame::layout()
 
     m_overflow.clear();
     addShadowOverflow();
-    updateLayerTransform();
 
     setNeedsLayout(false);
 }

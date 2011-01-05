@@ -617,12 +617,9 @@ void ChromeClientQt::scheduleCompositingLayerSync()
         platformPageClient()->markForSync(true);
 }
 
-ChromeClient::CompositingTriggerFlags ChromeClientQt::allowedCompositingTriggers() const
+bool ChromeClientQt::allowsAcceleratedCompositing() const
 {
-    if (platformPageClient() && platformPageClient()->allowsAcceleratedCompositing())
-        return AllTriggers;
-
-    return 0;
+    return (platformPageClient() && platformPageClient()->allowsAcceleratedCompositing());
 }
 
 #endif

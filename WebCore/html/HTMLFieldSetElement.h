@@ -35,7 +35,6 @@ public:
 private:
     HTMLFieldSetElement(const QualifiedName&, Document*, HTMLFormElement*);
 
-    virtual bool isEnumeratable() const { return true; }
     virtual bool supportsFocus() const;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual const AtomicString& formControlType() const;

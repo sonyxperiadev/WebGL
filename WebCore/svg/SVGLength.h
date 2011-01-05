@@ -23,7 +23,7 @@
 
 #if ENABLE(SVG)
 #include "ExceptionCode.h"
-#include "SVGPropertyTraits.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -117,13 +117,6 @@ private:
     float m_valueInSpecifiedUnits;
     unsigned int m_unit;
 };
-
-template<>
-struct SVGPropertyTraits<SVGLength> {
-    static SVGLength initialValue() { return SVGLength(); }
-    static String toString(const SVGLength& type) { return type.valueAsString(); }
-};
-
 
 } // namespace WebCore
 
