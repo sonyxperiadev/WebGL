@@ -655,8 +655,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                         // be a tab. Pick 25 for now as it covers around 160px
                         // (half of 320px) with the default font.
                         if (length > 25 || (length > 3 &&
-                                (!node->parentNode()->hasTagName(HTMLNames::aTag) &&
-                                !node->parentNode()->hasTagName(HTMLNames::liTag))))
+                                (!node->parent()->hasTagName(HTMLNames::aTag) &&
+                                !node->parent()->hasTagName(HTMLNames::liTag))))
                             hasTextToWrap = true;
                     }
                 }
