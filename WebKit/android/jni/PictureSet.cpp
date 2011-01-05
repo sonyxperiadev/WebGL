@@ -384,6 +384,8 @@ public:
     
     virtual void drawRect(const SkRect& , const SkPaint& paint) {
         // wait for visual content
+        if (paint.getColor() != SK_ColorWHITE)
+            notEmpty();
     }
 
     virtual void drawSprite(const SkBitmap& , int , int ,
