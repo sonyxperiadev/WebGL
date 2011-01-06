@@ -36,6 +36,7 @@ LOCAL_SRC_FILES := \
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/ChromiumInit.cpp \
+	android/WebCoreSupport/CacheResult.cpp \
 	android/WebCoreSupport/WebCache.cpp \
 	android/WebCoreSupport/WebCookieJar.cpp \
 	android/WebCoreSupport/WebUrlLoader.cpp \
@@ -60,6 +61,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
+	android/jni/CacheManager.cpp \
 	android/jni/CookieManager.cpp \
 	android/jni/DeviceMotionAndOrientationManager.cpp \
 	android/jni/DeviceMotionClientImpl.cpp \

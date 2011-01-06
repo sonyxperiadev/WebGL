@@ -31,7 +31,10 @@
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
 
+#include <wtf/text/CString.h>
+
 using namespace WTF;
+using namespace disk_cache;
 using namespace net;
 using namespace std;
 
@@ -92,6 +95,9 @@ WebCache::WebCache(bool isPrivateBrowsing)
     : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
     , m_onClearDoneCallback(this, &WebCache::onClearDone)
     , m_isClearInProgress(false)
+    , m_openEntryCallback(this, &WebCache::openEntry)
+    , m_onGetEntryDoneCallback(this, &WebCache::onGetEntryDone)
+    , m_isGetEntryInProgress(false)
     , m_cacheBackend(0)
 {
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
@@ -164,6 +170,68 @@ void WebCache::doomAllEntries(int)
 void WebCache::onClearDone(int)
 {
     m_isClearInProgress = false;
+}
+
+scoped_refptr<CacheResult> WebCache::getCacheResult(String url)
+{
+    // This is called on the UI thread.
+    MutexLocker lock(m_getEntryMutex);
+    if (m_isGetEntryInProgress)
+        return 0; // TODO: OK? Or can we queue 'em up?
+
+    // The Chromium methods are asynchronous, but we need this method to be
+    // synchronous. Do the work on the Chromium thread but block this thread
+    // here waiting for the work to complete.
+    base::Thread* thread = WebUrlLoaderClient::ioThread();
+    if (!thread)
+        return 0;
+
+    m_entry = 0;
+    m_isGetEntryInProgress = true;
+    m_entryUrl = url.threadsafeCopy();
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::getEntryImpl));
+
+    while (m_isGetEntryInProgress)
+        m_getEntryCondition.wait(m_getEntryMutex);
+
+    if (!m_entry)
+        return 0;
+
+    return new CacheResult(m_entry);
+}
+
+void WebCache::getEntryImpl()
+{
+    if (!m_cacheBackend) {
+        int code = m_cache->GetBackend(&m_cacheBackend, &m_openEntryCallback);
+        if (code == ERR_IO_PENDING)
+            return;
+        else if (code != OK) {
+            onGetEntryDone(0 /*unused*/);
+            return;
+        }
+    }
+    openEntry(0 /*unused*/);
+}
+
+void WebCache::openEntry(int)
+{
+    if (!m_cacheBackend) {
+        onGetEntryDone(0 /*unused*/);
+        return;
+    }
+
+    if (m_cacheBackend->OpenEntry(string(m_entryUrl.utf8().data()), &m_entry, &m_onGetEntryDoneCallback) == ERR_IO_PENDING)
+        return;
+    onGetEntryDone(0 /*unused*/);
+}
+
+void WebCache::onGetEntryDone(int)
+{
+    // Unblock the UI thread in getEntry();
+    MutexLocker lock(m_getEntryMutex);
+    m_isGetEntryInProgress = false;
+    m_getEntryCondition.signal();
 }
 
 } // namespace android
