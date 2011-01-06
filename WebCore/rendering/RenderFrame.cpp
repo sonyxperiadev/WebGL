@@ -81,13 +81,14 @@ void RenderFrame::layout()
             view->layout();
             // We can only grow in width and height because if positionFrames gives us a width and we become smaller,
             // then the fixup process of forcing the frame to fill extra space will fail.
-            if (width() > root->docWidth()) {
-                view->resize(root->docWidth(), 0);
+            const int docLeft = root->docLeft();
+            if (width() > root->docWidth(docLeft)) {
+                view->resize(root->docWidth(docLeft), 0);
                 view->layout();
             }
             // Honor the height set by RenderFrameSet::positionFrames unless our document height is larger.
             setHeight(max(root->docHeight(), height()));
-            setWidth(max(root->docWidth(), width()));
+            setWidth(max(root->docWidth(docLeft), width()));
         }
     }
     setNeedsLayout(false);
