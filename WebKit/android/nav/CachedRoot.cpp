@@ -899,10 +899,10 @@ protected:
             return false;
         if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType
             || !mAppendLikeTypes
-            // if the last was a rect, and the current one is also a rect,
-            // but the two rects have a gap between, don't join them -- push
+            // if the last and current were not glyphs,
+            // and the two bounds have a gap between, don't join them -- push
             // an empty between them
-            || (mType == kDrawRect_Type && !joinable(rect))) {
+            || (mType != kDrawGlyph_Type && !joinable(rect))) {
             push(mType, mEmpty);
         }
         DBG_NAV_LOGD("RingCheck join %s (%d,%d,r=%d,b=%d) '%c'",
