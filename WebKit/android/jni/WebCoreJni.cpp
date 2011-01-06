@@ -92,7 +92,6 @@ string16 jstringToString16(JNIEnv* env, jstring jstr)
     checkException(env);
     return str;
 }
-#endif
 
 std::string jstringToStdString(JNIEnv* env, jstring jstr)
 {
@@ -107,5 +106,12 @@ std::string jstringToStdString(JNIEnv* env, jstring jstr)
     checkException(env);
     return str;
 }
+
+jstring stdStringToJstring(JNIEnv* env, const std::string& str, bool validOnZeroLength)
+{
+    return !str.empty() || validOnZeroLength ? env->NewStringUTF(str.c_str()) : 0;
+}
+
+#endif
 
 }

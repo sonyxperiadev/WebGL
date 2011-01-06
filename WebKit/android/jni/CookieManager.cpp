@@ -62,7 +62,7 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
     CookieOptions options;
     options.set_include_httponly();
     std::string cookies = WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
-    return cookies.empty() ? 0 : env->NewStringUTF(cookies.c_str());
+    return stdStringToJstring(env, cookies);
 #else
     // The Android HTTP stack is implemented Java-side.
     ASSERT_NOT_REACHED();

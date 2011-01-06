@@ -79,9 +79,13 @@ jstring wtfStringToJstring(JNIEnv*, const WTF::String&, bool validOnZeroLength =
 
 #if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv*, jstring);
-#endif
 
 std::string jstringToStdString(JNIEnv*, jstring);
+// Returns a local reference to a new jstring. If validOnZeroLength is true then
+// passing in an empty std::string will result in an empty jstring. Otherwise
+// an empty std::string returns 0.
+jstring stdStringToJstring(JNIEnv*, const std::string&, bool validOnZeroLength = false);
+#endif
 
 }
 

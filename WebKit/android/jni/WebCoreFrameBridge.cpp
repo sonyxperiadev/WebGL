@@ -847,6 +847,7 @@ WebFrame::density() const
     return dpi;
 }
 
+#if USE(CHROME_NETWORK_STACK)
 void
 WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials)
 {
@@ -855,8 +856,8 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
 #endif
     JNIEnv* env = getJNIEnv();
     int jHandle = reinterpret_cast<int>(client);
-    jstring jHost = env->NewStringUTF(host.c_str());
-    jstring jRealm = env->NewStringUTF(realm.c_str());
+    jstring jHost = stdStringToJstring(env, host, true);
+    jstring jRealm = stdStringToJstring(env, realm, true);
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
@@ -864,6 +865,7 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
     env->DeleteLocalRef(jRealm);
     checkException(env);
 }
+#endif
 
 void
 WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert)
@@ -885,6 +887,7 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
     checkException(env);
 }
 
+#if USE(CHROME_NETWORK_STACK)
 void
 WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength)
 {
@@ -892,10 +895,10 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    jstring jUrl = env->NewStringUTF(url.c_str());
-    jstring jUserAgent = env->NewStringUTF(userAgent.c_str());
-    jstring jContentDisposition = env->NewStringUTF(contentDisposition.c_str());
-    jstring jMimetype = env->NewStringUTF(mimetype.c_str());
+    jstring jUrl = stdStringToJstring(env, url, true);
+    jstring jUserAgent = stdStringToJstring(env, userAgent, true);
+    jstring jContentDisposition = stdStringToJstring(env, contentDisposition, true);
+    jstring jMimetype = stdStringToJstring(env, mimetype, true);
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, contentLength);
@@ -906,6 +909,7 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     env->DeleteLocalRef(jMimetype);
     checkException(env);
 }
+#endif
 
 void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request)
 {
