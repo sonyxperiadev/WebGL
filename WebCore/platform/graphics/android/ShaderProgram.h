@@ -41,7 +41,9 @@ class ShaderProgram {
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity);
     void setViewRect(const IntRect& viewRect);
-    void clip(const TransformationMatrix& drawMatrix, const FloatRect& rect);
+    FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
+                                    const IntSize& size);
+    void clip(const FloatRect& rect);
 
  private:
     GLuint loadShader(GLenum shaderType, const char* pSource);

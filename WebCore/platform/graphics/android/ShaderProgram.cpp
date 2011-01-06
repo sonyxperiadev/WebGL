@@ -206,23 +206,29 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     m_clippingMatrix.multiply(scale);
 }
 
-void ShaderProgram::clip(const TransformationMatrix& drawMatrix,
-                         const FloatRect& rect)
+// This function transform a clip rect extracted from the current layer
+// into a clip rect in screen coordinates
+FloatRect ShaderProgram::clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
+                             const IntSize& size)
 {
-    if (rect == m_clipRect)
-        return;
-
-    FloatRect srect(0, 0, rect.width(), rect.height());
+    FloatRect srect(0, 0, size.width(), size.height());
     TransformationMatrix renderMatrix = drawMatrix;
     renderMatrix.multiply(m_clippingMatrix);
-    FloatRect clip = renderMatrix.mapRect(srect);
+    return renderMatrix.mapRect(srect);
+}
+
+// clip is in screen coordinates
+void ShaderProgram::clip(const FloatRect& clip)
+{
+    if (clip == m_clipRect)
+        return;
 
     // we should only call glScissor in this function, so that we can easily
     // track the current clipping rect.
     glScissor(m_viewRect.x() + clip.x(), m_viewRect.y() + clip.y(),
               clip.width(), clip.height());
 
-    m_clipRect = rect;
+    m_clipRect = clip;
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,

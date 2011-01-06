@@ -486,22 +486,19 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
                             anchorPointZ());
-    FloatPoint p(0, 0);
-    p = localMatrix.mapPoint(p);
-    p = m_transform.mapPoint(p);
-
     localMatrix.multLeft(m_transform);
     localMatrix.translate3d(-originX,
                             -originY,
                             -anchorPointZ());
-    p = localMatrix.mapPoint(p);
 
     setDrawTransform(localMatrix);
     opacity *= getOpacity();
     setDrawOpacity(opacity);
 
     if (m_haveClip) {
-        FloatRect clip = (FloatRect) bounds();
+        //The clipping rect calculation and intersetion will be done in Screen Coord now.
+        FloatRect clip =
+            TilesManager::instance()->shader()->clipRectInScreenCoord(drawTransform(), layerSize);
         clip.intersect(clipping);
         setDrawClip(clip);
     } else {
@@ -620,7 +617,7 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
     SkRect rect;
     rect.set(0, 0, getSize().width(), getSize().height());
 
-    TilesManager::instance()->shader()->clip(drawTransform(), m_clippingRect);
+    TilesManager::instance()->shader()->clip(m_clippingRect);
 
     if (prepareContext() && m_texture) {
         TextureInfo* textureInfo = m_texture->consumerLock();
