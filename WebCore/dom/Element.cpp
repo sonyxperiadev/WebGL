@@ -546,16 +546,16 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
     if (quads.isEmpty())
         return ClientRect::create();
 
-    FloatRect result = quads[0].boundingBox();
+    IntRect result = quads[0].enclosingBoundingBox();
     for (size_t i = 1; i < quads.size(); ++i)
-        result.unite(quads[i].boundingBox());
+        result.unite(quads[i].enclosingBoundingBox());
 
     if (FrameView* view = document()->view()) {
         IntRect visibleContentRect = view->visibleContentRect();
         result.move(-visibleContentRect.x(), -visibleContentRect.y());
     }
 
-    adjustFloatRectForAbsoluteZoom(result, renderer());
+    adjustIntRectForAbsoluteZoom(result, renderer());
     return ClientRect::create(result);
 }
 

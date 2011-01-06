@@ -299,12 +299,21 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 // This method is only used to draw the little circles used in lists.
 void GraphicsContext::drawEllipse(const IntRect& rect)
 {
+    // FIXME: CG added CGContextAddEllipseinRect in Tiger, so we should be able to quite easily draw an ellipse.
+    // This code can only handle circles, not ellipses. But khtml only
+    // uses it for circles.
+    ASSERT(rect.width() == rect.height());
+
     if (paintingDisabled())
         return;
 
-    Path path;
-    path.addEllipse(rect);
-    drawPath(path);
+    CGContextRef context = platformContext();
+    CGContextBeginPath(context);
+    float r = (float)rect.width() / 2;
+    CGContextAddArc(context, rect.x() + r, rect.y() + r, r, 0.0f, 2.0f * piFloat, 0);
+    CGContextClosePath(context);
+
+    drawPath();
 }
 
 
@@ -396,22 +405,21 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     CGContextRestoreGState(context);
 }
 
-static void addConvexPolygonToPath(Path& path, size_t numberOfPoints, const FloatPoint* points)
+static void addConvexPolygonToContext(CGContextRef context, size_t numPoints, const FloatPoint* points)
 {
-    ASSERT(numberOfPoints > 0);
-
-    path.moveTo(points[0]);
-    for (size_t i = 1; i < numberOfPoints; ++i)
-        path.addLineTo(points[i]);
-    path.closeSubpath();
+    CGContextBeginPath(context);
+    CGContextMoveToPoint(context, points[0].x(), points[0].y());
+    for (size_t i = 1; i < numPoints; i++)
+        CGContextAddLineToPoint(context, points[i].x(), points[i].y());
+    CGContextClosePath(context);
 }
 
-void GraphicsContext::drawConvexPolygon(size_t numberOfPoints, const FloatPoint* points, bool antialiased)
+void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool antialiased)
 {
     if (paintingDisabled())
         return;
 
-    if (numberOfPoints <= 1)
+    if (npoints <= 1)
         return;
 
     CGContextRef context = platformContext();
@@ -419,30 +427,28 @@ void GraphicsContext::drawConvexPolygon(size_t numberOfPoints, const FloatPoint*
     if (antialiased != shouldAntialias())
         CGContextSetShouldAntialias(context, antialiased);
 
-    Path path;
-    addConvexPolygonToPath(path, numberOfPoints, points);
-    drawPath(path);
+    addConvexPolygonToContext(context, npoints, points);
+    drawPath();
 
     if (antialiased != shouldAntialias())
         CGContextSetShouldAntialias(context, shouldAntialias());
 }
 
-void GraphicsContext::clipConvexPolygon(size_t numberOfPoints, const FloatPoint* points, bool antialias)
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialias)
 {
     if (paintingDisabled())
         return;
 
-    if (numberOfPoints <= 1)
+    if (numPoints <= 1)
         return;
 
     CGContextRef context = platformContext();
 
     if (antialias != shouldAntialias())
         CGContextSetShouldAntialias(context, antialias);
-
-    Path path;
-    addConvexPolygonToPath(path, numberOfPoints, points);
-    clipPath(path, RULE_NONZERO);
+    
+    addConvexPolygonToContext(context, numPoints, points);
+    clipPath(RULE_NONZERO);
 
     if (antialias != shouldAntialias())
         CGContextSetShouldAntialias(context, shouldAntialias());
@@ -505,7 +511,7 @@ static inline bool calculateDrawingMode(const GraphicsContextState& state, CGPat
     return shouldFill || shouldStroke;
 }
 
-void GraphicsContext::drawPath(const Path& path)
+void GraphicsContext::drawPath()
 {
     if (paintingDisabled())
         return;
@@ -515,14 +521,10 @@ void GraphicsContext::drawPath(const Path& path)
 
     if (state.fillGradient || state.strokeGradient) {
         // We don't have any optimized way to fill & stroke a path using gradients
-        // FIXME: Be smarter about this.
-        fillPath(path);
-        strokePath(path);
+        fillPath();
+        strokePath();
         return;
     }
-
-    CGContextBeginPath(context);
-    CGContextAddPath(context, path.platformPath());
 
     if (state.fillPattern)
         applyFillPattern();
@@ -542,15 +544,12 @@ static inline void fillPathWithFillRule(CGContextRef context, WindRule fillRule)
         CGContextFillPath(context);
 }
 
-void GraphicsContext::fillPath(const Path& path)
+void GraphicsContext::fillPath()
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
-
-    CGContextBeginPath(context);
-    CGContextAddPath(context, path.platformPath());
 
     if (m_common->state.fillGradient) {
         CGContextSaveGState(context);
@@ -569,15 +568,12 @@ void GraphicsContext::fillPath(const Path& path)
     fillPathWithFillRule(context, fillRule());
 }
 
-void GraphicsContext::strokePath(const Path& path)
+void GraphicsContext::strokePath()
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
-
-    CGContextBeginPath(context);
-    CGContextAddPath(context, path.platformPath());
 
     if (m_common->state.strokeGradient) {
         CGContextSaveGState(context);
@@ -647,7 +643,8 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
     Path path;
     path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
-    fillPath(path);
+    addPath(path);
+    fillPath();
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, oldFillColor, oldColorSpace);
@@ -672,23 +669,19 @@ void GraphicsContext::clipOut(const IntRect& rect)
     CGContextEOClip(platformContext());
 }
 
-void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
+void GraphicsContext::clipPath(WindRule clipRule)
 {
     if (paintingDisabled())
         return;
 
-    if (path.isEmpty())
-        return;
-
     CGContextRef context = platformContext();
 
-    CGContextBeginPath(platformContext());
-    CGContextAddPath(platformContext(), path.platformPath());
-
-    if (clipRule == RULE_EVENODD)
-        CGContextEOClip(context);
-    else
-        CGContextClip(context);
+    if (!CGContextIsPathEmpty(context)) {
+        if (clipRule == RULE_EVENODD)
+            CGContextEOClip(context);
+        else
+            CGContextClip(context);
+    }
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -868,6 +861,16 @@ void GraphicsContext::setLineJoin(LineJoin join)
         CGContextSetLineJoin(platformContext(), kCGLineJoinBevel);
         break;
     }
+}
+
+void GraphicsContext::beginPath()
+{
+    CGContextBeginPath(platformContext());
+}
+
+void GraphicsContext::addPath(const Path& path)
+{
+    CGContextAddPath(platformContext(), path.platformPath());
 }
 
 void GraphicsContext::clip(const Path& path)

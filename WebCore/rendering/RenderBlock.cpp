@@ -1262,8 +1262,6 @@ void RenderBlock::layoutBlock(bool relayoutChildren, int pageHeight)
     if (view()->layoutState()->m_pageHeight)
         setPageY(view()->layoutState()->pageY(y()));
 
-    updateLayerTransform();
-
     // Update our scroll information if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.
     updateScrollInfoAfterLayout();
@@ -2008,8 +2006,6 @@ bool RenderBlock::layoutOnlyPositionedObjects()
     layoutPositionedObjects(false);
 
     statePusher.pop();
-    
-    updateLayerTransform();
 
     updateScrollInfoAfterLayout();
 
@@ -2042,7 +2038,7 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
                 r->setChildNeedsLayout(true, false);
                 
             // If relayoutChildren is set and we have percentage padding, we also need to invalidate the child's pref widths.
-            if (relayoutChildren && (r->style()->paddingStart().isPercent() || r->style()->paddingEnd().isPercent()))
+            //if (relayoutChildren && (r->style()->paddingLeft().isPercent() || r->style()->paddingRight().isPercent()))
                 r->setPreferredLogicalWidthsDirty(true, false);
             
             if (!r->needsLayout())
@@ -4747,22 +4743,11 @@ void RenderBlock::computePreferredLogicalWidths()
                 m_minPreferredLogicalWidth = 0;
         }
 
-        int scrollbarWidth = 0;
-        if (hasOverflowClip() && style()->overflowY() == OSCROLL) {
-            layer()->setHasVerticalScrollbar(true);
-            scrollbarWidth = verticalScrollbarWidth();
-            m_maxPreferredLogicalWidth += scrollbarWidth;
-        }
-
         if (isTableCell()) {
             Length w = toRenderTableCell(this)->styleOrColLogicalWidth();
-            if (w.isFixed() && w.value() > 0) {
+            if (w.isFixed() && w.value() > 0)
                 m_maxPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(w.value()));
-                scrollbarWidth = 0;
-            }
         }
-        
-        m_minPreferredLogicalWidth += scrollbarWidth;
     }
     
     if (style()->logicalMinWidth().isFixed() && style()->logicalMinWidth().value() > 0) {
@@ -4775,9 +4760,14 @@ void RenderBlock::computePreferredLogicalWidths()
         m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->logicalMaxWidth().value()));
     }
 
-    int borderAndPadding = borderAndPaddingLogicalWidth();
-    m_minPreferredLogicalWidth += borderAndPadding;
-    m_maxPreferredLogicalWidth += borderAndPadding;
+    int toAdd = 0;
+    toAdd = borderAndPaddingLogicalWidth();
+
+    if (hasOverflowClip() && style()->overflowY() == OSCROLL)
+        toAdd += verticalScrollbarWidth();
+
+    m_minPreferredLogicalWidth += toAdd;
+    m_maxPreferredLogicalWidth += toAdd;
 
     setPreferredLogicalWidthsDirty(false);
 }
@@ -5254,7 +5244,7 @@ bool RenderBlock::hasLineIfEmpty() const
     if (node()->isContentEditable() && node()->rootEditableElement() == node())
         return true;
     
-    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag)))
+    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag) || node()->shadowParentNode()->hasTagName(textareaTag)))
         return true;
     
     return false;

@@ -123,7 +123,6 @@ WebInspector.ProfilesPanel = function()
 
     this._profiles = [];
     this._profilerEnabled = Preferences.profilerAlwaysEnabled;
-    this._tempHeapSnapshots = [];
     this._reset();
 }
 
@@ -410,25 +409,6 @@ WebInspector.ProfilesPanel.prototype = {
                 this._profiles[i] = profile;
                 break;
             }
-    },
-
-    addHeapSnapshotChunk: function(uid, chunk)
-    {
-        if (this._tempHeapSnapshots[uid])
-            this._tempHeapSnapshots[uid] += chunk;
-        else
-            this._tempHeapSnapshots[uid] = chunk;
-    },
-
-    finishHeapSnapshot: function(uid)
-    {
-        var profile =
-            this._profilesIdMap[this._makeKey(uid, WebInspector.HeapSnapshotProfileType.TypeId)];
-        if (profile) {
-            var view = profile.__profilesPanelProfileType.viewForProfile(profile);
-            view.snapshotLoaded(uid, JSON.parse(this._tempHeapSnapshots[uid]));
-        }
-        delete this._tempHeapSnapshots[uid];
     },
 
     showView: function(view)

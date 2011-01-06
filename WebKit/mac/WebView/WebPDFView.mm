@@ -626,13 +626,19 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return NO;
 }
 
-- (NSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(NSUInteger)limit
+{
+    return [self countMatchesForText:string caseSensitive:caseFlag limit:limit markMatches:YES];
+}
+
+- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(NSUInteger)limit markMatches:(BOOL)markMatches
 {
     PDFSelection *previousMatch = nil;
+    PDFSelection *nextMatch = nil;
     NSMutableArray *matches = [[NSMutableArray alloc] initWithCapacity:limit];
     
     for (;;) {
-        PDFSelection *nextMatch = [self _nextMatchFor:string direction:YES caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:NO fromSelection:previousMatch startInSelection:NO];
+        nextMatch = [self _nextMatchFor:string direction:YES caseSensitive:caseFlag wrap:NO fromSelection:previousMatch startInSelection:NO];
         if (!nextMatch)
             break;
         

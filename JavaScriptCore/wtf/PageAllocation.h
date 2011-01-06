@@ -29,7 +29,6 @@
 #include <wtf/Assertions.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/VMTags.h>
-#include <algorithm>
 
 #if OS(DARWIN)
 #include <mach/mach_init.h>
@@ -267,11 +266,9 @@ inline PageAllocation PageAllocation::systemAllocateAligned(size_t size, Usage u
 
 inline void PageAllocation::systemDeallocate(bool)
 {
-    void* tmp = 0;
-    std::swap(tmp, m_base);
-
-    int result = munmap(tmp, m_size);
+    int result = munmap(m_base, m_size);
     ASSERT_UNUSED(result, !result);
+    m_base = 0;
 }
 
 inline size_t PageAllocation::systemPageSize()
@@ -306,16 +303,14 @@ inline PageAllocation PageAllocation::systemAllocateAligned(size_t size, Usage u
 
 inline void PageAllocation::systemDeallocate(bool committed)
 {
-    void* tmp = 0;
-    std::swap(tmp, m_base);
-
 #if OS(WINCE)
     if (committed)
-        VirtualFree(tmp, m_size, MEM_DECOMMIT);
+        VirtualFree(m_base, m_size, MEM_DECOMMIT);
 #else
     UNUSED_PARAM(committed);
 #endif
-    VirtualFree(tmp, 0, MEM_RELEASE); 
+    VirtualFree(m_base, 0, MEM_RELEASE); 
+    m_base = 0;
 }
 
 inline size_t PageAllocation::systemPageSize()
@@ -343,11 +338,9 @@ inline PageAllocation PageAllocation::systemAllocate(size_t size, Usage usage, b
 
 inline void PageAllocation::systemDeallocate(bool)
 {
-    void* tmp = 0;
-    std::swap(tmp, m_base);
-
     m_chunk->Close();
     delete m_chunk;
+    m_base = 0;
 }
 
 inline size_t PageAllocation::systemPageSize()

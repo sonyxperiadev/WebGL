@@ -570,16 +570,7 @@ void AccessibilityUIElement::decrement()
 
 void AccessibilityUIElement::press()
 {
-    if (!m_element)
-        return;
-
-    ASSERT(ATK_IS_OBJECT(m_element));
-
-    if (!ATK_IS_ACTION(m_element))
-        return;
-
-    // Only one action per object is supported so far.
-    atk_action_do_action(ATK_ACTION(m_element), 0);
+    // FIXME: implement
 }
 
 void AccessibilityUIElement::showMenu()

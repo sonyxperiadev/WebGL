@@ -43,7 +43,6 @@
 #include <wtf/text/WTFString.h>
 
 using WebKit::WebLocalizedString;
-using WebKit::WebString;
 
 namespace WebCore {
 
@@ -52,14 +51,9 @@ static String query(WebLocalizedString::Name name)
     return WebKit::webKitClient()->queryLocalizedString(name);
 }
 
-static String query(WebLocalizedString::Name name, const WebString& parameter)
+static String query(WebLocalizedString::Name name, int numericValue)
 {
-    return WebKit::webKitClient()->queryLocalizedString(name, parameter);
-}
-
-static String query(WebLocalizedString::Name name, const WebString& parameter1, const WebString& parameter2)
-{
-    return WebKit::webKitClient()->queryLocalizedString(name, parameter1, parameter2);
+    return WebKit::webKitClient()->queryLocalizedString(name, numericValue);
 }
 
 String searchableIndexIntroduction()
@@ -197,7 +191,7 @@ String crashedPluginText()
 
 String multipleFileUploadText(unsigned numberOfFiles)
 {
-    return query(WebLocalizedString::MultipleFileUploadText, String::number(numberOfFiles));
+    return query(WebLocalizedString::MultipleFileUploadText, numberOfFiles);
 }
 
 // Used in FTPDirectoryDocument.cpp
@@ -356,24 +350,28 @@ String validationMessagePatternMismatchText()
     return query(WebLocalizedString::ValidationPatternMismatch);
 }
 
-String validationMessageTooLongText(int valueLength, int maxLength)
+String validationMessageTooLongText(int, int)
 {
-    return query(WebLocalizedString::ValidationTooLong, String::number(valueLength), String::number(maxLength));
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationTooLong);
 }
 
-String validationMessageRangeUnderflowText(const String& minimum)
+String validationMessageRangeUnderflowText(const String&)
 {
-    return query(WebLocalizedString::ValidationRangeUnderflow, minimum);
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationRangeUnderflow);
 }
 
-String validationMessageRangeOverflowText(const String& maximum)
+String validationMessageRangeOverflowText(const String&)
 {
-    return query(WebLocalizedString::ValidationRangeOverflow, maximum);
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationRangeOverflow);
 }
 
-String validationMessageStepMismatchText(const String& base, const String& step)
+String validationMessageStepMismatchText(const String&, const String&)
 {
-    return query(WebLocalizedString::ValidationStepMismatch, base, step);
+    // FIXME: pass the arguments.
+    return query(WebLocalizedString::ValidationStepMismatch);
 }
 
 } // namespace WebCore

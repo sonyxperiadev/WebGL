@@ -41,20 +41,20 @@ ConeEffect::ConeEffect()
 {
 }
 
-double ConeEffect::gain(FloatPoint3D sourcePosition, FloatPoint3D sourceOrientation, FloatPoint3D listenerPosition)
+double ConeEffect::gain(Vector3 sourcePosition, Vector3 sourceOrientation, Vector3 listenerPosition)
 {
     if (sourceOrientation.isZero() || ((m_innerAngle == 360.0) && (m_outerAngle == 360.0)))
         return 1.0; // no cone specified - unity gain
 
     // Normalized source-listener vector
-    FloatPoint3D sourceToListener = listenerPosition - sourcePosition;
+    Vector3 sourceToListener = listenerPosition - sourcePosition;
     sourceToListener.normalize();
 
-    FloatPoint3D normalizedSourceOrientation = sourceOrientation;
+    Vector3 normalizedSourceOrientation = sourceOrientation;
     normalizedSourceOrientation.normalize();
 
     // Angle between the source orientation vector and the source-listener vector
-    double dotProduct = sourceToListener.dot(normalizedSourceOrientation);
+    double dotProduct = dot(sourceToListener, normalizedSourceOrientation);
     double angle = 180.0 * acos(dotProduct) / M_PI;
     double absAngle = fabs(angle);
 

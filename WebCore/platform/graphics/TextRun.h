@@ -117,10 +117,7 @@ private:
     const UChar* m_characters;
     int m_len;
 
-    // m_xpos is the x position relative to the left start of the text line, not relative to the left
-    // start of the containing block. In the case of right alignment or center alignment, left start of
-    // the text line is not the same as left start of the containing block.
-    int m_xpos;  
+    int m_xpos;
     int m_padding;
 #if ENABLE(SVG)
     float m_horizontalGlyphStretch;

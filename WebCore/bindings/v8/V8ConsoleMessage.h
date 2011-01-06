@@ -82,7 +82,7 @@ namespace WebCore {
         const String m_sourceID;
         const unsigned m_lineNumber;
 
-        void dispatchNow(Page*, PassRefPtr<ScriptCallStack>);
+        void dispatchNow(Page*, PassOwnPtr<ScriptCallStack>);
 
         // All delayed messages are stored in this vector. If the vector
         // is 0, there are no delayed messages.

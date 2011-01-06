@@ -515,7 +515,8 @@ public:
         if (matchEnd == -1)
             return true;
 
-        ASSERT((matchBegin == -1) || (matchBegin <= matchEnd));
+        ASSERT((matchBegin == -1) == (matchEnd == -1));
+        ASSERT(matchBegin <= matchEnd);
 
         if (matchBegin == matchEnd)
             return true;
@@ -557,7 +558,8 @@ public:
 
         int matchBegin = output[(term.atom.subpatternId << 1)];
         int matchEnd = output[(term.atom.subpatternId << 1) + 1];
-        ASSERT((matchBegin == -1) || (matchBegin <= matchEnd));
+        ASSERT((matchBegin == -1) == (matchEnd == -1));
+        ASSERT(matchBegin <= matchEnd);
 
         if (matchBegin == matchEnd)
             return false;
@@ -717,7 +719,7 @@ public:
                 if (term.capture()) {
                     // Technically this access to inputPosition should be accessing the begin term's
                     // inputPosition, but for repeats other than fixed these values should be
-                    // the same anyway! (We don't pre-check for greedy or non-greedy matches.)
+                    // the same anyway! (we don't pre-check for greedy or non-greedy matches.)
                     ASSERT((&term - term.atom.parenthesesWidth)->type == ByteTerm::TypeParenthesesSubpatternOnceBegin);
                     ASSERT((&term - term.atom.parenthesesWidth)->inputPosition == term.inputPosition);
                     unsigned subpatternId = term.atom.subpatternId;
@@ -737,7 +739,7 @@ public:
     {
         ASSERT(term.type == ByteTerm::TypeParenthesesSubpatternTerminalBegin);
         ASSERT(term.atom.quantityType == QuantifierGreedy);
-        ASSERT(term.atom.quantityCount == quantifyInfinite);
+        ASSERT(term.atom.quantityCount == UINT_MAX);
         ASSERT(!term.capture());
 
         BackTrackInfoParenthesesTerminal* backTrack = reinterpret_cast<BackTrackInfoParenthesesTerminal*>(context->frame + term.frameLocation);
@@ -763,7 +765,7 @@ public:
     {
         ASSERT(term.type == ByteTerm::TypeParenthesesSubpatternTerminalBegin);
         ASSERT(term.atom.quantityType == QuantifierGreedy);
-        ASSERT(term.atom.quantityCount == quantifyInfinite);
+        ASSERT(term.atom.quantityCount == UINT_MAX);
         ASSERT(!term.capture());
 
         // If we backtrack to this point, we have failed to match this iteration of the parens.
@@ -775,7 +777,7 @@ public:
     bool backtrackParenthesesTerminalEnd(ByteTerm&, DisjunctionContext*)
     {
         // 'Terminal' parentheses are at the end of the regex, and as such a match past end
-        // should always be returned as a successful match - we should never backtrack to here.
+        // should always be returned as a successful match - we should never becktrack to here.
         ASSERT_NOT_REACHED();
         return false;
     }
@@ -1826,7 +1828,7 @@ public:
                     break;
 
                 case PatternTerm::TypeBackReference:
-                    atomBackReference(term.backReferenceSubpatternId, term.inputPosition - currentCountAlreadyChecked, term.frameLocation, term.quantityCount, term.quantityType);
+                    atomBackReference(term.subpatternId, term.inputPosition - currentCountAlreadyChecked, term.frameLocation, term.quantityCount, term.quantityType);
                         break;
 
                 case PatternTerm::TypeForwardReference:

@@ -34,7 +34,6 @@
 #include "DateComponents.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
@@ -52,11 +51,6 @@ PassOwnPtr<InputType> DateTimeInputType::create(HTMLInputElement* element)
 const AtomicString& DateTimeInputType::formControlType() const
 {
     return InputTypeNames::datetime();
-}
-
-double DateTimeInputType::defaultValueForStepUp() const
-{
-    return currentTimeMS();
 }
 
 double DateTimeInputType::minimum() const

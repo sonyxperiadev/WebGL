@@ -29,17 +29,14 @@
 #include "Attribute.h"
 #include "CSSStyleSelector.h"
 #include "RenderSVGResourceMasker.h"
+#include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGRenderSupport.h"
 #include "SVGUnitTypes.h"
 
-namespace WebCore {
+using namespace std;
 
-// Animated property definitions
-DEFINE_ANIMATED_LENGTH(SVGMaskElement, SVGNames::xAttr, X, x)
-DEFINE_ANIMATED_LENGTH(SVGMaskElement, SVGNames::yAttr, Y, y)
-DEFINE_ANIMATED_LENGTH(SVGMaskElement, SVGNames::widthAttr, Width, width)
-DEFINE_ANIMATED_LENGTH(SVGMaskElement, SVGNames::heightAttr, Height, height)
+namespace WebCore {
 
 inline SVGMaskElement::SVGMaskElement(const QualifiedName& tagName, Document* document)
     : SVGStyledLocatableElement(tagName, document)

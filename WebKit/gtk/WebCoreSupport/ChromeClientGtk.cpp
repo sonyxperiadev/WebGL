@@ -523,12 +523,9 @@ void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned mo
         m_hoveredLinkURL = KURL();
     }
 
-    if (Node* node = hit.innerNonSharedNode()) {
-        Frame* frame = node->document()->frame();
-        FrameView* view = frame ? frame->view() : 0;
-        m_webView->priv->tooltipArea = view ? view->contentsToWindow(node->getRect()) : IntRect();
-    } else
-        m_webView->priv->tooltipArea = IntRect();
+    Node* node = hit.innerNonSharedNode();
+
+    m_webView->priv->tooltipArea = node ? node->document()->frame()->view()->contentsToWindow(node->getRect()) : IntRect();
 }
 
 void ChromeClient::setToolTip(const String& toolTip, TextDirection)

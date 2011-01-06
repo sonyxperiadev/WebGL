@@ -31,7 +31,7 @@
 #ifndef ScriptCallStackFactory_h
 #define ScriptCallStackFactory_h
 
-#include <wtf/Forward.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace JSC {
 class ExecState;
@@ -42,8 +42,8 @@ namespace WebCore {
 class ScriptArguments;
 class ScriptCallStack;
 
-PassRefPtr<ScriptCallStack> createScriptCallStack(JSC::ExecState*, size_t maxStackSize);
-PassRefPtr<ScriptArguments> createScriptArguments(JSC::ExecState*, unsigned skipArgumentCount);
+PassOwnPtr<ScriptCallStack> createScriptCallStack(JSC::ExecState*, size_t maxStackSize);
+PassOwnPtr<ScriptArguments> createScriptArguments(JSC::ExecState*, unsigned skipArgumentCount);
 
 } // namespace WebCore
 

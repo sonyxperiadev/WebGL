@@ -47,7 +47,7 @@ String resetButtonDefaultLabel()
     return String("Reset"); 
 }
 
-String platformDefaultLanguage() 
+String defaultLanguage() 
 { 
     return String("en"); 
 }

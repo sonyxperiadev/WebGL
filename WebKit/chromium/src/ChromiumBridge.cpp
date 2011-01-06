@@ -134,7 +134,7 @@ static WebCookieJar* getCookieJar(const Document* document)
     WebFrameImpl* frameImpl = WebFrameImpl::fromFrame(document->frame());
     if (!frameImpl || !frameImpl->client())
         return 0;
-    WebCookieJar* cookieJar = frameImpl->client()->cookieJar(frameImpl);
+    WebCookieJar* cookieJar = frameImpl->client()->cookieJar();
     if (!cookieJar)
         cookieJar = webKitClient()->cookieJar();
     return cookieJar;

@@ -690,7 +690,8 @@ static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKF
 {
     WKStringRef string = WKStringCreateWithCFString((CFStringRef)[sender stringValue]);
 
-    WKPageFindString(_webView.pageRef, string, kWKFindOptionsCaseInsensitive | kWKFindOptionsWrapAround | kWKFindOptionsShowFindIndicator | kWKFindOptionsShowOverlay, 100);
+    WKPageFindString(_webView.pageRef, string, kWKFindDirectionForward, 
+                     kWKFindOptionsCaseInsensitive | kWKFindOptionsWrapAround | kWKFindOptionsShowFindIndicator | kWKFindOptionsShowOverlay, 100);
 }
 
 @end

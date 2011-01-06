@@ -139,28 +139,28 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* poin
     UNUSED_PARAM(shouldAntialias); // FIXME
 }
 
-void GraphicsContext::fillPath(const Path& path)
+void GraphicsContext::fillPath()
 {
     if (paintingDisabled())
         return;
-
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(path);
 
     m_data->drawPath(VG_FILL_PATH, m_common->state.fillRule);
 }
 
-void GraphicsContext::strokePath(const Path& path)
+void GraphicsContext::strokePath()
 {
     if (paintingDisabled())
         return;
 
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(path);
-
     m_data->drawPath(VG_STROKE_PATH, m_common->state.fillRule);
+}
+
+void GraphicsContext::drawPath()
+{
+    if (paintingDisabled())
+        return;
+
+    m_data->drawPath(VG_FILL_PATH | VG_STROKE_PATH, m_common->state.fillRule);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
@@ -221,14 +221,10 @@ void GraphicsContext::clip(const FloatRect& rect)
     m_data->intersectClipRect(rect);
 }
 
-void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
+void GraphicsContext::clipPath(WindRule clipRule)
 {
     if (paintingDisabled())
         return;
-
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(path);
 
     m_data->clipPath(*(m_data->currentPath()), PainterOpenVG::IntersectClip, clipRule);
 }

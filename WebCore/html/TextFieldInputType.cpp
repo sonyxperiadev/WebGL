@@ -35,7 +35,6 @@
 #include "HTMLInputElement.h"
 #include "KeyboardEvent.h"
 #include "RenderTextControlSingleLine.h"
-#include "TextEvent.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -74,11 +73,6 @@ bool TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent* event)
     element()->stepUpFromRenderer(step);
     event->setDefaultHandled();
     return true;
-}
-
-bool TextFieldInputType::shouldSubmitImplicitly(Event* event)
-{
-    return (event->type() == eventNames().textInputEvent && event->isTextEvent() && static_cast<TextEvent*>(event)->data() == "\n") || InputType::shouldSubmitImplicitly(event);
 }
 
 RenderObject* TextFieldInputType::createRenderer(RenderArena* arena, RenderStyle*) const

@@ -52,12 +52,11 @@ public:
     bool callShouldCloseOnWebView();
     JSStringRef copyDecodedHostName(JSStringRef name);
     JSStringRef copyEncodedHostName(JSStringRef name);
-    JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef id);
     void disableImageLoading();
     void dispatchPendingLoadRequests();
     void display();
     void execCommand(JSStringRef name, JSStringRef value);
-    bool findString(JSContextRef, JSStringRef, JSObjectRef optionsArray);
+    JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef id);
     bool isCommandEnabled(JSStringRef name);
     void keepWebHistory();
     JSValueRef computedStyleIncludingVisitedInfo(JSContextRef, JSValueRef);

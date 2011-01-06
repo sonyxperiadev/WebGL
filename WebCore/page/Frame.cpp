@@ -738,7 +738,7 @@ void Frame::transferChildFrameToNewDocument()
     }
 
     // Update the frame tree.
-    didTransfer = newParent->tree()->transferChild(this) || didTransfer;
+    didTransfer = newParent->tree()->transferChild(this);
 
     // Avoid unnecessary calls to client and frame subtree if the frame ended
     // up on the same page and under the same parent frame.

@@ -1670,10 +1670,8 @@ static gboolean webkit_web_view_query_tooltip(GtkWidget *widget, gint x, gint y,
             if (titleNode->isElementNode()) {
                 String title = static_cast<Element*>(titleNode)->title();
                 if (!title.isEmpty()) {
-                    if (FrameView* view = coreFrame->view()) {
-                        GdkRectangle area = view->contentsToWindow(node->getRect());
-                        gtk_tooltip_set_tip_area(tooltip, &area);
-                    }
+                    GdkRectangle area = coreFrame->view()->contentsToWindow(node->getRect());
+                    gtk_tooltip_set_tip_area(tooltip, &area);
                     gtk_tooltip_set_text(tooltip, title.utf8().data());
 
                     return TRUE;

@@ -23,7 +23,6 @@
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "FETurbulence.h"
-#include "SVGAnimatedNumber.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
@@ -49,11 +48,10 @@ private:
     static const AtomicString& baseFrequencyXIdentifier();
     static const AtomicString& baseFrequencyYIdentifier();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_NUMBER(BaseFrequencyX, baseFrequencyX)
-    DECLARE_ANIMATED_NUMBER(BaseFrequencyY, baseFrequencyY)
+    DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, baseFrequencyXIdentifier(), float, BaseFrequencyX, baseFrequencyX)
+    DECLARE_ANIMATED_STATIC_PROPERTY_MULTIPLE_WRAPPERS_NEW(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, baseFrequencyYIdentifier(), float, BaseFrequencyY, baseFrequencyY)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFETurbulenceElement, SVGNames::numOctavesAttr, long, NumOctaves, numOctaves)
-    DECLARE_ANIMATED_NUMBER(Seed, seed)
+    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFETurbulenceElement, SVGNames::seedAttr, float, Seed, seed)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFETurbulenceElement, SVGNames::stitchTilesAttr, int, StitchTiles, stitchTiles)
     DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFETurbulenceElement, SVGNames::typeAttr, int, Type, type)
 };

@@ -839,15 +839,10 @@ void GraphicsContext::clipOut(const IntRect& r)
 }
 
 #if ENABLE(SVG)
-void GraphicsContext::clipPath(const Path& pathToClip, WindRule clipRule)
+void GraphicsContext::clipPath(WindRule clipRule)
 {
     if (paintingDisabled())
         return;
-
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToClip);
-
     const SkPath* oldPath = m_data->getPath();
     SkPath path(*oldPath);
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
@@ -1176,16 +1171,12 @@ void GraphicsContext::addPath(const Path& p)
     m_data->addPath(*p.platformPath());
 }
 
-void GraphicsContext::fillPath(const Path& pathToFill)
+void GraphicsContext::fillPath()
 {
-    if (paintingDisabled())
+    SkPath* path = m_data->getPath();
+    if (paintingDisabled() || !path)
         return;
 
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToFill);
-
-    SkPath* path = m_data->getPath();
     switch (this->fillRule()) {
     case RULE_NONZERO:
         path->setFillType(SkPath::kWinding_FillType);
@@ -1205,14 +1196,11 @@ void GraphicsContext::fillPath(const Path& pathToFill)
     GC2CANVAS(this)->drawPath(*path, paint);
 }
 
-void GraphicsContext::strokePath(const Path& pathToStroke)
+void GraphicsContext::strokePath()
 {
-    if (paintingDisabled())
+    const SkPath* path = m_data->getPath();
+    if (paintingDisabled() || !path)
         return;
-
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToStroke);
 
     SkPaint paint;
     m_data->setupPaintStroke(&paint, 0);
@@ -1221,7 +1209,6 @@ void GraphicsContext::strokePath(const Path& pathToStroke)
                  m_common->state.strokePattern.get(),
                  m_common->state.strokeGradient.get());
 
-    const SkPath* path = m_data->getPath();
     GC2CANVAS(this)->drawPath(*path, paint);
 }
 

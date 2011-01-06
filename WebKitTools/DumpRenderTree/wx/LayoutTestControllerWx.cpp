@@ -528,9 +528,3 @@ JSRetainPtr<JSStringRef> LayoutTestController::pageSizeAndMarginsInPixels(int pa
     // FIXME: Implement
     return 0;
 }
-
-bool LayoutTestController::findString(JSContextRef context, JSStringRef target, JSObjectRef optionsArray)
-{
-    // FIXME: Implement
-    return false;
-}

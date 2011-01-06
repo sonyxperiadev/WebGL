@@ -18,6 +18,10 @@
 		OptimizeForWindows98="1"
 	/>
 	<Tool
+		Name="VCPreLinkEventTool"
+		CommandLine="if not exist &quot;$(WebKitOutputDir)\public\sym&quot; mkdir &quot;$(WebKitOutputDir)\public\sym&quot;"
+	/>
+	<Tool
 		Name="VCResourceCompilerTool"
 		PreprocessorDefinitions="NDEBUG"
 	/>

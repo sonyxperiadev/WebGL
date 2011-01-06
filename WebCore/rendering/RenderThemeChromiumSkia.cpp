@@ -127,8 +127,7 @@ RenderThemeChromiumSkia::~RenderThemeChromiumSkia()
 // Use the Windows style sheets to match their metrics.
 String RenderThemeChromiumSkia::extraDefaultStyleSheet()
 {
-    return String(themeWinUserAgentStyleSheet, sizeof(themeWinUserAgentStyleSheet)) +
-           String(themeChromiumSkiaUserAgentStyleSheet, sizeof(themeChromiumSkiaUserAgentStyleSheet));
+    return String(themeWinUserAgentStyleSheet, sizeof(themeWinUserAgentStyleSheet));
 }
 
 String RenderThemeChromiumSkia::extraQuirksStyleSheet()

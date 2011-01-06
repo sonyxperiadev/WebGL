@@ -40,6 +40,7 @@
 #include "RenderSVGViewportContainer.h"
 #include "SMILTimeContainer.h"
 #include "SVGAngle.h"
+#include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
 #include "SVGTransform.h"
@@ -56,14 +57,13 @@ namespace WebCore {
 using namespace HTMLNames;
 using namespace SVGNames;
 
-// Animated property definitions
-DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::xAttr, X, x)
-DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::yAttr, Y, y)
-DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::widthAttr, Width, width)
-DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::heightAttr, Height, height)
-
-inline SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
+SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledLocatableElement(tagName, doc)
+    , SVGTests()
+    , SVGLangSpace()
+    , SVGExternalResourcesRequired()
+    , SVGFitToViewBox()
+    , SVGZoomAndPan()
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth, "100%")

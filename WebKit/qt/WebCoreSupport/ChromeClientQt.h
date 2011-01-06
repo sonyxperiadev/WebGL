@@ -152,7 +152,7 @@ namespace WebCore {
         virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
         virtual void setNeedsOneShotDrawingSynchronization();
         virtual void scheduleCompositingLayerSync();
-        virtual CompositingTriggerFlags allowedCompositingTriggers() const;
+        virtual bool allowsAcceleratedCompositing() const;
 #endif
 
 #if ENABLE(TILED_BACKING_STORE)

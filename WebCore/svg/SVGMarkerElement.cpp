@@ -35,13 +35,7 @@
 
 namespace WebCore {
 
-// Animated property definitions
-DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::refXAttr, RefX, refX)
-DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::refYAttr, RefY, refY)
-DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::markerWidthAttr, MarkerWidth, markerWidth)
-DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::markerHeightAttr, MarkerHeight, markerHeight)
-
-inline SVGMarkerElement::SVGMarkerElement(const QualifiedName& tagName, Document* document)
+SVGMarkerElement::SVGMarkerElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
     , m_refX(LengthModeWidth)
     , m_refY(LengthModeHeight)

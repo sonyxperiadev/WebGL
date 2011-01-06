@@ -47,7 +47,7 @@ XMLHttpRequestProgressEventThrottle::~XMLHttpRequestProgressEventThrottle()
 {
 }
 
-void XMLHttpRequestProgressEventThrottle::dispatchProgressEvent(bool lengthComputable, unsigned long long loaded, unsigned long long total)
+void XMLHttpRequestProgressEventThrottle::dispatchProgressEvent(bool lengthComputable, unsigned loaded, unsigned total)
 {
     ASSERT(!suspended());
     if (!isActive()) {

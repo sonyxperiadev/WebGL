@@ -28,61 +28,61 @@
 #include "SVGExternalResourcesRequired.h"
 #include "SVGFitToViewBox.h"
 #include "SVGLangSpace.h"
-#include "SVGPreserveAspectRatio.h"
-#include "SVGRect.h"
 #include "SVGStyledElement.h"
 #include "SVGTests.h"
+#include "SVGTransformList.h"
 #include "SVGURIReference.h"
 
 namespace WebCore {
 
-struct PatternAttributes;
+    struct PatternAttributes;
  
-class SVGPatternElement : public SVGStyledElement,
-                          public SVGURIReference,
-                          public SVGTests,
-                          public SVGLangSpace,
-                          public SVGExternalResourcesRequired,
-                          public SVGFitToViewBox {
-public:
-    static PassRefPtr<SVGPatternElement> create(const QualifiedName&, Document*);
+    class SVGLength;
 
-    void collectPatternAttributes(PatternAttributes&) const;
+    class SVGPatternElement : public SVGStyledElement,
+                              public SVGURIReference,
+                              public SVGTests,
+                              public SVGLangSpace,
+                              public SVGExternalResourcesRequired,
+                              public SVGFitToViewBox {
+    public:
+        static PassRefPtr<SVGPatternElement> create(const QualifiedName&, Document*);
 
-private:
-    SVGPatternElement(const QualifiedName&, Document*);
-    
-    virtual bool isValid() const { return SVGTests::isValid(); }
-    virtual bool needsPendingResourceHandling() const { return false; }
+        void collectPatternAttributes(PatternAttributes&) const;
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    private:
+        SVGPatternElement(const QualifiedName&, Document*);
+        
+        virtual bool isValid() const { return SVGTests::isValid(); }
+        virtual bool needsPendingResourceHandling() const { return false; }
 
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+        virtual void parseMappedAttribute(Attribute*);
+        virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    virtual bool selfHasRelativeLengths() const;
+        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(X, x)
-    DECLARE_ANIMATED_LENGTH(Y, y)
-    DECLARE_ANIMATED_LENGTH(Width, width)
-    DECLARE_ANIMATED_LENGTH(Height, height)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::patternUnitsAttr, int, PatternUnits, patternUnits)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::patternContentUnitsAttr, int, PatternContentUnits, patternContentUnits)
-    DECLARE_ANIMATED_TRANSFORM_LIST(PatternTransform, patternTransform)
+        virtual bool selfHasRelativeLengths() const;
 
-    // SVGURIReference
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, XLinkNames::hrefAttr, String, Href, href)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::heightAttr, SVGLength, Height, height)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::patternUnitsAttr, int, PatternUnits, patternUnits)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::patternContentUnitsAttr, int, PatternContentUnits, patternContentUnits)
+        DECLARE_ANIMATED_TRANSFORM_LIST_PROPERTY_NEW(SVGPatternElement, SVGNames::patternTransformAttr, SVGTransformList, PatternTransform, patternTransform)
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+        // SVGURIReference
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, XLinkNames::hrefAttr, String, Href, href)
 
-    // SVGPatternElement
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio) 
-};
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGPatternElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+
+        // SVGPatternElement
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGPatternElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio) 
+    };
 
 } // namespace WebCore
 

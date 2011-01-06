@@ -59,7 +59,7 @@ AccessibilityObject* AccessibilityImageMapLink::parentObject() const
     if (m_parent)
         return m_parent;
     
-    if (!m_mapElement.get() || !m_mapElement->renderer())
+    if (!m_mapElement || !m_mapElement->renderer())
         return 0;
     
     return m_mapElement->document()->axObjectCache()->getOrCreate(m_mapElement->renderer());
@@ -84,12 +84,12 @@ Element* AccessibilityImageMapLink::actionElement() const
     
 Element* AccessibilityImageMapLink::anchorElement() const
 {
-    return m_areaElement.get();
+    return m_areaElement;
 }
 
 KURL AccessibilityImageMapLink::url() const
 {
-    if (!m_areaElement.get())
+    if (!m_areaElement)
         return KURL();
     
     return m_areaElement->href();
@@ -121,7 +121,7 @@ String AccessibilityImageMapLink::title() const
     
 IntRect AccessibilityImageMapLink::elementRect() const
 {
-    if (!m_mapElement.get() || !m_areaElement.get())
+    if (!m_mapElement || !m_areaElement)
         return IntRect();
 
     RenderObject* renderer;

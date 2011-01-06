@@ -65,9 +65,9 @@ v8::Handle<v8::Value> V8Console::traceCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Console.traceCallback");
     Console* imp = V8Console::toNative(args.Holder());
-    RefPtr<ScriptCallStack> callStack(createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture));
-    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 0));
-    imp->trace(scriptArguments.release(), callStack);
+    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture));
+    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 0));
+    imp->trace(scriptArguments.release(), callStack.release());
     return v8::Handle<v8::Value>();
 }
 
@@ -75,10 +75,10 @@ v8::Handle<v8::Value> V8Console::assertCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Console.assertCallback");
     Console* imp = V8Console::toNative(args.Holder());
-    RefPtr<ScriptCallStack> callStack(createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture));
+    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture));
     bool condition = args[0]->BooleanValue();
-    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 1));
-    imp->assertCondition(condition, scriptArguments.release(), callStack);
+    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, 1));
+    imp->assertCondition(condition, scriptArguments.release(), callStack.release());
     return v8::Handle<v8::Value>();
 }
 
@@ -87,11 +87,11 @@ v8::Handle<v8::Value> V8Console::profileCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Console.profile");
     Console* imp = V8Console::toNative(args.Holder());
-    RefPtr<ScriptCallStack> callStack(createScriptCallStack(1));
+    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(1));
     if (!callStack)
         return v8::Undefined();
     STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<WithUndefinedOrNullCheck>, title, args[0]);
-    imp->profile(title, ScriptState::current(), callStack);
+    imp->profile(title, ScriptState::current(), callStack.release());
     return v8::Handle<v8::Value>();
 }
 
@@ -99,11 +99,11 @@ v8::Handle<v8::Value> V8Console::profileEndCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Console.profileEnd");
     Console* imp = V8Console::toNative(args.Holder());
-    RefPtr<ScriptCallStack> callStack(createScriptCallStack(1));
+    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(1));
     if (!callStack)
         return v8::Undefined();
     STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<WithUndefinedOrNullCheck>, title, args[0]);
-    imp->profileEnd(title, ScriptState::current(), callStack);
+    imp->profileEnd(title, ScriptState::current(), callStack.release());
     return v8::Handle<v8::Value>();
 }
 #endif

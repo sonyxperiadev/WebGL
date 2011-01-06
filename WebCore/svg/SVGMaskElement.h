@@ -31,41 +31,42 @@
 
 namespace WebCore {
 
-class SVGMaskElement : public SVGStyledLocatableElement,
-                       public SVGTests,
-                       public SVGLangSpace,
-                       public SVGExternalResourcesRequired {
-public:
-    static PassRefPtr<SVGMaskElement> create(const QualifiedName&, Document*);
+    class SVGLength;
 
-    FloatRect maskBoundingBox(const FloatRect&) const;
+    class SVGMaskElement : public SVGStyledLocatableElement,
+                           public SVGTests,
+                           public SVGLangSpace,
+                           public SVGExternalResourcesRequired {
+    public:
+        static PassRefPtr<SVGMaskElement> create(const QualifiedName&, Document*);
 
-private:
-    SVGMaskElement(const QualifiedName&, Document*);
+        FloatRect maskBoundingBox(const FloatRect&) const;
 
-    virtual bool isValid() const { return SVGTests::isValid(); }
-    virtual bool needsPendingResourceHandling() const { return false; }
+    private:
+        SVGMaskElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+        virtual bool isValid() const { return SVGTests::isValid(); }
+        virtual bool needsPendingResourceHandling() const { return false; }
 
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+        virtual void parseMappedAttribute(Attribute*);
+        virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    virtual bool selfHasRelativeLengths() const;
+        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskUnitsAttr, int, MaskUnits, maskUnits)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskContentUnitsAttr, int, MaskContentUnits, maskContentUnits)
-    DECLARE_ANIMATED_LENGTH(X, x)
-    DECLARE_ANIMATED_LENGTH(Y, y)
-    DECLARE_ANIMATED_LENGTH(Width, width)
-    DECLARE_ANIMATED_LENGTH(Height, height)
+        virtual bool selfHasRelativeLengths() const;
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
-};
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskUnitsAttr, int, MaskUnits, maskUnits)
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::maskContentUnitsAttr, int, MaskContentUnits, maskContentUnits)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY_NEW(SVGMaskElement, SVGNames::heightAttr, SVGLength, Height, height)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGMaskElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+    };
 
 }
 

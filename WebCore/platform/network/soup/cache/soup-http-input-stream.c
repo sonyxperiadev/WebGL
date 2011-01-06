@@ -598,7 +598,6 @@ send_async_finished (GInputStream *stream)
 		g_error_free (error);
 	}
 	g_simple_async_result_complete (result);
-	g_object_unref (result);
 }
 
 static void

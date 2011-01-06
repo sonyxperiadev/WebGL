@@ -172,7 +172,6 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
-	wtf/OSAllocatorPosix.cpp \
 	wtf/PageAllocation.cpp \
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \

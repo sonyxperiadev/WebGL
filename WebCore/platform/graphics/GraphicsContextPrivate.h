@@ -29,6 +29,7 @@
 #include "Gradient.h"
 #include "GraphicsContext.h"
 #include "Pattern.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
@@ -78,6 +79,8 @@ namespace WebCore {
         bool shadowsIgnoreTransforms;
 #if PLATFORM(CAIRO)
         float globalAlpha;
+#elif PLATFORM(QT)
+        TransformationMatrix pathTransform;
 #endif
     };
 

@@ -281,7 +281,6 @@ void RenderSlider::layout()
     setSize(baseSize);
     computeLogicalWidth();
     computeLogicalHeight();
-    updateLayerTransform();
 
     if (thumb) {
         if (oldSize != size())

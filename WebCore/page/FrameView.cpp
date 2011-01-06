@@ -444,11 +444,7 @@ void FrameView::adjustViewSize()
     if (!root)
         return;
 
-    IntSize size = IntSize(root->rightLayoutOverflow() - root->leftLayoutOverflow(), root->bottomLayoutOverflow() - root->topLayoutOverflow());
-
-    ScrollView::setScrollOrigin(IntPoint(-root->leftLayoutOverflow(), -root->topLayoutOverflow()), size == contentsSize());
-    
-    setContentsSize(size);
+    setContentsSize(IntSize(root->rightLayoutOverflow(), root->bottomLayoutOverflow()));
 }
 
 void FrameView::applyOverflowToViewport(RenderObject* o, ScrollbarMode& hMode, ScrollbarMode& vMode)

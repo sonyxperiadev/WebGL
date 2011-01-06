@@ -50,8 +50,6 @@
 #include <wtf/Vector.h>
 #include <wtf/text/StringBuilder.h>
 
-using namespace std;
-
 namespace WebCore {
 
 FileReaderLoader::FileReaderLoader(ReadType readType, FileReaderLoaderClient* client)
@@ -126,25 +124,15 @@ void FileReaderLoader::didReceiveResponse(const ResourceResponse& response)
         return;
     }
 
-    unsigned long long length = response.expectedContentLength();
-
-    // Check that we can cast to unsigned since we have to do
-    // so to call ArrayBuffer's create function.
     // FIXME: Support reading more than the current size limit of ArrayBuffer.
-    if (length > numeric_limits<unsigned>::max()) {
+    if (static_cast<unsigned long long>(response.expectedContentLength()) >  std::numeric_limits<unsigned>::max()) {
         failed(FileError::NOT_READABLE_ERR);
         return;
     }
+    m_totalBytes = static_cast<unsigned>(response.expectedContentLength());
 
     ASSERT(!m_rawData);
-    m_rawData = ArrayBuffer::create(static_cast<unsigned>(length), 1);
-
-    if (!m_rawData) {
-        failed(FileError::NOT_READABLE_ERR);
-        return;
-    }
-
-    m_totalBytes = static_cast<unsigned>(length);
+    m_rawData = ArrayBuffer::create(static_cast<unsigned>(m_totalBytes), 1);
 
     if (m_client)
         m_client->didStartLoading();
@@ -152,23 +140,14 @@ void FileReaderLoader::didReceiveResponse(const ResourceResponse& response)
 
 void FileReaderLoader::didReceiveData(const char* data, int lengthReceived)
 {
-    ASSERT(data);
-    ASSERT(lengthReceived > 0);
+    ASSERT(data && lengthReceived > 0);
 
-    // Bail out if we already encountered an error.
+    // Bail out if we encounter an error.
     if (m_errorCode)
         return;
 
-    int length = lengthReceived;
-    unsigned remainingBufferSpace = m_totalBytes - m_bytesLoaded;
-    if (length > static_cast<long long>(remainingBufferSpace))
-        length = static_cast<int>(remainingBufferSpace);
-
-    if (length <= 0)
-        return;
-
-    memcpy(static_cast<char*>(m_rawData->data()) + m_bytesLoaded, data, length);
-    m_bytesLoaded += length;
+    memcpy(static_cast<char*>(m_rawData->data()) + static_cast<unsigned>(m_bytesLoaded), data, static_cast<unsigned>(lengthReceived));
+    m_bytesLoaded += static_cast<unsigned>(lengthReceived);
 
     m_isRawDataConverted = false;
 

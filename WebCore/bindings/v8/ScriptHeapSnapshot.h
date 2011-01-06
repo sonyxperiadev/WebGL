@@ -43,13 +43,6 @@ class InspectorObject;
 
 class ScriptHeapSnapshot : public RefCounted<ScriptHeapSnapshot> {
 public:
-    class OutputStream {
-    public:
-        virtual ~OutputStream() { }
-        virtual void Write(const String& chunk) = 0;
-        virtual void Close() = 0;
-    };
-
     static PassRefPtr<ScriptHeapSnapshot> create(const v8::HeapSnapshot* snapshot)
     {
         return adoptRef(new ScriptHeapSnapshot(snapshot));
@@ -58,7 +51,8 @@ public:
 
     String title() const;
     unsigned int uid() const;
-    void writeJSON(OutputStream* stream);
+
+    PassRefPtr<InspectorObject> buildInspectorObjectForHead() const;
 
 private:
     ScriptHeapSnapshot(const v8::HeapSnapshot* snapshot)

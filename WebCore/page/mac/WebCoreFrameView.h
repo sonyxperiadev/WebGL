@@ -33,8 +33,6 @@ namespace WebCore {
 - (void)setScrollingModes:(WebCore::ScrollbarMode)hMode vertical:(WebCore::ScrollbarMode)vMode andLock:(BOOL)lock;
 - (void)scrollingModes:(WebCore::ScrollbarMode*)hMode vertical:(WebCore::ScrollbarMode*)vMode;
 - (void)setScrollBarsSuppressed:(BOOL)suppressed repaintOnUnsuppress:(BOOL)repaint;
-- (void)setScrollOrigin:(NSPoint)origin updatePosition:(BOOL)updatePosition;
-- (NSPoint)scrollOrigin;
 @end
 
 @protocol WebCoreFrameView

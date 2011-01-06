@@ -1382,11 +1382,6 @@ inline int adjustForAbsoluteZoom(int value, const RenderStyle* style)
     return roundForImpreciseConversion<int, INT_MAX, INT_MIN>(value / zoomFactor);
 }
 
-inline float adjustFloatForAbsoluteZoom(float value, const RenderStyle* style)
-{
-    return value / style->effectiveZoom();
-}
-
 } // namespace WebCore
 
 #endif // RenderStyle_h

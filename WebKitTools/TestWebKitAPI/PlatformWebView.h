@@ -51,7 +51,7 @@ class WindowMessageObserver;
 
 class PlatformWebView {
 public:
-    PlatformWebView(WKPageNamespaceRef, WKPageGroupRef = 0);
+    PlatformWebView(WKPageNamespaceRef);
     ~PlatformWebView();
 
     WKPageRef page();

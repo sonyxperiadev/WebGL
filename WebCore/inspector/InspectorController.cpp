@@ -330,7 +330,7 @@ void InspectorController::setConsoleMessagesEnabled(bool enabled)
         m_consoleMessages[i]->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
 }
 
-void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
+void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack)
 {
     if (!enabled())
         return;
@@ -381,7 +381,7 @@ void InspectorController::clearConsoleMessages()
         m_frontend->consoleMessagesCleared();
 }
 
-void InspectorController::startGroup(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack, bool collapsed)
+void InspectorController::startGroup(PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack, bool collapsed)
 {
     ++m_groupLevel;
 
@@ -1537,18 +1537,21 @@ static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, co
     // of outline (because inflating a quad is hard)
     {
         context.save();
+        context.addPath(quadPath);
         context.clipOut(quadPath);
 
+        context.addPath(quadPath);
         context.setStrokeThickness(outlineThickness);
         context.setStrokeColor(outlineColor, ColorSpaceDeviceRGB);
-        context.strokePath(quadPath);
+        context.strokePath();
 
         context.restore();
     }
 
     // Now do the fill
+    context.addPath(quadPath);
     context.setFillColor(fillColor, ColorSpaceDeviceRGB);
-    context.fillPath(quadPath);
+    context.fillPath();
 }
 
 static void drawOutlinedQuadWithClip(GraphicsContext& context, const FloatQuad& quad, const FloatQuad& clipQuad, const Color& fillColor)
