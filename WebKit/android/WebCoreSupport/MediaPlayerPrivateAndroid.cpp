@@ -178,7 +178,7 @@ public:
             return;
 
         m_paused = false;
-        jstring jUrl = WtfStringToJstring(env, m_url);
+        jstring jUrl = wtfStringToJstring(env, m_url);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
         env->DeleteLocalRef(jUrl);
 
@@ -194,7 +194,7 @@ public:
         if (!env || !m_glue->m_javaProxy || !m_posterUrl.length())
             return;
         // Send the poster
-        jstring jUrl = WtfStringToJstring(env, m_posterUrl);
+        jstring jUrl = wtfStringToJstring(env, m_posterUrl);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
         env->DeleteLocalRef(jUrl);
     }
@@ -300,7 +300,7 @@ public:
         // Send the poster
         jstring jUrl = 0;
         if (m_posterUrl.length())
-            jUrl = WtfStringToJstring(env, m_posterUrl);
+            jUrl = wtfStringToJstring(env, m_posterUrl);
         // Sending a NULL jUrl allows the Java side to try to load the default poster.
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
         if (jUrl)
@@ -331,7 +331,7 @@ public:
         if (!m_glue->m_javaProxy)
             return;
 
-        jstring jUrl = WtfStringToJstring(env, m_url);
+        jstring jUrl = wtfStringToJstring(env, m_url);
         // start loading the data asynchronously
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setDataSource, jUrl);
         env->DeleteLocalRef(jUrl);

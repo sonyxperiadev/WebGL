@@ -120,7 +120,7 @@ bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url, int64_t 
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     WTF::String urlStr = url.string();
-    jstring jUrlStr = WtfStringToJstring(env, urlStr);
+    jstring jUrlStr = wtfStringToJstring(env, urlStr);
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");
     bool val = env->CallStaticBooleanMethod(resourceLoader, gResourceLoader.mWillLoadFromCacheMethodID, jUrlStr, identifier);
     checkException(env);
@@ -269,7 +269,7 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
     }
     handle->client()->willSendRequest(handle, r, *response);
     delete response;
-    return WtfStringToJstring(env, url.string());
+    return wtfStringToJstring(env, url.string());
 }
 
 void WebCoreResourceLoader::Error(JNIEnv* env, jobject obj, jint id, jstring description,

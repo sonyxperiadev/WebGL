@@ -1033,7 +1033,7 @@ int getBlockLeftEdge(int x, int y, float scale)
 void overrideUrlLoading(const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jName = WtfStringToJstring(env, url);
+    jstring jName = wtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_overrideLoading, jName);
     env->DeleteLocalRef(jName);
@@ -1607,7 +1607,7 @@ static jobject nativeCursorText(JNIEnv *env, jobject obj)
     if (!node)
         return 0;
     WTF::String value = node->getExport();
-    return WtfStringToJstring(env, value);
+    return wtfStringToJstring(env, value);
 }
 
 static void nativeDebugDump(JNIEnv *env, jobject obj)
@@ -1671,7 +1671,7 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     WTF::String uri = view->imageURI(x, y);
-    return WtfStringToJstring(env, uri);
+    return wtfStringToJstring(env, uri);
 }
 
 static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
@@ -1723,7 +1723,7 @@ static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
     if (!input)
         return 0;
     const WTF::String& name = input->name();
-    return WtfStringToJstring(env, name);
+    return wtfStringToJstring(env, name);
 }
 
 static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
@@ -1767,7 +1767,7 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
     if (!node)
         return 0;
     WTF::String value = node->getExport();
-    return WtfStringToJstring(env, value);
+    return wtfStringToJstring(env, value);
 }
 
 static int nativeFocusCandidateLineHeight(JNIEnv *env, jobject obj)
@@ -2167,7 +2167,7 @@ static jobject nativeGetSelection(JNIEnv *env, jobject obj)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     String selection = view->getSelection();
-    return WtfStringToJstring(env, selection);
+    return wtfStringToJstring(env, selection);
 }
 
 static jboolean nativeHitSelection(JNIEnv *env, jobject obj, int x, int y)

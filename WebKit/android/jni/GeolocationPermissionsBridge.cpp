@@ -51,7 +51,7 @@ static jobject getOrigins(JNIEnv* env, jobject obj)
 
     GeolocationPermissions::OriginSet::const_iterator end = origins.end();
     for (GeolocationPermissions::OriginSet::const_iterator iter = origins.begin(); iter != end; ++iter) {
-        jstring originString = WtfStringToJstring(env, *iter);
+        jstring originString = wtfStringToJstring(env, *iter);
         env->CallBooleanMethod(set, addMethod, originString);
         env->DeleteLocalRef(originString);
     }

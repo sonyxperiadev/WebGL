@@ -211,7 +211,7 @@ struct WebViewCoreStaticMethods {
 // Check whether a media mimeType is supported in Android media framework.
 bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jMimeType = WtfStringToJstring(env, mimeType);
+    jstring jMimeType = wtfStringToJstring(env, mimeType);
     jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
     bool val = env->CallStaticBooleanMethod(webViewCore,
           gWebViewCoreStaticMethods.m_isSupportedMediaMimeType, jMimeType);
@@ -2592,7 +2592,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WTF::String acceptType = chooser->acceptTypes();
-    jstring jAcceptType = WtfStringToJstring(env, acceptType, true);
+    jstring jAcceptType = wtfStringToJstring(env, acceptType, true);
     jstring jName = (jstring) env->CallObjectMethod(
             m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
@@ -3019,8 +3019,8 @@ void WebViewCore::formDidBlur(const WebCore::Node* node)
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jMessageStr = WtfStringToJstring(env, message);
-    jstring jSourceIDStr = WtfStringToJstring(env, sourceID);
+    jstring jMessageStr = wtfStringToJstring(env, message);
+    jstring jSourceIDStr = wtfStringToJstring(env, sourceID);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
             m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber,
             jSourceIDStr, msgLevel);
@@ -3032,8 +3032,8 @@ void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int l
 void WebViewCore::jsAlert(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = WtfStringToJstring(env, text);
-    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring jInputStr = wtfStringToJstring(env, text);
+    jstring jUrlStr = wtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3044,8 +3044,8 @@ void WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::Strin
 {
 #if ENABLE(DATABASE)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jDatabaseIdentifierStr = WtfStringToJstring(env, databaseIdentifier);
-    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring jDatabaseIdentifierStr = wtfStringToJstring(env, databaseIdentifier);
+    jstring jUrlStr = wtfStringToJstring(env, url);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
             m_javaGlue->m_exceededDatabaseQuota, jUrlStr,
             jDatabaseIdentifierStr, currentQuota, estimatedSize);
@@ -3076,7 +3076,7 @@ void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
 void WebViewCore::geolocationPermissionsShowPrompt(const WTF::String& origin)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring originString = WtfStringToJstring(env, origin);
+    jstring originString = wtfStringToJstring(env, origin);
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_geolocationPermissionsShowPrompt,
                         originString);
@@ -3113,8 +3113,8 @@ jobject WebViewCore::getDeviceOrientationService()
 bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = WtfStringToJstring(env, text);
-    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring jInputStr = wtfStringToJstring(env, text);
+    jstring jUrlStr = wtfStringToJstring(env, url);
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsConfirm, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3125,9 +3125,9 @@ bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, const WTF::String& defaultValue, WTF::String& result)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = WtfStringToJstring(env, text);
-    jstring jDefaultStr = WtfStringToJstring(env, defaultValue);
-    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring jInputStr = wtfStringToJstring(env, text);
+    jstring jDefaultStr = wtfStringToJstring(env, defaultValue);
+    jstring jUrlStr = wtfStringToJstring(env, url);
     jstring returnVal = static_cast<jstring>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr));
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jDefaultStr);
@@ -3145,8 +3145,8 @@ bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, cons
 bool WebViewCore::jsUnload(const WTF::String& url, const WTF::String& message)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jInputStr = WtfStringToJstring(env, message);
-    jstring jUrlStr = WtfStringToJstring(env, url);
+    jstring jInputStr = wtfStringToJstring(env, message);
+    jstring jUrlStr = wtfStringToJstring(env, url);
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3202,7 +3202,7 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
         checkException(env);
         return;
     }
-    jstring string = WtfStringToJstring(env, text);
+    jstring string = wtfStringToJstring(env, text);
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateTextfield,
             (int) ptr, false, string, m_textGeneration);
     env->DeleteLocalRef(string);
@@ -3236,7 +3236,7 @@ jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* class
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
-    jstring libString = WtfStringToJstring(env, libName);
+    jstring libString = wtfStringToJstring(env, libName);
     jstring classString = env->NewStringUTF(className);
     jobject pluginClass = env->CallObjectMethod(m_javaGlue->object(env).get(),
                                            m_javaGlue->m_getPluginClass,
@@ -3411,7 +3411,7 @@ static void RevealSelection(JNIEnv *env, jobject obj)
 static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
         int nodePointer)
 {
-    return WtfStringToJstring(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
+    return wtfStringToJstring(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
             (WebCore::Frame*) framePointer, (WebCore::Node*) nodePointer));
 }
 
@@ -3520,7 +3520,7 @@ static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint gr
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     String selectionString = viewImpl->modifySelection(direction, granularity);
-    return WtfStringToJstring(env, selectionString);
+    return wtfStringToJstring(env, selectionString);
 }
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
@@ -3727,7 +3727,7 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveHref(x, y);
     if (!result.isEmpty())
-        return WtfStringToJstring(env, result);
+        return wtfStringToJstring(env, result);
     return 0;
 }
 
@@ -3740,14 +3740,14 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveAnchorText(x, y);
     if (!result.isEmpty())
-        return WtfStringToJstring(env, result);
+        return wtfStringToJstring(env, result);
     return 0;
 }
 
 static jstring RetrieveImageSource(JNIEnv *env, jobject obj, jint x, jint y)
 {
     WTF::String result = GET_NATIVE_VIEW(env, obj)->retrieveImageSource(x, y);
-    return !result.isEmpty() ? WtfStringToJstring(env, result) : 0;
+    return !result.isEmpty() ? wtfStringToJstring(env, result) : 0;
 }
 
 static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)

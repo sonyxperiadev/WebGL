@@ -272,15 +272,15 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     const WTF::String& urlString = item->urlString();
     jstring urlStr = NULL;
     if (!urlString.isNull())
-        urlStr = WtfStringToJstring(env, urlString);
+        urlStr = wtfStringToJstring(env, urlString);
     const WTF::String& originalUrlString = item->originalURLString();
     jstring originalUrlStr = NULL;
     if (!originalUrlString.isNull())
-        originalUrlStr = WtfStringToJstring(env, originalUrlString);
+        originalUrlStr = wtfStringToJstring(env, originalUrlString);
     const WTF::String& titleString = item->title();
     jstring titleStr = NULL;
     if (!titleString.isNull())
-        titleStr = WtfStringToJstring(env, titleString);
+        titleStr = wtfStringToJstring(env, titleString);
 
     // Try to get the favicon from the history item. For some pages like Grand
     // Prix, there are history items with anchors. If the icon fails for the
