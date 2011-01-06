@@ -42,6 +42,9 @@ public:
     virtual void replyInt(int value) {
         if (m_popupClient) {
             m_popupClient->popupDidHide();
+            // -2 is a special value signaling that the popup was canceled.
+            if (-2 == value)
+                return;
             m_popupClient->valueChanged(value, true);
         }
         if (m_viewImpl)
