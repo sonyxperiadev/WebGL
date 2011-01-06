@@ -115,18 +115,25 @@ void WebResponse::setUrl(const string& url)
 const string& WebResponse::getMimeType()
 {
     if (!m_mime.length() && m_url.length()) {
-        WTF::String wtfMime(m_url.c_str(), m_url.length());
-        // Need to strip fragment and/or query if present.
-        size_t position = wtfMime.reverseFind('#');
-        if (position != WTF::notFound)
-            wtfMime.truncate(position);
+        // Use "text/html" as a default (matching the behaviour of the Apache
+        // HTTP stack -- see guessMimeType() in LoadListener.java).
+        m_mime = "text/html";
 
-        position = wtfMime.reverseFind('?');
-        if (position != WTF::notFound)
-            wtfMime.truncate(position);
-
-        wtfMime = WebCore::MIMETypeRegistry::getMIMETypeForPath(wtfMime);
-        m_mime = std::string(wtfMime.utf8().data(), wtfMime.length());
+        // Try to guess a better MIME type from the URL. We call
+        // getMIMETypeForExtension rather than getMIMETypeForPath because the
+        // latter defaults to "application/octet-stream" on failure.
+        WebCore::KURL kurl(WebCore::ParsedURLString, m_url.c_str());
+        WTF::String path = kurl.path();
+        size_t extensionPos = path.reverseFind('.');
+        if (extensionPos != WTF::notFound) {
+            // We found a file extension.
+            path.remove(0, extensionPos + 1);
+            WTF::String mime = WebCore::MIMETypeRegistry::getMIMETypeForExtension(path);
+            if (!mime.isEmpty()) {
+                // Great, we found a MIME type.
+                m_mime = std::string(mime.utf8().data(), mime.length());
+            }
+        }
     }
 
     return m_mime;
