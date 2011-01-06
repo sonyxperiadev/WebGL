@@ -2037,6 +2037,61 @@ String WebViewCore::modifySelection(const int direction, const int axis)
     }
 }
 
+String WebViewCore::moveSelection(WebCore::Frame* frame, WebCore::Node* node)
+{
+    if (!frame || !node)
+        return String();
+
+    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
+        return String();
+
+    PassRefPtr<Range> rangeRef = 0;
+    ExceptionCode ec = 0;
+    DOMSelection* selection = frame->domWindow()->getSelection();
+    if (selection->rangeCount() > 0) {
+        rangeRef = selection->getRangeAt(0, ec);
+        if (ec)
+            return String();
+        selection->removeAllRanges();
+    } else {
+        rangeRef = frame->document()->createRange();
+    }
+
+    rangeRef->selectNode(node, ec);
+    if (ec)
+        return String();
+
+    selection->addRange(rangeRef.get());
+
+    scrollNodeIntoView(frame, node);
+
+    String markup = formatMarkup(selection).stripWhiteSpace();
+    LOGV("Selection markup: %s", markup.utf8().data());
+    return markup;
+}
+
+void WebViewCore::scrollNodeIntoView(Frame* frame, Node* node)
+{
+    if (!frame || !node)
+        return;
+
+    Element* elementNode = 0;
+
+    // If not an Element, find a visible predecessor
+    // Element to scroll into view.
+    if (!node->isElementNode()) {
+        HTMLElement* body = frame->document()->body();
+        do {
+            if (!node || node == body)
+                return;
+            node = node->parentNode();
+        } while (!node->isElementNode() && !isVisible(node));
+    }
+
+    elementNode = static_cast<Element*>(node);
+    elementNode->scrollIntoViewIfNeeded(true);
+}
+
 String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int axis)
 {
     String directionString;
@@ -2166,10 +2221,14 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
         }
     }
 
+    if (direction == DIRECTION_FORWARD)
+      scrollNodeIntoView(m_mainFrame, selection->focusNode());
+    else
+      scrollNodeIntoView(m_mainFrame, selection->anchorNode());
+
     tryFocusInlineSelectionElement(selection);
-    // TODO (svetoslavganov): Draw the selected text in the WebView - a-la-Android
     String markup = formatMarkup(selection).stripWhiteSpace();
-    LOGD("Selection markup: %s", markup.utf8().data());
+    LOGV("Selection markup: %s", markup.utf8().data());
     return markup;
 }
 
@@ -2284,10 +2343,11 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
     }
     if (currentNode) {
         m_currentNodeDomNavigationAxis = currentNode;
+        scrollNodeIntoView(m_mainFrame, currentNode);
         focusIfFocusableAndNotTextInput(selection, currentNode);
         // TODO (svetoslavganov): Draw the selected text in the WebView - a-la-Android
         String selectionString = createMarkup(currentNode);
-        LOGD("Selection markup: %s", selectionString.utf8().data());
+        LOGV("Selection markup: %s", selectionString.utf8().data());
         return selectionString;
     }
     return String();
@@ -3523,6 +3583,17 @@ static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint gr
     return wtfStringToJstring(env, selectionString);
 }
 
+static jstring MoveSelection(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    String selectionString = viewImpl->moveSelection((WebCore::Frame*) framePtr,
+            (WebCore::Node*) nodePtr);
+    return wtfStringToJstring(env, selectionString);
+}
+
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
     jint textGeneration)
@@ -4107,6 +4178,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetSelection } ,
     { "nativeModifySelection", "(II)Ljava/lang/String;",
         (void*) ModifySelection },
+    { "nativeMoveSelection", "(II)Ljava/lang/String;",
+        (void*) MoveSelection },
     { "nativeDeleteSelection", "(III)V",
         (void*) DeleteSelection } ,
     { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",

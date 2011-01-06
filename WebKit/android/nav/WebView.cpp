@@ -113,6 +113,7 @@ struct JavaGlue {
     jmethodID   m_sendMoveFocus;
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
+    jmethodID   m_sendMoveSelection;
     jmethodID   m_sendMotionUp;
     jmethodID   m_domChangedFocus;
     jmethodID   m_getScaledMaxXScroll;
@@ -147,6 +148,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
+    m_javaGlue.m_sendMoveSelection = GetJMethod(env, clazz, "sendMoveSelection", "(II)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
     m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
@@ -841,6 +843,8 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         bool disableFocusController = cachedNode != root->currentFocus()
                 && cachedNode->wantsKeyEvents();
         sendMoveMouseIfLatest(disableFocusController);
+        sendMoveSelection((WebCore::Frame*) cachedFrame->framePointer(),
+                (WebCore::Node*) cachedNode->nodePointer());
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
@@ -917,6 +921,8 @@ void selectBestAt(const WebCore::IntRect& rect)
                 const_cast<CachedNode*>(node));
     }
     sendMoveMouseIfLatest(false);
+    sendMoveSelection((WebCore::Frame*) frame->framePointer(),
+        (WebCore::Node*) node->nodePointer());
 }
 
 const CachedNode* m_cacheHitNode;
@@ -1175,6 +1181,15 @@ void sendMoveMouseIfLatest(bool disableFocusController)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_sendMoveMouseIfLatest, disableFocusController);
+    checkException(env);
+}
+
+void sendMoveSelection(WebCore::Frame* frame, WebCore::Node* node)
+{
+    DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", frame, node);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_sendMoveSelection, (jint) frame, (jint) node);
     checkException(env);
 }
 

@@ -364,6 +364,8 @@ namespace android {
         /**
          * Modifies the current selection.
          *
+         * Note: Accessibility support.
+         *
          * direction - The direction in which to alter the selection.
          * granularity - The granularity of the selection modification.
          *
@@ -372,6 +374,20 @@ namespace android {
          *           intermediary elements it crosses.
          */
         String modifySelection(const int direction, const int granularity);
+
+        /**
+         * Moves the selection to the given node in a given frame i.e. selects that node.
+         *
+         * Note: Accessibility support.
+         *
+         * frame - The frame in which to select is the node to be selected.
+         * node - The node to be selected.
+         *
+         * returns - The selected HTML as a string. This is not a well formed
+         *           HTML, rather the selection annotated with the tags of all
+         *           intermediary elements it crosses.
+         */
+        String moveSelection(WebCore::Frame* frame, WebCore::Node* node);
 
         /**
          *  In the currently focused textfield, replace the characters from oldStart to oldEnd
@@ -632,6 +648,7 @@ namespace android {
         bool setSelection(DOMSelection* selection, Text* textNode, int direction);
         bool setSelection(DOMSelection* selection, Node* startNode, Node* endNode, int startOffset, int endOffset);
         Node* m_currentNodeDomNavigationAxis;
+        void scrollNodeIntoView(Frame* frame, Node* node);
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
 #endif
