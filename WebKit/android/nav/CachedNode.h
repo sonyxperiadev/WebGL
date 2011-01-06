@@ -178,7 +178,8 @@ public:
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
     bool useBounds() const { return mUseBounds; }
     bool useHitBounds() const { return mUseHitBounds; }
-    bool wantsKeyEvents() const { return isTextInput() || isPlugin() || isContentEditable(); }
+    bool wantsKeyEvents() const { return isTextInput() || isPlugin()
+        || isContentEditable() || isFrame(); }
 private:
     friend class CacheBuilder;
     WTF::String mExport;
