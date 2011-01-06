@@ -180,7 +180,8 @@ private:
 public: // used by layout function
 #endif
     int docHeight() const;
-    int docWidth() const;
+    int docLeft() const;
+    int docWidth(int leftOverflow) const;
 
     // These functions may only be accessed by LayoutStateMaintainer.
     bool pushLayoutState(RenderBox* renderer, const IntSize& offset, int pageHeight = 0, bool pageHeightChanged = false, ColumnInfo* colInfo = 0)

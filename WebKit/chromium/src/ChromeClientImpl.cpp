@@ -61,6 +61,7 @@
 #include "ScriptController.h"
 #include "SearchPopupMenuChromium.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
 #if USE(V8)
 #include "V8Proxy.h"
 #endif
@@ -807,9 +808,25 @@ void ChromeClientImpl::scheduleCompositingLayerSync()
     m_webView->setRootLayerNeedsDisplay();
 }
 
-bool ChromeClientImpl::allowsAcceleratedCompositing() const
+ChromeClient::CompositingTriggerFlags ChromeClientImpl::allowedCompositingTriggers() const
 {
-    return m_webView->allowsAcceleratedCompositing();
+    if (!m_webView->allowsAcceleratedCompositing())
+        return 0;
+
+    CompositingTriggerFlags flags = 0;
+    Settings* settings = m_webView->page()->settings();
+    if (settings->acceleratedCompositingFor3DTransformsEnabled())
+        flags |= ThreeDTransformTrigger;
+    if (settings->acceleratedCompositingForVideoEnabled())
+        flags |= VideoTrigger;
+    if (settings->acceleratedCompositingForPluginsEnabled())
+        flags |= PluginTrigger;
+    if (settings->acceleratedCompositingForAnimationEnabled())
+        flags |= AnimationTrigger;
+    if (settings->acceleratedCompositingForCanvasEnabled())
+        flags |= CanvasTrigger;
+
+    return flags;
 }
 #endif
 

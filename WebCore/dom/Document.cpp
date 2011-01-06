@@ -1893,8 +1893,11 @@ void Document::clearAXObjectCache()
 #else
     // clear cache in top document
     if (m_axObjectCache) {
-        delete m_axObjectCache;
+        // Clear the cache member variable before calling delete because attempts
+        // are made to access it during destruction.
+        AXObjectCache* axObjectCache = m_axObjectCache;
         m_axObjectCache = 0;
+        delete axObjectCache;
         return;
     }
     
@@ -3359,6 +3362,18 @@ void Document::detachNodeIterator(NodeIterator* ni)
     // The node iterator can be detached without having been attached if its root node didn't have a document
     // when the iterator was created, but has it now.
     m_nodeIterators.remove(ni);
+}
+
+void Document::moveNodeIteratorsToNewDocument(Node* node, Document* newDocument)
+{
+    HashSet<NodeIterator*> nodeIteratorsList = m_nodeIterators;
+    HashSet<NodeIterator*>::const_iterator nodeIteratorsEnd = nodeIteratorsList.end();
+    for (HashSet<NodeIterator*>::const_iterator it = nodeIteratorsList.begin(); it != nodeIteratorsEnd; ++it) {
+        if ((*it)->root() == node) {
+            detachNodeIterator(*it);
+            newDocument->attachNodeIterator(*it);
+        }
+    }
 }
 
 void Document::nodeChildrenChanged(ContainerNode* container)

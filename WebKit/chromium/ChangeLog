@@ -1,3 +1,460 @@
+2010-12-10  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        IndexedDB: Numeric keys are floats.
+        https://bugs.webkit.org/show_bug.cgi?id=50674
+
+        Represent numeric keys as floating point values.
+
+        * public/WebIDBKey.h:
+        (WebKit::WebIDBKey::WebIDBKey):
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::assign):
+        (WebKit::WebIDBKey::number):
+
+2010-12-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r73616.
+        http://trac.webkit.org/changeset/73616
+        https://bugs.webkit.org/show_bug.cgi?id=50772
+
+        Breaks chromium win build (Requested by hwennborg on #webkit).
+
+        * public/WebIDBKey.h:
+        (WebKit::WebIDBKey::WebIDBKey):
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::assign):
+        (WebKit::WebIDBKey::number):
+
+2010-12-09  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        IndexedDB: Numeric keys are floats.
+        https://bugs.webkit.org/show_bug.cgi?id=50674
+
+        Represent numeric keys as floating point values.
+
+        * public/WebIDBKey.h:
+        (WebKit::WebIDBKey::WebIDBKey):
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::assign):
+        (WebKit::WebIDBKey::number):
+
+2010-12-07  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Layering Violation in ContextMenu - member variable of type HitTestResult
+        https://bugs.webkit.org/show_bug.cgi?id=50586
+        
+        Update users of ContextMenu and ContextMenuController to match where the new functions 
+        are located.
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::selectMisspelledWord):
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+
+2010-12-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pass security origin to make local file decision correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48603
+
+        * src/ApplicationCacheHost.cpp:
+        (WebCore::ApplicationCacheHost::selectCacheWithManifest): Pass security origin.
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchCreatePage): Ditto.
+        (WebKit::FrameLoaderClientImpl::createFrame): Ditto.
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::loadFrameRequest): Ditto.
+
+2010-12-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r73392.
+        http://trac.webkit.org/changeset/73392
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        This commit caused crashes on the GTK+ bots
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::finishedLoading):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::encoding):
+        (WebKit::WebFrameImpl::loadJavaScriptURL):
+        * src/WebPageSerializerImpl.cpp:
+        (WebKit::WebPageSerializerImpl::preActionBeforeSerializeOpenTag):
+        (WebKit::WebPageSerializerImpl::serialize):
+        * src/WebSearchableFormData.cpp:
+        (WebCore::GetFormEncoding):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::pageEncoding):
+
+2010-12-07  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        Let HTMLObjectElement be a form associated element
+        https://bugs.webkit.org/show_bug.cgi?id=48821
+
+        Modified to use FormAssociatedElement instead of HTMLFormControlElement.
+
+        * src/WebFormElement.cpp: 
+        (WebKit::WebFormElement::getFormControlElements): Modified to use
+        FormAssociatedElement instead of HTMLFormControlElement.
+        * src/WebPasswordFormUtils.cpp:
+        (WebKit::findPasswordFormFields): Ditto.
+        * src/WebSearchableFormData.cpp:
+        (WebCore::GetButtonToActivate): Ditto.
+        (WebCore::HasSuitableTextElement): Ditto.
+
+2010-12-06  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::finishedLoading):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::encoding):
+        (WebKit::WebFrameImpl::loadJavaScriptURL):
+        * src/WebPageSerializerImpl.cpp:
+        (WebKit::WebPageSerializerImpl::preActionBeforeSerializeOpenTag):
+        (WebKit::WebPageSerializerImpl::serialize):
+        * src/WebSearchableFormData.cpp:
+        (WebCore::GetFormEncoding):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::pageEncoding):
+
+2010-12-03  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r73302.
+        http://trac.webkit.org/changeset/73302
+        https://bugs.webkit.org/show_bug.cgi?id=50499
+
+        Causes crashes in debug LayoutTests (Requested by xan_ on
+        #webkit).
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::parentObject):
+
+2010-12-01  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Inspector protocol cleanup task.
+
+        The patch has just small renames and adjustments for the protocol things.
+        'handler' keyword in idl file was replaced with 'domain'.
+        'domain' property was assigned for the each backend to frontend messages.
+        At the next step WebInspector wrapper functions will be removed and 'agents' will be called directly.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50337
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::dispatchOnInspectorFrontend):
+
+2010-12-03  Chris Guillory  <chris.guillory@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Include the FrameView widget of a RenderWidget in the accessibility tree.
+        https://bugs.webkit.org/show_bug.cgi?id=49106
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::equals):
+        (WebKit::WebAccessibilityObject::parentObject):
+
+2010-11-29  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Clean up IndexedDB 2 sided roll bits
+        https://bugs.webkit.org/show_bug.cgi?id=50160
+
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::version):
+        (WebKit::WebIDBDatabase::objectStoreNames):
+        (WebKit::WebIDBDatabase::deleteObjectStore):
+        * public/WebIDBFactory.h:
+        (WebKit::WebIDBFactory::open):
+        * public/WebIDBKeyRange.h:
+        * public/WebIDBObjectStore.h:
+        (WebKit::WebIDBObjectStore::deleteFunction):
+        * src/IDBDatabaseProxy.cpp:
+        * src/IDBDatabaseProxy.h:
+        * src/WebIDBKeyRange.cpp:
+
+2010-12-02  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Fine-tune chromium WebKit API for loading audio resources
+        https://bugs.webkit.org/show_bug.cgi?id=50406
+
+        * public/WebAudioBus.h:
+        (WebKit::WebAudioBus::~WebAudioBus):
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::loadAudioResource):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::decodeAudioFileData):
+        * src/WebAudioBus.cpp:
+        (WebKit::WebAudioBus::reset):
+
+2010-12-02  Darin Fisher  <darin@chromium.org>
+
+        Fix the Windows multi-dll build.  Do not export functions that are
+        implemented inline!
+
+        * public/WebFormControlElement.h:
+        (WebKit::WebFormControlElement::assign):
+
+2010-12-02  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, roll chromium deps to r67980.
+
+        * DEPS:
+
+2010-12-01  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [Resources panel] [HAR] Need a way to save timing data.
+        Enable resource export to HAR for Chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=45663
+
+        * src/js/DevTools.js: Preferences.resourceExportEnabled = true
+
+2010-12-02  Vincent Scheib  <scheib@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] histograms api updated in WebKitClient/ChromiumBridge and histogram "GPU.setIsAcceleratedCompositingActive" added.
+        https://bugs.webkit.org/show_bug.cgi?id=50285
+
+        Test by loading "about:histograms" after navigating to accelerated pages.
+
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::histogramCustomCounts): api update.
+        (WebKit::WebKitClient::histogramEnumeration): api update.
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::histogramCustomCounts): api update.
+        (WebCore::ChromiumBridge::histogramEnumeration): api update.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive): "GPU.setIsAcceleratedCompositingActive" added.
+
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::getGuessesForWord):
+        * src/EditorClientImpl.h:
+
+2010-12-01  Alexey Marinichev  <amarinichev@chromium.org>
+
+        Reviewed by James Robinson.
+
+        [chromium] renderer does not realize hardware compositing is disabled and crashes
+        https://bugs.webkit.org/show_bug.cgi?id=50264
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setRootGraphicsLayer): repaint always
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive): null check
+        (WebKit::WebViewImpl::reallocateRenderer):
+
+2010-11-30  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Get the value of the accelerated compositing triggers from the Settings
+        class.  This allows setting the triggers via command line flags.
+        https://bugs.webkit.org/show_bug.cgi?id=50301
+
+        * public/WebSettings.h:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::allowedCompositingTriggers):
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingFor3DTransformsEnabled):
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingForVideoEnabled):
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingForPluginsEnabled):
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingForCanvasEnabled):
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-12-01  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, rolling chromium deps to r67811.
+
+        * DEPS:
+
+2010-12-01  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: disable cookies tab in network resource view by default, enable for chromium
+        https://bugs.webkit.org/show_bug.cgi?id=50249
+
+        * src/js/DevTools.js:
+
+2010-11-30  Ojan Vafai  <ojan@chromium.org>
+
+        Revert r72876. It caused a ~30% perf regression in chromium's bloat-http test
+        https://bugs.webkit.org/show_bug.cgi?id=50288
+
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+        https://bugs.webkit.org/show_bug.cgi?id=50182
+        A display-isolated URL can only be displayed (e.g., put in an iframe,
+        hyperlinked to) by documents from that scheme. In a sense, this is a
+        generalization of some of the protections we give file URLs, but
+        instead of lumping them all together into one "local" bucket, this
+        patch creates a separate bucket for each scheme.
+        For a while, I tried using a separate bucket for each origin. That
+        would have played nicely with what Blob URLs are trying to do, but some
+        "chrome" URL pages rely on being able to display other chrome URL
+        pages, even in different origins. For example, the New Tab Page shows
+        thumbnails from the "thumbnail" host.
+        This patch also removes a bunch of unused code. I've also propagated
+        the "deprecated" status of deprecatedCanDisplay to
+        deprecatedShouldTreatURLAsLocal because that method has no other
+        callers and is really asking for uppercase/lowercase bugs. I dream of
+        someday removing these functions.
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+         https://bugs.webkit.org/show_bug.cgi?id=50182
+        This patch adds a Chromium API for registering schemes as
+        display-isolated. In a subsequent patch, I'll change the "chrome"
+        scheme in Chrome to be display isolated instead of local. That will
+        prevent file URLs from linking to chrome URLs.
+
+        * public/WebSecurityPolicy.h:
+        * src/WebSecurityPolicy.cpp:
+
+2010-11-30  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Update yasm entry in DEPS to match downstream
+        https://bugs.webkit.org/show_bug.cgi?id=50274
+
+        http://src.chromium.org/viewvc/chrome?view=rev&revision=67540 changed the downstream DEPS rule
+        for yasm to pull unconditionally rather than pulling in each deps_os.  This changes the WebKit
+        chromium DEPS to match.
+
+        * DEPS:
+
+2010-11-29  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Provide more fine grained control to ports over when to turn on accelerated
+        compositing.
+        https://bugs.webkit.org/show_bug.cgi?id=49998
+
+        As part of this change, the old hasAcceleratedCompositing method on the ChromeClient
+        has now been replaced by allowedCompositingTriggers which returns a bitfield of
+        all the features which can trigger the compositor.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::allowedCompositingTriggers):
+        * src/ChromeClientImpl.h:
+
+2010-11-30  Jochen Eisinger  <jochen@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] pass webframe to web frame client's cookieJar
+        https://bugs.webkit.org/show_bug.cgi?id=50148
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::cookieJar):
+        * src/ChromiumBridge.cpp:
+        (WebCore::getCookieJar):
+
+2010-11-30  Jochen Eisinger  <jochen@chromium.org>
+
+        Unreviewed. Roll chromium 67532:67541.
+
+        * DEPS:
+
+2010-11-29  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+        https://bugs.webkit.org/show_bug.cgi?id=50182
+
+        This patch adds a Chromium API for registering schemes as
+        display-isolated.  In a subsequent patch, I'll change the "chrome"
+        scheme in Chrome to be display isolated instead of local.  That will
+        prevent file URLs from linking to chrome URLs.
+
+        * public/WebSecurityPolicy.h:
+        * src/WebSecurityPolicy.cpp:
+        (WebKit::WebSecurityPolicy::registerURLSchemeAsDisplayIsolated):
+
+2010-11-29  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add substitution parameters to WebKitClient::queryLocalizedString()
+        https://bugs.webkit.org/show_bug.cgi?id=50053
+
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::queryLocalizedString): Add overload functions with
+          substitution string parameters, and remove the integer parameter overload.
+        * src/LocalizedStrings.cpp:
+        (WebCore::query): Add string parameter overloads, and remove the integer parameter overload.
+        (WebCore::multipleFileUploadText): Call the string parameter query().
+        (WebCore::validationMessageTooLongText): Pass the parameters to query().
+        (WebCore::validationMessageRangeUnderflowText): ditto.
+        (WebCore::validationMessageRangeOverflowText): ditto.
+        (WebCore::validationMessageStepMismatchText): ditto.
+
+2010-11-29  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Remove Build directory that was erroneously added in r72103.
+
+        * Build: Removed.
+
+2010-11-29  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Web Inspector: [Chromium] Expose extension API to select a node in WebInspector
+        Added WebDevToolsAgent::inspect()
+        https://bugs.webkit.org/show_bug.cgi?id=49727
+
+        * public/WebDevToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::inspectNode):
+        * src/WebDevToolsAgentImpl.h:
+
+2010-11-29  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        [Chromium] Remove python_24 dependency, because it is no longer necessary.
+
+        * DEPS: Removed python_24 dependency.
+
 2010-11-29  Bernhard Bauer  <bauerb@chromium.org>
 
         Reviewed by Jeremy Orlow.

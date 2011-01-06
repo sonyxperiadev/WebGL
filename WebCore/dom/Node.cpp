@@ -450,8 +450,10 @@ void Node::setDocument(Document* document)
         document->addNodeListCache();
     }
 
-    if (m_document)
+    if (m_document) {
+        m_document->moveNodeIteratorsToNewDocument(this, document);
         m_document->selfOnlyDeref();
+    }
 
     m_document = document;
 
@@ -1195,6 +1197,17 @@ bool Node::contains(const Node* node) const
     if (!node)
         return false;
     return this == node || node->isDescendantOf(this);
+}
+
+bool Node::containsIncludingShadowDOM(Node* node)
+{
+    if (!node)
+        return false;
+    for (Node* n = node; n; n = n->parentOrHostNode()) {
+        if (n == this)
+            return true;
+    }
+    return false;
 }
 
 void Node::attach()
@@ -2708,7 +2721,7 @@ doneDispatching:
         if (event->bubbles()) {
             size_t size = ancestors.size();
             for (size_t i = 0; i < size; ++i) {
-                ancestors[i].defaultEventHandler(event.get());
+                ancestors[i].node()->defaultEventHandler(event.get());
                 ASSERT(!event->defaultPrevented());
                 if (event->defaultHandled())
                     goto doneWithDefault;

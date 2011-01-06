@@ -586,8 +586,9 @@ String InspectorStyleSheet::finalURL() const
 void InspectorStyleSheet::reparseStyleSheet(const String& text)
 {
     for (unsigned i = 0, size = m_pageStyleSheet->length(); i < size; ++i)
-        m_pageStyleSheet->remove(i);
+        m_pageStyleSheet->remove(0);
     m_pageStyleSheet->parseString(text, m_pageStyleSheet->useStrictParsing());
+    m_pageStyleSheet->styleSheetChanged();
     m_inspectorStyles.clear();
 }
 
@@ -986,6 +987,9 @@ bool InspectorStyleSheet::originalStyleSheetText(String* result) const
 
 bool InspectorStyleSheet::resourceStyleSheetText(String* result) const
 {
+    if (m_origin == "user" || m_origin == "user-agent")
+        return false;
+
     if (!m_pageStyleSheet || !ownerDocument())
         return false;
 

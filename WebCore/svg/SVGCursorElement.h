@@ -42,6 +42,7 @@ namespace WebCore {
 
         void addClient(SVGElement*);
         void removeClient(SVGElement*);
+    void removeReferencedElement(SVGElement*);
 
     private:
         SVGCursorElement(const QualifiedName&, Document*);

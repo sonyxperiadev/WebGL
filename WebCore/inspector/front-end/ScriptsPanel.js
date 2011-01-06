@@ -245,6 +245,9 @@ WebInspector.ScriptsPanel.prototype = {
                 // Resource is finished, bind the script right away.
                 resource.addScript(script);
                 this._sourceIDMap[sourceID] = resource;
+                var view = WebInspector.ResourceManager.existingResourceViewForResource(resource);
+                if (view && view.sourceFrame)
+                    view.sourceFrame.addScript(script);
             } else {
                 // Resource is not finished, bind the script later.
                 if (!resource._scriptsPendingResourceLoad) {
@@ -306,7 +309,7 @@ WebInspector.ScriptsPanel.prototype = {
         return Preferences.canEditScriptSource;
     },
 
-    editScriptSource: function(sourceID, newContent, line, linesCountToShift, commitEditingCallback, cancelEditingCallback)
+    editScriptSource: function(editData, commitEditingCallback, cancelEditingCallback)
     {
         if (!this.canEditScripts())
             return;
@@ -323,18 +326,19 @@ WebInspector.ScriptsPanel.prototype = {
                 if (callFrames && callFrames.length)
                     this.debuggerPaused(callFrames);
             } else {
-                cancelEditingCallback();
+                if (cancelEditingCallback)
+                    cancelEditingCallback();
                 WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Warning);
             }
             for (var i = 0; i < breakpoints.length; ++i) {
                 var breakpoint = breakpoints[i];
                 var newLine = breakpoint.line;
-                if (success && breakpoint.line >= line)
-                    newLine += linesCountToShift;
-                WebInspector.breakpointManager.setBreakpoint(sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
+                if (success && breakpoint.line >= editData.line)
+                    newLine += editData.linesCountToShift;
+                WebInspector.breakpointManager.setBreakpoint(editData.sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
             }
         };
-        InspectorBackend.editScriptSource(sourceID, newContent, mycallback.bind(this));
+        InspectorBackend.editScriptSource(editData.sourceID, editData.content, mycallback.bind(this));
     },
 
     selectedCallFrameId: function()
@@ -1008,7 +1012,11 @@ WebInspector.ScriptsPanel.prototype = {
         this._shortcuts[shortcut2.key] = handler;
         section.addAlternateKeys([ shortcut1.name, shortcut2.name ], WebInspector.UIString("Step out"));
 
-        shortcut1 = WebInspector.KeyboardShortcut.makeDescriptor("g", platformSpecificModifier);
+        var isMac = WebInspector.isMac();
+        if (isMac)
+            shortcut1 = WebInspector.KeyboardShortcut.makeDescriptor("l", WebInspector.KeyboardShortcut.Modifiers.Meta);
+        else
+            shortcut1 = WebInspector.KeyboardShortcut.makeDescriptor("g", WebInspector.KeyboardShortcut.Modifiers.Ctrl);
         this._shortcuts[shortcut1.key] = this.showGoToLineDialog.bind(this);
         section.addAlternateKeys([ shortcut1.name ], WebInspector.UIString("Go to Line"));
         this.sidebarPanes.callstack.registerShortcuts(section);

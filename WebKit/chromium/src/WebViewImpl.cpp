@@ -35,6 +35,7 @@
 #include "AXObjectCache.h"
 #include "BackForwardListImpl.h"
 #include "Chrome.h"
+#include "ChromiumBridge.h"
 #include "ColorSpace.h"
 #include "CompositionUnderlineVectorBuilder.h"
 #include "ContextMenu.h"
@@ -2272,17 +2273,15 @@ bool WebViewImpl::allowsAcceleratedCompositing()
 
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
-    bool wasActive = m_isAcceleratedCompositingActive;
     setIsAcceleratedCompositingActive(layer ? true : false);
     if (m_layerRenderer)
         m_layerRenderer->setRootLayer(layer);
-    if (wasActive != m_isAcceleratedCompositingActive) {
-        IntRect damagedRect(0, 0, m_size.width, m_size.height);
-        if (m_isAcceleratedCompositingActive)
-            invalidateRootLayerRect(damagedRect);
-        else
-            m_client->didInvalidateRect(damagedRect);
-    }
+
+    IntRect damagedRect(0, 0, m_size.width, m_size.height);
+    if (m_isAcceleratedCompositingActive)
+        invalidateRootLayerRect(damagedRect);
+    else
+        m_client->didInvalidateRect(damagedRect);
 }
 
 void WebViewImpl::setRootLayerNeedsDisplay()
@@ -2376,12 +2375,15 @@ void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
 
 void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 {
+    ChromiumBridge::histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
+
     if (m_isAcceleratedCompositingActive == active)
         return;
 
     if (!active) {
         m_isAcceleratedCompositingActive = false;
-        m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
+        if (m_layerRenderer)
+            m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
         m_client->didActivateAcceleratedCompositing(false);
         return;
     }
@@ -2518,7 +2520,6 @@ void WebViewImpl::reallocateRenderer()
     m_layerRenderer = layerRenderer;
 
     // Enable or disable accelerated compositing and request a refresh.
-    m_isAcceleratedCompositingActive = false;
     setRootGraphicsLayer(m_layerRenderer ? m_layerRenderer->rootLayer() : 0);
 }
 #endif
