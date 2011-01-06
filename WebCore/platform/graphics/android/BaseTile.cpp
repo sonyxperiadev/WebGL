@@ -172,8 +172,12 @@ void BaseTile::draw(float transparency, SkRect& rect)
     bool usable = m_usable;
     bool isTexturePainted = m_lastPaintedPicture;
     m_atomicSync.unlock();
-    if (!usable || !isTexturePainted) {
-        XLOG("early return at BaseTile::draw b/c tile set to unusable or not painted !");
+    if (!usable) {
+        XLOG("early return at BaseTile::draw b/c tile set to unusable !");
+        return;
+    }
+    if (!isTexturePainted) {
+        XLOG("early return at BaseTile::draw b/c tile is not painted !");
         return;
     }
 

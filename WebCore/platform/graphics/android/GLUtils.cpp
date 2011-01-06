@@ -311,7 +311,11 @@ void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glTexImage2D(GL_TEXTURE_2D, 0, internalformat, bitmap.width(), bitmap.height(),
                  0, internalformat, type, bitmap.getPixels());
     bitmap.unlockPixels();
-    GLUtils::checkGlError("glTexImage2D");
+    if (GLUtils::checkGlError("glTexImage2D")) {
+        XLOG("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
@@ -328,7 +332,11 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, bitmap.width(), bitmap.height(),
                     internalformat, type, bitmap.getPixels());
     bitmap.unlockPixels();
-    GLUtils::checkGlError("glTexSubImage2D");
+    if (GLUtils::checkGlError("glTexSubImage2D")) {
+        XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
