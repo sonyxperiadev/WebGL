@@ -122,9 +122,10 @@ public:
     bool ClearFormWithNode(Node* node);
 
     // Clears the placeholder values and the auto-filled background for any fields
-    // in the form containing |node| that have been previewed. Returns false if
-    // the form is not found.
-    bool ClearPreviewedFormWithNode(Node* node);
+    // in the form containing |node| that have been previewed. Resets the
+    // autofilled state of |node| to |was_autofilled|. Returns false if the form
+    // is not found.
+    bool ClearPreviewedFormWithNode(Node* node, bool was_autofilled);
 
     // Resets the stored set of forms.
     void Reset();
