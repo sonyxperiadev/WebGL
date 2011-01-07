@@ -250,7 +250,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
                  (float)m_color.blue() / 255.0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     glViewport(left, top, width, height);
     ShaderProgram* shader = TilesManager::instance()->shader();

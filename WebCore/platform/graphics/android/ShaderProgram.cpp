@@ -56,7 +56,7 @@ static const char gFragmentShader[] =
     "uniform sampler2D s_texture; \n"
     "void main() {\n"
     "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
-    "  gl_FragColor.a *= alpha; "
+    "  gl_FragColor *= alpha; "
     "}\n";
 
 GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
