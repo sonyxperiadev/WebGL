@@ -567,7 +567,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
             const int lineHeight = style()->computedLineHeight();
             const int fontSize = style()->fontSize();
             doTextWrap = autowrap && !positioned &&
-                    (fontSize <= lineHeight) && !style()->hasBackgroundImage() &&
+                    (fontSize <= lineHeight) && !style()->hasBackground() &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) &&
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
