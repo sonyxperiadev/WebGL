@@ -903,6 +903,8 @@ void selectBestAt(const WebCore::IntRect& rect)
     const CachedFrame* frame;
     int rx, ry;
     CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root)
+        return;
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
 
     if (!node) {
@@ -990,7 +992,8 @@ bool motionUp(int x, int y, int slop)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-static const ScrollableLayerAndroid* findScrollableLayer(const LayerAndroid* parent, int x, int y) {
+static const ScrollableLayerAndroid* findScrollableLayer(
+    const LayerAndroid* parent, int x, int y, SkIRect* foundBounds) {
     SkRect bounds;
     parent->bounds(&bounds);
     // Check the parent bounds first; this will clip to within a masking layer's
@@ -1003,23 +1006,35 @@ static const ScrollableLayerAndroid* findScrollableLayer(const LayerAndroid* par
     int count = parent->countChildren();
     for (int i = 0; i < count; i++) {
         const LayerAndroid* child = parent->getChild(i);
-        const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y);
-        if (result)
+        const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y,
+            foundBounds);
+        if (result) {
+            foundBounds->offset(bounds.fLeft, bounds.fTop);
+            if (parent->masksToBounds()) {
+                if (bounds.width() < foundBounds->width())
+                    foundBounds->fRight = foundBounds->fLeft + bounds.width();
+                if (bounds.height() < foundBounds->height())
+                    foundBounds->fBottom = foundBounds->fTop + bounds.height();
+            }
             return result;
+        }
     }
-    if (parent->contentIsScrollable())
+    if (parent->contentIsScrollable()) {
+        foundBounds->set(0, 0, bounds.width(), bounds.height());
         return static_cast<const ScrollableLayerAndroid*>(parent);
+    }
     return 0;
 }
 #endif
 
-int scrollableLayer(int x, int y, SkIRect* layerRect)
+int scrollableLayer(int x, int y, SkIRect* layerRect, SkIRect* bounds)
 {
 #if USE(ACCELERATED_COMPOSITING)
     const LayerAndroid* layerRoot = compositeRoot();
     if (!layerRoot)
         return 0;
-    const ScrollableLayerAndroid* result = findScrollableLayer(layerRoot, x, y);
+    const ScrollableLayerAndroid* result = findScrollableLayer(layerRoot, x, y,
+        bounds);
     if (result) {
         result->getScrollRect(layerRect);
         return result->uniqueId();
@@ -2253,13 +2268,15 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 #endif
 }
 
-static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y, jobject rect)
+static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y,
+    jobject rect, jobject bounds)
 {
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    SkIRect nativeRect;
-    int id = view->scrollableLayer(x, y, &nativeRect);
+    SkIRect nativeRect, nativeBounds;
+    int id = view->scrollableLayer(x, y, &nativeRect, &nativeBounds);
     GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
+    GraphicsJNI::irect_to_jrect(nativeBounds, env, bounds);
     return id;
 }
 
@@ -2447,7 +2464,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeWordSelection },
     { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
-    { "nativeScrollableLayer", "(IILandroid/graphics/Rect;)I",
+    { "nativeScrollableLayer", "(IILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
         (void*) nativeScrollLayer },
