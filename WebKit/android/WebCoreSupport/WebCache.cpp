@@ -33,18 +33,19 @@
 
 using namespace WTF;
 using namespace net;
+using namespace std;
 
 namespace android {
 
 static WTF::Mutex instanceMutex;
 
-static const std::string& rootDirectory()
+static const string& rootDirectory()
 {
     // This method may be called on any thread, as the Java method is
     // synchronized.
     static WTF::Mutex mutex;
     MutexLocker lock(mutex);
-    static std::string cacheDirectory;
+    static string cacheDirectory;
     if (cacheDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
@@ -55,11 +56,11 @@ static const std::string& rootDirectory()
     return cacheDirectory;
 }
 
-static std::string storageDirectory()
+static string storageDirectory()
 {
     // Private cache is currently in memory only
     static const char* const kDirectory = "/webviewCacheChromium";
-    std::string storageDirectory = rootDirectory();
+    string storageDirectory = rootDirectory();
     storageDirectory.append(kDirectory);
     return storageDirectory;
 }
@@ -89,8 +90,9 @@ void WebCache::cleanup(bool isPrivateBrowsing)
 
 WebCache::WebCache(bool isPrivateBrowsing)
     : m_doomAllEntriesCallback(this, &WebCache::doomAllEntries)
-    , m_doneCallback(this, &WebCache::onClearDone)
+    , m_onClearDoneCallback(this, &WebCache::onClearDone)
     , m_isClearInProgress(false)
+    , m_cacheBackend(0)
 {
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
@@ -119,25 +121,27 @@ WebCache::WebCache(bool isPrivateBrowsing)
 
 void WebCache::clear()
 {
-     base::Thread* thread = WebUrlLoaderClient::ioThread();
-     if (thread)
-         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::doClear));
+    base::Thread* thread = WebUrlLoaderClient::ioThread();
+    if (thread)
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::clearImpl));
 }
 
-void WebCache::doClear()
+void WebCache::clearImpl()
 {
     if (m_isClearInProgress)
         return;
     m_isClearInProgress = true;
 
-    int code = m_cache->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
-    // Code ERR_IO_PENDING indicates that the operation is still in progress and
-    // the supplied callback will be invoked when it completes.
-    if (code == ERR_IO_PENDING)
-        return;
-    else if (code != OK) {
-        m_isClearInProgress = false;
-        return;
+    if (!m_cacheBackend) {
+        int code = m_cache->GetBackend(&m_cacheBackend, &m_doomAllEntriesCallback);
+        // Code ERR_IO_PENDING indicates that the operation is still in progress and
+        // the supplied callback will be invoked when it completes.
+        if (code == ERR_IO_PENDING)
+            return;
+        else if (code != OK) {
+            onClearDone(0 /*unused*/);
+            return;
+        }
     }
     doomAllEntries(0 /*unused*/);
 }
@@ -145,19 +149,14 @@ void WebCache::doClear()
 void WebCache::doomAllEntries(int)
 {
     if (!m_cacheBackend) {
-        m_isClearInProgress = false;
+        onClearDone(0 /*unused*/);
         return;
     }
 
-    int code = m_cacheBackend->DoomAllEntries(&m_doneCallback);
     // Code ERR_IO_PENDING indicates that the operation is still in progress and
     // the supplied callback will be invoked when it completes.
-    if (code == ERR_IO_PENDING)
+    if (m_cacheBackend->DoomAllEntries(&m_onClearDoneCallback) == ERR_IO_PENDING)
         return;
-    else if (code != OK) {
-        m_isClearInProgress = false;
-        return;
-    }
     onClearDone(0 /*unused*/);
 }
 

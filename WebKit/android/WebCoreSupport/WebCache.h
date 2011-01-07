@@ -49,7 +49,7 @@ private:
     WebCache(bool isPrivateBrowsing);
 
     // For clear()
-    void doClear();
+    void clearImpl();
     void doomAllEntries(int);
     void onClearDone(int);
 
@@ -61,7 +61,7 @@ private:
 
     // For clear()
     net::CompletionCallbackImpl<WebCache> m_doomAllEntriesCallback;
-    net::CompletionCallbackImpl<WebCache> m_doneCallback;
+    net::CompletionCallbackImpl<WebCache> m_onClearDoneCallback;
     disk_cache::Backend* m_cacheBackend;
     bool m_isClearInProgress;
 };
