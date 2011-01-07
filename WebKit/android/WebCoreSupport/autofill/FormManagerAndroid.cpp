@@ -556,8 +556,7 @@ bool FormManager::FindFormWithFormControlElement(HTMLFormControlElement* element
         for (std::vector<HTMLFormControlElement*>::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
             if (nameForAutoFill(**iter) == nameForAutoFill(*element)) {
                 ExtractMask extract_mask = static_cast<ExtractMask>(EXTRACT_VALUE | EXTRACT_OPTIONS);
-                HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
-                return true;
+                return HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
             }
         }
     }
