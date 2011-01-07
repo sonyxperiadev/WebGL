@@ -47,7 +47,7 @@ void anp_logPlugin(const char format[], ...);
    each event are logged, as well as the value returned by the plugin instance
    and how long the instance took to process the event (in milliseconds).
  */
-void anp_logPluginEvent(void* npp, const ANPEvent* event, int16 returnVal, int elapsedTime);
+void anp_logPluginEvent(void* npp, const ANPEvent* event, int16_t returnVal, int elapsedTime);
 
 #else
 # define PLUGIN_LOG(A, B...)    do { } while(0)
