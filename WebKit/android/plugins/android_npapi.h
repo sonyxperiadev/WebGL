@@ -816,7 +816,12 @@ enum ANPEventTypes {
         That call makes a copy of the event struct, and post that on the event
         queue for the plugin.
      */
-    kCustom_ANPEventType   = 6,
+    kCustom_ANPEventType        = 6,
+    /** MultiTouch events are generated when the user touches on the screen. The
+        kTouch_ANPEventFlag has to be set to true in order to receive these
+        events. This type is a replacement for the older kTouch_ANPEventType.
+     */
+    kMultiTouch_ANPEventType    = 7,
 };
 typedef int32_t ANPEventType;
 
@@ -905,6 +910,14 @@ enum ANPLifecycleActions {
 };
 typedef uint32_t ANPLifecycleAction;
 
+struct TouchPoint {
+    int32_t         id;
+    float           x;  // relative to your "window" (0...width)
+    float           y;  // relative to your "window" (0...height)
+    float           pressure;
+    float           size; // normalized to a value between 0...1
+};
+
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
@@ -946,6 +959,13 @@ struct ANPEvent {
                 } surface;
             } data;
         } draw;
+        struct {
+            int64_t         timestamp;
+            int32_t         id;
+            ANPTouchAction  action;
+            int32_t         pointerCount;
+            TouchPoint*     touchPoint;
+        } multiTouch;
         int32_t     other[8];
     } data;
 };
