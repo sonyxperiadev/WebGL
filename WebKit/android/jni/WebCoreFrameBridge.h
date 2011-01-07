@@ -126,8 +126,6 @@ class WebFrame : public WebCoreRefObject {
      * we set mUserInitiatedAction to true.  If a load happens due to this click,
      * then we ask the application if it wants to override
      * the load. Otherwise, we attempt to load the resource internally.
-     * We also check it to determine whether or not to allow webkit to request
-     * a scroll.  If it was user initated, the scroll is allowed.
      */
     void setUserInitiatedAction(bool userInitiatedAction) { mUserInitiatedAction = userInitiatedAction; }
 
