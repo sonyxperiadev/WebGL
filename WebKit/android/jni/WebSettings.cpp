@@ -452,8 +452,15 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
         jlong maxImage = env->GetLongField(obj, gFieldIds->mMaximumDecodedImageSize);
-        if (maxImage == 0)
-            maxImage = computeMaxBitmapSizeForCache();
+        // Since in ImageSourceAndroid.cpp, the image will always not exceed
+        // MAX_SIZE_BEFORE_SUBSAMPLE, there's no need to pass the max value to
+        // WebCore, which checks (image_width * image_height * 4) as an
+        // estimation against the max value, which is done in CachedImage.cpp.
+        // And there're cases where the decoded image size will not
+        // exceed the max, but the WebCore estimation will.  So the following
+        // code is commented out to fix those cases.
+        // if (maxImage == 0)
+        //    maxImage = computeMaxBitmapSizeForCache();
         s->setMaximumDecodedImageSize(maxImage);
 
         flag = env->GetBooleanField(obj, gFieldIds->mPrivateBrowsingEnabled);
