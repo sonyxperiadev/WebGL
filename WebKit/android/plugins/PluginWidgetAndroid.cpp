@@ -365,6 +365,8 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
     // notify the plugin of the new size
     // TODO what if the plugin changes sizes?
     if (m_drawingModel == kOpenGL_ANPDrawingModel && m_zoomLevel != zoom) {
+        PLUGIN_LOG("%s (%d,%d)[%f]", __FUNCTION__, m_pluginWindow->width,
+                m_pluginWindow->height, zoom);
         ANPEvent event;
         SkANP::InitEvent(&event, kDraw_ANPEventType);
         event.data.draw.model = kOpenGL_ANPDrawingModel;

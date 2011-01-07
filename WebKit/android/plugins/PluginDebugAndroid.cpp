@@ -108,6 +108,10 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16_t returnVal, int e
                         npp, elapsedTime, evt->data.draw.data.bitmap.format,
                         evt->data.draw.clip.left, evt->data.draw.clip.top,
                         evt->data.draw.clip.right, evt->data.draw.clip.bottom);
+            } else if (evt->data.draw.model == kOpenGL_ANPDrawingModel) {
+                anp_logPlugin("%p EVENT::DRAW openGL time=%d dimensions=[%d,%d]",
+                        npp, elapsedTime, evt->data.draw.data.surface.width,
+                        evt->data.draw.data.surface.height);
             } else {
                 anp_logPlugin("%p EVENT::DRAW unknown drawing model", npp);
             }
