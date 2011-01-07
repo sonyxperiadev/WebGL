@@ -42,17 +42,17 @@ public:
     virtual ~AndroidWebHistoryBridge() { }
     virtual void updateHistoryItem(HistoryItem* item) = 0;
 
-    void setScale(int s) { m_scale = s; }
-    void setTextWrapScale(int s) { m_textWrapScale = s; }
-    int scale() const { return m_scale; }
-    int textWrapScale() const { return m_textWrapScale; }
+    void setScale(float s) { m_scale = s; }
+    void setTextWrapScale(float s) { m_textWrapScale = s; }
+    float scale() const { return m_scale; }
+    float textWrapScale() const { return m_textWrapScale; }
     void detachHistoryItem() { m_historyItem = 0; }
     HistoryItem* historyItem() const { return m_historyItem; }
     void setActive() { m_active = true; }
 
 protected:
-    int m_scale;
-    int m_textWrapScale;
+    float m_scale;
+    float m_textWrapScale;
     bool m_active;
     HistoryItem* m_historyItem;
 };
