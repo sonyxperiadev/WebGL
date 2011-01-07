@@ -49,6 +49,22 @@ namespace android
 class FormManager;
 class WebViewCore;
 
+class FormDataAndField {
+public:
+    FormDataAndField(webkit_glue::FormData* form, webkit_glue::FormField* field)
+        : mForm(form)
+        , mField(field)
+    {
+    }
+
+    webkit_glue::FormData* form() { return mForm.get(); }
+    webkit_glue::FormField* field() { return mField.get(); }
+
+private:
+    OwnPtr<webkit_glue::FormData> mForm;
+    OwnPtr<webkit_glue::FormField> mField;
+};
+
 class WebAutoFill : public Noncopyable
 {
 public:
@@ -74,6 +90,8 @@ private:
     void init();
     void searchDocument(WebCore::Frame*);
     void setEmptyProfile();
+    void formsSeenImpl();
+    void cleanUpQueryMap();
 
     OwnPtr<FormManager> mFormManager;
     OwnPtr<AutoFillManager> mAutoFillManager;
@@ -84,7 +102,7 @@ private:
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
 
-    typedef std::map<int, webkit_glue::FormData*> AutoFillQueryFormDataMap;
+    typedef std::map<int, FormDataAndField*> AutoFillQueryFormDataMap;
     AutoFillQueryFormDataMap mQueryMap;
 
     typedef std::map<int, int> AutoFillQueryToUniqueIdMap;
