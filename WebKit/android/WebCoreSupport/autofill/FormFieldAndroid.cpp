@@ -52,13 +52,15 @@ using namespace WebCore::HTMLNames;
 namespace webkit_glue {
 
 FormField::FormField()
-    : max_length_(0) {
+    : max_length_(0),
+      is_autofilled_(false) {
 }
 
 // TODO: This constructor should probably be deprecated and the
 // functionality moved to FormManager.
 FormField::FormField(const HTMLFormControlElement& element)
-    : max_length_(0) {
+    : max_length_(0),
+      is_autofilled_(false) {
     name_ = nameForAutoFill(element);
 
     // TODO: Extract the field label.  For now we just use the field
@@ -70,6 +72,7 @@ FormField::FormField(const HTMLFormControlElement& element)
         const HTMLInputElement& input_element = static_cast<const HTMLInputElement&>(element);
         value_ = WTFStringToString16(input_element.value());
         max_length_ = input_element.size();
+        is_autofilled_ = input_element.isAutofilled();
     } else if (form_control_type_ == kSelectOne) {
         const HTMLSelectElement& const_select_element = static_cast<const HTMLSelectElement&>(element);
         HTMLSelectElement& select_element = const_cast<HTMLSelectElement&>(const_select_element);
@@ -87,12 +90,13 @@ FormField::FormField(const HTMLFormControlElement& element)
     TrimWhitespace(value_, TRIM_LEADING, &value_);
 }
 
-FormField::FormField(const string16& label, const string16& name, const string16& value, const string16& form_control_type, int max_length)
+FormField::FormField(const string16& label, const string16& name, const string16& value, const string16& form_control_type, int max_length, bool is_autofilled)
     : label_(label),
       name_(name),
       value_(value),
       form_control_type_(form_control_type),
-      max_length_(max_length) {
+      max_length_(max_length),
+      is_autofilled_(is_autofilled) {
 }
 
 FormField::~FormField() {

@@ -319,6 +319,7 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
     if (formControlType(*element) == kText) {
         HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
         field->set_max_length(input_element->maxLength());
+        field->set_autofilled(input_element->isAutofilled());
     }
 
     if (!(extract_mask & EXTRACT_VALUE))
