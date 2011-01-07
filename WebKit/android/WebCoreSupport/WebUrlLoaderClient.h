@@ -66,7 +66,7 @@ public:
     WebUrlLoaderClient(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
 
     // Called from WebCore, will be forwarded to the IO thread
-    bool start(bool sync, WebRequestContext*);
+    bool start(bool isMainResource, bool sync, WebRequestContext*);
     void cancel();
     void downloadFile();
     void pauseLoad(bool pause) {} // Android method, does nothing for now
@@ -103,6 +103,7 @@ private:
 
     WebFrame* m_webFrame;
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
+    bool m_isMainResource;
     bool m_cancelling;
     bool m_sync;
     volatile bool m_finished;
