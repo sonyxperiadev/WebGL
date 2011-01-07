@@ -33,14 +33,14 @@
 
 namespace android {
 
-// This class is not generally threadsafe. get() is not threadsafe - instances
-// are created on the WebCore thread only.
+// This class is not generally threadsafe. However, get() and cleanup() are
+// threadsafe.
 class WebCache : public base::RefCountedThreadSafe<WebCache> {
 public:
     static WebCache* get(bool isPrivateBrowsing);
+    static void cleanup(bool isPrivateBrowsing);
 
     void clear();
-    static void cleanup(bool isPrivateBrowsing);
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
     net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
