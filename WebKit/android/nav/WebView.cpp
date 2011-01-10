@@ -910,8 +910,7 @@ void selectBestAt(const WebCore::IntRect& rect)
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         m_viewImpl->m_hasCursorBounds = false;
-        if (root)
-            root->setCursor(0, 0);
+        root->setCursor(0, 0);
         viewInvalidate();
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
@@ -923,6 +922,8 @@ void selectBestAt(const WebCore::IntRect& rect)
                 const_cast<CachedNode*>(node));
     }
     sendMoveMouseIfLatest(false);
+    if (!node)
+        return;
     sendMoveSelection((WebCore::Frame*) frame->framePointer(),
         (WebCore::Node*) node->nodePointer());
 }
