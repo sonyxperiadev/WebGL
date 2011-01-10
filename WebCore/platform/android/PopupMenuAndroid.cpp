@@ -35,11 +35,13 @@ public:
         : m_rect(rect)
         , m_viewImpl(view)
         , m_popupClient(client)
-    {}
+    {
+    }
 
     virtual ~PopupReply() {}
 
-    virtual void replyInt(int value) {
+    virtual void replyInt(int value)
+    {
         if (m_popupClient) {
             m_popupClient->popupDidHide();
             // -2 is a special value signaling that the popup was canceled.
@@ -51,12 +53,19 @@ public:
             m_viewImpl->contentInvalidate(m_rect);
     }
 
-    virtual void replyIntArray(const int* array, int count) {
+    virtual void replyIntArray(const int*, int) {
         // Should never be called.
+        SkASSERT(false);
+    }
+
+    void disconnectClient()
+    {
+        m_popupClient = 0;
+        m_viewImpl = 0;
     }
 private:
     IntRect m_rect;
-    // Not needed if we handle ChromeClientAndroid::formStateDidChange
+    // FIXME: Do not need this if we handle ChromeClientAndroid::formStateDidChange
     android::WebViewCore* m_viewImpl;
     PopupMenuClient* m_popupClient;
 };
@@ -65,9 +74,23 @@ namespace WebCore {
 
 PopupMenuAndroid::PopupMenuAndroid(PopupMenuClient* menuList)
     : m_popupClient(menuList)
+    , m_reply(0)
 {
 }
+PopupMenuAndroid::~PopupMenuAndroid()
+{
+    disconnectClient();
+}
 
+void PopupMenuAndroid::disconnectClient()
+{
+    m_popupClient = 0;
+    if (m_reply) {
+        m_reply->disconnectClient();
+        Release(m_reply);
+        m_reply = 0;
+    }
+}
 // Copied from WebViewCore.cpp.  Once we move ListBox handling to this class,
 // we can remove the one in WebViewCore.cpp.
 // Convert a WTF::String into an array of characters where the first
@@ -85,7 +108,8 @@ static uint16_t* stringConverter(const WTF::String& text)
 void PopupMenuAndroid::show(const IntRect& rect, FrameView* frameView, int)
 {
     android::WebViewCore* viewImpl = android::WebViewCore::getWebViewCore(frameView);
-    android::WebCoreReply* reply = new PopupReply(rect, viewImpl, m_popupClient);
+    m_reply = new PopupReply(rect, viewImpl, m_popupClient);
+    Retain(m_reply);
 
     SkTDArray<const uint16_t*> names;
     // Possible values for enabledArray.  Keep in Sync with values in
@@ -116,7 +140,7 @@ void PopupMenuAndroid::show(const IntRect& rect, FrameView* frameView, int)
         }
     }
 
-    viewImpl->listBoxRequest(reply,
+    viewImpl->listBoxRequest(m_reply,
                              names.begin(),
                              size,
                              enabledArray.begin(),

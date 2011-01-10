@@ -29,6 +29,8 @@
 #include "IntRect.h"
 #include "PopupMenu.h"
 
+class PopupReply;
+
 namespace WebCore {
 
 class FrameView;
@@ -36,13 +38,15 @@ class PopupMenuClient;
 
 class PopupMenuAndroid : public PopupMenu {
 public:
-    PopupMenuAndroid(PopupMenuClient* client);
+    PopupMenuAndroid(PopupMenuClient*);
+    virtual ~PopupMenuAndroid();
     virtual void show(const IntRect&, FrameView*, int);
     virtual void hide() { }
     virtual void updateFromElement() { }
-    virtual void disconnectClient() { }
+    virtual void disconnectClient();
 private:
     PopupMenuClient* m_popupClient;
+    PopupReply* m_reply;
 };
 
 }
