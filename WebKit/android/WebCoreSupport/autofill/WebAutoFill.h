@@ -34,6 +34,7 @@
 #include <vector>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/ThreadingPrimitives.h>
 
 class AutoFillManager;
 class AutoFillProfile;
@@ -112,9 +113,15 @@ private:
     WebViewCore* mWebViewCore;
 
     int mLastSearchDomVersion;
+
+    WTF::Mutex mFormsSeenMutex; // Guards mFormsSeenCondition and mParsingForms.
+    WTF::ThreadCondition mFormsSeenCondition;
+    bool volatile mParsingForms;
 };
 
 }
+
+DISABLE_RUNNABLE_METHOD_REFCOUNT(android::WebAutoFill);
 
 #endif // ENABLE(WEB_AUTOFILL)
 #endif // WebAutoFill_h

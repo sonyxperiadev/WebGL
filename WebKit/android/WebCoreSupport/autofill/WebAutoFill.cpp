@@ -52,6 +52,7 @@ WebAutoFill::WebAutoFill()
     : mQueryId(1)
     , mWebViewCore(0)
     , mLastSearchDomVersion(0)
+    , mParsingForms(false)
 {
     mTabContents = new TabContents();
     setEmptyProfile();
@@ -89,6 +90,8 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
     if (!enabled())
         return;
 
+    MutexLocker lock(mFormsSeenMutex);
+
     init();
 
     cleanUpQueryMap();
@@ -104,8 +107,24 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
 
     mFormManager->ExtractForms(frame);
     mFormManager->GetFormsInFrame(frame, FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
-    mAutoFillManager->FormsSeen(mForms);
 
+    // Needs to be done on a Chrome thread as it will make a URL request to the AutoFill server.
+    // TODO: Use our own Autofill thread instead of the IO thread.
+    // TODO: For now, block here. Would like to make this properly async.
+    base::Thread* thread = WebUrlLoaderClient::ioThread();
+    mParsingForms = true;
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebAutoFill::formsSeenImpl));
+    while (mParsingForms)
+        mFormsSeenCondition.wait(mFormsSeenMutex);
+}
+
+// Called on the Chromium IO thread.
+void WebAutoFill::formsSeenImpl()
+{
+    MutexLocker lock(mFormsSeenMutex);
+    mAutoFillManager->FormsSeen(mForms);
+    mParsingForms = false;
+    mFormsSeenCondition.signal();
 }
 
 void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
@@ -148,6 +167,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mQueryMap[mQueryId] = new FormDataAndField(form, formField);
 
     bool suggestions = mAutoFillManager->GetAutoFillSuggestions(*form, *formField);
+
     mQueryId++;
     if (!suggestions) {
         ASSERT(mWebViewCore);
