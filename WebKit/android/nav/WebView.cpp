@@ -385,7 +385,7 @@ bool drawCursorPreamble(CachedRoot* root)
         return false;
     }
 #if USE(ACCELERATED_COMPOSITING)
-    if (node->isInLayer()) {
+    if (node->isInLayer() && root->rootLayer()) {
         LayerAndroid* layer = const_cast<LayerAndroid*>(root->rootLayer());
         SkRect visible;
         calcOurContentVisibleRect(&visible);
