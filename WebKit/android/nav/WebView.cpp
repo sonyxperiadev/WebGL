@@ -840,9 +840,9 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
-        bool disableFocusController = cachedNode != root->currentFocus()
+        bool clearTextEntry = cachedNode != root->currentFocus()
                 && cachedNode->wantsKeyEvents();
-        sendMoveMouseIfLatest(disableFocusController);
+        sendMoveMouseIfLatest(clearTextEntry);
         sendMoveSelection((WebCore::Frame*) cachedFrame->framePointer(),
                 (WebCore::Node*) cachedNode->nodePointer());
     } else {
@@ -1191,12 +1191,12 @@ void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int 
     checkException(env);
 }
 
-void sendMoveMouseIfLatest(bool disableFocusController)
+void sendMoveMouseIfLatest(bool clearTextEntry)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_sendMoveMouseIfLatest, disableFocusController);
+            m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry);
     checkException(env);
 }
 
@@ -1562,13 +1562,6 @@ static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
     // both the cursor and the focus.
     return cursor && cursor->nodePointer() == focus->nodePointer()
             && cursor->isContentEditable();
-}
-
-static jboolean nativeCursorMatchesFocus(JNIEnv *env, jobject obj)
-{
-    const CachedNode* cursor = getCursorNode(env, obj);
-    const CachedNode* focus = getFocusNode(env, obj);
-    return cursor && focus && cursor->nodePointer() == focus->nodePointer();
 }
 
 static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
@@ -2315,8 +2308,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorFramePointer },
     { "nativePageShouldHandleShiftAndArrows", "()Z",
         (void*) nativePageShouldHandleShiftAndArrows },
-    { "nativeCursorMatchesFocus", "()Z",
-        (void*) nativeCursorMatchesFocus },
     { "nativeCursorNodeBounds", "()Landroid/graphics/Rect;",
         (void*) nativeCursorNodeBounds },
     { "nativeCursorNodePointer", "()I",
