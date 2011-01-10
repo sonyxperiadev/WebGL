@@ -1180,7 +1180,7 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 }
 
 #if PLATFORM(ANDROID)
-bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer* layer) const
+bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLayer* layer) const
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (layer->hasOverflowScroll())
@@ -1193,20 +1193,8 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
     if (m_renderView->document()->frame()->tree()->parent())
         return false;
 
-    // For the moment, we want to only enable fixed composited layers on mobile websites.
-    // We can consider a website as being a 'mobile' site if all the
-    // following checks are true:
-    // 1) - the viewport width is either undefined (-1) or equal to device-width (0), and
-    // 2) - no scaling is allowed
-    if (!layer->isFixed())
-        return false;
-
-    Settings* settings = m_renderView->document()->settings();
-    if (!settings)
-        return false;
-
-    if ((settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
+    // Enable composited layers (for fixed elements)
+    if (layer->isFixed())
         return true;
 #endif
     return false;
@@ -1226,7 +1214,7 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     }
     return requiresCompositingForTransform(renderer)
 #if PLATFORM(ANDROID)
-             || requiresCompositingForMobileSites(layer)
+             || requiresCompositingForAndroidLayers(layer)
 #endif
              || requiresCompositingForVideo(renderer)
              || requiresCompositingForCanvas(renderer)
