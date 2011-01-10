@@ -228,8 +228,8 @@ private:
     bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
 #if PLATFORM(ANDROID)
-    // Whether we are on a mobile site
-    bool requiresCompositingForMobileSites(const RenderLayer* layer) const;
+    // Whether we are using layers for new android features (overflow support, fixed elements)
+    bool requiresCompositingForAndroidLayers(const RenderLayer* layer) const;
 #endif
 
     bool requiresScrollLayer(RootLayerAttachment) const;
