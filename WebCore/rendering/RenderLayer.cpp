@@ -175,6 +175,9 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
     , m_hasCompositingDescendant(false)
     , m_mustOverlapCompositedLayers(false)
 #endif
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    , m_hasOverflowScroll(false)
+#endif
     , m_marquee(0)
     , m_staticX(0)
     , m_staticY(0)
@@ -792,7 +795,7 @@ FloatPoint RenderLayer::perspectiveOrigin() const
 RenderLayer* RenderLayer::stackingContext() const
 {
     RenderLayer* layer = parent();
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS) || ENABLE(ANDROID_OVERFLOW_SCROLL)
     // When using composited fixed elements, they are turned into a stacking
     // context and we thus need to return them.
     // We can simplify the while loop by using isStackingContext(); with
@@ -1933,21 +1936,6 @@ bool RenderLayer::hasOverflowControls() const
     return m_hBar || m_vBar || m_scrollCorner || renderer()->style()->resize() != RESIZE_NONE;
 }
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-bool RenderLayer::hasOverflowScroll() const
-{
-    if (!enclosingElement())
-        return false;
-    if (m_scrollDimensionsDirty)
-        return false;
-    EOverflow x = renderer()->style()->overflowX();
-    if ((x == OSCROLL || x == OAUTO) && m_scrollWidth > renderBox()->clientWidth())
-        return true;
-    EOverflow y = renderer()->style()->overflowY();
-    if ((y == OSCROLL || y == OAUTO) && m_scrollHeight > renderBox()->clientHeight())
-        return true;
-    return false;
-}
-
 bool RenderLayer::hasOverflowParent() const
 {
     const RenderLayer* layer = this;
@@ -2166,11 +2154,12 @@ RenderLayer::updateScrollInfoAfterLayout()
         updateOverflowStatus(horizontalOverflow, verticalOverflow);
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (hasOverflowScroll()) {
-        rendererContentChanged();
-        if (parent())
-            parent()->dirtyNormalFlowList();
+    bool hasOverflowScroll = (horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar);
+    if (hasOverflowScroll != m_hasOverflowScroll) {
+        m_hasOverflowScroll = hasOverflowScroll;
+        dirtyZOrderLists();
         dirtyStackingContextZOrderLists();
+        renderer()->node()->setNeedsStyleRecalc(SyntheticStyleChange);
     }
 #endif
 }

@@ -275,7 +275,7 @@ public:
 
     bool hasOverflowControls() const;
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    bool hasOverflowScroll() const;
+    bool hasOverflowScroll() const { return m_hasOverflowScroll; }
     bool hasOverflowParent() const;
 #endif
     void positionOverflowControls(int tx, int ty);
@@ -702,6 +702,9 @@ protected:
 #if USE(ACCELERATED_COMPOSITING)
     bool m_hasCompositingDescendant : 1;
     bool m_mustOverlapCompositedLayers : 1;
+#endif
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool m_hasOverflowScroll : 1;
 #endif
 
     RenderMarquee* m_marquee; // Used by layers with overflow:marquee

@@ -1117,7 +1117,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #if USE(ACCELERATED_COMPOSITING)
             // If this renderer has its own layer and the layer is composited,
             // start tracking it.
-            if (lastChild && nodeRenderer->hasLayer() && toRenderBox(nodeRenderer)->layer()->backing())
+            if (lastChild && nodeRenderer->hasLayer() && toRenderBoxModelObject(nodeRenderer)->layer()->backing())
                 TrackLayer(layerTracker, nodeRenderer, lastChild, globalOffsetX, globalOffsetY);
 #endif
         }
@@ -2916,7 +2916,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     IntPoint scroll(layer->scrollXOffset(), layer->scrollYOffset());
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // If this is an overflow element, track the content layer.
-    if (layer->hasOverflowScroll())
+    if (layer->hasOverflowScroll() && aLayer->getChild(0))
         aLayer = aLayer->getChild(0)->getChild(0);
     if (!aLayer)
         return;
