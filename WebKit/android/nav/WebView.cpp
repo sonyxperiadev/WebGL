@@ -1458,6 +1458,11 @@ static int nativeCacheHitNodePointer(JNIEnv *env, jobject obj)
         ->m_cacheHitNode->nodePointer());
 }
 
+static bool nativeCacheHitIsPlugin(JNIEnv *env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->m_cacheHitNode->isPlugin();
+}
+
 static void nativeClearCursor(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2297,6 +2302,8 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
 static JNINativeMethod gJavaWebViewMethods[] = {
     { "nativeCacheHitFramePointer", "()I",
         (void*) nativeCacheHitFramePointer },
+    { "nativeCacheHitIsPlugin", "()Z",
+        (void*) nativeCacheHitIsPlugin },
     { "nativeCacheHitNodeBounds", "()Landroid/graphics/Rect;",
         (void*) nativeCacheHitNodeBounds },
     { "nativeCacheHitNodePointer", "()I",
