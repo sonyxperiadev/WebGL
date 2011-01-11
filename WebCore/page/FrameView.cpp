@@ -1270,14 +1270,7 @@ bool FrameView::scrollToAnchor(const String& name)
     if (!anchorNode && !(name.isEmpty() || equalIgnoringCase(name, "top")))
         return false;
 
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-    // TODO(andreip): check with Grace if this is correct.
-    android::WebFrame::getWebFrame(m_frame.get())->setUserInitiatedAction(true);
-#endif
     maintainScrollPositionAtAnchor(anchorNode ? static_cast<Node*>(anchorNode) : m_frame->document());
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-    android::WebFrame::getWebFrame(m_frame.get())->setUserInitiatedAction(false);
-#endif
     return true;
 }
 
