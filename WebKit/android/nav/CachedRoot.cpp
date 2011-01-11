@@ -782,6 +782,16 @@ public:
                 mLayerTypes.removeLast();
                 return;
             }
+            // remove push/pop from push/bitmap/pop
+            size_t pushIndex = mLayerTypes.size() - 2;
+            if (last == kDrawBitmap_Type
+                && mLayerTypes.at(pushIndex) == kPushLayer_Type) {
+                mLayers.at(pushIndex) = mLayers.last();
+                mLayerTypes.at(pushIndex) = kDrawBitmap_Type;
+                mLayers.removeLast();
+                mLayerTypes.removeLast();
+                return;
+            }
             // remove non-layer brackets
             int stack = 0;
             Type* types = mLayerTypes.end();
