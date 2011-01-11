@@ -134,6 +134,8 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                     // Chromium check if it is a directory by checking
                     // element.m_fileLength, that doesn't work in Android
                     std::string filename = element.m_filename.utf8().data();
+                    // If the filename start with file:// strip that part out, chromium doesn't understand it
+                    WebResourceRequest::normalizeUrl(filename);
                     if (filename.size() > 0) {
                         base::Thread* thread = ioThread();
                         if (thread)

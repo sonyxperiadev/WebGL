@@ -71,6 +71,9 @@ public:
         return m_loadFlags;
     }
 
+    // Changes file url's to files paths
+    static void normalizeUrl(std::string& url);
+
 private:
     std::string m_method;
     std::string m_referrer;
