@@ -168,7 +168,7 @@ static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray d
     // Inflate the history tree into one HistoryItem or null if the inflation
     // failed.
     RefPtr<WebCore::HistoryItem> newItem = WebCore::HistoryItem::create();
-    RefPtr<WebHistoryItem> bridge = new WebHistoryItem(env, obj, newItem.get());
+    RefPtr<WebHistoryItem> bridge = adoptRef(new WebHistoryItem(env, obj, newItem.get()));
     newItem->setBridge(bridge.get());
 
     // Inflate the item recursively. If it fails, that is ok. We'll have an
