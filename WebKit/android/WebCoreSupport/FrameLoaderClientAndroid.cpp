@@ -814,8 +814,8 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
         WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
-        bridge->setScale((int)(webViewCore->scale() * 100));
-        bridge->setTextWrapScale((int)(webViewCore->textWrapScale() * 100));
+        bridge->setScale(webViewCore->scale());
+        bridge->setTextWrapScale(webViewCore->textWrapScale());
     }
 
     WebCore::notifyHistoryItemChanged(item);

@@ -415,12 +415,12 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     AndroidWebHistoryBridge* bridge = item->bridge();
     LOG_ASSERT(bridge, "We should have a bridge here!");
     // Screen scale
-    const int scale = bridge->scale();
-    LOGV("Writing scale %d", scale);
-    v.append((char*)&scale, sizeof(int));
-    const int textWrapScale = bridge->textWrapScale();
-    LOGV("Writing text wrap scale %d", textWrapScale);
-    v.append((char*)&textWrapScale, sizeof(int));
+    const float scale = bridge->scale();
+    LOGV("Writing scale %f", scale);
+    v.append((char*)&scale, sizeof(float));
+    const float textWrapScale = bridge->textWrapScale();
+    LOGV("Writing text wrap scale %f", textWrapScale);
+    v.append((char*)&textWrapScale, sizeof(float));
 
     // Document state
     const WTF::Vector<WTF::String>& docState = item->documentState();
@@ -596,15 +596,16 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 
     AndroidWebHistoryBridge* bridge = newItem->bridge();
     LOG_ASSERT(bridge, "There should be a bridge object during inflate");
+    float fValue;
     // Read the screen scale
-    memcpy(&l, data, sizeofUnsigned);
-    LOGV("Screen scale    %d", l);
-    bridge->setScale(l);
-    data += sizeofUnsigned;
-    memcpy(&l, data, sizeofUnsigned);
-    LOGV("Text wrap scale    %d", l);
-    bridge->setTextWrapScale(l);
-    data += sizeofUnsigned;
+    memcpy(&fValue, data, sizeof(float));
+    LOGV("Screen scale    %f", fValue);
+    bridge->setScale(fValue);
+    data += sizeof(float);
+    memcpy(&fValue, data, sizeofUnsigned);
+    LOGV("Text wrap scale    %f", fValue);
+    bridge->setTextWrapScale(fValue);
+    data += sizeof(float);
 
     if (end - data < sizeofUnsigned)
         return false;

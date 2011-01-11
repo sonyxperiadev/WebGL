@@ -207,7 +207,7 @@ namespace android {
          * Notify the view to restore the screen width, which in turn restores
          * the scale. Also restore the scale for the text wrap.
          */
-        void restoreScale(int scale, int textWrapScale);
+        void restoreScale(float scale, float textWrapScale);
 
         /**
          * Tell the java side to update the focused textfield

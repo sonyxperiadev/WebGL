@@ -361,7 +361,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
-    m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(II)V");
+    m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(FF)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_requestKeyboardWithSelection = GetJMethod(env, clazz, "requestKeyboardWithSelection", "(IIII)V");
@@ -1053,7 +1053,7 @@ void WebViewCore::updateViewport()
     checkException(env);
 }
 
-void WebViewCore::restoreScale(int scale, int textWrapScale)
+void WebViewCore::restoreScale(float scale, float textWrapScale)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
