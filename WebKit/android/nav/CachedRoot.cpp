@@ -678,6 +678,7 @@ public:
         const WebCore::IntRect& bitBounds, const WebCore::IntRect& testBounds)
         : mTestBounds(testBounds)
         , mBitBounds(bitBounds)
+        , mPushPop(false)
     {
         const WebCore::IntRect* r;
         for (r = rings.begin(); r != rings.end(); r++) {
@@ -772,6 +773,7 @@ public:
             lastLog = "";
 #endif
         popEmpty();
+        mPushPop |= type >= kPopLayer_Type;
         if (type == kPopLayer_Type) {
             Type last = mLayerTypes.last();
             // remove empty brackets
@@ -898,7 +900,7 @@ protected:
                 && mType != kDrawSprite_Type && mType != kDrawBitmap_Type)
             return false;
         if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType
-            || !mAppendLikeTypes
+            || !mAppendLikeTypes || mPushPop
             // if the last and current were not glyphs,
             // and the two bounds have a gap between, don't join them -- push
             // an empty between them
@@ -910,6 +912,7 @@ protected:
             mCh);
         mLayers.last().op(rect, SkRegion::kUnion_Op);
         mAppendLikeTypes = true;
+        mPushPop = false;
         return false;
     }
 
@@ -1040,6 +1043,7 @@ private:
     const SkPaint* mPaint;
     char mCh;
     bool mAppendLikeTypes;
+    bool mPushPop;
 };
 
 class RingCanvas : public BoundsCanvas {
