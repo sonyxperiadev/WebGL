@@ -629,7 +629,12 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
         m_texture->consumerRelease();
     }
 
-    return drawChildrenGL(matrix);
+    // When the layer is dirty, the UI thread should be notified to redraw.
+    bool askPaint = drawChildrenGL(matrix);
+    m_atomicSync.lock();
+    askPaint |= m_dirty;
+    m_atomicSync.unlock();
+    return askPaint;
 }
 
 
