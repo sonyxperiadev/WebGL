@@ -48,11 +48,11 @@
 
 namespace android
 {
-
 WebAutoFill::WebAutoFill()
     : mQueryId(1)
     , mWebViewCore(0)
     , mLastSearchDomVersion(0)
+    , mParsingForms(false)
 {
     mTabContents = new TabContents();
     setEmptyProfile();
@@ -74,8 +74,15 @@ void WebAutoFill::init()
 
 WebAutoFill::~WebAutoFill()
 {
-    mQueryMap.clear();
+    cleanUpQueryMap();
     mUniqueIdMap.clear();
+}
+
+void WebAutoFill::cleanUpQueryMap()
+{
+    for (AutoFillQueryFormDataMap::iterator it = mQueryMap.begin(); it != mQueryMap.end(); it++)
+        delete it->second;
+    mQueryMap.clear();
 }
 
 void WebAutoFill::searchDocument(WebCore::Frame* frame)
@@ -83,9 +90,11 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
     if (!enabled())
         return;
 
+    MutexLocker lock(mFormsSeenMutex);
+
     init();
 
-    mQueryMap.clear();
+    cleanUpQueryMap();
     mUniqueIdMap.clear();
     mForms.clear();
     mQueryId = 1;
@@ -98,8 +107,24 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
 
     mFormManager->ExtractForms(frame);
     mFormManager->GetFormsInFrame(frame, FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
-    mAutoFillManager->FormsSeen(mForms);
 
+    // Needs to be done on a Chrome thread as it will make a URL request to the AutoFill server.
+    // TODO: Use our own Autofill thread instead of the IO thread.
+    // TODO: For now, block here. Would like to make this properly async.
+    base::Thread* thread = WebUrlLoaderClient::ioThread();
+    mParsingForms = true;
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebAutoFill::formsSeenImpl));
+    while (mParsingForms)
+        mFormsSeenCondition.wait(mFormsSeenMutex);
+}
+
+// Called on the Chromium IO thread.
+void WebAutoFill::formsSeenImpl()
+{
+    MutexLocker lock(mFormsSeenMutex);
+    mAutoFillManager->FormsSeen(mForms);
+    mParsingForms = false;
+    mFormsSeenCondition.signal();
 }
 
 void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
@@ -133,15 +158,16 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     }
 
     // Get the FormField from the Node.
-    webkit_glue::FormField formField;
-    FormManager::HTMLFormControlElementToFormField(formFieldElement, FormManager::EXTRACT_NONE, &formField);
-    formField.set_label(FormManager::LabelForElement(*formFieldElement));
+    webkit_glue::FormField* formField = new webkit_glue::FormField;
+    FormManager::HTMLFormControlElementToFormField(formFieldElement, FormManager::EXTRACT_NONE, formField);
+    formField->set_label(FormManager::LabelForElement(*formFieldElement));
 
     webkit_glue::FormData* form = new webkit_glue::FormData;
     mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
-    mQueryMap[mQueryId] = form;
+    mQueryMap[mQueryId] = new FormDataAndField(form, formField);
 
-    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(false, formField);
+    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(*form, *formField);
+
     mQueryId++;
     if (!suggestions) {
         ASSERT(mWebViewCore);
@@ -169,8 +195,11 @@ void WebAutoFill::fillFormFields(int queryId)
     if (!enabled())
         return;
 
-    webkit_glue::FormData* form = mQueryMap[queryId];
+    webkit_glue::FormData* form = mQueryMap[queryId]->form();
+    webkit_glue::FormField* field = mQueryMap[queryId]->field();
     ASSERT(form);
+    ASSERT(field);
+
     AutoFillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
     if (iter == mUniqueIdMap.end()) {
         // The user has most likely tried to AutoFill the form again without
@@ -178,7 +207,7 @@ void WebAutoFill::fillFormFields(int queryId)
         // but stop here to be certain.
         return;
     }
-    mAutoFillManager->FillAutoFillFormData(queryId, *form, iter->second);
+    mAutoFillManager->FillAutoFillFormData(queryId, *form, *field, iter->second);
     mUniqueIdMap.erase(iter);
 }
 

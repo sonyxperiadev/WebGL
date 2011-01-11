@@ -318,7 +318,8 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
 
     if (formControlType(*element) == kText) {
         HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
-        field->set_size(input_element->size());
+        field->set_max_length(input_element->maxLength());
+        field->set_autofilled(input_element->isAutofilled());
     }
 
     if (!(extract_mask & EXTRACT_VALUE))
@@ -556,8 +557,7 @@ bool FormManager::FindFormWithFormControlElement(HTMLFormControlElement* element
         for (std::vector<HTMLFormControlElement*>::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
             if (nameForAutoFill(**iter) == nameForAutoFill(*element)) {
                 ExtractMask extract_mask = static_cast<ExtractMask>(EXTRACT_VALUE | EXTRACT_OPTIONS);
-                HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
-                return true;
+                return HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
             }
         }
     }
@@ -617,7 +617,7 @@ bool FormManager::ClearFormWithNode(Node* node) {
     return true;
 }
 
-bool FormManager::ClearPreviewedFormWithNode(Node* node) {
+bool FormManager::ClearPreviewedFormWithNode(Node* node, bool was_autofilled) {
     FormElement* form_element = NULL;
     if (!FindCachedFormElementWithNode(node, &form_element))
         return false;
@@ -650,8 +650,10 @@ bool FormManager::ClearPreviewedFormWithNode(Node* node) {
             // Call |setValue()| to force the renderer to update the field's displayed
             // value.
             input_element->setValue(input_element->value());
+            input_element->setAutofilled(was_autofilled);
+        } else {
+            input_element->setAutofilled(false);
         }
-        input_element->setAutofilled(false);
 
         // Clearing the suggested value in the focused node (above) can cause
         // selection to be lost. We force selection range to restore the text
