@@ -840,8 +840,9 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
-        bool clearTextEntry = cachedNode != root->currentFocus()
-                && cachedNode->wantsKeyEvents();
+        const CachedNode* focus = root->currentFocus();
+        bool clearTextEntry = cachedNode != focus
+                && focus->isTextInput();
         sendMoveMouseIfLatest(clearTextEntry);
         sendMoveSelection((WebCore::Frame*) cachedFrame->framePointer(),
                 (WebCore::Node*) cachedNode->nodePointer());
