@@ -555,11 +555,11 @@ namespace WebCore {
         bool m_hyperlinkAuditingEnabled : 1;
         bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
 
-#ifdef ANDROID_PLUGINS
-        bool m_pluginsOnDemand : 1;
-#endif
 #if ENABLE(WEB_AUTOFILL)
         bool m_autoFillEnabled: 1;
+#endif
+#ifdef ANDROID_PLUGINS
+        bool m_pluginsOnDemand : 1;
 #endif
 
 #if USE(SAFARI_THEME)
