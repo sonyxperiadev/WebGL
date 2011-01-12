@@ -2579,9 +2579,25 @@ public:
 
     // Response used for a multiple selection listbox if the user did not change
     // anything, in which case -2 is used.
+    // Also used by a listbox which has single selection but a size is set.
     virtual void replyInt(int index)
     {
-        LOG_ASSERT(-2 == index, "ListBoxReply::replyInt should only be called with -2");
+        if (-2 == index) {
+            // Special value for cancel. Do nothing.
+            return;
+        }
+        // If the select element no longer exists, due to a page change, etc,
+        // silently return.
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
+            return;
+        // Use a pointer to HTMLSelectElement's superclass, where
+        // listToOptionIndex is public
+        SelectElement* selectElement = m_select;
+        int optionIndex = selectElement->listToOptionIndex(index);
+        m_select->setSelectedIndex(optionIndex, true);
+        m_select->dispatchFormControlChangeEvent();
+        m_viewImpl->contentInvalidate(m_select->getRect());
     }
 
     // Response if the listbox allows multiple selection.  array stores the listIndices
