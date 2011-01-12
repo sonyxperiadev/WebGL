@@ -91,13 +91,6 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
     m_userAgent = resourceRequest.httpUserAgent().utf8().data();
 
     m_url = resourceRequest.url().string().utf8().data();
-    normalizeUrl(m_url);
-}
-
-void WebResourceRequest::normalizeUrl(std::string& url) {
-    // Chrome does not understand file url's
-    if (url.find("file://") == 0)
-        url.erase(0, 7);
 }
 
 } // namespace android
