@@ -841,8 +841,8 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
         const CachedNode* focus = root->currentFocus();
-        bool clearTextEntry = cachedNode != focus
-                && focus->isTextInput();
+        bool clearTextEntry = cachedNode != focus && focus
+                && cachedNode->nodePointer() != focus->nodePointer() && focus->isTextInput();
         sendMoveMouseIfLatest(clearTextEntry);
         sendMoveSelection((WebCore::Frame*) cachedFrame->framePointer(),
                 (WebCore::Node*) cachedNode->nodePointer());
