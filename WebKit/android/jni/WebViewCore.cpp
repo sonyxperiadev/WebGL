@@ -2766,8 +2766,9 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
     return eventHandler->keyEvent(event);
 }
 
-// For when the user clicks the trackball
-void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
+// For when the user clicks the trackball, presses dpad center, or types into an
+// unfocused textfield.  In the latter case, 'fake' will be true
+void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node, bool fake) {
     if (!node) {
         WebCore::IntPoint pt = m_mousePos;
         pt.move(m_scrollOffsetX, m_scrollOffsetY);
@@ -2784,7 +2785,7 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
                 = static_cast<EditorClientAndroid*>(
                 m_mainFrame->editor()->client());
         client->setShouldChangeSelectedRange(false);
-        handleMouseClick(frame, node);
+        handleMouseClick(frame, node, fake);
         client->setShouldChangeSelectedRange(true);
     }
 }
@@ -2890,7 +2891,7 @@ void WebViewCore::touchUp(int touchGeneration,
     }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
-    handleMouseClick(frame, node);
+    handleMouseClick(frame, node, false);
 }
 
 // Return the RenderLayer for the given RenderObject only if the layer is
@@ -2939,7 +2940,9 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 }
 
 // Common code for both clicking with the trackball and touchUp
-bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
+// Also used when typing into a non-focused textfield to give the textfield focus,
+// in which case, 'fake' is set to true
+bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake)
 {
     m_lastClickWasOnTextInput = false;
     bool valid = framePtr == NULL
@@ -3039,14 +3042,16 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                     autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
                 }
 #endif
-                RenderTextControl* rtc
-                        = static_cast<RenderTextControl*> (renderer);
-                requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
-                        rtc->selectionEnd());
-            } else {
+                if (!fake) {
+                    RenderTextControl* rtc
+                            = static_cast<RenderTextControl*> (renderer);
+                    requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
+                            rtc->selectionEnd());
+                }
+            } else if (!fake) {
                 requestKeyboard(false);
             }
-        } else {
+        } else if (!fake){
             // If the selection is contentEditable, show the keyboard so the
             // user can type.  Otherwise hide the keyboard because no text
             // input is needed.
@@ -3056,7 +3061,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 clearTextEntry();
             }
         }
-    } else {
+    } else if (!fake) {
         // There is no focusNode, so the keyboard is not needed.
         clearTextEntry();
     }
@@ -3553,7 +3558,7 @@ static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
         unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
-static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
+static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr, jboolean fake)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3562,7 +3567,7 @@ static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
     viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
-        reinterpret_cast<WebCore::Node*>(nodePtr));
+        reinterpret_cast<WebCore::Node*>(nodePtr), fake);
 }
 
 static void ContentInvalidateAll(JNIEnv *env, jobject obj)
@@ -4176,7 +4181,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIZZZZ)Z",
         (void*) Key },
-    { "nativeClick", "(II)V",
+    { "nativeClick", "(IIZ)V",
         (void*) Click },
     { "nativeContentInvalidateAll", "()V",
         (void*) ContentInvalidateAll },

@@ -325,9 +325,11 @@ namespace android {
         bool key(const WebCore::PlatformKeyboardEvent& event);
 
         /**
-         * Handle (trackball) click event from Java
+         * Handle (trackball) click event / dpad center press from Java.
+         * Also used when typing into an unfocused textfield, in which case 'fake'
+         * will be true.
          */
-        void click(WebCore::Frame* frame, WebCore::Node* node);
+        void click(WebCore::Frame* frame, WebCore::Node* node, bool fake);
 
         /**
          * Handle touch event
@@ -630,7 +632,7 @@ namespace android {
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
-        bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
+        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
         WebCore::HTMLElement* retrieveElement(int x, int y,
             const WebCore::QualifiedName& );
