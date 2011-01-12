@@ -608,11 +608,11 @@ public:
         }
         // cx and cy are the distances from the tested center
         // The center distance is used when the test point is over the text
-        int cx = INT_MAX;
-        int cy = INT_MAX;
-        if (ignoreColumn && dy == 0 && mDy == 0) {
-            cy = std::abs(((testBounds.fTop + testBounds.fBottom) >> 1)
+        int cx = std::abs(((testBounds.fLeft + testBounds.fRight) >> 1)
+                - mFocusX);
+        int cy = std::abs(((testBounds.fTop + testBounds.fBottom) >> 1)
                 - mFocusY);
+        if (ignoreColumn && dy == 0 && mDy == 0) {
             if (mCy < cy) {
 #ifdef EXTRA_NOISY_LOGGING
                 DBG_NAV_LOGD("FirstCheck reject cy=%d mCy=%d", cy, mCy);
@@ -621,8 +621,6 @@ public:
             }
             if (mCy == cy) {
                 if (dx == 0 && mDx == 0) {
-                    cx = std::abs(((testBounds.fLeft + testBounds.fRight) >> 1)
-                    - mFocusX);
                     if (mCx < cx) {
 #ifdef EXTRA_NOISY_LOGGING
                         DBG_NAV_LOGD("FirstCheck reject cx=%d mCx=%d", cx, mCx);
