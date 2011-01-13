@@ -134,7 +134,10 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                     // Chromium check if it is a directory by checking
                     // element.m_fileLength, that doesn't work in Android
                     std::string filename = element.m_filename.utf8().data();
-                    if (filename.size() > 0) {
+                    if (filename.size()) {
+                        // Change from a url string to a filename
+                        if (filename.find("file://") == 0) // Found at pos 0
+                            filename.erase(0, 7);
                         base::Thread* thread = ioThread();
                         if (thread)
                             thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::appendFileToUpload, filename));
