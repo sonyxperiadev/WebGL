@@ -29,6 +29,7 @@
 #include <wtf/Platform.h>
 
 #include "ApplicationCacheStorage.h"
+#include "CString.h"
 #include "DatabaseTracker.h"
 #include "DocLoader.h"
 #include "Document.h"
@@ -40,6 +41,7 @@
 #include "Page.h"
 #include "PageCache.h"
 #include "RenderTable.h"
+#include "SQLiteFileSystem.h"
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
@@ -380,8 +382,18 @@ public:
         GeolocationPermissions::setAlwaysDeny(!flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
         if (str) {
-            GeolocationPermissions::setDatabasePath(to_string(env,str));
-            WebCore::GeolocationPositionCache::setDatabasePath(to_string(env,str));
+            WebCore::String path = to_string(env, str);
+            GeolocationPermissions::setDatabasePath(path);
+            WebCore::GeolocationPositionCache::setDatabasePath(path);
+            // This database is created when the first Geolocation object is
+            // instantiated. If the file doesn't exist, we create it and set its
+            // permissions. The filename must match that in
+            // GeolocationPositionCache.cpp.
+            WebCore::String filename = WebCore::SQLiteFileSystem::appendDatabaseFileNameToPath(
+                    path, "CachedGeoposition.db");
+            int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+            if (fd >= 0)
+                close(fd);
         }
 
         size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
