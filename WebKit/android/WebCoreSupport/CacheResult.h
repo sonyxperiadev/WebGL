@@ -38,7 +38,7 @@ namespace android {
 class CacheResult : public base::RefCountedThreadSafe<CacheResult> {
 public:
     // Takes ownership of the Entry passed to the constructor.
-    CacheResult(disk_cache::Entry*);
+    CacheResult(disk_cache::Entry*, String url);
     ~CacheResult();
 
     int64 contentSize() const;
@@ -77,6 +77,8 @@ private:
 
     net::CompletionCallbackImpl<CacheResult> m_onResponseHeadersDoneCallback;
     net::CompletionCallbackImpl<CacheResult> m_onReadNextChunkDoneCallback;
+
+    String m_url;
 };
 
 } // namespace android

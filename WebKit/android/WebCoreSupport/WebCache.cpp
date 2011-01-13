@@ -197,7 +197,7 @@ scoped_refptr<CacheResult> WebCache::getCacheResult(String url)
     if (!m_entry)
         return 0;
 
-    return new CacheResult(m_entry);
+    return new CacheResult(m_entry, url);
 }
 
 void WebCache::getEntryImpl()

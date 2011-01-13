@@ -26,8 +26,10 @@
 #include "config.h"
 #include "CacheResult.h"
 
+#include "WebResponse.h"
 #include "WebUrlLoaderClient.h"
 #include <platform/FileSystem.h>
+#include <wtf/text/CString.h>
 
 using namespace base;
 using namespace disk_cache;
@@ -47,10 +49,11 @@ enum {
     kResponseContentIndex
 };
 
-CacheResult::CacheResult(disk_cache::Entry* entry)
+CacheResult::CacheResult(disk_cache::Entry* entry, String url)
     : m_entry(entry)
     , m_onResponseHeadersDoneCallback(this, &CacheResult::onResponseHeadersDone)
     , m_onReadNextChunkDoneCallback(this, &CacheResult::onReadNextChunkDone)
+    , m_url(url)
 {
     ASSERT(m_entry);
 }
@@ -83,7 +86,10 @@ bool CacheResult::firstResponseHeader(const char* name, String* result, bool all
 String CacheResult::mimeType() const
 {
     string mimeType;
-    responseHeaders()->GetMimeType(&mimeType);
+    if (responseHeaders())
+        responseHeaders()->GetMimeType(&mimeType);
+    if (!mimeType.length() && m_url.length())
+        mimeType = WebResponse::resolveMimeType(std::string(m_url.utf8().data(), m_url.length()));
     return String(mimeType.c_str());
 }
 
