@@ -64,7 +64,7 @@ public:
     // check to see if the page is ready for display
     bool ready(const SkIRect& tileBounds);
     // draw the page on the screen
-    void draw(float transparency, SkRect& viewport, const SkIRect& tileBounds);
+    void draw(float transparency, const SkIRect& tileBounds);
 
     // used by individual tiles to generate the bitmap for their tile
     unsigned int paintBaseLayerContent(SkCanvas*);
