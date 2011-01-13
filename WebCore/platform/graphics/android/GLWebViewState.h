@@ -191,8 +191,6 @@ public:
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
-    bool hasContent();
-
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 
