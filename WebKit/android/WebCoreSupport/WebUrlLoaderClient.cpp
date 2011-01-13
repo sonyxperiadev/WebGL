@@ -167,7 +167,8 @@ bool WebUrlLoaderClient::start(bool sync, WebRequestContext* context)
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, context));
+        m_request->setRequestContext(context);
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start));
 
         // Run callbacks until the queue is exhausted and m_finished is true.
         while(!m_finished) {
@@ -186,7 +187,10 @@ bool WebUrlLoaderClient::start(bool sync, WebRequestContext* context)
         m_resourceHandle = 0;
     } else {
         // Asynchronous start.
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start, context));
+        // Important to set this before the thread starts so it has a reference and can't be deleted
+        // before the task starts running on the IO thread.
+        m_request->setRequestContext(context);
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start));
     }
     return true;
 }

@@ -152,7 +152,13 @@ void WebRequest::appendBytesToUpload(WTF::Vector<char>* data)
     delete data;
 }
 
-void WebRequest::start(WebRequestContext* context)
+void WebRequest::setRequestContext(WebRequestContext* context)
+{
+    if (m_request)
+        m_request->set_context(context);
+}
+
+void WebRequest::start()
 {
     ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
 
@@ -167,8 +173,6 @@ void WebRequest::start(WebRequestContext* context)
 
     if (m_request->url().SchemeIs("browser"))
         return handleBrowserURL(m_request->url());
-
-    m_request->set_context(context);
 
     m_request->Start();
 }

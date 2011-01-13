@@ -66,7 +66,8 @@ public:
     void appendBytesToUpload(Vector<char>* data);
     void appendFileToUpload(const std::string& filename);
 
-    void start(WebRequestContext*);
+    void setRequestContext(WebRequestContext* context);
+    void start();
     void cancel();
 
     // From URLRequest::Delegate
