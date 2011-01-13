@@ -498,7 +498,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     setDrawOpacity(opacity);
 
     if (m_haveClip) {
-        //The clipping rect calculation and intersetion will be done in Screen Coord now.
+        // The clipping rect calculation and intersetion will be done in Screen Coord now.
         FloatRect clip =
             TilesManager::instance()->shader()->clipRectInScreenCoord(drawTransform(), layerSize);
         clip.intersect(clipping);
@@ -905,6 +905,18 @@ void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
     fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
 }
 
+void writeMatrix(FILE* file, int indentLevel, const char* str, const TransformationMatrix& matrix)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = { (%.2f,%.2f,%.2f,%.2f),(%.2f,%.2f,%.2f,%.2f),"
+            "(%.2f,%.2f,%.2f,%.2f),(%.2f,%.2f,%.2f,%.2f) };\n",
+            str,
+            matrix.m11(), matrix.m12(), matrix.m13(), matrix.m14(),
+            matrix.m21(), matrix.m22(), matrix.m23(), matrix.m24(),
+            matrix.m31(), matrix.m32(), matrix.m33(), matrix.m34(),
+            matrix.m41(), matrix.m42(), matrix.m43(), matrix.m44());
+}
+
 void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
 {
     writeln(file, indentLevel, "{");
@@ -919,6 +931,9 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeSize(file, indentLevel + 1, "size", getSize());
     writePoint(file, indentLevel + 1, "position", getPosition());
     writePoint(file, indentLevel + 1, "anchor", getAnchorPoint());
+
+    writeMatrix(file, indentLevel + 1, "drawMatrix", drawTransform());
+    writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
 
     if (m_isFixed) {
         writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);

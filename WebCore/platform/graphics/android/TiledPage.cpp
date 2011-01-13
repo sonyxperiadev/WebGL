@@ -301,7 +301,7 @@ bool TiledPage::ready(const SkIRect& tileBounds)
     return true;
 }
 
-void TiledPage::draw(float transparency, SkRect& viewport, const SkIRect& tileBounds)
+void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 {
     if (!m_glWebViewState)
         return;
@@ -320,7 +320,6 @@ void TiledPage::draw(float transparency, SkRect& viewport, const SkIRect& tileBo
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
 
-            TilesManager::instance()->shader()->setViewport(viewport);
             tile.draw(transparency, rect);
         }
     }

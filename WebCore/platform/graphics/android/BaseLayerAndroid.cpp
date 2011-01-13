@@ -196,7 +196,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
         else
             transparency = m_glWebViewState->transparency(currentTime);
 
-        nextTiledPage->draw(newTilesTransparency, viewport, viewportTileBounds);
+        nextTiledPage->draw(newTilesTransparency, viewportTileBounds);
 
         // The transition between the two pages is finished, swap them
         if (currentTime > transitionTime) {
@@ -211,7 +211,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     tiledPage->setScale(m_glWebViewState->currentScale());
     const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
     tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
-    tiledPage->draw(transparency, viewport, preZoomBounds);
+    tiledPage->draw(transparency, preZoomBounds);
 
     bool ret = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
@@ -240,12 +240,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     glEnable(GL_SCISSOR_TEST);
 
     glScissor(left, top, width, height);
-    if (!m_glWebViewState || !m_glWebViewState->hasContent()) {
-        glClearColor(1, 1, 1, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        return true;
-    }
     glClearColor((float)m_color.red() / 255.0,
                  (float)m_color.green() / 255.0,
                  (float)m_color.blue() / 255.0, 1);
