@@ -66,7 +66,8 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    PlatformTouchEvent(const Vector<IntPoint>&, TouchEventType, PlatformTouchPoint::State, int metaState);
+    // Changes in next line is in ANDROID but waiting to upstream to WebKit. TODO: upstream it.
+    PlatformTouchEvent(const Vector<int>&, const Vector<IntPoint>&, TouchEventType, PlatformTouchPoint::State, int metaState);
 #elif PLATFORM(BREWMP)
     PlatformTouchEvent(AEEEvent, uint16 wParam, uint32 dwParam);
 #endif
