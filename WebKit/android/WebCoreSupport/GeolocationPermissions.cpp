@@ -26,11 +26,13 @@
 #include "config.h"
 #include "GeolocationPermissions.h"
 
+#include "CString.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "Geolocation.h"
 #include "Navigator.h"
 #include "SQLiteDatabase.h"
+#include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "WebViewCore.h"
@@ -46,7 +48,7 @@ bool GeolocationPermissions::s_permanentPermissionsLoaded = false;
 bool GeolocationPermissions::s_permanentPermissionsModified = false;
 String GeolocationPermissions::s_databasePath;
 
-static const char* databaseName = "/GeolocationPermissions.db";
+static const char* databaseName = "GeolocationPermissions.db";
 
 GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore, Frame* mainFrame)
     : m_webViewCore(webViewCore)
@@ -327,7 +329,7 @@ void GeolocationPermissions::maybeLoadPermanentPermissions()
     s_permanentPermissionsLoaded = true;
 
     SQLiteDatabase database;
-    if (!database.open(s_databasePath + databaseName))
+    if (!openDatabase(&database))
         return;
 
     // Create the table here, such that even if we've just created the DB, the
@@ -359,7 +361,7 @@ void GeolocationPermissions::maybeStorePermanentPermissions()
         return;
 
     SQLiteDatabase database;
-    if (!database.open(s_databasePath + databaseName))
+    if (!openDatabase(&database))
         return;
 
     SQLiteTransaction transaction(database);
@@ -393,6 +395,19 @@ void GeolocationPermissions::setDatabasePath(String path)
     if (s_databasePath.length() > 0)
         return;
     s_databasePath = path;
+}
+
+bool GeolocationPermissions::openDatabase(SQLiteDatabase* database)
+{
+    ASSERT(database);
+    String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(s_databasePath, databaseName);
+    if (!database->open(filename))
+        return false;
+    if (chmod(filename.utf8().data(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)) {
+        database->close();
+        return false;
+    }
+    return true;
 }
 
 void GeolocationPermissions::setAlwaysDeny(bool deny)

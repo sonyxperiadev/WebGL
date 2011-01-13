@@ -39,6 +39,7 @@
 namespace WebCore {
     class Frame;
     class Geolocation;
+    class SQLiteDatabase;
 }
 
 namespace android {
@@ -109,6 +110,7 @@ namespace android {
         static void setAlwaysDeny(bool deny);
 
         static void setDatabasePath(WebCore::String path);
+        static bool openDatabase(WebCore::SQLiteDatabase*);
 
         // Saves the permanent permissions to the DB if required.
         static void maybeStorePermanentPermissions();
