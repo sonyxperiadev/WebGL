@@ -258,6 +258,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     glUseProgram(shader->program());
     glUniform1i(shader->textureSampler(), 0);
     shader->setViewRect(viewRect);
+    shader->setViewport(visibleRect);
 
     ret = drawBasePictureInGL(visibleRect, scale);
 
