@@ -237,12 +237,6 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
             static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
 }
 
-bool GLWebViewState::hasContent()
-{
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    return m_baseLayer;
-}
-
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
