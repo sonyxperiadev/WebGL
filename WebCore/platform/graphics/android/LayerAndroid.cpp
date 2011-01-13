@@ -482,7 +482,9 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     float centerOffsetY = (0.5f - anchorPoint.y()) * layerSize.height();
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
-    TransformationMatrix localMatrix = parentMatrix;
+    TransformationMatrix localMatrix;
+    if (!m_isFixed)
+        localMatrix = parentMatrix;
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
                             anchorPointZ());
