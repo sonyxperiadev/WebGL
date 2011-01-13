@@ -207,39 +207,55 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         return;
 
     ANPEvent evt;
-    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+    SkANP::InitEvent(&evt, kMultiTouch_ANPEventType);
 
     const AtomicString& type = event->type();
     if (eventNames().touchstartEvent == type)
-        evt.data.touch.action = kDown_ANPTouchAction;
+        evt.data.multiTouch.action = kDown_ANPTouchAction;
     else if (eventNames().touchendEvent == type)
-        evt.data.touch.action = kUp_ANPTouchAction;
+        evt.data.multiTouch.action = kUp_ANPTouchAction;
     else if (eventNames().touchmoveEvent == type)
-        evt.data.touch.action = kMove_ANPTouchAction;
+        evt.data.multiTouch.action = kMove_ANPTouchAction;
     else if (eventNames().touchcancelEvent == type)
-        evt.data.touch.action = kCancel_ANPTouchAction;
+        evt.data.multiTouch.action = kCancel_ANPTouchAction;
     else if (eventNames().touchlongpressEvent == type)
-        evt.data.touch.action = kLongPress_ANPTouchAction;
+        evt.data.multiTouch.action = kLongPress_ANPTouchAction;
     else if (eventNames().touchdoubletapEvent == type)
-        evt.data.touch.action = kDoubleTap_ANPTouchAction;
+        evt.data.multiTouch.action = kDoubleTap_ANPTouchAction;
     else
         return;
 
-    evt.data.touch.modifiers = 0;   // todo
+    // set the id and timestamp
+    evt.data.multiTouch.id = 0; // TODO
+    evt.data.multiTouch.timestamp = 0; // TODO
 
     // In the event of a touchend (up) or touchcancel event, we must ask the changedTouch for the
     // co-ordinates as there is no touch in touches anymore.
-    TouchList* touches = (evt.data.touch.action == kUp_ANPTouchAction
-        || evt.data.touch.action == kCancel_ANPTouchAction) ? event->changedTouches() : event->touches();
+    TouchList* touches = (evt.data.multiTouch.action == kUp_ANPTouchAction
+        || evt.data.multiTouch.action == kCancel_ANPTouchAction) ? event->changedTouches() : event->touches();
 
-    // Convert to coordinates that are relative to the plugin.
-    // We only support single touch points at the moment, so we want to look at index 0 only.
-    IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(IntPoint(touches->item(0)->pageX(), touches->item(0)->pageY())));
-    evt.data.touch.x = localPos.x();
-    evt.data.touch.y = localPos.y();
+    // set each touchPoint
+    int pointerCount = touches->length();
+    evt.data.multiTouch.pointerCount = pointerCount;
+    evt.data.multiTouch.touchPoint = new TouchPoint[pointerCount];
+
+    for (int x = 0; x < evt.data.multiTouch.pointerCount; x++) {
+        Touch* touch = touches->item(x);
+        // Convert to coordinates that are relative to the plugin.
+        IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(IntPoint(touch->pageX(), touch->pageY())));
+
+        evt.data.multiTouch.touchPoint[x].id = touch->identifier();
+        evt.data.multiTouch.touchPoint[x].x = localPos.x();
+        evt.data.multiTouch.touchPoint[x].y = localPos.y();
+        evt.data.multiTouch.touchPoint[x].pressure = 1; // TODO
+        evt.data.multiTouch.touchPoint[x].size = 1; // TODO
+    }
 
     if (m_window->sendEvent(evt))
         event->preventDefault();
+
+    // cleanup the touch points we allocated
+    delete[] evt.data.multiTouch.touchPoint;
 }
 #endif
 
