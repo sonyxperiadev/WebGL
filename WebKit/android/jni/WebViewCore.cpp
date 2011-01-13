@@ -2801,7 +2801,7 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 }
 #endif
 
-bool WebViewCore::handleTouchEvent(int action, Vector<IntPoint>& points, int metaState)
+bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int metaState)
 {
     bool preventDefault = false;
 
@@ -2852,7 +2852,7 @@ bool WebViewCore::handleTouchEvent(int action, Vector<IntPoint>& points, int met
         points[c].setX(points[c].x() - m_scrollOffsetX);
         points[c].setY(points[c].y() - m_scrollOffsetY);
     }
-    WebCore::PlatformTouchEvent te(points, type, touchState, metaState);
+    WebCore::PlatformTouchEvent te(ids, points, type, touchState, metaState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 
@@ -3777,7 +3777,7 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action,
+static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArray idArray,
                                  jintArray xArray, jintArray yArray, jint count, jint metaState)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -3785,17 +3785,21 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action,
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    jint* ptrIdArray = env->GetIntArrayElements(idArray, 0);
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
     jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
+    Vector<int> ids(count);
     Vector<IntPoint> points(count);
     for (int c = 0; c < count; c++) {
+        ids[c] = ptrIdArray[c];
         points[c].setX(ptrXArray[c]);
         points[c].setY(ptrYArray[c]);
     }
+    env->ReleaseIntArrayElements(idArray, ptrIdArray, JNI_ABORT);
     env->ReleaseIntArrayElements(xArray, ptrXArray, JNI_ABORT);
     env->ReleaseIntArrayElements(yArray, ptrYArray, JNI_ABORT);
 
-    return viewImpl->handleTouchEvent(action, points, metaState);
+    return viewImpl->handleTouchEvent(action, ids, points, metaState);
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
@@ -4221,7 +4225,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(I[I[III)Z",
+    { "nativeHandleTouchEvent", "(I[I[I[III)Z",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
