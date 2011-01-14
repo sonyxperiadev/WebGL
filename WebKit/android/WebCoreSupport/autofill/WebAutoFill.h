@@ -112,7 +112,7 @@ private:
 
     WebViewCore* mWebViewCore;
 
-    int mLastSearchDomVersion;
+    unsigned mLastSearchDomVersion;
 
     WTF::Mutex mFormsSeenMutex; // Guards mFormsSeenCondition and mParsingForms.
     WTF::ThreadCondition mFormsSeenCondition;
