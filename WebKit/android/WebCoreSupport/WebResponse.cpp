@@ -114,29 +114,33 @@ void WebResponse::setUrl(const string& url)
 // TODO: can we return a WTF::String directly? Need to check all callsites.
 const string& WebResponse::getMimeType()
 {
-    if (!m_mime.length() && m_url.length()) {
-        // Use "text/html" as a default (matching the behaviour of the Apache
-        // HTTP stack -- see guessMimeType() in LoadListener.java).
-        m_mime = "text/html";
-
-        // Try to guess a better MIME type from the URL. We call
-        // getMIMETypeForExtension rather than getMIMETypeForPath because the
-        // latter defaults to "application/octet-stream" on failure.
-        WebCore::KURL kurl(WebCore::ParsedURLString, m_url.c_str());
-        WTF::String path = kurl.path();
-        size_t extensionPos = path.reverseFind('.');
-        if (extensionPos != WTF::notFound) {
-            // We found a file extension.
-            path.remove(0, extensionPos + 1);
-            WTF::String mime = WebCore::MIMETypeRegistry::getMIMETypeForExtension(path);
-            if (!mime.isEmpty()) {
-                // Great, we found a MIME type.
-                m_mime = std::string(mime.utf8().data(), mime.length());
-            }
-        }
-    }
+    if (!m_mime.length() && m_url.length())
+        m_mime = resolveMimeType(m_url);
 
     return m_mime;
+}
+
+const string WebResponse::resolveMimeType(string url)
+{
+    // Use "text/html" as a default (matching the behaviour of the Apache
+    // HTTP stack -- see guessMimeType() in LoadListener.java).
+    string mimeType = "text/html";
+    // Try to guess a better MIME type from the URL. We call
+    // getMIMETypeForExtension rather than getMIMETypeForPath because the
+    // latter defaults to "application/octet-stream" on failure.
+    WebCore::KURL kurl(WebCore::ParsedURLString, url.c_str());
+    WTF::String path = kurl.path();
+    size_t extensionPos = path.reverseFind('.');
+    if (extensionPos != WTF::notFound) {
+        // We found a file extension.
+        path.remove(0, extensionPos + 1);
+        WTF::String mime = WebCore::MIMETypeRegistry::getMIMETypeForExtension(path);
+        if (!mime.isEmpty()) {
+            // Great, we found a MIME type.
+            mimeType = std::string(mime.utf8().data(), mime.length());
+        }
+    }
+    return mimeType;
 }
 
 bool WebResponse::getHeader(const string& header, string* result) const
