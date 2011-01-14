@@ -2757,7 +2757,7 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
             // change its selection.  In the case that it does not, we want to
             // return false so that the key will be sent back to our navigation
             // system.
-            handled = frame->selection()->selection() != old;
+            handled |= frame->selection()->selection() != old;
         }
         return handled;
     } else {
