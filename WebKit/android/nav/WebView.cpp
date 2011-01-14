@@ -114,7 +114,6 @@ struct JavaGlue {
     jmethodID   m_sendMoveFocus;
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
-    jmethodID   m_sendMoveSelection;
     jmethodID   m_sendMotionUp;
     jmethodID   m_domChangedFocus;
     jmethodID   m_getScaledMaxXScroll;
@@ -149,7 +148,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
-    m_javaGlue.m_sendMoveSelection = GetJMethod(env, clazz, "sendMoveSelection", "(II)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIII)V");
     m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
@@ -847,8 +845,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         bool clearTextEntry = cachedNode != focus && focus
                 && cachedNode->nodePointer() != focus->nodePointer() && focus->isTextInput();
         sendMoveMouseIfLatest(clearTextEntry);
-        sendMoveSelection((WebCore::Frame*) cachedFrame->framePointer(),
-                (WebCore::Node*) cachedNode->nodePointer());
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
@@ -910,7 +906,6 @@ void selectBestAt(const WebCore::IntRect& rect)
     if (!root)
         return;
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
-
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         m_viewImpl->m_hasCursorBounds = false;
@@ -928,8 +923,6 @@ void selectBestAt(const WebCore::IntRect& rect)
     sendMoveMouseIfLatest(false);
     if (!node)
         return;
-    sendMoveSelection((WebCore::Frame*) frame->framePointer(),
-        (WebCore::Node*) node->nodePointer());
 }
 
 const CachedNode* m_cacheHitNode;
@@ -1214,15 +1207,6 @@ void sendMoveMouseIfLatest(bool clearTextEntry)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry);
-    checkException(env);
-}
-
-void sendMoveSelection(WebCore::Frame* frame, WebCore::Node* node)
-{
-    DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", frame, node);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_sendMoveSelection, (jint) frame, (jint) node);
     checkException(env);
 }
 
@@ -1960,6 +1944,16 @@ static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
     view->selectBestAt(rect);
 }
 
+static void nativeSelectAt(JNIEnv *env, jobject obj, jint x, jint y)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    WebCore::IntRect rect = IntRect(x, y , 1, 1);
+    view->selectBestAt(rect);
+    if (view->hasCursorNode())
+        view->showCursorUntimed();
+}
+
 static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
 {
     SkRect r;
@@ -2516,6 +2510,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSelectAll },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
         (void*) nativeSelectBestAt },
+    { "nativeSelectAt", "(II)V",
+        (void*) nativeSelectAt },
     { "nativeSelectionX", "()I",
         (void*) nativeSelectionX },
     { "nativeSelectionY", "()I",
