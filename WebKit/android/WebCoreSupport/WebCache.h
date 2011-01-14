@@ -26,9 +26,11 @@
 #ifndef WebCache_h
 #define WebCache_h
 
+#include "CacheResult.h"
 #include "ChromiumIncludes.h"
 
 #include <OwnPtr.h>
+#include <platform/text/PlatformString.h>
 #include <wtf/ThreadingPrimitives.h>
 
 namespace android {
@@ -41,6 +43,7 @@ public:
     static void cleanup(bool isPrivateBrowsing);
 
     void clear();
+    scoped_refptr<CacheResult> getCacheResult(WTF::String url);
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
     net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
@@ -53,6 +56,11 @@ private:
     void doomAllEntries(int);
     void onClearDone(int);
 
+    // For getEntry()
+    void getEntryImpl();
+    void openEntry(int);
+    void onGetEntryDone(int);
+
     OwnPtr<net::HostResolver> m_hostResolver;
     OwnPtr<net::HttpCache> m_cache;
     // This is owned by the ProxyService, which is owned by the HttpNetworkLayer,
@@ -62,8 +70,17 @@ private:
     // For clear()
     net::CompletionCallbackImpl<WebCache> m_doomAllEntriesCallback;
     net::CompletionCallbackImpl<WebCache> m_onClearDoneCallback;
-    disk_cache::Backend* m_cacheBackend;
     bool m_isClearInProgress;
+    // For getEntry()
+    net::CompletionCallbackImpl<WebCache> m_openEntryCallback;
+    net::CompletionCallbackImpl<WebCache> m_onGetEntryDoneCallback;
+    bool m_isGetEntryInProgress;
+    String m_entryUrl;
+    disk_cache::Entry* m_entry;
+    WTF::Mutex m_getEntryMutex;
+    WTF::ThreadCondition m_getEntryCondition;
+
+    disk_cache::Backend* m_cacheBackend;
 };
 
 } // namespace android
