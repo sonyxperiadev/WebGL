@@ -1152,6 +1152,13 @@ void WebViewCore::setScrollOffset(int moveGeneration, int userScrolled, int dx, 
             m_mainFrame->eventHandler()->sendScrollEvent();
         }
 
+        // Update history item to reflect the new scroll position.
+        // This also helps save the history information when the browser goes to
+        // background, so scroll position will be restored if browser gets
+        // killed while in background.
+        WebCore::HistoryController* history = m_mainFrame->loader()->history();
+        history->saveScrollPositionAndViewStateToItem(history->currentItem());
+
         // update the currently visible screen
         sendPluginVisibleScreen();
     }
