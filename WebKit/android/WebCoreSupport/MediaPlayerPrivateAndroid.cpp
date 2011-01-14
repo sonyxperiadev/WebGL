@@ -171,7 +171,18 @@ void MediaPlayerPrivate::onTimeupdate(int position) {
 
 class MediaPlayerVideoPrivate : public MediaPlayerPrivate {
 public:
-    void load(const String& url) { m_url = url; }
+    void load(const String& url) {
+        m_url = url;
+        // Cheat a bit here to make sure Window.onLoad event can be triggered
+        // at the right time instead of real video play time, since only full
+        // screen video play is supported in Java's VideoView.
+        // See also comments in prepareToPlay function.
+        m_networkState = MediaPlayer::Loading;
+        m_player->networkStateChanged();
+        m_readyState = MediaPlayer::HaveCurrentData;
+        m_player->readyStateChanged();
+    }
+
     void play() {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_url.length() || !m_glue->m_javaProxy)
