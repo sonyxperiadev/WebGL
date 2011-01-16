@@ -1,3 +1,69 @@
+2011-01-12  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        M_formElementsWithFormAttribute not cleared when FormAssociatedElement is inserted with a null m_form and then removed.
+        https://bugs.webkit.org/show_bug.cgi?id=51905
+
+        Calls unregisterFormElementWithFormAttribute() when 'form' attribute
+        is removed.
+
+        Tests: fast/forms/form-associated-element-crash.html
+               fast/forms/form-associated-element-crash2.html
+
+        * html/FormAssociatedElement.cpp:
+        (WebCore::FormAssociatedElement::formAttributeChanged):
+
+2011-01-12  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        M_formElementsWithFormAttribute not cleared when Node is moved to another document.
+        https://bugs.webkit.org/show_bug.cgi?id=51418
+
+        Calls unregisterFormElementWithFormAttribute() when form associated elements
+        are moved to another document.
+
+        Test: fast/forms/change-form-element-document-crash.html
+
+        * html/FormAssociatedElement.cpp:
+        (WebCore::FormAssociatedElement::willMoveToNewOwnerDocument): Added.
+        * html/FormAssociatedElement.h: Added willMoveToNewOwnerDocument().
+        * html/HTMLFormControlElement.cpp:
+        (WebCore::HTMLFormControlElement::willMoveToNewOwnerDocument): Added.
+        * html/HTMLFormControlElement.h: Added willMoveToNewOwnerDocument().
+        * html/HTMLObjectElement.cpp:
+        (WebCore::HTMLObjectElement::willMoveToNewOwnerDocument): Added.
+        * html/HTMLObjectElement.h: Added willMoveToNewOwnerDocument().
+        * html/HTMLPlugInImageElement.h: Moves willMoveToNewOwnerDocument() to protected.
+
+2011-01-11  Merge 75548 - BUGCR69275 - Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        RefPtr the FrameView to prevent scrollbar from getting deleted inside
+        its scroll event.
+        https://bugs.webkit.org/show_bug.cgi?id=52238
+
+        Test: scrollbars/scrollable-iframe-remove-crash.html
+
+        * page/DOMWindow.cpp:
+        (WebCore::DOMWindow::scrollTo):
+
+2011-01-11  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        RefPtr text node in setOuterText since calling appendData
+        on a text node can fire away dom event listener which might
+        remove the text node from underneath.
+        https://bugs.webkit.org/show_bug.cgi?id=52163
+
+        Test: fast/dom/text-node-append-data-remove-crash.html
+
+        * html/HTMLElement.cpp:
+        (WebCore::HTMLElement::setOuterText):
+
 2010-12-07  Jeremy Orlow  <jorlow@chromium.org>
 
         Reviewed by Steve Block.
