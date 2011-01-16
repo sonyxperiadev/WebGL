@@ -8,7 +8,7 @@ keywords=webkit
 onDevice=true
 homepage=http\://webkit.org/
 # We use a WebKit revision that has been used for a Chromium release.
-# Currently we track Chromium branch 9.0.597 release branch:
+# Currently we track the Chromium 9.0.597 release branch:
 # http://trac.webkit.org/browser/branches/chromium/597
 # which is WebKit r72805 + stability cherry picks.
-webkit.chromiumRelease=http\://src.chromium.org/svn/releases/9.0.597.55/DEPS
+webkit.chromiumRelease=http\://src.chromium.org/svn/releases/9.0.597.69/DEPS
