@@ -152,6 +152,13 @@ void HTMLFormControlElement::attach()
          focus();
 }
 
+void HTMLFormControlElement::willMoveToNewOwnerDocument()
+{
+    if (fastHasAttribute(formAttr))
+        document()->unregisterFormElementWithFormAttribute(this);
+    HTMLElement::willMoveToNewOwnerDocument();
+}
+
 void HTMLFormControlElement::insertedIntoTree(bool deep)
 {
     if (fastHasAttribute(formAttr)) {
@@ -482,6 +489,7 @@ void HTMLFormControlElement::attributeChanged(Attribute* attr, bool preserveDecl
                 m_form->registerFormElement(this);
             else
                 document()->checkedRadioButtons().addButton(this);
+            document()->unregisterFormElementWithFormAttribute(this);
         } else
             resetFormOwner(0);
     }
