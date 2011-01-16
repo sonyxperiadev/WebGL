@@ -393,10 +393,15 @@ RenderBlock* RenderBlock::containingColumnsBlock(bool allowAnonymousColumnBlock)
 
 RenderBlock* RenderBlock::clone() const
 {
-    RenderBlock* o = new (renderArena()) RenderBlock(node());
-    o->setStyle(style());
-    o->setChildrenInline(childrenInline());
-    return o;
+    RenderBlock* cloneBlock;
+    if (isAnonymousBlock())
+        cloneBlock = createAnonymousBlock();
+    else {
+        cloneBlock = new (renderArena()) RenderBlock(node());
+        cloneBlock->setStyle(style());
+    }
+    cloneBlock->setChildrenInline(childrenInline());
+    return cloneBlock;
 }
 
 void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
@@ -404,13 +409,9 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
                               RenderObject* beforeChild, RenderBoxModelObject* oldCont)
 {
     // Create a clone of this inline.
-    RenderBlock* cloneBlock;
-    if (isAnonymousBlock())
-        cloneBlock = createAnonymousBlock();
-    else {
-        cloneBlock = clone();
+    RenderBlock* cloneBlock = clone();
+    if (!isAnonymousBlock())
         cloneBlock->setContinuation(oldCont);
-    }
 
     // Now take all of the children from beforeChild to the end and remove
     // them from |this| and place them in the clone.
@@ -435,7 +436,7 @@ void RenderBlock::splitBlocks(RenderBlock* fromBlock, RenderBlock* toBlock,
         
         // Create a new clone.
         RenderBlock* cloneChild = cloneBlock;
-        cloneBlock = blockCurr->isAnonymousBlock() ? blockCurr->createAnonymousBlock() : blockCurr->clone();
+        cloneBlock = blockCurr->clone();
 
         // Insert our child clone as the first child.
         cloneBlock->children()->appendChildNode(cloneBlock, cloneChild);
@@ -946,7 +947,7 @@ static bool canMergeContiguousAnonymousBlocks(RenderObject* oldChild, RenderObje
 
     // Make sure the types of the anonymous blocks match up.
     return prev->isAnonymousColumnsBlock() == next->isAnonymousColumnsBlock()
-           && prev->isAnonymousColumnSpanBlock() == prev->isAnonymousColumnSpanBlock();
+           && prev->isAnonymousColumnSpanBlock() == next->isAnonymousColumnSpanBlock();
 }
 
 void RenderBlock::removeChild(RenderObject* oldChild)
@@ -980,14 +981,36 @@ void RenderBlock::removeChild(RenderObject* oldChild)
             blockChildrenBlock->children()->insertChildNode(blockChildrenBlock, inlineChildrenBlock, prev == inlineChildrenBlock ? blockChildrenBlock->firstChild() : 0,
                                                             inlineChildrenBlock->hasLayer() || blockChildrenBlock->hasLayer());
             next->setNeedsLayoutAndPrefWidthsRecalc();
+            
+            // inlineChildrenBlock got reparented to blockChildrenBlock, so it is no longer a child
+            // of "this". we null out prev or next so that is not used later in the function.
+            if (inlineChildrenBlock == prevBlock)
+                prev = 0;
+            else
+                next = 0;
         } else {
             // Take all the children out of the |next| block and put them in
             // the |prev| block.
             nextBlock->moveAllChildrenTo(prevBlock, nextBlock->hasLayer() || prevBlock->hasLayer());
-       
+
+            // FIXME: When we destroy nextBlock, it might happen that nextBlock's next sibling block and
+            // oldChild can get merged. Since oldChild is getting removed, we do not want to move
+            // nextBlock's next sibling block's children into it. By setting a fake continuation,
+            // we prevent this from happening.
+            RenderBlock* oldChildBlock = 0;
+            if (oldChild->isAnonymous() && oldChild->isRenderBlock() && !toRenderBlock(oldChild)->continuation()) {
+                oldChildBlock = toRenderBlock(oldChild);
+                oldChildBlock->setContinuation(oldChildBlock);                
+            }          
+            
             // Delete the now-empty block's lines and nuke it.
             nextBlock->deleteLineBoxTree();
             nextBlock->destroy();
+            next = 0;
+
+            // FIXME: Revert the continuation change done above.
+            if (oldChildBlock)
+                oldChildBlock->setContinuation(0);
         }
     }
 
