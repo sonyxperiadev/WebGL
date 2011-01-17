@@ -71,13 +71,15 @@ public:
 
     void printLayersTextures(const char* s);
     void cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup = false);
-    LayerTexture* getExistingTextureForLayer(LayerAndroid* layer);
-    LayerTexture* createTextureForLayer(LayerAndroid* layer);
+    LayerTexture* getExistingTextureForLayer(LayerAndroid* layer, const IntRect& rect,
+                                             bool any = false);
+    LayerTexture* createTextureForLayer(LayerAndroid* layer, const IntRect& rect);
 
     void markGeneratorAsReady()
     {
         android::Mutex::Autolock lock(m_generatorLock);
         m_generatorReadyCond.signal();
+        m_generatorReady = true;
     }
 
     void printTextures();
@@ -97,7 +99,8 @@ private:
     void waitForGenerator()
     {
         android::Mutex::Autolock lock(m_generatorLock);
-        m_generatorReadyCond.wait(m_generatorLock);
+        if (!m_generatorReady)
+            m_generatorReadyCond.wait(m_generatorLock);
     }
 
     Vector<BackedDoubleBufferedTexture*> m_textures;
