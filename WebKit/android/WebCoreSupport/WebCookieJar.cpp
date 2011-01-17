@@ -149,7 +149,9 @@ void WebCookieJar::setAllowCookies(bool allow)
 
 int WebCookieJar::getNumCookiesInDatabase()
 {
-    return m_cookieDb ? m_cookieDb->GetCookieCount() : 0;
+    if (!m_cookieStore)
+        return 0;
+    return m_cookieStore->GetCookieMonster()->GetAllCookies().size();
 }
 
 // From CookiePolicy in chromium
