@@ -83,13 +83,13 @@ static bool hasCookies(JNIEnv*, jobject)
 static void removeAllCookie(JNIEnv*, jobject)
 {
 #if USE(CHROME_NETWORK_STACK)
-    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->DeleteAll(true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies
     // for such contexts are cleared up when we're done with them.
     // TODO: Consider adding an optimisation to not create the context if it
     // doesn't already exist.
-    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+    WebCookieJar::get(true)->cookieStore()->GetCookieMonster()->DeleteAll(true);
 
     // The Java code removes cookies directly from the backing database, so we do the same,
     // but with a NULL callback so it's asynchronous.
