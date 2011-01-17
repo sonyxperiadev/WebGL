@@ -90,7 +90,7 @@ public:
     BackedDoubleBufferedTexture* texture() { return m_texture; }
 
     // TextureOwner implementation
-    virtual void removeTexture();
+    virtual void removeTexture(BackedDoubleBufferedTexture* texture);
     virtual TiledPage* page() { return m_page; }
 
 private:
