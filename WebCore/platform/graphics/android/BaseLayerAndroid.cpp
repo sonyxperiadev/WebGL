@@ -272,11 +272,23 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 #ifdef DEBUG
         TilesManager::instance()->printLayersTextures("reserve");
 #endif
+        // Get the current scale; if we are zooming, we don't change the scale
+        // factor immediately (see BaseLayerAndroid::drawBasePictureInGL()), but
+        // we change the scaleRequestState. When the state is kReceivedNewScale
+        // we can use the future scale instead of the current scale to request
+        // new textures. After a transition time, the scaleRequestState will be
+        // reset and the current scale will be set to the future scale.
+        float scale = m_glWebViewState->currentScale();
+        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
+            scale = m_glWebViewState->futureScale();
+        }
+        compositedRoot->setScale(scale);
         compositedRoot->reserveGLTextures();
-        // Now that we marked the textures being used, we delete the unnecessary
-        // ones to make space...
-        TilesManager::instance()->cleanupLayersTextures();
-        // Finally do another pass to create new textures if needed
+        // Now that we marked the textures being used, we delete
+        // the unnecessary ones to make space...
+        TilesManager::instance()->cleanupLayersTextures(compositedRoot);
+        // Finally do another pass to create new textures and schedule
+        // repaints if needed
         compositedRoot->createGLTextures();
 
         if (compositedRoot->drawGL(matrix))
