@@ -114,7 +114,10 @@ void WebResponse::setUrl(const string& url)
 // TODO: can we return a WTF::String directly? Need to check all callsites.
 const string& WebResponse::getMimeType()
 {
-    if (!m_mime.length() && m_url.length())
+    if (!m_url.length())
+        return m_mime;
+
+    if (!m_mime.length() || !m_mime.compare("text/plain") || !m_mime.compare("application/octet-stream"))
         m_mime = resolveMimeType(m_url);
 
     return m_mime;
@@ -134,6 +137,7 @@ const string WebResponse::resolveMimeType(string url)
     if (extensionPos != WTF::notFound) {
         // We found a file extension.
         path.remove(0, extensionPos + 1);
+        // TODO: Should use content-disposition instead of url if it is there
         WTF::String mime = WebCore::MIMETypeRegistry::getMIMETypeForExtension(path);
         if (!mime.isEmpty()) {
             // Great, we found a MIME type.
