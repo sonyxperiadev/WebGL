@@ -75,8 +75,10 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId),
-    m_texture(0),
-    m_pictureUsed(0)
+    m_drawingTexture(0),
+    m_reservedTexture(0),
+    m_pictureUsed(0),
+    m_scale(1)
 {
     m_backgroundColor = 0;
 
@@ -91,7 +93,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_haveClip(layer.m_haveClip),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
-    m_texture(0)
+    m_drawingTexture(0),
+    m_reservedTexture(0)
 {
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
@@ -119,6 +122,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_childrenTransform = layer.m_childrenTransform;
     m_dirty = layer.m_dirty;
     m_pictureUsed = layer.m_pictureUsed;
+    m_scale = layer.m_scale;
 
     for (int i = 0; i < layer.countChildren(); i++)
         addChild(layer.getChild(i)->copy())->unref();
@@ -138,7 +142,9 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(-1),
-    m_texture(0)
+    m_drawingTexture(0),
+    m_reservedTexture(0),
+    m_scale(1)
 {
     m_backgroundColor = 0;
     m_dirty = false;
@@ -146,10 +152,22 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     gDebugLayerAndroidInstances++;
 }
 
+void LayerAndroid::removeTexture()
+{
+    XLOG("remove texture (m_drawingTexture: %x, m_reservedTexture: %x)",
+         m_drawingTexture, m_reservedTexture);
+    android::AutoMutex lock(m_atomicSync);
+    if (m_drawingTexture)
+        m_drawingTexture->release(this);
+    if (m_reservedTexture && m_reservedTexture != m_drawingTexture)
+        m_reservedTexture->release(this);
+    m_drawingTexture = 0;
+    m_reservedTexture = 0;
+}
+
 LayerAndroid::~LayerAndroid()
 {
-    if (m_texture)
-        m_texture->release(this);
+    removeTexture();
     removeChildren();
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
@@ -549,12 +567,15 @@ void LayerAndroid::reserveGLTextures()
     for (int i = 0; i < count; i++)
         this->getChild(i)->reserveGLTextures();
 
-    if (needsTexture()) {
-        LayerTexture* texture;
-        texture = TilesManager::instance()->getExistingTextureForLayer(this);
-        // SMP flush
-        android::AutoMutex lock(m_atomicSync);
-        m_texture = texture;
+    LayerTexture* reservedTexture = 0;
+    if (needsTexture())
+        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(this);
+
+    // SMP flush
+    android::AutoMutex lock(m_atomicSync);
+    if (m_reservedTexture && m_reservedTexture != reservedTexture) {
+        m_reservedTexture->release(this);
+        m_reservedTexture = reservedTexture;
     }
 }
 
@@ -564,46 +585,56 @@ void LayerAndroid::createGLTextures()
     for (int i = 0; i < count; i++)
         this->getChild(i)->createGLTextures();
 
-    if (needsTexture() && !m_texture) {
-        LayerTexture* texture;
-        texture = TilesManager::instance()->createTextureForLayer(this);
-        // SMP flush + keep dirty bit in sync
-        android::AutoMutex lock(m_atomicSync);
-        m_texture = texture;
-        m_dirty = true;
-    }
-
-    checkForObsolescence();
-}
-
-void LayerAndroid::checkForObsolescence()
-{
-    m_atomicSync.lock();
-    if (!m_texture) {
-        m_atomicSync.unlock();
+    if (!needsTexture())
         return;
+
+    LayerTexture* reservedTexture = m_reservedTexture;
+    if (!reservedTexture)
+        reservedTexture = TilesManager::instance()->createTextureForLayer(this);
+
+    if (!reservedTexture)
+        return;
+
+    if (reservedTexture &&
+        (reservedTexture != m_drawingTexture) &&
+         reservedTexture->isReady()) {
+        if (m_drawingTexture) {
+            TilesManager::instance()->removeOperationsForTexture(m_drawingTexture);
+            m_drawingTexture->release(this);
+        }
+        m_drawingTexture = reservedTexture;
     }
 
-    if (!m_pictureUsed || m_texture->pictureUsed() != m_pictureUsed) {
-        XLOG("We mark layer %d as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
-             uniqueId(), m_pictureUsed, m_texture->pictureUsed());
-        m_texture->setPictureUsed(m_pictureUsed);
-        m_dirty = true;
-    }
+    if (!needsScheduleRepaint(reservedTexture))
+        return;
 
-    if (!m_texture->isReady())
-        m_dirty = true;
-
-    bool dirty = m_dirty;
+    // SMP flush
+    m_atomicSync.lock();
+    m_reservedTexture = reservedTexture;
     m_atomicSync.unlock();
 
-    if (!dirty)
-        return;
-
-    XLOG("We schedule a paint for layer %d, because isReady %d or m_dirty %d",
-         uniqueId(), m_texture->isReady(), m_dirty);
+    XLOG("We schedule a paint for layer %d, because isReady %d or m_dirty %d, using texture %x",
+         uniqueId(), m_reservedTexture->isReady(), m_dirty, m_reservedTexture);
     PaintLayerOperation* operation = new PaintLayerOperation(this);
     TilesManager::instance()->scheduleOperation(operation);
+}
+
+bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
+{
+    if (!texture)
+        return false;
+
+    if (!m_pictureUsed || texture->pictureUsed() != m_pictureUsed) {
+        XLOG("We mark layer %d as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
+             uniqueId(), m_pictureUsed, texture->pictureUsed());
+        texture->setPictureUsed(m_pictureUsed);
+        m_dirty = true;
+    }
+
+    if (!texture->isReady())
+        m_dirty = true;
+
+    return m_dirty;
 }
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
@@ -621,14 +652,14 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
 
     TilesManager::instance()->shader()->clip(m_clippingRect);
 
-    if (prepareContext() && m_texture) {
-        TextureInfo* textureInfo = m_texture->consumerLock();
-        if (textureInfo && m_texture->isReady()) {
+    if (prepareContext() && m_drawingTexture) {
+        TextureInfo* textureInfo = m_drawingTexture->consumerLock();
+        if (textureInfo && m_drawingTexture->isReady()) {
             TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity);
         }
-        m_texture->consumerRelease();
+        m_drawingTexture->consumerRelease();
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
@@ -660,24 +691,44 @@ bool LayerAndroid::drawChildrenGL(SkMatrix& matrix)
     return askPaint;
 }
 
+void LayerAndroid::setScale(float scale)
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->setScale(scale);
+
+    android::AutoMutex lock(m_atomicSync);
+    m_scale = scale;
+}
+
 // This is called from the texture generation thread
 void LayerAndroid::paintBitmapGL()
 {
-    XLOG("LayerAndroid paintBitmapGL (layer %d)", uniqueId());
     // We acquire the values below atomically. This ensures that we are reading
     // values correctly across cores. Further, once we have these values they
     // can be updated by other threads without consequence.
     m_atomicSync.lock();
-    LayerTexture* texture = m_texture;
-    m_atomicSync.unlock();
+    LayerTexture* texture = m_reservedTexture;
+    float scale = m_scale;
 
     if (!texture) {
+        m_atomicSync.unlock();
         XLOG("Layer %d doesn't have a texture!", uniqueId());
         return;
     }
 
+    XLOG("LayerAndroid paintBitmapGL (layer %d), texture used %x", uniqueId(), texture);
+
+    // We need to mark the texture as busy before relinquishing the lock
+    // -- so that TilesManager::cleanupLayersTextures() can check if the texture
+    // is used before trying to destroy it
+    // If LayerAndroid::removeTexture() is called before us, we'd have bailed
+    // out early as texture would have been null; if it is called after us, we'd
+    // have marked the texture has being busy, and the texture will not be
+    // destroy immediately.
     texture->producerAcquireContext();
     TextureInfo* textureInfo = texture->producerLock();
+    m_atomicSync.unlock();
 
     // at this point we can safely check the ownership (if the texture got
     // transferred to another BaseTile under us)
@@ -689,8 +740,11 @@ void LayerAndroid::paintBitmapGL()
     XLOG("LayerAndroid %d paintBitmapGL WE ARE PAINTING", uniqueId());
     SkCanvas* canvas = texture->canvas();
 
+    canvas->save();
     canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+    canvas->scale(scale, scale);
     contentDraw(canvas);
+    canvas->restore();
 
     XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
     m_atomicSync.lock();

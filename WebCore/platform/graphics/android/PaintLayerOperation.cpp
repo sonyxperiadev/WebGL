@@ -50,11 +50,28 @@ SkLayer* PaintLayerOperation::baseLayer()
     return m_layer->getRootLayer();
 }
 
-bool PaintLayerFilter::check(QueuedOperation* operation)
+LayerTexture* PaintLayerOperation::texture()
+{
+    if (!m_layer)
+        return 0;
+    return m_layer->texture();
+}
+
+bool PaintLayerBaseFilter::check(QueuedOperation* operation)
 {
     if (operation->type() == QueuedOperation::PaintLayer) {
         PaintLayerOperation* op = static_cast<PaintLayerOperation*>(operation);
         if (op->baseLayer() == m_baseLayer)
+            return true;
+    }
+    return false;
+}
+
+bool PaintLayerTextureFilter::check(QueuedOperation* operation)
+{
+    if (operation->type() == QueuedOperation::PaintLayer) {
+        PaintLayerOperation* op = static_cast<PaintLayerOperation*>(operation);
+        if (op->texture() == m_texture)
             return true;
     }
     return false;

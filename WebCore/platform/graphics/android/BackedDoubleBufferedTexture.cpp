@@ -98,6 +98,12 @@ void BackedDoubleBufferedTexture::producerReleaseAndSwap()
     m_busy = false;
 }
 
+bool BackedDoubleBufferedTexture::busy()
+{
+    android::Mutex::Autolock lock(m_busyLock);
+    return m_busy;
+}
+
 void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
     // no need to upload a texture since the bitmap is empty
