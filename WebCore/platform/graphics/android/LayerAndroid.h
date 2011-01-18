@@ -94,7 +94,7 @@ public:
     virtual ~LayerAndroid();
 
     // TextureOwner methods
-    virtual void removeTexture();
+    virtual void removeTexture(BackedDoubleBufferedTexture* texture);
 
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
@@ -293,6 +293,9 @@ private:
     // if the texture asked does not fit in memory)
     LayerTexture* m_drawingTexture;
     LayerTexture* m_reservedTexture;
+
+    // rect used to query TilesManager for the right texture
+    IntRect m_layerTextureRect;
 
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;

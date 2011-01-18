@@ -115,12 +115,13 @@ void BaseTile::reserveTexture()
     m_texture = texture;
 }
 
-void BaseTile::removeTexture()
+void BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
 {
     XLOG("%x removeTexture res: %x...", this, m_texture);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
-    m_texture = 0;
+    if (m_texture == texture)
+        m_texture = 0;
 }
 
 void BaseTile::setScale(float scale)

@@ -116,6 +116,10 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
     // when we return our caller can be sure that there is no more operations
     // in the queue matching the given filter.
     mRequestedOperationsLock.lock();
+    if (!m_waitForCompletion) {
+        mRequestedOperationsLock.unlock();
+        return; // operation treated
+    }
     mRequestedOperationsCond.wait(mRequestedOperationsLock);
     m_waitForCompletion = false;
     mRequestedOperationsLock.unlock();
