@@ -84,6 +84,10 @@ TilesManager::TilesManager()
 
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
+
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
+    m_totalMaxTextureSize = m_maxTextureSize * m_maxTextureSize * BYTES_PER_PIXEL;
+    XLOG("Max texture size %d", m_maxTextureSize);
 }
 
 // Has to be run on the texture generation threads
@@ -228,11 +232,17 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 
 LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer)
 {
+    SkSize layerSize;
+    layerSize.fWidth = static_cast<int>(
+        layer->getSize().fWidth * layer->getScale());
+    layerSize.fHeight = static_cast<int>(
+        layer->getSize().fHeight * layer->getScale());
+
     android::Mutex::Autolock lock(m_texturesLock);
     for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
         if (m_layersTextures[i]->id() != layer->uniqueId())
             continue;
-        if (layer->getSize() != m_layersTextures[i]->getSize())
+        if (layerSize != m_layersTextures[i]->getSize())
             continue;
 
         XLOG("return layer %d (%x) for tile %d (%x)",
@@ -248,46 +258,101 @@ LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer)
 void TilesManager::printLayersTextures(const char* s)
 {
 #ifdef DEBUG
+    XLOG(">>> print layers textures (%s)", s);
     for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
-        XLOG("[%d] %s, texture %x for layer %d, owner: %x", i, s, m_layersTextures[i],
-             m_layersTextures[i]->id(), m_layersTextures[i]->owner());
+        XLOG("[%d] %s, texture %x for layer %d (scale %.2f, w: %.2f, h: %.2f), owner: %x",
+             i, s, m_layersTextures[i],
+             m_layersTextures[i]->id(),
+             m_layersTextures[i]->getSize().fWidth,
+             m_layersTextures[i]->getSize().fHeight,
+             m_layersTextures[i]->getScale(),
+             m_layersTextures[i]->owner());
     }
+    XLOG("<<< print layers textures (%s)", s);
 #endif
 }
 
-void TilesManager::cleanupLayersTextures(bool forceCleanup)
+void TilesManager::cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup)
 {
     android::Mutex::Autolock lock(m_texturesLock);
+    SkLayer* rootLayer = layer->getRootLayer();
 #ifdef DEBUG
-    printLayersTextures("cleanup");
+    if (forceCleanup)
+        XLOG("FORCE cleanup");
+    XLOG("before cleanup, memory %d", m_layersMemoryUsage);
+    printLayersTextures("before cleanup");
 #endif
-    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
+    for (unsigned int i = 0; i< m_layersTextures.size();) {
         LayerTexture* texture = m_layersTextures[i];
 
-        if (forceCleanup)
-            texture->setOwner(0);
+        if (forceCleanup && texture->owner()) {
+            LayerAndroid* textureLayer =
+                static_cast<LayerAndroid*>(texture->owner());
+            if (textureLayer->getRootLayer() != rootLayer) {
+                // We only want to force destroy layers
+                // that are not used by the current page
+                XLOG("force removing texture %x for layer %d",
+                     texture, textureLayer->uniqueId());
+                textureLayer->removeTexture();
+            }
+        }
 
-        if (!texture->owner()) {
+        // We only try to destroy textures that have no owners.
+        // This could be due to:
+        // 1) - the LayerAndroid dtor has been called (i.e. when swapping
+        // a LayerAndroid tree with a new one)
+        // 2) - or due to the above code, forcing a destroy.
+        // If the texture has been forced to be released (case #2), it
+        // could still be in use (in the middle of being painted). So we
+        // need to check that's not the case by checking busy(). See
+        // LayerAndroid::paintBitmapGL().
+        if (!texture->owner() && !texture->busy()) {
             m_layersMemoryUsage -= (int) texture->getSize().fWidth
                 * (int) texture->getSize().fHeight * BYTES_PER_PIXEL;
             m_layersTextures.remove(i);
+            // We can destroy the texture. We first remove it from the textures
+            // list, and then remove any queued drawing. At this point we know
+            // the texture has been removed from the layer, and that it's not
+            // busy, so it's safe to delete.
+            m_pixmapsGenerationThread->removeOperationsForTexture(texture);
+            XLOG("delete texture %x", texture);
             delete texture;
+        } else {
+            // only iterate if we don't delete (if we delete, no need to as we
+            // remove the element from the array)
+            i++;
         }
     }
+    printLayersTextures("after cleanup");
+    XLOG("after cleanup, memory %d", m_layersMemoryUsage);
 }
 
 LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer)
 {
-    int w = layer->getWidth();
-    int h = layer->getHeight();
-    int size = w * h * BYTES_PER_PIXEL;
+    int w = static_cast<int>(layer->getWidth() * layer->getScale());
+    int h = static_cast<int>(layer->getHeight() * layer->getScale());
+    unsigned int size = w * h * BYTES_PER_PIXEL;
+
+    // We will not allocate textures that:
+    // 1) cannot be handled by the graphic card (m_maxTextureSize &
+    // m_totalMaxTextureSize)
+    // 2) will make us go past our texture limit (MAX_LAYERS_ALLOCATION)
+
+    bool large = w > m_maxTextureSize || h > m_maxTextureSize || size > m_totalMaxTextureSize;
+    XLOG("createTextureForLayer(%d) @scale %.2f => %d, %d (too large? %x)", layer->uniqueId(),
+         layer->getScale(), w, h, large);
+
+    // For now just return 0 if too large
+    if (large)
+        return 0;
 
     if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
-        cleanupLayersTextures(true);
+        cleanupLayersTextures(layer, true);
 
-    android::Mutex::Autolock lock(m_texturesLock);
     LayerTexture* texture = new LayerTexture(w, h);
     texture->setId(layer->uniqueId());
+
+    android::Mutex::Autolock lock(m_texturesLock);
     m_layersTextures.append(texture);
     texture->acquire(layer);
     m_layersMemoryUsage += size;

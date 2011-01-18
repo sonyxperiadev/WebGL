@@ -55,6 +55,11 @@ public:
         m_pixmapsGenerationThread->removeOperationsForBaseLayer(layer);
     }
 
+    void removeOperationsForTexture(LayerTexture* texture)
+    {
+        m_pixmapsGenerationThread->removeOperationsForTexture(texture);
+    }
+
     void scheduleOperation(QueuedOperation* operation)
     {
         m_pixmapsGenerationThread->scheduleOperation(operation);
@@ -65,7 +70,7 @@ public:
     BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);
 
     void printLayersTextures(const char* s);
-    void cleanupLayersTextures(bool forceCleanup = false);
+    void cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup = false);
     LayerTexture* getExistingTextureForLayer(LayerAndroid* layer);
     LayerTexture* createTextureForLayer(LayerAndroid* layer);
 
@@ -99,6 +104,8 @@ private:
     Vector<LayerTexture*> m_layersTextures;
 
     unsigned int m_layersMemoryUsage;
+    GLint m_maxTextureSize;
+    unsigned int m_totalMaxTextureSize;
 
     bool m_generatorReady;
 

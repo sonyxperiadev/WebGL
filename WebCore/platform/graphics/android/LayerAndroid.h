@@ -94,11 +94,9 @@ public:
     virtual ~LayerAndroid();
 
     // TextureOwner methods
-    virtual void removeTexture()
-    {
-        android::AutoMutex lock(m_atomicSync);
-        m_texture = 0;
-    }
+    virtual void removeTexture();
+
+    LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
 
     static int instancesCount();
@@ -111,8 +109,10 @@ public:
     void createGLTextures();
 
     virtual bool needsTexture();
-    void checkForObsolescence();
+    bool needsScheduleRepaint(LayerTexture* texture);
 
+    void setScale(float scale);
+    float getScale() { return m_scale; }
     virtual bool drawGL(SkMatrix&);
     bool drawChildrenGL(SkMatrix&);
     virtual void paintBitmapGL();
@@ -285,11 +285,20 @@ private:
     DrawExtra* m_extra;
     int m_uniqueId;
 
-    // GL textures management
-    LayerTexture* m_texture;
+    // We have two textures pointers -- one if the texture we are currently
+    // using to draw (m_drawingTexture), the other one is the one we get
+    // from trying to reserve a texture from the TilesManager. Usually, they
+    // are identical, but in some cases they are not (different scaling
+    // resulting in the need for different geometry, at initilisation, and
+    // if the texture asked does not fit in memory)
+    LayerTexture* m_drawingTexture;
+    LayerTexture* m_reservedTexture;
+
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
     unsigned int m_pictureUsed;
+
+    float m_scale;
 
     // This mutex serves two purposes. (1) It ensures that certain operations
     // happen atomically and (2) it makes sure those operations are synchronized
