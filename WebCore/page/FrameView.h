@@ -103,9 +103,9 @@ public:
     // Called when changes to the GraphicsLayer hierarchy have to be synchronized with
     // content rendered via the normal painting path.
     void setNeedsOneShotDrawingSynchronization();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    bool hasOverflowScroll() const;
 #endif
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool hasOverflowScroll() const { return m_hasOverflowScroll; }
 #endif
 
     bool hasCompositedContent() const;
@@ -390,6 +390,9 @@ private:
     static double s_initialDeferredRepaintDelayDuringLoading;
     static double s_maxDeferredRepaintDelayDuringLoading;
     static double s_deferredRepaintDelayIncrementDuringLoading;
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool m_hasOverflowScroll;
+#endif
 };
 
 } // namespace WebCore
