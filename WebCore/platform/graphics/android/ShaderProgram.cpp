@@ -231,6 +231,14 @@ void ShaderProgram::clip(const FloatRect& clip)
     m_clipRect = clip;
 }
 
+IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect)
+{
+    IntRect viewport(m_viewport.fLeft, m_viewport.fTop,
+                     m_viewport.width(), m_viewport.height());
+    viewport.intersect(rect);
+    return viewport;
+}
+
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   SkRect& geometry, int textureId, float opacity)
 {

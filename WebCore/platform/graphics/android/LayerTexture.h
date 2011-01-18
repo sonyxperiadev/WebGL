@@ -27,6 +27,7 @@
 #define LayerTexture_h
 
 #include "BackedDoubleBufferedTexture.h"
+#include "IntRect.h"
 
 namespace WebCore {
 
@@ -36,9 +37,11 @@ class LayerTexture : public BackedDoubleBufferedTexture {
                  SkBitmap::Config config = SkBitmap::kARGB_8888_Config)
         : BackedDoubleBufferedTexture(w, h, config)
         , m_id(0)
+        , m_scale(1)
         , m_pictureUsed(0)
         , m_textureUpdates(0)
     {}
+    virtual ~LayerTexture() {};
 
     int id() { return m_id; }
     void setId(int id) { m_id = id; }
@@ -47,11 +50,17 @@ class LayerTexture : public BackedDoubleBufferedTexture {
     void setPictureUsed(unsigned pictureUsed) { m_pictureUsed = pictureUsed; }
     bool isReady();
     virtual void producerUpdate(TextureInfo* textureInfo);
+    void setRect(const IntRect& r) { m_rect = r; }
+    IntRect& rect() { return m_rect; }
+    float scale() { return m_scale; }
+    void setScale(float scale) { m_scale = scale; }
 
  private:
     void update();
 
     int m_id;
+    IntRect m_rect;
+    float m_scale;
     unsigned int m_pictureUsed;
     unsigned int m_textureUpdates;
 };

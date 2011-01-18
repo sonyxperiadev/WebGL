@@ -29,11 +29,12 @@
 namespace WebCore {
 
 class TiledPage;
+class BackedDoubleBufferedTexture;
 
 class TextureOwner {
 public:
     virtual ~TextureOwner() {}
-    virtual void removeTexture() = 0;
+    virtual void removeTexture(BackedDoubleBufferedTexture* texture) = 0;
     virtual TiledPage* page() = 0;
 };
 
