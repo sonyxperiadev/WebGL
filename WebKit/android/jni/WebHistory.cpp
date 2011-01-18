@@ -422,6 +422,12 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     LOGV("Writing text wrap scale %f", textWrapScale);
     v.append((char*)&textWrapScale, sizeof(float));
 
+    // Scroll position.
+    const int scrollX = item->scrollPoint().x();
+    v.append((char*)&scrollX, sizeof(int));
+    const int scrollY = item->scrollPoint().y();
+    v.append((char*)&scrollY, sizeof(int));
+
     // Document state
     const WTF::Vector<WTF::String>& docState = item->documentState();
     WTF::Vector<WTF::String>::const_iterator end = docState.end();
@@ -606,6 +612,18 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     LOGV("Text wrap scale    %f", fValue);
     bridge->setTextWrapScale(fValue);
     data += sizeof(float);
+
+    if (end - data < sizeofUnsigned)
+        return false;
+
+    // Read scroll position.
+    int scrollX = 0;
+    memcpy(&scrollX, data, sizeofUnsigned);
+    data += sizeofUnsigned;
+    int scrollY = 0;
+    memcpy(&scrollY, data, sizeofUnsigned);
+    data += sizeofUnsigned;
+    newItem->setScrollPoint(IntPoint(scrollX, scrollY));
 
     if (end - data < sizeofUnsigned)
         return false;
