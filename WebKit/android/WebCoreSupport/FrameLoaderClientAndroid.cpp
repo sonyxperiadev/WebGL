@@ -807,12 +807,12 @@ void FrameLoaderClientAndroid::frameLoadCompleted() {
 void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     ASSERT(m_frame);
     ASSERT(item);
-    // We should have added a bridge when the child item was added to its
-    // parent.
-    AndroidWebHistoryBridge* bridge = item->bridge();
-    ASSERT(bridge);
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
+        // We should have added a bridge when the child item was added to its
+        // parent.
+        AndroidWebHistoryBridge* bridge = item->bridge();
+        ASSERT(bridge);
         WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
         bridge->setScale(webViewCore->scale());
         bridge->setTextWrapScale(webViewCore->textWrapScale());

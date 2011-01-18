@@ -863,6 +863,10 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
     BaseLayerAndroid* base = new BaseLayerAndroid();
     base->setContent(m_content);
 
+    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
+    // Layout only fails if called during a layout.
+    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
+
 #if USE(ACCELERATED_COMPOSITING)
     // We set the background color
     if (m_mainFrame && m_mainFrame->document()
@@ -915,8 +919,8 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 
 void WebViewCore::splitContent(PictureSet* content)
 {
-    bool layoutSuceeded = layoutIfNeededRecursive(m_mainFrame);
-    LOG_ASSERT(layoutSuceeded, "Can never be called recursively");
+    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
+    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
     content->split(&m_content);
     rebuildPictureSet(&m_content);
     content->set(m_content);
