@@ -591,13 +591,12 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (layer->isFixed())
         compositingState.m_fixedSibling = true;
 
-    if (!willBeComposited && compositingState.m_fixedSibling)
+    if (!willBeComposited && compositingState.m_fixedSibling) {
         layer->setMustOverlapCompositedLayers(true);
-
-    if (willBeComposited || compositingState.m_fixedSibling) {
-#else
-    if (willBeComposited) {
+        willBeComposited = true;
+    }
 #endif
+    if (willBeComposited) {
         // Tell the parent it has compositing descendants.
         compositingState.m_subtreeIsCompositing = true;
         // This layer now acts as the ancestor for kids.
