@@ -76,8 +76,7 @@ public:
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
     SkCanvas* canvas() { return m_canvas; } // only used by the producer thread
 
-    // This is to be only used for debugging on the producer thread
-    bool busy() { return m_busy; }
+    bool busy();
 
     const SkSize& getSize() const { return m_size; }
 

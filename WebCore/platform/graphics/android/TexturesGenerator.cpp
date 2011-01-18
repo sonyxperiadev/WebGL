@@ -80,7 +80,12 @@ void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 
 void TexturesGenerator::removeOperationsForBaseLayer(BaseLayerAndroid* layer)
 {
-    removeOperationsForFilter(new PaintLayerFilter(layer));
+    removeOperationsForFilter(new PaintLayerBaseFilter(layer));
+}
+
+void TexturesGenerator::removeOperationsForTexture(LayerTexture* texture)
+{
+    removeOperationsForFilter(new PaintLayerTextureFilter(texture));
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
@@ -106,10 +111,10 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
     if (!m_waitForCompletion)
         return;
 
-    // At this point, it means that we are currently painting a operation that
-    // we want to be removed -- we should wait until it is painted, so that
-    // when we return our caller can be sure that there is no more TileSet
-    // in the queue for that TiledPage and can safely deallocate the BaseTiles.
+    // At this point, it means that we are currently executing an operation that
+    // we want to be removed -- we should wait until it is done, so that
+    // when we return our caller can be sure that there is no more operations
+    // in the queue matching the given filter.
     mRequestedOperationsLock.lock();
     mRequestedOperationsCond.wait(mRequestedOperationsLock);
     m_waitForCompletion = false;
