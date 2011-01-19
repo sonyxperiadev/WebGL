@@ -288,8 +288,8 @@ void GetOptionStringsFromElement(HTMLFormControlElement* element, std::vector<st
 namespace android {
 
 struct FormManager::FormElement {
-    HTMLFormElement* form_element;
-    std::vector<HTMLFormControlElement*> control_elements;
+    RefPtr<HTMLFormElement> form_element;
+    std::vector<RefPtr<HTMLFormControlElement> > control_elements;
     std::vector<string16> control_values;
 };
 
@@ -535,7 +535,7 @@ void FormManager::GetFormsInFrame(const Frame* frame, RequirementsMask requireme
             continue;
 
         FormData form;
-        HTMLFormElementToFormData(form_element->form_element, requirements, EXTRACT_VALUE, &form);
+        HTMLFormElementToFormData(form_element->form_element.get(), requirements, EXTRACT_VALUE, &form);
         if (form.fields.size() >= kRequiredAutoFillFields)
             forms->push_back(form);
     }
@@ -554,10 +554,11 @@ bool FormManager::FindFormWithFormControlElement(HTMLFormControlElement* element
         if (form_element->form_element->document()->frame() != frame)
             continue;
 
-        for (std::vector<HTMLFormControlElement*>::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
-            if (nameForAutoFill(**iter) == nameForAutoFill(*element)) {
+        for (std::vector<RefPtr<HTMLFormControlElement> >::const_iterator iter = form_element->control_elements.begin(); iter != form_element->control_elements.end(); ++iter) {
+            HTMLFormControlElement* candidate = iter->get();
+            if (nameForAutoFill(*candidate) == nameForAutoFill(*element)) {
                 ExtractMask extract_mask = static_cast<ExtractMask>(EXTRACT_VALUE | EXTRACT_OPTIONS);
-                return HTMLFormElementToFormData(form_element->form_element, requirements, extract_mask, form);
+                return HTMLFormElementToFormData(form_element->form_element.get(), requirements, extract_mask, form);
             }
         }
     }
@@ -592,7 +593,7 @@ bool FormManager::ClearFormWithNode(Node* node) {
         return false;
 
     for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
-        HTMLFormControlElement* element = form_element->control_elements[i];
+        HTMLFormControlElement* element = form_element->control_elements[i].get();
         if (formControlType(*element) == kText) {
             HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
 
@@ -623,7 +624,7 @@ bool FormManager::ClearPreviewedFormWithNode(Node* node, bool was_autofilled) {
         return false;
 
     for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
-        HTMLFormControlElement* element = form_element->control_elements[i];
+        HTMLFormControlElement* element = form_element->control_elements[i].get();
 
         // Only input elements can be previewed.
         if (formControlType(*element) != kText)
@@ -688,7 +689,7 @@ bool FormManager::FormWithNodeIsAutoFilled(Node* node) {
         return false;
 
     for (size_t i = 0; i < form_element->control_elements.size(); ++i) {
-        HTMLFormControlElement* element = form_element->control_elements[i];
+        HTMLFormControlElement* element = form_element->control_elements[i].get();
         if (formControlType(*element) != kText)
             continue;
 
@@ -726,8 +727,8 @@ string16 FormManager::InferLabelForElement(const HTMLFormControlElement& element
 bool FormManager::FindCachedFormElementWithNode(Node* node,
                                                 FormElement** form_element) {
     for (FormElementList::const_iterator form_iter = form_elements_.begin(); form_iter != form_elements_.end(); ++form_iter) {
-        for (std::vector<HTMLFormControlElement*>::const_iterator iter = (*form_iter)->control_elements.begin(); iter != (*form_iter)->control_elements.end(); ++iter) {
-            if (*iter == node) {
+        for (std::vector<RefPtr<HTMLFormControlElement> >::const_iterator iter = (*form_iter)->control_elements.begin(); iter != (*form_iter)->control_elements.end(); ++iter) {
+            if (iter->get() == node) {
                 *form_element = *form_iter;
                 return true;
             }
@@ -765,7 +766,7 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
     // one case in the wild where this happens, paypal.com signup form, the fields
     // are appended to the end of the form and are not visible.
     for (size_t i = 0, j = 0; i < form->control_elements.size() && j < data.fields.size(); ++i) {
-        HTMLFormControlElement* element = form->control_elements[i];
+        HTMLFormControlElement* element = form->control_elements[i].get();
         string16 element_name = nameForAutoFill(*element);
 
         if (element_name.empty())
