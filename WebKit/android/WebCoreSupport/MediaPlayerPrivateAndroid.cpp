@@ -149,7 +149,6 @@ void MediaPlayerPrivate::onEnded() {
     m_currentTime = duration();
     m_player->timeChanged();
     m_paused = true;
-    m_currentTime = 0;
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_readyState = MediaPlayer::HaveNothing;
@@ -157,7 +156,6 @@ void MediaPlayerPrivate::onEnded() {
 
 void MediaPlayerPrivate::onPaused() {
     m_paused = true;
-    m_currentTime = 0;
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_readyState = MediaPlayer::HaveNothing;
@@ -189,8 +187,12 @@ public:
             return;
 
         m_paused = false;
+
+        if (m_currentTime == duration())
+            m_currentTime = 0;
+
         jstring jUrl = wtfStringToJstring(env, m_url);
-        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl, static_cast<jint>(m_currentTime * 1000.0f));
         env->DeleteLocalRef(jUrl);
 
         checkException(env);
@@ -272,7 +274,7 @@ public:
         m_glue = new JavaGlue;
         m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
         m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
-        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;)V");
+        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;I)V");
 
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
