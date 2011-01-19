@@ -33,6 +33,7 @@ class SkLayer;
 namespace WebCore {
 
 class LayerAndroid;
+class LayerTexture;
 
 class PaintLayerOperation : public QueuedOperation {
  public:
@@ -43,18 +44,29 @@ class PaintLayerOperation : public QueuedOperation {
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
     SkLayer* baseLayer();
+    LayerAndroid* layer() { return m_layer; }
+    LayerTexture* texture();
 
  private:
     LayerAndroid* m_layer;
 };
 
-class PaintLayerFilter : public OperationFilter {
+class PaintLayerBaseFilter : public OperationFilter {
  public:
-    PaintLayerFilter(SkLayer* layer) : m_baseLayer(layer) {}
+    PaintLayerBaseFilter(SkLayer* layer) : m_baseLayer(layer) {}
     virtual bool check(QueuedOperation* operation);
 
  private:
     SkLayer* m_baseLayer;
+};
+
+class PaintLayerTextureFilter : public OperationFilter {
+ public:
+    PaintLayerTextureFilter(LayerTexture* texture) : m_texture(texture) {}
+    virtual bool check(QueuedOperation* operation);
+
+ private:
+    LayerTexture* m_texture;
 };
 
 }

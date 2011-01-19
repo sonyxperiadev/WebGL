@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "LayerTexture.h"
 #include "QueuedOperation.h"
 #include "TileSet.h"
 #include "TiledPage.h"
@@ -50,6 +51,7 @@ public:
 
     void removeOperationsForPage(TiledPage* page);
     void removeOperationsForBaseLayer(BaseLayerAndroid* layer);
+    void removeOperationsForTexture(LayerTexture* texture);
     void removeOperationsForFilter(OperationFilter* filter);
 
     void scheduleOperation(QueuedOperation* operation);
