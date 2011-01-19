@@ -266,6 +266,13 @@ bool RenderIFrame::requiresAcceleratedCompositing() const
     if (!node() || !node()->hasTagName(iframeTag))
         return false;
 
+#if PLATFORM(ANDROID)
+    // XXX: Bug submitted to webkit.org
+    // https://bugs.webkit.org/show_bug.cgi?id=52655
+    if (style()->visibility() != VISIBLE)
+        return false;
+#endif
+
     // If the contents of the iframe are composited, then we have to be as well.
     HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
     if (Document* contentDocument = element->contentDocument()) {

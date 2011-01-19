@@ -143,6 +143,9 @@ FrameView::FrameView(Frame* frame)
     , m_deferSetNeedsLayouts(0)
     , m_setNeedsLayoutWasDeferred(false)
     , m_scrollCorner(0)
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    , m_hasOverflowScroll(false)
+#endif
 {
     init();
 }
@@ -553,11 +556,6 @@ void FrameView::updateCompositingLayers()
     RenderView* view = m_frame->contentRenderer();
     if (!view)
         return;
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // Enter compositing mode for child frames that have layout dimensions.
-    if (hasOverflowScroll())
-        enterCompositingMode();
-#endif
 
     // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
     view->compositor()->cacheAcceleratedCompositingFlags();
@@ -571,31 +569,6 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
         page->chrome()->client()->setNeedsOneShotDrawingSynchronization();
 }
 
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-bool FrameView::hasOverflowScroll() const
-{
-#ifndef ANDROID_FLATTEN_IFRAME
-    RenderObject* ownerRenderer = m_frame->ownerRenderer();
-    if (!ownerRenderer || !ownerRenderer->isRenderIFrame())
-        return false;
-    RenderLayer* layer = ownerRenderer->enclosingLayer();
-    // Make sure the layer has visible content or descendants.
-    if (!layer->hasVisibleContent() && !layer->hasVisibleDescendant())
-        return false;
-    // If either layout dimension is 0, return false.
-    if (!layoutWidth() || !layoutHeight())
-        return false;
-    ScrollbarMode h, v;
-    scrollbarModes(h, v);
-    if (h == ScrollbarAlwaysOff || v == ScrollbarAlwaysOff)
-        return false;
-    if (contentsWidth() <= layoutWidth() && contentsHeight() <= layoutHeight())
-        return false;
-    return true;
-#endif
-    return false;
-}
-#endif
 #endif // USE(ACCELERATED_COMPOSITING)
 
 bool FrameView::hasCompositedContent() const
@@ -955,6 +928,30 @@ void FrameView::layout(bool allowSubtree)
     InspectorInstrumentation::didLayout(cookie);
 
     m_nestedLayoutCount--;
+#if ENABLE(ANDROID_OVERFLOW_SCROLL) && !defined(ANDROID_FLATTEN_IFRAME)
+    // Reset to false each time we layout in case the overflow status changed.
+    bool hasOverflowScroll = false;
+    RenderObject* ownerRenderer = m_frame->ownerRenderer();
+    if (ownerRenderer && ownerRenderer->isRenderIFrame()) {
+        RenderLayer* layer = ownerRenderer->enclosingLayer();
+        if (layer) {
+            // Some sites use tiny iframes for loading so don't composite those.
+            if (canHaveScrollbars() && layoutWidth() > 1 && layoutHeight() > 1)
+                hasOverflowScroll = layoutWidth() < contentsWidth() || layoutHeight() < contentsHeight();
+        }
+    }
+    if (RenderView* view = m_frame->contentRenderer()) {
+        if (hasOverflowScroll != m_hasOverflowScroll) {
+            if (hasOverflowScroll)
+                enterCompositingMode();
+            else
+                // We are leaving overflow mode so we need to update the layer
+                // tree in case that is the reason we were composited.
+                view->compositor()->scheduleCompositingLayerUpdate();
+        }
+    }
+    m_hasOverflowScroll = hasOverflowScroll;
+#endif
 }
 
 void FrameView::addWidgetToUpdate(RenderEmbeddedObject* object)
