@@ -152,7 +152,7 @@ public:
     };
     typedef int32_t GLScaleState;
 
-    GLWebViewState();
+    GLWebViewState(android::Mutex* globalButtonMutex);
     ~GLWebViewState();
     GLScaleState scaleRequestState() const { return m_scaleRequestState; }
     void setScaleRequestState(GLScaleState state) { m_scaleRequestState = state; }
@@ -222,6 +222,7 @@ private:
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;
     SkIRect m_lastInval;
+    android::Mutex* m_globalButtonMutex;
 };
 
 } // namespace WebCore
