@@ -302,7 +302,7 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 
 void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int size)
 {
-    if (!isActive())
+    if (!isActive() || !size)
         return;
 
     // didReceiveData will take a copy of the data
@@ -313,7 +313,7 @@ void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int si
 // For data url's
 void WebUrlLoaderClient::didReceiveDataUrl(PassOwnPtr<std::string> str)
 {
-    if (!isActive())
+    if (!isActive() || !str->size())
         return;
 
     // didReceiveData will take a copy of the data
@@ -323,7 +323,7 @@ void WebUrlLoaderClient::didReceiveDataUrl(PassOwnPtr<std::string> str)
 // For special android files
 void WebUrlLoaderClient::didReceiveAndroidFileData(PassOwnPtr<std::vector<char> > vector)
 {
-    if (!isActive())
+    if (!isActive() || !vector->size())
         return;
 
     // didReceiveData will take a copy of the data
