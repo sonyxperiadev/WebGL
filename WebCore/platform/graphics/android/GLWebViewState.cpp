@@ -63,7 +63,7 @@ int GLWebViewState::count()
 }
 #endif
 
-GLWebViewState::GLWebViewState()
+GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     : m_scaleRequestState(kNoScaleRequest)
     , m_currentScale(1)
     , m_futureScale(1)
@@ -72,6 +72,7 @@ GLWebViewState::GLWebViewState()
     , m_baseLayer(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
+    , m_globalButtonMutex(buttonMutex)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -135,8 +136,11 @@ void GLWebViewState::inval(const IntRect& rect)
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_baseLayer)
+    if (m_baseLayer) {
+        m_globalButtonMutex->lock();
         m_baseLayer->drawCanvas(canvas);
+        m_globalButtonMutex->unlock();
+    }
     return m_currentPictureCounter;
 }
 
