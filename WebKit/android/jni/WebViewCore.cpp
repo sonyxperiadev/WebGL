@@ -1294,6 +1294,9 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         }
     }
 
+    // If this was in response to touching a textfield and showing the IME,
+    // the IME may now cover textfield.  Bring it back into view.
+    revealSelection();
     // update the currently visible screen as perceived by the plugin
     sendPluginVisibleScreen();
 }
