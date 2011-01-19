@@ -152,22 +152,33 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     gDebugLayerAndroidInstances++;
 }
 
-void LayerAndroid::removeTexture()
+void LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
 {
-    XLOG("remove texture (m_drawingTexture: %x, m_reservedTexture: %x)",
-         m_drawingTexture, m_reservedTexture);
+    LayerTexture* texture = static_cast<LayerTexture*>(aTexture);
     android::AutoMutex lock(m_atomicSync);
-    if (m_drawingTexture)
-        m_drawingTexture->release(this);
-    if (m_reservedTexture && m_reservedTexture != m_drawingTexture)
-        m_reservedTexture->release(this);
-    m_drawingTexture = 0;
-    m_reservedTexture = 0;
+    if (!texture) { // remove ourself from both textures
+        if (m_drawingTexture)
+            m_drawingTexture->release(this);
+        if (m_reservedTexture &&
+            m_reservedTexture != m_drawingTexture)
+            m_reservedTexture->release(this);
+    } else {
+        if (m_drawingTexture && m_drawingTexture == texture)
+            m_drawingTexture->release(this);
+        if (m_reservedTexture &&
+            m_reservedTexture == texture &&
+            m_reservedTexture != m_drawingTexture)
+            m_reservedTexture->release(this);
+    }
+    if (m_drawingTexture && m_drawingTexture->owner() != this)
+        m_drawingTexture = 0;
+    if (m_reservedTexture && m_reservedTexture->owner() != this)
+        m_reservedTexture = 0;
 }
 
 LayerAndroid::~LayerAndroid()
 {
-    removeTexture();
+    removeTexture(0);
     removeChildren();
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
@@ -539,6 +550,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
         localMatrix.setM34(0);
         localMatrix.setM43(0);
     }
+
     // now apply it to our children
 
     if (!m_childrenTransform.isIdentity()) {
@@ -568,13 +580,29 @@ void LayerAndroid::reserveGLTextures()
         this->getChild(i)->reserveGLTextures();
 
     LayerTexture* reservedTexture = 0;
-    if (needsTexture())
-        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(this);
+    if (needsTexture()) {
+        // Compute the layer size & position we need (clipped to the viewport)
+        IntRect r(0, 0, getWidth(), getHeight());
+        IntRect tr = drawTransform().mapRect(r);
+        IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
+        m_layerTextureRect = drawTransform().inverse().mapRect(cr);
+
+        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(this, m_layerTextureRect);
+
+        // If we do not have a drawing texture (i.e. new LayerAndroid tree),
+        // we get any one available.
+        if (!m_drawingTexture)
+            m_drawingTexture = TilesManager::instance()->getExistingTextureForLayer(this, m_layerTextureRect, true);
+    }
 
     // SMP flush
     android::AutoMutex lock(m_atomicSync);
-    if (m_reservedTexture && m_reservedTexture != reservedTexture) {
-        m_reservedTexture->release(this);
+    // we set the reservedTexture if it's different from the drawing texture
+    if (m_reservedTexture != reservedTexture &&
+        ((m_reservedTexture != m_drawingTexture) ||
+         (m_reservedTexture == 0 && m_drawingTexture == 0))) {
+        if (m_reservedTexture)
+            m_reservedTexture->release(this);
         m_reservedTexture = reservedTexture;
     }
 }
@@ -590,10 +618,15 @@ void LayerAndroid::createGLTextures()
 
     LayerTexture* reservedTexture = m_reservedTexture;
     if (!reservedTexture)
-        reservedTexture = TilesManager::instance()->createTextureForLayer(this);
+        reservedTexture = TilesManager::instance()->createTextureForLayer(this, m_layerTextureRect);
 
     if (!reservedTexture)
         return;
+
+    // SMP flush
+    m_atomicSync.lock();
+    m_reservedTexture = reservedTexture;
+    m_atomicSync.unlock();
 
     if (reservedTexture &&
         (reservedTexture != m_drawingTexture) &&
@@ -607,11 +640,6 @@ void LayerAndroid::createGLTextures()
 
     if (!needsScheduleRepaint(reservedTexture))
         return;
-
-    // SMP flush
-    m_atomicSync.lock();
-    m_reservedTexture = reservedTexture;
-    m_atomicSync.unlock();
 
     XLOG("We schedule a paint for layer %d, because isReady %d or m_dirty %d, using texture %x",
          uniqueId(), m_reservedTexture->isReady(), m_dirty, m_reservedTexture);
@@ -655,7 +683,13 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
     if (prepareContext() && m_drawingTexture) {
         TextureInfo* textureInfo = m_drawingTexture->consumerLock();
         if (textureInfo && m_drawingTexture->isReady()) {
-            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
+            SkRect bounds;
+            IntRect textureRect = m_drawingTexture->rect();
+            bounds.set(0, 0, textureRect.width(), textureRect.height());
+            // move the drawing depending on where the texture is on the layer
+            TransformationMatrix m = drawTransform();
+            m.translate(textureRect.x(), textureRect.y());
+            TilesManager::instance()->shader()->drawLayerQuad(m, bounds,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity);
         }
@@ -709,7 +743,6 @@ void LayerAndroid::paintBitmapGL()
     // can be updated by other threads without consequence.
     m_atomicSync.lock();
     LayerTexture* texture = m_reservedTexture;
-    float scale = m_scale;
 
     if (!texture) {
         m_atomicSync.unlock();
@@ -739,10 +772,14 @@ void LayerAndroid::paintBitmapGL()
 
     XLOG("LayerAndroid %d paintBitmapGL WE ARE PAINTING", uniqueId());
     SkCanvas* canvas = texture->canvas();
+    float scale = texture->scale();
+
+    IntRect textureRect = texture->rect();
 
     canvas->save();
     canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
     canvas->scale(scale, scale);
+    canvas->translate(-textureRect.x(), -textureRect.y());
     contentDraw(canvas);
     canvas->restore();
 
