@@ -708,7 +708,9 @@ void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
 void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char* data, int length) {
     if (!m_manualLoader)
         loader->commitData(data, length);
-    else {
+
+    // commit data may have created a manual plugin loader
+    if (m_manualLoader) {
         if (!m_hasSentResponseToPlugin) {
             m_manualLoader->didReceiveResponse(loader->response());
             // Failure could cause the main document to have an error causing
