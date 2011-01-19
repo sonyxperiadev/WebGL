@@ -97,6 +97,7 @@ private:
     void handleBrowserURL(GURL);
     void handleInterceptedURL();
     void finish(bool success);
+    void updateLoadFlags(int& loadFlags);
 
     scoped_refptr<WebUrlLoaderClient> m_urlLoader;
     OwnPtr<URLRequest> m_request;
@@ -107,6 +108,7 @@ private:
     std::string m_userAgent;
     LoadState m_loadState;
     int m_authRequestCount;
+    int m_cacheMode;
 };
 
 } // namespace android
