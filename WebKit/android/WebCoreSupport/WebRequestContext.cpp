@@ -89,6 +89,16 @@ void WebRequestContext::setUserAgent(const String& string)
     m_userAgent = string.utf8().data();
 }
 
+void WebRequestContext::setCacheMode(int mode)
+{
+    m_cacheMode = mode;
+}
+
+int WebRequestContext::getCacheMode()
+{
+    return m_cacheMode;
+}
+
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
 {
     MutexLocker lock(m_userAgentMutex);

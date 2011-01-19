@@ -566,8 +566,11 @@ namespace android {
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         bool drawIsPaused() const;
+#if USE(CHROME_NETWORK_STACK)
         void setWebRequestContextUserAgent();
+        void setWebRequestContextCacheMode(int mode);
         WebRequestContext* webRequestContext();
+#endif
         // end of shared members
 
         // internal functions

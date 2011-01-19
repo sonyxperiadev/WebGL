@@ -3477,8 +3477,12 @@ bool WebViewCore::drawIsPaused() const
 #if USE(CHROME_NETWORK_STACK)
 void WebViewCore::setWebRequestContextUserAgent()
 {
-    if (m_webRequestContext)
-        m_webRequestContext->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
+    webRequestContext()->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
+}
+
+void WebViewCore::setWebRequestContextCacheMode(int mode)
+{
+    webRequestContext()->setCacheMode(mode);
 }
 
 WebRequestContext* WebViewCore::webRequestContext()
@@ -3486,7 +3490,6 @@ WebRequestContext* WebViewCore::webRequestContext()
     if (!m_webRequestContext) {
         Settings* settings = mainFrame()->settings();
         m_webRequestContext = new WebRequestContext(settings && settings->privateBrowsingEnabled());
-        setWebRequestContextUserAgent();
     }
     return m_webRequestContext.get();
 }
