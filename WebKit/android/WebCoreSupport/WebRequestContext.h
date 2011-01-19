@@ -44,6 +44,8 @@ public:
 
     // These methods are threadsafe.
     void setUserAgent(const WTF::String&);
+    void setCacheMode(int);
+    int getCacheMode();
     static void setAcceptLanguage(const WTF::String&);
     static const WTF::String& acceptLanguage();
 
@@ -52,6 +54,7 @@ private:
     ~WebRequestContext();
 
     std::string m_userAgent;
+    int m_cacheMode;
     mutable WTF::Mutex m_userAgentMutex;
     bool m_isPrivateBrowsing;
 };
