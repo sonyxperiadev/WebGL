@@ -444,8 +444,11 @@ namespace android {
         // send the current screen size/zoom to all of the plugins in our list
         void sendPluginVisibleScreen();
 
-	// send onLoad event to plugins who are descendents of the given frame
+        // send onLoad event to plugins who are descendents of the given frame
         void notifyPluginsOnFrameLoad(const Frame*);
+
+        // gets a rect representing the current on-screen portion of the document
+        void getVisibleScreen(ANPRectI&);
 
         // send this event to all of the plugins in our list
         void sendPluginEvent(const ANPEvent&);

@@ -65,7 +65,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
     m_isFullScreen = false;
-    m_visible = true;
+    m_visible = false;
     m_zoomLevel = 0;
     m_embeddedView = NULL;
     m_embeddedViewAttached = false;

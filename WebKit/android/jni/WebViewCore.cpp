@@ -1854,6 +1854,8 @@ void WebViewCore::notifyPluginsOnFrameLoad(const Frame* frame) {
         SkANP::InitEvent(&event, kLifecycle_ANPEventType);
         event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
         sendPluginEvent(event);
+        // trigger the on/off screen notification if the page was reloaded
+        sendPluginVisibleScreen();
     }
     // else if frame's parent has completed
     else if (!frame->tree()->parent()->loader()->isLoading()) {
@@ -1868,12 +1870,26 @@ void WebViewCore::notifyPluginsOnFrameLoad(const Frame* frame) {
                     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
                     event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
                     (*iter)->sendEvent(event);
+
+                    // trigger the on/off screen notification if the page was reloaded
+                    ANPRectI visibleRect;
+                    getVisibleScreen(visibleRect);
+                    (*iter)->setVisibleScreen(visibleRect, m_scale);
+
                     break;
                 }
                 currentFrame = currentFrame->tree()->parent();
             }
         }
     }
+}
+
+void WebViewCore::getVisibleScreen(ANPRectI& visibleRect)
+{
+    visibleRect.left = m_scrollOffsetX;
+    visibleRect.top = m_scrollOffsetY;
+    visibleRect.right = m_scrollOffsetX + m_screenWidth;
+    visibleRect.bottom = m_scrollOffsetY + m_screenHeight;
 }
 
 void WebViewCore::sendPluginVisibleScreen()
@@ -1883,10 +1899,7 @@ void WebViewCore::sendPluginVisibleScreen()
      */
 
     ANPRectI visibleRect;
-    visibleRect.left = m_scrollOffsetX;
-    visibleRect.top = m_scrollOffsetY;
-    visibleRect.right = m_scrollOffsetX + m_screenWidth;
-    visibleRect.bottom = m_scrollOffsetY + m_screenHeight;
+    getVisibleScreen(visibleRect);
 
     PluginWidgetAndroid** iter = m_plugins.begin();
     PluginWidgetAndroid** stop = m_plugins.end();
