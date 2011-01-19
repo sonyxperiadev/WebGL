@@ -147,6 +147,9 @@ struct FieldIds {
         mAutoFillProfilePhoneNumber = env->GetFieldID(autoFillProfileClass, "mPhoneNumber", "Ljava/lang/String;");
         env->DeleteLocalRef(autoFillProfileClass);
 #endif
+#if USE(CHROME_NETWORK_STACK)
+        mOverrideCacheMode = env->GetFieldID(clazz, "mOverrideCacheMode", "I");
+#endif
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
         LOG_ASSERT(mTextSize, "Could not find field mTextSize");
@@ -270,6 +273,9 @@ struct FieldIds {
     jfieldID mAutoFillProfileCountry;
     jfieldID mAutoFillProfilePhoneNumber;
 #endif
+#if USE(CHROME_NETWORK_STACK)
+    jfieldID mOverrideCacheMode;
+#endif
 };
 
 static struct FieldIds* gFieldIds;
@@ -371,6 +377,9 @@ public:
         WebFrame::getWebFrame(pFrame)->setUserAgent(jstringToWtfString(env, str));
 #if USE(CHROME_NETWORK_STACK)
         WebViewCore::getWebViewCore(pFrame->view())->setWebRequestContextUserAgent();
+
+        jint cacheMode = env->GetIntField(obj, gFieldIds->mOverrideCacheMode);
+        WebViewCore::getWebViewCore(pFrame->view())->setWebRequestContextCacheMode(cacheMode);
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
         WebRequestContext::setAcceptLanguage(jstringToWtfString(env, str));

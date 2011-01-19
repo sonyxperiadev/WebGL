@@ -67,6 +67,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
     , m_authRequestCount(0)
+    , m_cacheMode(0)
 {
     GURL gurl(m_url);
 
@@ -88,6 +89,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
     , m_authRequestCount(0)
+    , m_cacheMode(0)
 {
 }
 
@@ -154,8 +156,21 @@ void WebRequest::appendBytesToUpload(WTF::Vector<char>* data)
 
 void WebRequest::setRequestContext(WebRequestContext* context)
 {
+    m_cacheMode = context->getCacheMode();
     if (m_request)
         m_request->set_context(context);
+}
+
+void WebRequest::updateLoadFlags(int& loadFlags)
+{
+    if (m_cacheMode == 1) { // LOAD_CACHE_ELSE_NETWORK
+        loadFlags |= net::LOAD_PREFERRING_CACHE;
+        loadFlags &= ~net::LOAD_VALIDATE_CACHE;
+    }
+    if (m_cacheMode == 2) // LOAD_NO_CACHE
+        loadFlags |= net::LOAD_BYPASS_CACHE;
+    if (m_cacheMode == 3) // LOAD_CACHE_ONLY
+        loadFlags |= net::LOAD_ONLY_FROM_CACHE;
 }
 
 void WebRequest::start()
@@ -173,6 +188,11 @@ void WebRequest::start()
 
     if (m_request->url().SchemeIs("browser"))
         return handleBrowserURL(m_request->url());
+
+    // Update load flags with settings from WebSettings
+    int loadFlags = m_request->load_flags();
+    updateLoadFlags(loadFlags);
+    m_request->set_load_flags(loadFlags);
 
     m_request->Start();
 }
