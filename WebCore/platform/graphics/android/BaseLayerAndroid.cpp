@@ -200,7 +200,6 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
 
         // The transition between the two pages is finished, swap them
         if (currentTime > transitionTime) {
-            m_glWebViewState->setCurrentScale(scale);
             m_glWebViewState->resetTransitionTime();
             doSwap = true;
         }
@@ -218,8 +217,10 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
         || !tiledPage->ready(preZoomBounds))
       ret = true;
 
-    if (doSwap)
+    if (doSwap) {
+        m_glWebViewState->setCurrentScale(scale);
         m_glWebViewState->swapPages();
+    }
 
     return ret;
 }
