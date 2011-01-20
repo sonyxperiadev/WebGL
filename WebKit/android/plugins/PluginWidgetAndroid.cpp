@@ -129,7 +129,9 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                m_pluginBounds.fLeft, m_pluginBounds.fTop,
                m_pluginBounds.fRight, m_pluginBounds.fBottom);
 
-    layoutSurface(m_pluginBounds != oldPluginBounds);
+    const bool boundsChanged = m_pluginBounds != oldPluginBounds;
+    sendSizeAndVisibilityEvents(boundsChanged);
+    layoutSurface(boundsChanged);
 
     if (m_drawingModel != kSurface_ANPDrawingModel) {
         m_flipPixelRef->safeUnref();
@@ -354,46 +356,19 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
     return m_eventFlags & flag;
 }
 
-void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
-#if DEBUG_VISIBLE_RECTS
-    PLUGIN_LOG("%s (%d,%d,%d,%d)[%f]", __FUNCTION__, visibleDocRect.left,
-            visibleDocRect.top, visibleDocRect.right,
-            visibleDocRect.bottom, zoom);
-#endif
+void PluginWidgetAndroid::sendSizeAndVisibilityEvents(const bool updateDimensions) {
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
     // notify the plugin of the new size
-    // TODO what if the plugin changes sizes?
-    if (m_drawingModel == kOpenGL_ANPDrawingModel && m_zoomLevel != zoom) {
+    if (m_drawingModel == kOpenGL_ANPDrawingModel && updateDimensions) {
         PLUGIN_LOG("%s (%d,%d)[%f]", __FUNCTION__, m_pluginWindow->width,
-                m_pluginWindow->height, zoom);
+                m_pluginWindow->height, m_zoomLevel);
         ANPEvent event;
         SkANP::InitEvent(&event, kDraw_ANPEventType);
         event.data.draw.model = kOpenGL_ANPDrawingModel;
-        event.data.draw.data.surface.width = m_pluginWindow->width * zoom;
-        event.data.draw.data.surface.height = m_pluginWindow->height * zoom;
+        event.data.draw.data.surface.width = m_pluginWindow->width * m_zoomLevel;
+        event.data.draw.data.surface.height = m_pluginWindow->height * m_zoomLevel;
         sendEvent(event);
-    }
-
-    int oldScreenW = m_visibleDocRect.width();
-    int oldScreenH = m_visibleDocRect.height();
-
-    // make local copies of the parameters
-    m_zoomLevel = zoom;
-    m_visibleDocRect.set(visibleDocRect.left,
-                         visibleDocRect.top,
-                         visibleDocRect.right,
-                         visibleDocRect.bottom);
-
-    int newScreenW = m_visibleDocRect.width();
-    int newScreenH = m_visibleDocRect.height();
-
-    // if the screen dimensions have changed by more than 5 pixels in either
-    // direction then recompute the plugin's visible rectangle
-    if (abs(oldScreenW - newScreenW) > 5 || abs(oldScreenH - newScreenH) > 5) {
-        PLUGIN_LOG("%s VisibleDoc old=[%d,%d] new=[%d,%d] ", __FUNCTION__,
-                   oldScreenW, oldScreenH, newScreenW, newScreenH);
-        computeVisiblePluginRect();
     }
 
     bool visible = SkIRect::Intersects(m_visibleDocRect, m_pluginBounds);
@@ -415,6 +390,38 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
                                               : kOffScreen_ANPLifecycleAction;
         sendEvent(event);
     }
+}
+
+void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
+#if DEBUG_VISIBLE_RECTS
+    PLUGIN_LOG("%s (%d,%d,%d,%d)[%f]", __FUNCTION__, visibleDocRect.left,
+            visibleDocRect.top, visibleDocRect.right,
+            visibleDocRect.bottom, zoom);
+#endif
+    int oldScreenW = m_visibleDocRect.width();
+    int oldScreenH = m_visibleDocRect.height();
+
+    const bool zoomChanged = m_zoomLevel != zoom;
+
+    // make local copies of the parameters
+    m_zoomLevel = zoom;
+    m_visibleDocRect.set(visibleDocRect.left,
+                         visibleDocRect.top,
+                         visibleDocRect.right,
+                         visibleDocRect.bottom);
+
+    int newScreenW = m_visibleDocRect.width();
+    int newScreenH = m_visibleDocRect.height();
+
+    // if the screen dimensions have changed by more than 5 pixels in either
+    // direction then recompute the plugin's visible rectangle
+    if (abs(oldScreenW - newScreenW) > 5 || abs(oldScreenH - newScreenH) > 5) {
+        PLUGIN_LOG("%s VisibleDoc old=[%d,%d] new=[%d,%d] ", __FUNCTION__,
+                   oldScreenW, oldScreenH, newScreenW, newScreenH);
+        computeVisiblePluginRect();
+    }
+
+    sendSizeAndVisibilityEvents(zoomChanged);
 }
 
 ANPRectI PluginWidgetAndroid::visibleRect() {
