@@ -28,6 +28,10 @@
 
 #if ENABLE(VIDEO)
 
+#include "DocumentLoader.h"
+#include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "SkiaUtils.h"
 #include "WebCoreJni.h"
@@ -184,6 +188,11 @@ public:
     void play() {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_url.length() || !m_glue->m_javaProxy)
+            return;
+
+        // We only play video fullscreen on Android, so stop sites playing fullscreen video in the onload handler.
+        Frame* frame = m_player->frameView()->frame();
+        if (frame && !frame->loader()->documentLoader()->wasOnloadHandled())
             return;
 
         m_paused = false;
