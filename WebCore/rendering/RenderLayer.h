@@ -237,9 +237,14 @@ public:
     int width() const { return m_width; }
     int height() const { return m_height; }
     IntSize size() const { return IntSize(m_width, m_height); }
-    
+
+#if PLATFORM(ANDROID)
+    void setWidth(int w);
+    void setHeight(int h);
+#else
     void setWidth(int w) { m_width = w; }
     void setHeight(int h) { m_height = h; }
+#endif
 
     int scrollWidth();
     int scrollHeight();

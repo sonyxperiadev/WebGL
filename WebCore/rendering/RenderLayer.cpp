@@ -1975,6 +1975,26 @@ void RenderLayer::positionOverflowControls(int tx, int ty)
         m_resizer->setFrameRect(resizerCornerRect(this, borderBox));
 }
 
+#if PLATFORM(ANDROID)
+// When width/height change, the scrollWidth/scrollHeight should be dirty.
+// And this should be upstreamed to webkit.
+void RenderLayer::setWidth(int w)
+{
+    if (m_width != w) {
+        m_scrollDimensionsDirty = true;
+        m_width = w;
+    }
+}
+
+void RenderLayer::setHeight(int h)
+{
+    if (m_height != h) {
+        m_scrollDimensionsDirty = true;
+        m_height = h;
+    }
+}
+#endif
+
 int RenderLayer::scrollWidth()
 {
     if (m_scrollDimensionsDirty)
