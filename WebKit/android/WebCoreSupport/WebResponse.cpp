@@ -50,6 +50,8 @@ WebResponse::WebResponse(URLRequest* request)
     request->GetCharset(&m_encoding);
     m_expectedSize = request->GetExpectedContentSize();
 
+    m_sslInfo = request->ssl_info();
+
     net::HttpResponseHeaders* responseHeaders = request->response_headers();
     if (!responseHeaders)
         return;
