@@ -106,20 +106,19 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
         m_waitForCompletion = true;
 
     mRequestedOperationsLock.unlock();
+
     delete filter;
 
-    if (!m_waitForCompletion)
-        return;
-
-    // At this point, it means that we are currently executing an operation that
-    // we want to be removed -- we should wait until it is done, so that
-    // when we return our caller can be sure that there is no more operations
-    // in the queue matching the given filter.
     mRequestedOperationsLock.lock();
     if (!m_waitForCompletion) {
         mRequestedOperationsLock.unlock();
         return; // operation treated
     }
+
+    // At this point, it means that we are currently executing an operation that
+    // we want to be removed -- we should wait until it is done, so that
+    // when we return our caller can be sure that there is no more operations
+    // in the queue matching the given filter.
     mRequestedOperationsCond.wait(mRequestedOperationsLock);
     m_waitForCompletion = false;
     mRequestedOperationsLock.unlock();
@@ -179,8 +178,10 @@ bool TexturesGenerator::threadLoop()
         }
         if (!mRequestedOperations.size())
             stop = true;
-        if (m_waitForCompletion)
+        if (m_waitForCompletion) {
             mRequestedOperationsCond.signal();
+            m_waitForCompletion = false;
+        }
         mRequestedOperationsLock.unlock();
     }
 
