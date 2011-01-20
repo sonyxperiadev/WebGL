@@ -121,6 +121,8 @@ class WebFrame : public WebCoreRefObject {
 
     void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);
 
+    void setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis);
+
     /**
      * When the user initiates an action (via trackball, key-press, or touch),
      * we set mUserInitiatedAction to true.  If a load happens due to this click,

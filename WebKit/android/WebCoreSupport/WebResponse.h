@@ -54,6 +54,8 @@ public:
     bool getHeader(const std::string& header, std::string* result) const;
     long long getExpectedSize() const;
 
+    const net::SSLInfo& getSslInfo() const { return m_sslInfo; }
+
     // The create() methods create WebCore objects. They must only be called on the WebKit thread.
     WebCore::KURL createKurl();
     WebCore::ResourceResponse createResourceResponse();
@@ -70,6 +72,7 @@ private:
     long long m_expectedSize;
     std::string m_mime;
     std::string m_url;
+    net::SSLInfo m_sslInfo;
 
     struct CaseInsensitiveLessThan {
         bool operator()(const std::string& lhs, const std::string& rhs) const {

@@ -217,6 +217,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDidReceiveAuthenticationChallenge;
     jmethodID   mReportSslCertError;
     jmethodID   mDownloadStart;
+    jmethodID   mSetCertificate;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -285,6 +286,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
+    mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate",
+            "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -312,6 +315,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
     LOG_ASSERT(mJavaFrame->mReportSslCertError, "Could not find method reportSslCertError");
     LOG_ASSERT(mJavaFrame->mDownloadStart, "Could not find method downloadStart");
+    LOG_ASSERT(mJavaFrame->mSetCertificate, "Could not find method setCertificate");
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
@@ -907,6 +911,25 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     env->DeleteLocalRef(jUserAgent);
     env->DeleteLocalRef(jContentDisposition);
     env->DeleteLocalRef(jMimetype);
+    checkException(env);
+}
+#endif
+
+#if USE(CHROME_NETWORK_STACK)
+void WebFrame::setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+    jstring jIssuedTo = stdStringToJstring(env, issuedTo, true);
+    jstring jIssuedBy = stdStringToJstring(env, issuedBy, true);
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mSetCertificate, jIssuedTo, jIssuedBy, validNotBeforeMillis, validNotAfterMillis);
+
+    env->DeleteLocalRef(jIssuedTo);
+    env->DeleteLocalRef(jIssuedBy);
     checkException(env);
 }
 #endif

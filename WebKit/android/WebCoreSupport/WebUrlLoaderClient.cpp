@@ -38,6 +38,7 @@
 #include "WebResourceRequest.h"
 
 #include <wtf/text/CString.h>
+#include <sstream>
 
 namespace android {
 
@@ -96,6 +97,7 @@ bool WebUrlLoaderClient::isActive() const
 WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
     : m_webFrame(webFrame)
     , m_resourceHandle(resourceHandle)
+    , m_isMainResource(false)
     , m_cancelling(false)
     , m_sync(false)
     , m_finished(false)
@@ -156,13 +158,14 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     }
 }
 
-bool WebUrlLoaderClient::start(bool sync, WebRequestContext* context)
+bool WebUrlLoaderClient::start(bool isMainResource, bool sync, WebRequestContext* context)
 {
     base::Thread* thread = ioThread();
     if (!thread) {
         return false;
     }
 
+    m_isMainResource = isMainResource;
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
@@ -290,6 +293,30 @@ void WebUrlLoaderClient::maybeCallOnMainThread(Task* task)
     }
 }
 
+namespace {
+// Convert a CertPrincipal into string readable by Java code.
+// The expected format is "CN=xxx, O=xxx, OU=xxx" (see SslCertificate.DName).
+// If there are multiple organization names, we print them all.
+static std::string certPrincipalToString(const net::CertPrincipal& cp)
+{
+    std::string result;
+    if (!cp.common_name.empty()) {
+        result += "CN=";
+        result += cp.common_name;
+    }
+    std::vector<std::string>::const_iterator i;
+    for (i = cp.organization_names.begin(); i != cp.organization_names.end(); ++i) {
+        result += result.empty() ? "O=" : ", O=";
+        result += *i;
+    }
+    for (i = cp.organization_unit_names.begin(); i != cp.organization_unit_names.end(); ++i) {
+        result += result.empty() ? "OU=" : ", OU=";
+        result += *i;
+    }
+    return result;
+}
+}
+
 // Response methods
 void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 {
@@ -298,6 +325,18 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 
     m_response = webResponse;
     m_resourceHandle->client()->didReceiveResponse(m_resourceHandle.get(), m_response->createResourceResponse());
+
+    if (m_isMainResource) {
+        // If we got an SSL certificate, tell the WebView about it.
+        const net::SSLInfo& ssl = m_response->getSslInfo();
+        if (ssl.cert) {
+            m_webFrame->setCertificate(
+                    certPrincipalToString(ssl.cert->subject()),
+                    certPrincipalToString(ssl.cert->issuer()),
+                    1000L * ssl.cert->valid_start().ToDoubleT(),
+                    1000L * ssl.cert->valid_expiry().ToDoubleT());
+        }
+    }
 }
 
 void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int size)
