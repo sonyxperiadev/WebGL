@@ -177,6 +177,7 @@ struct PluginWidgetAndroid {
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
+    void sendSizeAndVisibilityEvents(const bool updateDimensions);
 
     WebCore::MediaLayer*   m_layer;
 
