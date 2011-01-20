@@ -1445,10 +1445,9 @@ void WebViewCore::revealSelection()
         && !isContentEditable(focus))
         return;
     WebCore::Frame* focusedFrame = focus->document()->frame();
-    WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
-    webFrame->setUserInitiatedAction(true);
+    if (!focusedFrame->page()->focusController()->isActive())
+        return;
     focusedFrame->selection()->revealSelection();
-    webFrame->setUserInitiatedAction(false);
 }
 
 void WebViewCore::updateCacheOnNodeChange()
