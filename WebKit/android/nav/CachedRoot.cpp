@@ -1475,7 +1475,7 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
         mHistory->addToVisited(bestData->mNode, direction);
         mHistory->mNavBounds = bestData->bounds();
         mHistory->mMouseBounds =
-                cursorFrame->unadjustBounds(bestData->mNode,
+                bestData->mFrame->unadjustBounds(bestData->mNode,
                                             bestData->mouseBounds());
     } else if (scroll->x() != 0 || scroll->y() != 0) {
         WebCore::IntRect newBounds = mHistory->mNavBounds;
