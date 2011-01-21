@@ -758,14 +758,15 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
 
 void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
 {
-    if (m_contentLayer != mediaLayer) {
+    // Only fullscreen video on Android, so media doesn't get it's own layer.
+    // We might still have other layers though.
+    if (m_contentLayer != mediaLayer && mediaLayer) {
         m_contentLayer->unref();
         m_contentLayer = mediaLayer;
         m_contentLayer->ref();
         setNeedsDisplay();
+        askForSync();
     }
-
-    askForSync();
 }
 
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
