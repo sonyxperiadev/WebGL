@@ -1513,7 +1513,7 @@ static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj,
     const CachedNode* cursor = root->currentCursor(frame);
     if (cursor && cursor->wantsKeyEvents())
         return cursor;
-    return root->currentFocus();
+    return root->currentFocus(frame);
 }
 
 static bool focusCandidateHasNextTextfield(JNIEnv *env, jobject obj)
