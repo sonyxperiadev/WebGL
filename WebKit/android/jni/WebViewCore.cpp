@@ -3083,7 +3083,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             // input is needed.
             if (isContentEditable(focusNode)) {
                 requestKeyboard(true);
-            } else {
+            } else if (!nodeIsPlugin(focusNode)) {
                 clearTextEntry();
             }
         }
