@@ -31,12 +31,15 @@ public:
     static int memoryUsageMb(bool forceFresh);
     static int lowMemoryUsageMb() { return m_lowMemoryUsageMb; }
     static int highMemoryUsageMb() { return m_highMemoryUsageMb; }
+    static int highUsageDeltaMb() { return m_highUsageDeltaMb; }
     static void setHighMemoryUsageMb(int highMemoryUsageMb) { m_highMemoryUsageMb = highMemoryUsageMb; }
     static void setLowMemoryUsageMb(int lowMemoryUsageMb) { m_lowMemoryUsageMb = lowMemoryUsageMb; }
+    static void setHighUsageDeltaMb(int highUsageDeltaMb) { m_highUsageDeltaMb = highUsageDeltaMb; }
 
 private:
     static int m_lowMemoryUsageMb;
     static int m_highMemoryUsageMb;
+    static int m_highUsageDeltaMb;
 };
 
 #endif

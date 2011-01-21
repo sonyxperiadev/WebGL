@@ -240,6 +240,7 @@ struct WebViewCoreFields {
     jfieldID    m_drawIsPaused;
     jfieldID    m_lowMemoryUsageMb;
     jfieldID    m_highMemoryUsageMb;
+    jfieldID    m_highUsageDeltaMb;
 } gWebViewCoreFields;
 
 // ----------------------------------------------------------------------------
@@ -400,6 +401,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     MemoryUsage::setLowMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_lowMemoryUsageMb));
     MemoryUsage::setHighMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_highMemoryUsageMb));
+    MemoryUsage::setHighUsageDeltaMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_highUsageDeltaMb));
 
     WebViewCore::addInstance(this);
 
@@ -4361,6 +4363,7 @@ int registerWebViewCore(JNIEnv* env)
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
     gWebViewCoreFields.m_lowMemoryUsageMb = env->GetFieldID(widget, "mLowMemoryUsageThresholdMb", "I");
     gWebViewCoreFields.m_highMemoryUsageMb = env->GetFieldID(widget, "mHighMemoryUsageThresholdMb", "I");
+    gWebViewCoreFields.m_highUsageDeltaMb = env->GetFieldID(widget, "mHighUsageDeltaMb", "I");
 
     gWebViewCoreStaticMethods.m_isSupportedMediaMimeType =
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");

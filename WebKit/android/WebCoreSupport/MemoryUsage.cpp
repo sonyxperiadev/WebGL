@@ -78,4 +78,4 @@ int MemoryUsage::memoryUsageMb(bool forceFresh)
 
 int MemoryUsage::m_lowMemoryUsageMb = 0;
 int MemoryUsage::m_highMemoryUsageMb = 0;
-
+int MemoryUsage::m_highUsageDeltaMb = 0;
