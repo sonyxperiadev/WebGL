@@ -137,9 +137,9 @@ void SharedTexture::releaseSource()
         if (m_eglImage == EGL_NO_IMAGE_KHR) {
             GLUtils::createEGLImageFromTexture(m_sourceTexture.m_textureId, &m_eglImage);
             LOGV("Generating Image (%d) 0x%x", m_sourceTexture.m_textureId, m_eglImage);
-        }
 
-        glFinish(); // ensures the texture is ready to be used by the consumer
+            glFinish(); // ensures the texture is ready to be used by the consumer
+        }
 
     } else {
 
