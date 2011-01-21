@@ -149,7 +149,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMoveSelection = GetJMethod(env, clazz, "sendMoveSelection", "(II)V");
-    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
+    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIII)V");
     m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
@@ -964,7 +964,7 @@ bool motionUp(int x, int y, int slop)
             pageScrolled = true;
         }
         sendMotionUp(frame ? (WebCore::Frame*) frame->framePointer() : 0,
-            0, x, y);
+            0, x, y, -1);
         viewInvalidate();
         return pageScrolled;
     }
@@ -981,9 +981,22 @@ bool motionUp(int x, int y, int slop)
     if (result->isSyntheticLink())
         overrideUrlLoading(result->getExport());
     else {
+        int scrollY = -1;
+#if USE(ACCELERATED_COMPOSITING)
+        if (result->isTextInput()) {
+            const CachedInput* input = frame->textInput(result);
+            if (input && input->isTextArea()) {
+                // Need to find out by how much this was scrolled
+                SkIRect layerRect, bounds;
+                int layerId = scrollableLayer(rx, ry, &layerRect, &bounds);
+                if (layerId != 0)
+                    scrollY = layerRect.fTop;
+            }
+        }
+#endif // ACCELERATED_COMPOSITING
         sendMotionUp(
             (WebCore::Frame*) frame->framePointer(),
-            (WebCore::Node*) result->nodePointer(), rx, ry);
+            (WebCore::Node*) result->nodePointer(), rx, ry, scrollY);
     }
     if (result->isTextInput() || result->isSelect()
             || result->isContentEditable()) {
@@ -1211,7 +1224,7 @@ void sendMoveSelection(WebCore::Frame* frame, WebCore::Node* node)
 }
 
 void sendMotionUp(
-    WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
+    WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y, int scrollY)
 {
     m_viewImpl->m_touchGeneration = ++m_generation;
     DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d",
@@ -1219,7 +1232,7 @@ void sendMotionUp(
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp,
-        m_generation, (jint) framePtr, (jint) nodePtr, x, y);
+        m_generation, (jint) framePtr, (jint) nodePtr, x, y, scrollY);
     checkException(env);
 }
 
@@ -2275,8 +2288,10 @@ static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y,
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     SkIRect nativeRect, nativeBounds;
     int id = view->scrollableLayer(x, y, &nativeRect, &nativeBounds);
-    GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
-    GraphicsJNI::irect_to_jrect(nativeBounds, env, bounds);
+    if (rect)
+        GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
+    if (bounds)
+        GraphicsJNI::irect_to_jrect(nativeBounds, env, bounds);
     return id;
 }
 
