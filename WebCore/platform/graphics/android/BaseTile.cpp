@@ -117,7 +117,7 @@ void BaseTile::reserveTexture()
 
 void BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
 {
-    XLOG("%x removeTexture res: %x...", this, m_texture);
+    XLOG("%x removeTexture res: %x... page %x", this, m_texture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
     if (m_texture == texture)
@@ -164,7 +164,7 @@ void BaseTile::draw(float transparency, SkRect& rect)
     // No need to mutex protect reads of m_texture as it is only written to by
     // the consumer thread.
     if (!m_texture) {
-        XLOG("%x (%d, %d) trying to draw, but no m_texture!", this, x(), y());
+        XLOG("%x on page %x (%d, %d) trying to draw, but no m_texture!", this, m_page, x(), y());
         return;
     }
 

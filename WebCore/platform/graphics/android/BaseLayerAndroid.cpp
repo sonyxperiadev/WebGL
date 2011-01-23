@@ -174,6 +174,10 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
     }
 
+    bool zooming = false;
+    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest)
+        zooming = true;
+
     float transparency = 1;
     bool doSwap = false;
 
@@ -209,8 +213,30 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     TiledPage* tiledPage = m_glWebViewState->frontPage();
     tiledPage->setScale(m_glWebViewState->currentScale());
     const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
-    tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
-    tiledPage->draw(transparency, preZoomBounds);
+
+    TiledPage* nextTiledPage = m_glWebViewState->backPage();
+
+    // We are now using an hybrid model -- during zooming or scrolling,
+    // we will display the current tiledPage even if some tiles are
+    // out of date. When standing still on the other hand, we wait until
+    // the back page is ready before swapping the pages, ensuring that the
+    // displayed content is in sync.
+    if (!zooming && !m_glWebViewState->moving()) {
+        if (!tiledPage->ready(preZoomBounds)) {
+            nextTiledPage->setScale(m_glWebViewState->currentScale());
+            nextTiledPage->prepare(goingDown, goingLeft, preZoomBounds);
+        }
+        if (nextTiledPage->ready(preZoomBounds)) {
+            nextTiledPage->draw(transparency, preZoomBounds);
+            doSwap = true;
+        } else {
+            tiledPage->draw(transparency, preZoomBounds);
+        }
+    } else {
+        // Ask for the tiles and draw -- tiles may be out of date.
+        tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
+        tiledPage->draw(transparency, preZoomBounds);
+    }
 
     bool ret = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest

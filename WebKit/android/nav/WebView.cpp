@@ -208,7 +208,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
 #endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
-    delete m_baseLayer;
+    m_baseLayer->safeUnref();
 }
 
 WebViewCore* getWebViewCore() const {
@@ -1391,7 +1391,7 @@ void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect)
         copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
     }
 #endif
-    delete m_baseLayer;
+    m_baseLayer->safeUnref();
     m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
