@@ -103,8 +103,6 @@ void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
 {
     if (returnVal != EGL_TRUE)
         XLOG("EGL ERROR - %s() returned %d\n", op, returnVal);
-    else
-        XLOG("EGL OK - %s() returned %d\n", op, returnVal);
 
     for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError())
         XLOG("after %s() eglError (0x%x)\n", op, error);
