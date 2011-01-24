@@ -635,6 +635,7 @@ namespace android {
         bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
+        int m_cacheMode;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

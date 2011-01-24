@@ -3493,12 +3493,19 @@ bool WebViewCore::drawIsPaused() const
 #if USE(CHROME_NETWORK_STACK)
 void WebViewCore::setWebRequestContextUserAgent()
 {
-    webRequestContext()->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
+    // We cannot create a WebRequestContext, because we might not know it this is a private tab or not yet
+    if (m_webRequestContext)
+        m_webRequestContext->setUserAgent(WebFrame::getWebFrame(m_mainFrame)->userAgentForURL(0)); // URL not used
 }
 
-void WebViewCore::setWebRequestContextCacheMode(int mode)
+void WebViewCore::setWebRequestContextCacheMode(int cacheMode)
 {
-    webRequestContext()->setCacheMode(mode);
+    m_cacheMode = cacheMode;
+    // We cannot create a WebRequestContext, because we might not know it this is a private tab or not yet
+    if (!m_webRequestContext)
+        return;
+
+    m_webRequestContext->setCacheMode(cacheMode);
 }
 
 WebRequestContext* WebViewCore::webRequestContext()
@@ -3506,6 +3513,8 @@ WebRequestContext* WebViewCore::webRequestContext()
     if (!m_webRequestContext) {
         Settings* settings = mainFrame()->settings();
         m_webRequestContext = new WebRequestContext(settings && settings->privateBrowsingEnabled());
+        setWebRequestContextUserAgent();
+        setWebRequestContextCacheMode(m_cacheMode);
     }
     return m_webRequestContext.get();
 }
