@@ -42,6 +42,7 @@
 #include "IntRect.h"
 #include "LayerAndroid.h"
 #include "Node.h"
+#include "utils/Functor.h"
 #include "PlatformGraphicsContext.h"
 #include "PlatformString.h"
 #include "ScrollableLayerAndroid.h"
@@ -187,6 +188,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_lastDxTime = 0;
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
+    m_glDrawFunctor = 0;
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
 #endif
@@ -209,6 +211,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     delete m_frameCacheUI;
     delete m_navPictureUI;
     m_baseLayer->safeUnref();
+    delete m_glDrawFunctor;
 }
 
 WebViewCore* getWebViewCore() const {
@@ -1424,6 +1427,15 @@ bool hasContent() {
     return !m_baseLayer->content()->isEmpty();
 }
 
+void setFunctor(Functor* functor) {
+    delete m_glDrawFunctor;
+    m_glDrawFunctor = functor;
+}
+
+Functor* getFunctor() {
+    return m_glDrawFunctor;
+}
+
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -1439,10 +1451,46 @@ private: // local state for WebView
     FindOnPage m_findOnPage;
     CursorRing m_ring;
     BaseLayerAndroid* m_baseLayer;
+    Functor* m_glDrawFunctor;
 #if USE(ACCELERATED_COMPOSITING)
     GLWebViewState* m_glWebViewState;
 #endif
 }; // end of WebView class
+
+
+/**
+ * This class holds a function pointer and parameters for calling drawGL into a specific
+ * viewport. The pointer to the Functor will be put on a framework display list to be called
+ * when the display list is replayed.
+ */
+class GLDrawFunctor : Functor {
+    public:
+    GLDrawFunctor(WebView* _wvInstance,
+            bool(WebView::*_funcPtr)(WebCore::IntRect&, jfloat, jint),
+            WebCore::IntRect _viewRect, float _scale, int _extras) {
+        wvInstance = _wvInstance;
+        funcPtr = _funcPtr;
+        viewRect = _viewRect;
+        scale = _scale;
+        extras = _extras;
+    };
+    status_t operator()() {
+        bool retVal = (*wvInstance.*funcPtr)(viewRect, scale, extras);
+        // return 1 if invalidation needed, 0 otherwise
+        return retVal ? 1 : 0;
+    }
+    void updateRect(WebCore::IntRect& _viewRect) {
+        viewRect = _viewRect;
+    }
+    private:
+    WebView* wvInstance;
+    bool (WebView::*funcPtr)(WebCore::IntRect&, float, int);
+    WebCore::IntRect viewRect;
+    jfloat scale;
+    jint extras;
+};
+
+
 
 /*
  * Native JNI methods
@@ -1666,6 +1714,27 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
         jint extras, jboolean split) {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
+}
+
+static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
+        jfloat scale, jint extras) {
+    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+    WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
+    GLDrawFunctor* functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
+            viewRect, scale, extras);
+    wvInstance->setFunctor((Functor*) functor);
+    return (jint)functor;
+}
+
+static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect) {
+    WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
+    if (wvInstance != NULL) {
+        GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
+        if (functor != NULL) {
+            WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+            functor->updateRect(viewRect);
+        }
+    }
 }
 
 static bool nativeDrawGL(JNIEnv *env, jobject obj, jobject jrect,
@@ -2353,6 +2422,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
         (void*) nativeDraw },
+    { "nativeGetDrawGLFunction", "(Landroid/graphics/Rect;FI)I",
+        (void*) nativeGetDrawGLFunction },
+    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;)V",
+        (void*) nativeUpdateDrawGLFunction },
     { "nativeDrawGL", "(Landroid/graphics/Rect;FI)Z",
         (void*) nativeDrawGL },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
