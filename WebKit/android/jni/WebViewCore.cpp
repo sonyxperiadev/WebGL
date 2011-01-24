@@ -1192,6 +1192,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int osw = m_screenWidth;
     int osh = m_screenHeight;
     int otw = m_textWrapWidth;
+    float oldScale = m_scale;
     DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
@@ -1296,7 +1297,9 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
 
     // If this was in response to touching a textfield and showing the IME,
     // the IME may now cover textfield.  Bring it back into view.
-    revealSelection();
+    // If the scale changed, however, this was the result of a zoom.
+    if (oldScale == m_scale)
+        revealSelection();
     // update the currently visible screen as perceived by the plugin
     sendPluginVisibleScreen();
 }
