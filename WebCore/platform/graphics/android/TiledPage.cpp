@@ -67,6 +67,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_invScale(1)
     , m_glWebViewState(state)
     , m_latestPictureInval(0)
+    , m_prepare(false)
 {
     // This value must be at least 1 greater than the max number of allowed
     // textures. This is because prepare() asks for a tile before it reserves
@@ -231,6 +232,8 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
 
     // update the tiles distance from the viewport
     updateTileState(tileBounds);
+    m_prepare = true;
+    m_glWebViewState->lockBaseLayerUpdate();
 
     int firstTileX = tileBounds.fLeft;
     int firstTileY = tileBounds.fTop;
@@ -291,6 +294,9 @@ bool TiledPage::ready(const SkIRect& tileBounds)
     if (!m_glWebViewState)
         return false;
 
+    if (!m_invalRegion.isEmpty() && !m_prepare)
+        return false;
+
     for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
         for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
             BaseTile* t = getBaseTile(x, y);
@@ -298,6 +304,8 @@ bool TiledPage::ready(const SkIRect& tileBounds)
                 return false;
         }
     }
+    m_prepare = false;
+    m_glWebViewState->unlockBaseLayerUpdate();
     return true;
 }
 
@@ -341,7 +349,7 @@ TiledPage* TiledPage::sibling()
 {
     if (!m_glWebViewState)
         return 0;
-    return (m_glWebViewState->frontPage() == this) ? m_glWebViewState->backPage() : this;
+    return m_glWebViewState->sibling(this);
 }
 
 } // namespace WebCore

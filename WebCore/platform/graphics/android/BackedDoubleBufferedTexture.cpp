@@ -137,7 +137,7 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
     // can't change the owner out from underneath that texture
     android::Mutex::Autolock lock(m_busyLock);
     if (!m_busy) {
-        if (m_owner)
+        if (m_owner && m_owner != owner)
             m_owner->removeTexture(this);
         m_owner = owner;
         return true;
