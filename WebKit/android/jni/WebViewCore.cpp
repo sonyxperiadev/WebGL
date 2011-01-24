@@ -457,6 +457,7 @@ void WebViewCore::reset(bool fromConstructor)
     }
 
     m_lastFocused = 0;
+    m_blurringNode = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
     m_focusBoundsChanged = false;
     m_lastFocusedSelStart = 0;
@@ -1429,10 +1430,21 @@ WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
     return WTF::String();
 }
 
-static bool isContentEditable(WebCore::Node* node)
+static bool isContentEditable(const WebCore::Node* node)
 {
     if (!node) return false;
     return node->document()->frame()->selection()->isContentEditable();
+}
+
+// Returns true if the node is a textfield, textarea, or contentEditable
+static bool isTextInput(const WebCore::Node* node)
+{
+    if (isContentEditable(node))
+        return true;
+    if (!node)
+        return false;
+    WebCore::RenderObject* renderer = node->renderer();
+    return renderer && (renderer->isTextField() || renderer->isTextArea());
 }
 
 void WebViewCore::revealSelection()
@@ -1440,9 +1452,7 @@ void WebViewCore::revealSelection()
     WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-    WebCore::RenderObject* renderer = focus->renderer();
-    if ((!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
-        && !isContentEditable(focus))
+    if (!isTextInput(focus))
         return;
     WebCore::Frame* focusedFrame = focus->document()->frame();
     if (!focusedFrame->page()->focusController()->isActive())
@@ -3028,8 +3038,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             static_cast<RenderTextControl*>(renderer)->setScrollTop(scrollY);
         else
             scrollLayer(renderer, &m_mousePos);
-        if (isContentEditable(nodePtr) || (renderer
-                && (renderer->isTextArea() || renderer->isTextField()))) {
+        if (isTextInput(nodePtr)) {
             // The user clicked on a text input field.  If this causes a blur event
             // on a different text input, do not hide the keyboard in formDidBlur
             m_lastClickWasOnTextInput = true;
@@ -3118,11 +3127,20 @@ void WebViewCore::formDidBlur(const WebCore::Node* node)
     // This blur is the result of clicking on a different input.  Do not hide
     // the keyboard, since it will just be opened again.
     if (m_lastClickWasOnTextInput) return;
+    m_blurringNode = node;
+}
 
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_formDidBlur, reinterpret_cast<int>(node));
-    checkException(env);
+void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
+{
+    if (!m_blurringNode)
+        return;
+    if (isTextInput(m_blurringNode) && !isTextInput(newFocus)) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        env->CallVoidMethod(m_javaGlue->object(env).get(),
+                m_javaGlue->m_formDidBlur, reinterpret_cast<int>(m_blurringNode));
+        checkException(env);
+    }
+    m_blurringNode = 0;
 }
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
