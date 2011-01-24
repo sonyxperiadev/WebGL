@@ -140,6 +140,7 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
         if (m_owner && m_owner != owner)
             m_owner->removeTexture(this);
         m_owner = owner;
+        owner->addOwned(this);
         return true;
     }
     return false;
@@ -147,8 +148,11 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
 
 void BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
-    if (m_owner == owner)
+    if (m_owner == owner) {
+        m_owner->removeOwned(this);
         m_owner = 0;
+    }
+
 }
 
 } // namespace WebCore
