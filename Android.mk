@@ -153,7 +153,8 @@ LOCAL_C_INCLUDES := \
 	external/skia/include/utils \
 	external/skia/src/ports \
 	external/sqlite/dist \
-	frameworks/base/core/jni/android/graphics
+	frameworks/base/core/jni/android/graphics \
+	frameworks/base/include
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore \
