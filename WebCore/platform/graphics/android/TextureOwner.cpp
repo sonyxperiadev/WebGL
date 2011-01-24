@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,32 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TextureOwner_h
-#define TextureOwner_h
+#include "config.h"
+#include "TextureOwner.h"
 
-#include <wtf/HashSet.h>
+#include "BackedDoubleBufferedTexture.h"
 
 namespace WebCore {
 
-class TiledPage;
-class BackedDoubleBufferedTexture;
-
-class TextureOwner {
-public:
-    virtual ~TextureOwner();
-    virtual void removeTexture(BackedDoubleBufferedTexture* texture) = 0;
-    virtual TiledPage* page() = 0;
-
-    void addOwned(BackedDoubleBufferedTexture*);
-    void removeOwned(BackedDoubleBufferedTexture*);
-
-private:
-    WTF::HashSet<BackedDoubleBufferedTexture*> m_ownedTextures;
-};
-
+TextureOwner::~TextureOwner()
+{
+    if (m_ownedTextures.size()) {
+        // This TextureOwner owns textures still!
+        HashSet<BackedDoubleBufferedTexture*>::iterator it = m_ownedTextures.begin();
+        for (; it != m_ownedTextures.end(); ++it)
+            (*it)->release(this);
+    }
 }
 
-#endif // TextureOwner_h
+void TextureOwner::addOwned(BackedDoubleBufferedTexture* t)
+{
+    // This TextureOwner now owns texture t
+    m_ownedTextures.add(t);
+}
+
+void TextureOwner::removeOwned(BackedDoubleBufferedTexture* t)
+{
+    // This textureowner no longer owns texture t.
+    m_ownedTextures.remove(t);
+}
+}
