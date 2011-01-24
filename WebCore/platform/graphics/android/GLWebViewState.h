@@ -173,6 +173,7 @@ public:
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&);
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
 
+    TiledPage* sibling(TiledPage* page);
     TiledPage* frontPage();
     TiledPage* backPage();
     void swapPages();
@@ -190,6 +191,20 @@ public:
     void setPreZoomBounds(const SkIRect& bounds) { m_preZoomBounds = bounds; }
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
+
+    void lockBaseLayerUpdate() { m_baseLayerUpdate = false; }
+    void unlockBaseLayerUpdate();
+
+    bool moving() {
+        // This will only works if we are not zooming -- we check
+        // for this in BaseLayerAndroid::drawBasePictureInGL()
+        if ((m_viewport.fLeft != m_previousViewport.fLeft ||
+            m_viewport.fTop != m_previousViewport.fTop) &&
+            m_viewport.width() == m_previousViewport.width() &&
+            m_viewport.height() == m_previousViewport.height())
+            return true;
+        return false;
+    }
 
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
@@ -212,17 +227,22 @@ private:
     double m_transitionTime;
     android::Mutex m_tiledPageLock;
     SkRect m_viewport;
+    SkRect m_previousViewport;
     SkIRect m_viewportTileBounds;
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
     android::Mutex m_baseLayerLock;
     BaseLayerAndroid* m_baseLayer;
+    BaseLayerAndroid* m_currentBaseLayer;
     unsigned int m_currentPictureCounter;
     bool m_usePageA;
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;
     SkIRect m_lastInval;
     android::Mutex* m_globalButtonMutex;
+
+    bool m_baseLayerUpdate;
+    IntRect m_invalidateRect;
 };
 
 } // namespace WebCore

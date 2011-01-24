@@ -70,11 +70,14 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_updateTime(-1)
     , m_transitionTime(-1)
     , m_baseLayer(0)
+    , m_currentBaseLayer(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
     , m_globalButtonMutex(buttonMutex)
+    , m_baseLayerUpdate(true)
 {
     m_viewport.setEmpty();
+    m_previousViewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
     m_viewportTileBounds.setEmpty();
     m_preZoomBounds.setEmpty();
@@ -88,6 +91,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
 GLWebViewState::~GLWebViewState()
 {
+    m_currentBaseLayer->safeUnref();
     delete m_tiledPageA;
     delete m_tiledPageB;
 #ifdef DEBUG_COUNT
@@ -107,8 +111,28 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
     m_baseLayer = layer;
     if (m_baseLayer) {
         m_baseLayer->setGLWebViewState(this);
-        inval(rect);
     }
+    // We only update the layers if we are not currently
+    // waiting for a tiledPage to be painted
+    if (m_baseLayerUpdate) {
+        m_currentBaseLayer->safeUnref();
+        m_currentBaseLayer = layer;
+        m_currentBaseLayer->safeRef();
+        inval(rect);
+    } else {
+        m_invalidateRect.unite(rect);
+    }
+}
+
+void GLWebViewState::unlockBaseLayerUpdate() {
+    m_baseLayerUpdate = true;
+    android::Mutex::Autolock lock(m_baseLayerLock);
+    m_currentBaseLayer->safeUnref();
+    m_currentBaseLayer = m_baseLayer;
+    m_currentBaseLayer->safeRef();
+    inval(m_invalidateRect);
+    IntRect empty;
+    m_invalidateRect = empty;
 }
 
 void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
@@ -136,9 +160,9 @@ void GLWebViewState::inval(const IntRect& rect)
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_baseLayer) {
+    if (m_currentBaseLayer) {
         m_globalButtonMutex->lock();
-        m_baseLayer->drawCanvas(canvas);
+        m_currentBaseLayer->drawCanvas(canvas);
         m_globalButtonMutex->unlock();
     }
     return m_currentPictureCounter;
@@ -189,6 +213,11 @@ float GLWebViewState::transparency(double currentTime)
     return fmin(1, fmax(0, t));
 }
 
+TiledPage* GLWebViewState::sibling(TiledPage* page)
+{
+    return (page == m_tiledPageA) ? m_tiledPageB : m_tiledPageA;
+}
+
 TiledPage* GLWebViewState::frontPage()
 {
     android::Mutex::Autolock lock(m_tiledPageLock);
@@ -213,16 +242,17 @@ void GLWebViewState::swapPages()
 
 int GLWebViewState::baseContentWidth()
 {
-    return m_baseLayer ? m_baseLayer->getWidth() : 0;
+    return m_currentBaseLayer ? m_currentBaseLayer->getWidth() : 0;
 
 }
 int GLWebViewState::baseContentHeight()
 {
-    return m_baseLayer ? m_baseLayer->getHeight() : 0;
+    return m_currentBaseLayer ? m_currentBaseLayer->getHeight() : 0;
 }
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
+    m_previousViewport = m_viewport;
     if (m_viewport == viewport)
         return;
 

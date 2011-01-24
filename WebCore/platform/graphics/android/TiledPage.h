@@ -99,6 +99,7 @@ private:
     // within the page, not in content/view pixel coordinates.
     SkRegion m_invalRegion;
     unsigned int m_latestPictureInval;
+    bool m_prepare;
 };
 
 } // namespace WebCore
