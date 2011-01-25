@@ -453,8 +453,7 @@ void V8GCController::checkMemoryUsage()
     // Query the PlatformBridge for memory thresholds as these vary device to device.
     static const int lowUsageMB = PlatformBridge::lowMemoryUsageMB();
     static const int highUsageMB = PlatformBridge::highMemoryUsageMB();
-    // We use a delta of -1 to ensure that when we are in a low memory situation we always trigger a GC.
-    static const int highUsageDeltaMB = -1;
+    static const int highUsageDeltaMB = PlatformBridge::highUsageDeltaMB();
 #else
     return;
 #endif

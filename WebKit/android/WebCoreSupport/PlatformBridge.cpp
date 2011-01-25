@@ -201,6 +201,11 @@ int PlatformBridge::highMemoryUsageMB()
     return MemoryUsage::highMemoryUsageMb();
 }
 
+int PlatformBridge::highUsageDeltaMB()
+{
+    return MemoryUsage::highUsageDeltaMb();
+}
+
 int PlatformBridge::memoryUsageMB()
 {
     return MemoryUsage::memoryUsageMb(false);
