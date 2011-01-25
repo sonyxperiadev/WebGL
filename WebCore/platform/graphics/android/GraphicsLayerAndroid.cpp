@@ -257,10 +257,11 @@ void GraphicsLayerAndroid::updateFixedPosition()
 
         SkRect viewRect;
         viewRect.set(paintingOffsetX, paintingOffsetY, paintingOffsetX + w, paintingOffsetY + h);
-
+        IntPoint renderLayerPos(renderLayer->x(), renderLayer->y());
         m_contentLayer->setFixedPosition(left, top, right, bottom,
                                          marginLeft, marginTop,
                                          marginRight, marginBottom,
+                                         renderLayerPos,
                                          viewRect);
     }
 }

@@ -101,7 +101,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
     m_contentsImage->safeRef();
-
+    m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backgroundColor = layer.m_backgroundColor;
 
@@ -462,17 +462,20 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
         float x = dx;
         float y = dy;
 
-        // Not defined corresponds to 'auto';
-        // If both left and right are auto, the w3c says we should set left
-        // to zero (in left-to-right layout). So we use left if it's defined
-        // or if right isn't defined.
+        // It turns out that when it is 'auto', the webkit computation will
+        // take one more factor into account,  that is the original render
+        // layer's X,Y, such that it will align well with the parent's layer.
+        if (!(m_fixedLeft.defined() || m_fixedRight.defined()))
+            x += m_renderLayerPos.x();
+
+        if (!(m_fixedTop.defined() || m_fixedBottom.defined()))
+            y += m_renderLayerPos.y();
+
         if (m_fixedLeft.defined() || !m_fixedRight.defined())
             x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - m_fixedRect.fLeft;
         else
             x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedRect.fRight;
 
-        // Following the same reason as above, if bottom isn't defined, we apply
-        // top regardless of it being defined or not.
         if (m_fixedTop.defined() || !m_fixedBottom.defined())
             y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - m_fixedRect.fTop;
         else
