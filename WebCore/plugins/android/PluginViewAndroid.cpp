@@ -86,6 +86,7 @@
 #include "ANPOpenGL_npapi.h"
 #include "ANPSurface_npapi.h"
 #include "ANPSystem_npapi.h"
+#include "ANPVideo_npapi.h"
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
 
@@ -107,6 +108,7 @@ extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV1_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV0_Init(ANPInterface* value);
 extern void ANPOpenGLInterfaceV0_Init(ANPInterface* value);
+extern void ANPVideoInterfaceV0_Init(ANPInterface* value);
 
 struct VarProcPair {
     int         enumValue;
@@ -133,6 +135,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(WindowInterfaceV1)        },
     { VARPROCLINE(SystemInterfaceV0)        },
     { VARPROCLINE(OpenGLInterfaceV0)        },
+    { VARPROCLINE(VideoInterfaceV0)         },
 };
 
 /*  return true if var was an interface request (error will be set accordingly)

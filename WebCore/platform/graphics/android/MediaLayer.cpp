@@ -15,11 +15,10 @@
  */
 #include "config.h"
 #include "MediaLayer.h"
+#include "MediaTexture.h"
 #include "TilesManager.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#include <wtf/CurrentTime.h>
 
 #define LAYER_DEBUG
 #undef LAYER_DEBUG
@@ -45,6 +44,9 @@ MediaLayer::MediaLayer() : LayerAndroid(false)
 {
     m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
     m_bufferedTexture->incStrong(this);
+    m_videoTexture = new VideoTexture();
+    m_videoTexture->incStrong(this);
+
     m_currentTextureInfo = 0;
     m_isContentInverted = false;
     XLOG("Creating Media Layer %p", this);
@@ -54,6 +56,9 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 {
     m_bufferedTexture = layer.getTexture();
     m_bufferedTexture->incStrong(this);
+    m_videoTexture = layer.m_videoTexture;
+    m_videoTexture->incStrong(this);
+
     m_currentTextureInfo = 0;
     m_isContentInverted = layer.m_isContentInverted;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
@@ -63,24 +68,31 @@ MediaLayer::~MediaLayer()
 {
     XLOG("Deleting Media Layer");
     m_bufferedTexture->decStrong(this);
+    m_videoTexture->decStrong(this);
 }
 
 bool MediaLayer::drawGL(SkMatrix& matrix)
 {
+
+    TransformationMatrix m = drawTransform();
+    // the layer's shader draws the content inverted so we must undo
+    // that change in the transformation matrix
+    if (!m_isContentInverted) {
+        m.flipY();
+        m.translate(0, -getSize().height());
+    }
+
+    // check to see if we need to create a video texture
+    m_videoTexture->initNativeWindowIfNeeded();
+    // draw any video content if present
+    m_videoTexture->drawVideo(m);
+
+    // draw the primary content
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
         if (textureInfo) {
             SkRect rect;
             rect.set(0, 0, getSize().width(), getSize().height());
-            TransformationMatrix m = drawTransform();
-
-            // the layer's shader draws the content inverted so we must undo
-            // that change in the transformation matrix
-            if (!m_isContentInverted) {
-                m.flipY();
-                m.translate(0, -getSize().height());
-            }
-
             TilesManager::instance()->shader()->drawLayerQuad(m, rect,
                                                               textureInfo->m_textureId,
                                                               1.0f); //TODO fix this m_drawOpacity
@@ -92,6 +104,26 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
 
     //TODO allow plugins to specify when they should be drawn
     return true;
+}
+
+ANativeWindow* MediaLayer::acquireNativeWindowForVideo()
+{
+    return m_videoTexture->requestNewWindow();
+}
+
+void MediaLayer::setWindowDimensionsForVideo(const ANativeWindow* window, const SkRect& dimensions)
+{
+    if (window != m_videoTexture->getNativeWindow())
+        return;
+
+    //TODO validate that the dimensions do not exceed the plugin's bounds
+    m_videoTexture->setDimensions(dimensions);
+}
+
+void MediaLayer::releaseNativeWindowForVideo(ANativeWindow* window)
+{
+    if (window == m_videoTexture->getNativeWindow())
+        m_videoTexture->releaseNativeWindow();
 }
 
 } // namespace WebCore
