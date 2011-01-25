@@ -19,21 +19,14 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "RefPtr.h"
-#include "DoubleBufferedTexture.h"
+#include "MediaTexture.h"
 #include "LayerAndroid.h"
-#include <utils/RefBase.h>
 
+namespace android {
+    class SurfaceTexture;
+}
 
 namespace WebCore {
-
-class MediaTexture : public DoubleBufferedTexture,
-                     public android::LightRefBase<MediaTexture> {
-
-public:
-    MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext) { };
-};
-
 
 class MediaLayer : public LayerAndroid {
 
@@ -56,14 +49,21 @@ public:
 
     void invertContents(bool invertContent) { m_isContentInverted = invertContent; }
 
+    // functions to manipulate secondary layers for video playback
+    ANativeWindow* acquireNativeWindowForVideo();
+    void setWindowDimensionsForVideo(const ANativeWindow* window, const SkRect& dimensions);
+    void releaseNativeWindowForVideo(ANativeWindow* window);
+
 private:
 
-    // GL textures management
+    // Primary GL texture variables
     MediaTexture* m_bufferedTexture;
-
     TextureInfo* m_currentTextureInfo;
 
     bool m_isContentInverted;
+
+    // Video texture variables
+    VideoTexture* m_videoTexture;
 };
 
 } // namespace WebCore

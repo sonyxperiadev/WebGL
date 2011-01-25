@@ -364,7 +364,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libmedia \
 	libsurfaceflinger_client \
 	libEGL \
-	libGLESv2
+	libGLESv2 \
+	libgui
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy

@@ -616,6 +616,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ImageSourceAndroid.cpp \
 	platform/graphics/android/LayerAndroid.cpp \
 	platform/graphics/android/MediaLayer.cpp \
+	platform/graphics/android/MediaTexture.cpp \
 	platform/graphics/android/PaintLayerOperation.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
