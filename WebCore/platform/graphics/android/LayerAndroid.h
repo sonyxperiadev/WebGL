@@ -138,6 +138,7 @@ public:
                           SkLength marginTop, // CSS margin-top property
                           SkLength marginRight, // CSS margin-right property
                           SkLength marginBottom, // CSS margin-bottom property
+                          const IntPoint& renderLayerPos, // For undefined fixed position
                           SkRect viewRect) { // view rect, can be smaller than the layer's
         m_fixedLeft = left;
         m_fixedTop = top;
@@ -149,6 +150,7 @@ public:
         m_fixedMarginBottom = marginBottom;
         m_fixedRect = viewRect;
         m_isFixed = true;
+        m_renderLayerPos = renderLayerPos;
         setInheritFromRootTransform(true);
     }
 
@@ -258,6 +260,10 @@ private:
     SkLength m_fixedMarginRight;
     SkLength m_fixedMarginBottom;
     SkRect m_fixedRect;
+
+    // When fixed element is undefined or auto, the render layer's position
+    // is needed for offset computation
+    IntPoint m_renderLayerPos;
 
     TransformationMatrix m_transform;
 

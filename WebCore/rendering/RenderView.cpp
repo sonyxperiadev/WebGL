@@ -158,30 +158,12 @@ void RenderView::mapLocalToContainer(RenderBoxModelObject* repaintContainer, boo
     // then we should have found it by now.
     ASSERT_UNUSED(repaintContainer, !repaintContainer || repaintContainer == this);
 
-#ifdef ANDROID_FIXED_ELEMENTS
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    const Settings * settings = document()->settings();
-    if (settings && (settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
-#else
-    if (false)
-#endif
-#endif
     if (fixed && m_frameView)
         transformState.move(m_frameView->scrollOffset());
 }
 
 void RenderView::mapAbsoluteToLocalPoint(bool fixed, bool /*useTransforms*/, TransformState& transformState) const
 {
-#ifdef ANDROID_FIXED_ELEMENTS
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    const Settings * settings = document()->settings();
-    if (settings && (settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
-#else
-    if (false)
-#endif
-#endif
     if (fixed && m_frameView)
         transformState.move(-m_frameView->scrollOffset());
 }
@@ -331,15 +313,6 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
             rect.setX(viewWidth() - rect.right());
     }
 
-#ifdef ANDROID_FIXED_ELEMENTS
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    const Settings * settings = document()->settings();
-    if (settings && (settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
-#else
-    if (false)
-#endif
-#endif
     if (fixed && m_frameView)
         rect.move(m_frameView->scrollX(), m_frameView->scrollY());
         
