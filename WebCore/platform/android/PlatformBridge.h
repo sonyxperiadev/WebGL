@@ -145,6 +145,7 @@ public:
     // Memory details for V8 GC
     static int lowMemoryUsageMB();
     static int highMemoryUsageMB();
+    static int highUsageDeltaMB();
     static int memoryUsageMB();
     static int actualMemoryUsageMB();
 };
