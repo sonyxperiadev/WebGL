@@ -62,7 +62,7 @@ public:
     // prepare the page for display on the screen
     void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds);
     // check to see if the page is ready for display
-    bool ready(const SkIRect& tileBounds);
+    bool ready(const SkIRect& tileBounds, float scale);
     // draw the page on the screen
     void draw(float transparency, const SkIRect& tileBounds);
 
