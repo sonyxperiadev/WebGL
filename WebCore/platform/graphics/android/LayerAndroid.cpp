@@ -225,8 +225,9 @@ bool LayerAndroid::evaluateAnimations(double time) const
     return hasRunningAnimations;
 }
 
-void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> anim)
+void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
 {
+    RefPtr<AndroidAnimation> anim = prpAnim;
     if (m_animations.get(anim->name()))
         removeAnimation(anim->name());
     m_animations.add(anim->name(), anim);
