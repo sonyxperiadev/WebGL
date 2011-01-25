@@ -200,17 +200,23 @@ bool GraphicsLayerAndroid::replaceChild(GraphicsLayer* oldChild, GraphicsLayer* 
 {
     LOG("(%x) replaceChild %x by %x", this, oldChild, newChild);
     bool ret = GraphicsLayer::replaceChild(oldChild, newChild);
-    m_needsSyncChildren = true;
-    askForSync();
+    if (ret) {
+        m_needsSyncChildren = true;
+        askForSync();
+    }
     return ret;
 }
 
 void GraphicsLayerAndroid::removeFromParent()
 {
     LOG("(%x) removeFromParent()", this);
+    GraphicsLayerAndroid* parent = static_cast<GraphicsLayerAndroid*>(m_parent);
     GraphicsLayer::removeFromParent();
-    m_needsSyncChildren = true;
-    askForSync();
+    // Update the parent's children.
+    if (parent) {
+        parent->m_needsSyncChildren = true;
+        askForSync();
+    }
 }
 
 void GraphicsLayerAndroid::updateFixedPosition()
