@@ -301,6 +301,9 @@ private:
     bool m_dirty;
     unsigned int m_pictureUsed;
 
+    // painting request sent
+    bool m_requestSent;
+
     float m_scale;
 
     // This mutex serves two purposes. (1) It ensures that certain operations

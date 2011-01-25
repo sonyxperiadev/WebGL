@@ -33,7 +33,7 @@ bool PaintLayerOperation::operator==(const QueuedOperation* operation)
     if (operation->type() != type())
         return false;
     const PaintLayerOperation* op = static_cast<const PaintLayerOperation*>(operation);
-    return op->m_layer == m_layer;
+    return op->m_layer->uniqueId() == m_layer->uniqueId();
 }
 
 void PaintLayerOperation::run()
