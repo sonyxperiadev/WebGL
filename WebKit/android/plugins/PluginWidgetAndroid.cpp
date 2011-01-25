@@ -66,7 +66,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_hasFocus = false;
     m_isFullScreen = false;
     m_visible = false;
-    m_zoomLevel = 0;
+    m_cachedZoomLevel = 0;
     m_embeddedView = NULL;
     m_embeddedViewAttached = false;
     m_acceptEvents = false;
@@ -359,15 +359,17 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
 void PluginWidgetAndroid::sendSizeAndVisibilityEvents(const bool updateDimensions) {
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
+    const float zoomLevel = m_core->scale();
+
     // notify the plugin of the new size
     if (m_drawingModel == kOpenGL_ANPDrawingModel && updateDimensions) {
         PLUGIN_LOG("%s (%d,%d)[%f]", __FUNCTION__, m_pluginWindow->width,
-                m_pluginWindow->height, m_zoomLevel);
+                m_pluginWindow->height, zoomLevel);
         ANPEvent event;
         SkANP::InitEvent(&event, kDraw_ANPEventType);
         event.data.draw.model = kOpenGL_ANPDrawingModel;
-        event.data.draw.data.surface.width = m_pluginWindow->width * m_zoomLevel;
-        event.data.draw.data.surface.height = m_pluginWindow->height * m_zoomLevel;
+        event.data.draw.data.surface.width = m_pluginWindow->width * zoomLevel;
+        event.data.draw.data.surface.height = m_pluginWindow->height * zoomLevel;
         sendEvent(event);
     }
 
@@ -401,10 +403,10 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
     int oldScreenW = m_visibleDocRect.width();
     int oldScreenH = m_visibleDocRect.height();
 
-    const bool zoomChanged = m_zoomLevel != zoom;
+    const bool zoomChanged = m_cachedZoomLevel != zoom;
 
     // make local copies of the parameters
-    m_zoomLevel = zoom;
+    m_cachedZoomLevel = zoom;
     m_visibleDocRect.set(visibleDocRect.left,
                          visibleDocRect.top,
                          visibleDocRect.right,

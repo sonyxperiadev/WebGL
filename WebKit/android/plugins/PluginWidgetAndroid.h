@@ -193,7 +193,7 @@ private:
     bool                    m_hasFocus;
     bool                    m_isFullScreen;
     bool                    m_visible;
-    float                   m_zoomLevel;
+    float                   m_cachedZoomLevel; // used for comparison only
     jobject                 m_embeddedView;
     bool                    m_embeddedViewAttached;
     bool                    m_acceptEvents;
