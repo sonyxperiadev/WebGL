@@ -166,17 +166,20 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
          && (m_glWebViewState->futureViewport() != viewportTileBounds))
         prepareNextTiledPage = true;
 
+    bool zooming = false;
+    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest) {
+        m_glWebViewState->unlockBaseLayerUpdate();
+        zooming = true;
+    }
+
     // Let's prepare the page if needed
     if (prepareNextTiledPage) {
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
+        m_glWebViewState->unlockBaseLayerUpdate();
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
     }
-
-    bool zooming = false;
-    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest)
-        zooming = true;
 
     float transparency = 1;
     bool doSwap = false;
@@ -184,7 +187,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     // If we fired a request, let's check if it's ready to use
     if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
-        if (nextTiledPage->ready(viewportTileBounds))
+        if (nextTiledPage->ready(viewportTileBounds, m_glWebViewState->futureScale()))
             m_glWebViewState->setScaleRequestState(GLWebViewState::kReceivedNewScale);
     }
 
@@ -221,26 +224,29 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     // out of date. When standing still on the other hand, we wait until
     // the back page is ready before swapping the pages, ensuring that the
     // displayed content is in sync.
-    if (!zooming && !m_glWebViewState->moving()) {
-        if (!tiledPage->ready(preZoomBounds)) {
+    if (!doSwap && !zooming && !m_glWebViewState->moving()) {
+        if (!tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale())) {
+            m_glWebViewState->lockBaseLayerUpdate();
             nextTiledPage->setScale(m_glWebViewState->currentScale());
             nextTiledPage->prepare(goingDown, goingLeft, preZoomBounds);
         }
-        if (nextTiledPage->ready(preZoomBounds)) {
+        if (nextTiledPage->ready(preZoomBounds, m_glWebViewState->currentScale())) {
             nextTiledPage->draw(transparency, preZoomBounds);
+            m_glWebViewState->unlockBaseLayerUpdate();
             doSwap = true;
         } else {
             tiledPage->draw(transparency, preZoomBounds);
         }
     } else {
         // Ask for the tiles and draw -- tiles may be out of date.
+        m_glWebViewState->unlockBaseLayerUpdate();
         tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
         tiledPage->draw(transparency, preZoomBounds);
     }
 
     bool ret = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
-        || !tiledPage->ready(preZoomBounds))
+        || !tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale()))
       ret = true;
 
     if (doSwap) {
