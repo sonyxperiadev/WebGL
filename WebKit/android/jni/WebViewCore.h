@@ -602,8 +602,7 @@ namespace android {
         WebCoreReply*          m_popupReply;
         WebCore::Node* m_lastFocused;
         WebCore::IntRect m_lastFocusedBounds;
-        bool m_lastClickWasOnTextInput;
-        const WebCore::Node* m_blurringNode;
+        int m_blurringNodePointer;
         int m_lastFocusedSelStart;
         int m_lastFocusedSelEnd;
         PictureSet m_content; // the set of pictures to draw
