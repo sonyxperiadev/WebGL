@@ -457,7 +457,7 @@ void WebViewCore::reset(bool fromConstructor)
     }
 
     m_lastFocused = 0;
-    m_blurringNode = 0;
+    m_blurringNodePointer = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
     m_focusBoundsChanged = false;
     m_lastFocusedSelStart = 0;
@@ -2983,7 +2983,6 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 // in which case, 'fake' is set to true
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake, int scrollY)
 {
-    m_lastClickWasOnTextInput = false;
     bool valid = framePtr == NULL
             || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
@@ -3041,11 +3040,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             static_cast<RenderTextControl*>(renderer)->setScrollTop(scrollY);
         else
             scrollLayer(renderer, &m_mousePos);
-        if (isTextInput(nodePtr)) {
-            // The user clicked on a text input field.  If this causes a blur event
-            // on a different text input, do not hide the keyboard in formDidBlur
-            m_lastClickWasOnTextInput = true;
-        }
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
@@ -3060,8 +3054,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedAction(false);
-
-    m_lastClickWasOnTextInput = false;
 
     // If the user clicked on a textfield, make the focusController active
     // so we show the blinking cursor.
@@ -3127,23 +3119,24 @@ void WebViewCore::popupReply(const int* array, int count)
 
 void WebViewCore::formDidBlur(const WebCore::Node* node)
 {
-    // This blur is the result of clicking on a different input.  Do not hide
-    // the keyboard, since it will just be opened again.
-    if (m_lastClickWasOnTextInput) return;
-    m_blurringNode = node;
+    // If the blur is on a text input, keep track of the node so we can
+    // hide the soft keyboard when the new focus is set, if it is not a
+    // text input.
+    if (isTextInput(node))
+        m_blurringNodePointer = reinterpret_cast<int>(node);
 }
 
 void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
 {
-    if (!m_blurringNode)
+    if (!m_blurringNodePointer)
         return;
-    if (isTextInput(m_blurringNode) && !isTextInput(newFocus)) {
+    if (!isTextInput(newFocus)) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->CallVoidMethod(m_javaGlue->object(env).get(),
-                m_javaGlue->m_formDidBlur, reinterpret_cast<int>(m_blurringNode));
+                m_javaGlue->m_formDidBlur, m_blurringNodePointer);
         checkException(env);
     }
-    m_blurringNode = 0;
+    m_blurringNodePointer = 0;
 }
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
