@@ -509,6 +509,11 @@ public:
         if (str) {
             WTF::String localStorageDatabasePath = jstringToWtfString(env,str);
             if (localStorageDatabasePath.length()) {
+                localStorageDatabasePath = WebCore::pathByAppendingComponent(
+                        localStorageDatabasePath, "localstorage");
+                // We need 770 for folders
+                mkdir(localStorageDatabasePath.utf8().data(),
+                        permissionFlags660 | S_IXUSR | S_IXGRP);
                 s->setLocalStorageDatabasePath(localStorageDatabasePath);
             }
         }
