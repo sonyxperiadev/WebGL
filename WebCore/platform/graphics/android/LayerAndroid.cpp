@@ -77,7 +77,8 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_uniqueId(++gUniqueId),
     m_drawingTexture(0),
     m_reservedTexture(0),
-    m_pictureUsed(0),
+    m_pictureUsed(-1),
+    m_requestSent(false),
     m_scale(1)
 {
     m_backgroundColor = 0;
@@ -94,7 +95,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
     m_drawingTexture(0),
-    m_reservedTexture(0)
+    m_reservedTexture(0),
+    m_requestSent(false)
 {
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
@@ -144,6 +146,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_uniqueId(-1),
     m_drawingTexture(0),
     m_reservedTexture(0),
+    m_requestSent(false),
     m_scale(1)
 {
     m_backgroundColor = 0;
@@ -641,10 +644,20 @@ void LayerAndroid::createGLTextures()
     if (!needsScheduleRepaint(reservedTexture))
         return;
 
-    XLOG("We schedule a paint for layer %d, because isReady %d or m_dirty %d, using texture %x",
-         uniqueId(), m_reservedTexture->isReady(), m_dirty, m_reservedTexture);
-    PaintLayerOperation* operation = new PaintLayerOperation(this);
-    TilesManager::instance()->scheduleOperation(operation);
+    m_atomicSync.lock();
+    if (!m_requestSent) {
+        m_requestSent = true;
+        m_atomicSync.unlock();
+        XLOG("We schedule a paint for layer %d (%x), because isReady %d or m_dirty %d, using texture %x (%d, %d)",
+             uniqueId(), this, m_reservedTexture->isReady(), m_dirty, m_reservedTexture,
+             m_reservedTexture->rect().width(), m_reservedTexture->rect().height());
+        PaintLayerOperation* operation = new PaintLayerOperation(this);
+        TilesManager::instance()->scheduleOperation(operation);
+    } else {
+        XLOG("We don't schedule a paint for layer %d (%x), because we already sent a request",
+             uniqueId(), this);
+        m_atomicSync.unlock();
+    }
 }
 
 bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
@@ -652,9 +665,11 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
     if (!texture)
         return false;
 
-    if (!m_pictureUsed || texture->pictureUsed() != m_pictureUsed) {
-        XLOG("We mark layer %d as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
-             uniqueId(), m_pictureUsed, texture->pictureUsed());
+    if (!m_pictureUsed == -1 || texture->pictureUsed() != m_pictureUsed) {
+        XLOG("We mark layer %d (%x) as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
+             uniqueId(), this, m_pictureUsed, texture->pictureUsed());
+        if (m_pictureUsed == -1)
+            m_pictureUsed = 0;
         texture->setPictureUsed(m_pictureUsed);
         m_dirty = true;
     }
@@ -689,6 +704,8 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
             // move the drawing depending on where the texture is on the layer
             TransformationMatrix m = drawTransform();
             m.translate(textureRect.x(), textureRect.y());
+            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)", uniqueId(), this, getWidth(), getHeight(),
+                 m_drawingTexture, textureRect.x(), textureRect.y(), textureRect.width(), textureRect.height());
             TilesManager::instance()->shader()->drawLayerQuad(m, bounds,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity);
@@ -750,7 +767,8 @@ void LayerAndroid::paintBitmapGL()
         return;
     }
 
-    XLOG("LayerAndroid paintBitmapGL (layer %d), texture used %x", uniqueId(), texture);
+    XLOG("LayerAndroid paintBitmapGL (layer %d), texture used %x (%d, %d)", uniqueId(), texture,
+         texture->rect().width(), texture->rect().height());
 
     // We need to mark the texture as busy before relinquishing the lock
     // -- so that TilesManager::cleanupLayersTextures() can check if the texture
@@ -770,7 +788,7 @@ void LayerAndroid::paintBitmapGL()
         return;
     }
 
-    XLOG("LayerAndroid %d paintBitmapGL WE ARE PAINTING", uniqueId());
+    XLOG("LayerAndroid %d %x (%.2f, %.2f) paintBitmapGL WE ARE PAINTING", uniqueId(), this, getWidth(), getHeight());
     SkCanvas* canvas = texture->canvas();
     float scale = texture->scale();
 
@@ -784,10 +802,17 @@ void LayerAndroid::paintBitmapGL()
     canvas->restore();
 
     XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
+    texture->producerUpdate(textureInfo);
+
+    while (!texture->isReady()) {
+        TextureInfo* textureInfo = texture->producerLock();
+        texture->producerUpdate(textureInfo);
+    }
+
     m_atomicSync.lock();
     m_dirty = false;
+    m_requestSent = false;
     m_atomicSync.unlock();
-    texture->producerUpdate(textureInfo);
     XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
 }
 
