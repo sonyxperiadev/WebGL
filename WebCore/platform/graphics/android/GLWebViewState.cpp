@@ -139,6 +139,8 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
     const IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
+    if (!m_baseLayerUpdate)
+        return;
     layer->setExtra(picture);
     if (!rect.isEmpty())
         inval(rect);

@@ -179,8 +179,10 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
 
 void TiledPage::updateTileState(const SkIRect& tileBounds)
 {
-    if (!m_glWebViewState || tileBounds.isEmpty())
+    if (!m_glWebViewState || tileBounds.isEmpty()) {
+        m_invalRegion.setEmpty();
         return;
+    }
 
     const int nbTilesWidth = tileBounds.width();
     const int nbTilesHeight = tileBounds.height();
@@ -216,7 +218,7 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
 
         int d = std::max(dx, dy);
 
-        XLOG("setTileLevel tile: %x, fxy(%d, %d), level: %d", tile, firstTileX, firstTileY, d);
+        XLOG("setTileLevel tile: %x, fxy(%d, %d), level: %d", tile, tileBounds.fLeft, tileBounds.fTop, d);
         tile.setUsedLevel(d);
     }
 
@@ -233,7 +235,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     // update the tiles distance from the viewport
     updateTileState(tileBounds);
     m_prepare = true;
-    m_glWebViewState->lockBaseLayerUpdate();
 
     int firstTileX = tileBounds.fLeft;
     int firstTileY = tileBounds.fTop;
@@ -289,12 +290,15 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     TilesManager::instance()->scheduleOperation(operation);
 }
 
-bool TiledPage::ready(const SkIRect& tileBounds)
+bool TiledPage::ready(const SkIRect& tileBounds, float scale)
 {
     if (!m_glWebViewState)
         return false;
 
     if (!m_invalRegion.isEmpty() && !m_prepare)
+        return false;
+
+    if (m_scale != scale)
         return false;
 
     for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
@@ -305,7 +309,6 @@ bool TiledPage::ready(const SkIRect& tileBounds)
         }
     }
     m_prepare = false;
-    m_glWebViewState->unlockBaseLayerUpdate();
     return true;
 }
 
