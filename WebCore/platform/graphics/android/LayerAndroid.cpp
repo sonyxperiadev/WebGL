@@ -77,7 +77,7 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_uniqueId(++gUniqueId),
     m_drawingTexture(0),
     m_reservedTexture(0),
-    m_pictureUsed(-1),
+    m_pictureUsed(0),
     m_requestSent(false),
     m_scale(1)
 {
@@ -594,12 +594,20 @@ void LayerAndroid::reserveGLTextures()
         IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
         m_layerTextureRect = drawTransform().inverse().mapRect(cr);
 
-        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(this, m_layerTextureRect);
+        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(
+            this, m_layerTextureRect);
 
         // If we do not have a drawing texture (i.e. new LayerAndroid tree),
         // we get any one available.
-        if (!m_drawingTexture)
-            m_drawingTexture = TilesManager::instance()->getExistingTextureForLayer(this, m_layerTextureRect, true);
+        if (!m_drawingTexture) {
+            LayerTexture* texture = reservedTexture;
+            m_drawingTexture =
+                TilesManager::instance()->getExistingTextureForLayer(
+                    this, m_layerTextureRect, true, texture);
+
+            if (!m_drawingTexture)
+                m_drawingTexture = reservedTexture;
+        }
     }
 
     // SMP flush
@@ -636,6 +644,7 @@ void LayerAndroid::createGLTextures()
     m_atomicSync.unlock();
 
     if (reservedTexture &&
+        reservedTexture->ready() &&
         (reservedTexture != m_drawingTexture)) {
         if (m_drawingTexture) {
             TilesManager::instance()->removeOperationsForTexture(m_drawingTexture);
@@ -668,13 +677,10 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
     if (!texture)
         return false;
 
-    if (m_pictureUsed == -1 ||
-        texture->pictureUsed() == -1 ||
+    if (!texture->ready() ||
         texture->pictureUsed() != m_pictureUsed) {
         XLOG("We mark layer %d (%x) as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
              uniqueId(), this, m_pictureUsed, texture->pictureUsed());
-        if (m_pictureUsed == -1)
-            m_pictureUsed = 0;
         m_dirty = true;
     }
 
@@ -705,8 +711,10 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
             // move the drawing depending on where the texture is on the layer
             TransformationMatrix m = drawTransform();
             m.translate(textureRect.x(), textureRect.y());
-            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)", uniqueId(), this, getWidth(), getHeight(),
-                 m_drawingTexture, textureRect.x(), textureRect.y(), textureRect.width(), textureRect.height());
+            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)",
+                 uniqueId(), this, getWidth(), getHeight(),
+                 m_drawingTexture, textureRect.x(), textureRect.y(),
+                 textureRect.width(), textureRect.height());
             TilesManager::instance()->shader()->drawLayerQuad(m, bounds,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity);
@@ -768,7 +776,7 @@ void LayerAndroid::paintBitmapGL()
         return;
     }
 
-    XLOG("LayerAndroid paintBitmapGL (layer %d), texture used %x (%d, %d)", uniqueId(), texture,
+    XLOG("LayerAndroid %d paintBitmapGL, texture used %x (%d, %d)", uniqueId(), texture,
          texture->rect().width(), texture->rect().height());
 
     // We need to mark the texture as busy before relinquishing the lock
@@ -805,11 +813,12 @@ void LayerAndroid::paintBitmapGL()
     m_atomicSync.lock();
     m_dirty = false;
     m_requestSent = false;
-    texture->setPictureUsed(m_pictureUsed);
-    m_atomicSync.unlock();
 
     XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
     texture->producerUpdate(textureInfo);
+
+    texture->setPictureUsed(m_pictureUsed);
+    m_atomicSync.unlock();
 
     XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
 }
