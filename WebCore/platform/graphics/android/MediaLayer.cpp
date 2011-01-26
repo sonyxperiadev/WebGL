@@ -46,6 +46,7 @@ MediaLayer::MediaLayer() : LayerAndroid(false)
     m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
     m_bufferedTexture->incStrong(this);
     m_currentTextureInfo = 0;
+    m_isContentInverted = false;
     XLOG("Creating Media Layer %p", this);
 }
 
@@ -54,6 +55,7 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
     m_bufferedTexture = layer.getTexture();
     m_bufferedTexture->incStrong(this);
     m_currentTextureInfo = 0;
+    m_isContentInverted = layer.m_isContentInverted;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
 }
 
@@ -71,6 +73,14 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
             SkRect rect;
             rect.set(0, 0, getSize().width(), getSize().height());
             TransformationMatrix m = drawTransform();
+
+            // the layer's shader draws the content inverted so we must undo
+            // that change in the transformation matrix
+            if (!m_isContentInverted) {
+                m.flipY();
+                m.translate(0, -getSize().height());
+            }
+
             TilesManager::instance()->shader()->drawLayerQuad(m, rect,
                                                               textureInfo->m_textureId,
                                                               1.0f); //TODO fix this m_drawOpacity
