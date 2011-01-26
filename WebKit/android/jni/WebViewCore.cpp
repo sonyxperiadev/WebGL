@@ -36,6 +36,8 @@
 #include "ChromeClientAndroid.h"
 #include "ChromiumIncludes.h"
 #include "Color.h"
+#include "CSSPropertyNames.h"
+#include "CSSValueKeywords.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "DOMWindow.h"
@@ -112,6 +114,7 @@
 #include "WindowsKeyboardCodes.h"
 #include "android_graphics.h"
 #include "autofill/WebAutoFill.h"
+#include "htmlediting.h"
 #include "markup.h"
 
 #include <JNIHelp.h>
@@ -294,6 +297,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_setScrollbarModes;
     jmethodID   m_setInstallableWebApp;
     jmethodID   m_setWebTextViewAutoFillable;
+    jmethodID   m_selectAt;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -389,6 +393,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
+    m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
@@ -2078,39 +2083,6 @@ String WebViewCore::modifySelection(const int direction, const int axis)
     }
 }
 
-String WebViewCore::moveSelection(WebCore::Frame* frame, WebCore::Node* node)
-{
-    if (!frame || !node)
-        return String();
-
-    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
-        return String();
-
-    PassRefPtr<Range> rangeRef = 0;
-    ExceptionCode ec = 0;
-    DOMSelection* selection = frame->domWindow()->getSelection();
-    if (selection->rangeCount() > 0) {
-        rangeRef = selection->getRangeAt(0, ec);
-        if (ec)
-            return String();
-        selection->removeAllRanges();
-    } else {
-        rangeRef = frame->document()->createRange();
-    }
-
-    rangeRef->selectNode(node, ec);
-    if (ec)
-        return String();
-
-    selection->addRange(rangeRef.get());
-
-    scrollNodeIntoView(frame, node);
-
-    String markup = formatMarkup(selection).stripWhiteSpace();
-    LOGV("Selection markup: %s", markup.utf8().data());
-    return markup;
-}
-
 void WebViewCore::scrollNodeIntoView(Frame* frame, Node* node)
 {
     if (!frame || !node)
@@ -2135,178 +2107,410 @@ void WebViewCore::scrollNodeIntoView(Frame* frame, Node* node)
 
 String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int axis)
 {
-    String directionString;
-    if (direction == DIRECTION_FORWARD)
-        directionString = "forward";
-    else if (direction == DIRECTION_BACKWARD)
-        directionString = "backward";
-    else {
-        LOGE("Invalid direction: %d", direction);
-        return String();
-    }
-    String axisString;
-    if (axis == AXIS_CHARACTER)
-        axisString = "character";
-    else if (axis == AXIS_WORD)
-        axisString = "word";
-    else // axis == AXIS_SENTENCE
-        axisString = "sentence";
-
     // TODO: Add support of IFrames.
     HTMLElement* body = m_mainFrame->document()->body();
 
-    Node* focusNode = 0;
-    if (m_currentNodeDomNavigationAxis
-            && CacheBuilder::validNode(m_mainFrame, m_mainFrame, m_currentNodeDomNavigationAxis)) {
-        focusNode = m_currentNodeDomNavigationAxis;
-        m_currentNodeDomNavigationAxis = 0;
-        do {
-            focusNode = (direction == DIRECTION_FORWARD) ?
-                    focusNode->traverseNextNode(body) :
-                    focusNode->traversePreviousNode(body);
-        } while (focusNode && focusNode->isTextNode());
-    } else
-        focusNode = (selection->focusNode()) ? selection->focusNode() : currentFocus();
+    ExceptionCode ec = 0;
 
-    Text* currentNode = 0;
-    if (!focusNode) {
-        // we have no selection so start from the body or its recursively last child
-        focusNode = (direction == DIRECTION_FORWARD) ? body : body->lastDescendant();
-        if (focusNode->isTextNode())
-            currentNode = static_cast<Text*>(focusNode);
-        else
-            currentNode = traverseNonEmptyNonWhitespaceTextNode(focusNode, body, direction);
-        if (!setSelection(selection, currentNode, direction))
+    // initialize the selection if necessary
+    if (selection->rangeCount() == 0) {
+        if (m_currentNodeDomNavigationAxis
+                && CacheBuilder::validNode(m_mainFrame,
+                m_mainFrame, m_currentNodeDomNavigationAxis)) {
+            PassRefPtr<Range> rangeRef =
+                selection->frame()->document()->createRange();
+            rangeRef->selectNode(m_currentNodeDomNavigationAxis, ec);
+            m_currentNodeDomNavigationAxis = 0;
+            if (ec)
+                return String();
+            selection->addRange(rangeRef.get());
+        } else if (currentFocus()) {
+            selection->setPosition(currentFocus(), 0, ec);
+        } else if (m_cursorNode
+                && CacheBuilder::validNode(m_mainFrame,
+                m_mainFrame, m_cursorNode)) {
+            PassRefPtr<Range> rangeRef =
+                selection->frame()->document()->createRange();
+            rangeRef->selectNode(reinterpret_cast<Node*>(m_cursorNode), ec);
+            if (ec)
+                return String();
+            selection->addRange(rangeRef.get());
+        } else if (direction == DIRECTION_FORWARD) {
+            selection->setPosition(body->firstDescendant(), 0, ec);
+        } else {
+            selection->setPosition(body->lastDescendant(), 0, ec);
+        }
+        if (ec)
             return String();
-    } else if (focusNode->isElementNode()) {
-        // find a non-empty text node in the current direction
-        currentNode = traverseNonEmptyNonWhitespaceTextNode(focusNode, body, direction);
-        if (!setSelection(selection, currentNode, direction))
+    }
+    // collapse the selection
+    if (direction == DIRECTION_FORWARD)
+        selection->collapseToEnd(ec);
+    else
+        selection->collapseToStart(ec);
+    if (ec)
+        return String();
+
+    Node* oldAnchorNode = selection->anchorNode();
+    if (!oldAnchorNode)
+        return String();
+
+    // Make sure the anchor node is a text node since we are generating
+    // the markup of the selection which includes the anchor, the focus,
+    // and any crossed nodes. Forcing the condition that the selection
+    // starts and ends on text nodes guarantees symmetric selection markup.
+    Node* anchorNode = selection->anchorNode();
+    if (anchorNode->isElementNode()) {
+        int anchorOffset = rangeCompliantChildOffset(anchorNode,
+            selection->anchorOffset());
+        anchorNode = selection->anchorNode()->childNodes()->item(anchorOffset);
+        Node* nextAnchorNode = traverseVisibleNonEmptyNonWhitespaceTextNode(
+            anchorNode, body, direction);
+        if (!nextAnchorNode)
             return String();
-    } else {
-        currentNode = static_cast<Text*>(focusNode);
         if (direction == DIRECTION_FORWARD) {
-            // if end of non-whitespace text go to the next non-empty text node
-            int higherIndex = (selection->focusOffset() > selection->anchorOffset()) ?
-                    selection->focusOffset() : selection->anchorOffset();
-            String suffix = currentNode->data().substring(higherIndex, currentNode->length());
-            if (suffix.isEmpty() || suffix.stripWhiteSpace().isEmpty()) {
-                currentNode = traverseNonEmptyNonWhitespaceTextNode(currentNode, body, direction);
-                if (!setSelection(selection, currentNode, direction))
-                    return String();
-            } else {
-              ExceptionCode ec = 0;
-                selection->collapseToEnd(ec);
+            Node* skippedControl = getFirstIntermediaryInputOrButton(anchorNode,
+                nextAnchorNode);
+            if (skippedControl) {
+                IntRect bounds = static_cast<Element*>(
+                    skippedControl)->boundsInWindowSpace();
+                selectAt(bounds.center().x(), bounds.center().y());
+                selection->setBaseAndExtent(skippedControl,
+                    caretMinOffset(skippedControl), skippedControl,
+                    caretMaxOffset(skippedControl), ec);
                 if (ec)
-                    LOGE("Error while collapsing selection. Error code: %d", ec);
+                    return String();
+                return formatMarkup(selection).stripWhiteSpace();
+            } else {
+                selection->setPosition(nextAnchorNode, 0, ec);
+                if (ec)
+                    return String();
             }
         } else {
-            // if beginning of non-whitespace text go to the previous non-empty text node
-            int lowerIndex = (selection->focusOffset() > selection->anchorOffset()) ?
-                    selection->anchorOffset() : selection->focusOffset();
-            String prefix = currentNode->data().substring(0, lowerIndex);
-            if (prefix.isEmpty() || prefix.stripWhiteSpace().isEmpty()) {
-                currentNode = traverseNonEmptyNonWhitespaceTextNode(currentNode, body, direction);
-                if (!setSelection(selection, currentNode, direction))
-                    return String();
-            } else {
-                ExceptionCode ec = 0;
-                selection->collapseToStart(ec);
+            Node* skippedControl = getFirstIntermediaryInputOrButton(
+                nextAnchorNode, anchorNode);
+            if (skippedControl) {
+                IntRect bounds = static_cast<Element*>(
+                    skippedControl)->boundsInWindowSpace();
+                selectAt(bounds.center().x(), bounds.center().y());
+                selection->setBaseAndExtent(skippedControl,
+                    caretMaxOffset(skippedControl), skippedControl,
+                    caretMinOffset(skippedControl), ec);
                 if (ec)
-                    LOGE("Error while collapsing selection. Error code: %d", ec);
+                    return String();
+                return formatMarkup(selection).stripWhiteSpace();
+            } else {
+                selection->setPosition(nextAnchorNode,
+                    caretMaxOffset(nextAnchorNode), ec);
+                if (ec)
+                    return String();
             }
         }
     }
 
-    // extend the selection - loop as an insurance it does not get stuck
-    currentNode = static_cast<Text*>(selection->focusNode());
-    int focusOffset = selection->focusOffset();
-    while (true) {
-        selection->modify("extend", directionString, axisString);
-        if (selection->focusNode() != currentNode || selection->focusOffset() != focusOffset)
-            break;
-        currentNode = traverseNonEmptyNonWhitespaceTextNode(currentNode, body, direction);
-        focusOffset = (direction == DIRECTION_FORWARD) ? 0 : currentNode->data().length();
-        // setSelection returns false if currentNode is 0 => the loop always terminates
-        if (!setSelection(selection, currentNode, direction))
-            return String();
+    // If the selection is at the end of a non white space text move
+    // it to the next visible text node with non white space content.
+    // This is a workaround for the selection getting stuck.
+    anchorNode = selection->anchorNode();
+    if (!anchorNode)
+        return String();
+    if (anchorNode->isTextNode()) {
+        if (direction == DIRECTION_FORWARD) {
+            String suffix = anchorNode->textContent().substring(
+                selection->anchorOffset(), caretMaxOffset(anchorNode));
+            if (suffix.stripWhiteSpace().isEmpty()) {
+                Node* nextAnchorNode =
+                    traverseVisibleNonEmptyNonWhitespaceTextNode(anchorNode,
+                        body, direction);
+                if (!nextAnchorNode)
+                    return String();
+                Node* skippedControl = getFirstIntermediaryInputOrButton(
+                    anchorNode, nextAnchorNode);
+                if (skippedControl) {
+                    IntRect bounds = static_cast<Element*>(
+                        skippedControl)->boundsInWindowSpace();
+                    selectAt(bounds.center().x(), bounds.center().y());
+                    selection->setBaseAndExtent(skippedControl,
+                        caretMinOffset(skippedControl), skippedControl,
+                        caretMaxOffset(skippedControl), ec);
+                    if (ec)
+                        return String();
+                    return formatMarkup(selection).stripWhiteSpace();
+                } else {
+                    selection->setPosition(nextAnchorNode, 0, ec);
+                    if (ec)
+                        return String();
+                }
+            }
+        } else {
+            String prefix = anchorNode->textContent().substring(0,
+                selection->anchorOffset());
+            if (prefix.stripWhiteSpace().isEmpty()) {
+                Node* nextAnchorNode =
+                    traverseVisibleNonEmptyNonWhitespaceTextNode(anchorNode,
+                        body, direction);
+                if (!nextAnchorNode)
+                    return String();
+                Node* skippedControl = getFirstIntermediaryInputOrButton(
+                    nextAnchorNode, anchorNode);
+                if (skippedControl) {
+                    IntRect bounds = static_cast<Element*>(
+                        skippedControl)->boundsInWindowSpace();
+                    selectAt(bounds.center().x(), bounds.center().y());
+                    selection->setBaseAndExtent(skippedControl,
+                        caretMaxOffset(skippedControl), skippedControl,
+                        caretMinOffset(skippedControl), ec);
+                    if (ec)
+                        return String();
+                    return formatMarkup(selection).stripWhiteSpace();
+                } else {
+                    selection->setPosition(nextAnchorNode,
+                        caretMaxOffset(nextAnchorNode), ec);
+                    if (ec)
+                        return String();
+                }
+            }
+        }
     }
 
-    if (direction == DIRECTION_FORWARD) {
-        // enforce the anchor node is a text node
-        if (selection->anchorNode()->isElementNode()) {
-            if (!setSelection(selection, selection->focusNode(), selection->focusNode(), 0,
-                              selection->focusOffset()))
-                return String();
-        }
-        // enforce the focus node is a text node
-        if (selection->focusNode()->isElementNode()) {
-            int endOffset = static_cast<Text*>(selection->anchorNode())->length(); // cast is safe
-            if (!setSelection(selection, selection->anchorNode(), selection->anchorNode(),
-                              selection->anchorOffset(), endOffset))
-                return String();
-        }
-    } else {
-        // enforce the focus node is a text node
-        if (selection->focusNode()->isElementNode()) {
-            if (!setSelection(selection, selection->anchorNode(), selection->anchorNode(), 0,
-                              selection->anchorOffset()))
-                return String();
-        }
-        // enforce the anchor node is a text node
-        if (selection->anchorNode()->isElementNode()) {
-            int endOffset = static_cast<Text*>(selection->focusNode())->length(); // cast is safe
-            if (!setSelection(selection, selection->focusNode(), selection->focusNode(),
-                              selection->focusOffset(), endOffset))
-                return String();
-        }
-    }
-
+    // extend the selection
+    String directionStr;
     if (direction == DIRECTION_FORWARD)
-      scrollNodeIntoView(m_mainFrame, selection->focusNode());
+        directionStr = "forward";
     else
-      scrollNodeIntoView(m_mainFrame, selection->anchorNode());
+        directionStr = "backward";
 
-    tryFocusInlineSelectionElement(selection);
+    String axisStr;
+    if (axis == AXIS_CHARACTER)
+        axisStr = "character";
+    else if (axis == AXIS_WORD)
+        axisStr = "word";
+    else
+        axisStr = "sentence";
+
+    selection->modify("extend", directionStr, axisStr);
+
+    // Make sure the focus node is a text node in order to have the
+    // selection generate symmetric markup because the latter
+    // includes all nodes crossed by the selection.
+    Node* focusNode = selection->focusNode();
+    if (focusNode->isElementNode()) {
+        int focusOffset = rangeCompliantChildOffset(focusNode,
+            selection->focusOffset());
+        if (direction == DIRECTION_FORWARD) {
+            focusNode =
+                focusNode->childNodes()->item(focusOffset)->lastDescendant();
+            if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                focusNode = traverseVisibleNonEmptyNonWhitespaceTextNode(
+                    focusNode, body, DIRECTION_BACKWARD);
+                if (!focusNode)
+                    return String();
+            }
+            selection->extend(focusNode, caretMaxOffset(focusNode), ec);
+            if (ec)
+                return String();
+        } else {
+            focusNode =
+                focusNode->childNodes()->item(focusOffset)->firstDescendant();
+            if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                focusNode = traverseVisibleNonEmptyNonWhitespaceTextNode(
+                    focusNode, body, DIRECTION_FORWARD);
+                if (!focusNode)
+                    return String();
+            }
+            selection->extend(focusNode, 0, ec);
+            if (ec)
+                return String();
+        }
+    }
+
+    // Enforce that the selection does not cross anchor boundaries. This is
+    // a workaround for the asymmetric behavior of WebKit while crossing
+    // anchors.
+    // NOTE: The code is asymmetric since the logic is based off the common
+    // ancestor in both directions - backward and forward.
+    // TODO: Factor out common code repeated below.
+    anchorNode = selection->anchorNode();
+    focusNode = selection->focusNode();
+    if (anchorNode != focusNode
+            && anchorNode->isTextNode()
+            && focusNode->isTextNode()) {
+        Node* commonAncestor = Range::commonAncestorContainer(anchorNode,
+            focusNode);
+        Node* currentNode = 0;
+        bool selectionAdjusted = false;
+        if (direction == DIRECTION_FORWARD) {
+            // catch if the anchor is in a link but the focus is not
+            if (!commonAncestor->hasTagName(WebCore::HTMLNames::aTag)) {
+                currentNode = anchorNode;
+                while (currentNode != commonAncestor) {
+                    if (isVisible(currentNode) && isInputControl(currentNode)) {
+                        focusNode = currentNode->lastDescendant();
+                        if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                            focusNode =
+                                traverseVisibleNonEmptyNonWhitespaceTextNode(
+                                    focusNode, commonAncestor,
+                                    DIRECTION_BACKWARD);
+                            if (!focusNode)
+                                return String();
+                        }
+                        selection->extend(focusNode, caretMaxOffset(focusNode),
+                            ec);
+                        if (ec)
+                            return String();
+                        selectionAdjusted = true;
+                        break;
+                    }
+                    currentNode = currentNode->parentNode();
+                }
+                // catch if there is a link between the anchor and focus
+                if (!selectionAdjusted) {
+                    currentNode = anchorNode;
+                    while (currentNode != focusNode) {
+                        if (isVisible(currentNode)
+                                && isInputControl(currentNode)) {
+                            focusNode = currentNode;
+                            if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                                focusNode =
+                                    traverseVisibleNonEmptyNonWhitespaceTextNode(
+                                        focusNode, commonAncestor,
+                                        DIRECTION_BACKWARD);
+                                if (!focusNode)
+                                   return String();
+                            }
+                            selection->extend(focusNode,
+                                caretMaxOffset(focusNode), ec);
+                            if (ec)
+                                return String();
+                            break;
+                        }
+                        currentNode = currentNode->traverseNextNode();
+                    }
+                }
+            }
+        } else {
+            // catch if the anchor is in a link but the focus is not
+            // NOTE: There is not such case in forward direction because
+            //       it is implicitly covered the second case. Also the
+            //       base position used for computing the the common
+            //       ancestor which is asymmteric.
+            if (!commonAncestor->hasTagName(WebCore::HTMLNames::aTag)) {
+                currentNode = anchorNode;
+                while (currentNode != commonAncestor) {
+                    if (isVisible(currentNode) && isInputControl(currentNode)) {
+                        focusNode = currentNode->firstDescendant();
+                        if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                            focusNode =
+                                traverseVisibleNonEmptyNonWhitespaceTextNode(
+                                    focusNode, commonAncestor,
+                                    DIRECTION_FORWARD);
+                             if (!focusNode)
+                                 return String();
+                        }
+                        selection->extend(focusNode, 0, ec);
+                        if (ec)
+                            return String();
+                        selectionAdjusted = true;
+                        break;
+                    }
+                    currentNode = currentNode->parentNode();
+                }
+                // catch if there is a link between the anchor and focus
+                if (!selectionAdjusted) {
+                    currentNode = anchorNode;
+                    while (currentNode != focusNode) {
+                        if (isVisible(currentNode)
+                                && isInputControl(currentNode)) {
+                            focusNode = currentNode->traverseNextSibling();
+                            if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                                focusNode =
+                                    traverseVisibleNonEmptyNonWhitespaceTextNode(
+                                        focusNode, commonAncestor,
+                                        DIRECTION_FORWARD);
+                                if (!focusNode)
+                                    return String();
+                            }
+                            selection->extend(focusNode, 0, ec);
+                            if (ec)
+                                return String();
+                            selectionAdjusted = true;
+                            break;
+                        }
+                        currentNode = currentNode->traversePreviousNode();
+                    }
+                }
+                // catch if the focus is in a link but the anchor is not
+                if (!selectionAdjusted) {
+                    currentNode = focusNode;
+                    while (currentNode != commonAncestor) {
+                        if (isVisible(currentNode)
+                                && isInputControl(currentNode)) {
+                            focusNode = currentNode->traverseNextSibling();
+                            if (!isVisibleNonEmptyNonWhitespaceTextNode(focusNode)) {
+                                focusNode =
+                                    traverseVisibleNonEmptyNonWhitespaceTextNode(
+                                        focusNode, commonAncestor,
+                                        DIRECTION_FORWARD);
+                                if (!focusNode)
+                                    return String();
+                            }
+                            selection->extend(focusNode, 0, ec);
+                            if (ec)
+                                return String();
+                            break;
+                        }
+                        currentNode = currentNode->parentNode();
+                    }
+                }
+            }
+        }
+    }
+
+    // make sure the selection is visible
+    if (direction == DIRECTION_FORWARD)
+        scrollNodeIntoView(m_mainFrame, selection->focusNode());
+    else
+        scrollNodeIntoView(m_mainFrame, selection->anchorNode());
+
+    // format markup for the visible content
+    PassRefPtr<Range> range = selection->getRangeAt(0, ec);
+    if (ec)
+        return String();
+    IntRect bounds = range->boundingBox();
+    selectAt(bounds.center().x(), bounds.center().y());
     String markup = formatMarkup(selection).stripWhiteSpace();
     LOGV("Selection markup: %s", markup.utf8().data());
+
     return markup;
 }
 
-bool WebViewCore::setSelection(DOMSelection* selection, Text* textNode, int direction)
+bool WebViewCore::isInputControl(Node* node)
 {
-    if (!textNode)
-        return false;
-    int offset = (direction == DIRECTION_FORWARD) ? 0 : textNode->length();
-    if (!setSelection(selection, textNode, textNode, offset, offset))
-        return false;
-    return true;
+  return (node->hasTagName(WebCore::HTMLNames::aTag)
+      || node->hasTagName(WebCore::HTMLNames::inputTag)
+      || node->hasTagName(WebCore::HTMLNames::buttonTag));
 }
 
-bool WebViewCore::setSelection(DOMSelection* selection, Node* startNode, Node* endNode, int startOffset, int endOffset)
+int WebViewCore::rangeCompliantChildOffset(Node* parent, int offset)
 {
-    if (!selection || (!startNode && !endNode))
-        return false;
-    ExceptionCode ec = 0;
-    PassRefPtr<Range> rangeRef = selection->getRangeAt(0, ec);
-    if (ec) {
-        ec = 0;
-        rangeRef = m_mainFrame->document()->createRange();
-    }
-    if (startNode)
-        rangeRef->setStart(PassRefPtr<Node>(startNode), startOffset, ec);
-    if (ec)
-        return false;
-    if (endNode)
-        rangeRef->setEnd(PassRefPtr<Node>(endNode), endOffset, ec);
-    if (ec)
-        return false;
-    selection->removeAllRanges();
-    selection->addRange(rangeRef.get());
-    return true;
+    if (offset < 0)
+        return 0;
+    int lastChildIndex = parent->childNodes()->length() - 1;
+    if (offset > lastChildIndex)
+        return lastChildIndex;
+    return offset;
 }
 
-Text* WebViewCore::traverseNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode, int direction)
+bool WebViewCore::isVisibleNonEmptyNonWhitespaceTextNode(Node* node)
+{
+   if (!node || !node->isTextNode())
+       return false;
+   Text* textNode = static_cast<Text*>(node);
+   return (isVisible(textNode) && textNode->length() > 0
+       && !textNode->containsOnlyWhitespace());
+}
+
+Text* WebViewCore::traverseVisibleNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode, int direction)
 {
     Node* currentNode = fromNode;
     do {
@@ -2314,16 +2518,8 @@ Text* WebViewCore::traverseNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* t
             currentNode = currentNode->traverseNextNode(toNode);
         else
             currentNode = currentNode->traversePreviousNode(toNode);
-    } while (currentNode && (!currentNode->isTextNode()
-            || isEmptyOrOnlyWhitespaceTextNode(currentNode)));
+    } while (currentNode && !isVisibleNonEmptyNonWhitespaceTextNode(currentNode));
     return static_cast<Text*>(currentNode);
-}
-
-bool WebViewCore::isEmptyOrOnlyWhitespaceTextNode(Node* node)
-{
-    return (node->isTextNode()
-          && (static_cast<Text*>(node)->length() == 0
-          || static_cast<Text*>(node)->containsOnlyWhitespace()));
 }
 
 String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int axis)
@@ -2334,12 +2530,14 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
         m_currentNodeDomNavigationAxis = selection->focusNode();
         selection->empty();
         if (m_currentNodeDomNavigationAxis->isTextNode())
-            m_currentNodeDomNavigationAxis = m_currentNodeDomNavigationAxis->parentNode();
+            m_currentNodeDomNavigationAxis =
+                m_currentNodeDomNavigationAxis->parentNode();
     }
     if (!m_currentNodeDomNavigationAxis)
         m_currentNodeDomNavigationAxis = currentFocus();
     if (!m_currentNodeDomNavigationAxis
-            || !CacheBuilder::validNode(m_mainFrame, m_mainFrame, m_currentNodeDomNavigationAxis))
+            || !CacheBuilder::validNode(m_mainFrame, m_mainFrame,
+                                        m_currentNodeDomNavigationAxis))
         m_currentNodeDomNavigationAxis = body;
     Node* currentNode = m_currentNodeDomNavigationAxis;
     if (axis == AXIS_HEADING) {
@@ -2350,19 +2548,21 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
                 currentNode = currentNode->traverseNextNode(body);
             else
                 currentNode = currentNode->traversePreviousNode(body);
-        } while (currentNode && (currentNode->isTextNode() || !isVisible(currentNode)
-                || !isHeading(currentNode)));
+        } while (currentNode && (currentNode->isTextNode()
+            || !isVisible(currentNode) || !isHeading(currentNode)));
     } else if (axis == AXIS_PARENT_FIRST_CHILD) {
         if (direction == DIRECTION_FORWARD) {
             currentNode = currentNode->firstChild();
-            while (currentNode && (currentNode->isTextNode() || !isVisible(currentNode)))
+            while (currentNode && (currentNode->isTextNode()
+                    || !isVisible(currentNode)))
                 currentNode = currentNode->nextSibling();
         } else {
             do {
                 if (currentNode == body)
                     return String();
                 currentNode = currentNode->parentNode();
-            } while (currentNode && (currentNode->isTextNode() || !isVisible(currentNode)));
+            } while (currentNode && (currentNode->isTextNode()
+                    || !isVisible(currentNode)));
         }
     } else if (axis == AXIS_SIBLING) {
         do {
@@ -2373,7 +2573,8 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
                     return String();
                 currentNode = currentNode->previousSibling();
             }
-        } while (currentNode && (currentNode->isTextNode() || !isVisible(currentNode)));
+        } while (currentNode && (currentNode->isTextNode()
+                || !isVisible(currentNode)));
     } else if (axis == AXIS_DOCUMENT) {
         currentNode = body;
         if (direction == DIRECTION_FORWARD)
@@ -2385,8 +2586,6 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
     if (currentNode) {
         m_currentNodeDomNavigationAxis = currentNode;
         scrollNodeIntoView(m_mainFrame, currentNode);
-        focusIfFocusableAndNotTextInput(selection, currentNode);
-        // TODO (svetoslavganov): Draw the selected text in the WebView - a-la-Android
         String selectionString = createMarkup(currentNode);
         LOGV("Selection markup: %s", selectionString.utf8().data());
         return selectionString;
@@ -2407,7 +2606,8 @@ bool WebViewCore::isHeading(Node* node)
 
     if (node->isElementNode()) {
         Element* element = static_cast<Element*>(node);
-        String roleAttribute = element->getAttribute(WebCore::HTMLNames::roleAttr).string();
+        String roleAttribute =
+            element->getAttribute(WebCore::HTMLNames::roleAttr).string();
         if (equalIgnoringCase(roleAttribute, "heading"))
             return true;
     }
@@ -2417,60 +2617,129 @@ bool WebViewCore::isHeading(Node* node)
 
 bool WebViewCore::isVisible(Node* node)
 {
-    if (!node->isStyledElement())
-        return false;
-    RenderStyle* style = node->computedStyle();
-    return (style->display() != NONE && style->visibility() != HIDDEN);
+    // TODO: Use DOMWindow#getComputedStyle instead.
+    Node* body = m_mainFrame->document()->body();
+    Node* currentNode = node;
+    while (currentNode && currentNode != body) {
+        RenderStyle* style = currentNode->computedStyle();
+        if (style->display() == NONE || style->visibility() == HIDDEN) {
+            return false;
+        }
+        currentNode = currentNode->parentNode();
+    }
+    return true;
 }
 
 String WebViewCore::formatMarkup(DOMSelection* selection)
 {
     ExceptionCode ec = 0;
-    PassRefPtr<Range> rangeRef = selection->getRangeAt(0, ec);
-    if (ec) {
-        LOGE("Error accessing the first selection range. Error code: %d", ec);
-        return String();
-    }
-    // TODO: This breaks in certain cases - WebKit bug. Figure out and work around it
-    String markup = createMarkup(rangeRef.get());
-    int fromIdx = markup.find("<span class=\"Apple-style-span\"");
-    while (fromIdx > -1) {
-        unsigned toIdx = markup.find(">");
-        markup = markup.replace(fromIdx, toIdx - fromIdx + 1, "");
-        markup = markup.replace("</span>", "");
-        fromIdx = markup.find("<span class=\"Apple-style-span\"");
+    String markup = String();
+
+    PassRefPtr<Range> wholeRange = selection->getRangeAt(0, ec);
+    if (ec)
+        return markup;
+
+    if (!wholeRange->startContainer() || !wholeRange->startContainer())
+        return markup;
+
+    // Since formatted markup contains invisible nodes it
+    // is created from the concatenation of the visible fragments.
+    Node* firstNode = wholeRange->firstNode();
+    Node* pastLastNode = wholeRange->pastLastNode();
+    Node* currentNode = firstNode;
+    PassRefPtr<Range> currentRange;
+    while (currentNode != pastLastNode) {
+        Node* nextNode = currentNode->traverseNextNode();
+        if (!isVisible(currentNode)) {
+            if (currentRange) {
+                markup = markup + stripAppleSpanFromMarkup(
+                    currentRange->toHTML()).utf8().data();
+                currentRange = 0;
+            }
+        } else {
+            if (!currentRange) {
+                currentRange = selection->frame()->document()->createRange();
+                if (ec)
+                    return markup;
+                if (currentNode == firstNode) {
+                    currentRange->setStart(wholeRange->startContainer(),
+                        wholeRange->startOffset(), ec);
+                    if (ec)
+                        return markup;
+                } else {
+                    currentRange->setStart(currentNode->parentNode(),
+                        currentNode->nodeIndex(), ec);
+                    if (ec)
+                       return markup;
+                }
+            }
+            if (nextNode == pastLastNode) {
+                currentRange->setEnd(wholeRange->endContainer(),
+                    wholeRange->endOffset(), ec);
+                if (ec)
+                    return markup;
+                markup = markup + stripAppleSpanFromMarkup(
+                    currentRange->toHTML()).utf8().data();
+            } else {
+                if (currentNode->offsetInCharacters())
+                    currentRange->setEnd(currentNode,
+                        currentNode->maxCharacterOffset(), ec);
+                else
+                    currentRange->setEnd(currentNode->parentNode(),
+                            currentNode->nodeIndex() + 1, ec);
+                if (ec)
+                    return markup;
+            }
+        }
+        currentNode = nextNode;
     }
     return markup;
 }
 
-void WebViewCore::tryFocusInlineSelectionElement(DOMSelection* selection)
+String WebViewCore::stripAppleSpanFromMarkup(String markup)
 {
-    Node* currentNode = selection->anchorNode();
-    Node* endNode = selection->focusNode();
-    while (currentNode) {
-        if (focusIfFocusableAndNotTextInput(selection, currentNode))
-            return;
-        currentNode = currentNode->traverseNextNode(endNode);
-    }
+  int fromIdx = markup.find("<span class=\"Apple-style-span\"");
+  while (fromIdx > -1) {
+      int toIdx = markup.find(">");
+      markup = markup.replace(fromIdx, toIdx - fromIdx + 1, "");
+      markup = markup.replace("</span>", "");
+      fromIdx = markup.find("<span class=\"Apple-style-span\"");
+  }
+  return markup;
 }
 
-bool WebViewCore::focusIfFocusableAndNotTextInput(DOMSelection* selection, Node* node)
+void WebViewCore::selectAt(int x, int y)
 {
-    // TODO (svetoslavganov): Synchronize Android and WebKit focus
-    if (node->isFocusable()) {
-        WebCore::RenderObject* renderer = node->renderer();
-        if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
-            // restore the selection after focus workaround for
-            // the FIXME in Element.cpp#updateFocusAppearance
-            ExceptionCode ec = 0;
-            PassRefPtr<Range> rangeRef = selection->getRangeAt(0, ec);
-            moveFocus(m_mainFrame, node);
-            if (rangeRef)
-                selection->addRange(rangeRef.get());
-            return true;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_selectAt,
+        x, y);
+    checkException(env);
+}
+
+Node* WebViewCore::getFirstIntermediaryInputOrButton(Node* fromNode, Node* toNode)
+{
+    // do bidirectional traversal to catch the case in which
+    // the toNode is a descendant of a control but the fromNode
+    // is not and the other way around
+    Node* currentNode = fromNode->traverseNextNode();
+    while (currentNode && currentNode != toNode) {
+        if (isVisible(currentNode)
+            && (currentNode->hasTagName(WebCore::HTMLNames::inputTag)
+            || currentNode->hasTagName(WebCore::HTMLNames::buttonTag))) {
+          return currentNode;
         }
+        currentNode = currentNode->traverseNextNode();
     }
-    return false;
+    currentNode = fromNode->traverseNextNodePostOrder();
+    while (currentNode && currentNode != toNode) {
+        if (isVisible(currentNode)
+                && (currentNode->hasTagName(WebCore::HTMLNames::inputTag)
+                || currentNode->hasTagName(WebCore::HTMLNames::buttonTag))) {
+            return currentNode;
+        }
+        currentNode = currentNode->traverseNextNodePostOrder();
+    }
+    return 0;
 }
 
 void WebViewCore::deleteSelection(int start, int end, int textGeneration)
@@ -3659,17 +3928,6 @@ static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint gr
     return wtfStringToJstring(env, selectionString);
 }
 
-static jstring MoveSelection(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    String selectionString = viewImpl->moveSelection((WebCore::Frame*) framePtr,
-            (WebCore::Node*) nodePtr);
-    return wtfStringToJstring(env, selectionString);
-}
-
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
     jint textGeneration)
@@ -4258,8 +4516,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetSelection } ,
     { "nativeModifySelection", "(II)Ljava/lang/String;",
         (void*) ModifySelection },
-    { "nativeMoveSelection", "(II)Ljava/lang/String;",
-        (void*) MoveSelection },
     { "nativeDeleteSelection", "(III)V",
         (void*) DeleteSelection } ,
     { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",
