@@ -539,7 +539,6 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
 
     if (loadType == WebCore::FrameLoadTypeReplace ||
-            loadType == WebCore::FrameLoadTypeSame ||
             (loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList &&
              !isMainFrame))
         return;
