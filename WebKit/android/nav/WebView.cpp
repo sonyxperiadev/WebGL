@@ -1022,8 +1022,8 @@ static const ScrollableLayerAndroid* findScrollableLayer(
     x -= bounds.fLeft;
     y -= bounds.fTop;
     int count = parent->countChildren();
-    for (int i = 0; i < count; i++) {
-        const LayerAndroid* child = parent->getChild(i);
+    while (count--) {
+        const LayerAndroid* child = parent->getChild(count);
         const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y,
             foundBounds);
         if (result) {

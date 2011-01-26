@@ -2964,7 +2964,7 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
         return;
     // The cache uses absolute coordinates when clicking on nodes and it assumes
     // the layer is not scrolled.
-    layer->scrollToOffset(0, 0, false, false);
+    layer->scrollToOffset(0, 0, true, false);
 
     WebCore::IntRect absBounds = renderer->absoluteBoundingBoxRect();
     // Do not include the outline when moving the node's bounds.
@@ -2974,7 +2974,7 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
     absBounds.move(-layerBounds.x(), -layerBounds.y());
 
     // Scroll the layer to the node's position.
-    layer->scrollToOffset(absBounds.x(), absBounds.y(), false, true);
+    layer->scrollToOffset(absBounds.x(), absBounds.y(), true, true);
 
     // Update the mouse position to the layer offset.
     pos->move(-layer->scrollXOffset(), -layer->scrollYOffset());
