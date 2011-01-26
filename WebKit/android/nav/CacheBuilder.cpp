@@ -36,7 +36,6 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 //#include "GraphicsContext.h"
-#include "GraphicsLayerAndroid.h"
 #include "HTMLAreaElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
@@ -47,6 +46,7 @@
 #include "HTMLTextAreaElement.h"
 #include "InlineTextBox.h"
 #include "KURL.h"
+#include "LayerAndroid.h"
 #include "PluginView.h"
 #include "RegisteredEventListener.h"
 #include "RenderImage.h"
@@ -508,9 +508,8 @@ void CacheBuilder::Debug::groups() {
             if (renderer && renderer->hasLayer()) {
                 RenderLayer* layer = toRenderBoxModelObject(renderer)->layer();
                 RenderLayerBacking* back = layer->backing();
-                GraphicsLayerAndroid* grLayer = static_cast
-                    <GraphicsLayerAndroid*>(back ? back->graphicsLayer() : 0);
-                LayerAndroid* aLayer = grLayer ? grLayer->contentLayer() : 0;
+                GraphicsLayer* grLayer = back ? back->graphicsLayer() : 0;
+                LayerAndroid* aLayer = grLayer ? grLayer->platformLayer() : 0;
                 const SkPicture* pict = aLayer ? aLayer->picture() : 0;
                 const IntRect& r = renderer->absoluteBoundingBoxRect();
                 snprintf(scratch, sizeof(scratch), "// layer:%p back:%p"
@@ -2906,11 +2905,12 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     RenderLayerBacking* back = layer->backing();
     if (!back)
         return;
-    GraphicsLayerAndroid* grLayer = static_cast
-        <GraphicsLayerAndroid*>(back->graphicsLayer());
+    GraphicsLayer* grLayer = back->graphicsLayer();
+    if (back->hasContentsLayer())
+        grLayer = back->foregroundLayer();
     if (!grLayer)
         return;
-    LayerAndroid* aLayer = grLayer->contentLayer();
+    LayerAndroid* aLayer = grLayer->platformLayer();
     if (!aLayer)
         return;
     IntPoint scroll(layer->scrollXOffset(), layer->scrollYOffset());

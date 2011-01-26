@@ -48,6 +48,7 @@ namespace WebCore {
         }
         m_prev = 0;
         *list = this;
+        relaxAdoptionRequirement();
     }
     
     PluginTimer::~PluginTimer()

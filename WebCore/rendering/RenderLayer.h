@@ -142,6 +142,9 @@ public:
         return m_overflowClipRect == other.overflowClipRect() &&
                m_fixedClipRect == other.fixedClipRect() &&
                m_posClipRect == other.posClipRect() &&
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+               m_hitTestClip == other.hitTestClip() &&
+#endif
                m_fixed == other.fixed();
     }
 
@@ -150,6 +153,9 @@ public:
         m_overflowClipRect = other.overflowClipRect();
         m_fixedClipRect = other.fixedClipRect();
         m_posClipRect = other.posClipRect();
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        m_hitTestClip = other.hitTestClip();
+#endif
         m_fixed = other.fixed();
         return *this;
     }
