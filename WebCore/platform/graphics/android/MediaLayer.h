@@ -54,6 +54,7 @@ public:
     void setCurrentTextureInfo(TextureInfo* info) { m_currentTextureInfo = info; }
     TextureInfo* getCurrentTextureInfo() const { return m_currentTextureInfo; }
 
+    void invertContents(bool invertContent) { m_isContentInverted = invertContent; }
 
 private:
 
@@ -62,6 +63,7 @@ private:
 
     TextureInfo* m_currentTextureInfo;
 
+    bool m_isContentInverted;
 };
 
 } // namespace WebCore

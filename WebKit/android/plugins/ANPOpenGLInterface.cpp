@@ -30,6 +30,11 @@
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "MediaLayer.h"
+#include "WebViewCore.h"
+#include "Frame.h"
+#include "Page.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 
 using namespace android;
 
@@ -84,6 +89,21 @@ static void anp_releaseTexture(NPP instance, const ANPTextureInfo* textureInfo) 
     texture->producerReleaseAndSwap();
 }
 
+static void anp_invertPluginContent(NPP instance, bool isContentInverted) {
+    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
+
+    mediaLayer->invertContents(isContentInverted);
+
+    //force the layer to sync to the UI thread
+    WebViewCore* wvc = pluginWidget->webViewCore();
+    if (wvc)
+        wvc->mainFrame()->page()->chrome()->client()->scheduleCompositingLayerSync();
+}
+
+
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -94,4 +114,5 @@ void ANPOpenGLInterfaceV0_Init(ANPInterface* v) {
     ASSIGN(i, acquireContext);
     ASSIGN(i, lockTexture);
     ASSIGN(i, releaseTexture);
+    ASSIGN(i, invertPluginContent);
 }
