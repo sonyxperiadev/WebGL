@@ -38,15 +38,22 @@ class LayerTexture : public BackedDoubleBufferedTexture {
         : BackedDoubleBufferedTexture(w, h, config)
         , m_id(0)
         , m_scale(1)
-        , m_pictureUsed(-1)
+        , m_pictureUsed(0)
+        , m_ready(false)
     {}
     virtual ~LayerTexture() {};
 
     int id() { return m_id; }
     void setId(int id) { m_id = id; }
+    bool ready() { return m_ready; }
 
     unsigned int pictureUsed() { return m_pictureUsed; }
-    void setPictureUsed(unsigned pictureUsed) { m_pictureUsed = pictureUsed; }
+    void setPictureUsed(unsigned pictureUsed)
+    {
+          if (!m_ready)
+              m_ready = true;
+          m_pictureUsed = pictureUsed;
+    }
     void setRect(const IntRect& r) { m_rect = r; }
     IntRect& rect() { return m_rect; }
     float scale() { return m_scale; }
@@ -58,6 +65,7 @@ class LayerTexture : public BackedDoubleBufferedTexture {
     IntRect m_rect;
     float m_scale;
     unsigned int m_pictureUsed;
+    bool m_ready;
 };
 
 } // namespace WebCore
