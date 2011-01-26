@@ -80,7 +80,7 @@ TilesManager::TilesManager()
         m_textures.append(reinterpret_cast<BackedDoubleBufferedTexture*>(
             android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture))));
     }
-    XLOG("TilesManager ctor");
+    XLOG("TilesManager ctor - init textures done");
 
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
@@ -232,7 +232,8 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 
 LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
                                                        const IntRect& rect,
-                                                       bool any)
+                                                       bool any,
+                                                       LayerTexture* texture)
 {
     android::Mutex::Autolock lock(m_texturesLock);
     for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
@@ -241,6 +242,8 @@ LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
         if (!any && rect != m_layersTextures[i]->rect())
             continue;
         if (!any && layer->getScale() != m_layersTextures[i]->scale())
+            continue;
+        if (any && texture == m_layersTextures[i])
             continue;
 
         XLOG("return layer %d (%x) for tile %d (%x)",
