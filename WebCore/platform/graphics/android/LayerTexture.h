@@ -38,8 +38,7 @@ class LayerTexture : public BackedDoubleBufferedTexture {
         : BackedDoubleBufferedTexture(w, h, config)
         , m_id(0)
         , m_scale(1)
-        , m_pictureUsed(0)
-        , m_textureUpdates(0)
+        , m_pictureUsed(-1)
     {}
     virtual ~LayerTexture() {};
 
@@ -48,21 +47,17 @@ class LayerTexture : public BackedDoubleBufferedTexture {
 
     unsigned int pictureUsed() { return m_pictureUsed; }
     void setPictureUsed(unsigned pictureUsed) { m_pictureUsed = pictureUsed; }
-    bool isReady();
-    virtual void producerUpdate(TextureInfo* textureInfo);
     void setRect(const IntRect& r) { m_rect = r; }
     IntRect& rect() { return m_rect; }
     float scale() { return m_scale; }
     void setScale(float scale) { m_scale = scale; }
 
  private:
-    void update();
 
     int m_id;
     IntRect m_rect;
     float m_scale;
     unsigned int m_pictureUsed;
-    unsigned int m_textureUpdates;
 };
 
 } // namespace WebCore

@@ -316,6 +316,16 @@ void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    // The following is a workaround -- remove when EGLImage texture upload is fixed.
+    GLuint fboID;
+    glGenFramebuffers(1, &fboID);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboID);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    glCheckFramebufferStatus(GL_FRAMEBUFFER); // should return GL_FRAMEBUFFER_COMPLETE
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
+    glDeleteFramebuffers(1, &fboID);
 }
 
 void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
