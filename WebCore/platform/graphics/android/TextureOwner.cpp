@@ -34,8 +34,11 @@ TextureOwner::~TextureOwner()
 {
     if (m_ownedTextures.size()) {
         // This TextureOwner owns textures still!
-        HashSet<BackedDoubleBufferedTexture*>::iterator it = m_ownedTextures.begin();
-        for (; it != m_ownedTextures.end(); ++it)
+        HashSet<BackedDoubleBufferedTexture*> textures;
+        // Swap to a local copy because release will modify the iterator.
+        textures.swap(m_ownedTextures);
+        HashSet<BackedDoubleBufferedTexture*>::const_iterator it = textures.begin();
+        for (; it != textures.end(); ++it)
             (*it)->release(this);
     }
 }
