@@ -206,21 +206,23 @@ bool PluginPackage::load()
         m_loadCount++;
         PLUGIN_LOG("Already loaded, count now %d\n", m_loadCount);
         return true;
-    }
-    ASSERT(m_loadCount == 0);
-    ASSERT(m_module == NULL);
+    } else {
+        ASSERT(m_loadCount == 0);
+        ASSERT(m_module == NULL);
 
-    PLUGIN_LOG("Loading \"%s\"\n", m_path.utf8().data());
+        PLUGIN_LOG("Loading \"%s\"\n", m_path.utf8().data());
 
-    // Open the library
-    void *handle = dlopen(m_path.utf8().data(), RTLD_NOW);
-    if(!handle) {
-        PLUGIN_LOG("Couldn't load plugin library \"%s\": %s\n",
-                   m_path.utf8().data(), dlerror());
-        return false;
+        // Open the library
+        void *handle = dlopen(m_path.utf8().data(), RTLD_NOW);
+        if(!handle) {
+            PLUGIN_LOG("Couldn't load plugin library \"%s\": %s\n",
+                       m_path.utf8().data(), dlerror());
+            return false;
+        }
+        m_module = handle;
+        PLUGIN_LOG("Fetch Info Loaded %p\n", m_module);
     }
-    m_module = handle;
-    PLUGIN_LOG("Fetch Info Loaded %p\n", m_module);
+
     // This object will call dlclose() and set m_module to NULL
     // when going out of scope.
     DynamicLibraryCloser dlCloser(&m_module);
@@ -228,7 +230,7 @@ bool PluginPackage::load()
     
     NP_InitializeFuncPtr NP_Initialize;
     if(!getEntryPoint(m_module, "NP_Initialize", (void **) &NP_Initialize) || 
-            !getEntryPoint(handle, "NP_Shutdown", (void **) &m_NPP_Shutdown)) {
+            !getEntryPoint(m_module, "NP_Shutdown", (void **) &m_NPP_Shutdown)) {
         PLUGIN_LOG("Couldn't find Initialize function\n");
         return false;
     }
@@ -254,8 +256,6 @@ bool PluginPackage::load()
 
     // Don't close the library - loaded OK.
     dlCloser.ok();
-    // Retain the handle so we can close it in the future.
-    m_module = handle;
     m_isLoaded = true;
     ++m_loadCount;
     PLUGIN_LOG("Initial load ok, count now %d\n", m_loadCount);
