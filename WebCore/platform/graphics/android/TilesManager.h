@@ -72,7 +72,7 @@ public:
     void printLayersTextures(const char* s);
     void cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup = false);
     LayerTexture* getExistingTextureForLayer(LayerAndroid* layer, const IntRect& rect,
-                                             bool any = false);
+                                             bool any = false, LayerTexture* texture = 0);
     LayerTexture* createTextureForLayer(LayerAndroid* layer, const IntRect& rect);
 
     void markGeneratorAsReady()
