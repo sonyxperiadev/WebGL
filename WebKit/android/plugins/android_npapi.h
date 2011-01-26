@@ -123,6 +123,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kAudioTrackInterfaceV1_ANPGetValue  ((NPNVariable)1012)
 #define kOpenGLInterfaceV0_ANPGetValue      ((NPNVariable)1013)
 #define kWindowInterfaceV1_ANPGetValue      ((NPNVariable)1014)
+#define kVideoInterfaceV0_ANPGetValue       ((NPNVariable)1015)
 
 /** queries for the drawing models supported on this device.
 
