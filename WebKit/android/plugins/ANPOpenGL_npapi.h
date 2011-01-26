@@ -52,6 +52,12 @@ struct ANPOpenGLInterfaceV0 : ANPInterface {
     /**
      */
     void (*releaseTexture)(NPP instance, const ANPTextureInfo*);
+
+    /**
+     * Invert the contents of the plugin on the y-axis.
+     * default is to not be inverted (i.e. use OpenGL coordinates)
+     */
+    void (*invertPluginContent)(NPP instance, bool isContentInverted);
 };
 
 #endif //ANPOpenGL_npapi_H
