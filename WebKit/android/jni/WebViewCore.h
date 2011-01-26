@@ -665,17 +665,19 @@ namespace android {
         // below are members responsible for accessibility support
         String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
         String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        Text* traverseNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode ,int direction);
+        Text* traverseVisibleNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode ,int direction);
         bool isVisible(Node* node);
         bool isHeading(Node* node);
-        bool isEmptyOrOnlyWhitespaceTextNode(Node* node);
         String formatMarkup(DOMSelection* selection);
-        void tryFocusInlineSelectionElement(DOMSelection* selection);
-        bool focusIfFocusableAndNotTextInput(DOMSelection* selection, Node* node);
-        bool setSelection(DOMSelection* selection, Text* textNode, int direction);
-        bool setSelection(DOMSelection* selection, Node* startNode, Node* endNode, int startOffset, int endOffset);
+        void selectAt(int x, int y);
         Node* m_currentNodeDomNavigationAxis;
         void scrollNodeIntoView(Frame* frame, Node* node);
+        bool isVisibleNonEmptyNonWhitespaceTextNode(Node* node);
+        String stripAppleSpanFromMarkup(String markup);
+        int rangeCompliantChildOffset(Node* parent, int offset);
+        Node* getFirstIntermediaryInputOrButton(Node* fromNode, Node* toNode);
+        bool isInputControl(Node* node);
+
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
 #endif
