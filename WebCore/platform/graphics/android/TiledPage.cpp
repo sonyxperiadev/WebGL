@@ -249,28 +249,36 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
 
     TileSet* highResSet = new TileSet(this, nbTilesHeight, nbTilesWidth);
 
+    int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
+    int nMaxTilesPerPage = m_baseTileSize / 2;
+
     // PREPARE OFF-SCREEN TILES FOR SMOOTHER SCROLLING
     // if you are going down and you are not already at the bottom of the page
     // go ahead and prepare the tiles just off-screen beneath the viewport.
-    if (goingDown && baseContentHeight > lastTileY * TilesManager::tileHeight())
-        nbTilesHeight++;
-    // if you are going up and you are not already at the top of the page go
-    // ahead and prepare the tiles just off-screen above the viewport.
-    else if (!goingDown && firstTileY > 0) {
-        firstTileY--;
-        nbTilesHeight++;
-    }
-    // if you are going right and you are not already at the edge of the page go
-    // ahead and prepare the tiles just off-screen to the right of the viewport.
-    if (!goingLeft && baseContentWidth > lastTileX * TilesManager::tileWidth())
-        nbTilesWidth++;
-    // if you are going left and you are not already at the edge of the page go
-    // ahead and prepare the tiles just off-screen to the left of the viewport.
-    else if (goingLeft && firstTileX > 0) {
-        firstTileX--;
-        nbTilesWidth++;
+    // Ensure we have enough tiles to do this with.
+    if (nTilesToPrepare + nbTilesWidth <= nMaxTilesPerPage) {
+        if (goingDown && baseContentHeight > lastTileY * TilesManager::tileHeight())
+            nbTilesHeight++;
+        // if you are going up and you are not already at the top of the page go
+        // ahead and prepare the tiles just off-screen above the viewport.
+        else if (!goingDown && firstTileY > 0) {
+            firstTileY--;
+            nbTilesHeight++;
+        }
     }
 
+    if (nTilesToPrepare + nbTilesHeight <= nMaxTilesPerPage) {
+        // if you are going right and you are not already at the edge of the page go
+        // ahead and prepare the tiles just off-screen to the right of the viewport.
+        if (!goingLeft && baseContentWidth > lastTileX * TilesManager::tileWidth())
+            nbTilesWidth++;
+        // if you are going left and you are not already at the edge of the page go
+        // ahead and prepare the tiles just off-screen to the left of the viewport.
+        else if (goingLeft && firstTileX > 0) {
+            firstTileX--;
+            nbTilesWidth++;
+        }
+    }
 
     // We chose to prepare tiles depending on the scroll direction. Tiles are
     // appended to the list and the texture uploader goes through the list front
