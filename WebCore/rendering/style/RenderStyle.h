@@ -1323,14 +1323,14 @@ public:
 
 #ifdef ANDROID_CSS_RING
     static Color initialRingFillColor() { return Color::ringFill; }
-    static Length initialRingInnerWidth() { return Length(24, Fixed); } // 1.5
-    static Length initialRingOuterWidth() { return Length(52, Fixed); } // 3.25
-    static Length initialRingOutset() { return Length(2, Fixed); }
+    static Length initialRingInnerWidth() { return Length(16, Fixed); } // 1.0
+    static Length initialRingOuterWidth() { return Length(40, Fixed); } // 2.5
+    static Length initialRingOutset() { return Length(3, Fixed); }
     static Color initialRingSelectedInnerColor() { return Color::ringSelectedInner; }
     static Color initialRingSelectedOuterColor() { return Color::ringSelectedOuter; }
     static Color initialRingPressedInnerColor() { return Color::ringPressedInner; }
     static Color initialRingPressedOuterColor() { return Color::ringPressedOuter; }
-    static Length initialRingRadius() { return Length(5, Fixed); }
+    static Length initialRingRadius() { return Length(1, Fixed); }
 #endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     static Color initialTapHighlightColor() { return Color::tap; }
