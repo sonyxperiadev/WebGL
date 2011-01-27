@@ -291,6 +291,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateSurface;
     jmethodID   m_destroySurface;
     jmethodID   m_getContext;
+    jmethodID   m_keepScreenOn;
     jmethodID   m_sendFindAgain;
     jmethodID   m_showRect;
     jmethodID   m_centerFitRect;
@@ -340,6 +341,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_forwardingTouchEvents = false;
 #endif
     m_isPaused = false;
+    m_screenOnCounter = 0;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -387,6 +389,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
     m_javaGlue->m_getContext = GetJMethod(env, clazz, "getContext", "()Landroid/content/Context;");
+    m_javaGlue->m_keepScreenOn = GetJMethod(env, clazz, "keepScreenOn", "(Z)V");
     m_javaGlue->m_sendFindAgain = GetJMethod(env, clazz, "sendFindAgain", "()V");
     m_javaGlue->m_showRect = GetJMethod(env, clazz, "showRect", "(IIIIIIFFFF)V");
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
@@ -3708,6 +3711,20 @@ jobject WebViewCore::getContext()
     jobject result = env->CallObjectMethod(obj.get(), m_javaGlue->m_getContext);
     checkException(env);
     return result;
+}
+
+void WebViewCore::keepScreenOn(bool screenOn) {
+    if ((screenOn && m_screenOnCounter == 0) || (!screenOn && m_screenOnCounter == 1)) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_keepScreenOn, screenOn);
+        checkException(env);
+    }
+
+    // update the counter
+    if (screenOn)
+        m_screenOnCounter++;
+    else if (m_screenOnCounter > 0)
+        m_screenOnCounter--;
 }
 
 bool WebViewCore::validNodeAndBounds(Frame* frame, Node* node,

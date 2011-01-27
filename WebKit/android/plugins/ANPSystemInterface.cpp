@@ -82,6 +82,13 @@ static jclass anp_loadJavaClass(NPP instance, const char* className) {
     return result;
 }
 
+static void anp_setPowerState(NPP instance, ANPPowerState powerState) {
+    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+
+    pluginWidget->setPowerState(powerState);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -91,4 +98,12 @@ void ANPSystemInterfaceV0_Init(ANPInterface* v) {
 
     ASSIGN(i, getApplicationDataDirectory);
     ASSIGN(i, loadJavaClass);
+}
+
+void ANPSystemInterfaceV1_Init(ANPInterface* v) {
+    // initialize the functions from the previous interface
+    ANPSystemInterfaceV0_Init(v);
+    // add any new functions or override existing functions
+    ANPSystemInterfaceV1* i = reinterpret_cast<ANPSystemInterfaceV1*>(v);
+    ASSIGN(i, setPowerState);
 }

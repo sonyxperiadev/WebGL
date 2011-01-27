@@ -107,6 +107,7 @@ extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV1_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV0_Init(ANPInterface* value);
+extern void ANPSystemInterfaceV1_Init(ANPInterface* value);
 extern void ANPOpenGLInterfaceV0_Init(ANPInterface* value);
 extern void ANPVideoInterfaceV0_Init(ANPInterface* value);
 
@@ -134,6 +135,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(WindowInterfaceV0)        },
     { VARPROCLINE(WindowInterfaceV1)        },
     { VARPROCLINE(SystemInterfaceV0)        },
+    { VARPROCLINE(SystemInterfaceV1)        },
     { VARPROCLINE(OpenGLInterfaceV0)        },
     { VARPROCLINE(VideoInterfaceV0)         },
 };

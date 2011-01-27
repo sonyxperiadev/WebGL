@@ -72,12 +72,14 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_acceptEvents = false;
     m_isSurfaceClippedOut = false;
     m_layer = 0;
+    m_powerState = kDefault_ANPPowerState;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
     PLUGIN_LOG("%p Deleting Plugin", m_pluginView->instance());
     m_acceptEvents = false;
     if (m_core) {
+        setPowerState(kDefault_ANPPowerState);
         m_core->removePlugin(this);
         if (m_isFullScreen) {
             exitFullScreen(true);
@@ -633,5 +635,30 @@ void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
 void PluginWidgetAndroid::requestCenterFitZoom() {
     m_core->centerFitRect(m_pluginWindow->x, m_pluginWindow->y,
             m_pluginWindow->width, m_pluginWindow->height);
+}
+
+void PluginWidgetAndroid::setPowerState(ANPPowerState powerState) {
+    if(m_powerState == powerState)
+        return;
+
+    // cleanup the old power state
+    switch (m_powerState) {
+        case kDefault_ANPPowerState:
+            break;
+        case kScreenOn_ANPPowerState:
+            m_core->keepScreenOn(false);
+            break;
+    }
+
+    // setup the new power state
+    switch (powerState) {
+        case kDefault_ANPPowerState:
+            break;
+        case kScreenOn_ANPPowerState:
+            m_core->keepScreenOn(true);
+            break;
+    }
+
+    m_powerState = powerState;
 }
 
