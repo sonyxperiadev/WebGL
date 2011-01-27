@@ -100,6 +100,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     : m_webFrame(webFrame)
     , m_resourceHandle(resourceHandle)
     , m_isMainResource(false)
+    , m_isCertMimeType(false)
     , m_cancelling(false)
     , m_sync(false)
     , m_finished(false)
@@ -199,12 +200,35 @@ bool WebUrlLoaderClient::start(bool isMainResource, bool sync, WebRequestContext
     return true;
 }
 
+namespace {
+// Check if the mime type is for certificate installation.
+// The items must be consistent with the sCertificateTypeMap
+// in frameworks/base/core/java/android/webkit/CertTool.java.
+bool isMimeTypeForCert(const std::string& mimeType)
+{
+    static std::hash_set<std::string> sCertificateTypeSet;
+    if (sCertificateTypeSet.empty()) {
+        sCertificateTypeSet.insert("application/x-x509-ca-cert");
+        sCertificateTypeSet.insert("application/x-x509-user-cert");
+        sCertificateTypeSet.insert("application/x-pkcs12");
+    }
+    return sCertificateTypeSet.find(mimeType) != sCertificateTypeSet.end();
+}
+}
+
 void WebUrlLoaderClient::downloadFile()
 {
     if (m_response) {
         std::string contentDisposition;
         m_response->getHeader("content-disposition", &contentDisposition);
         m_webFrame->downloadStart(m_request->getUrl(), m_request->getUserAgent(), contentDisposition, m_response->getMimeType(), m_response->getExpectedSize());
+
+        m_isCertMimeType = isMimeTypeForCert(m_response->getMimeType());
+        // Currently, only certificate mime type needs to receive the data.
+        // Other mime type, e.g. wav, will send the url to other application
+        // which will load the data by url.
+        if (!m_isCertMimeType)
+            cancel();
     } else {
         LOGE("Unexpected call to downloadFile() before didReceiveResponse(). URL: %s", m_request->getUrl().c_str());
         // TODO: Turn off asserts crashing before release
@@ -362,6 +386,10 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 
 void WebUrlLoaderClient::didReceiveData(scoped_refptr<net::IOBuffer> buf, int size)
 {
+    if (m_isMainResource && m_isCertMimeType) {
+        m_webFrame->didReceiveData(buf->data(), size);
+    }
+
     if (!isActive() || !size)
         return;
 
@@ -424,6 +452,10 @@ void WebUrlLoaderClient::didFinishLoading()
 {
     if (isActive())
         m_resourceHandle->client()->didFinishLoading(m_resourceHandle.get(), 0);
+
+    if (m_isMainResource && m_isCertMimeType) {
+        m_webFrame->didFinishLoading();
+    }
 
     // Always finish a request, if not it will leak
     finish();
