@@ -69,7 +69,7 @@ public:
     bool start(bool isMainResource, bool sync, WebRequestContext*);
     void cancel();
     void downloadFile();
-    void pauseLoad(bool pause) {} // Android method, does nothing for now
+    void pauseLoad(bool pause);
     void setAuth(const std::string& username, const std::string& password);
     void cancelAuth();
     void proceedSslCertError();

@@ -220,6 +220,10 @@ void WebUrlLoaderClient::cancel()
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancel));
 }
 
+void WebUrlLoaderClient::pauseLoad(bool pause)
+{
+}
+
 void WebUrlLoaderClient::setAuth(const std::string& username, const std::string& password)
 {
     base::Thread* thread = ioThread();
