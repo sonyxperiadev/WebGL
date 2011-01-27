@@ -217,6 +217,8 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDidReceiveAuthenticationChallenge;
     jmethodID   mReportSslCertError;
     jmethodID   mDownloadStart;
+    jmethodID   mDidReceiveData;
+    jmethodID   mDidFinishLoading;
     jmethodID   mSetCertificate;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
@@ -286,6 +288,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
+    mJavaFrame->mDidReceiveData = env->GetMethodID(clazz, "didReceiveData", "([BI)V");
+    mJavaFrame->mDidFinishLoading = env->GetMethodID(clazz, "didFinishLoading", "()V");
     mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate",
             "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     env->DeleteLocalRef(clazz);
@@ -315,6 +319,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
     LOG_ASSERT(mJavaFrame->mReportSslCertError, "Could not find method reportSslCertError");
     LOG_ASSERT(mJavaFrame->mDownloadStart, "Could not find method downloadStart");
+    LOG_ASSERT(mJavaFrame->mDidReceiveData, "Could not find method didReceiveData");
+    LOG_ASSERT(mJavaFrame->mDidFinishLoading, "Could not find method didFinishLoading");
     LOG_ASSERT(mJavaFrame->mSetCertificate, "Could not find method setCertificate");
 
     mUserAgent = WTF::String();
@@ -912,6 +918,35 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     env->DeleteLocalRef(jMimetype);
     checkException(env);
 }
+
+void
+WebFrame::didReceiveData(const char* data, int size) {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+
+    jbyteArray jData = env->NewByteArray(size);
+    jbyte* bytes = env->GetByteArrayElements(jData, NULL);
+    memcpy(reinterpret_cast<char*>(bytes), data, size);
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mDidReceiveData, jData, size);
+    env->DeleteLocalRef(jData);
+    checkException(env);
+}
+
+void
+WebFrame::didFinishLoading() {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDidFinishLoading);
+    checkException(env);
+}
+
 #endif
 
 #if USE(CHROME_NETWORK_STACK)

@@ -119,6 +119,10 @@ class WebFrame : public WebCoreRefObject {
 
     void downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength);
 
+    void didReceiveData(const char* data, int size);
+
+    void didFinishLoading();
+
     void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);
 
     void setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis);
