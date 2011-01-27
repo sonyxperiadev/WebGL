@@ -104,6 +104,7 @@ private:
     WebFrame* m_webFrame;
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
     bool m_isMainResource;
+    bool m_isCertMimeType;
     bool m_cancelling;
     bool m_sync;
     volatile bool m_finished;
