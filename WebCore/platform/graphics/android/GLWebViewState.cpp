@@ -201,17 +201,32 @@ void GLWebViewState::scheduleUpdate(const double& currentTime,
     }
 }
 
-double GLWebViewState::transitionTime(double currentTime)
+double GLWebViewState::zoomInTransitionTime(double currentTime)
 {
     if (m_transitionTime == -1)
-        m_transitionTime = currentTime + s_transitionDelay;
+        m_transitionTime = currentTime + s_zoomInTransitionDelay;
     return m_transitionTime;
 }
 
-float GLWebViewState::transparency(double currentTime)
+double GLWebViewState::zoomOutTransitionTime(double currentTime)
 {
-    float t = transitionTime(currentTime) - currentTime;
-    t *= s_invTransitionDelay;
+    if (m_transitionTime == -1)
+        m_transitionTime = currentTime + s_zoomOutTransitionDelay;
+    return m_transitionTime;
+}
+
+
+float GLWebViewState::zoomInTransparency(double currentTime)
+{
+    float t = zoomInTransitionTime(currentTime) - currentTime;
+    t *= s_invZoomInTransitionDelay;
+    return fmin(1, fmax(0, t));
+}
+
+float GLWebViewState::zoomOutTransparency(double currentTime)
+{
+    float t = zoomOutTransitionTime(currentTime) - currentTime;
+    t *= s_invZoomOutTransitionDelay;
     return fmin(1, fmax(0, t));
 }
 
