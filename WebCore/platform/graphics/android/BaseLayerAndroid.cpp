@@ -195,13 +195,15 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
     // the two pages (current one and future one with the new scale factor)
     if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
-        double transitionTime = m_glWebViewState->transitionTime(currentTime);
+        double transitionTime = (scale < m_glWebViewState->currentScale()) ?
+            m_glWebViewState->zoomOutTransitionTime(currentTime) :
+            m_glWebViewState->zoomInTransitionTime(currentTime);
 
         float newTilesTransparency = 1;
         if (scale < m_glWebViewState->currentScale())
-            newTilesTransparency = 1 - m_glWebViewState->transparency(currentTime);
+            newTilesTransparency = 1 - m_glWebViewState->zoomOutTransparency(currentTime);
         else
-            transparency = m_glWebViewState->transparency(currentTime);
+            transparency = m_glWebViewState->zoomInTransparency(currentTime);
 
         nextTiledPage->draw(newTilesTransparency, viewportTileBounds);
 
