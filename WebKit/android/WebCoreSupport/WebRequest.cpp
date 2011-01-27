@@ -417,29 +417,21 @@ void WebRequest::startReading()
 
     int bytesRead = 0;
 
-    // chrome only does one read, and schedules the next on the same thread
-    while (true) {
-        if (read(&bytesRead)) {
-            // bytesRead == 0 indicates finished
-            if (!bytesRead) {
-                finish(true);
-                break;
-            }
-
-            m_loadState = GotData;
-            // Read ok, forward buffer to webcore
-            m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-                    m_urlLoader.get(), &WebUrlLoaderClient::didReceiveData, m_networkBuffer, bytesRead));
-            m_networkBuffer = 0;
-        } else if (m_request && m_request->status().is_io_pending()) {
-            // got io_pending, so break and wait for read
-            break;
-        } else {
-            // Error, stop and send back
-            finish(false);
-            break;
-        }
+    if (!read(&bytesRead)) {
+        if (m_request && m_request->status().is_io_pending())
+            return; // Wait for OnReadCompleted()
+        finish(false);
     }
+
+    // bytesRead == 0 indicates finished
+    if (!bytesRead)
+        return finish(true);
+
+    m_loadState = GotData;
+    // Read ok, forward buffer to webcore
+    m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(m_urlLoader.get(), &WebUrlLoaderClient::didReceiveData, m_networkBuffer, bytesRead));
+    m_networkBuffer = 0;
+    MessageLoop::current()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebRequest::startReading));
 }
 
 bool WebRequest::read(int* bytesRead)
