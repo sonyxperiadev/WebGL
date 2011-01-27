@@ -27,6 +27,7 @@
 #define PluginWidgetAndroid_H
 
 #include "android_npapi.h"
+#include "ANPSystem_npapi.h"
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "MediaLayer.h"
@@ -174,6 +175,8 @@ struct PluginWidgetAndroid {
 
     WebCore::MediaLayer* getLayer() const { return m_layer; }
 
+    void setPowerState(ANPPowerState powerState);
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
@@ -198,6 +201,7 @@ private:
     bool                    m_embeddedViewAttached;
     bool                    m_acceptEvents;
     bool                    m_isSurfaceClippedOut;
+    ANPPowerState           m_powerState;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

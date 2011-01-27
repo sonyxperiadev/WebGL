@@ -47,4 +47,14 @@ struct ANPSystemInterfaceV0 : ANPInterface {
     jclass (*loadJavaClass)(NPP instance, const char* className);
 };
 
+enum ANPPowerStates {
+    kDefault_ANPPowerState  = 0,
+    kScreenOn_ANPPowerState = 1
+};
+typedef int32_t ANPPowerState;
+
+struct ANPSystemInterfaceV1 : ANPSystemInterfaceV0 {
+    void (*setPowerState)(NPP instance, ANPPowerState powerState);
+};
+
 #endif //ANPSystem_npapi_H
