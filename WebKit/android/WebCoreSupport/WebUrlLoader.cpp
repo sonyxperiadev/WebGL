@@ -79,4 +79,9 @@ void WebUrlLoader::downloadFile()
     m_loaderClient->downloadFile();
 }
 
+void WebUrlLoader::pauseLoad(bool pause)
+{
+    m_loaderClient->pauseLoad(pause);
+}
+
 } // namespace android

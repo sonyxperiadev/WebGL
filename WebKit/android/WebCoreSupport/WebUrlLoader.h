@@ -43,7 +43,7 @@ public:
 
     virtual void cancel();
     virtual void downloadFile();
-    virtual void pauseLoad(bool pause) {} // Android method, does nothing for now
+    virtual void pauseLoad(bool pause);
 
 private:
     WebUrlLoader(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
