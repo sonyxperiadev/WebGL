@@ -499,6 +499,9 @@ namespace android {
         // Returns the context (android.content.Context) of the WebView
         jobject getContext();
 
+        // Manages requests to keep the screen on while the WebView is visible
+        void keepScreenOn(bool screenOn);
+
         bool validNodeAndBounds(Frame* , Node* , const IntRect& );
 
         // Make the rect (left, top, width, height) visible. If it can be fully
@@ -643,6 +646,7 @@ namespace android {
         void pluginInvalTimerFired(WebCore::Timer<WebViewCore>*) {
             this->drawPlugins();
         }
+        int m_screenOnCounter;
 
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
