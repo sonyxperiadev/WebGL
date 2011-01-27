@@ -164,8 +164,10 @@ public:
     void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
     double updateTime() const { return m_updateTime; }
     void setUpdateTime(double value) { m_updateTime = value; }
-    double transitionTime(double currentTime);
-    float transparency(double currentTime);
+    double zoomInTransitionTime(double currentTime);
+    double zoomOutTransitionTime(double currentTime);
+    float zoomInTransparency(double currentTime);
+    float zoomOutTransparency(double currentTime);
     void resetTransitionTime() { m_transitionTime = -1; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
@@ -217,8 +219,10 @@ private:
     static const double s_updateDelay = 0.1; // 100 ms
 
     // Delay for the transition between the two pages
-    static const double s_transitionDelay = 0.5; // 500 ms
-    static const double s_invTransitionDelay = 2;
+    static const double s_zoomInTransitionDelay = 0.1; // 100 ms
+    static const double s_invZoomInTransitionDelay = 10;
+    static const double s_zoomOutTransitionDelay = 0.2; // 200 ms
+    static const double s_invZoomOutTransitionDelay = 5;
 
     GLScaleState m_scaleRequestState;
     float m_currentScale;
