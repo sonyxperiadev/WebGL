@@ -1351,8 +1351,8 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 #define DROP_HEIGHT 4
 
 #define STROKE_COLOR 0x90000000
-#define FILL_GRADIENT_TOP 0xD0F8DFA0
-#define FILL_GRADIENT_BOTTOM 0xD0FFEFEF
+#define FILL_GRADIENT_TOP 0xD0AFD835
+#define FILL_GRADIENT_BOTTOM 0xD0CAD284
 #define DROP_GRADIENT_TOP 0x50000000
 #define DROP_GRADIENT_BOTTOM 0x00000000
 
@@ -1539,7 +1539,7 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
 
     SkPaint paint;
     paint.setAntiAlias(true);
-    paint.setColor(SkColorSetARGB(0x80, 0xFF, 0xA8, 0x00));
+    paint.setColor(SkColorSetARGB(0x80, 0x83, 0xCC, 0x39));
     canvas->drawPath(path, paint);
     // experiment to draw touchable controls that resize the selection
     canvas->save();
