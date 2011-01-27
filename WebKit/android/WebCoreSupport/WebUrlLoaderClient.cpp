@@ -90,6 +90,8 @@ bool WebUrlLoaderClient::isActive() const
         return false;
     if (!m_resourceHandle->client())
         return false;
+    if (m_finished)
+        return false;
 
     return true;
 }
@@ -213,6 +215,9 @@ void WebUrlLoaderClient::downloadFile()
 
 void WebUrlLoaderClient::cancel()
 {
+    if (!isActive())
+        return;
+
     m_cancelling = true;
 
     base::Thread* thread = ioThread();
@@ -226,6 +231,9 @@ void WebUrlLoaderClient::pauseLoad(bool pause)
 
 void WebUrlLoaderClient::setAuth(const std::string& username, const std::string& password)
 {
+    if (!isActive())
+        return;
+
     base::Thread* thread = ioThread();
     if (!thread) {
         return;
@@ -237,6 +245,9 @@ void WebUrlLoaderClient::setAuth(const std::string& username, const std::string&
 
 void WebUrlLoaderClient::cancelAuth()
 {
+    if (!isActive())
+        return;
+
     base::Thread* thread = ioThread();
     if (!thread) {
         return;
@@ -246,6 +257,9 @@ void WebUrlLoaderClient::cancelAuth()
 
 void WebUrlLoaderClient::proceedSslCertError()
 {
+    if (!isActive())
+        return;
+
     base::Thread* thread = ioThread();
     if (!thread) {
         return;
@@ -255,6 +269,9 @@ void WebUrlLoaderClient::proceedSslCertError()
 
 void WebUrlLoaderClient::cancelSslCertError(int cert_error)
 {
+    if (!isActive())
+        return;
+
     base::Thread* thread = ioThread();
     if (!thread) {
         return;
@@ -414,9 +431,8 @@ void WebUrlLoaderClient::didFinishLoading()
 
 void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo, bool firstTime)
 {
-    if (!isActive()) {
+    if (!isActive())
         return;
-    }
 
     std::string host = base::SysWideToUTF8(authChallengeInfo->host_and_port);
     std::string realm = base::SysWideToUTF8(authChallengeInfo->realm);
@@ -426,7 +442,9 @@ void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> auth
 
 void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate* cert)
 {
-    if (!isActive()) return;
+    if (!isActive())
+        return;
+
     std::vector<std::string> chain_bytes;
     cert->GetChainDEREncodedBytes(&chain_bytes);
     m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0]);
