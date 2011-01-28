@@ -231,10 +231,10 @@ void ShaderProgram::clip(const FloatRect& clip)
     m_clipRect = clip;
 }
 
-IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect)
+IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
 {
-    IntRect viewport(m_viewport.fLeft, m_viewport.fTop,
-                     m_viewport.width(), m_viewport.height());
+    IntRect viewport(m_viewport.fLeft - margin, m_viewport.fTop - margin,
+                     m_viewport.width() + margin, m_viewport.height() + margin);
     viewport.intersect(rect);
     return viewport;
 }

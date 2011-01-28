@@ -20,10 +20,11 @@
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
@@ -580,34 +581,97 @@ bool LayerAndroid::needsTexture()
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
+IntRect LayerAndroid::clippedRect()
+{
+    IntRect r(0, 0, getWidth(), getHeight());
+    IntRect tr = drawTransform().mapRect(r);
+    IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
+    IntRect rect = drawTransform().inverse().mapRect(cr);
+    return rect;
+}
+
+bool LayerAndroid::outsideViewport()
+{
+    return m_layerTextureRect.width() == 0 &&
+           m_layerTextureRect.height() == 0;
+}
+
+int LayerAndroid::countTextureSize()
+{
+    IntRect cr = clippedRect();
+    int size = cr.width() * cr.height() * 4;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        size += getChild(i)->countTextureSize();
+    return size;
+}
+
+int LayerAndroid::nbLayers()
+{
+    int nb = 1;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        nb += getChild(i)->nbLayers();
+    return nb;
+}
+
+void LayerAndroid::showLayers(int indent)
+{
+    IntRect cr = clippedRect();
+    int size = cr.width() * cr.height() * 4;
+
+    char space[256];
+    int p = 0;
+    for (; p < indent; p++)
+        space[p] = ' ';
+    space[p] = '\0';
+
+    bool outside = outsideViewport();
+    if (needsTexture() && !outside) {
+        XLOGC("%s Layer %d (%d, %d), cropped to (%d, %d), using %d Mb",
+            space, uniqueId(), getWidth(), getHeight(),
+            cr.width(), cr.height(), size / 1024 / 1024);
+    } else if (needsTexture() && outside) {
+        XLOGC("%s Layer %d is outside the viewport", space, uniqueId());
+    } else {
+        XLOGC("%s Layer %d has no texture", space, uniqueId());
+    }
+
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        getChild(i)->showLayers(indent + 1);
+}
+
 void LayerAndroid::reserveGLTextures()
 {
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
         this->getChild(i)->reserveGLTextures();
 
+    if (!needsTexture())
+        return;
+
     LayerTexture* reservedTexture = 0;
-    if (needsTexture()) {
-        // Compute the layer size & position we need (clipped to the viewport)
-        IntRect r(0, 0, getWidth(), getHeight());
-        IntRect tr = drawTransform().mapRect(r);
-        IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
-        m_layerTextureRect = drawTransform().inverse().mapRect(cr);
 
-        reservedTexture = TilesManager::instance()->getExistingTextureForLayer(
-            this, m_layerTextureRect);
+    // Compute the layer size & position we need (clipped to the viewport)
+    m_layerTextureRect = clippedRect();
 
-        // If we do not have a drawing texture (i.e. new LayerAndroid tree),
-        // we get any one available.
-        if (!m_drawingTexture) {
-            LayerTexture* texture = reservedTexture;
-            m_drawingTexture =
-                TilesManager::instance()->getExistingTextureForLayer(
-                    this, m_layerTextureRect, true, texture);
+    if (outsideViewport())
+        return;
 
-            if (!m_drawingTexture)
-                m_drawingTexture = reservedTexture;
-        }
+    reservedTexture = TilesManager::instance()->getExistingTextureForLayer(
+        this, m_layerTextureRect);
+
+    // If we do not have a drawing texture (i.e. new LayerAndroid tree),
+    // we get any one available.
+    if (!m_drawingTexture) {
+        LayerTexture* texture = reservedTexture;
+        m_drawingTexture =
+            TilesManager::instance()->getExistingTextureForLayer(
+                this, m_layerTextureRect, true, texture);
+
+        if (!m_drawingTexture)
+            m_drawingTexture = reservedTexture;
     }
 
     // SMP flush
@@ -629,6 +693,9 @@ void LayerAndroid::createGLTextures()
         this->getChild(i)->createGLTextures();
 
     if (!needsTexture())
+        return;
+
+    if (outsideViewport())
         return;
 
     LayerTexture* reservedTexture = m_reservedTexture;
@@ -678,6 +745,7 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
         return false;
 
     if (!texture->ready() ||
+        texture->scale() != m_scale ||
         texture->pictureUsed() != m_pictureUsed) {
         XLOG("We mark layer %d (%x) as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
              uniqueId(), this, m_pictureUsed, texture->pictureUsed());

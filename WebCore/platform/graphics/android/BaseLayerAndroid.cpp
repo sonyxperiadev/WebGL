@@ -317,6 +317,14 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         }
         compositedRoot->setScale(scale);
         compositedRoot->reserveGLTextures();
+
+#ifdef DEBUG
+        int size = compositedRoot->countTextureSize();
+        int nbLayers = compositedRoot->nbLayers();
+        XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
+        compositedRoot->showLayers();
+#endif
+
         // Now that we marked the textures being used, we delete
         // the unnecessary ones to make space...
         TilesManager::instance()->cleanupLayersTextures(compositedRoot);

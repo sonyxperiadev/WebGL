@@ -44,7 +44,7 @@ class ShaderProgram {
     FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
                                     const IntSize& size);
     void clip(const FloatRect& rect);
-    IntRect clippedRectWithViewport(const IntRect& rect);
+    IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
 
  private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
