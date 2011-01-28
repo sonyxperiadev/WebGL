@@ -148,6 +148,9 @@ public:
     static int highUsageDeltaMB();
     static int memoryUsageMB();
     static int actualMemoryUsageMB();
+
+    static int visibleScreenWidth(const FrameView*);
+    static int visibleScreenHeight(const FrameView*);
 };
 
 }

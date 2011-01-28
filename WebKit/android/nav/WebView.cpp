@@ -474,6 +474,8 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     m_glWebViewState->setExtra(m_baseLayer, picture, rect);
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
+    m_viewImpl->setVisibleScreenWidth(visibleRect.width());
+    m_viewImpl->setVisibleScreenHeight(visibleRect.height());
     bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
@@ -536,6 +538,8 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
     compositeLayer->setExtra(extra);
     SkRect visible;
     calcOurContentVisibleRect(&visible);
+    m_viewImpl->setVisibleScreenWidth(visible.width());
+    m_viewImpl->setVisibleScreenHeight(visible.height());
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
     compositeLayer->updateFixedLayersPositions(visible);
