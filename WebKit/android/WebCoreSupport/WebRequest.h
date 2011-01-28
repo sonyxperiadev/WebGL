@@ -109,6 +109,7 @@ private:
     LoadState m_loadState;
     int m_authRequestCount;
     int m_cacheMode;
+    ScopedRunnableMethodFactory<WebRequest> m_runnableFactory;
 };
 
 } // namespace android

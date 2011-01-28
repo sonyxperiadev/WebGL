@@ -68,6 +68,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_loadState(Created)
     , m_authRequestCount(0)
     , m_cacheMode(0)
+    , m_runnableFactory(this)
 {
     GURL gurl(m_url);
 
@@ -90,6 +91,8 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_loadState(Created)
     , m_authRequestCount(0)
     , m_cacheMode(0)
+    , m_runnableFactory(this)
+
 {
 }
 
@@ -112,6 +115,7 @@ const std::string& WebRequest::getUserAgent() const
 
 void WebRequest::finish(bool success)
 {
+    m_runnableFactory.RevokeAll();
     ASSERT(m_loadState < Finished, "called finish on an already finished WebRequest (%d)", m_loadState);
 
     // Make sure WebUrlLoaderClient doesn't delete us in the middle of this method.
@@ -414,6 +418,8 @@ void WebRequest::cancelSslCertError(int cert_error)
 void WebRequest::startReading()
 {
     ASSERT(m_loadState == Response || m_loadState == GotData, "StartReading in state other than RESPONSE and GOTDATA");
+    if (m_loadState > GotData) // We have been cancelled between reads
+        return;
 
     int bytesRead = 0;
 
@@ -431,7 +437,7 @@ void WebRequest::startReading()
     // Read ok, forward buffer to webcore
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(m_urlLoader.get(), &WebUrlLoaderClient::didReceiveData, m_networkBuffer, bytesRead));
     m_networkBuffer = 0;
-    MessageLoop::current()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebRequest::startReading));
+    MessageLoop::current()->PostTask(FROM_HERE, m_runnableFactory.NewRunnableMethod(&WebRequest::startReading));
 }
 
 bool WebRequest::read(int* bytesRead)
