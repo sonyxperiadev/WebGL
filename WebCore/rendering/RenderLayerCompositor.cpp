@@ -588,7 +588,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // If we are a fixed layer, signal it to our siblings
-    if (layer->isFixed())
+    if (willBeComposited && layer->isFixed())
         compositingState.m_fixedSibling = true;
 
     if (!willBeComposited && compositingState.m_fixedSibling) {
@@ -629,7 +629,8 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
             // subsequent siblings as we do for the normal flow
             // and positive z-order.
             for (size_t j = 0; j < listSize; ++j) {
-                if ((negZOrderList->at(j))->isFixed()) {
+                if ((negZOrderList->at(j))->isFixed() &&
+                    needsToBeComposited(negZOrderList->at(j))) {
                     childState.m_fixedSibling = true;
                     break;
                 }
