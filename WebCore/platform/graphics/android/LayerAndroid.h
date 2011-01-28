@@ -104,6 +104,14 @@ public:
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
     SkRect bounds() const;
+    IntRect clippedRect();
+    bool outsideViewport();
+
+    // Debug/info functions
+    int countTextureSize();
+    int nbLayers();
+    void showLayers(int indent = 0);
+
     // called on the root layer
     void reserveGLTextures();
     void createGLTextures();
