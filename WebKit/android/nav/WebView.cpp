@@ -1459,6 +1459,10 @@ class GLDrawFunctor : Functor {
         extras = _extras;
     };
     status_t operator()() {
+        if (viewRect.isEmpty()) {
+            // NOOP operation if viewport is empty
+            return 0;
+        }
         bool retVal = (*wvInstance.*funcPtr)(viewRect, scale, extras);
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
@@ -1702,7 +1706,12 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
 
 static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
         jfloat scale, jint extras) {
-    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+    WebCore::IntRect viewRect;
+    if (jrect == NULL) {
+        viewRect = WebCore::IntRect();
+    } else {
+        viewRect = jrect_to_webrect(env, jrect);
+    }
     WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
     GLDrawFunctor* functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
             viewRect, scale, extras);
@@ -1715,7 +1724,12 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect) 
     if (wvInstance != NULL) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
         if (functor != NULL) {
-            WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+            WebCore::IntRect viewRect;
+            if (jrect == NULL) {
+                viewRect = WebCore::IntRect();
+            } else {
+                viewRect = jrect_to_webrect(env, jrect);
+            }
             functor->updateRect(viewRect);
         }
     }
