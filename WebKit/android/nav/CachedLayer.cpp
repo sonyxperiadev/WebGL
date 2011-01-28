@@ -119,9 +119,9 @@ FloatPoint CachedLayer::getGlobalPosition(const LayerAndroid* aLayer) const
 
 const LayerAndroid* CachedLayer::layer(const LayerAndroid* root) const
 {
-    if (!root || mLayer)
-        return mLayer;
-    return mLayer = root->findById(mUniqueId);
+    if (!root)
+        return 0;
+    return root->findById(mUniqueId);
 }
 
 // return bounds relative to the layer as recorded when walking the dom
