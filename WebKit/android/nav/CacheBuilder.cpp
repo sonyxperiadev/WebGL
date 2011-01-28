@@ -932,7 +932,6 @@ static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
     DBG_NAV_LOGD("frame=%p index=%d loc=(%d,%d) id=%d", frame, index,
         location.x(), location.y(), id);
     CachedLayer cachedLayer;
-    cachedLayer.reset();
     cachedLayer.setCachedNodeIndex(index);
     cachedLayer.setOffset(location);
     cachedLayer.setUniqueId(id);

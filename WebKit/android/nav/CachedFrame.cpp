@@ -1070,10 +1070,6 @@ void CachedFrame::resetClippedOut()
 void CachedFrame::resetLayers()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    for (CachedLayer* test = mCachedLayers.begin(); test != mCachedLayers.end();
-            test++) {
-        test->reset();
-    }
     for (CachedFrame* frame = mCachedFrames.begin(); frame != mCachedFrames.end();
             frame++) {
         frame->resetLayers();

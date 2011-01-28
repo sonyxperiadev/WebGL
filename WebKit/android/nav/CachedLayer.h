@@ -58,7 +58,6 @@ public:
     IntRect localBounds(const LayerAndroid* root, const IntRect& bounds) const;
     SkPicture* picture(const LayerAndroid* root) const;
     void toLocal(const LayerAndroid* root, int* xPtr, int* yPtr) const;
-    void reset() { mLayer = 0; }
     void setCachedNodeIndex(int index) { mCachedNodeIndex = index; }
     // Set the global position of the layer.  This is recorded by the nav cache
     // and corresponds to RenderLayer::absoluteBoundingBox() which is in
@@ -69,7 +68,6 @@ public:
     int uniqueId() const { return mUniqueId; }
 private:
     int mCachedNodeIndex;
-    mutable const LayerAndroid* mLayer;
     IntPoint mOffset;
     int mUniqueId;
 
