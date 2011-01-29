@@ -16,6 +16,7 @@
 #include "config.h"
 #include "MediaTexture.h"
 #include "TilesManager.h"
+#include "GLUtils.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -85,7 +86,7 @@ void VideoTexture::drawVideo(TransformationMatrix matrix)
         return;
 
     m_surfaceTexture->updateTexImage();
-    TilesManager::instance()->shader()->drawLayerQuad(matrix, m_dimensions, m_textureId, 1.0f);
+    TilesManager::instance()->shader()->drawVideoLayerQuad(matrix, m_dimensions, m_textureId);
 }
 
 ANativeWindow* VideoTexture::requestNewWindow()
