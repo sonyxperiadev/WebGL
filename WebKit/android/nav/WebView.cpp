@@ -123,6 +123,7 @@ struct JavaGlue {
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
+    jmethodID   m_inFullScreenMode;
     jfieldID    m_rectLeft;
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
@@ -158,6 +159,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
+    m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
     env->DeleteLocalRef(clazz);
 
     jclass rectClass = env->FindClass("android/graphics/Rect");
@@ -422,7 +424,7 @@ void drawCursorPostamble()
 bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (!m_baseLayer)
+    if (!m_baseLayer || inFullScreenMode())
         return false;
 
     if (!m_glWebViewState) {
@@ -1329,6 +1331,15 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_postInvalidateDelayed,
         delay, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
     checkException(env);
+}
+
+bool inFullScreenMode()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jboolean result = env->CallBooleanMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_inFullScreenMode);
+    checkException(env);
+    return result;
 }
 
 int moveGeneration()
