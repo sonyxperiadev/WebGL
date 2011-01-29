@@ -147,7 +147,7 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
 
     if (!rect.isEmpty())
         inval(rect);
-    else if (!m_lastInval.isEmpty())
+    if (!m_lastInval.isEmpty())
         inval(m_lastInval);
     m_lastInval = rect;
 }
