@@ -40,6 +40,8 @@ class ShaderProgram {
     void drawQuad(SkRect& geometry, int textureId, float opacity);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity);
+    void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
+                     SkRect& geometry, int textureId);
     void setViewRect(const IntRect& viewRect);
     FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
                                     const IntSize& size);
@@ -52,6 +54,7 @@ class ShaderProgram {
     void setProjectionMatrix(SkRect& geometry);
 
     int m_program;
+    int m_videoProgram;
 
     TransformationMatrix m_projectionMatrix;
     GLuint m_textureBuffer[1];
@@ -65,6 +68,8 @@ class ShaderProgram {
     int m_hProjectionMatrix;
     int m_hAlpha;
     int m_hTexSampler;
+    int m_hVideoProjectionMatrix;
+    int m_hVideoTexSampler;
 };
 
 } // namespace WebCore

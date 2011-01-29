@@ -59,6 +59,15 @@ static const char gFragmentShader[] =
     "  gl_FragColor *= alpha; "
     "}\n";
 
+static const char gVideoFragmentShader[] =
+    "#extension GL_OES_EGL_image_external : require\n"
+    "precision mediump float;\n"
+    "uniform samplerExternalOES s_yuvTexture;\n"
+    "varying vec2 v_texCoord;\n"
+    "void main() {\n"
+    "  gl_FragColor = texture2D(s_yuvTexture, v_texCoord);\n"
+    "}\n";
+
 GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
 {
     GLuint shader = glCreateShader(shaderType);
@@ -125,10 +134,14 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
 ShaderProgram::ShaderProgram()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
+    m_videoProgram = createProgram(gVertexShader, gVideoFragmentShader);
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
+
+    m_hVideoProjectionMatrix = glGetUniformLocation(m_videoProgram, "projectionMatrix");
+    m_hVideoTexSampler = glGetUniformLocation(m_videoProgram, "s_yuvTexture");
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -261,6 +274,34 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     glUniform1f(alpha(), opacity);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
+                                       SkRect& geometry, int textureId)
+{
+    // switch to our custom yuv video rendering program
+    glUseProgram(m_videoProgram);
+
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.translate(geometry.fLeft, geometry.fTop);
+    renderMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    renderMatrix.multiply(m_projectionMatrix);
+
+    GLfloat projectionMatrix[16];
+    GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
+    glUniformMatrix4fv(m_hVideoProjectionMatrix, 1, GL_FALSE, projectionMatrix);
+
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindAttribLocation(m_videoProgram, 1, "vPosition");
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // switch back to our normal rendering program
+    glUseProgram(m_program);
 }
 
 } // namespace WebCore
