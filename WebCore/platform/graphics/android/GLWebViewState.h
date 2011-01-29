@@ -242,7 +242,7 @@ private:
     bool m_usePageA;
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;
-    SkIRect m_lastInval;
+    IntRect m_lastInval;
     android::Mutex* m_globalButtonMutex;
 
     bool m_baseLayerUpdate;

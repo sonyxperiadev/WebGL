@@ -118,10 +118,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
         m_currentBaseLayer->safeUnref();
         m_currentBaseLayer = layer;
         m_currentBaseLayer->safeRef();
-        inval(rect);
-    } else {
-        m_invalidateRect.unite(rect);
     }
+    inval(rect);
 }
 
 void GLWebViewState::unlockBaseLayerUpdate() {
@@ -141,7 +139,12 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (!m_baseLayerUpdate)
         return;
+
     layer->setExtra(picture);
+
+    if (m_lastInval == rect)
+        return;
+
     if (!rect.isEmpty())
         inval(rect);
     else if (!m_lastInval.isEmpty())
@@ -151,11 +154,15 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
 
 void GLWebViewState::inval(const IntRect& rect)
 {
-    m_currentPictureCounter++;
-    if (!rect.isEmpty()) {
-        // find which tiles fall within the invalRect and mark them as dirty
-        m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
-        m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+    if (m_baseLayerUpdate) {
+        m_currentPictureCounter++;
+        if (!rect.isEmpty()) {
+            // find which tiles fall within the invalRect and mark them as dirty
+            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
+            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+        }
+    } else {
+        m_invalidateRect.unite(rect);
     }
 }
 
