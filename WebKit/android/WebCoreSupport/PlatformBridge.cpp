@@ -159,6 +159,19 @@ FloatRect PlatformBridge::screenRect()
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
+// The visible size on screen in document coordinate
+int PlatformBridge::visibleScreenWidth(const WebCore::FrameView* frameView)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    return webViewCore->visibleScreenWidth();
+}
+
+int PlatformBridge::visibleScreenHeight(const WebCore::FrameView* frameView)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    return webViewCore->visibleScreenHeight();
+}
+
 String PlatformBridge::computeDefaultLanguage()
 {
 #if USE(CHROME_NETWORK_STACK)

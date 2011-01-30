@@ -486,6 +486,8 @@ void WebViewCore::reset(bool fromConstructor)
     m_scrollOffsetY = 0;
     m_screenWidth = 0;
     m_screenHeight = 0;
+    m_visibleScreenWidth = 0;
+    m_visibleScreenHeight = 0;
     m_groupForVisitedLinks = NULL;
     m_currentNodeDomNavigationAxis = 0;
 }
