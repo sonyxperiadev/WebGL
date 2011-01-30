@@ -75,7 +75,7 @@ public:
 
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
-    SkCanvas* canvas() { return m_canvas; } // only used by the producer thread
+    SkCanvas* canvas(); // only used by the producer thread
 
     bool busy();
 
@@ -89,6 +89,7 @@ private:
     SkSize m_size;
     SkCanvas* m_canvas;
     int m_usedLevel;
+    SkBitmap::Config m_config;
     TextureOwner* m_owner;
 
     // This values signals that the texture is currently in use by the consumer.
