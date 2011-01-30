@@ -38,9 +38,6 @@ namespace WebCore {
 class BaseLayerAndroid : public SkLayer {
 
 public:
-#ifdef DEBUG_COUNT
-    static int count();
-#endif
     BaseLayerAndroid();
     virtual ~BaseLayerAndroid();
 

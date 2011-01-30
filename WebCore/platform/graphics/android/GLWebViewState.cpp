@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseLayerAndroid.h"
+#include "ClassTracker.h"
 #include "LayerAndroid.h"
 #include "TilesManager.h"
 
@@ -55,14 +56,6 @@ namespace WebCore {
 
 using namespace android;
 
-#ifdef DEBUG_COUNT
-static int gGLWebViewStateCount = 0;
-int GLWebViewState::count()
-{
-    return gGLWebViewStateCount;
-}
-#endif
-
 GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     : m_scaleRequestState(kNoScaleRequest)
     , m_currentScale(1)
@@ -85,7 +78,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
     m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
 #ifdef DEBUG_COUNT
-    gGLWebViewStateCount++;
+    ClassTracker::instance()->increment("GLWebViewState");
 #endif
 }
 
@@ -95,7 +88,7 @@ GLWebViewState::~GLWebViewState()
     delete m_tiledPageA;
     delete m_tiledPageB;
 #ifdef DEBUG_COUNT
-    gGLWebViewStateCount--;
+    ClassTracker::instance()->decrement("GLWebViewState");
 #endif
 }
 

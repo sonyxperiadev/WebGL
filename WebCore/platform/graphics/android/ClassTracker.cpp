@@ -23,50 +23,52 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TileSet_h
-#define TileSet_h
+#include "config.h"
+#include "ClassTracker.h"
 
-#if USE(ACCELERATED_COMPOSITING)
+#include <cutils/log.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
-#include "BaseTile.h"
-#include "Vector.h"
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ClassTracker", __VA_ARGS__)
 
 namespace WebCore {
 
-/**
- * This purpose of this class is to act as a container for BaseTiles that need
- * to upload their contents to the GPU.  A TiledPage creates a new TileSet and
- * provides the set with identifying characteristics of the TiledPage's current
- * state (see constructor). This information allows the consumer of the TileSet
- * to determine if an equivalent TileSet already exists in the upload pipeline.
- */
-class TileSet {
-public:
-    TileSet(TiledPage* tiledPage, int nbRows, int nbCols);
-    ~TileSet();
+ClassTracker* ClassTracker::instance()
+{
+    if (!gInstance)
+        gInstance = new ClassTracker();
+    return gInstance;
+}
 
-    bool operator==(const TileSet& set);
-    void paint();
+ClassTracker* ClassTracker::gInstance = 0;
 
-    void add(BaseTile* texture)
-    {
-        m_tiles.append(texture);
-    }
+void ClassTracker::increment(String name)
+{
+   int value = 0;
+   if (m_classes.contains(name))
+       value = m_classes.get(name);
 
-    TiledPage* page()
-    {
-        return m_tiledPage;
-    }
+   m_classes.set(name, value + 1);
+}
 
-private:
-    Vector<BaseTile*> m_tiles;
+void ClassTracker::decrement(String name)
+{
+   int value = 0;
+   if (m_classes.contains(name))
+       value = m_classes.get(name);
 
-    TiledPage* m_tiledPage;
-    int m_nbRows;
-    int m_nbCols;
-};
+   m_classes.set(name, value - 1);
+}
+
+void ClassTracker::show()
+{
+   XLOG("*** Tracking %d classes ***", m_classes.size());
+   for (HashMap<String, int>::iterator iter = m_classes.begin(); iter != m_classes.end(); ++iter) {
+       XLOG("class %s has %d instances",
+            iter->first.latin1().data(), iter->second);
+   }
+}
 
 } // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // TileSet_h

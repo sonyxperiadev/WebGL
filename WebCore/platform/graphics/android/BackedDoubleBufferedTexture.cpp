@@ -27,6 +27,7 @@
 #include "BackedDoubleBufferedTexture.h"
 
 #include "BaseTile.h"
+#include "ClassTracker.h"
 #include "DeleteTextureOperation.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
@@ -56,6 +57,10 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
         m_sharedBitmap = false;
         m_canvas = 0;
     }
+
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("BackedDoubleBufferedTexture");
+#endif
 }
 
 SkCanvas* BackedDoubleBufferedTexture::canvas()
@@ -77,6 +82,9 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
     delete m_canvas;
     SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
     destroyTextures(textures);
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("BackedDoubleBufferedTexture");
+#endif
 }
 
 void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
