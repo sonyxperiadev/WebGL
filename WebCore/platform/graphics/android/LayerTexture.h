@@ -35,7 +35,7 @@ class LayerTexture : public BackedDoubleBufferedTexture {
  public:
     LayerTexture(uint32_t w, uint32_t h,
                  SkBitmap::Config config = SkBitmap::kARGB_8888_Config)
-        : BackedDoubleBufferedTexture(w, h, config)
+        : BackedDoubleBufferedTexture(w, h, 0, config)
         , m_id(0)
         , m_scale(1)
         , m_pictureUsed(0)

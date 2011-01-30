@@ -121,6 +121,7 @@ private:
     static TilesManager* gInstance;
 
     ShaderProgram m_shader;
+    SkBitmap* m_tilesBitmap;
 };
 
 } // namespace WebCore
