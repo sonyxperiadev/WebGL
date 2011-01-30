@@ -42,6 +42,7 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                          SkBitmap::Config config)
     : DoubleBufferedTexture(eglGetCurrentContext())
     , m_usedLevel(-1)
+    , m_config(config)
     , m_owner(0)
     , m_busy(false)
 {
@@ -49,21 +50,30 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
     if (bitmap) {
         m_bitmap = bitmap;
         m_sharedBitmap = true;
+        m_canvas = new SkCanvas(*m_bitmap);
     } else {
+        m_bitmap = 0;
+        m_sharedBitmap = false;
+        m_canvas = 0;
+    }
+}
+
+SkCanvas* BackedDoubleBufferedTexture::canvas()
+{
+    if (!m_bitmap && !m_sharedBitmap) {
         m_bitmap = new SkBitmap();
-        m_bitmap->setConfig(config, w, h);
+        m_bitmap->setConfig(m_config, m_size.width(), m_size.height());
         m_bitmap->allocPixels();
         m_bitmap->eraseColor(0);
+        m_canvas = new SkCanvas(*m_bitmap);
     }
-    m_canvas = new SkCanvas(*m_bitmap);
+    return m_canvas;
 }
 
 BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 {
-    if (!m_sharedBitmap) {
-        m_bitmap->reset();
+    if (!m_sharedBitmap)
         delete m_bitmap;
-    }
     delete m_canvas;
     SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
     destroyTextures(textures);
@@ -116,6 +126,9 @@ bool BackedDoubleBufferedTexture::busy()
 
 void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
+    if (!m_bitmap)
+        return;
+
     // no need to upload a texture since the bitmap is empty
     if (!m_bitmap->width() && !m_bitmap->height()) {
         producerRelease();
@@ -128,6 +141,13 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
         GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
         textureInfo->m_width = m_bitmap->width();
         textureInfo->m_height = m_bitmap->height();
+    }
+
+    if (!m_sharedBitmap) {
+        delete m_bitmap;
+        delete m_canvas;
+        m_bitmap = 0;
+        m_canvas = 0;
     }
 
     producerReleaseAndSwap();
