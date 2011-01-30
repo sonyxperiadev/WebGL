@@ -38,22 +38,32 @@
 namespace WebCore {
 
 BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
-                                                              SkBitmap::Config config)
+                                                         SkBitmap* bitmap,
+                                                         SkBitmap::Config config)
     : DoubleBufferedTexture(eglGetCurrentContext())
     , m_usedLevel(-1)
     , m_owner(0)
     , m_busy(false)
 {
     m_size.set(w, h);
-    m_bitmap.setConfig(config, w, h);
-    m_bitmap.allocPixels();
-    m_bitmap.eraseColor(0);
-    m_canvas = new SkCanvas(m_bitmap);
+    if (bitmap) {
+        m_bitmap = bitmap;
+        m_sharedBitmap = true;
+    } else {
+        m_bitmap = new SkBitmap();
+        m_bitmap->setConfig(config, w, h);
+        m_bitmap->allocPixels();
+        m_bitmap->eraseColor(0);
+    }
+    m_canvas = new SkCanvas(*m_bitmap);
 }
 
 BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
 {
-    m_bitmap.reset();
+    if (!m_sharedBitmap) {
+        m_bitmap->reset();
+        delete m_bitmap;
+    }
     delete m_canvas;
     SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
     destroyTextures(textures);
@@ -107,17 +117,17 @@ bool BackedDoubleBufferedTexture::busy()
 void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
     // no need to upload a texture since the bitmap is empty
-    if (!m_bitmap.width() && !m_bitmap.height()) {
+    if (!m_bitmap->width() && !m_bitmap->height()) {
         producerRelease();
         return;
     }
 
-    if (textureInfo->m_width == m_bitmap.width() && textureInfo->m_height == m_bitmap.height())
-        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
+    if (textureInfo->m_width == m_bitmap->width() && textureInfo->m_height == m_bitmap->height())
+        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
     else {
-        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
-        textureInfo->m_width = m_bitmap.width();
-        textureInfo->m_height = m_bitmap.height();
+        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
+        textureInfo->m_width = m_bitmap->width();
+        textureInfo->m_height = m_bitmap->height();
     }
 
     producerReleaseAndSwap();

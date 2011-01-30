@@ -72,9 +72,13 @@ TilesManager::TilesManager()
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    m_tilesBitmap = new SkBitmap();
+    m_tilesBitmap->setConfig(SkBitmap::kARGB_8888_Config, tileWidth(), tileHeight());
+    m_tilesBitmap->allocPixels();
+    m_tilesBitmap->eraseColor(0);
     for (int i = 0; i < MAX_TEXTURE_ALLOCATION; i++) {
         BackedDoubleBufferedTexture* texture = new BackedDoubleBufferedTexture(
-            tileWidth(), tileHeight());
+            tileWidth(), tileHeight(), m_tilesBitmap);
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
         m_textures.append(reinterpret_cast<BackedDoubleBufferedTexture*>(
