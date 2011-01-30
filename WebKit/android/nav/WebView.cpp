@@ -474,6 +474,11 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
         picture.endRecording();
     }
     m_glWebViewState->setExtra(m_baseLayer, picture, rect);
+
+    LayerAndroid* compositeLayer = compositeRoot();
+    if (compositeLayer)
+        compositeLayer->setExtra(extra);
+
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
     bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
