@@ -43,6 +43,7 @@ public:
     // This object is to be constructed on the consumer's thread and must have
     // a width and height greater than 0.
     BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
+                                SkBitmap* bitmap = 0,
                                 SkBitmap::Config config = SkBitmap::kARGB_8888_Config);
     virtual ~BackedDoubleBufferedTexture();
 
@@ -83,7 +84,8 @@ public:
 private:
     void destroyTextures(SharedTexture** textures);
 
-    SkBitmap m_bitmap;
+    SkBitmap* m_bitmap;
+    bool m_sharedBitmap;
     SkSize m_size;
     SkCanvas* m_canvas;
     int m_usedLevel;
