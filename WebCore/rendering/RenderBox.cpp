@@ -39,6 +39,7 @@
 #include "FloatQuad.h"
 #include "Frame.h"
 #include "Page.h"
+#include "PlatformBridge.h"
 #include "RenderArena.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
