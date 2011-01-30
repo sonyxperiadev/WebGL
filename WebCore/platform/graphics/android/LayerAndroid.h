@@ -296,7 +296,7 @@ private:
 
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
-    DrawExtra* m_extra;
+    SkPicture* m_extra;
     int m_uniqueId;
 
     // We have two textures pointers -- one if the texture we are currently
