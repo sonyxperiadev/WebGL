@@ -184,6 +184,7 @@ LayerAndroid::~LayerAndroid()
 {
     removeTexture(0);
     removeChildren();
+    delete m_extra;
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
     m_animations.clear();
@@ -900,10 +901,11 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
     } else {
       canvas->drawPicture(*m_recordingPicture);
     }
-    if (m_extra) {
-        IntRect dummy; // inval area, unused for now
-        m_extra->draw(canvas, this, &dummy);
-    }
+
+    m_atomicSync.lock();
+    if (m_extra)
+        canvas->drawPicture(*m_extra);
+    m_atomicSync.unlock();
 
 #ifdef LAYER_DEBUG
     float w = getSize().width();
@@ -1182,9 +1184,27 @@ LayerAndroid* LayerAndroid::findById(int match)
 
 void LayerAndroid::setExtra(DrawExtra* extra)
 {
-    m_extra = extra;
     for (int i = 0; i < countChildren(); i++)
         getChild(i)->setExtra(extra);
+
+    android::AutoMutex lock(m_atomicSync);
+    if (extra || (m_extra && !extra))
+        m_dirty = true;
+
+    delete m_extra;
+    m_extra = 0;
+
+    if (!extra)
+        return;
+
+    if (m_recordingPicture) {
+        IntRect dummy; // inval area, unused for now
+        m_extra = new SkPicture();
+        SkCanvas* canvas = m_extra->beginRecording(m_recordingPicture->width(),
+                                                   m_recordingPicture->height());
+        extra->draw(canvas, this, &dummy);
+        m_extra->endRecording();
+    }
 }
 
 } // namespace WebCore
