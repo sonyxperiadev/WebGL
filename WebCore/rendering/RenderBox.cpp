@@ -2077,6 +2077,13 @@ void RenderBox::computeBlockDirectionMargins(RenderBlock* containingBlock)
 
 int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const
 {
+    // Fixed element's position should be decided by the visible screen size.
+    // That is in the doc coordindate.
+    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
+        const RenderView* view = toRenderView(containingBlock);
+        return PlatformBridge::visibleScreenWidth(view->frameView());
+    }
+
     if (containingBlock->isBox()) {
         const RenderBox* containingBlockBox = toRenderBox(containingBlock);
         return containingBlockBox->width() - containingBlockBox->borderLeft() - containingBlockBox->borderRight() - containingBlockBox->verticalScrollbarWidth();
@@ -2107,6 +2114,13 @@ int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* con
 
 int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const
 {   
+    // Fixed element's position should be decided by the visible screen size.
+    // That is in the doc coordindate.
+    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
+        const RenderView* view = toRenderView(containingBlock);
+        return PlatformBridge::visibleScreenHeight(view->frameView());
+    }
+
     int heightResult = 0;
     if (containingBlock->isBox())
          heightResult = toRenderBox(containingBlock)->height();
