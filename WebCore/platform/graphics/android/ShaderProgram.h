@@ -30,6 +30,7 @@ namespace WebCore {
 class ShaderProgram {
  public:
     ShaderProgram();
+    void init();
     int projectionMatrix() { return m_hProjectionMatrix; }
     int alpha() { return m_hAlpha; }
     int textureSampler() { return m_hTexSampler; }

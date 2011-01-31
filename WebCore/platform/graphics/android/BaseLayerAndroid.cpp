@@ -36,6 +36,8 @@
 #include <wtf/CurrentTime.h>
 #endif // USE(ACCELERATED_COMPOSITING)
 
+#define HARDWARE_ACCELERATION
+
 #ifdef DEBUG
 
 #include <cutils/log.h>
@@ -68,7 +70,7 @@ BaseLayerAndroid::BaseLayerAndroid()
 
 BaseLayerAndroid::~BaseLayerAndroid()
 {
-#if USE(ACCELERATED_COMPOSITING)
+#ifdef HARDWARE_ACCELERATION
     TilesManager::instance()->removeOperationsForBaseLayer(this);
 #endif
     m_content.clear();
@@ -277,6 +279,10 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 
     glViewport(left, top, width, height);
     ShaderProgram* shader = TilesManager::instance()->shader();
+    if (shader->program() == -1) {
+        XLOG("Reinit shader");
+        shader->init();
+    }
     glUseProgram(shader->program());
     glUniform1i(shader->textureSampler(), 0);
     shader->setViewRect(viewRect);
