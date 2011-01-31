@@ -1483,7 +1483,8 @@ bool CacheBuilder::CleanUpContainedNodes(CachedRoot* cachedRoot,
     if (onlyChildCached->parent() == lastCached)
         onlyChildCached->setParentIndex(lastCached->parentIndex());
     bool hasFocus = lastCached->isFocus() || onlyChildCached->isFocus();
-    if (outerIsMouseMoveOnly || onlyChild->isKeyboardFocusable(NULL)) {
+    if (outerIsMouseMoveOnly || onlyChild->isKeyboardFocusable(NULL)
+            || onlyChildCached->isPlugin()) {
         int index = lastCached->index();
         *lastCached = *onlyChildCached;
         lastCached->setIndex(index);
