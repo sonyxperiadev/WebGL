@@ -329,6 +329,8 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 
         if (compositedRoot->drawGL(matrix))
             ret = true;
+    } else {
+        TilesManager::instance()->cleanupLayersTextures(0);
     }
     glDisable(GL_SCISSOR_TEST);
 
