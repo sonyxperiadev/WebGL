@@ -3251,7 +3251,8 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         if (renderer()->hasOverflowClip()) {
             IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y);
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-            clipRects.setHitTestClip(intersection(newOverflowClip, clipRects.hitTestClip()));
+            clipRects.setHitTestClip(intersection(clipRects.fixed() ? clipRects.fixedClipRect()
+                    : newOverflowClip, clipRects.hitTestClip()));
             if (hasOverflowScroll()) {
                 RenderBox* box = toRenderBox(renderer());
                 newOverflowClip =
