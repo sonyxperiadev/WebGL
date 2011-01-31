@@ -97,12 +97,16 @@ GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
 GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragmentSource)
 {
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
-    if (!vertexShader)
-        return 0;
+    if (!vertexShader) {
+        XLOG("couldn't load the vertex shader!");
+        return -1;
+    }
 
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
-    if (!pixelShader)
-        return 0;
+    if (!pixelShader) {
+        XLOG("couldn't load the pixel shader!");
+        return -1;
+    }
 
     GLuint program = glCreateProgram();
     if (program) {
@@ -125,13 +129,20 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
                 }
             }
             glDeleteProgram(program);
-            program = 0;
+            program = -1;
+        } else {
+            XLOG("couldn't link the shader!");
         }
     }
     return program;
 }
 
 ShaderProgram::ShaderProgram()
+{
+    init();
+}
+
+void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
     m_videoProgram = createProgram(gVertexShader, gVideoFragmentShader);
