@@ -346,11 +346,9 @@ namespace android {
          * @param node Pointer to Node that was touched.
          * @param x x-position of the touch.
          * @param y y-position of the touch.
-         * @param scrollY Only used for <textarea>s (otherwise -1). Scroll position
-         *      of the <textarea> so the touch point is used properly.
          */
         void touchUp(int touchGeneration, WebCore::Frame* frame,
-                WebCore::Node* node, int x, int y, int scrollY);
+                WebCore::Node* node, int x, int y);
 
         /**
          * Sets the index of the label from a popup
@@ -667,10 +665,8 @@ namespace android {
          * @param node Pointer to the Node that was clicked on.
          * @param fake This is a fake mouse click, used to put a textfield into focus. Do not
          *      open the IME.
-         * @param scrollY Used only when the node clicked on is a <textarea> (otherwise use
-         *      -1).  Scroll the <textarea> before handling the click.
          */
-        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool fake, int scrollY);
+        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool fake);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
         WebCore::HTMLElement* retrieveElement(int x, int y,
             const WebCore::QualifiedName& );
