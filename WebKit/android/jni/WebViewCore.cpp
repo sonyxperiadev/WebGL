@@ -3100,7 +3100,7 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node, bool fake) {
                 = static_cast<EditorClientAndroid*>(
                 m_mainFrame->editor()->client());
         client->setShouldChangeSelectedRange(false);
-        handleMouseClick(frame, node, fake, -1);
+        handleMouseClick(frame, node, fake);
         client->setShouldChangeSelectedRange(true);
     }
 }
@@ -3179,7 +3179,7 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
 }
 
 void WebViewCore::touchUp(int touchGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y, int scrollY)
+    WebCore::Frame* frame, WebCore::Node* node, int x, int y)
 {
     if (touchGeneration == 0) {
         // m_mousePos should be set in getTouchHighlightRects()
@@ -3206,7 +3206,7 @@ void WebViewCore::touchUp(int touchGeneration,
     }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
-    handleMouseClick(frame, node, false, scrollY);
+    handleMouseClick(frame, node, false);
 }
 
 // Return the RenderLayer for the given RenderObject only if the layer is
@@ -3257,7 +3257,7 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 // Common code for both clicking with the trackball and touchUp
 // Also used when typing into a non-focused textfield to give the textfield focus,
 // in which case, 'fake' is set to true
-bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake, int scrollY)
+bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake)
 {
     bool valid = framePtr == NULL
             || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
@@ -3312,10 +3312,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             DBG_NAV_LOG("list box");
             return true;
         }
-        if (scrollY != -1 && renderer && renderer->isTextArea())
-            static_cast<RenderTextControl*>(renderer)->setScrollTop(scrollY);
-        else
-            scrollLayer(renderer, &m_mousePos);
+        scrollLayer(renderer, &m_mousePos);
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
@@ -4135,7 +4132,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
-        jint frame, jint node, jint x, jint y, jint scrollY)
+        jint frame, jint node, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -4143,7 +4140,7 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y, scrollY);
+        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
@@ -4557,7 +4554,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(I[I[I[III)Z",
             (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIIII)V",
+    { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },
