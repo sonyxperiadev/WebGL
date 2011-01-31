@@ -2174,7 +2174,8 @@ RenderLayer::updateScrollInfoAfterLayout()
         updateOverflowStatus(horizontalOverflow, verticalOverflow);
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    bool hasOverflowScroll = (horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar);
+    bool hasOverflowScroll = ((horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar))
+            && !renderer()->isTextArea();
     if (hasOverflowScroll != m_hasOverflowScroll) {
         m_hasOverflowScroll = hasOverflowScroll;
         dirtyZOrderLists();
