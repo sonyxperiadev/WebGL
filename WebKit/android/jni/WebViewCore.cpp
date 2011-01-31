@@ -888,7 +888,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
         RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
         if (style->hasBackground()) {
             Color color = style->visitedDependentColor(CSSPropertyBackgroundColor);
-            base->setBackgroundColor(color);
+            if (color.isValid() && color.alpha() > 0)
+                base->setBackgroundColor(color);
         }
     }
 
