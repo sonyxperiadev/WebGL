@@ -119,8 +119,6 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 #if USE(ACCELERATED_COMPOSITING)
 bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
 {
-    if (m_content.isEmpty())
-        return false;
     if (!m_glWebViewState)
         return false;
 
