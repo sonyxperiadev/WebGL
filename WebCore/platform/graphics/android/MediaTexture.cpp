@@ -78,7 +78,7 @@ void VideoTexture::initNativeWindowIfNeeded()
     m_newVideoRequestCond.signal();
 }
 
-void VideoTexture::drawVideo(TransformationMatrix matrix)
+void VideoTexture::drawVideo(const TransformationMatrix& matrix)
 {
     android::Mutex::Autolock lock(m_videoLock);
 

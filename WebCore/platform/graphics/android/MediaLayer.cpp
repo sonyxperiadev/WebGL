@@ -73,24 +73,23 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(SkMatrix& matrix)
 {
-
-    TransformationMatrix m = drawTransform();
-    // the layer's shader draws the content inverted so we must undo
-    // that change in the transformation matrix
-    if (!m_isContentInverted) {
-        m.flipY();
-        m.translate(0, -getSize().height());
-    }
-
     // check to see if we need to create a video texture
     m_videoTexture->initNativeWindowIfNeeded();
     // draw any video content if present
-    m_videoTexture->drawVideo(m);
+    m_videoTexture->drawVideo(drawTransform());
 
     // draw the primary content
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
         if (textureInfo) {
+            // the layer's shader draws the content inverted so we must undo
+            // that change in the transformation matrix
+            TransformationMatrix m = drawTransform();
+            if (!m_isContentInverted) {
+                m.flipY();
+                m.translate(0, -getSize().height());
+            }
+
             SkRect rect;
             rect.set(0, 0, getSize().width(), getSize().height());
             TilesManager::instance()->shader()->drawLayerQuad(m, rect,
