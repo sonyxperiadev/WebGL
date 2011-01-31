@@ -279,7 +279,9 @@ void TilesManager::printLayersTextures(const char* s)
 void TilesManager::cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup)
 {
     android::Mutex::Autolock lock(m_texturesLock);
-    SkLayer* rootLayer = layer->getRootLayer();
+    SkLayer* rootLayer = 0;
+    if (layer)
+        rootLayer = layer->getRootLayer();
 #ifdef DEBUG
     if (forceCleanup)
         XLOG("FORCE cleanup");
