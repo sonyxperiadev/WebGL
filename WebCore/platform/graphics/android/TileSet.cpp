@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "ClassTracker.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -48,28 +49,20 @@
 
 namespace WebCore {
 
-#ifdef DEBUG_COUNT
-static int gTileSetCount = 0;
-int TileSet::count()
-{
-    return gTileSetCount;
-}
-#endif
-
 TileSet::TileSet(TiledPage* tiledPage, int rows, int cols)
     : m_tiledPage(tiledPage)
     , m_nbRows(rows)
     , m_nbCols(cols)
 {
 #ifdef DEBUG_COUNT
-    gTileSetCount++;
+    ClassTracker::instance()->increment("TileSet");
 #endif
 }
 
 TileSet::~TileSet()
 {
 #ifdef DEBUG_COUNT
-    gTileSetCount--;
+    ClassTracker::instance()->decrement("TileSet");
 #endif
 }
 

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DoubleBufferedTexture.h"
 
+#include "ClassTracker.h"
 #include "GLUtils.h"
 
 #define LOG_NDEBUG 1
@@ -33,14 +34,6 @@
 #include <utils/Log.h>
 
 namespace WebCore {
-
-#ifdef DEBUG_COUNT
-static int gDoubleBufferedTextureCount = 0;
-int DoubleBufferedTexture::count()
-{
-    return gDoubleBufferedTextureCount;
-}
-#endif
 
 DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
 {
@@ -50,16 +43,15 @@ DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
     m_writeableTexture = &m_textureA;
     m_lockedConsumerTexture = GL_NO_TEXTURE;
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
-
 #ifdef DEBUG_COUNT
-    gDoubleBufferedTextureCount++;
+    ClassTracker::instance()->increment("DoubleBufferedTexture");
 #endif
 }
 
 DoubleBufferedTexture::~DoubleBufferedTexture()
 {
 #ifdef DEBUG_COUNT
-    gDoubleBufferedTextureCount--;
+    ClassTracker::instance()->decrement("DoubleBufferedTexture");
 #endif
 }
 
