@@ -599,6 +599,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/BaseLayerAndroid.cpp \
 	platform/graphics/android/BaseTile.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
+	platform/graphics/android/ClassTracker.cpp \
 	platform/graphics/android/DoubleBufferedTexture.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \

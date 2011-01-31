@@ -27,6 +27,7 @@
 #include "BaseLayerAndroid.h"
 
 #if USE(ACCELERATED_COMPOSITING)
+#include "ClassTracker.h"
 #include "GLUtils.h"
 #include "ShaderProgram.h"
 #include "SkCanvas.h"
@@ -54,14 +55,6 @@ namespace WebCore {
 
 using namespace android;
 
-#ifdef DEBUG_COUNT
-static int gBaseLayerAndroidCount = 0;
-int BaseLayerAndroid::count()
-{
-    return gBaseLayerAndroidCount;
-}
-#endif
-
 BaseLayerAndroid::BaseLayerAndroid()
 #if USE(ACCELERATED_COMPOSITING)
     : m_glWebViewState(0),
@@ -69,7 +62,7 @@ BaseLayerAndroid::BaseLayerAndroid()
 #endif
 {
 #ifdef DEBUG_COUNT
-    gBaseLayerAndroidCount++;
+    ClassTracker::instance()->increment("BaseLayerAndroid");
 #endif
 }
 
@@ -80,7 +73,7 @@ BaseLayerAndroid::~BaseLayerAndroid()
 #endif
     m_content.clear();
 #ifdef DEBUG_COUNT
-    gBaseLayerAndroidCount--;
+    ClassTracker::instance()->decrement("BaseLayerAndroid");
 #endif
 }
 
@@ -349,6 +342,9 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 #endif // DEBUG_COUNT
 
 #endif // USE(ACCELERATED_COMPOSITING)
+#ifdef DEBUG
+    ClassTracker::instance()->show();
+#endif
     return ret;
 }
 

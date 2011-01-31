@@ -53,14 +53,6 @@ namespace WebCore {
 
 using namespace android;
 
-#ifdef DEBUG_COUNT
-static int gTilePageCount = 0;
-int TiledPage::count()
-{
-    return gTilePageCount;
-}
-#endif
-
 TiledPage::TiledPage(int id, GLWebViewState* state)
     : m_id(id)
     , m_scale(1)
@@ -81,7 +73,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     m_baseTiles = new BaseTile[m_baseTileSize];
 
 #ifdef DEBUG_COUNT
-    gTilePageCount++;
+    ClassTracker::instance()->increment("TiledPage");
 #endif
 }
 
@@ -92,7 +84,7 @@ TiledPage::~TiledPage()
     TilesManager::instance()->removeOperationsForPage(this);
     delete[] m_baseTiles;
 #ifdef DEBUG_COUNT
-    gTilePageCount--;
+    ClassTracker::instance()->decrement("TiledPage");
 #endif
 }
 

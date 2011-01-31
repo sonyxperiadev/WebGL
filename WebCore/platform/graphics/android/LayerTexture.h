@@ -27,6 +27,7 @@
 #define LayerTexture_h
 
 #include "BackedDoubleBufferedTexture.h"
+#include "ClassTracker.h"
 #include "IntRect.h"
 
 namespace WebCore {
@@ -40,8 +41,17 @@ class LayerTexture : public BackedDoubleBufferedTexture {
         , m_scale(1)
         , m_pictureUsed(0)
         , m_ready(false)
-    {}
-    virtual ~LayerTexture() {};
+    {
+#ifdef DEBUG_COUNT
+        ClassTracker::instance()->increment("LayerTexture");
+#endif
+    }
+    virtual ~LayerTexture()
+    {
+#ifdef DEBUG_COUNT
+        ClassTracker::instance()->decrement("LayerTexture");
+#endif
+    };
 
     int id() { return m_id; }
     void setId(int id) { m_id = id; }

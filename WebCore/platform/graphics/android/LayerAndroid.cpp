@@ -4,6 +4,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidAnimation.h"
+#include "ClassTracker.h"
 #include "DrawExtra.h"
 #include "GLUtils.h"
 #include "MediaLayer.h"
@@ -38,13 +39,7 @@
 
 namespace WebCore {
 
-static int gDebugLayerAndroidInstances;
 static int gUniqueId;
-
-inline int LayerAndroid::instancesCount()
-{
-    return gDebugLayerAndroidInstances;
-}
 
 class OpacityDrawFilter : public SkDrawFilter {
  public:
@@ -87,7 +82,9 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_preserves3D = false;
     m_dirty = false;
 
-    gDebugLayerAndroidInstances++;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("LayerAndroid");
+#endif
 }
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
@@ -134,7 +131,9 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
         m_animations.add((it->second)->name(), (it->second)->copy());
 
-    gDebugLayerAndroidInstances++;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("LayerAndroid");
+#endif
 }
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
@@ -153,7 +152,9 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_backgroundColor = 0;
     m_dirty = false;
     SkSafeRef(m_recordingPicture);
-    gDebugLayerAndroidInstances++;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("LayerAndroid");
+#endif
 }
 
 void LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
@@ -188,7 +189,9 @@ LayerAndroid::~LayerAndroid()
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
     m_animations.clear();
-    gDebugLayerAndroidInstances--;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("LayerAndroid");
+#endif
 }
 
 static int gDebugNbAnims = 0;

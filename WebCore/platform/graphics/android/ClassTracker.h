@@ -23,50 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TileSet_h
-#define TileSet_h
+#ifndef ClassTracker_h
+#define ClassTracker_h
 
-#if USE(ACCELERATED_COMPOSITING)
+#include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
-#include "BaseTile.h"
-#include "Vector.h"
+#define DEBUG_COUNT // Add instances tracking
+#undef DEBUG_COUNT
 
 namespace WebCore {
 
-/**
- * This purpose of this class is to act as a container for BaseTiles that need
- * to upload their contents to the GPU.  A TiledPage creates a new TileSet and
- * provides the set with identifying characteristics of the TiledPage's current
- * state (see constructor). This information allows the consumer of the TileSet
- * to determine if an equivalent TileSet already exists in the upload pipeline.
- */
-class TileSet {
-public:
-    TileSet(TiledPage* tiledPage, int nbRows, int nbCols);
-    ~TileSet();
-
-    bool operator==(const TileSet& set);
-    void paint();
-
-    void add(BaseTile* texture)
-    {
-        m_tiles.append(texture);
-    }
-
-    TiledPage* page()
-    {
-        return m_tiledPage;
-    }
-
-private:
-    Vector<BaseTile*> m_tiles;
-
-    TiledPage* m_tiledPage;
-    int m_nbRows;
-    int m_nbCols;
+class ClassTracker {
+ public:
+    static ClassTracker* instance();
+    void show();
+    void increment(String name);
+    void decrement(String name);
+ private:
+    ClassTracker() {};
+    HashMap<String, int> m_classes;
+    static ClassTracker* gInstance;
 };
 
-} // namespace WebCore
+}
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // TileSet_h
+#endif // ClassTracker_h

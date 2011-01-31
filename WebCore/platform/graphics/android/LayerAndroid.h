@@ -99,8 +99,6 @@ public:
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
 
-    static int instancesCount();
-
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
     SkRect bounds() const;

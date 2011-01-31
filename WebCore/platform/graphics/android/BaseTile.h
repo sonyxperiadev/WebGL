@@ -62,9 +62,6 @@ class BackedDoubleBufferedTexture;
  */
 class BaseTile : public TextureOwner {
 public:
-#ifdef DEBUG_COUNT
-    static int count();
-#endif
     BaseTile();
     ~BaseTile();
 

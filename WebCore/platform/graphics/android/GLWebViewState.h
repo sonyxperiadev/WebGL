@@ -141,9 +141,6 @@ class LayerAndroid;
 
 class GLWebViewState {
 public:
-#ifdef DEBUG_COUNT
-    static int count();
-#endif
     enum GLScaleStates {
         kNoScaleRequest = 0,
         kWillScheduleRequest = 1,

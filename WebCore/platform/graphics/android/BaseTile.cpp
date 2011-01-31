@@ -58,14 +58,6 @@
 
 namespace WebCore {
 
-#ifdef DEBUG_COUNT
-static int gBaseTileCount = 0;
-int BaseTile::count()
-{
-    return gBaseTileCount;
-}
-#endif
-
 BaseTile::BaseTile()
     : m_page(0)
     , m_x(-1)
@@ -78,7 +70,7 @@ BaseTile::BaseTile()
     , m_lastPaintedPicture(0)
 {
 #ifdef DEBUG_COUNT
-    gBaseTileCount++;
+    ClassTracker::instance()->increment("BaseTile");
 #endif
 }
 
@@ -89,7 +81,7 @@ BaseTile::~BaseTile()
         m_texture->release(this);
 
 #ifdef DEBUG_COUNT
-    gBaseTileCount--;
+    ClassTracker::instance()->decrement("BaseTile");
 #endif
 }
 
