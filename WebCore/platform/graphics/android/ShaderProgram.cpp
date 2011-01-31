@@ -59,6 +59,16 @@ static const char gFragmentShader[] =
     "  gl_FragColor *= alpha; "
     "}\n";
 
+static const char gVideoVertexShader[] =
+    "attribute vec4 vPosition;\n"
+    "uniform mat4 textureMatrix;\n"
+    "uniform mat4 projectionMatrix;\n"
+    "varying vec2 v_texCoord;\n"
+    "void main() {\n"
+    "  gl_Position = projectionMatrix * vPosition;\n"
+    "  v_texCoord = vec2(textureMatrix * vec4(vPosition.x, 1.0 - vPosition.y, 0.0, 1.0));\n"
+    "}\n";
+
 static const char gVideoFragmentShader[] =
     "#extension GL_OES_EGL_image_external : require\n"
     "precision mediump float;\n"
@@ -145,13 +155,14 @@ ShaderProgram::ShaderProgram()
 void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
-    m_videoProgram = createProgram(gVertexShader, gVideoFragmentShader);
+    m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
 
     m_hVideoProjectionMatrix = glGetUniformLocation(m_videoProgram, "projectionMatrix");
+    m_hVideoTextureMatrix = glGetUniformLocation(m_videoProgram, "textureMatrix");
     m_hVideoTexSampler = glGetUniformLocation(m_videoProgram, "s_yuvTexture");
 
     const GLfloat coord[] = {
@@ -288,7 +299,8 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
 }
 
 void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
-                                       SkRect& geometry, int textureId)
+                                       float* textureMatrix, SkRect& geometry,
+                                       int textureId)
 {
     // switch to our custom yuv video rendering program
     glUseProgram(m_videoProgram);
@@ -301,6 +313,7 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
     glUniformMatrix4fv(m_hVideoProjectionMatrix, 1, GL_FALSE, projectionMatrix);
+    glUniformMatrix4fv(m_hVideoTextureMatrix, 1, GL_FALSE, textureMatrix);
 
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
 
