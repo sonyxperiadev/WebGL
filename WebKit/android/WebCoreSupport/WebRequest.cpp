@@ -69,6 +69,8 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_authRequestCount(0)
     , m_cacheMode(0)
     , m_runnableFactory(this)
+    , m_wantToPause(false)
+    , m_isPaused(false)
 {
     GURL gurl(m_url);
 
@@ -92,7 +94,8 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_authRequestCount(0)
     , m_cacheMode(0)
     , m_runnableFactory(this)
-
+    , m_wantToPause(false)
+    , m_isPaused(false)
 {
 }
 
@@ -218,6 +221,21 @@ void WebRequest::cancel()
 
     m_request->Cancel();
     finish(true);
+}
+
+void WebRequest::pauseLoad(bool pause)
+{
+    ASSERT(m_loadState >= GotData, "PauseLoad in state other than RESPONSE and GOTDATA");
+    if (pause) {
+        if (!m_isPaused)
+            m_wantToPause = true;
+    } else {
+        m_wantToPause = false;
+        if (m_isPaused) {
+            m_isPaused = false;
+            MessageLoop::current()->PostTask(FROM_HERE, m_runnableFactory.NewRunnableMethod(&WebRequest::startReading));
+        }
+    }
 }
 
 void WebRequest::handleInterceptedURL()
@@ -417,9 +435,16 @@ void WebRequest::cancelSslCertError(int cert_error)
 
 void WebRequest::startReading()
 {
+    ASSERT(m_networkBuffer == 0, "startReading called with a nonzero buffer");
+    ASSERT(m_isPaused == 0, "startReading called in paused state");
     ASSERT(m_loadState == Response || m_loadState == GotData, "StartReading in state other than RESPONSE and GOTDATA");
     if (m_loadState > GotData) // We have been cancelled between reads
         return;
+
+    if (m_wantToPause) {
+        m_isPaused = true;
+        return;
+    }
 
     int bytesRead = 0;
 
