@@ -42,7 +42,7 @@ class ShaderProgram {
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
-                     SkRect& geometry, int textureId);
+                     float* textureMatrix, SkRect& geometry, int textureId);
     void setViewRect(const IntRect& viewRect);
     FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
                                     const IntSize& size);
@@ -70,6 +70,7 @@ class ShaderProgram {
     int m_hAlpha;
     int m_hTexSampler;
     int m_hVideoProjectionMatrix;
+    int m_hVideoTextureMatrix;
     int m_hVideoTexSampler;
 };
 

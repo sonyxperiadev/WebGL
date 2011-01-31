@@ -86,7 +86,12 @@ void VideoTexture::drawVideo(const TransformationMatrix& matrix)
         return;
 
     m_surfaceTexture->updateTexImage();
-    TilesManager::instance()->shader()->drawVideoLayerQuad(matrix, m_dimensions, m_textureId);
+
+    float surfaceMatrix[16];
+    m_surfaceTexture->getTransformMatrix(surfaceMatrix);
+
+    TilesManager::instance()->shader()->drawVideoLayerQuad(matrix, surfaceMatrix,
+            m_dimensions, m_textureId);
 }
 
 ANativeWindow* VideoTexture::requestNewWindow()
