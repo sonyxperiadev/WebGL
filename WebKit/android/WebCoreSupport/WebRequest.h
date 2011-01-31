@@ -69,6 +69,7 @@ public:
     void setRequestContext(WebRequestContext* context);
     void start();
     void cancel();
+    void pauseLoad(bool pause);
 
     // From URLRequest::Delegate
     virtual void OnReceivedRedirect(URLRequest*, const GURL&, bool* deferRedirect);
@@ -110,6 +111,8 @@ private:
     int m_authRequestCount;
     int m_cacheMode;
     ScopedRunnableMethodFactory<WebRequest> m_runnableFactory;
+    bool m_wantToPause;
+    bool m_isPaused;
 };
 
 } // namespace android
