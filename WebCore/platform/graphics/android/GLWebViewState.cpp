@@ -270,13 +270,14 @@ int GLWebViewState::baseContentHeight()
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
     m_previousViewport = m_viewport;
-    if (m_viewport == viewport)
+    if ((m_viewport == viewport) &&
+        (m_futureScale == scale))
         return;
 
     m_viewport = viewport;
-    XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f)",
+    XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
-         m_viewport.width(), m_viewport.height(), scale);
+         m_viewport.width(), m_viewport.height(), scale, m_currentScale, m_futureScale);
 
     const float invTileContentWidth = scale / TilesManager::tileWidth();
     const float invTileContentHeight = scale / TilesManager::tileHeight();
