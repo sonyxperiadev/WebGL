@@ -50,11 +50,13 @@ WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
         mRoot->mViewBounds.x(), mRoot->mViewBounds.y(),
         mRoot->mViewBounds.width(), mRoot->mViewBounds.height());
 #if USE(ACCELERATED_COMPOSITING)
-    const CachedLayer* cachedLayer = layer(node);
-    const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
-    const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
-    if (aLayer)
-        return cachedLayer->adjustBounds(rootLayer, rect);
+    if (mRoot) {
+        const CachedLayer* cachedLayer = layer(node);
+        const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
+        const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
+        if (aLayer)
+            return cachedLayer->adjustBounds(rootLayer, rect);
+    }
 #endif
     return rect;
 }
