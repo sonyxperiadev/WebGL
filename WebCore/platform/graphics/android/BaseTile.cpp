@@ -174,6 +174,9 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
+    if (m_texture->x() != m_x || m_texture->y() != m_y)
+        return;
+
     TextureInfo* textureInfo = m_texture->consumerLock();
     if (!textureInfo) {
         XLOG("%x (%d, %d) trying to draw, but no textureInfo!", this, x(), y());
@@ -198,6 +201,20 @@ bool BaseTile::isTileReady()
     return !m_dirty;
 }
 
+void BaseTile::drawTileInfo(SkCanvas* canvas,
+                            BackedDoubleBufferedTexture* texture,
+                            int x, int y, float scale)
+{
+    SkPaint paint;
+    char str[256];
+    snprintf(str, 256, "(%d,%d) %.2f, tile %x, texture: %x",
+             x, y, scale, this, texture);
+    paint.setARGB(255, 0, 0, 0);
+    canvas->drawText(str, strlen(str), 50, 100, paint);
+    paint.setARGB(255, 255, 0, 0);
+    canvas->drawText(str, strlen(str), 51, 101, paint);
+}
+
 // This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
@@ -218,6 +235,7 @@ void BaseTile::paintBitmap()
     const int y = m_y;
     TiledPage* tiledPage = m_page;
 
+    texture->producerAcquireContext();
     TextureInfo* textureInfo = texture->producerLock();
 
     // at this point we can safely check the ownership (if the texture got
@@ -227,8 +245,9 @@ void BaseTile::paintBitmap()
         return;
     }
 
-    float tileWidth = textureInfo->m_width;
-    float tileHeight = textureInfo->m_height;
+    SkSize size = texture->getSize();
+    float tileWidth = size.width();
+    float tileHeight = size.height();
 
     const float invScale = 1 / scale;
     float w = tileWidth * invScale;
@@ -255,8 +274,10 @@ void BaseTile::paintBitmap()
     paint.setARGB(128, 0, 0, 255);
     canvas->drawLine(0, 0, tileWidth, 0, paint);
     canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
+    drawTileInfo(canvas, texture, x, y, scale);
 #endif
 
+    texture->setTile(x, y);
     texture->producerUpdate(textureInfo);
 
     m_atomicSync.lock();

@@ -83,14 +83,15 @@ public:
     }
 
     void printTextures();
-    void enableTextures();
 
     void resetTextureUsage(TiledPage* page);
-    void paintTexturesDefault();
 
-    static int maxTextureCount();
+    int maxTextureCount();
+    void setMaxTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
+
+    void allocateTiles();
 
 private:
 
@@ -109,6 +110,8 @@ private:
     unsigned int m_layersMemoryUsage;
     GLint m_maxTextureSize;
     unsigned int m_totalMaxTextureSize;
+
+    int m_maxTextureCount;
 
     bool m_generatorReady;
 
