@@ -314,6 +314,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
             scale = m_glWebViewState->futureScale();
         }
         compositedRoot->setScale(scale);
+        compositedRoot->computeTextureSize();
         compositedRoot->reserveGLTextures();
 
 #ifdef DEBUG

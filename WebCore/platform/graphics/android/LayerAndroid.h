@@ -102,13 +102,20 @@ public:
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
     SkRect bounds() const;
-    IntRect clippedRect();
+    IntRect clippedRect() const;
     bool outsideViewport();
 
     // Debug/info functions
     int countTextureSize();
     int nbLayers();
     void showLayers(int indent = 0);
+
+    // Texture size functions
+    void computeTextureSize();
+    void collect(Vector<LayerAndroid*>& layers,
+                 int& size);
+    int clippedTextureSize() const;
+    int fullTextureSize() const;
 
     // called on the root layer
     void reserveGLTextures();
