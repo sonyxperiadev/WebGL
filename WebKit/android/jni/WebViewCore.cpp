@@ -2888,94 +2888,6 @@ void WebViewCore::saveDocumentState(WebCore::Frame* frame)
     }
 }
 
-// Convert a WTF::String into an array of characters where the first
-// character represents the length, for easy conversion to java.
-static uint16_t* stringConverter(const WTF::String& text)
-{
-    size_t length = text.length();
-    uint16_t* itemName = new uint16_t[length+1];
-    itemName[0] = (uint16_t)length;
-    uint16_t* firstChar = &(itemName[1]);
-    memcpy((void*)firstChar, text.characters(), sizeof(UChar)*length);
-    return itemName;
-}
-
-// Response to dropdown created for a listbox.
-class ListBoxReply : public WebCoreReply {
-public:
-    ListBoxReply(WebCore::HTMLSelectElement* select, WebCore::Frame* frame, WebViewCore* view)
-        : m_select(select)
-        , m_frame(frame)
-        , m_viewImpl(view)
-    {}
-
-    // Response used for a multiple selection listbox if the user did not change
-    // anything, in which case -2 is used.
-    // Also used by a listbox which has single selection but a size is set.
-    virtual void replyInt(int index)
-    {
-        if (-2 == index) {
-            // Special value for cancel. Do nothing.
-            return;
-        }
-        // If the select element no longer exists, due to a page change, etc,
-        // silently return.
-        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
-                m_frame, m_select))
-            return;
-        // Use a pointer to HTMLSelectElement's superclass, where
-        // listToOptionIndex is public
-        SelectElement* selectElement = m_select;
-        int optionIndex = selectElement->listToOptionIndex(index);
-        m_select->setSelectedIndex(optionIndex, true);
-        m_select->dispatchFormControlChangeEvent();
-        m_viewImpl->contentInvalidate(m_select->getRect());
-    }
-
-    // Response if the listbox allows multiple selection.  array stores the listIndices
-    // of selected positions.
-    virtual void replyIntArray(const int* array, int count)
-    {
-        // If the select element no longer exists, due to a page change, etc,
-        // silently return.
-        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
-                m_frame, m_select))
-            return;
-
-        const WTF::Vector<Element*>& items = m_select->listItems();
-        int totalItems = static_cast<int>(items.size());
-        // Keep track of the position of the value we are comparing against.
-        int arrayIndex = 0;
-        // The value we are comparing against.
-        int selection = array[arrayIndex];
-        WebCore::HTMLOptionElement* option;
-        for (int listIndex = 0; listIndex < totalItems; listIndex++) {
-            if (items[listIndex]->hasLocalName(WebCore::HTMLNames::optionTag)) {
-                option = static_cast<WebCore::HTMLOptionElement*>(
-                        items[listIndex]);
-                if (listIndex == selection) {
-                    option->setSelectedState(true);
-                    arrayIndex++;
-                    if (arrayIndex == count)
-                        selection = -1;
-                    else
-                        selection = array[arrayIndex];
-                } else
-                    option->setSelectedState(false);
-            }
-        }
-        m_select->dispatchFormControlChangeEvent();
-        m_viewImpl->contentInvalidate(m_select->getRect());
-    }
-private:
-    // The select element associated with this listbox.
-    WebCore::HTMLSelectElement* m_select;
-    // The frame of this select element, to verify that it is valid.
-    WebCore::Frame* m_frame;
-    // For calling invalidate and checking the select element's validity
-    WebViewCore* m_viewImpl;
-};
-
 // Create an array of java Strings.
 static jobjectArray makeLabelArray(JNIEnv* env, const uint16_t** labels, size_t count)
 {
@@ -3290,46 +3202,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             return true;
         }
 
-        WebCore::RenderObject* renderer = nodePtr->renderer();
-        if (renderer && renderer->isListBox()) {
-            WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
-            const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
-            SkTDArray<const uint16_t*> names;
-            // Possible values for enabledArray.  Keep in Sync with values in
-            // InvokeListBox.Container in WebView.java
-            enum OptionStatus {
-                OPTGROUP = -1,
-                OPTION_DISABLED = 0,
-                OPTION_ENABLED = 1,
-            };
-            SkTDArray<int> enabledArray;
-            SkTDArray<int> selectedArray;
-            int size = listItems.size();
-            bool multiple = select->multiple();
-            for (int i = 0; i < size; i++) {
-                if (listItems[i]->hasTagName(WebCore::HTMLNames::optionTag)) {
-                    WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(listItems[i]);
-                    *names.append() = stringConverter(option->textIndentedToRespectGroupLabel());
-                    *enabledArray.append() = option->disabled() ? OPTION_DISABLED : OPTION_ENABLED;
-                    if (multiple && option->selected())
-                        *selectedArray.append() = i;
-                } else if (listItems[i]->hasTagName(WebCore::HTMLNames::optgroupTag)) {
-                    WebCore::HTMLOptGroupElement* optGroup = static_cast<WebCore::HTMLOptGroupElement*>(listItems[i]);
-                    *names.append() = stringConverter(optGroup->groupLabelText());
-                    *enabledArray.append() = OPTGROUP;
-                }
-            }
-            WebCoreReply* reply = new ListBoxReply(select, select->document()->frame(), this);
-            // Use a pointer to HTMLSelectElement's superclass, where
-            // optionToListIndex is public.
-            SelectElement* selectElement = select;
-            listBoxRequest(reply, names.begin(), size, enabledArray.begin(), enabledArray.count(),
-                    multiple, selectedArray.begin(), multiple ? selectedArray.count() :
-                    selectElement->optionToListIndex(select->selectedIndex()));
-            DBG_NAV_LOG("list box");
-            return true;
-        }
-        scrollLayer(renderer, &m_mousePos);
+        scrollLayer(nodePtr->renderer(), &m_mousePos);
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;

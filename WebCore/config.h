@@ -160,7 +160,7 @@
 #define ANDROID_META_SUPPORT
 
 // Converts ListBoxes to dropdown popup lists.
-#define ANDROID_LISTBOX_USES_MENU_LIST
+#define ENABLE_NO_LISTBOX_RENDERING 1
 
 #define ANDROID_MULTIPLE_WINDOWS
 #define ANDROID_CSS_RING

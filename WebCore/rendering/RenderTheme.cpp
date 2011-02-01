@@ -198,7 +198,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
             return adjustTextFieldStyle(selector, style, e);
         case TextAreaPart:
             return adjustTextAreaStyle(selector, style, e);
-#ifdef ANDROID_LISTBOX_USES_MENU_LIST
+#if ENABLE(NO_LISTBOX_RENDERING)
         case ListboxPart:
             return adjustListboxStyle(selector, style, e);
 #endif

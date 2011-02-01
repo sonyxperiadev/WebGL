@@ -236,7 +236,7 @@ protected:
     virtual void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&) { return true; }
 
-#ifdef ANDROID_LISTBOX_USES_MENU_LIST
+#if ENABLE(NO_LISTBOX_RENDERING)
     virtual void adjustListboxStyle(CSSStyleSelector*, RenderStyle*, Element*) const {}
 #endif
     virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;

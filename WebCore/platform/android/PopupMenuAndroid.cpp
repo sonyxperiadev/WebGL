@@ -31,7 +31,7 @@
 
 class PopupReply : public android::WebCoreReply {
 public:
-    PopupReply(const IntRect& rect, android::WebViewCore* view, PopupMenuClient* client)
+    PopupReply(const IntRect& rect, android::WebViewCore* view, ListPopupMenuClient* client)
         : m_rect(rect)
         , m_viewImpl(view)
         , m_popupClient(client)
@@ -53,9 +53,23 @@ public:
             m_viewImpl->contentInvalidate(m_rect);
     }
 
-    virtual void replyIntArray(const int*, int) {
-        // Should never be called.
-        SkASSERT(false);
+    virtual void replyIntArray(const int* values, int count)
+    {
+        if (m_popupClient) {
+            m_popupClient->popupDidHide();
+            if (0 == count) {
+                m_popupClient->valueChanged(-1, true);
+            } else {
+                for (int i = 0; i < count; i++) {
+                    m_popupClient->listBoxSelectItem(values[i],
+                        i != 0 /* allowMultiplySelection */,
+                        false /* shift */,
+                        i == count - 1 /* fireOnChangeNow */);
+                }
+            }
+        }
+        if (m_viewImpl)
+            m_viewImpl->contentInvalidate(m_rect);
     }
 
     void disconnectClient()
@@ -67,12 +81,12 @@ private:
     IntRect m_rect;
     // FIXME: Do not need this if we handle ChromeClientAndroid::formStateDidChange
     android::WebViewCore* m_viewImpl;
-    PopupMenuClient* m_popupClient;
+    ListPopupMenuClient* m_popupClient;
 };
 
 namespace WebCore {
 
-PopupMenuAndroid::PopupMenuAndroid(PopupMenuClient* menuList)
+PopupMenuAndroid::PopupMenuAndroid(ListPopupMenuClient* menuList)
     : m_popupClient(menuList)
     , m_reply(0)
 {
@@ -91,8 +105,7 @@ void PopupMenuAndroid::disconnectClient()
         m_reply = 0;
     }
 }
-// Copied from WebViewCore.cpp.  Once we move ListBox handling to this class,
-// we can remove the one in WebViewCore.cpp.
+
 // Convert a WTF::String into an array of characters where the first
 // character represents the length, for easy conversion to java.
 static uint16_t* stringConverter(const WTF::String& text)
@@ -122,9 +135,7 @@ void PopupMenuAndroid::show(const IntRect& rect, FrameView* frameView, int)
     SkTDArray<int> enabledArray;
     SkTDArray<int> selectedArray;
     int size = m_popupClient->listSize();
-    // If we use this for ListBoxes in addition to MenuLists, we will need to
-    // account for 'multiple'
-    bool multiple = false;
+    bool multiple = m_popupClient->multiple();
     for (int i = 0; i < size; i++) {
         *names.append() = stringConverter(m_popupClient->itemText(i));
         if (m_popupClient->itemIsSeparator(i)) {

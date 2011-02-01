@@ -34,18 +34,18 @@ class PopupReply;
 namespace WebCore {
 
 class FrameView;
-class PopupMenuClient;
+class ListPopupMenuClient;
 
 class PopupMenuAndroid : public PopupMenu {
 public:
-    PopupMenuAndroid(PopupMenuClient*);
+    PopupMenuAndroid(ListPopupMenuClient*);
     virtual ~PopupMenuAndroid();
     virtual void show(const IntRect&, FrameView*, int);
     virtual void hide() { }
     virtual void updateFromElement() { }
     virtual void disconnectClient();
 private:
-    PopupMenuClient* m_popupClient;
+    ListPopupMenuClient* m_popupClient;
     PopupReply* m_reply;
 };
 
