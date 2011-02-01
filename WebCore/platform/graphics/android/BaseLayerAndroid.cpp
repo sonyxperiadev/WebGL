@@ -36,7 +36,9 @@
 #include <wtf/CurrentTime.h>
 #endif // USE(ACCELERATED_COMPOSITING)
 
+#if TARGET_DEVICE != generic   /* Not supported in emulator */
 #define HARDWARE_ACCELERATION
+#endif
 
 #ifdef DEBUG
 
