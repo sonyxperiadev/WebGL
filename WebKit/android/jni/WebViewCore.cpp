@@ -342,6 +342,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_isPaused = false;
     m_screenOnCounter = 0;
+    m_onlyScrollIfImeIsShowing = false;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -349,7 +350,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue = new JavaGlue;
     m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
     m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
-    m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
+    m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZ)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
     m_javaGlue->m_layersDraw = GetJMethod(env, clazz, "layersDraw", "()V");
@@ -947,9 +948,11 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 //    LOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            animate ? m_javaGlue->m_spawnScrollTo : m_javaGlue->m_scrollTo,
-            x, y);
+    if (animate)
+        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_spawnScrollTo, x, y);
+    else
+        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollTo,
+                x, y, m_onlyScrollIfImeIsShowing);
     checkException(env);
 }
 
@@ -1322,8 +1325,11 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     // If this was in response to touching a textfield and showing the IME,
     // the IME may now cover textfield.  Bring it back into view.
     // If the scale changed, however, this was the result of a zoom.
-    if (oldScale == m_scale)
+    if (oldScale == m_scale && osh > screenHeight) {
+        m_onlyScrollIfImeIsShowing = true;
         revealSelection();
+        m_onlyScrollIfImeIsShowing = false;
+    }
     // update the currently visible screen as perceived by the plugin
     sendPluginVisibleScreen();
 }
