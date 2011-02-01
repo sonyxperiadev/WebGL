@@ -265,9 +265,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     XLOG("drawBasePicture drawGL() viewRect: %d, %d, %d, %d",
          left, top, width, height);
 
-    glEnable(GL_SCISSOR_TEST);
-
-    glScissor(left, top, width, height);
     glClearColor((float)m_color.red() / 255.0,
                  (float)m_color.green() / 255.0,
                  (float)m_color.blue() / 255.0, 1);
@@ -336,7 +333,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     } else {
         TilesManager::instance()->cleanupLayersTextures(0);
     }
-    glDisable(GL_SCISSOR_TEST);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
