@@ -81,9 +81,15 @@ public:
 
     const SkSize& getSize() const { return m_size; }
 
+    int x() { return m_x; }
+    int y() { return m_y; }
+    void setTile(int x, int y) { m_x = x; m_y = y; }
+
 private:
     void destroyTextures(SharedTexture** textures);
 
+    int m_x;
+    int m_y;
     SkBitmap* m_bitmap;
     bool m_sharedBitmap;
     SkSize m_size;

@@ -49,17 +49,29 @@
 
 #endif // DEBUG
 
+#define MAX_TILES 256
+
 namespace WebCore {
 
 using namespace android;
 
 TiledPage::TiledPage(int id, GLWebViewState* state)
-    : m_id(id)
+    : m_baseTiles(0)
+    , m_baseTileSize(0)
+    , m_id(id)
     , m_scale(1)
     , m_invScale(1)
     , m_glWebViewState(state)
     , m_latestPictureInval(0)
     , m_prepare(false)
+{
+    m_baseTiles = new BaseTile[MAX_TILES];
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("TiledPage");
+#endif
+}
+
+void TiledPage::updateBaseTileSize()
 {
     // This value must be at least 1 greater than the max number of allowed
     // textures. This is because prepare() asks for a tile before it reserves
@@ -69,12 +81,10 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     // to reserveTexture() will cause some other tile in the page to lose it's
     // texture and become available, thus ensuring that we always have at least
     // one tile that is available.
-    m_baseTileSize = TilesManager::maxTextureCount() + 1;
-    m_baseTiles = new BaseTile[m_baseTileSize];
-
-#ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("TiledPage");
-#endif
+    int baseTileSize = TilesManager::instance()->maxTextureCount() + 1;
+    if (baseTileSize > m_baseTileSize)
+        m_baseTileSize = baseTileSize;
+    XLOG("Allocate %d tiles", m_baseTileSize);
 }
 
 TiledPage::~TiledPage()
@@ -154,18 +164,20 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
                 availableTile = &tile;
         }
 
-        if (!currentTile) {
+        if (!currentTile && availableTile) {
             currentTile = availableTile;
             currentTile->setContents(this, x, y);
         }
 
-        currentTile->setScale(m_scale);
+        if (currentTile) {
+            currentTile->setScale(m_scale);
 
-        // ensure there is a texture associated with the tile and then check to
-        // see if the texture is dirty and in need of repainting
-        currentTile->reserveTexture();
-        if (currentTile->isDirty())
-            set->add(currentTile);
+            // ensure there is a texture associated with the tile and then check to
+            // see if the texture is dirty and in need of repainting
+            currentTile->reserveTexture();
+            if (currentTile->isDirty())
+                set->add(currentTile);
+        }
     }
 }
 
@@ -210,7 +222,6 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
 
         int d = std::max(dx, dy);
 
-        XLOG("setTileLevel tile: %x, fxy(%d, %d), level: %d", tile, tileBounds.fLeft, tileBounds.fTop, d);
         tile.setUsedLevel(d);
     }
 

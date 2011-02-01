@@ -73,6 +73,8 @@ public:
 
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
     void setUsable(bool usable);
+    void updateBaseTileSize();
+
 private:
     void updateTileState(const SkIRect& tileBounds);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
