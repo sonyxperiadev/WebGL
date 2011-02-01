@@ -72,6 +72,7 @@ namespace WebCore {
 
 TilesManager::TilesManager()
     : m_layersMemoryUsage(0)
+    , m_maxTextureSize(0)
     , m_maxTextureCount(0)
     , m_expandedTileBounds(false)
     , m_generatorReady(false)
@@ -84,7 +85,13 @@ TilesManager::TilesManager()
     m_tilesBitmap->eraseColor(0);
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
+    checkMaxTextureSize();
+}
 
+void TilesManager::checkMaxTextureSize()
+{
+    if (m_maxTextureSize > 0)
+        return;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
     m_totalMaxTextureSize = m_maxTextureSize * m_maxTextureSize * BYTES_PER_PIXEL;
     XLOG("Max texture size %d", m_maxTextureSize);
@@ -106,6 +113,7 @@ void TilesManager::allocateTiles()
         m_textures.append(loadedTexture);
         nbTexturesAllocated++;
     }
+    checkMaxTextureSize();
     XLOG("allocated %d textures", nbTexturesAllocated);
 }
 
