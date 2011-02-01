@@ -288,7 +288,8 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
             static_cast<int>(ceilf(viewport.fRight * invTileContentWidth)),
             static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
 
-    int maxTextureCount = (m_viewportTileBounds.width()+1)*(m_viewportTileBounds.height()+1)*2;
+    int maxTextureCount = (m_viewportTileBounds.width() + TilesManager::instance()->expandedTileBoundsX() * 2 + 1) *
+            (m_viewportTileBounds.height() + TilesManager::instance()->expandedTileBoundsY() * 2 + 1) * 2;
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();

@@ -54,9 +54,11 @@
 // one viewport, otherwise the allocation may stall.
 // We need n textures for one TiledPage, and another n textures for the
 // second page used when scaling.
-// In our case, we use 300x300 textures. On the tablet, this equals to
-// at least 24 (6 * 4) textures, hence 48.
-#define MAX_TEXTURE_ALLOCATION 48
+// In our case, we use 300x300 textures. On the tablet, this equates to
+// at least 5 * 3 = 15 textures. We can also enable offscreen textures
+#define EXPANDED_TILE_BOUNDS_X 1
+#define EXPANDED_TILE_BOUNDS_Y 4
+#define MAX_TEXTURE_ALLOCATION (5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
@@ -69,6 +71,7 @@ namespace WebCore {
 TilesManager::TilesManager()
     : m_layersMemoryUsage(0)
     , m_maxTextureCount(0)
+    , m_expandedTileBounds(false)
     , m_generatorReady(false)
 {
     XLOG("TilesManager ctor");
@@ -364,6 +367,14 @@ float TilesManager::tileWidth()
 float TilesManager::tileHeight()
 {
     return TILE_HEIGHT;
+}
+
+int TilesManager::expandedTileBoundsX() {
+    return m_expandedTileBounds ? EXPANDED_TILE_BOUNDS_X : 0;
+}
+
+int TilesManager::expandedTileBoundsY() {
+    return m_expandedTileBounds ? EXPANDED_TILE_BOUNDS_Y : 0;
 }
 
 TilesManager* TilesManager::instance()
