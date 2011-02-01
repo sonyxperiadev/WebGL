@@ -126,10 +126,6 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 
 status_t TexturesGenerator::readyToRun()
 {
-    TilesManager::instance()->enableTextures();
-    XLOG("Textures enabled (context acquired...)");
-    TilesManager::instance()->paintTexturesDefault();
-    XLOG("Textures painted");
     TilesManager::instance()->markGeneratorAsReady();
     XLOG("Thread ready to run");
     return NO_ERROR;

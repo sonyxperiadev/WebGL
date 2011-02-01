@@ -75,6 +75,9 @@ public:
 
     // the only thread-safe function called by the background thread
     void paintBitmap();
+    void drawTileInfo(SkCanvas* canvas,
+                      BackedDoubleBufferedTexture* texture,
+                      int x, int y, float scale);
 
     void markAsDirty(const unsigned int pictureCount);
     bool isDirty();

@@ -42,6 +42,8 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                          SkBitmap* bitmap,
                                                          SkBitmap::Config config)
     : DoubleBufferedTexture(eglGetCurrentContext())
+    , m_x(-1)
+    , m_y(-1)
     , m_usedLevel(-1)
     , m_config(config)
     , m_owner(0)
