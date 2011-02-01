@@ -128,15 +128,12 @@ class WebFrame : public WebCoreRefObject {
     void setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis);
 
     /**
-     * When the user initiates an action (via trackball, key-press, or touch),
-     * we set mUserInitiatedAction to true.  If a load happens due to this click,
-     * then we ask the application if it wants to override
-     * the load. Otherwise, we attempt to load the resource internally.
+     * When the user initiates a click, we set mUserInitiatedAction to true.
+     * If a load happens due to this click, then we ask the application if it wants
+     * to override the load. Otherwise, we attempt to load the resource internally.
      */
     void setUserInitiatedAction(bool userInitiatedAction) { mUserInitiatedAction = userInitiatedAction; }
 
-    bool userInitiatedAction() { return mUserInitiatedAction; }
-    
     WebCore::Page* page() const { return mPage; }
 
     // Currently used only by the chrome net stack.  A similar field is used by
