@@ -61,7 +61,9 @@
 #define TILE_HEIGHT 300
 
 // Define a maximum amount of ram used by layers
-#define MAX_LAYERS_ALLOCATION 20971520 // 20Mb
+#define MAX_LAYERS_ALLOCATION 33554432 // 32Mb
+// Define a maximum amount of ram used by one layer
+#define MAX_LAYER_ALLOCATION 8388608 // 8Mb
 #define BYTES_PER_PIXEL 4 // 8888 config
 
 namespace WebCore {
@@ -337,6 +339,16 @@ LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer, const Int
     texture->acquire(layer);
     m_layersMemoryUsage += size;
     return texture;
+}
+
+int TilesManager::maxLayersAllocation()
+{
+    return MAX_LAYERS_ALLOCATION;
+}
+
+int TilesManager::maxLayerAllocation()
+{
+    return MAX_LAYER_ALLOCATION;
 }
 
 int TilesManager::maxTextureCount()
