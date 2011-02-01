@@ -45,6 +45,11 @@ class TilesManager {
 public:
     static TilesManager* instance();
 
+    static bool hardwareAccelerationEnabled()
+    {
+        return gInstance != 0;
+    }
+
     void removeOperationsForPage(TiledPage* page)
     {
         m_pixmapsGenerationThread->removeOperationsForPage(page);
