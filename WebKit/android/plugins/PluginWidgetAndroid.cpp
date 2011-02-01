@@ -132,7 +132,19 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                m_pluginBounds.fRight, m_pluginBounds.fBottom);
 
     const bool boundsChanged = m_pluginBounds != oldPluginBounds;
-    sendSizeAndVisibilityEvents(boundsChanged);
+
+    //TODO hack to ensure that we grab the most recent screen dimensions and scale
+    ANPRectI screenCoords;
+    m_core->getVisibleScreen(screenCoords);
+    float scale = m_core->scale();
+    bool scaleChanged = m_cachedZoomLevel != scale;
+    setVisibleScreen(screenCoords, scale);
+
+    // if the scale changed then setVisibleScreen will call this function and
+    // this call will potentially fire a duplicate draw event
+    if (!scaleChanged) {
+        sendSizeAndVisibilityEvents(boundsChanged);
+    }
     layoutSurface(boundsChanged);
 
     if (m_drawingModel != kSurface_ANPDrawingModel) {
