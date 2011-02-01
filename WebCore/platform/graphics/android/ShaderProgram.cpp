@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
+#include "TilesManager.h"
 
 #include <GLES2/gl2.h>
 #include <cutils/log.h>
@@ -175,6 +176,9 @@ void ShaderProgram::init()
     glGenBuffers(1, m_textureBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), coord, GL_STATIC_DRAW);
+
+    if (m_program != -1)
+        TilesManager::instance()->checkMaxTextureSize();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

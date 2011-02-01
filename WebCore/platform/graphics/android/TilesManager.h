@@ -96,6 +96,7 @@ public:
     int expandedTileBoundsY();
 
     void allocateTiles();
+    void checkMaxTextureSize();
 
     void setExpandedTileBounds(bool enabled) {
         m_expandedTileBounds = enabled;
