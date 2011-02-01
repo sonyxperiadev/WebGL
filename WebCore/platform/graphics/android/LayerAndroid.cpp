@@ -585,7 +585,7 @@ bool LayerAndroid::needsTexture()
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
-IntRect LayerAndroid::clippedRect()
+IntRect LayerAndroid::clippedRect() const
 {
     IntRect r(0, 0, getWidth(), getHeight());
     IntRect tr = drawTransform().mapRect(r);
@@ -600,10 +600,20 @@ bool LayerAndroid::outsideViewport()
            m_layerTextureRect.height() == 0;
 }
 
-int LayerAndroid::countTextureSize()
+int LayerAndroid::fullTextureSize() const
+{
+    return getWidth() * m_scale * getHeight() * m_scale * 4;
+}
+
+int LayerAndroid::clippedTextureSize() const
 {
     IntRect cr = clippedRect();
-    int size = cr.width() * cr.height() * 4;
+    return cr.width() * cr.height() * 4;
+}
+
+int LayerAndroid::countTextureSize()
+{
+    int size = clippedTextureSize();
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
         size += getChild(i)->countTextureSize();
@@ -617,6 +627,67 @@ int LayerAndroid::nbLayers()
     for (int i = 0; i < count; i++)
         nb += getChild(i)->nbLayers();
     return nb;
+}
+
+void LayerAndroid::collect(Vector<LayerAndroid*>& layers, int& size)
+{
+    m_layerTextureRect = clippedRect();
+    if (!outsideViewport()) {
+        layers.append(this);
+        size += fullTextureSize();
+    }
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        getChild(i)->collect(layers, size);
+}
+
+static inline bool compareLayerFullSize(const LayerAndroid* a, const LayerAndroid* b)
+{
+    const int sizeA = a->fullTextureSize();
+    const int sizeB = b->fullTextureSize();
+    return sizeA > sizeB;
+}
+
+void LayerAndroid::computeTextureSize()
+{
+   // First, we collect the layers, computing m_layerTextureRect
+   // as being clipped against the viewport
+   Vector <LayerAndroid*> layers;
+   int total = 0;
+   collect(layers, total);
+
+   // Then we sort them by the size the full texture would need
+   std::stable_sort(layers.begin(), layers.end(), compareLayerFullSize);
+
+   // Now, let's determinate which layer can use a full texture
+   int max = TilesManager::instance()->maxLayersAllocation();
+   int maxLayerSize = TilesManager::instance()->maxLayerAllocation();
+   XLOG("*** layers sorted by size ***");
+   XLOG("total memory needed: %d bytes (%d Mb), max %d Mb",
+         total, total / 1024 / 1024, max / 1024 / 1024);
+   for (unsigned int i = 0; i < layers.size(); i++) {
+       LayerAndroid* layer = layers[i];
+       bool clipped = true;
+       // If we are under the maximum, and the layer inspected
+       // needs a texture less than the maxLayerSize, use the full texture.
+       if ((total < max) &&
+           (layer->fullTextureSize() < maxLayerSize)) {
+           IntRect full(0, 0, layer->getWidth(), layer->getHeight());
+           layer->m_layerTextureRect = full;
+           clipped = false;
+       } else {
+           // Otherwise, the layer is clipped; update the total
+           total -= layer->fullTextureSize();
+           total += layer->clippedTextureSize();
+       }
+       XLOG("Layer %d (%.2f, %.2f) %d bytes (clipped: %s)",
+             layer->uniqueId(), layer->getWidth(), layer->getHeight(),
+             layer->fullTextureSize(),
+             clipped ? "YES" : "NO");
+   }
+   XLOG("total memory used after clipping: %d bytes (%d Mb), max %d Mb",
+         total, total / 1024 / 1024, max / 1024 / 1024);
+   XLOG("*** end of sorted layers ***");
 }
 
 void LayerAndroid::showLayers(int indent)
@@ -655,14 +726,10 @@ void LayerAndroid::reserveGLTextures()
     if (!needsTexture())
         return;
 
-    LayerTexture* reservedTexture = 0;
-
-    // Compute the layer size & position we need (clipped to the viewport)
-    m_layerTextureRect = clippedRect();
-
     if (outsideViewport())
         return;
 
+    LayerTexture* reservedTexture = 0;
     reservedTexture = TilesManager::instance()->getExistingTextureForLayer(
         this, m_layerTextureRect);
 
