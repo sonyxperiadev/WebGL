@@ -749,9 +749,11 @@ void LayerAndroid::reserveGLTextures()
     android::AutoMutex lock(m_atomicSync);
     // we set the reservedTexture if it's different from the drawing texture
     if (m_reservedTexture != reservedTexture &&
-        ((m_reservedTexture != m_drawingTexture) ||
+        ((reservedTexture != m_drawingTexture) ||
          (m_reservedTexture == 0 && m_drawingTexture == 0))) {
-        if (m_reservedTexture)
+        // Call release on the reserved texture if it is not the same as the
+        // drawing texture.
+        if (m_reservedTexture && (m_reservedTexture != m_drawingTexture))
             m_reservedTexture->release(this);
         m_reservedTexture = reservedTexture;
     }
