@@ -1180,10 +1180,12 @@ void WebViewCore::setScrollOffset(int moveGeneration, int userScrolled, int dx, 
         // scrolling can generate lots of small scroll offset, the following code
         // reduces the saving frequency.
         static const int MIN_SCROLL_DIFF = 32;
-        WebCore::IntPoint currentPoint = history->currentItem()->scrollPoint();
-        if (std::abs(currentPoint.x() - dx) >= MIN_SCROLL_DIFF ||
-            std::abs(currentPoint.y() - dy) >= MIN_SCROLL_DIFF) {
-            history->saveScrollPositionAndViewStateToItem(history->currentItem());
+        if (history->currentItem()) {
+            WebCore::IntPoint currentPoint = history->currentItem()->scrollPoint();
+            if (std::abs(currentPoint.x() - dx) >= MIN_SCROLL_DIFF ||
+                std::abs(currentPoint.y() - dy) >= MIN_SCROLL_DIFF) {
+                history->saveScrollPositionAndViewStateToItem(history->currentItem());
+            }
         }
 
         // update the currently visible screen
