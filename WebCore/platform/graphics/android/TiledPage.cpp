@@ -244,43 +244,29 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int nbTilesWidth = tileBounds.width();
     int nbTilesHeight = tileBounds.height();
 
-    const int lastTileX = tileBounds.fRight - 1;
-    const int lastTileY = tileBounds.fBottom - 1;
+    int lastTileX = tileBounds.fRight - 1;
+    int lastTileY = tileBounds.fBottom - 1;
 
     const int baseContentHeight = m_glWebViewState->baseContentHeight();
     const int baseContentWidth = m_glWebViewState->baseContentWidth();
 
     TileSet* highResSet = new TileSet(this, nbTilesHeight, nbTilesWidth);
 
+    // Expand number of tiles to allow tiles outside of viewport to be prepared for
+    // smoother scrolling.
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
     int nMaxTilesPerPage = m_baseTileSize / 2;
-
-    // PREPARE OFF-SCREEN TILES FOR SMOOTHER SCROLLING
-    // if you are going down and you are not already at the bottom of the page
-    // go ahead and prepare the tiles just off-screen beneath the viewport.
-    // Ensure we have enough tiles to do this with.
-    if (nTilesToPrepare + nbTilesWidth <= nMaxTilesPerPage) {
-        if (goingDown && baseContentHeight > lastTileY * TilesManager::tileHeight())
-            nbTilesHeight++;
-        // if you are going up and you are not already at the top of the page go
-        // ahead and prepare the tiles just off-screen above the viewport.
-        else if (!goingDown && firstTileY > 0) {
-            firstTileY--;
-            nbTilesHeight++;
-        }
+    int expandX = TilesManager::instance()->expandedTileBoundsX();
+    int expandY = TilesManager::instance()->expandedTileBoundsY();
+    if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
+        firstTileX -= expandX;
+        lastTileX += expandX;
+        nbTilesWidth += expandX * 2;
     }
-
-    if (nTilesToPrepare + nbTilesHeight <= nMaxTilesPerPage) {
-        // if you are going right and you are not already at the edge of the page go
-        // ahead and prepare the tiles just off-screen to the right of the viewport.
-        if (!goingLeft && baseContentWidth > lastTileX * TilesManager::tileWidth())
-            nbTilesWidth++;
-        // if you are going left and you are not already at the edge of the page go
-        // ahead and prepare the tiles just off-screen to the left of the viewport.
-        else if (goingLeft && firstTileX > 0) {
-            firstTileX--;
-            nbTilesWidth++;
-        }
+    if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
+        firstTileY -= expandY;
+        lastTileY += expandY;
+        nbTilesHeight += expandY * 2;
     }
 
     // We chose to prepare tiles depending on the scroll direction. Tiles are
@@ -331,10 +317,16 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     const float tileWidth = TilesManager::tileWidth() * m_invScale;
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
+    SkIRect actualTileBounds = tileBounds;
+    actualTileBounds.fTop -= TilesManager::instance()->expandedTileBoundsY();
+    actualTileBounds.fBottom += TilesManager::instance()->expandedTileBoundsY();
+    actualTileBounds.fLeft -= TilesManager::instance()->expandedTileBoundsX();
+    actualTileBounds.fRight += TilesManager::instance()->expandedTileBoundsX();
+
     XLOG("WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        if (tileBounds.contains(tile.x(), tile.y())) {
+        if (actualTileBounds.contains(tile.x(), tile.y())) {
 
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;

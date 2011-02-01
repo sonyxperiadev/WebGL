@@ -90,8 +90,14 @@ public:
     void setMaxTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
+    int expandedTileBoundsX();
+    int expandedTileBoundsY();
 
     void allocateTiles();
+
+    void setExpandedTileBounds(bool enabled) {
+        m_expandedTileBounds = enabled;
+    }
 
 private:
 
@@ -112,6 +118,7 @@ private:
     unsigned int m_totalMaxTextureSize;
 
     int m_maxTextureCount;
+    bool m_expandedTileBounds;
 
     bool m_generatorReady;
 

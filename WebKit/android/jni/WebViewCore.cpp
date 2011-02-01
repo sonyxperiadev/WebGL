@@ -108,6 +108,7 @@
 #include "SkPicture.h"
 #include "SkUtils.h"
 #include "Text.h"
+#include "TilesManager.h"
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
 #include "WebFrameView.h"
@@ -4511,6 +4512,15 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
 #endif
 }
 
+static void SetExpandedTileBounds(JNIEnv *env, jobject obj, jboolean enabled)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    if (!viewImpl)
+        return;
+    TilesManager::instance()->setExpandedTileBounds(enabled);
+}
+
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -4618,6 +4628,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) GetTouchHighlightRects },
     { "nativeAutoFillForm", "(I)V",
         (void*) AutoFillForm },
+    { "nativeSetExpandedTileBounds", "(Z)V",
+        (void*) SetExpandedTileBounds },
 };
 
 int registerWebViewCore(JNIEnv* env)
