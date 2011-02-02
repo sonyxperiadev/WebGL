@@ -70,9 +70,16 @@
 
 namespace WebCore {
 
+GLint TilesManager::getMaxTextureSize()
+{
+    static GLint maxTextureSize = 0;
+    if (!maxTextureSize)
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    return maxTextureSize;
+}
+
 TilesManager::TilesManager()
     : m_layersMemoryUsage(0)
-    , m_maxTextureSize(0)
     , m_maxTextureCount(0)
     , m_expandedTileBounds(false)
     , m_generatorReady(false)
@@ -85,16 +92,6 @@ TilesManager::TilesManager()
     m_tilesBitmap->eraseColor(0);
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
-    checkMaxTextureSize();
-}
-
-void TilesManager::checkMaxTextureSize()
-{
-    if (m_maxTextureSize > 0)
-        return;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
-    m_totalMaxTextureSize = m_maxTextureSize * m_maxTextureSize * BYTES_PER_PIXEL;
-    XLOG("Max texture size %d", m_maxTextureSize);
 }
 
 void TilesManager::allocateTiles()
@@ -113,7 +110,6 @@ void TilesManager::allocateTiles()
         m_textures.append(loadedTexture);
         nbTexturesAllocated++;
     }
-    checkMaxTextureSize();
     XLOG("allocated %d textures", nbTexturesAllocated);
 }
 
@@ -322,11 +318,13 @@ LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer, const Int
     unsigned int size = w * h * BYTES_PER_PIXEL;
 
     // We will not allocate textures that:
-    // 1) cannot be handled by the graphic card (m_maxTextureSize &
-    // m_totalMaxTextureSize)
+    // 1) cannot be handled by the graphic card (maxTextureSize &
+    // totalMaxTextureSize)
     // 2) will make us go past our texture limit (MAX_LAYERS_ALLOCATION)
 
-    bool large = w > m_maxTextureSize || h > m_maxTextureSize || size > m_totalMaxTextureSize;
+    GLint maxTextureSize = getMaxTextureSize();
+    unsigned totalMaxTextureSize = maxTextureSize * maxTextureSize * BYTES_PER_PIXEL;
+    bool large = w > maxTextureSize || h > maxTextureSize || size > totalMaxTextureSize;
     XLOG("createTextureForLayer(%d) @scale %.2f => %d, %d (too large? %x)", layer->uniqueId(),
          layer->getScale(), w, h, large);
 
