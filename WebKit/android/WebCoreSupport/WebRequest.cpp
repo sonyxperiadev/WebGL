@@ -116,10 +116,28 @@ const std::string& WebRequest::getUserAgent() const
     return m_userAgent;
 }
 
+#ifdef LOG_REQUESTS
+namespace {
+int remaining = 0;
+}
+#endif
+
 void WebRequest::finish(bool success)
 {
     m_runnableFactory.RevokeAll();
-    ASSERT(m_loadState < Finished, "called finish on an already finished WebRequest (%d)", m_loadState);
+    ASSERT(m_loadState < Finished, "(%p) called finish on an already finished WebRequest (%d) (%s)", this, m_loadState, m_url.c_str());
+    if (m_loadState >= Finished)
+        return;
+#ifdef LOG_REQUESTS
+    time_t finish;
+    time(&finish);
+    finish = finish - m_startTime;
+    struct tm * timeinfo;
+    char buffer[80];
+    timeinfo = localtime(&finish);
+    strftime(buffer, 80, "Time: %M:%S",timeinfo);
+    android_printLog(ANDROID_LOG_DEBUG, "KM", "(%p) finish (%d) (%s) (%d) (%s)", this, --remaining, buffer, success, m_url.c_str());
+#endif
 
     // Make sure WebUrlLoaderClient doesn't delete us in the middle of this method.
     scoped_refptr<WebRequest> guard(this);
@@ -183,6 +201,10 @@ void WebRequest::updateLoadFlags(int& loadFlags)
 void WebRequest::start()
 {
     ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
+#ifdef LOG_REQUESTS
+    android_printLog(ANDROID_LOG_DEBUG, "KM", "(%p) start (%d) (%s)", this, ++remaining, m_url.c_str());
+    time(&m_startTime);
+#endif
 
     m_loadState = Started;
 
