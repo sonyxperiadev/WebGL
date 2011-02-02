@@ -451,7 +451,7 @@ void WebRequest::startReading()
     if (!read(&bytesRead)) {
         if (m_request && m_request->status().is_io_pending())
             return; // Wait for OnReadCompleted()
-        finish(false);
+        return finish(false);
     }
 
     // bytesRead == 0 indicates finished
