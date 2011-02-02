@@ -88,6 +88,8 @@ bool WebUrlLoaderClient::isActive() const
 {
     if (m_cancelling)
         return false;
+    if (!m_resourceHandle)
+        return false;
     if (!m_resourceHandle->client())
         return false;
     if (m_finished)
