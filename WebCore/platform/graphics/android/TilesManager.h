@@ -44,6 +44,7 @@ class TileSet;
 class TilesManager {
 public:
     static TilesManager* instance();
+    static GLint getMaxTextureSize();
 
     void removeOperationsForPage(TiledPage* page)
     {
@@ -96,7 +97,6 @@ public:
     int expandedTileBoundsY();
 
     void allocateTiles();
-    void checkMaxTextureSize();
 
     void setExpandedTileBounds(bool enabled) {
         m_expandedTileBounds = enabled;
@@ -117,8 +117,6 @@ private:
     Vector<LayerTexture*> m_layersTextures;
 
     unsigned int m_layersMemoryUsage;
-    GLint m_maxTextureSize;
-    unsigned int m_totalMaxTextureSize;
 
     int m_maxTextureCount;
     bool m_expandedTileBounds;

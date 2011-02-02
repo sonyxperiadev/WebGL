@@ -2395,6 +2395,11 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
     return false;
 }
 
+static void nativeSetExpandedTileBounds(JNIEnv*, jobject, jboolean enabled)
+{
+    TilesManager::instance()->setExpandedTileBounds(enabled);
+}
+
 /*
  * JNI registration
  */
@@ -2573,6 +2578,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
         (void*) nativeScrollLayer },
+    { "nativeSetExpandedTileBounds", "(Z)V",
+        (void*) nativeSetExpandedTileBounds },
 };
 
 int registerWebView(JNIEnv* env)
