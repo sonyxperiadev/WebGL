@@ -577,6 +577,12 @@ void FrameLoaderClientAndroid::dispatchWillSubmitForm(FramePolicyFunction func, 
     (m_frame->loader()->policyChecker()->*func)(PolicyUse);
 }
 
+void FrameLoaderClientAndroid::dispatchWillSendSubmitEvent(HTMLFormElement* form)
+{
+    if (m_webFrame->shouldSaveFormData())
+        m_webFrame->saveFormData(form);
+}
+
 void FrameLoaderClientAndroid::dispatchDidLoadMainResource(DocumentLoader*) {
     notImplemented();
 }

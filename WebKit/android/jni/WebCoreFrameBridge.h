@@ -37,6 +37,7 @@
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
+    class HTMLFormElement;
     class Frame;
     class HistoryItem;
     class Image;
@@ -148,6 +149,8 @@ class WebFrame : public WebCoreRefObject {
     bool getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& username, WTF::String& password);
     jbyteArray getPostData(const WebCore::ResourceRequest& request);
 
+    bool shouldSaveFormData();
+    void saveFormData(WebCore::HTMLFormElement*);
 private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;

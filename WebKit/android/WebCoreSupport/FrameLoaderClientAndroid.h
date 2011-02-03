@@ -223,7 +223,7 @@ namespace android {
         void enableOnDemandPlugins() { m_onDemandPluginsEnabled = true; }
 
         void dispatchDidChangeIcons();
-        void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
+        void dispatchWillSendSubmitEvent(HTMLFormElement*);
     private:
         CacheBuilder        m_cacheBuilder;
         Frame*              m_frame;

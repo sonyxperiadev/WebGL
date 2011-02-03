@@ -44,7 +44,6 @@
 #include "Element.h"
 #include "FocusController.h"
 #include "Font.h"
-#include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -220,6 +219,8 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDidReceiveData;
     jmethodID   mDidFinishLoading;
     jmethodID   mSetCertificate;
+    jmethodID   mShouldSaveFormData;
+    jmethodID   mSaveFormData;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -292,6 +293,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDidFinishLoading = env->GetMethodID(clazz, "didFinishLoading", "()V");
     mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate",
             "(Ljava/lang/String;Ljava/lang/String;JJ)V");
+    mJavaFrame->mShouldSaveFormData = env->GetMethodID(clazz, "shouldSaveFormData", "()Z");
+    mJavaFrame->mSaveFormData = env->GetMethodID(clazz, "saveFormData", "(Ljava/util/HashMap;)V");
     env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -322,6 +325,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDidReceiveData, "Could not find method didReceiveData");
     LOG_ASSERT(mJavaFrame->mDidFinishLoading, "Could not find method didFinishLoading");
     LOG_ASSERT(mJavaFrame->mSetCertificate, "Could not find method setCertificate");
+    LOG_ASSERT(mJavaFrame->mShouldSaveFormData, "Could not find method shouldSaveFormData");
+    LOG_ASSERT(mJavaFrame->mSaveFormData, "Could not find method saveFormData");
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
@@ -780,6 +785,16 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     checkException(env);
     env->DeleteLocalRef(jUrlStr);
     return (ret == 0);
+}
+
+bool
+WebFrame::shouldSaveFormData()
+{
+    JNIEnv* env = getJNIEnv();
+    jboolean ret = env->CallBooleanMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mShouldSaveFormData);
+    checkException(env);
+    return ret;
 }
 
 WebCore::Frame*
@@ -1876,62 +1891,46 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     }
 }
 
-static jobject GetFormTextData(JNIEnv *env, jobject obj)
+void
+WebFrame::saveFormData(HTMLFormElement* form)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
-    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
-    LOG_ASSERT(pFrame, "GetFormTextData must take a valid frame pointer!");
-    jobject hashMap = NULL;
-
-    WTF::PassRefPtr<WebCore::HTMLCollection> collection = pFrame->document()->forms();
-    if (collection->length() > 0) {
+    if (form->autoComplete()) {
+        JNIEnv* env = getJNIEnv();
         jclass mapClass = env->FindClass("java/util/HashMap");
         LOG_ASSERT(mapClass, "Could not find HashMap class!");
         jmethodID init = env->GetMethodID(mapClass, "<init>", "(I)V");
         LOG_ASSERT(init, "Could not find constructor for HashMap");
-        hashMap = env->NewObject(mapClass, init, 1);
+        jobject hashMap = env->NewObject(mapClass, init, 1);
         LOG_ASSERT(hashMap, "Could not create a new HashMap");
         jmethodID put = env->GetMethodID(mapClass, "put",
                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
         LOG_ASSERT(put, "Could not find put method on HashMap");
-
-        WebCore::HTMLFormElement* form;
-        WebCore::HTMLInputElement* input;
-        for (WebCore::Node* node = collection->firstItem();
-             node && !node->namespaceURI().isNull() && !node->namespaceURI().isEmpty();
-             node = collection->nextItem()) {
-            form = static_cast<WebCore::HTMLFormElement*>(node);
-            if (form->autoComplete()) {
-                WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->associatedElements();
-                size_t size = elements.size();
-                for (size_t i = 0; i < size; i++) {
-                    WebCore::HTMLFormControlElement* e = elements[i];
-                    if (e->hasTagName(WebCore::HTMLNames::inputTag)) {
-                        input = static_cast<WebCore::HTMLInputElement*>(e);
-                        if (input->isTextField() && !input->isPasswordField()
-                                && input->autoComplete()) {
-                            WTF::String value = input->value();
-                            int len = value.length();
-                            if (len) {
-                                const WTF::AtomicString& name = input->name();
-                                jstring key = wtfStringToJstring(env, name);
-                                jstring val = wtfStringToJstring(env, value);
-                                LOG_ASSERT(key && val, "name or value not set");
-                                env->CallObjectMethod(hashMap, put, key, val);
-                                env->DeleteLocalRef(key);
-                                env->DeleteLocalRef(val);
-                            }
-                        }
+        WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->associatedElements();
+        size_t size = elements.size();
+        for (size_t i = 0; i < size; i++) {
+            WebCore::HTMLFormControlElement* e = elements[i];
+            if (e->hasTagName(WebCore::HTMLNames::inputTag)) {
+                WebCore::HTMLInputElement* input = static_cast<WebCore::HTMLInputElement*>(e);
+                if (input->isTextField() && !input->isPasswordField()
+                        && input->autoComplete()) {
+                    WTF::String value = input->value();
+                    int len = value.length();
+                    if (len) {
+                        const WTF::AtomicString& name = input->name();
+                        jstring key = wtfStringToJstring(env, name);
+                        jstring val = wtfStringToJstring(env, value);
+                        LOG_ASSERT(key && val, "name or value not set");
+                        env->CallObjectMethod(hashMap, put, key, val);
+                        env->DeleteLocalRef(key);
+                        env->DeleteLocalRef(val);
                     }
                 }
             }
         }
+        env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSaveFormData, hashMap);
+        env->DeleteLocalRef(hashMap);
         env->DeleteLocalRef(mapClass);
-
     }
-    return hashMap;
 }
 
 static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
@@ -2048,8 +2047,6 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) GetUsernamePassword },
     { "setUsernamePassword", "(Ljava/lang/String;Ljava/lang/String;)V",
         (void*) SetUsernamePassword },
-    { "getFormTextData", "()Ljava/util/HashMap;",
-        (void*) GetFormTextData },
     { "nativeOrientationChanged", "(I)V",
         (void*) OrientationChanged },
     { "nativeAuthenticationProceed", "(ILjava/lang/String;Ljava/lang/String;)V",
