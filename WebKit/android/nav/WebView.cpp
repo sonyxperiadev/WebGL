@@ -206,12 +206,20 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     // We must remove the m_glWebViewState prior to deleting m_baseLayer. If we
     // do not remove it here, we risk having BaseTiles trying to paint using a
     // deallocated base layer.
-    delete m_glWebViewState;
+    stopGL();
 #endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
     m_baseLayer->safeUnref();
     delete m_glDrawFunctor;
+}
+
+void stopGL()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    delete m_glWebViewState;
+    m_glWebViewState = 0;
+#endif
 }
 
 WebViewCore* getWebViewCore() const {
@@ -2207,6 +2215,11 @@ static void nativeDestroy(JNIEnv *env, jobject obj)
     delete view;
 }
 
+static void nativeStopGL(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->stopGL();
+}
+
 static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2564,6 +2577,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeShowCursorTimed },
     { "nativeStartSelection", "(II)Z",
         (void*) nativeStartSelection },
+    { "nativeStopGL", "()V",
+        (void*) nativeStopGL },
     { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
         (void*) nativeSubtractLayers },
     { "nativeTextGeneration", "()I",
