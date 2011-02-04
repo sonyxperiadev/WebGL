@@ -24,6 +24,8 @@
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
 #include <wtf/CurrentTime.h>
+#include <JNIUtility.h>
+#include "WebCoreJni.h"
 
 #define LAYER_DEBUG
 #undef LAYER_DEBUG
@@ -45,8 +47,46 @@
 
 namespace WebCore {
 
-VideoTexture::VideoTexture()
+class VideoListener : public android::SurfaceTexture::FrameAvailableListener {
+
+public:
+    VideoListener(jobject weakWebViewRef)
+        : m_weakWebViewRef(weakWebViewRef)
+        , m_postInvalMethod(0)
+    {
+        if (!m_weakWebViewRef)
+            return;
+
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
+        if (localWebViewRef) {
+            jclass wvClass = env->GetObjectClass(localWebViewRef);
+            m_postInvalMethod = env->GetMethodID(wvClass, "postInvalidate", "()V");
+            env->DeleteLocalRef(wvClass);
+            env->DeleteLocalRef(localWebViewRef);
+        }
+        checkException(env);
+    }
+
+    virtual void onFrameAvailable()
+    {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
+        if (localWebViewRef) {
+            env->CallVoidMethod(localWebViewRef, m_postInvalMethod);
+            env->DeleteLocalRef(localWebViewRef);
+        }
+        checkException(env);
+    }
+
+private:
+    jobject m_weakWebViewRef;
+    jmethodID m_postInvalMethod;
+};
+
+VideoTexture::VideoTexture(jobject weakWebViewRef) : android::LightRefBase<VideoTexture>()
 {
+    m_weakWebViewRef = weakWebViewRef;
     m_textureId = 0;
     m_dimensions.setEmpty();
     m_newWindowRequest = false;
@@ -58,6 +98,10 @@ VideoTexture::~VideoTexture()
     releaseNativeWindow();
     if (m_textureId)
         glDeleteTextures(1, &m_textureId);
+    if (m_weakWebViewRef) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        env->DeleteWeakGlobalRef(m_weakWebViewRef);
+    }
 }
 
 void VideoTexture::initNativeWindowIfNeeded()
@@ -73,6 +117,11 @@ void VideoTexture::initNativeWindowIfNeeded()
 
     m_surfaceTexture = new android::SurfaceTexture(m_textureId);
     m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
+
+    //setup callback
+    sp<VideoListener> listener = new VideoListener(m_weakWebViewRef);
+    m_surfaceTexture->setFrameAvailableListener(listener);
+
     m_newWindowRequest = false;
     m_newWindowReady = true;
     m_newVideoRequestCond.signal();
@@ -128,6 +177,11 @@ void VideoTexture::releaseNativeWindow()
 {
     android::Mutex::Autolock lock(m_videoLock);
     m_dimensions.setEmpty();
+
+    if (m_surfaceTexture.get())
+        m_surfaceTexture->setFrameAvailableListener(0);
+
+    // clear the strong pointer references
     m_surfaceTextureClient.clear();
     m_surfaceTexture.clear();
 }

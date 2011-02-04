@@ -156,8 +156,14 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
 
-    if (model == kOpenGL_ANPDrawingModel && m_layer == 0)
-        m_layer = new WebCore::MediaLayer();
+    if (model == kOpenGL_ANPDrawingModel && m_layer == 0) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jobject webview = m_core->getWebViewJavaObject();
+        jobject weakWebViewRef = 0;
+        if (webview)
+            weakWebViewRef = env->NewWeakGlobalRef(webview);
+        m_layer = new WebCore::MediaLayer(weakWebViewRef);
+    }
     else if (model != kOpenGL_ANPDrawingModel && m_layer != 0)
         m_layer->unref();
 
@@ -202,6 +208,12 @@ void PluginWidgetAndroid::inval(const WebCore::IntRect& rect,
     if (signalRedraw && m_flipPixelRef->isDirty()) {
         m_core->invalPlugin(this);
     }
+}
+
+void PluginWidgetAndroid::viewInvalidate() {
+    WebCore::IntRect rect(m_pluginBounds.fLeft, m_pluginBounds.fTop,
+            m_pluginBounds.width(), m_pluginBounds.height());
+    m_core->viewInvalidate(rect);
 }
 
 void PluginWidgetAndroid::draw(SkCanvas* canvas) {

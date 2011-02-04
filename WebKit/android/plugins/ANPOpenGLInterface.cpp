@@ -87,6 +87,9 @@ static void anp_releaseTexture(NPP instance, const ANPTextureInfo* textureInfo) 
     info->m_internalFormat = textureInfo->internalFormat;
 
     texture->producerReleaseAndSwap();
+
+    // invalidate the java view so that this content is drawn
+    pluginWidget->viewInvalidate();
 }
 
 static void anp_invertPluginContent(NPP instance, bool isContentInverted) {

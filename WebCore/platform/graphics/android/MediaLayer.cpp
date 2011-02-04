@@ -40,11 +40,11 @@
 
 namespace WebCore {
 
-MediaLayer::MediaLayer() : LayerAndroid(false)
+MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid(false)
 {
     m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
     m_bufferedTexture->incStrong(this);
-    m_videoTexture = new VideoTexture();
+    m_videoTexture = new VideoTexture(weakWebViewRef);
     m_videoTexture->incStrong(this);
 
     m_currentTextureInfo = 0;
@@ -78,6 +78,8 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
     // draw any video content if present
     m_videoTexture->drawVideo(drawTransform());
 
+    bool needsInval = true;
+
     // draw the primary content
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
@@ -95,14 +97,13 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
             TilesManager::instance()->shader()->drawLayerQuad(m, rect,
                                                               textureInfo->m_textureId,
                                                               1.0f); //TODO fix this m_drawOpacity
+            if (!rect.isEmpty())
+                needsInval = false;
         }
         m_bufferedTexture->consumerRelease();
     }
 
-    drawChildrenGL(matrix);
-
-    //TODO allow plugins to specify when they should be drawn
-    return true;
+    return drawChildrenGL(matrix) || needsInval;
 }
 
 ANativeWindow* MediaLayer::acquireNativeWindowForVideo()
