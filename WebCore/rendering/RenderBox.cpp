@@ -39,7 +39,9 @@
 #include "FloatQuad.h"
 #include "Frame.h"
 #include "Page.h"
+#if PLATFORM(ANDROID)
 #include "PlatformBridge.h"
+#endif
 #include "RenderArena.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
@@ -2078,13 +2080,14 @@ void RenderBox::computeBlockDirectionMargins(RenderBlock* containingBlock)
 
 int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const
 {
+#if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
     // That is in the doc coordindate.
     if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
         return PlatformBridge::visibleScreenWidth(view->frameView());
     }
-
+#endif
     if (containingBlock->isBox()) {
         const RenderBox* containingBlockBox = toRenderBox(containingBlock);
         return containingBlockBox->width() - containingBlockBox->borderLeft() - containingBlockBox->borderRight() - containingBlockBox->verticalScrollbarWidth();
@@ -2114,14 +2117,15 @@ int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* con
 }
 
 int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const
-{   
+{
+#if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
     // That is in the doc coordindate.
     if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
         return PlatformBridge::visibleScreenHeight(view->frameView());
     }
-
+#endif
     int heightResult = 0;
     if (containingBlock->isBox())
          heightResult = toRenderBox(containingBlock)->height();
