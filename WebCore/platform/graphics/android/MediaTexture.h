@@ -23,6 +23,7 @@
 #include "DoubleBufferedTexture.h"
 #include "LayerAndroid.h"
 #include <utils/RefBase.h>
+#include <jni.h>
 
 namespace android {
     class SurfaceTexture;
@@ -40,7 +41,7 @@ public:
 class VideoTexture : public android::LightRefBase<VideoTexture> {
 
 public:
-    VideoTexture();
+    VideoTexture(jobject weakWebViewRef);
     ~VideoTexture();
 
     void initNativeWindowIfNeeded();
@@ -59,6 +60,8 @@ private:
     SkRect m_dimensions;
     bool m_newWindowRequest;
     bool m_newWindowReady;
+
+    jobject m_weakWebViewRef;
 
     android::Mutex m_videoLock;
     android::Condition m_newVideoRequestCond;

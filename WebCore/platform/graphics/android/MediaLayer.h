@@ -21,6 +21,7 @@
 
 #include "MediaTexture.h"
 #include "LayerAndroid.h"
+#include <jni.h>
 
 namespace android {
     class SurfaceTexture;
@@ -31,7 +32,7 @@ namespace WebCore {
 class MediaLayer : public LayerAndroid {
 
 public:
-    MediaLayer();
+    MediaLayer(jobject weakWebViewRef);
     MediaLayer(const MediaLayer& layer);
     virtual ~MediaLayer();
 

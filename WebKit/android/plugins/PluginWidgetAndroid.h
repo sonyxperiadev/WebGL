@@ -177,6 +177,8 @@ struct PluginWidgetAndroid {
 
     void setPowerState(ANPPowerState powerState);
 
+    void viewInvalidate();
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
