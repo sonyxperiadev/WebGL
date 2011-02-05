@@ -158,8 +158,23 @@ ANativeWindow* VideoTexture::requestNewWindow()
     }
 
     m_newWindowRequest = true;
+
+    // post an inval message to the UI thread to fulfill the request
+    if (m_weakWebViewRef) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
+        if (localWebViewRef) {
+            jclass wvClass = env->GetObjectClass(localWebViewRef);
+            jmethodID postInvalMethod = env->GetMethodID(wvClass, "postInvalidate", "()V");
+            env->CallVoidMethod(localWebViewRef, postInvalMethod);
+            env->DeleteLocalRef(wvClass);
+            env->DeleteLocalRef(localWebViewRef);
+        }
+        checkException(env);
+    }
+
     //block until the request can be fulfilled or we time out
-    m_newVideoRequestCond.waitRelative(m_videoLock, 1000000000); // 1 sec
+    m_newVideoRequestCond.waitRelative(m_videoLock, 500000000); // .5 sec
 
     if (m_surfaceTextureClient.get())
         m_newWindowReady = false;
