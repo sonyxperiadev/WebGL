@@ -677,18 +677,21 @@ namespace android {
         // below are members responsible for accessibility support
         String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
         String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        Text* traverseVisibleNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode ,int direction);
+        Text* traverseNextContentTextNode(Node* fromNode, Node* toNode ,int direction);
         bool isVisible(Node* node);
         bool isHeading(Node* node);
         String formatMarkup(DOMSelection* selection);
         void selectAt(int x, int y);
         Node* m_currentNodeDomNavigationAxis;
         void scrollNodeIntoView(Frame* frame, Node* node);
-        bool isVisibleNonEmptyNonWhitespaceTextNode(Node* node);
+        bool isContentTextNode(Node* node);
         String stripAppleSpanFromMarkup(String markup);
-        int rangeCompliantChildOffset(Node* parent, int offset);
-        Node* getFirstIntermediaryInputOrButton(Node* fromNode, Node* toNode);
-        bool isInputControl(Node* node);
+        Node* getIntermediaryInputElement(Node* fromNode, Node* toNode, int direction);
+        bool isContentInputElement(Node* node);
+        bool isDescendantOf(Node* parent, Node* node);
+        void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
+        Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
+        Node* getImplicitAnchorOrFocusNode(Node* node, unsigned offset, int direction);
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
