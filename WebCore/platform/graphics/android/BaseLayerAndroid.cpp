@@ -36,10 +36,6 @@
 #include <wtf/CurrentTime.h>
 #endif // USE(ACCELERATED_COMPOSITING)
 
-// #if TARGET_DEVICE != generic   /* Not supported in emulator */
-#define HARDWARE_ACCELERATION
-// #endif
-
 #ifdef DEBUG
 
 #include <cutils/log.h>
@@ -72,8 +68,9 @@ BaseLayerAndroid::BaseLayerAndroid()
 
 BaseLayerAndroid::~BaseLayerAndroid()
 {
-#ifdef HARDWARE_ACCELERATION
-    TilesManager::instance()->removeOperationsForBaseLayer(this);
+#if USE(ACCELERATED_COMPOSITING)
+    if (TilesManager::hardwareAccelerationEnabled())
+        TilesManager::instance()->removeOperationsForBaseLayer(this);
 #endif
     m_content.clear();
 #ifdef DEBUG_COUNT
