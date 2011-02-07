@@ -2188,7 +2188,8 @@ RenderLayer::updateScrollInfoAfterLayout()
         m_hasOverflowScroll = hasOverflowScroll;
         dirtyZOrderLists();
         dirtyStackingContextZOrderLists();
-        renderer()->node()->setNeedsStyleRecalc(SyntheticStyleChange);
+        if (renderer()->node())
+            renderer()->node()->setNeedsStyleRecalc(SyntheticStyleChange);
     }
 #endif
 }
