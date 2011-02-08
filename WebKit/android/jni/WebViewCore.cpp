@@ -3668,10 +3668,12 @@ void WebViewCore::notifyWebAppCanBeInstalled()
 
 void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previewSummary)
 {
+#if ENABLE(WEB_AUTOFILL)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring preview = env->NewString(previewSummary.data(), previewSummary.length());
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId, preview);
     env->DeleteLocalRef(preview);
+#endif
 }
 
 bool WebViewCore::drawIsPaused() const
