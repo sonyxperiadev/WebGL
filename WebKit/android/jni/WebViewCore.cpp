@@ -252,9 +252,7 @@ struct WebViewCoreFields {
 
 struct WebViewCore::JavaGlue {
     jweak       m_obj;
-    jmethodID   m_spawnScrollTo;
     jmethodID   m_scrollTo;
-    jmethodID   m_scrollBy;
     jmethodID   m_contentDraw;
     jmethodID   m_layersDraw;
     jmethodID   m_requestListBox;
@@ -351,9 +349,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     jclass clazz = env->GetObjectClass(javaWebViewCore);
     m_javaGlue = new JavaGlue;
     m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
-    m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
-    m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZ)V");
-    m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
+    m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
     m_javaGlue->m_layersDraw = GetJMethod(env, clazz, "layersDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
@@ -950,11 +946,8 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 //    LOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (animate)
-        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_spawnScrollTo, x, y);
-    else
-        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollTo,
-                x, y, m_onlyScrollIfImeIsShowing);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollTo,
+            x, y, animate, m_onlyScrollIfImeIsShowing);
     checkException(env);
 }
 
@@ -973,16 +966,6 @@ void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_sendViewInvalidate,
                         rect.x(), rect.y(), rect.right(), rect.bottom());
-    checkException(env);
-}
-
-void WebViewCore::scrollBy(int dx, int dy, bool animate)
-{
-    if (!(dx | dy))
-        return;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy,
-        dx, dy, animate);
     checkException(env);
 }
 
@@ -1156,13 +1139,14 @@ void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
     default:
         LOG_ASSERT(0, "unexpected focus selector");
     }
-    this->scrollBy(dx, dy, true);
+    WebCore::FrameView* view = m_mainFrame->view();
+    this->scrollTo(view->scrollX() + dx, view->scrollY() + dy, true);
 }
 
-void WebViewCore::setScrollOffset(int moveGeneration, int userScrolled, int dx, int dy)
+void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy)
 {
-    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d), userScrolled=%d", dx, dy,
-        m_scrollOffsetX, m_scrollOffsetY, userScrolled);
+    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d), sendScrollEvent=%d", dx, dy,
+        m_scrollOffsetX, m_scrollOffsetY, sendScrollEvent);
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
@@ -1171,9 +1155,8 @@ void WebViewCore::setScrollOffset(int moveGeneration, int userScrolled, int dx, 
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
-        if (userScrolled) {
+        if (sendScrollEvent)
             m_mainFrame->eventHandler()->sendScrollEvent();
-        }
 
         // Update history item to reflect the new scroll position.
         // This also helps save the history information when the browser goes to
@@ -3756,7 +3739,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
             screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
 
-static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint userScrolled, jint x, jint y)
+static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jboolean sendScrollEvent, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3764,7 +3747,7 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint userScrolle
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
-    viewImpl->setScrollOffset(gen, userScrolled, x, y);
+    viewImpl->setScrollOffset(gen, sendScrollEvent, x, y);
 }
 
 static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
@@ -4416,7 +4399,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoice },
     { "nativeSetSize", "(IIIFIIIIZ)V",
         (void*) SetSize },
-    { "nativeSetScrollOffset", "(IIII)V",
+    { "nativeSetScrollOffset", "(IZII)V",
         (void*) SetScrollOffset },
     { "nativeSetGlobalBounds", "(IIII)V",
         (void*) SetGlobalBounds },

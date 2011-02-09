@@ -149,14 +149,6 @@ namespace android {
         void scrollTo(int x, int y, bool animate = false);
 
         /**
-         * Scroll to the point x,y relative to the current position.
-         * @param x The relative x position.
-         * @param y The relative y position.
-         * @param animate If it is true, animate to the new scroll position
-         */
-        void scrollBy(int x, int y, bool animate);
-
-        /**
          * Record the invalid rectangle
          */
         void contentInvalidate(const WebCore::IntRect &rect);
@@ -311,7 +303,7 @@ namespace android {
             WebCore::Frame* frame, int x, int y);
 
         // set the scroll amount that webview.java is currently showing
-        void setScrollOffset(int moveGeneration, int userScrolled, int dx, int dy);
+        void setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy);
 
         void setGlobalBounds(int x, int y, int h, int v);
 

@@ -587,7 +587,7 @@ void PluginWidgetAndroid::scrollToVisiblePluginRect() {
 #if DEBUG_VISIBLE_RECTS
     PLUGIN_LOG("%s call scrollBy (%d,%d)", __FUNCTION__, deltaX, deltaY);
 #endif
-    core->scrollBy(deltaX, deltaY, true);
+    core->scrollTo(rectCenterX, rectCenterY, true);
 }
 
 void PluginWidgetAndroid::requestFullScreen() {
