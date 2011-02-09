@@ -1159,14 +1159,6 @@ RenderLayer::convertToLayerCoords(const RenderLayer* ancestorLayer, int& xPos, i
         return;
 
     EPosition position = renderer()->style()->position();
-#if PLATFORM(ANDROID)
-    if (position == FixedPosition) {
-        if (renderer() && renderer()->isBox()) {
-            (toRenderBox(renderer()))->computeLogicalWidth();
-            (toRenderBox(renderer()))->computeLogicalHeight();
-        }
-    }
-#endif
     if (position == FixedPosition && (!ancestorLayer || ancestorLayer == renderer()->view()->layer())) {
         // If the fixed layer's container is the root, just add in the offset of the view. We can obtain this by calling
         // localToAbsolute() on the RenderView.
