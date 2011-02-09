@@ -579,10 +579,9 @@ namespace android {
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         bool drawIsPaused() const;
-        int  visibleScreenWidth() const { return m_visibleScreenWidth; }
-        int  visibleScreenHeight() const { return m_visibleScreenHeight; }
-        void  setVisibleScreenWidth(int w) {  m_visibleScreenWidth = w; }
-        void  setVisibleScreenHeight(int h) {  m_visibleScreenHeight = h; }
+        // The actual content (without title bar) size in doc coordinate
+        int  screenWidth() const { return m_screenWidth; }
+        int  screenHeight() const { return m_screenHeight; }
 #if USE(CHROME_NETWORK_STACK)
         void setWebRequestContextUserAgent();
         void setWebRequestContextCacheMode(int mode);
@@ -638,11 +637,6 @@ namespace android {
         CachedHistory m_history;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
-        // The m_screenHeight is not equal to the visibleRect from WebView,
-        // using m_visibleScreenHeight to store that info.
-        // After we can fix the m_screenHeight in java side, we can merge them.
-        int m_visibleScreenWidth;
-        int m_visibleScreenHeight;
         int m_textWrapWidth;
         float m_scale;
         unsigned m_domtree_version;
