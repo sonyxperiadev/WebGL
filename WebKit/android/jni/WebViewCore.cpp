@@ -1155,23 +1155,25 @@ void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int 
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
-        if (sendScrollEvent)
+        if (sendScrollEvent) {
             m_mainFrame->eventHandler()->sendScrollEvent();
 
-        // Update history item to reflect the new scroll position.
-        // This also helps save the history information when the browser goes to
-        // background, so scroll position will be restored if browser gets
-        // killed while in background.
-        WebCore::HistoryController* history = m_mainFrame->loader()->history();
-        // Because the history item saving could be heavy for large sites and
-        // scrolling can generate lots of small scroll offset, the following code
-        // reduces the saving frequency.
-        static const int MIN_SCROLL_DIFF = 32;
-        if (history->currentItem()) {
-            WebCore::IntPoint currentPoint = history->currentItem()->scrollPoint();
-            if (std::abs(currentPoint.x() - dx) >= MIN_SCROLL_DIFF ||
-                std::abs(currentPoint.y() - dy) >= MIN_SCROLL_DIFF) {
-                history->saveScrollPositionAndViewStateToItem(history->currentItem());
+            // Only update history position if it's user scrolled.
+            // Update history item to reflect the new scroll position.
+            // This also helps save the history information when the browser goes to
+            // background, so scroll position will be restored if browser gets
+            // killed while in background.
+            WebCore::HistoryController* history = m_mainFrame->loader()->history();
+            // Because the history item saving could be heavy for large sites and
+            // scrolling can generate lots of small scroll offset, the following code
+            // reduces the saving frequency.
+            static const int MIN_SCROLL_DIFF = 32;
+            if (history->currentItem()) {
+                WebCore::IntPoint currentPoint = history->currentItem()->scrollPoint();
+                if (std::abs(currentPoint.x() - dx) >= MIN_SCROLL_DIFF ||
+                    std::abs(currentPoint.y() - dy) >= MIN_SCROLL_DIFF) {
+                    history->saveScrollPositionAndViewStateToItem(history->currentItem());
+                }
             }
         }
 
