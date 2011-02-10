@@ -126,7 +126,7 @@ class WebFrame : public WebCoreRefObject {
 
     void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);
 
-    void setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis);
+    void setCertificate(const std::string& cert);
 
     /**
      * When the user initiates a click, we set mUserInitiatedAction to true.

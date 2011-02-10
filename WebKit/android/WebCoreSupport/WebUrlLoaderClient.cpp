@@ -38,7 +38,6 @@
 #include "WebResourceRequest.h"
 
 #include <wtf/text/CString.h>
-#include <sstream>
 
 namespace android {
 
@@ -344,30 +343,6 @@ void WebUrlLoaderClient::maybeCallOnMainThread(Task* task)
     }
 }
 
-namespace {
-// Convert a CertPrincipal into string readable by Java code.
-// The expected format is "CN=xxx, O=xxx, OU=xxx" (see SslCertificate.DName).
-// If there are multiple organization names, we print them all.
-static std::string certPrincipalToString(const net::CertPrincipal& cp)
-{
-    std::string result;
-    if (!cp.common_name.empty()) {
-        result += "CN=";
-        result += cp.common_name;
-    }
-    std::vector<std::string>::const_iterator i;
-    for (i = cp.organization_names.begin(); i != cp.organization_names.end(); ++i) {
-        result += result.empty() ? "O=" : ", O=";
-        result += *i;
-    }
-    for (i = cp.organization_unit_names.begin(); i != cp.organization_unit_names.end(); ++i) {
-        result += result.empty() ? "OU=" : ", OU=";
-        result += *i;
-    }
-    return result;
-}
-}
-
 // Response methods
 void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 {
@@ -379,13 +354,11 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
 
     if (m_isMainResource) {
         // If we got an SSL certificate, tell the WebView about it.
-        const net::SSLInfo& ssl = m_response->getSslInfo();
-        if (ssl.cert) {
-            m_webFrame->setCertificate(
-                    certPrincipalToString(ssl.cert->subject()),
-                    certPrincipalToString(ssl.cert->issuer()),
-                    1000L * ssl.cert->valid_start().ToDoubleT(),
-                    1000L * ssl.cert->valid_expiry().ToDoubleT());
+        const net::SSLInfo& ssl_info = m_response->getSslInfo();
+        if (ssl_info.is_valid()) {
+            std::vector<std::string> chain_bytes;
+            ssl_info.cert->GetChainDEREncodedBytes(&chain_bytes);
+            m_webFrame->setCertificate(chain_bytes[0]);
         }
     }
 }

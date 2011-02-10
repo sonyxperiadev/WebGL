@@ -291,8 +291,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     mJavaFrame->mDidReceiveData = env->GetMethodID(clazz, "didReceiveData", "([BI)V");
     mJavaFrame->mDidFinishLoading = env->GetMethodID(clazz, "didFinishLoading", "()V");
-    mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate",
-            "(Ljava/lang/String;Ljava/lang/String;JJ)V");
+    mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate", "([B)V");
     mJavaFrame->mShouldSaveFormData = env->GetMethodID(clazz, "shouldSaveFormData", "()Z");
     mJavaFrame->mSaveFormData = env->GetMethodID(clazz, "saveFormData", "(Ljava/util/HashMap;)V");
     env->DeleteLocalRef(clazz);
@@ -965,20 +964,21 @@ WebFrame::didFinishLoading() {
 #endif
 
 #if USE(CHROME_NETWORK_STACK)
-void WebFrame::setCertificate(const std::string& issuedTo, const std::string& issuedBy, long long validNotBeforeMillis, long long validNotAfterMillis)
+void WebFrame::setCertificate(const std::string& cert)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    jstring jIssuedTo = stdStringToJstring(env, issuedTo, true);
-    jstring jIssuedBy = stdStringToJstring(env, issuedBy, true);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mSetCertificate, jIssuedTo, jIssuedBy, validNotBeforeMillis, validNotAfterMillis);
+    int len = cert.length();
+    jbyteArray jCert = env->NewByteArray(len);
+    jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
+    cert.copy(reinterpret_cast<char*>(bytes), len);
 
-    env->DeleteLocalRef(jIssuedTo);
-    env->DeleteLocalRef(jIssuedBy);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetCertificate, jCert);
+
+    env->DeleteLocalRef(jCert);
     checkException(env);
 }
 #endif
