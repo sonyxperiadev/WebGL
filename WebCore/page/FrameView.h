@@ -97,6 +97,10 @@ public:
 
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
+#if PLATFORM(ANDROID)
+    void updatePositionedObjects();
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
     void updateCompositingLayers();
 

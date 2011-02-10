@@ -1067,6 +1067,29 @@ void FrameView::removeFixedObject()
         updateCanBlitOnScrollRecursively();
 }
 
+#if PLATFORM(ANDROID)
+// When the screen size change, fixed positioned element should be updated.
+void FrameView::updatePositionedObjects()
+{
+    RenderBlock::PositionedObjectsListHashSet* positionedObjects = 0;
+    if (RenderView* root = m_frame->contentRenderer())
+        positionedObjects = root->positionedObjects();
+
+    if (!positionedObjects || positionedObjects->isEmpty())
+        return;
+
+    RenderBlock::PositionedObjectsListHashSet::const_iterator end = positionedObjects->end();
+    for (RenderBlock::PositionedObjectsListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
+        RenderBox* renderBox = *it;
+        if (renderBox->style()->position() != FixedPosition)
+            continue;
+
+        renderBox->computeLogicalWidth();
+        renderBox->computeLogicalHeight();
+    }
+}
+#endif
+
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
     const size_t fixedObjectThreshold = 5;

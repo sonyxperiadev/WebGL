@@ -485,8 +485,6 @@ void WebViewCore::reset(bool fromConstructor)
     m_scrollOffsetY = 0;
     m_screenWidth = 0;
     m_screenHeight = 0;
-    m_visibleScreenWidth = 0;
-    m_visibleScreenHeight = 0;
     m_groupForVisitedLinks = NULL;
     m_currentNodeDomNavigationAxis = 0;
 }
@@ -1217,6 +1215,12 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     // Don't reflow if the diff is small.
     const bool reflow = otw && textWrapWidth &&
         ((float) abs(otw - textWrapWidth) / textWrapWidth) >= 0.01f;
+
+    // When the screen size change, fixed positioned element should be updated.
+    // This is supposed to be light weighted operation without a full layout.
+    if (osh != screenHeight || osw != screenWidth)
+        m_mainFrame->view()->updatePositionedObjects();
+
     if (ow != width || (!ignoreHeight && oh != height) || reflow) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,

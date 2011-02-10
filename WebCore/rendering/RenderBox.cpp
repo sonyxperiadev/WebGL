@@ -2085,7 +2085,7 @@ int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* con
     // That is in the doc coordindate.
     if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
-        return PlatformBridge::visibleScreenWidth(view->frameView());
+        return PlatformBridge::screenWidthInDocCoord(view->frameView());
     }
 #endif
     if (containingBlock->isBox()) {
@@ -2123,7 +2123,7 @@ int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* co
     // That is in the doc coordindate.
     if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
-        return PlatformBridge::visibleScreenHeight(view->frameView());
+        return PlatformBridge::screenHeightInDocCoord(view->frameView());
     }
 #endif
     int heightResult = 0;

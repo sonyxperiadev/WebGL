@@ -149,8 +149,8 @@ public:
     static int memoryUsageMB();
     static int actualMemoryUsageMB();
 
-    static int visibleScreenWidth(const FrameView*);
-    static int visibleScreenHeight(const FrameView*);
+    static int screenWidthInDocCoord(const FrameView*);
+    static int screenHeightInDocCoord(const FrameView*);
 };
 
 }
