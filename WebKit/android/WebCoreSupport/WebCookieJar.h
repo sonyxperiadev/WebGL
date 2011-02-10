@@ -49,6 +49,12 @@ public:
     bool allowCookies();
     void setAllowCookies(bool allow);
 
+    // Getter and setter for whether we accept cookies for file scheme URLS.
+    // Defaults to false. Note that calls to the setter are ignored once the
+    // first instance of this class has been created.
+    static bool acceptFileSchemeCookies();
+    static void setAcceptFileSchemeCookies(bool);
+
     // Instead of this it would probably be better to add the cookie methods
     // here so the rest of WebKit doesn't have to know about Chromium classes
     net::CookieStore* cookieStore() { return m_cookieStore.get(); }

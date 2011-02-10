@@ -37,6 +37,8 @@
 namespace android {
 
 static WTF::Mutex instanceMutex;
+static bool isFirstInstanceCreated = false;
+static bool fileSchemeCookiesEnabled = false;
 
 static const std::string& databaseDirectory()
 {
@@ -99,6 +101,9 @@ scoped_refptr<WebCookieJar>* instance(bool isPrivateBrowsing)
 WebCookieJar* WebCookieJar::get(bool isPrivateBrowsing)
 {
     MutexLocker lock(instanceMutex);
+    if (!isFirstInstanceCreated && fileSchemeCookiesEnabled)
+        net::CookieMonster::EnableFileScheme();
+    isFirstInstanceCreated = true;
     scoped_refptr<WebCookieJar>* instancePtr = instance(isPrivateBrowsing);
     if (!instancePtr->get())
         *instancePtr = new WebCookieJar(databaseDirectory(isPrivateBrowsing));
@@ -117,9 +122,6 @@ void WebCookieJar::cleanup(bool isPrivateBrowsing)
 WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
     : m_allowCookies(true)
 {
-    // This is needed for the page cycler. See http://b/2944150
-    net::CookieMonster::EnableFileScheme();
-
     // Setup the permissions for the file
     const char* cDatabasePath = databaseFilePath.c_str();
     mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
@@ -130,6 +132,7 @@ WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
         if (fd >= 0)
             close(fd);
     }
+
     FilePath cookiePath(databaseFilePath.c_str());
     m_cookieDb = new SQLitePersistentCookieStore(cookiePath);
     m_cookieStore = new net::CookieMonster(m_cookieDb.get(), 0);
@@ -225,6 +228,24 @@ void WebCookieJar::flush()
     semaphore->SendFlushRequest(get(false)->cookieStore()->GetCookieMonster());
     semaphore->SendFlushRequest(get(true)->cookieStore()->GetCookieMonster());
     semaphore->Wait(2);
+}
+
+bool WebCookieJar::acceptFileSchemeCookies()
+{
+    MutexLocker lock(instanceMutex);
+    return fileSchemeCookiesEnabled;
+}
+
+void WebCookieJar::setAcceptFileSchemeCookies(bool accept)
+{
+    // The Chromium HTTP stack only reflects changes to this flag when creating
+    // a new CookieMonster instance. While we could track whether any
+    // CookieMonster instances currently exist, this would be complicated and is
+    // not required, so we only allow this flag to be changed before the first
+    // instance is created.
+    MutexLocker lock(instanceMutex);
+    if (!isFirstInstanceCreated)
+        fileSchemeCookiesEnabled = accept;
 }
 
 }

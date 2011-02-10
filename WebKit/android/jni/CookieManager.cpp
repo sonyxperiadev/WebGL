@@ -155,6 +155,25 @@ static void flushCookieStore(JNIEnv*, jobject)
 #endif
 }
 
+static bool acceptFileSchemeCookies(JNIEnv*, jobject)
+{
+#if USE(CHROME_NETWORK_STACK)
+    return WebCookieJar::acceptFileSchemeCookies();
+#else
+    // File scheme cookies are always accepted with the Android HTTP stack.
+    return true;
+#endif
+}
+
+static void setAcceptFileSchemeCookies(JNIEnv*, jobject, jboolean accept)
+{
+#if USE(CHROME_NETWORK_STACK)
+    WebCookieJar::setAcceptFileSchemeCookies(accept);
+#else
+    // File scheme cookies are always accepted with the Android HTTP stack.
+#endif
+}
+
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
     { "nativeGetCookie", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getCookie },
@@ -165,6 +184,8 @@ static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
     { "nativeSetCookie", "(Ljava/lang/String;Ljava/lang/String;)V", (void*) setCookie },
     { "nativeFlushCookieStore", "()V", (void*) flushCookieStore },
+    { "nativeAcceptFileSchemeCookies", "()Z", (void*) acceptFileSchemeCookies },
+    { "nativeSetAcceptFileSchemeCookies", "(Z)V", (void*) setAcceptFileSchemeCookies },
 };
 
 int registerCookieManager(JNIEnv* env)
