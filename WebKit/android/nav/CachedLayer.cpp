@@ -177,7 +177,6 @@ void CachedLayer::Debug::print() const
 {
     CachedLayer* b = base();
     DUMP_NAV_LOGD("    // int mCachedNodeIndex=%d;\n", b->mCachedNodeIndex);
-    DUMP_NAV_LOGD("    // LayerAndroid* mLayer=%p;\n", b->mLayer);
     DUMP_NAV_LOGD("    // int mOffset=(%d, %d);\n",
         b->mOffset.x(), b->mOffset.y());
     DUMP_NAV_LOGD("    // int mUniqueId=%p;\n", b->mUniqueId);
