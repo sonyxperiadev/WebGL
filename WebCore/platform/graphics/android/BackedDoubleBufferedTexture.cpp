@@ -47,6 +47,8 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
     , m_usedLevel(-1)
     , m_config(config)
     , m_owner(0)
+    , m_delayedReleaseOwner(0)
+    , m_delayedRelease(false)
     , m_busy(false)
 {
     m_size.set(w, h);
@@ -117,15 +119,27 @@ TextureInfo* BackedDoubleBufferedTexture::producerLock()
 void BackedDoubleBufferedTexture::producerRelease()
 {
     DoubleBufferedTexture::producerRelease();
-    android::Mutex::Autolock lock(m_busyLock);
-    m_busy = false;
+    setNotBusy();
 }
 
 void BackedDoubleBufferedTexture::producerReleaseAndSwap()
 {
     DoubleBufferedTexture::producerReleaseAndSwap();
+    setNotBusy();
+}
+
+void BackedDoubleBufferedTexture::setNotBusy()
+{
     android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
+    if (m_delayedRelease) {
+        if (m_owner == m_delayedReleaseOwner) {
+            m_owner->removeOwned(this);
+            m_owner = 0;
+        }
+        m_delayedRelease = false;
+        m_delayedReleaseOwner = 0;
+    }
 }
 
 bool BackedDoubleBufferedTexture::busy()
@@ -175,24 +189,45 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
 {
     // if the writable texture is busy (i.e. currently being written to) then we
     // can't change the owner out from underneath that texture
-    android::Mutex::Autolock lock(m_busyLock);
-    if (!m_busy) {
+    m_busyLock.lock();
+    bool busy = m_busy;
+    m_busyLock.unlock();
+    if (!busy) {
+        // if we are not busy we can try to remove the texture from the layer;
+        // LayerAndroid::removeTexture() is protected by the same lock as
+        // LayerAndroid::paintBitmapGL(), so either we execute removeTexture()
+        // first and paintBitmapGL() will bail out, or we execute it after,
+        // and paintBitmapGL() will mark the texture as busy before
+        // relinquishing the lock. LayerAndroid::removeTexture() will call
+        // BackedDoubleBufferedTexture::release(), which will then do nothing
+        // if the texture is busy and we then don't return true.
+        bool proceed = true;
         if (m_owner && m_owner != owner)
-            m_owner->removeTexture(this);
-        m_owner = owner;
-        owner->addOwned(this);
-        return true;
+            proceed = m_owner->removeTexture(this);
+
+        if (proceed) {
+            m_owner = owner;
+            owner->addOwned(this);
+            return true;
+        }
     }
     return false;
 }
 
-void BackedDoubleBufferedTexture::release(TextureOwner* owner)
+bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
+    android::Mutex::Autolock lock(m_busyLock);
     if (m_owner == owner) {
-        m_owner->removeOwned(this);
-        m_owner = 0;
+        if (!m_busy) {
+            m_owner->removeOwned(this);
+            m_owner = 0;
+            return true;
+        } else {
+            m_delayedRelease = true;
+            m_delayedReleaseOwner = owner;
+        }
     }
-
+    return false;
 }
 
 } // namespace WebCore

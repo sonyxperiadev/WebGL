@@ -108,9 +108,9 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
     // We only update the layers if we are not currently
     // waiting for a tiledPage to be painted
     if (m_baseLayerUpdate) {
+        layer->safeRef();
         m_currentBaseLayer->safeUnref();
         m_currentBaseLayer = layer;
-        m_currentBaseLayer->safeRef();
     }
     inval(rect);
 }
@@ -118,9 +118,9 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
 void GLWebViewState::unlockBaseLayerUpdate() {
     m_baseLayerUpdate = true;
     android::Mutex::Autolock lock(m_baseLayerLock);
+    m_baseLayer->safeRef();
     m_currentBaseLayer->safeUnref();
     m_currentBaseLayer = m_baseLayer;
-    m_currentBaseLayer->safeRef();
     inval(m_invalidateRect);
     IntRect empty;
     m_invalidateRect = empty;
@@ -293,6 +293,19 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
+}
+
+bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColor color)
+{
+    m_baseLayerLock.lock();
+    BaseLayerAndroid* baseLayer = m_currentBaseLayer;
+    baseLayer->safeRef();
+    m_baseLayerLock.unlock();
+    if (!baseLayer)
+        return false;
+    bool ret = baseLayer->drawGL(rect, viewport, scale, color);
+    baseLayer->safeUnref();
+    return ret;
 }
 
 } // namespace WebCore
