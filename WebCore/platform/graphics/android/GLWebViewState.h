@@ -205,6 +205,9 @@ public:
         return false;
     }
 
+    bool drawGL(IntRect& rect, SkRect& viewport,
+                float scale, SkColor color = SK_ColorWHITE);
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 

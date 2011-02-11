@@ -489,7 +489,7 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
-    bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
+    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, scale);
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
 #endif
