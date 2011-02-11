@@ -2234,7 +2234,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
     // the text content, rather its container, is highlighted.
     Node* focusNode = selection->focusNode();
     if (focusNode->isElementNode()) {
-        focusNode = getImplicitAnchorOrFocusNode(selection->focusNode(),
+        focusNode = getImplicitBoundaryNode(selection->focusNode(),
                 selection->focusOffset(), direction);
         if (!focusNode)
             return String();
@@ -2270,9 +2270,9 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
     // Enforce that the selection does not cross anchor boundaries. This is
     // a workaround for the asymmetric behavior of WebKit while crossing
     // anchors.
-    anchorNode = getImplicitAnchorOrFocusNode(selection->anchorNode(),
+    anchorNode = getImplicitBoundaryNode(selection->anchorNode(),
             selection->anchorOffset(), direction);
-    focusNode = getImplicitAnchorOrFocusNode(selection->focusNode(),
+    focusNode = getImplicitBoundaryNode(selection->focusNode(),
             selection->focusOffset(), direction);
     if (anchorNode && focusNode && anchorNode != focusNode) {
         Node* inputControl = getIntermediaryInputElement(anchorNode, focusNode,
@@ -2357,7 +2357,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
     return markup;
 }
 
-Node* WebViewCore::getImplicitAnchorOrFocusNode(Node* node, unsigned offset, int direction)
+Node* WebViewCore::getImplicitBoundaryNode(Node* node, unsigned offset, int direction)
 {
     if (node->offsetInCharacters())
         return node;
@@ -2404,7 +2404,7 @@ Node* WebViewCore::getNextAnchorNode(Node* anchorNode, bool ignoreFirstNode, int
 void WebViewCore::advanceAnchorNode(DOMSelection* selection, int direction,
         String& markup, bool ignoreFirstNode, ExceptionCode& ec)
 {
-    Node* anchorNode = getImplicitAnchorOrFocusNode(selection->anchorNode(),
+    Node* anchorNode = getImplicitBoundaryNode(selection->anchorNode(),
             selection->anchorOffset(), direction);
     if (!anchorNode) {
         ec = NOT_FOUND_ERR;
@@ -2689,8 +2689,7 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
         Node* nextNode = currentNode->traverseNextNode();
         if (!isVisible(currentNode)) {
             if (currentRange) {
-                markup = markup + stripAppleSpanFromMarkup(
-                    currentRange->toHTML()).utf8().data();
+                markup = markup + currentRange->toHTML().utf8().data();
                 currentRange = 0;
             }
         } else {
@@ -2715,8 +2714,7 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
                     wholeRange->endOffset(), ec);
                 if (ec)
                     break;
-                markup = markup + stripAppleSpanFromMarkup(
-                    currentRange->toHTML()).utf8().data();
+                markup = markup + currentRange->toHTML().utf8().data();
             } else {
                 if (currentNode->offsetInCharacters())
                     currentRange->setEnd(currentNode,
@@ -2731,18 +2729,6 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
         currentNode = nextNode;
     }
     return markup.stripWhiteSpace();
-}
-
-String WebViewCore::stripAppleSpanFromMarkup(String markup)
-{
-  int fromIdx = markup.find("<span class=\"Apple-style-span\"");
-  while (fromIdx > -1) {
-      int toIdx = markup.find(">");
-      markup = markup.replace(fromIdx, toIdx - fromIdx + 1, "");
-      markup = markup.replace("</span>", "");
-      fromIdx = markup.find("<span class=\"Apple-style-span\"");
-  }
-  return markup;
 }
 
 void WebViewCore::selectAt(int x, int y)
