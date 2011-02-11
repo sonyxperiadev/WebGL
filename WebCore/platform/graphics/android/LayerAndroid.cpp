@@ -671,7 +671,9 @@ void LayerAndroid::computeTextureSize()
        // If we are under the maximum, and the layer inspected
        // needs a texture less than the maxLayerSize, use the full texture.
        if ((total < max) &&
-           (layer->fullTextureSize() < maxLayerSize)) {
+           (layer->fullTextureSize() < maxLayerSize) &&
+           (layer->getWidth() * m_scale < TilesManager::instance()->getMaxTextureSize()) &&
+           (layer->getHeight() * m_scale < TilesManager::instance()->getMaxTextureSize())) {
            IntRect full(0, 0, layer->getWidth(), layer->getHeight());
            layer->m_layerTextureRect = full;
            clipped = false;
