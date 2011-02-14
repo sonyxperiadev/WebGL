@@ -153,11 +153,9 @@ bool CachedFrame::checkBetween(BestData* best, Direction direction)
 }
 
 bool CachedFrame::checkRings(const CachedNode* node,
-        const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& nodeBounds,
         const WebCore::IntRect& testBounds) const
 {
-    return mRoot->checkRings(picture(node), rings, nodeBounds, testBounds);
+    return mRoot->checkRings(picture(node), node, testBounds);
 }
 
 bool CachedFrame::checkVisited(const CachedNode* node, Direction direction) const

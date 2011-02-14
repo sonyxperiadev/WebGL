@@ -145,8 +145,10 @@ public:
     void* parentGroup() const { return mParentGroup; }
     int parentIndex() const { return mParentIndex; }
     bool partRectsContains(const CachedNode* other) const;
+    const WebCore::IntRect& rawBounds() const { return mBounds; }
     void reset();
     WebCore::IntRect ring(const CachedFrame* , size_t part) const;
+    const WTF::Vector<WebCore::IntRect>& rings() const { return mCursorRing; }
     void setBounds(const WebCore::IntRect& bounds) { mBounds = bounds; }
     void setClippedOut(bool clipped) { mClippedOut = clipped; }
     void setColorIndex(int index) { mColorIndex = index; }
@@ -170,9 +172,11 @@ public:
     void setNavableRects() { mNavableRects = mCursorRing.size(); }
     void setParentGroup(void* group) { mParentGroup = group; }
     void setParentIndex(int parent) { mParentIndex = parent; }
+    void setSingleImage(bool single) { mSingleImage = single; }
     void setTabIndex(int index) { mTabIndex = index; }
     void setType(CachedNodeType type) { mType = type; }
     void show() { mIsHidden = false; }
+    bool singleImage() const { return mSingleImage; }
     int tabIndex() const { return mTabIndex; }
     int textInputIndex() const { return isTextInput() ? mDataIndex : -1; }
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
@@ -210,6 +214,7 @@ private:
     bool mIsTransparent : 1;
     bool mIsUnclipped : 1;
     bool mLast : 1;             // true if this is the last node in a group
+    bool mSingleImage : 1;
     bool mUseBounds : 1;
     bool mUseHitBounds : 1;
 #ifdef BROWSER_DEBUG

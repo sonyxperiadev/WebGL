@@ -577,10 +577,12 @@ public:
 class RingCheck : public CommonCheck {
 public:
     RingCheck(const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& bitBounds, const WebCore::IntRect& testBounds)
+        const WebCore::IntRect& bitBounds, const WebCore::IntRect& testBounds,
+        bool singleImage)
         : mTestBounds(testBounds)
         , mBitBounds(bitBounds)
         , mPushPop(false)
+        , mSingleImage(singleImage)
     {
         const WebCore::IntRect* r;
         for (r = rings.begin(); r != rings.end(); r++) {
@@ -812,7 +814,7 @@ protected:
                 && mType != kDrawSprite_Type && mType != kDrawBitmap_Type)
             return false;
         if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType
-            || !mAppendLikeTypes || mPushPop
+            || !mAppendLikeTypes || mPushPop || mSingleImage
             // if the last and current were not glyphs,
             // and the two bounds have a gap between, don't join them -- push
             // an empty between them
@@ -956,6 +958,7 @@ private:
     char mCh;
     bool mAppendLikeTypes;
     bool mPushPop;
+    bool mSingleImage;
 };
 
 class RingCanvas : public BoundsCanvas {
@@ -1107,16 +1110,16 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
     *xDeltaPtr = jiggleCheck.jiggle();
 }
 
-bool CachedRoot::checkRings(SkPicture* picture,
-        const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& nodeBounds,
+bool CachedRoot::checkRings(SkPicture* picture, const CachedNode* node,
         const WebCore::IntRect& testBounds) const
 {
     if (!picture)
         return false;
+    const WTF::Vector<WebCore::IntRect>& rings = node->rings();
+    const WebCore::IntRect& nodeBounds = node->rawBounds();
     IntRect bitBounds;
     calcBitBounds(nodeBounds, &bitBounds);
-    RingCheck ringCheck(rings, bitBounds, testBounds);
+    RingCheck ringCheck(rings, bitBounds, testBounds, node->singleImage());
     RingCanvas checker(&ringCheck);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, bitBounds.width(),
@@ -1478,7 +1481,7 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     const WebCore::IntRect& bounds = bestNode->bounds(frame);
     IntRect bitBounds;
     calcBitBounds(bounds, &bitBounds);
-    RingCheck ringCheck(rings, bitBounds, bounds);
+    RingCheck ringCheck(rings, bitBounds, bounds, bestNode->singleImage());
     RingCanvas checker(&ringCheck);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, bitBounds.width(),

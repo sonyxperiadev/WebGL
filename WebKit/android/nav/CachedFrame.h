@@ -83,8 +83,6 @@ public:
     WebCore::IntRect unadjustBounds(const CachedNode*,
         const WebCore::IntRect& ) const;
     bool checkRings(const CachedNode* node,
-        const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& nodeBounds,
         const WebCore::IntRect& testBounds) const;
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     size_t childCount() { return mCachedFrames.size(); }

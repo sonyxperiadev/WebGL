@@ -110,7 +110,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
     mFixedUpCursorRects = true;
     // if the hit-test rect doesn't intersect any other rect, use it
     if (mHitBounds != mBounds && mHitBounds.contains(mBounds) &&
-            frame->checkRings(this, mCursorRing, mBounds, mHitBounds)) {
+            frame->checkRings(this, mHitBounds)) {
         DBG_NAV_LOGD("use mHitBounds (%d,%d,%d,%d)", mHitBounds.x(),
             mHitBounds.y(), mHitBounds.width(), mHitBounds.height());
         mUseHitBounds = true;
@@ -122,7 +122,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
     // any other cursor ring bounds, use it
     IntRect sloppyBounds = mBounds;
     sloppyBounds.inflate(2); // give it a couple of extra pixels
-    if (frame->checkRings(this, mCursorRing, mBounds, sloppyBounds)) {
+    if (frame->checkRings(this, sloppyBounds)) {
         DBG_NAV_LOGD("use mBounds (%d,%d,%d,%d)", mBounds.x(),
             mBounds.y(), mBounds.width(), mBounds.height());
         mUseBounds = true;
@@ -424,6 +424,7 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mLast);
     DEBUG_PRINT_BOOL(mUseBounds);
     DEBUG_PRINT_BOOL(mUseHitBounds);
+    DEBUG_PRINT_BOOL(mSingleImage);
 }
 
 #endif
