@@ -83,7 +83,8 @@ public:
     void allowAllTextDetection() { mAllowableTypes = ALL_CACHEDNODE_BITS; }
     void buildCache(CachedRoot* root);
     static bool ConstructPartRects(Node* node, const IntRect& bounds, 
-        IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result);
+        IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result,
+        int* imageCountPtr);
     Node* currentFocus() const;
     void disallowAddressDetection() { mAllowableTypes = (CachedNodeBits) (
         mAllowableTypes & ~ADDRESS_CACHEDNODE_BIT); }

@@ -52,8 +52,7 @@ public:
     void calcBitBounds(const IntRect& , IntRect* ) const;
     int checkForCenter(int x, int y) const;
     void checkForJiggle(int* ) const;
-    bool checkRings(SkPicture* , const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& nodeBounds,
+    bool checkRings(SkPicture* , const CachedNode* ,
         const WebCore::IntRect& testBounds) const;
     WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }

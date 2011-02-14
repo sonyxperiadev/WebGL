@@ -547,6 +547,7 @@ void CacheBuilder::Debug::groups() {
             IntRect clipBounds = IntRect(0, 0, INT_MAX, INT_MAX);
             IntRect focusBounds = IntRect(0, 0, INT_MAX, INT_MAX);
             IntRect* rectPtr = &focusBounds;
+            int imageCount = 0;
             if (node->isTextNode()) {
                 Text* textNode = (Text*) node;
                 if (CacheBuilder::ConstructTextRects(textNode, 0, textNode, 
@@ -556,7 +557,7 @@ void CacheBuilder::Debug::groups() {
             } else {
                 IntRect nodeBounds = node->getRect();
                 if (CacheBuilder::ConstructPartRects(node, nodeBounds, rectPtr, 
-                        globalOffsetX, globalOffsetY, &rects) == false)
+                        globalOffsetX, globalOffsetY, &rects, &imageCount) == false)
                     continue;
             }
             unsigned arraySize = rects.size();
@@ -592,8 +593,8 @@ void CacheBuilder::Debug::groups() {
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
                             textBox->x(), textBox->y(), textBox->logicalWidth(), textBox->logicalHeight());
                         int baseline = textBox->renderer()->style(textBox->isFirstLineStyle())->font().ascent();
-                        mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
-                            baseline, ++rectIndex);
+                        mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d }, // %d ",
+                            baseline, imageCount, ++rectIndex);
                         wideString(node->textContent().characters() + textBox->start(), textBox->len(), true);
                         DUMP_NAV_LOGD("%.*s\n", mIndex, mBuffer);
                         textBox = textBox->nextTextBox();
@@ -1129,6 +1130,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         bool isFocus = node == focused;
         bool takesFocus = false;
         int columnGap = 0;
+        int imageCount = 0;
         TextDirection direction = LTR;
         String exported;
         CachedNodeType type = NORMAL_CACHEDNODETYPE;
@@ -1328,7 +1330,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             cachedNode.setBounds(bounds);
             cachedNode.mCursorRing.append(bounds);
         } else if (ConstructPartRects(node, bounds, &cachedNode.mBounds,
-                globalOffsetX, globalOffsetY, &cachedNode.mCursorRing) == false)
+                globalOffsetX, globalOffsetY, &cachedNode.mCursorRing,
+                &imageCount) == false)
             continue;
     keepTextNode:
         if (nodeRenderer) { // area tags' node->renderer() == 0
@@ -1412,6 +1415,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setOriginalAbsoluteBounds(originalAbsBounds);
         cachedNode.setParentIndex(last->mCachedNodeIndex);
         cachedNode.setParentGroup(ParentWithChildren(node));
+        cachedNode.setSingleImage(imageCount == 1);
         cachedNode.setTabIndex(tabIndex);
         cachedNode.setType(type);
         if (type == TEXT_INPUT_CACHEDNODETYPE) {
@@ -3024,7 +3028,8 @@ bool CacheBuilder::AddPartRect(IntRect& bounds, int x, int y,
 }
 
 bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds, 
-    IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result)
+    IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result,
+    int* imageCountPtr)
 {
     WTF::Vector<ClipColumnTracker> clipTracker(1);
     ClipColumnTracker* baseTracker = clipTracker.data(); // sentinel
@@ -3075,6 +3080,7 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
                 bounds.intersect(clipBounds);
                 if (AddPartRect(bounds, x, y, result, focusBounds) == false)
                     return false;
+                *imageCountPtr += 1;
                 continue;
             } 
             if (hasClip == false) {
