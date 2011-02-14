@@ -84,19 +84,26 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
         if (textureInfo) {
-            // the layer's shader draws the content inverted so we must undo
-            // that change in the transformation matrix
-            TransformationMatrix m = drawTransform();
-            if (!m_isContentInverted) {
-                m.flipY();
-                m.translate(0, -getSize().height());
-            }
 
             SkRect rect;
             rect.set(0, 0, getSize().width(), getSize().height());
-            TilesManager::instance()->shader()->drawLayerQuad(m, rect,
-                                                              textureInfo->m_textureId,
-                                                              1.0f); //TODO fix this m_drawOpacity
+
+            if (textureInfo->m_width != 0 && textureInfo->m_height != 0) {
+                // the layer's shader draws the content inverted so we must undo
+                // that change in the transformation matrix
+                TransformationMatrix m = drawTransform();
+                if (!m_isContentInverted) {
+                    m.flipY();
+                    m.translate(0, -getSize().height());
+                }
+
+                bool forceBlending = textureInfo->m_internalFormat == GL_RGBA ||
+                                     textureInfo->m_internalFormat == GL_ALPHA;
+                TilesManager::instance()->shader()->drawLayerQuad(m, rect,
+                                                                  textureInfo->m_textureId,
+                                                                  1.0f, forceBlending);
+            }
+
             if (!rect.isEmpty())
                 needsInval = false;
         }
