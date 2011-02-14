@@ -40,7 +40,8 @@ class ShaderProgram {
     void setViewport(SkRect& viewport);
     void drawQuad(SkRect& geometry, int textureId, float opacity);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
-                     SkRect& geometry, int textureId, float opacity);
+                     SkRect& geometry, int textureId, float opacity,
+                     bool forceBlending = false);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
     void setViewRect(const IntRect& viewRect);
@@ -49,10 +50,16 @@ class ShaderProgram {
     void clip(const FloatRect& rect);
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
 
+    void resetBlending();
+
  private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLuint createProgram(const char* vertexSource, const char* fragmentSource);
     void setProjectionMatrix(SkRect& geometry);
+
+    void setBlendingState(bool enableBlending);
+
+    bool m_blendingEnabled;
 
     int m_program;
     int m_videoProgram;

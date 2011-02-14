@@ -164,8 +164,10 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
             weakWebViewRef = env->NewWeakGlobalRef(webview);
         m_layer = new WebCore::MediaLayer(weakWebViewRef);
     }
-    else if (model != kOpenGL_ANPDrawingModel && m_layer != 0)
+    else if (model != kOpenGL_ANPDrawingModel && m_layer != 0) {
         m_layer->unref();
+        m_layer = 0;
+    }
 
     if (m_drawingModel != model) {
         // Trigger layer computation in RenderLayerCompositor
