@@ -113,6 +113,9 @@ private:
     ScopedRunnableMethodFactory<WebRequest> m_runnableFactory;
     bool m_wantToPause;
     bool m_isPaused;
+#ifdef LOG_REQUESTS
+    time_t m_startTime;
+#endif
 };
 
 } // namespace android
