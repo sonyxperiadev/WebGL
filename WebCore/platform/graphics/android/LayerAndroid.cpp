@@ -861,9 +861,10 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
                  uniqueId(), this, getWidth(), getHeight(),
                  m_drawingTexture, textureRect.x(), textureRect.y(),
                  textureRect.width(), textureRect.height());
+            //TODO determine when drawing if the alpha value is used.
             TilesManager::instance()->shader()->drawLayerQuad(m, bounds,
                                                               textureInfo->m_textureId,
-                                                              m_drawOpacity);
+                                                              m_drawOpacity, true);
         }
         m_drawingTexture->consumerRelease();
     }

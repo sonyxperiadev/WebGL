@@ -268,8 +268,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
                  (float)m_color.green() / 255.0,
                  (float)m_color.blue() / 255.0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     glViewport(left, top, width, height);
     ShaderProgram* shader = TilesManager::instance()->shader();
@@ -281,6 +279,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     glUniform1i(shader->textureSampler(), 0);
     shader->setViewRect(viewRect);
     shader->setViewport(visibleRect);
+    shader->resetBlending();
 
     ret = drawBasePictureInGL(visibleRect, scale);
 
