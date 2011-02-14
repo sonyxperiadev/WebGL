@@ -671,13 +671,12 @@ namespace android {
         Node* m_currentNodeDomNavigationAxis;
         void scrollNodeIntoView(Frame* frame, Node* node);
         bool isContentTextNode(Node* node);
-        String stripAppleSpanFromMarkup(String markup);
         Node* getIntermediaryInputElement(Node* fromNode, Node* toNode, int direction);
         bool isContentInputElement(Node* node);
         bool isDescendantOf(Node* parent, Node* node);
         void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
         Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
-        Node* getImplicitAnchorOrFocusNode(Node* node, unsigned offset, int direction);
+        Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
