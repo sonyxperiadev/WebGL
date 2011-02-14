@@ -65,7 +65,7 @@ module window {
 
         [DoNotCheckDomainSecurity] void focus();
         [DoNotCheckDomainSecurity] void blur();
-        [DoNotCheckDomainSecurity] void close();
+        [DoNotCheckDomainSecurity, CallWith=ScriptExecutionContext] void close();
 
         void print();
         void stop();
