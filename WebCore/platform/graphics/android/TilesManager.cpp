@@ -58,7 +58,7 @@
 // at least 5 * 3 = 15 textures. We can also enable offscreen textures
 #define EXPANDED_TILE_BOUNDS_X 1
 #define EXPANDED_TILE_BOUNDS_Y 4
-#define MAX_TEXTURE_ALLOCATION (5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
+#define MAX_TEXTURE_ALLOCATION (5+1+EXPANDED_TILE_BOUNDS_X*2)*(3+1+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
@@ -76,6 +76,11 @@ GLint TilesManager::getMaxTextureSize()
     if (!maxTextureSize)
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
     return maxTextureSize;
+}
+
+int TilesManager::getMaxTextureAllocation()
+{
+    return MAX_TEXTURE_ALLOCATION;
 }
 
 TilesManager::TilesManager()
@@ -369,7 +374,8 @@ int TilesManager::maxTextureCount()
 void TilesManager::setMaxTextureCount(int max)
 {
     XLOG("setMaxTextureCount: %d", max);
-    if (m_maxTextureCount >= max && m_maxTextureCount)
+    if (max > MAX_TEXTURE_ALLOCATION ||
+            (m_maxTextureCount >= max && m_maxTextureCount))
         return;
 
     android::Mutex::Autolock lock(m_texturesLock);
