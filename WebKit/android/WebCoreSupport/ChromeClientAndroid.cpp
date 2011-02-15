@@ -87,8 +87,6 @@ void ChromeClientAndroid::attachRootGraphicsLayer(WebCore::Frame*, WebCore::Grap
 {
     // frame is not used in Android as we should only get root graphics layer for the main frame
     m_rootGraphicsLayer = layer;
-    if (!layer)
-        return;
     scheduleCompositingLayerSync();
 }
 

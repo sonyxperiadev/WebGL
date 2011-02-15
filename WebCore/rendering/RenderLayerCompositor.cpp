@@ -1288,6 +1288,10 @@ bool RenderLayerCompositor::clippedByAncestor(RenderLayer* layer) const
 // into the hierarchy between this layer and its children in the z-order hierarchy.
 bool RenderLayerCompositor::clipsCompositingDescendants(const RenderLayer* layer) const
 {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (layer->hasOverflowScroll())
+        return false;
+#endif
     return layer->hasCompositingDescendant() &&
            (layer->renderer()->hasOverflowClip() || layer->renderer()->hasClip());
 }

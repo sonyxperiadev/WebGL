@@ -1021,14 +1021,6 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     bool selectionOnly  = paintBehavior & PaintBehaviorSelectionOnly;
 
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintForeground)) {
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        // Scroll to 0,0 and paint the entire contents, then scroll back the
-        // the original offset.
-        int x = m_owningLayer->scrollXOffset();
-        int y = m_owningLayer->scrollYOffset();
-        if (m_owningLayer->hasOverflowScroll())
-            m_owningLayer->scrollToOffset(0, 0, false, false);
-#endif
         // Set up the clip used when painting our children.
         setClip(context, paintDirtyRect, clipRectToApply);
         PaintInfo paintInfo(context, clipRectToApply, 
@@ -1067,10 +1059,6 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
 
         // Now walk the sorted list of children with positive z-indices.
         m_owningLayer->paintList(m_owningLayer->posZOrderList(), rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, 0);
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (m_owningLayer->hasOverflowScroll())
-            m_owningLayer->scrollToOffset(x, y, false, false);
-#endif
     }
     
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintMask)) {

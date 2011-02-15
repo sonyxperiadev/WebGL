@@ -271,7 +271,17 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
     if (point == m_position)
         return;
 
-    GraphicsLayer::setPosition(point);
+    FloatPoint pos(point);
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    // Add the scroll position back in. When scrolling a layer, all the children
+    // are positioned based on the content scroll. Adding the scroll position
+    // back in allows the children to draw based on 0,0.
+    RenderLayer* layer = renderLayerFromClient(m_client);
+    if (layer && layer->parent() && layer->parent()->hasOverflowScroll())
+        pos += layer->parent()->scrolledContentOffset();
+#endif
+
+    GraphicsLayer::setPosition(pos);
 
 #ifdef LAYER_DEBUG_2
     LOG("(%x) setPosition(%.2f,%.2f) pos(%.2f, %.2f) anchor(%.2f,%.2f) size(%.2f, %.2f)",
@@ -279,7 +289,7 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
         m_anchorPoint.x(), m_anchorPoint.y(), m_size.width(), m_size.height());
 #endif
     updateFixedPosition();
-    m_contentLayer->setPosition(point.x(), point.y());
+    m_contentLayer->setPosition(pos.x(), pos.y());
     askForSync();
 }
 
@@ -368,31 +378,6 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
     if (m_contentLayer->isRootLayer())
         return;
     if (m_drawsContent) {
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        RenderLayer* layer = renderLayerFromClient(m_client);
-        if (layer) {
-            if (layer->hasOverflowScroll() && !m_foregroundLayer) {
-                m_foregroundLayer = new ScrollableLayerAndroid();
-                m_foregroundClipLayer = new LayerAndroid(false);
-                m_foregroundClipLayer->setMasksToBounds(true);
-
-                m_foregroundClipLayer->addChild(m_foregroundLayer);
-                m_contentLayer->addChild(m_foregroundClipLayer);
-            } else if (layer->isRootLayer()
-                       && layer->renderer()->frame()->ownerRenderer()) {
-                // We have to do another check for scrollable content since an
-                // iframe might be compositing for other reasons.
-                FrameView* view = layer->renderer()->frame()->view();
-                if (view->hasOverflowScroll()) {
-                    // Replace the content layer with a scrollable layer.
-                    LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
-                    m_contentLayer->unref();
-                    m_contentLayer = layer;
-                }
-            }
-        }
-#endif
-
         m_haveContents = true;
         setNeedsDisplay();
     }
@@ -478,6 +463,79 @@ private:
     GraphicsLayerPaintingPhase m_originalPhase;
 };
 
+void GraphicsLayerAndroid::updateScrollingLayers()
+{
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    RenderLayer* layer = renderLayerFromClient(m_client);
+    if (!layer)
+        return;
+    bool hasOverflowScroll = m_foregroundLayer || m_contentLayer->contentIsScrollable();
+    bool layerNeedsOverflow = layer->hasOverflowScroll();
+    bool iframeNeedsOverflow = layer->isRootLayer() &&
+        layer->renderer()->frame()->ownerRenderer() &&
+        layer->renderer()->frame()->view()->hasOverflowScroll();
+
+    if (hasOverflowScroll && (layerNeedsOverflow || iframeNeedsOverflow)) {
+        // Already has overflow layers.
+        return;
+    }
+    if (!hasOverflowScroll && !layerNeedsOverflow && !iframeNeedsOverflow) {
+        // Does not need overflow layers.
+        return;
+    }
+    if (layerNeedsOverflow || iframeNeedsOverflow) {
+        ASSERT(!hasOverflowScroll);
+        if (layerNeedsOverflow) {
+            ASSERT(!m_foregroundLayer && !m_foregroundClipLayer);
+            m_foregroundLayer = new ScrollableLayerAndroid();
+            m_foregroundClipLayer = new LayerAndroid(false);
+            m_foregroundClipLayer->setMasksToBounds(true);
+            m_foregroundClipLayer->addChild(m_foregroundLayer);
+            m_contentLayer->addChild(m_foregroundClipLayer);
+        } else {
+            ASSERT(iframeNeedsOverflow && !m_contentLayer->contentIsScrollable());
+            // No need to copy the children as they will be removed and synced.
+            m_contentLayer->removeChildren();
+            // Replace the content layer with a scrollable layer.
+            LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
+            m_contentLayer->unref();
+            m_contentLayer = layer;
+            if (m_parent) {
+                // The content layer has changed so the parent needs to sync
+                // children.
+                static_cast<GraphicsLayerAndroid*>(m_parent)->m_needsSyncChildren = true;
+            }
+        }
+        // Need to rebuild our children based on the new structure.
+        m_needsSyncChildren = true;
+        askForSync();
+    } else {
+        ASSERT(hasOverflowScroll && !layerNeedsOverflow && !iframeNeedsOverflow);
+        ASSERT(m_contentLayer);
+        // Remove the foreground layers.
+        if (m_foregroundLayer) {
+            m_foregroundLayer->unref();
+            m_foregroundLayer = 0;
+            m_foregroundClipLayer->unref();
+            m_foregroundClipLayer = 0;
+        }
+        // No need to copy over children.
+        m_contentLayer->removeChildren();
+        LayerAndroid* layer = new LayerAndroid(*m_contentLayer);
+        m_contentLayer->unref();
+        m_contentLayer = layer;
+        if (m_parent) {
+            // The content layer has changed so the parent needs to sync
+            // children.
+            static_cast<GraphicsLayerAndroid*>(m_parent)->m_needsSyncChildren = true;
+        }
+        // Children are all re-parented.
+        m_needsSyncChildren = true;
+        askForSync();
+    }
+#endif
+}
+
 bool GraphicsLayerAndroid::repaint()
 {
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
@@ -506,8 +564,13 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundLayer->setSize(contentsRect.width(), contentsRect.height());
             // Paint everything else into the main recording canvas.
             phase.clear(GraphicsLayerPaintBackground);
-            if (!paintContext(m_foregroundLayer->recordContext(), contentsRect))
-                return false;
+
+            // Paint at 0,0.
+            IntSize scroll = layer->scrolledContentOffset();
+            layer->scrollToOffset(0, 0, true, false);
+            // At this point, it doesn't matter if painting failed.
+            (void) paintContext(m_foregroundLayer->recordContext(), contentsRect);
+            layer->scrollToOffset(scroll.width(), scroll.height(), true, false);
 
             // Construct the clip layer for masking the contents.
             IntRect clip = layer->renderer()->absoluteBoundingBoxRect();
@@ -830,10 +893,16 @@ void GraphicsLayerAndroid::syncChildren()
 {
     if (m_needsSyncChildren) {
         m_contentLayer->removeChildren();
-        if (m_foregroundClipLayer)
+        LayerAndroid* layer = m_contentLayer;
+        if (m_foregroundClipLayer) {
             m_contentLayer->addChild(m_foregroundClipLayer);
+            // Use the scrollable content layer as the parent of the children so
+            // that they move with the content.
+            layer = m_foregroundLayer;
+            layer->removeChildren();
+        }
         for (unsigned int i = 0; i < m_children.size(); i++)
-            m_contentLayer->addChild(m_children[i]->platformLayer());
+            layer->addChild(m_children[i]->platformLayer());
         m_needsSyncChildren = false;
     }
 }
@@ -857,6 +926,7 @@ void GraphicsLayerAndroid::syncCompositingState()
     for (unsigned int i = 0; i < m_children.size(); i++)
         m_children[i]->syncCompositingState();
 
+    updateScrollingLayers();
     syncChildren();
     syncMask();
 
