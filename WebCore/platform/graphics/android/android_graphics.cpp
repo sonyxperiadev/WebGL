@@ -109,14 +109,8 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
     inval->unite(m_lastBounds);
 }
 
-bool CursorRing::setup()
+void CursorRing::setIsButton(const CachedNode* node)
 {
-    m_node->localCursorRings(m_frame, &m_rings);
-    if (!m_rings.size()) {
-        DBG_NAV_LOG("!rings.size()");
-        m_viewImpl->m_hasCursorBounds = false;
-        return false;
-    }
     m_isButton = false;
     m_viewImpl->gButtonMutex.lock();
     // If this is a button drawn by us (rather than webkit) do not draw the
@@ -124,7 +118,7 @@ bool CursorRing::setup()
     // Should be in sync with recordButtons, since that will be called
     // before this.
     if (m_viewImpl->m_buttons.size() > 0) {
-        WebCore::Node* cursorPointer = (WebCore::Node*) m_node->nodePointer();
+        WebCore::Node* cursorPointer = (WebCore::Node*) node->nodePointer();
         Container* end = m_viewImpl->m_buttons.end();
         for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
             if (ptr->matches(cursorPointer)) {
@@ -134,6 +128,17 @@ bool CursorRing::setup()
         }
     }
     m_viewImpl->gButtonMutex.unlock();
+}
+
+bool CursorRing::setup()
+{
+    m_node->localCursorRings(m_frame, &m_rings);
+    if (!m_rings.size()) {
+        DBG_NAV_LOG("!rings.size()");
+        m_viewImpl->m_hasCursorBounds = false;
+        return false;
+    }
+    setIsButton(m_node);
     m_bounds = m_node->localBounds(m_frame);
     m_viewImpl->updateCursorBounds(m_root, m_frame, m_node);
 
