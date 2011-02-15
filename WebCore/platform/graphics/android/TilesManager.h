@@ -45,6 +45,7 @@ class TilesManager {
 public:
     static TilesManager* instance();
     static GLint getMaxTextureSize();
+    static int getMaxTextureAllocation();
 
     void removeOperationsForPage(TiledPage* page)
     {
