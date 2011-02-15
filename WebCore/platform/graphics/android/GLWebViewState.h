@@ -169,7 +169,7 @@ public:
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect);
-    void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&);
+    void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
 
     TiledPage* sibling(TiledPage* page);

@@ -303,10 +303,8 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
                 if (hasFocus) {
                     if (pressed || m_ring.m_isPressed)
                         state = RenderSkinAndroid::kPressed;
-                    else if (SkTime::GetMSecs() < m_ringAnimationEnd
-                        && m_ringAnimationEnd != UINT_MAX) {
+                    else if (SkTime::GetMSecs() < m_ringAnimationEnd)
                         state = RenderSkinAndroid::kFocused;
-                    }
                 }
             }
             ptr->updateFocusState(state);
@@ -390,6 +388,7 @@ bool drawCursorPreamble(CachedRoot* root)
         resetCursorRing();
         return false;
     }
+    m_ring.setIsButton(node);
     if (node->isHidden()) {
         DBG_NAV_LOG("node->isHidden()");
         m_viewImpl->m_hasCursorBounds = false;
@@ -473,6 +472,7 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
 
     SkPicture picture;
     IntRect rect(0, 0, 0, 0);
+    bool allowSame = false;
     if (extra) {
         LayerAndroid mainPicture(m_navPictureUI);
         PictureSet* content = m_baseLayer->content();
@@ -480,8 +480,15 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
             content->height());
         extra->draw(canvas, &mainPicture, &rect);
         picture.endRecording();
+    } else if (extras == DrawExtrasCursorRing && m_ring.m_isButton) {
+        const CachedFrame* cachedFrame;
+        const CachedNode* cachedCursor = root->currentCursor(&cachedFrame);
+        if (cachedCursor) {
+            rect = cachedCursor->bounds(cachedFrame);
+            allowSame = true;
+        }
     }
-    m_glWebViewState->setExtra(m_baseLayer, picture, rect);
+    m_glWebViewState->setExtra(m_baseLayer, picture, rect, allowSame);
 
     LayerAndroid* compositeLayer = compositeRoot();
     if (compositeLayer)

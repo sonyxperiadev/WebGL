@@ -54,6 +54,7 @@ public:
     CursorRing(WebViewCore* core) : m_viewImpl(core) {}
     virtual ~CursorRing() {}
     virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
+    void setIsButton(const CachedNode* );
     bool setup();
 private:
     friend class WebView;

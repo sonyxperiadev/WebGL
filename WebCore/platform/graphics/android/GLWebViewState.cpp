@@ -127,7 +127,7 @@ void GLWebViewState::unlockBaseLayerUpdate() {
 }
 
 void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
-    const IntRect& rect)
+    const IntRect& rect, bool allowSame)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (!m_baseLayerUpdate)
@@ -135,7 +135,7 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
 
     layer->setExtra(picture);
 
-    if (m_lastInval == rect)
+    if (!allowSame && m_lastInval == rect)
         return;
 
     if (!rect.isEmpty())
