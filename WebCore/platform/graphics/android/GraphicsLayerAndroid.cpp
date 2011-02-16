@@ -467,7 +467,7 @@ void GraphicsLayerAndroid::updateScrollingLayers()
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     RenderLayer* layer = renderLayerFromClient(m_client);
-    if (!layer)
+    if (!layer || !m_haveContents)
         return;
     bool hasOverflowScroll = m_foregroundLayer || m_contentLayer->contentIsScrollable();
     bool layerNeedsOverflow = layer->hasOverflowScroll();
@@ -508,7 +508,6 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         }
         // Need to rebuild our children based on the new structure.
         m_needsSyncChildren = true;
-        askForSync();
     } else {
         ASSERT(hasOverflowScroll && !layerNeedsOverflow && !iframeNeedsOverflow);
         ASSERT(m_contentLayer);
@@ -531,7 +530,6 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         }
         // Children are all re-parented.
         m_needsSyncChildren = true;
-        askForSync();
     }
 #endif
 }
