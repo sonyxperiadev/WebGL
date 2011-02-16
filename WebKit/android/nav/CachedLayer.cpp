@@ -55,8 +55,35 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
     temp.move(position.x(), position.y());
 
     // Add in any layer translation.
+    // FIXME: Should use bounds() and apply the entire transformation matrix.
     const FloatPoint& translation = aLayer->translation();
     temp.move(translation.x(), translation.y());
+
+    SkRect clip;
+    aLayer->bounds(&clip);
+
+    // Do not try to traverse the parent chain if this is the root as the parent
+    // will not be a LayerAndroid.
+    if (aLayer != root) {
+        LayerAndroid* parent = static_cast<LayerAndroid*>(aLayer->getParent());
+        while (parent) {
+            SkRect pClip;
+            parent->bounds(&pClip);
+
+            // Move our position into our parent's coordinate space.
+            clip.offset(pClip.fLeft, pClip.fTop);
+            // Clip our visible rectangle to the parent.
+            clip.intersect(pClip);
+
+            // Stop at the root.
+            if (parent == root)
+                break;
+            parent = static_cast<LayerAndroid*>(parent->getParent());
+        }
+    }
+
+    // Intersect the result with the visible clip.
+    temp.intersect(clip);
 
     IntRect result = enclosingIntRect(temp);
 
