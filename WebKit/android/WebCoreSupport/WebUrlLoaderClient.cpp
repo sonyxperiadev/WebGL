@@ -222,7 +222,7 @@ void WebUrlLoaderClient::downloadFile()
     if (m_response) {
         std::string contentDisposition;
         m_response->getHeader("content-disposition", &contentDisposition);
-        m_webFrame->downloadStart(m_request->getUrl(), m_request->getUserAgent(), contentDisposition, m_response->getMimeType(), m_response->getExpectedSize());
+        m_webFrame->downloadStart(m_response->getUrl(), m_request->getUserAgent(), contentDisposition, m_response->getMimeType(), m_response->getExpectedSize());
 
         m_isCertMimeType = isMimeTypeForCert(m_response->getMimeType());
         // Currently, only certificate mime type needs to receive the data.
