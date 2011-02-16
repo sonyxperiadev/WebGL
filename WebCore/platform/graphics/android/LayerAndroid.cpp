@@ -75,7 +75,8 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_reservedTexture(0),
     m_pictureUsed(0),
     m_requestSent(false),
-    m_scale(1)
+    m_scale(1),
+    m_lastComputeTextureSize(0)
 {
     m_backgroundColor = 0;
 
@@ -123,6 +124,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_dirty = layer.m_dirty;
     m_pictureUsed = layer.m_pictureUsed;
     m_scale = layer.m_scale;
+    m_lastComputeTextureSize = 0;
 
     for (int i = 0; i < layer.countChildren(); i++)
         addChild(layer.getChild(i)->copy())->unref();
@@ -147,7 +149,8 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_drawingTexture(0),
     m_reservedTexture(0),
     m_requestSent(false),
-    m_scale(1)
+    m_scale(1),
+    m_lastComputeTextureSize(0)
 {
     m_backgroundColor = 0;
     m_dirty = false;
@@ -651,8 +654,12 @@ static inline bool compareLayerFullSize(const LayerAndroid* a, const LayerAndroi
     return sizeA > sizeB;
 }
 
-void LayerAndroid::computeTextureSize()
+void LayerAndroid::computeTextureSize(double time)
 {
+   if (m_lastComputeTextureSize + s_computeTextureDelay > time)
+       return;
+   m_lastComputeTextureSize = time;
+
    // First, we collect the layers, computing m_layerTextureRect
    // as being clipped against the viewport
    Vector <LayerAndroid*> layers;
