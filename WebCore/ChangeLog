@@ -1,3 +1,234 @@
+2011-01-30  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        Dangling form associated elements should not be registered on the document
+        https://bugs.webkit.org/show_bug.cgi?id=53223
+
+        Adds insertedIntoDocument() and remvoedFromDocument() to
+        FormAssociatedElement class to register the element on the document
+        if and only if it actually inserted into (removed from) the document.
+
+        Test: fast/forms/dangling-form-element-crash.html
+
+        * html/FormAssociatedElement.cpp:
+        (WebCore::FormAssociatedElement::insertedIntoDocument): Added.
+        (WebCore::FormAssociatedElement::removedFromDocument): Ditto.
+        (WebCore::FormAssociatedElement::insertedIntoTree): Don't register
+        the element to a document.
+        (WebCore::FormAssociatedElement::removedFromTree): Don't unregister
+        the element from a document.
+        * html/FormAssociatedElement.h:
+        * html/HTMLFormControlElement.cpp:
+        (WebCore::HTMLFormControlElement::insertedIntoDocument): Added.
+        (WebCore::HTMLFormControlElement::removedFromDocument): Ditto.
+        * html/HTMLFormControlElement.h:
+        * html/HTMLObjectElement.cpp:
+        (WebCore::HTMLObjectElement::insertedIntoDocument): Calls
+        FormAssociatedElement::insertedIntoDocument().
+        (WebCore::HTMLObjectElement::removedFromDocument): Calls
+        FormAssociatedElement::removedFromDocument().
+
+2011-02-08  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        drawElements should check if a buffer is bound to ELEMENT_ARRAY_BUFFER
+        https://bugs.webkit.org/show_bug.cgi?id=54017
+
+        * html/canvas/WebGLRenderingContext.cpp:
+        (WebCore::WebGLRenderingContext::drawElements):
+
+2011-02-02  Chris Evans  <cevans@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        window.find() can fail when switching case sensitivity
+        https://bugs.webkit.org/show_bug.cgi?id=53654
+
+        Reset the pattern to a safe one when done, to avoid usearch_reset()
+        indirectly touching the old, stale text pointer.
+
+        Test: fast/text/find-window.html
+
+        * editing/TextIterator.cpp:
+        (WebCore::SearchBuffer::~SearchBuffer): leave a safe pattern buffer when done.
+
+2011-02-03  Justin Schuh  <jschuh@chromium.org>
+
+        Reviewed by Dirk Schulze.
+
+        startAnimations should use a local, RefCounted Vector.
+        https://bugs.webkit.org/show_bug.cgi?id=53458
+
+        Test: svg/custom/use-animation-in-fill.html
+
+        * svg/SVGDocumentExtensions.cpp:
+        (WebCore::SVGDocumentExtensions::startAnimations):
+
+2011-02-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Enforce more limits on root inline boxes height calculations.
+        https://bugs.webkit.org/show_bug.cgi?id=53729
+
+        Test: fast/overflow/overflow-height-float-not-removed-crash.html
+
+        * rendering/RenderBlock.cpp:
+        (WebCore::RenderBlock::removeFloatingObject): prevent logicalBottom to
+        become negative when logicalTop is INT_MAX.
+        (WebCore::RenderBlock::markLinesDirtyInBlockRange): when logicalBottom
+        is INT_MAX, we should dirty everything. So, we bail out to make
+        afterLowest equal to the lastRootBox() or lowestDirstLine.
+
+2011-01-26  Emil A Eklund  <eae@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Remove cached document reference from CSSStyleSheet and XSLStyleSheet.
+        https://bugs.webkit.org/show_bug.cgi?id=52084
+
+        Test: fast/dom/css-delete-doc.html
+
+        * css/CSSMediaRule.cpp:
+        (WebCore::CSSMediaRule::insertRule):
+        (WebCore::CSSMediaRule::deleteRule):
+        * css/CSSStyleSheet.cpp:
+        (WebCore::CSSStyleSheet::CSSStyleSheet):
+        (WebCore::CSSStyleSheet::document):
+        * css/CSSStyleSheet.h:
+        * xml/XSLStyleSheet.h:
+        (WebCore::XSLStyleSheet::parentStyleSheet):
+        * xml/XSLStyleSheetLibxslt.cpp:
+        (WebCore::XSLStyleSheet::XSLStyleSheet):
+        (WebCore::XSLStyleSheet::cachedResourceLoader):
+        (WebCore::XSLStyleSheet::setParentStyleSheet):
+        (WebCore::XSLStyleSheet::ownerDocument):
+        * xml/XSLStyleSheetQt.cpp:
+        (WebCore::XSLStyleSheet::XSLStyleSheet):
+        (WebCore::XSLStyleSheet::cachedResourceLoader):
+        (WebCore::XSLStyleSheet::ownerDocument):
+
+2011-01-27  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dave Hyatt.
+
+        If beforeChild is wrapped in an anonymous table section, we need to
+        go the parent to find it and use it before adding childs to table.
+        https://bugs.webkit.org/show_bug.cgi?id=53276
+
+        We need to make sure that beforeChild's parent is "this" before calling
+        RenderBox::addChild. The previous condition in while is too restrictive
+        and fails to calculate the right beforeChild value when its display
+        style is table caption.
+        Test: fast/table/before-child-non-table-section-add-table-crash.html
+
+        * rendering/RenderTable.cpp:
+        (WebCore::RenderTable::addChild):
+
+2011-02-01  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Do not add a node in the document's stylesheet candidate node list if the
+        node is already removed from document.
+        https://bugs.webkit.org/show_bug.cgi?id=53441
+
+        Test: fast/css/stylesheet-candidate-nodes-crash.xhtml
+
+        * dom/Document.cpp:
+        (WebCore::Document::addStyleSheetCandidateNode):
+
+2011-01-31  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Check the textarea node still exists in document before casting
+        it to HTMLTextAreaElement.
+        https://bugs.webkit.org/show_bug.cgi?id=53429
+
+        Test: fast/forms/textarea-node-removed-from-document-crash.html
+
+        * rendering/RenderTextControlMultiLine.cpp:
+        (WebCore::RenderTextControlMultiLine::~RenderTextControlMultiLine):
+
+2011-02-02  Jian Li  <jianli@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [V8] Accessing DataView with index of -1 returns 0, doesn't throw
+        https://bugs.webkit.org/show_bug.cgi?id=53559
+
+        Added test cases to cover this in fast/canvas/webgl/data-view-test.html.
+
+        * html/canvas/DataView.h:
+        (WebCore::DataView::beyondRange):
+
+2011-02-06  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Dirk Schulze.
+
+        Fix potential buffer overrun in SVGTextRunWalker::walk()
+        https://bugs.webkit.org/show_bug.cgi?id=53870
+
+        A new String was created from a UChar* with a 'length' argument
+        that could be greater than the number of UChars available.
+
+        * svg/SVGFont.cpp:
+        (WebCore::SVGTextRunWalker::walk):
+
+2011-02-02  Cris Neckar  <cdn@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Refcount domwindows when dispatching device orientation events.
+        https://bugs.webkit.org/show_bug.cgi?id=53623
+
+        Test: fast/events/device-orientation-crash.html
+
+        * dom/DeviceMotionController.cpp:
+        (WebCore::DeviceMotionController::timerFired):
+        (WebCore::DeviceMotionController::didChangeDeviceMotion):
+        * dom/DeviceMotionController.h:
+        * dom/DeviceOrientationController.cpp:
+        (WebCore::DeviceOrientationController::timerFired):
+        (WebCore::DeviceOrientationController::didChangeDeviceOrientation):
+        * dom/DeviceOrientationController.h:
+
+2011-01-27  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Recalc table sections if needed before calculating the first line
+        box baseline.
+        https://bugs.webkit.org/show_bug.cgi?id=53265
+
+        When we try to calculate the baseline position of a table cell,
+        we recurse through all the child sibling boxes (when children are
+        non inline) and add their first linebox baseline values. If one of
+        the children is a table with pending section recalc, we will access
+        wrong table section values. We recalc table sections if it is needed.
+
+        Test: fast/table/recalc-section-first-body-crash-main.html
+
+        * rendering/RenderTable.cpp:
+        (WebCore::RenderTable::firstLineBoxBaseline):
+
+2011-01-27  Cris Neckar  <cdn@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Clear the parent on a css keyframe's m_style when removing it from the stylesheet.
+        https://bugs.webkit.org/show_bug.cgi?id=52320
+
+        Test: fast/css/css-keyframe-style-crash.html
+
+        * css/CSSRuleList.cpp:
+        (WebCore::CSSRuleList::deleteRule):
+        * css/WebKitCSSKeyframesRule.cpp:
+        (WebCore::WebKitCSSKeyframesRule::~WebKitCSSKeyframesRule):
+
 2011-01-20  Xiaomei Ji  <xji@chromium.org>
 
         Reviewed by Dan Bernstein.

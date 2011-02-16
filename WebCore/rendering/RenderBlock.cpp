@@ -117,6 +117,7 @@ RenderBlock::RenderBlock(Node* node)
       , m_continuation(0)
       , m_rareData(0)
       , m_lineHeight(-1)
+      , m_beingDestroyed(false)
 {
     setChildrenInline(true);
 }
@@ -151,6 +152,9 @@ RenderBlock::~RenderBlock()
 
 void RenderBlock::destroy()
 {
+    // Mark as being destroyed to avoid trouble with merges in removeChild().
+    m_beingDestroyed = true;
+
     // Make sure to destroy anonymous children first while they are still connected to the rest of the tree, so that they will
     // properly dirty line boxes that they are removed from. Effects that do :before/:after only on hover could crash otherwise.
     children()->destroyLeftoverChildren();
@@ -930,8 +934,8 @@ static bool canMergeContiguousAnonymousBlocks(RenderObject* oldChild, RenderObje
     if (oldChild->documentBeingDestroyed() || oldChild->isInline() || oldChild->virtualContinuation())
         return false;
 
-    if ((prev && (!prev->isAnonymousBlock() || toRenderBlock(prev)->continuation()))
-        || (next && (!next->isAnonymousBlock() || toRenderBlock(next)->continuation())))
+    if ((prev && (!prev->isAnonymousBlock() || toRenderBlock(prev)->continuation() || toRenderBlock(prev)->beingDestroyed()))
+        || (next && (!next->isAnonymousBlock() || toRenderBlock(next)->continuation() || toRenderBlock(next)->beingDestroyed())))
         return false;
 
     // FIXME: This check isn't required when inline run-ins can't be split into continuations.
@@ -1007,10 +1011,6 @@ void RenderBlock::removeChild(RenderObject* oldChild)
             nextBlock->deleteLineBoxTree();
             nextBlock->destroy();
             next = 0;
-
-            // FIXME: Revert the continuation change done above.
-            if (oldChildBlock)
-                oldChildBlock->setContinuation(0);
         }
     }
 
@@ -3033,7 +3033,7 @@ void RenderBlock::removeFloatingObject(RenderBox* o)
                     // Special-case zero- and less-than-zero-height floats: those don't touch
                     // the line that they're on, but it still needs to be dirtied. This is
                     // accomplished by pretending they have a height of 1.
-                    logicalBottom = max(logicalBottom, logicalTop + 1);
+                    logicalBottom = max(logicalBottom, logicalTop == numeric_limits<int>::max() ? logicalTop : logicalTop + 1);
                     markLinesDirtyInBlockRange(0, logicalBottom);
                 }
                 m_floatingObjects->removeRef(it.current());
@@ -3807,7 +3807,7 @@ void RenderBlock::markLinesDirtyInBlockRange(int logicalTop, int logicalBottom, 
 
     RootInlineBox* lowestDirtyLine = lastRootBox();
     RootInlineBox* afterLowest = lowestDirtyLine;
-    while (lowestDirtyLine && lowestDirtyLine->blockLogicalHeight() >= logicalBottom) {
+    while (lowestDirtyLine && lowestDirtyLine->blockLogicalHeight() >= logicalBottom && logicalBottom < numeric_limits<int>::max()) {
         afterLowest = lowestDirtyLine;
         lowestDirtyLine = lowestDirtyLine->prevRootBox();
     }
