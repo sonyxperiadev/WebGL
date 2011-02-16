@@ -116,12 +116,11 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale)
+bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double currentTime)
 {
     if (!m_glWebViewState)
         return false;
 
-    double currentTime = WTF::currentTime();
     bool goingDown = m_previousVisible.fTop - viewport.fTop <= 0;
     bool goingLeft = m_previousVisible.fLeft - viewport.fLeft >= 0;
 
@@ -282,7 +281,8 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     shader->setViewRect(viewRect);
     shader->setViewport(visibleRect);
 
-    ret = drawBasePictureInGL(visibleRect, scale);
+    double currentTime = WTF::currentTime();
+    ret = drawBasePictureInGL(visibleRect, scale, currentTime);
 
     if (countChildren() >= 1) {
         LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
@@ -311,7 +311,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
             scale = m_glWebViewState->futureScale();
         }
         compositedRoot->setScale(scale);
-        compositedRoot->computeTextureSize();
+        compositedRoot->computeTextureSize(currentTime);
         compositedRoot->reserveGLTextures();
 
 #ifdef DEBUG
@@ -336,12 +336,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
-
-#ifdef DEBUG_COUNT
-    XLOG("GLWebViewState(%d) DoubleBufferedTexture(%d) BaseTile(%d) TileSet(%d) TiledPage(%d)",
-         GLWebViewState::count(), DoubleBufferedTexture::count(),
-         BaseTile::count(), TileSet::count(), TiledPage::count());
-#endif // DEBUG_COUNT
 
 #endif // USE(ACCELERATED_COMPOSITING)
 #ifdef DEBUG

@@ -111,7 +111,7 @@ public:
     void showLayers(int indent = 0);
 
     // Texture size functions
-    void computeTextureSize();
+    void computeTextureSize(double time);
     void collect(Vector<LayerAndroid*>& layers,
                  int& size);
     int clippedTextureSize() const;
@@ -324,6 +324,10 @@ private:
     bool m_requestSent;
 
     float m_scale;
+
+    // We try to not always compute the texture size, as this is quite heavy
+    static const double s_computeTextureDelay = 0.2; // 200 ms
+    double m_lastComputeTextureSize;
 
     // This mutex serves two purposes. (1) It ensures that certain operations
     // happen atomically and (2) it makes sure those operations are synchronized

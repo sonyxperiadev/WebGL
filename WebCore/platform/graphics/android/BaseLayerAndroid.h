@@ -59,7 +59,7 @@ public:
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
-    bool drawBasePictureInGL(SkRect& viewport, float scale);
+    bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime);
 
     GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;
