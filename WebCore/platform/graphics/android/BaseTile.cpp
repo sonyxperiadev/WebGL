@@ -265,18 +265,18 @@ void BaseTile::paintBitmap()
 
     canvas->restore();
 
-#ifdef DEBUG
-    SkPaint paint;
-    paint.setARGB(128, 255, 0, 0);
-    paint.setStrokeWidth(3);
-    canvas->drawLine(0, 0, tileWidth, tileHeight, paint);
-    paint.setARGB(128, 0, 255, 0);
-    canvas->drawLine(0, tileHeight, tileWidth, 0, paint);
-    paint.setARGB(128, 0, 0, 255);
-    canvas->drawLine(0, 0, tileWidth, 0, paint);
-    canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
-    drawTileInfo(canvas, texture, x, y, scale);
-#endif
+    if (TilesManager::instance()->getShowVisualIndicator()) {
+        SkPaint paint;
+        paint.setARGB(128, 255, 0, 0);
+        paint.setStrokeWidth(3);
+        canvas->drawLine(0, 0, tileWidth, tileHeight, paint);
+        paint.setARGB(128, 0, 255, 0);
+        canvas->drawLine(0, tileHeight, tileWidth, 0, paint);
+        paint.setARGB(128, 0, 0, 255);
+        canvas->drawLine(0, 0, tileWidth, 0, paint);
+        canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
+        drawTileInfo(canvas, texture, x, y, scale);
+    }
 
     texture->setTile(x, y);
     texture->producerUpdate(textureInfo);

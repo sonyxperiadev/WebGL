@@ -438,7 +438,7 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
         m_glWebViewState = new GLWebViewState(&m_viewImpl->gButtonMutex);
         if (m_baseLayer->content()) {
             IntRect rect(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
-            m_glWebViewState->setBaseLayer(m_baseLayer, rect);
+            m_glWebViewState->setBaseLayer(m_baseLayer, rect, false);
         }
     }
 
@@ -1383,11 +1383,11 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
-void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect)
+void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect, bool showVisualIndicator)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (m_glWebViewState)
-        m_glWebViewState->setBaseLayer(layer, rect);
+        m_glWebViewState->setBaseLayer(layer, rect, showVisualIndicator);
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -1770,11 +1770,12 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
     return false;
 }
 
-static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject jrect)
+static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject jrect,
+                                jboolean showVisualIndicator)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
     WebCore::IntRect rect = jrect_to_webrect(env, jrect);
-    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, rect);
+    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, rect, showVisualIndicator);
 }
 
 static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
@@ -2566,7 +2567,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(ILandroid/graphics/Rect;)V",
+    { "nativeSetBaseLayer", "(ILandroid/graphics/Rect;Z)V",
         (void*) nativeSetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
         (void*) nativeReplaceBaseContent },

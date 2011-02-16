@@ -92,7 +92,8 @@ GLWebViewState::~GLWebViewState()
 #endif
 }
 
-void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
+void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
+                                  bool showVisualIndicator)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (!layer) {
@@ -113,6 +114,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect)
         m_currentBaseLayer = layer;
     }
     inval(rect);
+
+    TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
 }
 
 void GLWebViewState::unlockBaseLayerUpdate() {

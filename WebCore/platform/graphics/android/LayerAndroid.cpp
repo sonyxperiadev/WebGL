@@ -992,25 +992,25 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
         canvas->drawPicture(*m_extra);
     m_atomicSync.unlock();
 
-#ifdef LAYER_DEBUG
-    float w = getSize().width();
-    float h = getSize().height();
-    SkPaint paint;
-    paint.setARGB(128, 255, 0, 0);
-    canvas->drawLine(0, 0, w, h, paint);
-    canvas->drawLine(0, h, w, 0, paint);
-    paint.setARGB(128, 0, 255, 0);
-    canvas->drawLine(0, 0, 0, h, paint);
-    canvas->drawLine(0, h, w, h, paint);
-    canvas->drawLine(w, h, w, 0, paint);
-    canvas->drawLine(w, 0, 0, 0, paint);
+    if (TilesManager::instance()->getShowVisualIndicator()) {
+        float w = getSize().width();
+        float h = getSize().height();
+        SkPaint paint;
+        paint.setARGB(128, 255, 0, 0);
+        canvas->drawLine(0, 0, w, h, paint);
+        canvas->drawLine(0, h, w, 0, paint);
+        paint.setARGB(128, 0, 255, 0);
+        canvas->drawLine(0, 0, 0, h, paint);
+        canvas->drawLine(0, h, w, h, paint);
+        canvas->drawLine(w, h, w, 0, paint);
+        canvas->drawLine(w, 0, 0, 0, paint);
 
-    if (m_isFixed) {
-      SkPaint paint;
-      paint.setARGB(80, 255, 0, 0);
-      canvas->drawRect(m_fixedRect, paint);
+        if (m_isFixed) {
+          SkPaint paint;
+          paint.setARGB(80, 255, 0, 0);
+          canvas->drawRect(m_fixedRect, paint);
+        }
     }
-#endif
 }
 
 void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)

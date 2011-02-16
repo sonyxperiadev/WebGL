@@ -88,6 +88,7 @@ TilesManager::TilesManager()
     , m_maxTextureCount(0)
     , m_expandedTileBounds(false)
     , m_generatorReady(false)
+    , m_showVisualIndicator(false)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);

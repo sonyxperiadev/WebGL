@@ -108,6 +108,14 @@ public:
         m_expandedTileBounds = enabled;
     }
 
+    bool getShowVisualIndicator() {
+        return m_showVisualIndicator;
+    }
+
+    void setShowVisualIndicator(bool showVisualIndicator) {
+        m_showVisualIndicator = showVisualIndicator;
+    }
+
 private:
 
     TilesManager();
@@ -128,6 +136,8 @@ private:
     bool m_expandedTileBounds;
 
     bool m_generatorReady;
+
+    bool m_showVisualIndicator;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 
