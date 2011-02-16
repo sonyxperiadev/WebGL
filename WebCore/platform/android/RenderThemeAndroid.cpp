@@ -52,9 +52,15 @@ namespace WebCore {
 // dropdowns, we want a much smaller height, which encompasses the text.
 const int listboxPadding = 5;
 
-// This is the color of selection in a textfield.  It was obtained by checking
-// the color of selection in TextViews in the system.
-const RGBA32 selectionColor = makeRGB(255, 146, 0);
+// This is the color of selection in a textfield.  It was computed from
+// frameworks/base/core/res/res/values/colors.xml, which uses #9983CC39
+// (decimal a = 153, r = 131, g = 204, b = 57)
+// for all four highlighted text values. Blending this with white yields:
+// R = (131 * 153 + 255 * (255 - 153)) / 255  -> 180.6
+// G = (204 * 153 + 255 * (255 - 153)) / 255  -> 224.4
+// B = ( 57 * 153 + 255 * (255 - 153)) / 255  -> 136.2
+
+const RGBA32 selectionColor = makeRGB(181, 224, 136);
 
 static SkCanvas* getCanvasFromInfo(const PaintInfo& info)
 {
