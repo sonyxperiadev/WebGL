@@ -176,9 +176,6 @@ protected:
 private:
     bool shouldRepaint(const IntRect& r) const;
         
-#ifdef ANDROID_FLATTEN_FRAMESET
-public: // used by layout function
-#endif
     int docHeight() const;
     int docLeft() const;
     int docWidth(int leftOverflow) const;

@@ -28,12 +28,6 @@
 #include "HTMLFrameElement.h"
 #include "RenderView.h"
 
-#ifdef ANDROID_FLATTEN_FRAMESET
-#include "Frame.h"
-#include "Document.h"
-#include "RenderView.h"
-#endif
-
 namespace WebCore {
 
 RenderFrame::RenderFrame(HTMLFrameElement* frame)
@@ -68,29 +62,29 @@ void RenderFrame::viewCleared()
 #ifdef ANDROID_FLATTEN_FRAMESET
 void RenderFrame::layout()
 {
-    if (widget() && widget()->isFrameView()) {
-        FrameView* view = static_cast<FrameView*>(widget());
-        RenderView* root = NULL;
-        if (view->frame() && view->frame()->document() &&
-            view->frame()->document()->renderer() &&
-            view->frame()->document()->renderer()->isRenderView())
-            root = static_cast<RenderView*>(view->frame()->document()->renderer());
-        if (root) {
-            // Resize the widget so that the RenderView will layout according to those dimensions.
-            view->resize(width(), height());
-            view->layout();
-            // We can only grow in width and height because if positionFrames gives us a width and we become smaller,
-            // then the fixup process of forcing the frame to fill extra space will fail.
-            const int docLeft = root->docLeft();
-            if (width() > root->docWidth(docLeft)) {
-                view->resize(root->docWidth(docLeft), 0);
-                view->layout();
-            }
-            // Honor the height set by RenderFrameSet::positionFrames unless our document height is larger.
-            setHeight(max(root->docHeight(), height()));
-            setWidth(max(root->docWidth(docLeft), width()));
-        }
+    FrameView* view = static_cast<FrameView*>(widget());
+    RenderView* root = view ? view->frame()->contentRenderer() : 0;
+    if (!width() || !height() || !root) {
+        setNeedsLayout(false);
+        return;
     }
+
+    HTMLFrameElementBase* element = static_cast<HTMLFrameElementBase*>(node());
+    if (element->scrollingMode() == ScrollbarAlwaysOff && !root->isFrameSet()) {
+        setNeedsLayout(false);
+        return;
+    }
+
+    int layoutWidth = width();
+
+    setWidth(max(view->contentsWidth() + borderAndPaddingWidth(), width()));
+    setHeight(max(view->contentsHeight() + borderAndPaddingHeight(), height()));
+
+    // This should trigger a layout of the FrameView which will schedule a
+    // relayout of this RenderFrame.
+    if (layoutWidth < width())
+        setHeight(0);
+
     setNeedsLayout(false);
 }
 #endif

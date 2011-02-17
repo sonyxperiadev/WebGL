@@ -515,11 +515,9 @@ void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, Scrollbar
         Node* body = document->body();
         if (body && body->renderer()) {
             if (body->hasTagName(framesetTag) && m_frame->settings() && !m_frame->settings()->frameFlatteningEnabled()) {
-#if !defined(ANDROID_FLATTEN_IFRAME) && !defined(ANDROID_FLATTEN_FRAMESET)
                 body->renderer()->setChildNeedsLayout(true);
                 vMode = ScrollbarAlwaysOff;
                 hMode = ScrollbarAlwaysOff;
-#endif
             } else if (body->hasTagName(bodyTag)) {
                 // It's sufficient to just check the X overflow,
                 // since it's illegal to have visible in only one direction.
@@ -928,7 +926,7 @@ void FrameView::layout(bool allowSubtree)
     InspectorInstrumentation::didLayout(cookie);
 
     m_nestedLayoutCount--;
-#if ENABLE(ANDROID_OVERFLOW_SCROLL) && !defined(ANDROID_FLATTEN_IFRAME)
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // Reset to false each time we layout in case the overflow status changed.
     bool hasOverflowScroll = false;
     RenderObject* ownerRenderer = m_frame->ownerRenderer();
@@ -951,6 +949,15 @@ void FrameView::layout(bool allowSubtree)
         }
     }
     m_hasOverflowScroll = hasOverflowScroll;
+#endif
+#ifdef ANDROID_FLATTEN_FRAMESET
+    // Request a layout to use the content dimensions.
+    if (m_frame->ownerRenderer() && m_frame->ownerElement()->hasTagName(frameTag)) {
+        if (canHaveScrollbars() && layoutWidth() > 1 && layoutHeight() > 1) {
+            if (layoutWidth() < contentsWidth() || layoutHeight() < contentsHeight())
+                m_frame->ownerRenderer()->setNeedsLayout(true, true);
+        }
+    }
 #endif
 }
 
@@ -1555,13 +1562,6 @@ void FrameView::scheduleRelayout()
         return;
     if (!m_frame->document()->shouldScheduleLayout())
         return;
-
-#if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
-    // This is the Android frame flattening code. The common code below is not
-    // used as frameSetFlatteningEnabled() is false on Android.
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
-#endif
 
     // When frame flattening is enabled, the contents of the frame affects layout of the parent frames.
     // Also invalidate parent frame starting from the owner element of this frame.
