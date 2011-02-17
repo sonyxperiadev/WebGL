@@ -101,6 +101,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     : m_webFrame(webFrame)
     , m_resourceHandle(resourceHandle)
     , m_isMainResource(false)
+    , m_isMainFrame(false)
     , m_isCertMimeType(false)
     , m_cancelling(false)
     , m_sync(false)
@@ -162,7 +163,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     }
 }
 
-bool WebUrlLoaderClient::start(bool isMainResource, bool sync, WebRequestContext* context)
+bool WebUrlLoaderClient::start(bool isMainResource, bool isMainFrame, bool sync, WebRequestContext* context)
 {
     base::Thread* thread = ioThread();
     if (!thread) {
@@ -170,6 +171,7 @@ bool WebUrlLoaderClient::start(bool isMainResource, bool sync, WebRequestContext
     }
 
     m_isMainResource = isMainResource;
+    m_isMainFrame = isMainFrame;
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
@@ -354,8 +356,8 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
     m_response = webResponse;
     m_resourceHandle->client()->didReceiveResponse(m_resourceHandle.get(), m_response->createResourceResponse());
 
-    if (m_isMainResource) {
-        // If we got an SSL certificate, tell the WebView about it.
+    // Set the main page's certificate to WebView.
+    if (m_isMainResource && m_isMainFrame) {
         const net::SSLInfo& ssl_info = m_response->getSslInfo();
         if (ssl_info.is_valid()) {
             std::vector<std::string> chain_bytes;

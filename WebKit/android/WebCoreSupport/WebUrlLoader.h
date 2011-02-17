@@ -39,7 +39,7 @@ class WebRequestContext;
 class WebUrlLoader : public ResourceLoaderAndroid {
 public:
     virtual ~WebUrlLoader();
-    static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool isMainResource, bool sync, WebRequestContext*);
+    static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool isMainResource, bool isMainFrame, bool sync, WebRequestContext*);
 
     virtual void cancel();
     virtual void downloadFile();

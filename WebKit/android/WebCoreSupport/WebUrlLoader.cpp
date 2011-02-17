@@ -45,7 +45,7 @@ WebUrlLoader::~WebUrlLoader()
 }
 
 PassRefPtr<WebUrlLoader> WebUrlLoader::start(FrameLoaderClient* client, WebCore::ResourceHandle* resourceHandle,
-        const WebCore::ResourceRequest& resourceRequest, bool isMainResource, bool isSync, WebRequestContext* context)
+        const WebCore::ResourceRequest& resourceRequest, bool isMainResource, bool isMainFrame, bool isSync, WebRequestContext* context)
 {
     FrameLoaderClientAndroid* androidClient = static_cast<FrameLoaderClientAndroid*>(client);
     WebFrame* webFrame = androidClient->webFrame();
@@ -58,7 +58,7 @@ PassRefPtr<WebUrlLoader> WebUrlLoader::start(FrameLoaderClient* client, WebCore:
     webFrame->maybeSavePassword(androidClient->getFrame(), resourceRequest);
 
     RefPtr<WebUrlLoader> loader = WebUrlLoader::create(webFrame, resourceHandle, resourceRequest);
-    loader->m_loaderClient->start(isMainResource, isSync, context);
+    loader->m_loaderClient->start(isMainResource, isMainFrame, isSync, context);
 
     return loader.release();
 }

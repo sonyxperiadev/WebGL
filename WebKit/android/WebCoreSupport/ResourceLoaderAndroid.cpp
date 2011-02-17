@@ -44,7 +44,8 @@ PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
     FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*>(client);
 #if USE(CHROME_NETWORK_STACK)
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(clientAndroid->getFrame()->view());
-    return WebUrlLoader::start(client, handle, request, isMainResource, isSync, webViewCore->webRequestContext());
+    bool isMainFrame = !(clientAndroid->getFrame()->tree() && clientAndroid->getFrame()->tree()->parent());
+    return WebUrlLoader::start(client, handle, request, isMainResource, isMainFrame, isSync, webViewCore->webRequestContext());
 #else
     return clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);
 #endif
