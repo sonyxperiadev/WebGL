@@ -11,4 +11,4 @@ homepage=http\://webkit.org/
 # Currently we track the Chromium 9.0.597 release branch:
 # http://trac.webkit.org/browser/branches/chromium/597
 # which is WebKit r72805 + stability cherry picks.
-webkit.chromiumRelease=http\://src.chromium.org/svn/releases/9.0.597.83/DEPS
+webkit.chromiumRelease=http\://src.chromium.org/svn/releases/9.0.597.106/DEPS
