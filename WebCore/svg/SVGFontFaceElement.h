@@ -47,7 +47,7 @@ namespace WebCore {
         int descent() const;
         String fontFamily() const;
 
-        SVGFontElement* associatedFontElement() const { return m_fontElement; }
+        SVGFontElement* associatedFontElement() const;
         void rebuildFontFace();
         void removeFromMappedElementSheet();
 
@@ -63,7 +63,7 @@ namespace WebCore {
         RefPtr<CSSFontFaceRule> m_fontFaceRule;
         RefPtr<CSSMutableStyleDeclaration> m_styleDeclaration;
 
-        SVGFontElement* m_fontElement;
+        RefPtr<SVGFontElement> m_fontElement;
     };
 
 } // namespace WebCore

@@ -162,7 +162,6 @@ void HTMLFormControlElement::willMoveToNewOwnerDocument()
 void HTMLFormControlElement::insertedIntoTree(bool deep)
 {
     if (fastHasAttribute(formAttr)) {
-        document()->registerFormElementWithFormAttribute(this);
         Element* element = document()->getElementById(fastGetAttribute(formAttr));
         if (element && element->hasTagName(formTag)) {
             if (m_form)
@@ -196,9 +195,6 @@ static inline Node* findRoot(Node* n)
 
 void HTMLFormControlElement::removedFromTree(bool deep)
 {
-    if (fastHasAttribute(formAttr))
-        document()->unregisterFormElementWithFormAttribute(this);
-
     // If the form and element are both in the same tree, preserve the connection to the form.
     // Otherwise, null out our form and remove ourselves from the form's list of elements.
     if (m_form && findRoot(this) != findRoot(m_form)) {
@@ -207,6 +203,20 @@ void HTMLFormControlElement::removedFromTree(bool deep)
     }
 
     HTMLElement::removedFromTree(deep);
+}
+
+void HTMLFormControlElement::insertedIntoDocument()
+{
+    if (fastHasAttribute(formAttr))
+        document()->registerFormElementWithFormAttribute(this);
+    HTMLElement::insertedIntoDocument();
+}
+
+void HTMLFormControlElement::removedFromDocument()
+{
+    if (fastHasAttribute(formAttr))
+        document()->unregisterFormElementWithFormAttribute(this);
+    HTMLElement::removedFromDocument();
 }
 
 const AtomicString& HTMLFormControlElement::formControlName() const

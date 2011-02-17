@@ -1146,6 +1146,11 @@ void WebGLRenderingContext::drawElements(unsigned long mode, long count, unsigne
     if (!count)
         return;
 
+    if (!m_boundElementArrayBuffer) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+        return;
+    }
+
     long numElements = 0;
     if (!isErrorGeneratedOnOutOfBoundsAccesses()) {
         // Ensure we have a valid rendering state

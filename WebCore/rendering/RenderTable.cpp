@@ -167,7 +167,7 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 
     if (!wrapInAnonymousSection) {
         // If the next renderer is actually wrapped in an anonymous table section, we need to go up and find that.
-        while (beforeChild && !beforeChild->isTableSection() && !beforeChild->isTableCol() && beforeChild->style()->display() != TABLE_CAPTION)
+        while (beforeChild && beforeChild->parent() != this)
             beforeChild = beforeChild->parent();
 
         RenderBox::addChild(child, beforeChild);
@@ -1171,6 +1171,8 @@ int RenderTable::firstLineBoxBaseline() const
 {
     if (isWritingModeRoot())
         return -1;
+
+    recalcSectionsIfNeeded();
 
     RenderTableSection* firstNonEmptySection = m_head ? m_head : (m_firstBody ? m_firstBody : m_foot);
     if (firstNonEmptySection && !firstNonEmptySection->numRows())
