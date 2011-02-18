@@ -208,6 +208,9 @@ public:
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
 
+    void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
+    SkColor getBackgroundColor() { return m_backgroundColor; }
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 
@@ -247,6 +250,8 @@ private:
 
     bool m_baseLayerUpdate;
     IntRect m_invalidateRect;
+
+    SkColor m_backgroundColor;
 };
 
 } // namespace WebCore

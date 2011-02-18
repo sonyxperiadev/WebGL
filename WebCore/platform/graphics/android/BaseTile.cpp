@@ -257,7 +257,7 @@ void BaseTile::paintBitmap()
     SkCanvas* canvas = texture->canvas();
 
     canvas->save();
-    canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+    canvas->drawColor(tiledPage->glWebViewState()->getBackgroundColor());
     canvas->scale(scale, scale);
     canvas->translate(-x * w, -y * h);
 
