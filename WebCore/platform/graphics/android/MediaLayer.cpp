@@ -78,8 +78,6 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
     // draw any video content if present
     m_videoTexture->drawVideo(drawTransform());
 
-    bool needsInval = true;
-
     // draw the primary content
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
@@ -103,14 +101,11 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
                                                                   textureInfo->m_textureId,
                                                                   1.0f, forceBlending);
             }
-
-            if (!rect.isEmpty())
-                needsInval = false;
         }
         m_bufferedTexture->consumerRelease();
     }
 
-    return drawChildrenGL(matrix) || needsInval;
+    return drawChildrenGL(matrix);
 }
 
 ANativeWindow* MediaLayer::acquireNativeWindowForVideo()
