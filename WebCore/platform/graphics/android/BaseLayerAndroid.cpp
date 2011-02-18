@@ -267,6 +267,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     XLOG("drawBasePicture drawGL() viewRect: %d, %d, %d, %d",
          left, top, width, height);
 
+    m_glWebViewState->setBackgroundColor(color);
     glClearColor((float)m_color.red() / 255.0,
                  (float)m_color.green() / 255.0,
                  (float)m_color.blue() / 255.0, 1);
