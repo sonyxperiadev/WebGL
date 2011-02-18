@@ -626,7 +626,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/ShaderProgram.cpp \
 	platform/graphics/android/SharedTexture.cpp \
-	platform/graphics/android/TextureOwner.cpp \
 	platform/graphics/android/TexturesGenerator.cpp \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TiledPage.cpp \

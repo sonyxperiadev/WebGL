@@ -133,10 +133,9 @@ void BackedDoubleBufferedTexture::setNotBusy()
     android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
     if (m_delayedRelease) {
-        if (m_owner == m_delayedReleaseOwner) {
-            m_owner->removeOwned(this);
+        if (m_owner == m_delayedReleaseOwner)
             m_owner = 0;
-        }
+
         m_delayedRelease = false;
         m_delayedReleaseOwner = 0;
     }
@@ -207,7 +206,6 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
 
         if (proceed) {
             m_owner = owner;
-            owner->addOwned(this);
             return true;
         }
     }
@@ -219,7 +217,6 @@ bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
     android::Mutex::Autolock lock(m_busyLock);
     if (m_owner == owner) {
         if (!m_busy) {
-            m_owner->removeOwned(this);
             m_owner = 0;
             return true;
         } else {
