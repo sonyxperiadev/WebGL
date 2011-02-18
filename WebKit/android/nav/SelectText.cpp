@@ -141,40 +141,6 @@ void ReverseBidi(UChar* chars, int len) {
 
 namespace android {
 
-/* SpaceBounds and SpaceCanvas are used to measure the left and right side
- * bearings of two consecutive glyphs to help determine if the glyphs were
- * originally laid out with a space character between the glyphs.
- */
-class SpaceBounds : public SkBounder {
-public:
-    virtual bool onIRectGlyph(const SkIRect& , const SkBounder::GlyphRec& rec)
-    {
-        mFirstGlyph = mLastGlyph;
-        mLastGlyph = rec;
-        return false;
-    }
-
-    SkBounder::GlyphRec mFirstGlyph;
-    SkBounder::GlyphRec mLastGlyph;
-};
-
-class SpaceCanvas : public ParseCanvas {
-public:
-    SpaceCanvas()
-    {
-        setBounder(&mBounder);
-        SkBitmap bitmap;
-        // Configure a very large bitmap so the pair of glyphs can be anywhere
-        // on the page. Skia constrains the bitmap to be 2^31-1 bytes. The
-        // bitmap is never allocated, but this constraint avoids triggering
-        // a failure when the configuration is checked.
-        bitmap.setConfig(SkBitmap::kA1_Config, 16383, 1048576);
-        setBitmapDevice(bitmap);
-    }
-
-    SpaceBounds mBounder;
-};
-
 #define HYPHEN_MINUS 0x2D // ASCII hyphen
 #define SOLIDUS 0x2F // ASCII slash
 #define REVERSE_SOLIDUS 0x5C // ASCII backslash
@@ -266,8 +232,7 @@ public:
         if (mLastGlyph.fGlyphID == static_cast<uint16_t>(-1))
             return true;
         DBG_NAV_LOGD("mLastGlyph=((%g, %g),(%g, %g), %d)"
-            " rec=((%g, %g),(%g, %g), %d)"
-            " mMinSpaceWidth=%g mLastUni=0x%04x '%c'",
+            " rec=((%g, %g),(%g, %g), %d) mLastUni=0x%04x '%c'",
             SkFixedToScalar(mLastGlyph.fLSB.fX),
             SkFixedToScalar(mLastGlyph.fLSB.fY),
             SkFixedToScalar(mLastGlyph.fRSB.fX),
@@ -275,7 +240,6 @@ public:
             SkFixedToScalar(rec.fLSB.fX), SkFixedToScalar(rec.fLSB.fY),
             SkFixedToScalar(rec.fRSB.fX), SkFixedToScalar(rec.fRSB.fY),
             rec.fGlyphID,
-            SkFixedToScalar(mMinSpaceWidth),
             mLastUni, mLastUni && mLastUni < 0x7f ? mLastUni : '?');
         bool newBaseLine = mLastGlyph.fLSB.fY != rec.fLSB.fY;
         if (newBaseLine)
@@ -284,35 +248,24 @@ public:
         SkFixed gapTwo = rec.fLSB.fX - mLastGlyph.fRSB.fX;
         if (gapOne < 0 && gapTwo < 0)
             return false; // overlaps
-        uint16_t test[2];
-        test[0] = mLastGlyph.fGlyphID;
-        test[1] = rec.fGlyphID;
-        SpaceCanvas spaceChecker;
-        spaceChecker.drawText(test, sizeof(test),
-            SkFixedToScalar(mLastGlyph.fLSB.fX),
-            SkFixedToScalar(mLastGlyph.fLSB.fY), mPaint);
-        const SkBounder::GlyphRec& g1 = spaceChecker.mBounder.mFirstGlyph;
-        const SkBounder::GlyphRec& g2 = spaceChecker.mBounder.mLastGlyph;
-        DBG_NAV_LOGD("g1=(%g, %g, %g, %g) g2=(%g, %g, %g, %g)",
-            SkFixedToScalar(g1.fLSB.fX), SkFixedToScalar(g1.fLSB.fY),
-            SkFixedToScalar(g1.fRSB.fX), SkFixedToScalar(g1.fRSB.fY),
-            SkFixedToScalar(g2.fLSB.fX), SkFixedToScalar(g2.fLSB.fY),
-            SkFixedToScalar(g2.fRSB.fX), SkFixedToScalar(g2.fRSB.fY));
-        gapOne = SkFixedAbs(gapOne);
-        gapTwo = SkFixedAbs(gapTwo);
-        SkFixed gap = gapOne < gapTwo ? gapOne : gapTwo;
-        SkFixed overlap = g2.fLSB.fX - g1.fRSB.fX;
-        if (overlap < 0)
-            gap -= overlap;
-        DBG_NAV_LOGD("gap=%g overlap=%g gapOne=%g gapTwo=%g minSpaceWidth()=%g",
-            SkFixedToScalar(gap), SkFixedToScalar(overlap),
-            SkFixedToScalar(gapOne), SkFixedToScalar(gapTwo),
-            SkFixedToScalar(minSpaceWidth()));
-        // FIXME: the -1/8 below takes care of slop beween the computed gap
-        // and the actual space width -- it's a rounding error from
-        // moving from fixed to float and back and could be much smaller.
-        spaceChecker.setBounder(0);
-        return gap >= minSpaceWidth() - SK_Fixed1 / 8;
+        const SkBounder::GlyphRec& first = mLastGlyph.fLSB.fX < rec.fLSB.fX
+            ? mLastGlyph : rec;
+        const SkBounder::GlyphRec& second = mLastGlyph.fLSB.fX < rec.fLSB.fX
+            ? rec : mLastGlyph;
+        uint16_t firstGlyph = first.fGlyphID;
+        SkScalar firstWidth = mPaint.measureText(&firstGlyph, sizeof(firstGlyph));
+        SkFixed ceilWidth = SkIntToFixed(SkScalarCeil(firstWidth));
+        SkFixed posNoSpace = first.fLSB.fX + ceilWidth;
+        SkFixed ceilSpace = SkIntToFixed(SkFixedCeil(minSpaceWidth()));
+        SkFixed posWithSpace = posNoSpace + ceilSpace;
+        SkFixed diffNoSpace = SkFixedAbs(second.fLSB.fX - posNoSpace);
+        SkFixed diffWithSpace = SkFixedAbs(second.fLSB.fX - posWithSpace);
+        DBG_NAV_LOGD("second=%g width=%g (%g) noSpace=%g (%g) withSpace=%g (%g)",
+            SkFixedToScalar(second.fLSB.fX),
+            firstWidth, SkFixedToScalar(ceilWidth),
+            SkFixedToScalar(posNoSpace), SkFixedToScalar(diffNoSpace),
+            SkFixedToScalar(posWithSpace), SkFixedToScalar(diffWithSpace));
+        return diffWithSpace < diffNoSpace;
     }
 
     SkFixed minSpaceWidth()
