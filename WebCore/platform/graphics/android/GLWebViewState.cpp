@@ -68,6 +68,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_usePageA(true)
     , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
+    , m_backgroundColor(SK_ColorWHITE)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
