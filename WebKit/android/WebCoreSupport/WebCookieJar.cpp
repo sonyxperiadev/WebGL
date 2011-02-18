@@ -31,8 +31,15 @@
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
 
-
+#include <cutils/log.h>
 #include <dirent.h>
+
+#undef ASSERT
+#define ASSERT(assertion, ...) do \
+    if (!(assertion)) { \
+        android_printLog(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
+    } \
+while (0)
 
 namespace android {
 
@@ -193,16 +200,21 @@ public:
             Task* callback = NewRunnableMethod(this, &FlushSemaphore::Callback);
             ioThread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
                 monster, &net::CookieMonster::FlushStore, callback));
+        } else {
+            Callback();
         }
     }
 
     // Block until the given number of callbacks has been made.
     void Wait(int numCallbacks) {
         AutoLock al(m_lock);
+        int lastCount = m_count;
         while (m_count < numCallbacks) {
             // TODO(husky): Maybe use TimedWait() here? But it's not obvious what
             // to do if the flush fails. Might be okay just to let the OS kill us.
             m_condition.Wait();
+            ASSERT(lastCount != m_count, "Wait finished without incrementing m_count %d %d", m_count, lastCount);
+            lastCount = m_count;
         }
         m_count -= numCallbacks;
     }
