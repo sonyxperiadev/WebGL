@@ -1193,10 +1193,6 @@ bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLaye
         return true;
 #endif
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    // First, check if we are in an iframe, and if so bail out
-    if (m_renderView->document()->frame()->tree()->parent())
-        return false;
-
     // For the moment, we want to only enable fixed composited layers on mobile websites.
     // Enable composited layers (for fixed elements)
     // We can consider a website as being a 'mobile' site if all the
