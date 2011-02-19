@@ -146,6 +146,7 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
 }
 
 ShaderProgram::ShaderProgram()
+    : m_blendingEnabled(false)
 {
     init();
 }
@@ -179,6 +180,27 @@ void ShaderProgram::init()
     glGenBuffers(1, m_textureBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), coord, GL_STATIC_DRAW);
+}
+
+void ShaderProgram::resetBlending()
+{
+    glDisable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+    m_blendingEnabled = false;
+}
+
+void ShaderProgram::setBlendingState(bool enableBlending)
+{
+    if (enableBlending == m_blendingEnabled)
+        return;
+
+    if (enableBlending)
+        glEnable(GL_BLEND);
+    else
+        glDisable(GL_BLEND);
+
+    m_blendingEnabled = enableBlending;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -222,6 +244,7 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity)
     glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha(), opacity);
 
+    setBlendingState(opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     GLUtils::checkGlError("drawQuad");
@@ -278,7 +301,8 @@ IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
-                                  SkRect& geometry, int textureId, float opacity)
+                                  SkRect& geometry, int textureId, float opacity,
+                                  bool forceBlending)
 {
 
     TransformationMatrix renderMatrix = drawMatrix;
@@ -297,6 +321,7 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha(), opacity);
 
+    setBlendingState(forceBlending || opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
@@ -317,12 +342,14 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     glUniformMatrix4fv(m_hVideoProjectionMatrix, 1, GL_FALSE, projectionMatrix);
     glUniformMatrix4fv(m_hVideoTextureMatrix, 1, GL_FALSE, textureMatrix);
 
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glEnableVertexAttribArray(m_hVideoPosition);
     glVertexAttribPointer(m_hVideoPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
+    setBlendingState(false);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     // switch back to our normal rendering program
