@@ -49,8 +49,6 @@
 
 #endif // DEBUG
 
-#define MAX_TILES 256
-
 namespace WebCore {
 
 using namespace android;
@@ -65,7 +63,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_latestPictureInval(0)
     , m_prepare(false)
 {
-    m_baseTiles = new BaseTile[MAX_TILES];
+    m_baseTiles = new BaseTile[TilesManager::getMaxTextureAllocation() + 1];
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("TiledPage");
 #endif
