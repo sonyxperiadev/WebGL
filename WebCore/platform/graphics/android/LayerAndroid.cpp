@@ -157,28 +157,31 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
 #endif
 }
 
-void LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
+bool LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
 {
     LayerTexture* texture = static_cast<LayerTexture*>(aTexture);
     android::AutoMutex lock(m_atomicSync);
+
+    bool textureReleased = true;
     if (!texture) { // remove ourself from both textures
         if (m_drawingTexture)
-            m_drawingTexture->release(this);
+            textureReleased &= m_drawingTexture->release(this);
         if (m_reservedTexture &&
             m_reservedTexture != m_drawingTexture)
-            m_reservedTexture->release(this);
+            textureReleased &= m_reservedTexture->release(this);
     } else {
         if (m_drawingTexture && m_drawingTexture == texture)
-            m_drawingTexture->release(this);
+            textureReleased &= m_drawingTexture->release(this);
         if (m_reservedTexture &&
             m_reservedTexture == texture &&
             m_reservedTexture != m_drawingTexture)
-            m_reservedTexture->release(this);
+            textureReleased &= m_reservedTexture->release(this);
     }
     if (m_drawingTexture && m_drawingTexture->owner() != this)
         m_drawingTexture = 0;
     if (m_reservedTexture && m_reservedTexture->owner() != this)
         m_reservedTexture = 0;
+    return textureReleased;
 }
 
 LayerAndroid::~LayerAndroid()
@@ -929,7 +932,7 @@ void LayerAndroid::paintBitmapGL()
     // If LayerAndroid::removeTexture() is called before us, we'd have bailed
     // out early as texture would have been null; if it is called after us, we'd
     // have marked the texture has being busy, and the texture will not be
-    // destroy immediately.
+    // destroyed immediately.
     texture->producerAcquireContext();
     TextureInfo* textureInfo = texture->producerLock();
     m_atomicSync.unlock();

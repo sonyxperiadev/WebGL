@@ -208,6 +208,9 @@ public:
     void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
     SkColor getBackgroundColor() { return m_backgroundColor; }
 
+    bool drawGL(IntRect& rect, SkRect& viewport,
+                float scale, SkColor color = SK_ColorWHITE);
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 
