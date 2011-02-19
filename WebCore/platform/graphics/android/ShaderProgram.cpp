@@ -140,8 +140,6 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
             }
             glDeleteProgram(program);
             program = -1;
-        } else {
-            XLOG("couldn't link the shader!");
         }
     }
     return program;
@@ -156,14 +154,20 @@ void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
+    if (m_program == -1 || m_videoProgram == -1)
+        return;
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
 
+    m_hPosition = glGetAttribLocation(m_program, "vPosition");
+
     m_hVideoProjectionMatrix = glGetUniformLocation(m_videoProgram, "projectionMatrix");
     m_hVideoTextureMatrix = glGetUniformLocation(m_videoProgram, "textureMatrix");
     m_hVideoTexSampler = glGetUniformLocation(m_videoProgram, "s_yuvTexture");
+
+    m_hVideoPosition = glGetAttribLocation(m_program, "vPosition");
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -214,9 +218,8 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity)
     glBindTexture(GL_TEXTURE_2D, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindAttribLocation(program(), 1, "vPosition");
+    glEnableVertexAttribArray(m_hPosition);
+    glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha(), opacity);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -290,9 +293,8 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     glBindTexture(GL_TEXTURE_2D, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindAttribLocation(program(), 1, "vPosition");
+    glEnableVertexAttribArray(m_hPosition);
+    glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha(), opacity);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -318,9 +320,8 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glBindAttribLocation(m_videoProgram, 1, "vPosition");
+    glEnableVertexAttribArray(m_hVideoPosition);
+    glVertexAttribPointer(m_hVideoPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 

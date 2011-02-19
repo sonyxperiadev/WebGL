@@ -72,6 +72,10 @@ class ShaderProgram {
     int m_hVideoProjectionMatrix;
     int m_hVideoTextureMatrix;
     int m_hVideoTexSampler;
+
+    // attribs
+    GLint m_hPosition;
+    GLint m_hVideoPosition;
 };
 
 } // namespace WebCore
