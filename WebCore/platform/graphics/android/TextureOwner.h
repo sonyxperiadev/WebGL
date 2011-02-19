@@ -36,7 +36,7 @@ class BackedDoubleBufferedTexture;
 class TextureOwner {
 public:
     virtual ~TextureOwner();
-    virtual void removeTexture(BackedDoubleBufferedTexture* texture) = 0;
+    virtual bool removeTexture(BackedDoubleBufferedTexture* texture) = 0;
     virtual TiledPage* page() = 0;
 
     void addOwned(BackedDoubleBufferedTexture*);

@@ -94,7 +94,7 @@ public:
     virtual ~LayerAndroid();
 
     // TextureOwner methods
-    virtual void removeTexture(BackedDoubleBufferedTexture* texture);
+    virtual bool removeTexture(BackedDoubleBufferedTexture* texture);
 
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }

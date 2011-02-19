@@ -68,7 +68,7 @@ public:
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(TextureOwner* owner);
-    void release(TextureOwner* owner);
+    bool release(TextureOwner* owner);
 
     // set the texture owner if not busy. Return false if busy, true otherwise.
     bool setOwner(TextureOwner* owner);
@@ -78,6 +78,7 @@ public:
     SkCanvas* canvas(); // only used by the producer thread
 
     bool busy();
+    void setNotBusy();
 
     const SkSize& getSize() const { return m_size; }
 
@@ -97,6 +98,12 @@ private:
     int m_usedLevel;
     SkBitmap::Config m_config;
     TextureOwner* m_owner;
+
+    // When trying to release a texture, we may delay this if the texture is
+    // currently used (busy being painted). We use the following two variables
+    // to do so in setNotBusy()
+    TextureOwner* m_delayedReleaseOwner;
+    bool m_delayedRelease;
 
     // This values signals that the texture is currently in use by the consumer.
     // This allows us to prevent the owner of the texture from changing while the
