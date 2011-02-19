@@ -55,10 +55,11 @@
 // We need n textures for one TiledPage, and another n textures for the
 // second page used when scaling.
 // In our case, we use 300x300 textures. On the tablet, this equates to
-// at least 5 * 3 = 15 textures. We can also enable offscreen textures
+// at least 5 * 3 = 15 textures. We also enable offscreen textures to a maximum
+// of 154 textures used (i.e. ~106Mb max, accounting for the double buffer textures)
 #define EXPANDED_TILE_BOUNDS_X 1
 #define EXPANDED_TILE_BOUNDS_Y 4
-#define MAX_TEXTURE_ALLOCATION (5+1+EXPANDED_TILE_BOUNDS_X*2)*(3+1+EXPANDED_TILE_BOUNDS_Y*2)*2
+#define MAX_TEXTURE_ALLOCATION (5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
@@ -374,13 +375,20 @@ int TilesManager::maxTextureCount()
 
 void TilesManager::setMaxTextureCount(int max)
 {
-    XLOG("setMaxTextureCount: %d", max);
-    if (max > MAX_TEXTURE_ALLOCATION ||
-            (m_maxTextureCount >= max && m_maxTextureCount))
+    XLOG("setMaxTextureCount: %d (current: %d, total:%d)",
+         max, m_maxTextureCount, MAX_TEXTURE_ALLOCATION);
+    if (m_maxTextureCount &&
+        (max > MAX_TEXTURE_ALLOCATION ||
+         max <= m_maxTextureCount))
         return;
 
     android::Mutex::Autolock lock(m_texturesLock);
-    m_maxTextureCount = max;
+
+    if (max < MAX_TEXTURE_ALLOCATION)
+        m_maxTextureCount = max;
+    else
+        m_maxTextureCount = MAX_TEXTURE_ALLOCATION;
+
     allocateTiles();
 }
 
