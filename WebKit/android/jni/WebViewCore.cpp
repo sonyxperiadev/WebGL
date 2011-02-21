@@ -3385,13 +3385,13 @@ bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, const WTF::String& defaultValue, WTF::String& result)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jUrlStr = wtfStringToJstring(env, url);
     jstring jInputStr = wtfStringToJstring(env, text);
     jstring jDefaultStr = wtfStringToJstring(env, defaultValue);
-    jstring jUrlStr = wtfStringToJstring(env, url);
     jstring returnVal = static_cast<jstring>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr));
+    env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jDefaultStr);
-    env->DeleteLocalRef(jUrlStr);
     checkException(env);
 
     // If returnVal is null, it means that the user cancelled the dialog.
@@ -3399,6 +3399,7 @@ bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, cons
         return false;
 
     result = jstringToWtfString(env, returnVal);
+    env->DeleteLocalRef(returnVal);
     return true;
 }
 
