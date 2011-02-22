@@ -160,6 +160,7 @@ public:
         reset();
     }
 
+    /* called only while the picture is parsed */
     int base() {
         if (mBase == INT_MAX) {
             SkPoint result;
@@ -168,7 +169,8 @@ public:
         }
         return mBase;
     }
-    
+
+    /* called only while the picture is parsed */
      int bottom() {
         if (mBottom == INT_MAX) {
             SkPoint result;
@@ -211,12 +213,14 @@ public:
     {
         mLastGlyph = mLastCandidate;
         mLastUni = mLastUniCandidate;
+        mLastPaint = mLastPaintCandidate;
     }
 
     const SkIRect& getArea() const {
         return mArea;
     }
 
+    /* called only while the picture is parsed */
     SkUnichar getUniChar(const SkBounder::GlyphRec& rec)
     {
         SkUnichar unichar;
@@ -253,29 +257,31 @@ public:
         const SkBounder::GlyphRec& second = mLastGlyph.fLSB.fX < rec.fLSB.fX
             ? rec : mLastGlyph;
         uint16_t firstGlyph = first.fGlyphID;
-        SkScalar firstWidth = mPaint.measureText(&firstGlyph, sizeof(firstGlyph));
+        SkScalar firstWidth = mLastPaint.measureText(&firstGlyph, sizeof(firstGlyph));
         SkFixed ceilWidth = SkIntToFixed(SkScalarCeil(firstWidth));
         SkFixed posNoSpace = first.fLSB.fX + ceilWidth;
-        SkFixed ceilSpace = SkIntToFixed(SkFixedCeil(minSpaceWidth()));
+        SkFixed ceilSpace = SkIntToFixed(SkFixedCeil(minSpaceWidth(mLastPaint)));
         SkFixed posWithSpace = posNoSpace + ceilSpace;
         SkFixed diffNoSpace = SkFixedAbs(second.fLSB.fX - posNoSpace);
         SkFixed diffWithSpace = SkFixedAbs(second.fLSB.fX - posWithSpace);
-        DBG_NAV_LOGD("second=%g width=%g (%g) noSpace=%g (%g) withSpace=%g (%g)",
+        DBG_NAV_LOGD("second=%g width=%g (%g) noSpace=%g (%g) withSpace=%g (%g)"
+            " fontSize=%g",
             SkFixedToScalar(second.fLSB.fX),
             firstWidth, SkFixedToScalar(ceilWidth),
             SkFixedToScalar(posNoSpace), SkFixedToScalar(diffNoSpace),
-            SkFixedToScalar(posWithSpace), SkFixedToScalar(diffWithSpace));
+            SkFixedToScalar(posWithSpace), SkFixedToScalar(diffWithSpace),
+            mLastPaint.getTextSize());
         return diffWithSpace < diffNoSpace;
     }
 
-    SkFixed minSpaceWidth()
+    SkFixed minSpaceWidth(SkPaint& paint)
     {
         if (mMinSpaceWidth == SK_FixedMax) {
-            SkPaint::TextEncoding save = mPaint.getTextEncoding();
-            mPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
-            SkScalar width = mPaint.measureText(" ", 1);
+            SkPaint::TextEncoding save = paint.getTextEncoding();
+            paint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
+            SkScalar width = paint.measureText(" ", 1);
             mMinSpaceWidth = SkScalarToFixed(width * mMatrix.getScaleX());
-            mPaint.setTextEncoding(save);
+            paint.setTextEncoding(save);
             DBG_NAV_LOGV("width=%g matrix sx/sy=(%g, %g) tx/ty=(%g, %g)"
                 " mMinSpaceWidth=%g", width,
                 mMatrix.getScaleX(), mMatrix.getScaleY(),
@@ -289,6 +295,7 @@ public:
     {
         mLastCandidate = rec;
         mLastUniCandidate = getUniChar(rec);
+        mLastPaintCandidate = mPaint;
     }
 
     void reset()
@@ -302,7 +309,7 @@ public:
         mLastGlyph = check.mLastGlyph;
         mLastUni = check.mLastUni;
         mMatrix = check.mMatrix;
-        mPaint = check.mPaint;
+        mLastPaint = check.mLastPaint;
         reset();
     }
 
@@ -310,6 +317,7 @@ public:
     {
         mLastGlyph = check.mLastGlyph;
         mLastUni = check.mLastUni;
+        mLastPaint = check.mLastPaint;
     }
 
     void setUp(const SkPaint& paint, const SkMatrix& matrix, SkScalar y,
@@ -322,6 +330,7 @@ public:
         reset();
     }
 
+    /* called only while the picture is parsed */
     int top() {
         if (mTop == INT_MAX) {
             SkPoint result;
@@ -345,10 +354,12 @@ protected:
     SkIRect mArea;
     SkBounder::GlyphRec mLastCandidate;
     SkBounder::GlyphRec mLastGlyph;
+    SkPaint mLastPaint; // available after picture has been parsed
+    SkPaint mLastPaintCandidate; // associated with candidate glyph
     SkUnichar mLastUni;
     SkUnichar mLastUniCandidate;
     SkMatrix mMatrix;
-    SkPaint mPaint;
+    SkPaint mPaint; // only set up while the picture is parsed
     const uint16_t* mText;
     SkScalar mY;
 private:
@@ -446,7 +457,7 @@ public:
         // assume that characters must be consecutive to describe spaces
         // (i.e., don't join rects drawn at different times)
         if (bounds.fTop != mLast.fTop || bounds.fBottom != mLast.fBottom
-            || bounds.fLeft > mLast.fRight + minSpaceWidth()
+            || bounds.fLeft > mLast.fRight + minSpaceWidth(mPaint)
             || bounds.fLeft < mLast.fLeft) {
             processLine();
             mLast = bounds;
@@ -477,7 +488,6 @@ protected:
     SkIRect mLast;
     SkTDArray<SkIRect> mParagraphs;
     SkTDArray<SkIRect> mSelected;
-    SkTDArray<SkIRect> mInColumn;
     bool mInBetween;
 private:
     typedef CommonCheck INHERITED;
@@ -651,7 +661,7 @@ public:
         , mLast(area)
         , mLeft(left)
     {
-        mLast.set(last);
+        mLast.set(last); // CommonCheck::set()
         setGlyph(last);
     }
 
@@ -706,7 +716,7 @@ public:
             mFocusX, mLeft ? "true" : "false", bounds.fLeft, bounds.fRight);
         reset();
         mFocusX = mLeft ? bounds.fLeft : bounds.fRight;
-        mLast.set(*this);
+        mLast.set(*this); // CommonCheck::set()
     }
 
 protected:
@@ -844,7 +854,7 @@ protected:
             mEndExtra.join(full);
             return mLastIntersects;
         }
-        int spaceGap = SkFixedRound(minSpaceWidth() * 3);
+        int spaceGap = SkFixedRound(minSpaceWidth(mPaint) * 3);
         // should text to the left of the start be added to the selection bounds?
         if (!mStartExtra.isEmpty()) {
             if (VERBOSE_LOGGING) DBG_NAV_LOGD("mSelectRect=(%d,%d,r=%d,b=%d)"
