@@ -61,7 +61,7 @@ class OpacityDrawFilter : public SkDrawFilter {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
+LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveClip(false),
     m_isFixed(false),
@@ -76,7 +76,8 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_pictureUsed(0),
     m_requestSent(false),
     m_scale(1),
-    m_lastComputeTextureSize(0)
+    m_lastComputeTextureSize(0),
+    m_owningLayer(owner)
 {
     m_backgroundColor = 0;
 
@@ -95,7 +96,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_uniqueId(layer.m_uniqueId),
     m_drawingTexture(0),
     m_reservedTexture(0),
-    m_requestSent(false)
+    m_requestSent(false),
+    m_owningLayer(layer.m_owningLayer)
 {
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
@@ -150,7 +152,8 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_reservedTexture(0),
     m_requestSent(false),
     m_scale(1),
-    m_lastComputeTextureSize(0)
+    m_lastComputeTextureSize(0),
+    m_owningLayer(0)
 {
     m_backgroundColor = 0;
     m_dirty = false;

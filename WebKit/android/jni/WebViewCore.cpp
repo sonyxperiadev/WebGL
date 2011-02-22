@@ -3113,51 +3113,6 @@ void WebViewCore::touchUp(int touchGeneration,
     handleMouseClick(frame, node, false);
 }
 
-// Return the RenderLayer for the given RenderObject only if the layer is
-// composited and it contains a scrollable content layer.
-static WebCore::RenderLayer* getScrollingLayerFromRenderer(
-        WebCore::RenderObject* renderer)
-{
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (!renderer)
-        return 0;
-    WebCore::RenderLayer* layer = renderer->enclosingSelfPaintingLayer();
-    if (!layer)
-        return 0;
-    // Find the layer that actually has overflow scroll in case this renderer is
-    // inside a child layer.
-    while (layer && !layer->hasOverflowScroll())
-        layer = layer->parent();
-    return layer;
-#endif
-    return 0;
-}
-
-// Scroll the RenderLayer associated with a scrollable div element.  This is
-// done so that the node is visible when it is clicked.
-static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
-{
-    WebCore::RenderLayer* layer = getScrollingLayerFromRenderer(renderer);
-    if (!layer)
-        return;
-    // The cache uses absolute coordinates when clicking on nodes and it assumes
-    // the layer is not scrolled.
-    layer->scrollToOffset(0, 0, true, false);
-
-    WebCore::IntRect absBounds = renderer->absoluteBoundingBoxRect();
-    // Do not include the outline when moving the node's bounds.
-    WebCore::IntRect layerBounds = layer->renderer()->absoluteBoundingBoxRect();
-
-    // Move the node's bounds into the layer's coordinates.
-    absBounds.move(-layerBounds.x(), -layerBounds.y());
-
-    // Scroll the layer to the node's position.
-    layer->scrollToOffset(absBounds.x(), absBounds.y(), true, true);
-
-    // Update the mouse position to the layer offset.
-    pos->move(-layer->scrollXOffset(), -layer->scrollYOffset());
-}
-
 // Common code for both clicking with the trackball and touchUp
 // Also used when typing into a non-focused textfield to give the textfield focus,
 // in which case, 'fake' is set to true
@@ -3176,8 +3131,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             DBG_NAV_LOG("area");
             return true;
         }
-
-        scrollLayer(nodePtr->renderer(), &m_mousePos);
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
@@ -3688,6 +3641,27 @@ WebRequestContext* WebViewCore::webRequestContext()
     return m_webRequestContext.get();
 }
 #endif
+
+void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    GraphicsLayerAndroid* root = graphicsRootLayer();
+    if (!root)
+        return;
+
+    LayerAndroid* layerAndroid = root->platformLayer();
+    if (!layerAndroid)
+        return;
+
+    LayerAndroid* target = layerAndroid->findById(layer);
+    if (!target)
+        return;
+
+    RenderLayer* owner = target->owningLayer();
+    if (owner)
+        owner->scrollToOffset(rect.fLeft, rect.fTop, true, false);
+#endif
+}
 
 //----------------------------------------------------------------------
 // Native JNI methods
@@ -4370,6 +4344,13 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
 #endif
 }
 
+static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint layer, jobject jRect)
+{
+    SkRect rect;
+    GraphicsJNI::jrect_to_rect(env, jRect, &rect);
+    GET_NATIVE_VIEW(env, obj)->scrollRenderLayer(layer, rect);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -4477,6 +4458,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) GetTouchHighlightRects },
     { "nativeAutoFillForm", "(I)V",
         (void*) AutoFillForm },
+    { "nativeScrollLayer", "(ILandroid/graphics/Rect;)V",
+        (void*) ScrollRenderLayer },
 };
 
 int registerWebViewCore(JNIEnv* env)
