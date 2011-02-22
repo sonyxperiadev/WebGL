@@ -42,7 +42,7 @@ static SkShader::TileMode toTileMode(bool doRepeat) {
 
 void Pattern::platformDestroy()
 {
-    m_pattern->safeUnref();
+    SkSafeUnref(m_pattern);
     m_pattern = 0;
 }
 

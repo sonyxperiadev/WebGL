@@ -68,7 +68,7 @@ PictureSet::~PictureSet()
 void PictureSet::add(const Pictures* temp)
 {
     Pictures pictureAndBounds = *temp;
-    pictureAndBounds.mPicture->safeRef();
+    SkSafeRef(pictureAndBounds.mPicture);
     pictureAndBounds.mWroteElapsed = false;
     mPictures.append(pictureAndBounds);
 }
@@ -80,7 +80,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         area.getBounds().fLeft, area.getBounds().fTop,
         area.getBounds().fRight, area.getBounds().fBottom, picture,
         elapsed, split);
-    picture->safeRef();
+    SkSafeRef(picture);
     /* if nothing is drawn beneath part of the new picture, mark it as a base */
     SkRegion diff = SkRegion(area);
     Pictures* last = mPictures.end();
@@ -150,7 +150,7 @@ bool PictureSet::build()
             }
         }
         if (tossPicture) {
-            working->mPicture->safeUnref();
+            SkSafeUnref(working->mPicture);
             working->mPicture = NULL; // mark to redraw
         }
         if (working->mPicture == NULL) // may have been set to null elsewhere
@@ -211,7 +211,7 @@ void PictureSet::clear()
     Pictures* last = mPictures.end();
     for (Pictures* working = mPictures.begin(); working != last; working++) {
         working->mArea.setEmpty();
-        working->mPicture->safeUnref();
+        SkSafeUnref(working->mPicture);
     }
     mPictures.clear();
     mWidth = mHeight = 0;
@@ -362,7 +362,7 @@ public:
         return true;
     }
 
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
+    virtual void commonDrawBitmap(const SkBitmap& bitmap, const SkIRect* rect,
             const SkMatrix& , const SkPaint& ) {
         if (bitmap.width() <= 1 || bitmap.height() <= 1)
             return;
@@ -476,7 +476,7 @@ bool PictureSet::reuseSubdivided(const SkRegion& inval)
         if ((working->mSplit == false || invalBounds != working->mUnsplit) &&
                 inval.contains(working->mArea) == false)
             continue;
-        working->mPicture->safeUnref();
+        SkSafeUnref(working->mPicture);
         working->mPicture = NULL;
     }
     return true;
@@ -526,7 +526,7 @@ void PictureSet::setDrawTimes(const PictureSet& src)
 
 void PictureSet::setPicture(size_t i, SkPicture* p)
 {
-    mPictures[i].mPicture->safeUnref();
+    SkSafeUnref(mPictures[i].mPicture);
     mPictures[i].mPicture = p;
     mPictures[i].mEmpty = emptyPicture(p);
 }

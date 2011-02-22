@@ -254,7 +254,27 @@ void BaseTile::paintBitmap()
     float w = tileWidth * invScale;
     float h = tileHeight * invScale;
 
-    SkCanvas* canvas = texture->canvas();
+    SkCanvas* canvas;
+
+#ifdef USE_SKIA_GPU
+    GLuint fboId;
+    glGenFramebuffersEXT(1, &fboId);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureInfo->m_textureId, 0);
+    glCheckFramebufferStatus(GL_FRAMEBUFFER)); // should return GL_FRAMEBUFFER_COMPLETE
+
+    //Do I need to assign a width/height/format?
+
+    GrContext* context = gr_get_global_ctx();
+    context->resetContext();
+    GrRenderTarget* target = context->createPlatformRenderTarget(fboId, tileWidth, tileHeight);
+    SkCanvas tmpCanvas;
+    SkDevice* device = new SkGpuDevice(context, bm, target);
+    tmpCanvas.setDevice(device)->unref();
+    canvas = &tmpCanvas;
+#else
+    canvas = texture->canvas();
+#endif
 
     canvas->save();
     canvas->drawColor(tiledPage->glWebViewState()->getBackgroundColor());
@@ -279,7 +299,18 @@ void BaseTile::paintBitmap()
     }
 
     texture->setTile(x, y);
+
+#ifdef USE_SKIA_GPU
+    // set the texture info w/h/format
+    textureInfo->m_width = tileWidth;
+    textureInfo->m_height = tileHeight;
+    texture->producerReleaseAndSwap();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
+    glDeleteFramebuffers(1, &fboId);
+#else
     texture->producerUpdate(textureInfo);
+#endif
 
     m_atomicSync.lock();
     m_lastPaintedPicture = pictureCount;

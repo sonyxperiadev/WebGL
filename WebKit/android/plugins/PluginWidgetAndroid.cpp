@@ -95,7 +95,7 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
         env->DeleteGlobalRef(m_embeddedView);
     }
 
-    m_flipPixelRef->safeUnref();
+    SkSafeUnref(m_flipPixelRef);
 
     if (m_layer)
         m_layer->unref();
@@ -148,7 +148,7 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     layoutSurface(boundsChanged);
 
     if (m_drawingModel != kSurface_ANPDrawingModel) {
-        m_flipPixelRef->safeUnref();
+        SkSafeUnref(m_flipPixelRef);
         m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
                                             window->width, window->height);
     }

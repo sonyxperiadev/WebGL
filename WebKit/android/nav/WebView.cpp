@@ -210,7 +210,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
 #endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
-    m_baseLayer->safeUnref();
+    SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
 }
 
@@ -686,7 +686,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
     m_viewImpl->gFrameCacheMutex.lock();
     delete m_frameCacheUI;
-    m_navPictureUI->safeUnref();
+    SkSafeUnref(m_navPictureUI);
     m_viewImpl->m_updatedFrameCache = false;
     m_frameCacheUI = m_viewImpl->m_frameCacheKit;
     m_navPictureUI = m_viewImpl->m_navPictureKit;
@@ -1396,7 +1396,7 @@ void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect, bool showVisu
         copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
     }
 #endif
-    m_baseLayer->safeUnref();
+    SkSafeUnref(m_baseLayer);
     m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)

@@ -35,13 +35,13 @@ namespace WebCore {
 
 FontCustomPlatformData::FontCustomPlatformData(SkTypeface* face)
 {
-    face->safeRef();
+    SkSafeRef(face);
     m_typeface = face;
 }
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
-    m_typeface->safeUnref();
+    SkSafeUnref(m_typeface);
     // the unref is enough to release the font data...
 }
 
