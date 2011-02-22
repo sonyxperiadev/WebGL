@@ -26,8 +26,8 @@ namespace WebCore {
 class ScrollableLayerAndroid : public LayerAndroid {
 
 public:
-    ScrollableLayerAndroid()
-        : LayerAndroid(false) {}
+    ScrollableLayerAndroid(RenderLayer* owner)
+        : LayerAndroid(owner, false) {}
     ScrollableLayerAndroid(const ScrollableLayerAndroid& layer)
         : LayerAndroid(layer)
         , m_scrollLimits(layer.m_scrollLimits) {}

@@ -65,24 +65,6 @@ WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
     return rect;
 }
 
-// This is for nodes inside a layer.  It takes an IntRect that has been
-// adjusted by the layer's position and removes the adjustment made by the
-// layer.
-WebCore::IntRect CachedFrame::unadjustBounds(const CachedNode* node,
-    const WebCore::IntRect& rect) const
-{
-#if USE(ACCELERATED_COMPOSITING)
-    if (node->isInLayer()) {
-        const CachedLayer* cachedLayer = layer(node);
-        const WebCore::LayerAndroid* rootLayer = mRoot->rootLayer();
-        const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
-        if (aLayer)
-            return cachedLayer->unadjustBounds(rootLayer, rect);
-    }
-#endif
-    return rect;
-}
-
 bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& bestRect,
         const WebCore::IntRect& prior, WebCore::IntRect* result)
 {
@@ -435,7 +417,6 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                         *directHit = test;
                         *directHitFramePtr = this;
                         IntRect r(center, IntSize(0, 0));
-                        r = unadjustBounds(test, r);
                         *x = r.x();
                         *y = r.y();
                     } else {
@@ -480,7 +461,6 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                     *inside = testInside;
                     result = test;
                     *framePtr = this;
-                    both = unadjustBounds(test, both);
                     *x = both.x() + (both.width() >> 1);
                     *y = both.y() + (both.height() >> 1);
                 }
@@ -552,7 +532,6 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
             if (cursorRect.intersects(rect)) {
                 WebCore::IntRect intersection(cursorRect);
                 intersection.intersect(rect);
-                intersection = unadjustBounds(test, intersection);
                 *x = intersection.x() + (intersection.width() >> 1);
                 *y = intersection.y() + (intersection.height() >> 1);
                 *framePtr = this;

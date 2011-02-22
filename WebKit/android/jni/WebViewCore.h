@@ -579,6 +579,11 @@ namespace android {
         void setWebRequestContextCacheMode(int mode);
         WebRequestContext* webRequestContext();
 #endif
+
+        // Attempts to scroll the layer to the x,y coordinates of rect. The
+        // layer is the id of the LayerAndroid.
+        void scrollRenderLayer(int layer, const SkRect& rect);
+
         // end of shared members
 
         // internal functions

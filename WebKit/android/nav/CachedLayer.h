@@ -48,10 +48,6 @@ public:
     }
     // FIXME: adjustBounds should be renamed globalBounds or toGlobal
     IntRect adjustBounds(const LayerAndroid* root, const IntRect& bounds) const;
-    // Moves the bounds by the layer's position.  Assumes the incoming
-    // bounds have been adjusted by adjustBounds.
-    IntRect unadjustBounds(const LayerAndroid* root,
-                           const IntRect& bounds) const;
     int cachedNodeIndex() const { return mCachedNodeIndex; }
     FloatPoint getGlobalPosition(const LayerAndroid* ) const;
     const LayerAndroid* layer(const LayerAndroid* root) const;

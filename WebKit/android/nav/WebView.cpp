@@ -936,7 +936,7 @@ void selectBestAt(const WebCore::IntRect& rect)
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
         WebCore::IntRect bounds = node->bounds(frame);
-        root->rootHistory()->setMouseBounds(frame->unadjustBounds(node, bounds));
+        root->rootHistory()->setMouseBounds(bounds);
         m_viewImpl->updateCursorBounds(root, frame, node);
         showCursorTimed();
         root->setCursor(const_cast<CachedFrame*>(frame),
@@ -988,8 +988,6 @@ bool motionUp(int x, int y, int slop)
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
         result->index(), x, y, rx, ry);
-    // No need to call unadjustBounds below.  rx and ry are already adjusted to
-    // the absolute position of the node.
     WebCore::IntRect navBounds = WebCore::IntRect(rx, ry, 1, 1);
     history->setNavBounds(navBounds);
     history->setMouseBounds(navBounds);
@@ -2240,7 +2238,7 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     if (!next)
         return false;
     const WebCore::IntRect& bounds = next->bounds(frame);
-    root->rootHistory()->setMouseBounds(frame->unadjustBounds(next, bounds));
+    root->rootHistory()->setMouseBounds(bounds);
     view->getWebViewCore()->updateCursorBounds(root, frame, next);
     view->showCursorUntimed();
     root->setCursor(const_cast<CachedFrame*>(frame),

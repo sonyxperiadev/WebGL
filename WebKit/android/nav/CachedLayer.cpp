@@ -99,38 +99,6 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
     return result;
 }
 
-IntRect CachedLayer::unadjustBounds(const LayerAndroid* root,
-    const IntRect& bounds) const
-{
-    const LayerAndroid* aLayer = layer(root);
-    if (!aLayer)
-        return bounds;
-
-    IntRect temp = bounds;
-    // Remove the new position (i.e. fixed position elements).
-    FloatPoint position = getGlobalPosition(aLayer);
-
-    temp.move(-position.x(), -position.y());
-
-    // Remove any layer translation.
-    const FloatPoint& translation = aLayer->translation();
-    temp.move(-translation.x(), -translation.y());
-
-    // Move it back to the original offset.
-    temp.move(mOffset.x(), mOffset.y());
-
-    DBG_NAV_LOGD("root=%p aLayer=%p [%d]"
-        " bounds=(%d,%d,w=%d,h=%d) trans=(%g,%g) pos=(%f,%f)"
-        " offset=(%d,%d)"
-        " result=(%d,%d,w=%d,h=%d)",
-        root, aLayer, aLayer->uniqueId(),
-        bounds.x(), bounds.y(), bounds.width(), bounds.height(),
-        translation.x(), translation.y(), position.x(), position.y(),
-        mOffset.x(), mOffset.y(),
-        temp.x(), temp.y(), temp.width(), temp.height());
-    return temp;
-}
-
 FloatPoint CachedLayer::getGlobalPosition(const LayerAndroid* aLayer) const
 {
     SkPoint result = aLayer->getPosition();

@@ -83,12 +83,13 @@ namespace WebCore {
 class AndroidAnimation;
 class BackedDoubleBufferedTexture;
 class LayerAndroidFindState;
+class RenderLayer;
 class TiledPage;
 
 class LayerAndroid : public SkLayer, public TextureOwner {
 
 public:
-    LayerAndroid(bool isRootLayer);
+    LayerAndroid(RenderLayer* owner, bool isRootLayer);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
@@ -245,6 +246,8 @@ public:
 
     virtual bool isMedia() const { return false; }
 
+    RenderLayer* owningLayer() const { return m_owningLayer; }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -333,6 +336,8 @@ private:
     // happen atomically and (2) it makes sure those operations are synchronized
     // across all threads and cores.
     android::Mutex m_atomicSync;
+
+    RenderLayer* m_owningLayer;
 
     typedef SkLayer INHERITED;
 };

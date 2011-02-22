@@ -80,8 +80,6 @@ public:
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
     WebCore::IntRect adjustBounds(const CachedNode* ,
         const WebCore::IntRect& ) const;
-    WebCore::IntRect unadjustBounds(const CachedNode*,
-        const WebCore::IntRect& ) const;
     bool checkRings(const CachedNode* node,
         const WebCore::IntRect& testBounds) const;
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
