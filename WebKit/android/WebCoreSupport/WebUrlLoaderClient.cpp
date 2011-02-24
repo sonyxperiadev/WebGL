@@ -290,26 +290,18 @@ void WebUrlLoaderClient::cancelAuth()
 
 void WebUrlLoaderClient::proceedSslCertError()
 {
-    if (!isActive())
-        return;
-
     base::Thread* thread = ioThread();
-    if (!thread) {
-        return;
-    }
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::proceedSslCertError));
+    if (isActive() && thread)
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::proceedSslCertError));
+    this->Release();
 }
 
 void WebUrlLoaderClient::cancelSslCertError(int cert_error)
 {
-    if (!isActive())
-        return;
-
     base::Thread* thread = ioThread();
-    if (!thread) {
-        return;
-    }
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancelSslCertError, cert_error));
+    if (isActive() && thread)
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::cancelSslCertError, cert_error));
+    this->Release();
 }
 
 
@@ -462,6 +454,7 @@ void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate
 
     std::vector<std::string> chain_bytes;
     cert->GetChainDEREncodedBytes(&chain_bytes);
+    this->AddRef();
     m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0]);
 }
 
