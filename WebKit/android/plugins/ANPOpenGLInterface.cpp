@@ -67,8 +67,8 @@ static ANPTextureInfo anp_lockTexture(NPP instance) {
 
     ANPTextureInfo anpInfo;
     anpInfo.textureId = info->m_textureId;
-    anpInfo.width = info->m_width;
-    anpInfo.height = info->m_height;
+    anpInfo.width = (int32_t) info->m_width;
+    anpInfo.height = (int32_t) info->m_height;
     anpInfo.internalFormat = info->m_internalFormat;
     return anpInfo;
 }
