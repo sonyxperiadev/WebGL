@@ -1193,23 +1193,10 @@ bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLaye
         return true;
 #endif
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    // For the moment, we want to only enable fixed composited layers on mobile websites.
+
     // Enable composited layers (for fixed elements)
-    // We can consider a website as being a 'mobile' site if all the
-    // following checks are true:
-    // 1) - the viewport width is either undefined (-1) or equal to device-width (0), and
-    // 2) - no scaling is allowed
-    if (!layer->isFixed())
-        return false;
-
-    Settings* settings = m_renderView->document()->settings();
-    if (!settings)
-        return false;
-
-    if ((settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
-        !settings->viewportUserScalable())
+    if (layer->isFixed())
         return true;
-
 #endif
     return false;
 }
