@@ -73,6 +73,8 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(SkMatrix& matrix)
 {
+    TilesManager::instance()->shader()->clip(drawClip());
+
     // check to see if we need to create a video texture
     m_videoTexture->initNativeWindowIfNeeded();
     // draw any video content if present
