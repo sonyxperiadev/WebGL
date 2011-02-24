@@ -65,6 +65,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveClip(false),
     m_isFixed(false),
+    m_isIframe(false),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_recordingPicture(0),
@@ -83,7 +84,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
 
     m_preserves3D = false;
     m_dirty = false;
-
+    m_iframeOffset.set(0,0);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
 #endif
@@ -92,6 +93,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isRootLayer(layer.m_isRootLayer),
     m_haveClip(layer.m_haveClip),
+    m_isIframe(layer.m_isIframe),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
     m_drawingTexture(0),
@@ -115,7 +117,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedMarginRight = layer.m_fixedMarginRight;
     m_fixedMarginBottom = layer.m_fixedMarginBottom;
     m_fixedRect = layer.m_fixedRect;
-
+    m_iframeOffset = layer.m_iframeOffset;
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
@@ -144,6 +146,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_isRootLayer(true),
     m_haveClip(false),
     m_isFixed(false),
+    m_isIframe(false),
     m_recordingPicture(picture),
     m_contentsImage(0),
     m_extra(0),
@@ -158,6 +161,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_backgroundColor = 0;
     m_dirty = false;
     SkSafeRef(m_recordingPicture);
+    m_iframeOffset.set(0,0);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
 #endif
@@ -466,9 +470,31 @@ const LayerAndroid* LayerAndroid::find(int* xPtr, int* yPtr, SkPicture* root) co
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
+void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
 {
+    // If this is an iframe, accumulate the offset from the parent with
+    // current position, and change the parent pointer.
+    if (m_isIframe) {
+        // If this is the top level, take the current position
+        SkPoint parentOffset;
+        parentOffset.set(0,0);
+        if (parentIframeLayer)
+            parentOffset = parentIframeLayer->getPosition();
+
+        m_iframeOffset = parentOffset + getPosition();
+
+        parentIframeLayer = this;
+    }
+
     if (m_isFixed) {
+        // So if this is a fixed layer inside a iframe, use the iframe offset
+        // and the iframe's size as the viewport and pass to the children
+        if (parentIframeLayer) {
+            viewport = SkRect::MakeXYWH(parentIframeLayer->m_iframeOffset.fX,
+                                 parentIframeLayer->m_iframeOffset.fY,
+                                 parentIframeLayer->getSize().width(),
+                                 parentIframeLayer->getSize().height());
+        }
         float w = viewport.width();
         float h = viewport.height();
         float dx = viewport.fLeft;
@@ -500,7 +526,7 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateFixedLayersPositions(viewport);
+        this->getChild(i)->updateFixedLayersPositions(viewport, parentIframeLayer);
 }
 
 void LayerAndroid::updatePositions()
@@ -1207,6 +1233,8 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
     writeIntVal(file, indentLevel + 1, "isRootLayer", m_isRootLayer);
     writeIntVal(file, indentLevel + 1, "isFixed", m_isFixed);
+    writeIntVal(file, indentLevel + 1, "m_isIframe", m_isIframe);
+    writePoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());

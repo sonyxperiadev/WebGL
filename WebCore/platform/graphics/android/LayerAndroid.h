@@ -202,7 +202,7 @@ public:
         This call is recursive, so it should be called on the root of the
         hierarchy.
     */
-    void updateFixedLayersPositions(const SkRect& viewPort);
+    void updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
 
     /** Call this to update the position attribute, so that later calls
         like bounds() will report the corrected position.
@@ -248,6 +248,8 @@ public:
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
+    void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -266,6 +268,7 @@ private:
     bool m_haveClip;
     bool m_isFixed;
     bool m_backgroundColorSet;
+    bool m_isIframe;
 
     SkLength m_fixedLeft;
     SkLength m_fixedTop;
@@ -277,6 +280,7 @@ private:
     SkLength m_fixedMarginBottom;
     SkRect m_fixedRect;
 
+    SkPoint m_iframeOffset;
     // When fixed element is undefined or auto, the render layer's position
     // is needed for offset computation
     IntPoint m_renderLayerPos;
