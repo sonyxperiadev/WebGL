@@ -101,7 +101,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 {
     m_isFixed = layer.m_isFixed;
     m_contentsImage = layer.m_contentsImage;
-    m_contentsImage->safeRef();
+    SkSafeRef(m_contentsImage);
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backgroundColor = layer.m_backgroundColor;
@@ -195,8 +195,8 @@ LayerAndroid::~LayerAndroid()
     removeTexture(0);
     removeChildren();
     delete m_extra;
-    m_contentsImage->safeUnref();
-    m_recordingPicture->safeUnref();
+    SkSafeUnref(m_contentsImage);
+    SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("LayerAndroid");
@@ -1055,11 +1055,11 @@ bool LayerAndroid::prepareContext(bool force)
             || (m_recordingPicture
                 && ((m_recordingPicture->width() != (int) getSize().width())
                    || (m_recordingPicture->height() != (int) getSize().height())))) {
-            m_recordingPicture->safeUnref();
+            SkSafeUnref(m_recordingPicture);
             m_recordingPicture = new SkPicture();
         }
     } else if (m_recordingPicture) {
-        m_recordingPicture->safeUnref();
+        SkSafeUnref(m_recordingPicture);
         m_recordingPicture = 0;
     }
 

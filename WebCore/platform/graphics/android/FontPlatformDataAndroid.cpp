@@ -83,7 +83,7 @@ FontPlatformData::FontPlatformData()
 FontPlatformData::FontPlatformData(const FontPlatformData& src)
 {
     if (hashTableDeletedFontValue() != src.mTypeface) {
-        src.mTypeface->safeRef();
+        SkSafeRef(src.mTypeface);
     }
 
     mTypeface   = src.mTypeface;
@@ -101,7 +101,7 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
     : mTypeface(tf), mTextSize(textSize), mFakeBold(fakeBold), mFakeItalic(fakeItalic)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeRef();
+        SkSafeRef(mTypeface);
     }
 
     inc_count();
@@ -113,7 +113,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
       m_harfbuzzFace(src.m_harfbuzzFace)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeRef();
+        SkSafeRef(mTypeface);
     }
 
     inc_count();
@@ -135,17 +135,17 @@ FontPlatformData::~FontPlatformData()
 #endif
 
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeUnref();
+        SkSafeUnref(mTypeface);
     }
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 {
     if (hashTableDeletedFontValue() != src.mTypeface) {
-        src.mTypeface->safeRef();
+        SkSafeRef(src.mTypeface);
     }
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeUnref();
+        SkSafeUnref(mTypeface);
     }
 
     mTypeface   = src.mTypeface;

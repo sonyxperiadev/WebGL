@@ -85,7 +85,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
 GLWebViewState::~GLWebViewState()
 {
-    m_currentBaseLayer->safeUnref();
+    SkSafeUnref(m_currentBaseLayer);
     delete m_tiledPageA;
     delete m_tiledPageB;
 #ifdef DEBUG_COUNT
@@ -110,8 +110,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
     // We only update the layers if we are not currently
     // waiting for a tiledPage to be painted
     if (m_baseLayerUpdate) {
-        layer->safeRef();
-        m_currentBaseLayer->safeUnref();
+        SkSafeRef(layer);
+        SkSafeUnref(m_currentBaseLayer);
         m_currentBaseLayer = layer;
     }
     inval(rect);
@@ -122,8 +122,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
 void GLWebViewState::unlockBaseLayerUpdate() {
     m_baseLayerUpdate = true;
     android::Mutex::Autolock lock(m_baseLayerLock);
-    m_baseLayer->safeRef();
-    m_currentBaseLayer->safeUnref();
+    SkSafeRef(m_baseLayer);
+    SkSafeUnref(m_currentBaseLayer);
     m_currentBaseLayer = m_baseLayer;
     inval(m_invalidateRect);
     IntRect empty;
@@ -303,12 +303,12 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColo
 {
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
-    baseLayer->safeRef();
+    SkSafeRef(baseLayer);
     m_baseLayerLock.unlock();
     if (!baseLayer)
         return false;
     bool ret = baseLayer->drawGL(rect, viewport, scale, color);
-    baseLayer->safeUnref();
+    SkSafeUnref(baseLayer);
     return ret;
 }
 

@@ -46,11 +46,11 @@ static int32_t anp_getRefCount(const ANPTypeface* tf) {
 }
 
 static void anp_ref(ANPTypeface* tf) {
-    tf->safeRef();
+    SkSafeRef(tf);
 }
 
 static void anp_unref(ANPTypeface* tf) {
-    tf->safeUnref();
+    SkSafeUnref(tf);
 }
 
 static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {

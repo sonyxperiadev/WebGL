@@ -128,13 +128,13 @@ public:
             , useAA(other.useAA)
         {
             path = deepCopyPtr<SkPath>(other.path);
-            pathEffect->safeRef();
+            SkSafeRef(pathEffect);
         }
 
         ~State()
         {
             delete path;
-            pathEffect->safeUnref();
+            SkSafeUnref(pathEffect);
         }
 
         void setShadow(int radius, int dx, int dy, SkColor c)
@@ -1043,7 +1043,7 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     for (unsigned int i = 0; i < count; i++)
         intervals[i] = SkFloatToScalar(dashes[i % dashLength]);
     SkPathEffect **effectPtr = &m_data->getState()->pathEffect;
-    (*effectPtr)->safeUnref();
+    SkSafeUnref(*effectPtr);
     *effectPtr = new SkDashPathEffect(intervals, count, SkFloatToScalar(dashOffset));
 
     delete[] intervals;

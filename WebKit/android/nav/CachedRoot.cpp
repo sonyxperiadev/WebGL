@@ -160,11 +160,11 @@ public:
         INHERITED::drawPath(path, paint);
     }
 
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
+    virtual void commonDrawBitmap(const SkBitmap& bitmap, const SkIRect* rect,
                               const SkMatrix& matrix, const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawBitmap_Type);
         mBounder.setIsOpaque(bitmap.isOpaque());
-        INHERITED::commonDrawBitmap(bitmap, matrix, paint);
+        INHERITED::commonDrawBitmap(bitmap, rect, matrix, paint);
     }
 
     virtual void drawSprite(const SkBitmap& bitmap, int left, int top,
@@ -508,7 +508,7 @@ protected:
 // Currently webkit's bitmap draws always seem to be cull'd before this entry
 // point is called, so we assume that any bitmap that gets here is inside our
 // tiny clip (may not be true in the future)
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
+    virtual void commonDrawBitmap(const SkBitmap& bitmap, const SkIRect* rect,
                               const SkMatrix& , const SkPaint& ) {
         SkPixelRef* pixelRef = bitmap.pixelRef();
         if (pixelRef != NULL) {

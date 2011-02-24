@@ -1218,7 +1218,7 @@ public:
     virtual void drawPath(const SkPath& path, const SkPaint& paint) {
     }
 
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
+    virtual void commonDrawBitmap(const SkBitmap& bitmap, const SkIRect* rect,
                               const SkMatrix& matrix, const SkPaint& paint) {
     }
 
@@ -1396,13 +1396,13 @@ SelectText::SelectText()
     paint.setShader(dropGradient);
     canvas->drawRect(endDropRect, paint);
     m_endControl.endRecording();
-    fillGradient->safeUnref();
-    dropGradient->safeUnref();
+    SkSafeUnref(fillGradient);
+    SkSafeUnref(dropGradient);
 }
 
 SelectText::~SelectText()
 {
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
 }
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
@@ -1410,9 +1410,9 @@ void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
     if (m_layerId != layer->uniqueId())
         return;
     // reset m_picture to match m_layerId
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
     m_picture = layer->picture();
-    m_picture->safeRef();
+    SkSafeRef(m_picture);
     DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d layer [%d]",
         m_extendSelection, m_drawPointer, layer->uniqueId());
     if (m_extendSelection)
@@ -1809,7 +1809,7 @@ void SelectText::reset()
     m_lastEnd.setEmpty();
     m_extendSelection = false;
     m_startSelection = false;
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
     m_picture = 0;
     m_layerId = 0;
 }
@@ -1868,7 +1868,7 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
     m_wordSelection = false;
     m_startOffset.set(x, y);
     DBG_NAV_LOGD("x/y=(%d,%d)", x, y);
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
     m_picture = root->pictureAt(&x, &y, &m_layerId);
     DBG_NAV_LOGD("m_picture=%p m_layerId=%d x/y=(%d,%d)", m_picture, m_layerId,
         x, y);
