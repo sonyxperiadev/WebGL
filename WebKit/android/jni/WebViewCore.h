@@ -546,6 +546,8 @@ namespace android {
         void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
                 size_t count, const int enabled[], size_t enabledCount,
                 bool multiple, const int selected[], size_t selectedCountOrSelection);
+        bool shouldPaintCaret() { return m_shouldPaintCaret; }
+        void setShouldPaintCaret(bool should) { m_shouldPaintCaret = should; }
 
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
@@ -641,6 +643,7 @@ namespace android {
         PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
         int m_cacheMode;
+        bool m_shouldPaintCaret;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

@@ -58,6 +58,9 @@
 #include "TypingCommand.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#ifdef ANDROID_ALLOW_TURNING_OFF_CARET
+#include "WebViewCore.h"
+#endif
 #include <stdio.h>
 #include <wtf/text/CString.h>
 
@@ -1079,6 +1082,10 @@ void SelectionController::invalidateCaretRect()
 
 void SelectionController::paintCaret(GraphicsContext* context, int tx, int ty, const IntRect& clipRect)
 {
+#ifdef ANDROID_ALLOW_TURNING_OFF_CARET
+    if (m_frame && !android::WebViewCore::getWebViewCore(m_frame->view())->shouldPaintCaret())
+        return;
+#endif
 #if ENABLE(TEXT_CARET)
     if (!m_caretVisible)
         return;

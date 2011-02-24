@@ -148,7 +148,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
-    m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
+    m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(ZZ)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
     m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
@@ -866,7 +866,9 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         const CachedNode* focus = root->currentFocus();
         bool clearTextEntry = cachedNode != focus && focus
                 && cachedNode->nodePointer() != focus->nodePointer() && focus->isTextInput();
-        sendMoveMouseIfLatest(clearTextEntry);
+        // Stop painting the caret if the old focus was a text input and so is the new cursor.
+        bool stopPaintingCaret = clearTextEntry && cachedNode->wantsKeyEvents();
+        sendMoveMouseIfLatest(clearTextEntry, stopPaintingCaret);
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
@@ -942,7 +944,7 @@ void selectBestAt(const WebCore::IntRect& rect)
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
     }
-    sendMoveMouseIfLatest(false);
+    sendMoveMouseIfLatest(false, false);
     if (!node)
         return;
 }
@@ -1208,12 +1210,12 @@ void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int 
     checkException(env);
 }
 
-void sendMoveMouseIfLatest(bool clearTextEntry)
+void sendMoveMouseIfLatest(bool clearTextEntry, bool stopPaintingCaret)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry);
+            m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry, stopPaintingCaret);
     checkException(env);
 }
 

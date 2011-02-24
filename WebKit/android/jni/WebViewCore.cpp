@@ -343,6 +343,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_isPaused = false;
     m_screenOnCounter = 0;
     m_onlyScrollIfImeIsShowing = false;
+    m_shouldPaintCaret = true;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -2758,6 +2759,7 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     key(up);
     client->setUiGeneratedSelectionChange(false);
     m_textGeneration = textGeneration;
+    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::replaceTextfieldText(int oldStart,
@@ -2779,6 +2781,7 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     // setSelection calls revealSelection, so there is no need to do it here.
     setSelection(start, end);
     m_textGeneration = textGeneration;
+    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::passToJs(int generation, const WTF::String& current,
@@ -2818,6 +2821,7 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     }
     // Now that the selection has settled down, send it.
     updateTextSelection();
+    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
@@ -3219,15 +3223,15 @@ void WebViewCore::formDidBlur(const WebCore::Node* node)
 
 void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
 {
-    if (!m_blurringNodePointer)
-        return;
-    if (!isTextInput(newFocus)) {
+    if (isTextInput(newFocus))
+        m_shouldPaintCaret = true;
+    else if (m_blurringNodePointer) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->CallVoidMethod(m_javaGlue->object(env).get(),
                 m_javaGlue->m_formDidBlur, m_blurringNodePointer);
         checkException(env);
+        m_blurringNodePointer = 0;
     }
-    m_blurringNodePointer = 0;
 }
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
@@ -4017,6 +4021,11 @@ static jstring RetrieveImageSource(JNIEnv *env, jobject obj, jint x, jint y)
     return !result.isEmpty() ? wtfStringToJstring(env, result) : 0;
 }
 
+static void StopPaintingCaret(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->setShouldPaintCaret(false);
+}
+
 static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -4411,6 +4420,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RetrieveAnchorText },
     { "nativeRetrieveImageSource", "(II)Ljava/lang/String;",
         (void*) RetrieveImageSource },
+    { "nativeStopPaintingCaret", "()V",
+        (void*) StopPaintingCaret },
     { "nativeUpdateFrameCache", "()V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
