@@ -17,6 +17,7 @@
 #include "MediaTexture.h"
 #include "TilesManager.h"
 #include "GLUtils.h"
+#include "VideoListener.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -47,43 +48,6 @@
 
 namespace WebCore {
 
-class VideoListener : public android::SurfaceTexture::FrameAvailableListener {
-
-public:
-    VideoListener(jobject weakWebViewRef)
-        : m_weakWebViewRef(weakWebViewRef)
-        , m_postInvalMethod(0)
-    {
-        if (!m_weakWebViewRef)
-            return;
-
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
-        if (localWebViewRef) {
-            jclass wvClass = env->GetObjectClass(localWebViewRef);
-            m_postInvalMethod = env->GetMethodID(wvClass, "postInvalidate", "()V");
-            env->DeleteLocalRef(wvClass);
-            env->DeleteLocalRef(localWebViewRef);
-        }
-        checkException(env);
-    }
-
-    virtual void onFrameAvailable()
-    {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
-        if (localWebViewRef) {
-            env->CallVoidMethod(localWebViewRef, m_postInvalMethod);
-            env->DeleteLocalRef(localWebViewRef);
-        }
-        checkException(env);
-    }
-
-private:
-    jobject m_weakWebViewRef;
-    jmethodID m_postInvalMethod;
-};
-
 VideoTexture::VideoTexture(jobject weakWebViewRef) : android::LightRefBase<VideoTexture>()
 {
     m_weakWebViewRef = weakWebViewRef;
@@ -91,6 +55,7 @@ VideoTexture::VideoTexture(jobject weakWebViewRef) : android::LightRefBase<Video
     m_dimensions.setEmpty();
     m_newWindowRequest = false;
     m_newWindowReady = false;
+    m_videoListener = new VideoListener(m_weakWebViewRef);
 }
 
 VideoTexture::~VideoTexture()
@@ -119,8 +84,8 @@ void VideoTexture::initNativeWindowIfNeeded()
     m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
 
     //setup callback
-    sp<VideoListener> listener = new VideoListener(m_weakWebViewRef);
-    m_surfaceTexture->setFrameAvailableListener(listener);
+    m_videoListener->resetFrameAvailable();
+    m_surfaceTexture->setFrameAvailableListener(m_videoListener);
 
     m_newWindowRequest = false;
     m_newWindowReady = true;
@@ -131,7 +96,8 @@ void VideoTexture::drawVideo(const TransformationMatrix& matrix)
 {
     android::Mutex::Autolock lock(m_videoLock);
 
-    if(!m_surfaceTexture.get() || m_dimensions.isEmpty())
+    if(!m_surfaceTexture.get() || m_dimensions.isEmpty()
+            || !m_videoListener->isFrameAvailable())
         return;
 
     m_surfaceTexture->updateTexImage();

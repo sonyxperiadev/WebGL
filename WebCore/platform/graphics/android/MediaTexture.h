@@ -31,6 +31,8 @@ namespace android {
 
 namespace WebCore {
 
+class VideoListener;
+
 class MediaTexture : public DoubleBufferedTexture,
                      public android::LightRefBase<MediaTexture> {
 
@@ -57,6 +59,7 @@ private:
     GLuint m_textureId;
     sp<android::SurfaceTexture> m_surfaceTexture;
     sp<ANativeWindow> m_surfaceTextureClient;
+    sp<VideoListener> m_videoListener;
     SkRect m_dimensions;
     bool m_newWindowRequest;
     bool m_newWindowReady;
