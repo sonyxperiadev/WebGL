@@ -71,24 +71,26 @@ VideoTexture::~VideoTexture()
 
 void VideoTexture::initNativeWindowIfNeeded()
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    {
+        android::Mutex::Autolock lock(m_videoLock);
 
-    if(!m_newWindowRequest)
-        return;
+        if(!m_newWindowRequest)
+            return;
 
-    // reuse an existing texture if possible
-    if (!m_textureId)
-        glGenTextures(1, &m_textureId);
+        // reuse an existing texture if possible
+        if (!m_textureId)
+            glGenTextures(1, &m_textureId);
 
-    m_surfaceTexture = new android::SurfaceTexture(m_textureId);
-    m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
+        m_surfaceTexture = new android::SurfaceTexture(m_textureId);
+        m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
 
-    //setup callback
-    m_videoListener->resetFrameAvailable();
-    m_surfaceTexture->setFrameAvailableListener(m_videoListener);
+        //setup callback
+        m_videoListener->resetFrameAvailable();
+        m_surfaceTexture->setFrameAvailableListener(m_videoListener);
 
-    m_newWindowRequest = false;
-    m_newWindowReady = true;
+        m_newWindowRequest = false;
+        m_newWindowReady = true;
+    }
     m_newVideoRequestCond.signal();
 }
 
@@ -140,7 +142,11 @@ ANativeWindow* VideoTexture::requestNewWindow()
     }
 
     //block until the request can be fulfilled or we time out
-    m_newVideoRequestCond.waitRelative(m_videoLock, 500000000); // .5 sec
+    bool timedOut = false;
+    while (m_newWindowRequest && !timedOut) {
+        int ret = m_newVideoRequestCond.waitRelative(m_videoLock, 500000000); // .5 sec
+        timedOut = ret == TIMED_OUT;
+    }
 
     if (m_surfaceTextureClient.get())
         m_newWindowReady = false;

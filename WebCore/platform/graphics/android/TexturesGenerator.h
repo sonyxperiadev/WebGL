@@ -61,8 +61,6 @@ private:
     Vector<QueuedOperation*> mRequestedOperations;
     android::Mutex mRequestedOperationsLock;
     android::Condition mRequestedOperationsCond;
-    android::Mutex m_newRequestLock;
-    android::Condition m_newRequestCond;
     bool m_waitForCompletion;
     QueuedOperation* m_currentOperation;
 };
