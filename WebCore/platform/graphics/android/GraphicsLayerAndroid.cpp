@@ -291,7 +291,6 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
         this, point.x(), point.y(), m_position.x(), m_position.y(),
         m_anchorPoint.x(), m_anchorPoint.y(), m_size.width(), m_size.height());
 #endif
-    updateFixedPosition();
     m_contentLayer->setPosition(pos.x(), pos.y());
     askForSync();
 }
@@ -323,7 +322,6 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
     GraphicsLayer::setSize(size);
     m_contentLayer->setSize(size.width(), size.height());
-    updateFixedPosition();
     askForSync();
 }
 
@@ -928,6 +926,7 @@ void GraphicsLayerAndroid::syncCompositingState()
         m_children[i]->syncCompositingState();
 
     updateScrollingLayers();
+    updateFixedPosition();
     syncChildren();
     syncMask();
 
