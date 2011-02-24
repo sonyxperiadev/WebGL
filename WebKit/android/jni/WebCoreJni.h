@@ -36,6 +36,9 @@ namespace android {
 // returned from getRealObject.
 class AutoJObject {
 public:
+    AutoJObject(const AutoJObject& other)
+        : m_env(other.m_env)
+        , m_obj(other.m_obj ? other.m_env->NewLocalRef(other.m_obj) : NULL) {}
     ~AutoJObject() {
         if (m_obj)
             m_env->DeleteLocalRef(m_obj);
@@ -54,6 +57,7 @@ public:
         return m_env;
     }
 private:
+    AutoJObject(); // Not permitted.
     AutoJObject(JNIEnv* env, jobject obj)
         : m_env(env)
         , m_obj(obj) {}
