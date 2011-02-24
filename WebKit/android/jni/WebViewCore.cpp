@@ -1481,7 +1481,7 @@ void WebViewCore::revealSelection()
     WebCore::Frame* focusedFrame = focus->document()->frame();
     if (!focusedFrame->page()->focusController()->isActive())
         return;
-    focusedFrame->selection()->revealSelection();
+    focusedFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 void WebViewCore::updateCacheOnNodeChange()
@@ -2073,7 +2073,7 @@ void WebViewCore::setSelection(int start, int end)
     // For password fields, this is done in the UI side via
     // bringPointIntoView, since the UI does the drawing.
     if (renderer->isTextArea() || !isPasswordField)
-        focusedFrame->selection()->revealSelection();
+        revealSelection();
 }
 
 String WebViewCore::modifySelection(const int direction, const int axis)
