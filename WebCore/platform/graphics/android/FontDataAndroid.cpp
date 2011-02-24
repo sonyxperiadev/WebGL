@@ -91,7 +91,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
 
 void SimpleFontData::determinePitch()
 {
-    m_treatAsFixedPitch = false;
+    m_treatAsFixedPitch = m_platformData.isFixedPitch();
 }
 
 FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const

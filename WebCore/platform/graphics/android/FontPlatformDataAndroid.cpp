@@ -205,6 +205,11 @@ unsigned FontPlatformData::hash() const
     return h;
 }
 
+bool FontPlatformData::isFixedPitch() const
+{
+    return mTypeface ? mTypeface->isFixedWidth() : false;
+}
+
 HB_FaceRec_* FontPlatformData::harfbuzzFace() const
 {
 #ifdef SUPPORT_COMPLEX_SCRIPTS

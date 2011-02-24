@@ -79,6 +79,7 @@ public:
 
     float size() const { return mTextSize; }
     unsigned hash() const;
+    bool isFixedPitch() const;
 
 #ifndef NDEBUG
     String description() const { return ""; }
