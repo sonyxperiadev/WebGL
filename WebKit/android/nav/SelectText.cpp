@@ -271,7 +271,7 @@ public:
             SkFixedToScalar(posNoSpace), SkFixedToScalar(diffNoSpace),
             SkFixedToScalar(posWithSpace), SkFixedToScalar(diffWithSpace),
             mLastPaint.getTextSize());
-        return diffWithSpace < diffNoSpace;
+        return diffWithSpace <= diffNoSpace;
     }
 
     SkFixed minSpaceWidth(SkPaint& paint)
