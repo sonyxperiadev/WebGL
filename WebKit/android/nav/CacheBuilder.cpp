@@ -1241,6 +1241,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
             if (input->isTextField()) {
+                if (input->readOnly())
+                    continue;
                 type = TEXT_INPUT_CACHEDNODETYPE;
                 cachedInput.init();
                 cachedInput.setAutoComplete(input->autoComplete());
@@ -1259,9 +1261,11 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             else if (input->isRadioButton() || input->isCheckbox())
                 isTransparent = false;
         } else if (node->hasTagName(HTMLNames::textareaTag)) {
+            HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
+            if (area->readOnly())
+                continue;
             cachedInput.init();
             type = TEXT_INPUT_CACHEDNODETYPE;
-            HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
             cachedInput.setFormPointer(area->form());
             cachedInput.setIsTextArea(true);
             exported = area->value().threadsafeCopy();

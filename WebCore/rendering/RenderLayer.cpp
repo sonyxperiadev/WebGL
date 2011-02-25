@@ -62,6 +62,9 @@
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+#include "HTMLTextAreaElement.h"
+#endif
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "OverflowEvent.h"
@@ -2175,7 +2178,9 @@ RenderLayer::updateScrollInfoAfterLayout()
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool hasOverflowScroll = ((horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar))
-            && !renderer()->isTextArea();
+            // Disable UI side scrolling for textareas, unless they are readonly.
+            && (!renderer()->isTextArea() || (renderer()->node()
+            && static_cast<HTMLTextAreaElement*>(renderer()->node())->readOnly()));
     if (hasOverflowScroll != m_hasOverflowScroll) {
         m_hasOverflowScroll = hasOverflowScroll;
         dirtyZOrderLists();
