@@ -53,24 +53,24 @@ namespace WebCore {
 
 void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 {
-    android::Mutex::Autolock lock(mRequestedOperationsLock);
-    for (unsigned int i = 0; i < mRequestedOperations.size(); i++) {
-        QueuedOperation** s = &mRequestedOperations[i];
-        // A similar operation is already in the queue. The newer operation may
-        // have additional dirty tiles so delete the existing operation and
-        // replace it with the new one.
-        if (*s && *s == operation) {
-            QueuedOperation* oldOperation = *s;
-            *s = operation;
-            delete oldOperation;
-            return;
+    {
+        android::Mutex::Autolock lock(mRequestedOperationsLock);
+        for (unsigned int i = 0; i < mRequestedOperations.size(); i++) {
+            QueuedOperation** s = &mRequestedOperations[i];
+            // A similar operation is already in the queue. The newer operation may
+            // have additional dirty tiles so delete the existing operation and
+            // replace it with the new one.
+            if (*s && *s == operation) {
+                QueuedOperation* oldOperation = *s;
+                *s = operation;
+                delete oldOperation;
+                return;
+            }
         }
-    }
 
-    mRequestedOperations.append(operation);
-    m_newRequestLock.lock();
-    m_newRequestCond.signal();
-    m_newRequestLock.unlock();
+        mRequestedOperations.append(operation);
+    }
+    mRequestedOperationsCond.signal();
 }
 
 void TexturesGenerator::removeOperationsForPage(TiledPage* page)
@@ -90,7 +90,7 @@ void TexturesGenerator::removeOperationsForTexture(LayerTexture* texture)
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 {
-    mRequestedOperationsLock.lock();
+    android::Mutex::Autolock lock(mRequestedOperationsLock);
     for (unsigned int i = 0; i < mRequestedOperations.size();) {
         QueuedOperation* operation = mRequestedOperations[i];
         if (filter->check(operation)) {
@@ -105,23 +105,14 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
     if (operation && filter->check(operation))
         m_waitForCompletion = true;
 
-    mRequestedOperationsLock.unlock();
-
     delete filter;
-
-    mRequestedOperationsLock.lock();
-    if (!m_waitForCompletion) {
-        mRequestedOperationsLock.unlock();
-        return; // operation treated
-    }
 
     // At this point, it means that we are currently executing an operation that
     // we want to be removed -- we should wait until it is done, so that
     // when we return our caller can be sure that there is no more operations
     // in the queue matching the given filter.
-    mRequestedOperationsCond.wait(mRequestedOperationsLock);
-    m_waitForCompletion = false;
-    mRequestedOperationsLock.unlock();
+    while (m_waitForCompletion)
+        mRequestedOperationsCond.wait(mRequestedOperationsLock);
 }
 
 status_t TexturesGenerator::readyToRun()
@@ -133,19 +124,13 @@ status_t TexturesGenerator::readyToRun()
 
 bool TexturesGenerator::threadLoop()
 {
+    // Check if we have any pending operations.
     mRequestedOperationsLock.lock();
+    while (!mRequestedOperations.size())
+        mRequestedOperationsCond.wait(mRequestedOperationsLock);
 
-    if (!mRequestedOperations.size()) {
-        XLOG("threadLoop, waiting for signal");
-        m_newRequestLock.lock();
-        mRequestedOperationsLock.unlock();
-        m_newRequestCond.wait(m_newRequestLock);
-        m_newRequestLock.unlock();
-        XLOG("threadLoop, got signal");
-    } else {
-        XLOG("threadLoop going as we already have something in the queue");
-        mRequestedOperationsLock.unlock();
-    }
+    XLOG("threadLoop, got signal");
+    mRequestedOperationsLock.unlock();
 
     m_currentOperation = 0;
     bool stop = false;
@@ -170,15 +155,15 @@ bool TexturesGenerator::threadLoop()
         if (m_currentOperation) {
             delete m_currentOperation;
             m_currentOperation = 0;
-            mRequestedOperationsCond.signal();
         }
         if (!mRequestedOperations.size())
             stop = true;
         if (m_waitForCompletion) {
-            mRequestedOperationsCond.signal();
             m_waitForCompletion = false;
+            mRequestedOperationsCond.signal();
         }
         mRequestedOperationsLock.unlock();
+
     }
 
     return true;

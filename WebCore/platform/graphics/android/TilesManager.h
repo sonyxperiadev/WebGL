@@ -84,9 +84,11 @@ public:
 
     void markGeneratorAsReady()
     {
-        android::Mutex::Autolock lock(m_generatorLock);
+        {
+            android::Mutex::Autolock lock(m_generatorLock);
+            m_generatorReady = true;
+        }
         m_generatorReadyCond.signal();
-        m_generatorReady = true;
     }
 
     void printTextures();
@@ -123,7 +125,7 @@ private:
     void waitForGenerator()
     {
         android::Mutex::Autolock lock(m_generatorLock);
-        if (!m_generatorReady)
+        while (!m_generatorReady)
             m_generatorReadyCond.wait(m_generatorLock);
     }
 
