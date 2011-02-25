@@ -29,6 +29,7 @@
 #include "WebViewCore.h"
 
 #include "AccessibilityObject.h"
+#include "Attribute.h"
 #include "BaseLayerAndroid.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
@@ -78,6 +79,7 @@
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
 #include "MemoryUsage.h"
+#include "NamedNodeMap.h"
 #include "Navigator.h"
 #include "Node.h"
 #include "NodeList.h"
@@ -3117,6 +3119,22 @@ void WebViewCore::touchUp(int touchGeneration,
     handleMouseClick(frame, node, false);
 }
 
+// Check for the "x-webkit-soft-keyboard" attribute.  If it is there and
+// set to hidden, do not show the soft keyboard.  Node passed as a parameter
+// must not be null.
+static bool shouldSuppressKeyboard(const WebCore::Node* node) {
+    LOG_ASSERT(node, "node passed to shouldSuppressKeyboard cannot be null");
+    const NamedNodeMap* attributes = node->attributes();
+    if (!attributes) return false;
+    size_t length = attributes->length();
+    for (size_t i = 0; i < length; i++) {
+        const Attribute* a = attributes->attributeItem(i);
+        if (a->localName() == "x-webkit-soft-keyboard" && a->value() == "hidden")
+            return true;
+    }
+    return false;
+}
+
 // Common code for both clicking with the trackball and touchUp
 // Also used when typing into a non-focused textfield to give the textfield focus,
 // in which case, 'fake' is set to true
@@ -3158,8 +3176,8 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     if (focusNode) {
         WebCore::RenderObject* renderer = focusNode->renderer();
         if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-            bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
-                    ->readOnly();
+            bool ime = !shouldSuppressKeyboard(focusNode)
+                    && !(static_cast<WebCore::HTMLInputElement*>(focusNode))->readOnly();
             if (ime) {
 #if ENABLE(WEB_AUTOFILL)
                 if (renderer->isTextField()) {
