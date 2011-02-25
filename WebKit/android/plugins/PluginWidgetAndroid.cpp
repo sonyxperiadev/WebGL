@@ -390,7 +390,7 @@ void PluginWidgetAndroid::sendSizeAndVisibilityEvents(const bool updateDimension
     const float zoomLevel = m_core->scale();
 
     // notify the plugin of the new size
-    if (m_drawingModel == kOpenGL_ANPDrawingModel && updateDimensions) {
+    if (m_drawingModel == kOpenGL_ANPDrawingModel && updateDimensions && m_pluginWindow) {
         PLUGIN_LOG("%s (%d,%d)[%f]", __FUNCTION__, m_pluginWindow->width,
                 m_pluginWindow->height, zoomLevel);
         ANPEvent event;
