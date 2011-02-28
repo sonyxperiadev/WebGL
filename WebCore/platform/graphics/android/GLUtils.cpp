@@ -99,13 +99,23 @@ void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, flo
 // GL & EGL error checks
 /////////////////////////////////////////////////////////////////////////////////////////
 
+static void crashIfOOM(GLint errorCode) {
+    const GLint OOM_ERROR_CODE = 0x505;
+    if (errorCode == OOM_ERROR_CODE) {
+        XLOG("Fatal OOM detected.");
+        CRASH();
+    }
+}
+
 void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
 {
     if (returnVal != EGL_TRUE)
         XLOG("EGL ERROR - %s() returned %d\n", op, returnVal);
 
-    for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError())
+    for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError()) {
         XLOG("after %s() eglError (0x%x)\n", op, error);
+        crashIfOOM(error);
+    }
 }
 
 bool GLUtils::checkGlError(const char* op)
@@ -113,6 +123,7 @@ bool GLUtils::checkGlError(const char* op)
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
         XLOG("GL ERROR - after %s() glError (0x%x)\n", op, error);
+        crashIfOOM(error);
         ret = true;
     }
     return ret;
@@ -123,6 +134,7 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
         XLOG("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
+        crashIfOOM(error);
         ret = true;
     }
     return ret;
