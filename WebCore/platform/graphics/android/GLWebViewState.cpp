@@ -32,11 +32,11 @@
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
 #include "TilesManager.h"
+#include <wtf/CurrentTime.h>
 
 #ifdef DEBUG
 
 #include <cutils/log.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
 #undef XLOG
@@ -51,6 +51,8 @@
 
 #define FIRST_TILED_PAGE_ID 1
 #define SECOND_TILED_PAGE_ID 2
+
+#define FRAMERATE_CAP 0.01666 // We cap at 60 fps
 
 namespace WebCore {
 
@@ -296,8 +298,20 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     m_tiledPageB->updateBaseTileSize();
 }
 
+static double gPrevTime = 0;
+
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColor color)
 {
+    glFinish();
+
+    double currentTime = WTF::currentTime();
+    double delta = currentTime - gPrevTime;
+
+    if (delta < FRAMERATE_CAP)
+        return true;
+
+    gPrevTime = currentTime;
+
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
     baseLayer->safeRef();

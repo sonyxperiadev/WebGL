@@ -337,7 +337,6 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         TilesManager::instance()->cleanupLayersTextures(0);
     }
 
-    glFinish();
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
 
