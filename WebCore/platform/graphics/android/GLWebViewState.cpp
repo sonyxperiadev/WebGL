@@ -34,10 +34,13 @@
 #include "TilesManager.h"
 #include <wtf/CurrentTime.h>
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLWebViewState", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLWebViewState", __VA_ARGS__)
@@ -84,6 +87,11 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("GLWebViewState");
 #endif
+#ifdef MEASURES_PERF
+    m_timeCounter = 0;
+    m_totalTimeCounter = 0;
+    m_measurePerfs = false;
+#endif
 }
 
 GLWebViewState::~GLWebViewState()
@@ -118,6 +126,12 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
         m_currentBaseLayer = layer;
     }
     inval(rect);
+
+#ifdef MEASURES_PERF
+    if (m_measurePerfs && !showVisualIndicator)
+        dumpMeasures();
+    m_measurePerfs = showVisualIndicator;
+#endif
 
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
 }
@@ -302,6 +316,19 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     m_tiledPageB->updateBaseTileSize();
 }
 
+#ifdef MEASURES_PERF
+void GLWebViewState::dumpMeasures()
+{
+    for (int i = 0; i < m_timeCounter; i++) {
+        XLOGC("%d delay: %d ms", m_totalTimeCounter + i,
+             static_cast<int>(m_delayTimes[i]*1000));
+        m_delayTimes[i] = 0;
+    }
+    m_totalTimeCounter += m_timeCounter;
+    m_timeCounter = 0;
+}
+#endif // MEASURES_PERF
+
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColor color)
 {
     glFinish();
@@ -320,7 +347,17 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColo
     m_baseLayerLock.unlock();
     if (!baseLayer)
         return false;
+
     bool ret = baseLayer->drawGL(rect, viewport, scale, color);
+
+#ifdef MEASURES_PERF
+    if (m_measurePerfs) {
+        m_delayTimes[m_timeCounter++] = delta;
+        if (m_timeCounter >= MAX_MEASURES_PERF)
+            dumpMeasures();
+    }
+#endif
+
     SkSafeUnref(baseLayer);
     return ret;
 }

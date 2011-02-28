@@ -35,6 +35,12 @@
 #include "TiledPage.h"
 #include <utils/threads.h>
 
+// Performance measurements probe
+// To use it, enable the visual indicators in debug mode.
+// turning off the visual indicators will flush the measures.
+// #define MEASURES_PERF
+#define MAX_MEASURES_PERF 2000
+
 namespace WebCore {
 
 class BaseLayerAndroid;
@@ -211,6 +217,10 @@ public:
     void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
     SkColor getBackgroundColor() { return m_backgroundColor; }
 
+#ifdef MEASURES_PERF
+    void dumpMeasures();
+#endif
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
 
@@ -253,6 +263,13 @@ private:
 
     SkColor m_backgroundColor;
     double m_prevDrawTime;
+
+#ifdef MEASURES_PERF
+    unsigned int m_totalTimeCounter;
+    int m_timeCounter;
+    double m_delayTimes[MAX_MEASURES_PERF];
+    bool m_measurePerfs;
+#endif
 };
 
 } // namespace WebCore
