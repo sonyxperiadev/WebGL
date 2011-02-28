@@ -132,11 +132,6 @@ WebInspector.SourceFrame.prototype = {
             this._addMessageToSource(msg);
     },
 
-    addScript: function(script)
-    {
-        this._scripts[script.sourceID] = script;
-    },
-
     clearMessages: function()
     {
         for (var line in this._messageBubbles) {
