@@ -1507,7 +1507,11 @@ bool CachedRoot::maskIfHidden(BestData* best) const
             clipRgn.getBounds().fLeft, clipRgn.getBounds().fTop,
             clipRgn.getBounds().fRight, clipRgn.getBounds().fBottom);
         best->setMouseBounds(clipRgn.getBounds());
-        node->clip(best->mouseBounds());
+        if (!node->clip(best->mouseBounds())) {
+            node->setDisabled(true);
+            node->setClippedOut(true);
+            return true;
+        }
     } else
         node->fixUpCursorRects(frame);
     return false;
