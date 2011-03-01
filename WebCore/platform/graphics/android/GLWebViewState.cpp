@@ -71,6 +71,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
+    , m_prevDrawTime(0)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
@@ -301,19 +302,17 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     m_tiledPageB->updateBaseTileSize();
 }
 
-static double gPrevTime = 0;
-
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColor color)
 {
     glFinish();
 
     double currentTime = WTF::currentTime();
-    double delta = currentTime - gPrevTime;
+    double delta = currentTime - m_prevDrawTime;
 
     if (delta < FRAMERATE_CAP)
         return true;
 
-    gPrevTime = currentTime;
+    m_prevDrawTime = currentTime;
 
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
