@@ -96,9 +96,15 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
 GLWebViewState::~GLWebViewState()
 {
-    SkSafeUnref(m_currentBaseLayer);
+    // We have to destroy the two tiled pages first as their destructor
+    // may depend on the existence of this GLWebViewState and some of its
+    // instance variables in order to complete.
+    // Explicitely, currently we need to have the m_currentBaseLayer around
+    // in order to complete any pending paint operations (the tiled pages
+    // will remove any pending operations, and wait if one is underway).
     delete m_tiledPageA;
     delete m_tiledPageB;
+    SkSafeUnref(m_currentBaseLayer);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
