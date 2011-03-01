@@ -54,13 +54,13 @@ static bool acceptCookie(JNIEnv*, jobject)
 #endif
 }
 
-static jstring getCookie(JNIEnv* env, jobject, jstring url)
+static jstring getCookie(JNIEnv* env, jobject, jstring url, jboolean privateBrowsing)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL gurl(jstringToStdString(env, url));
     CookieOptions options;
     options.set_include_httponly();
-    std::string cookies = WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
+    std::string cookies = WebCookieJar::get(privateBrowsing)->cookieStore()->GetCookieMonster()->GetCookiesWithOptions(gurl, options);
     return stdStringToJstring(env, cookies);
 #else
     // The Android HTTP stack is implemented Java-side.
@@ -69,10 +69,10 @@ static jstring getCookie(JNIEnv* env, jobject, jstring url)
 #endif
 }
 
-static bool hasCookies(JNIEnv*, jobject)
+static bool hasCookies(JNIEnv*, jobject, jboolean privateBrowsing)
 {
 #if USE(CHROME_NETWORK_STACK)
-    return WebCookieJar::get(false)->getNumCookiesInDatabase() > 0;
+    return WebCookieJar::get(privateBrowsing)->getNumCookiesInDatabase() > 0;
 #else
     // The Android HTTP stack is implemented Java-side.
     ASSERT_NOT_REACHED();
@@ -137,14 +137,14 @@ static void setAcceptCookie(JNIEnv*, jobject, jboolean accept)
 #endif
 }
 
-static void setCookie(JNIEnv* env, jobject, jstring url, jstring value)
+static void setCookie(JNIEnv* env, jobject, jstring url, jstring value, jboolean privateBrowsing)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL gurl(jstringToStdString(env, url));
     std::string line(jstringToStdString(env, value));
     CookieOptions options;
     options.set_include_httponly();
-    WebCookieJar::get(false)->cookieStore()->GetCookieMonster()->SetCookieWithOptions(gurl, line, options);
+    WebCookieJar::get(privateBrowsing)->cookieStore()->GetCookieMonster()->SetCookieWithOptions(gurl, line, options);
 #endif
 }
 
@@ -176,13 +176,13 @@ static void setAcceptFileSchemeCookies(JNIEnv*, jobject, jboolean accept)
 
 static JNINativeMethod gCookieManagerMethods[] = {
     { "nativeAcceptCookie", "()Z", (void*) acceptCookie },
-    { "nativeGetCookie", "(Ljava/lang/String;)Ljava/lang/String;", (void*) getCookie },
-    { "nativeHasCookies", "()Z", (void*) hasCookies },
+    { "nativeGetCookie", "(Ljava/lang/String;Z)Ljava/lang/String;", (void*) getCookie },
+    { "nativeHasCookies", "(Z)Z", (void*) hasCookies },
     { "nativeRemoveAllCookie", "()V", (void*) removeAllCookie },
     { "nativeRemoveExpiredCookie", "()V", (void*) removeExpiredCookie },
     { "nativeRemoveSessionCookie", "()V", (void*) removeSessionCookie },
     { "nativeSetAcceptCookie", "(Z)V", (void*) setAcceptCookie },
-    { "nativeSetCookie", "(Ljava/lang/String;Ljava/lang/String;)V", (void*) setCookie },
+    { "nativeSetCookie", "(Ljava/lang/String;Ljava/lang/String;Z)V", (void*) setCookie },
     { "nativeFlushCookieStore", "()V", (void*) flushCookieStore },
     { "nativeAcceptFileSchemeCookies", "()Z", (void*) acceptFileSchemeCookies },
     { "nativeSetAcceptFileSchemeCookies", "(Z)V", (void*) setAcceptFileSchemeCookies },
