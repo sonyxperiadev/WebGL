@@ -61,7 +61,7 @@ public:
     WebCore::ResourceResponse createResourceResponse();
     WebCore::ResourceError createResourceError();
 
-    static const std::string resolveMimeType(std::string url);
+    static const std::string resolveMimeType(const std::string& url, const std::string& old_mime);
 
 private:
     net::Error m_error;
