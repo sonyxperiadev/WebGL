@@ -89,7 +89,7 @@ String CacheResult::mimeType() const
     if (responseHeaders())
         responseHeaders()->GetMimeType(&mimeType);
     if (!mimeType.length() && m_url.length())
-        mimeType = WebResponse::resolveMimeType(std::string(m_url.utf8().data(), m_url.length()));
+        mimeType = WebResponse::resolveMimeType(std::string(m_url.utf8().data(), m_url.length()), "");
     return String(mimeType.c_str());
 }
 

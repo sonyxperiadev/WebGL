@@ -120,16 +120,16 @@ const string& WebResponse::getMimeType()
         return m_mime;
 
     if (!m_mime.length() || !m_mime.compare("text/plain") || !m_mime.compare("application/octet-stream"))
-        m_mime = resolveMimeType(m_url);
+        m_mime = resolveMimeType(m_url, m_mime);
 
     return m_mime;
 }
 
-const string WebResponse::resolveMimeType(string url)
+const string WebResponse::resolveMimeType(const string& url, const string& old_mime)
 {
     // Use "text/html" as a default (matching the behaviour of the Apache
     // HTTP stack -- see guessMimeType() in LoadListener.java).
-    string mimeType = "text/html";
+    string mimeType = old_mime.length() ? old_mime : "text/html";
     // Try to guess a better MIME type from the URL. We call
     // getMIMETypeForExtension rather than getMIMETypeForPath because the
     // latter defaults to "application/octet-stream" on failure.
