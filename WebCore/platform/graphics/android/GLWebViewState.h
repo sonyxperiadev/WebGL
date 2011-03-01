@@ -252,6 +252,7 @@ private:
     IntRect m_invalidateRect;
 
     SkColor m_backgroundColor;
+    double m_prevDrawTime;
 };
 
 } // namespace WebCore
