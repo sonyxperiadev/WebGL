@@ -75,7 +75,7 @@ size_t lastHyphenLocation(const UChar* characters, size_t length, size_t beforeI
         return 0;
 
     char word[maxWordLen];
-    int wordLength = 0;
+    size_t wordLength = 0;
     for (size_t i = 0; i < length; ++i) {
         const UChar ch = characters[i];
         // Only English for now.
