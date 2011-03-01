@@ -57,4 +57,16 @@ struct ANPSystemInterfaceV1 : ANPSystemInterfaceV0 {
     void (*setPowerState)(NPP instance, ANPPowerState powerState);
 };
 
+struct ANPSystemInterfaceV2 : ANPInterface {
+    /** Return the path name for the current Application's plugin data directory,
+        or NULL if not supported. This directory will change depending on whether
+        or not the plugin is found within an incognito tab.
+     */
+    const char* (*getApplicationDataDirectory)(NPP instance);
+
+    // redeclaration of existing features
+    jclass (*loadJavaClass)(NPP instance, const char* className);
+    void (*setPowerState)(NPP instance, ANPPowerState powerState);
+};
+
 #endif //ANPSystem_npapi_H

@@ -126,6 +126,8 @@ typedef uint32_t ANPMatrixFlag;
 #define kVideoInterfaceV0_ANPGetValue       ((NPNVariable)1015)
 #define kSystemInterfaceV1_ANPGetValue      ((NPNVariable)1016)
 
+#define kSystemInterfaceV2_ANPGetValue      ((NPNVariable)1017)
+
 /** queries for the drawing models supported on this device.
 
     NPN_GetValue(inst, kSupportedDrawingModel_ANPGetValue, uint32_t* bits)

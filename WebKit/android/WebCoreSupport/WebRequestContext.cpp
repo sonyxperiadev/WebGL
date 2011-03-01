@@ -39,6 +39,8 @@ static WTF::Mutex acceptLanguageMutex;
 
 static int numPrivateBrowsingInstances;
 
+extern void ANPSystemInterface_CleanupIncognito();
+
 using namespace WTF;
 
 namespace android {
@@ -79,6 +81,7 @@ WebRequestContext::~WebRequestContext()
         if (!numPrivateBrowsingInstances) {
             WebCookieJar::cleanup(true);
             WebCache::cleanup(true);
+            ANPSystemInterface_CleanupIncognito();
         }
     }
 }
