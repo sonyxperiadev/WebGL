@@ -245,9 +245,6 @@ WebInspector.ScriptsPanel.prototype = {
                 // Resource is finished, bind the script right away.
                 resource.addScript(script);
                 this._sourceIDMap[sourceID] = resource;
-                var view = WebInspector.ResourceManager.existingResourceViewForResource(resource);
-                if (view && view.sourceFrame)
-                    view.sourceFrame.addScript(script);
             } else {
                 // Resource is not finished, bind the script later.
                 if (!resource._scriptsPendingResourceLoad) {
@@ -315,7 +312,7 @@ WebInspector.ScriptsPanel.prototype = {
             return;
 
         // Need to clear breakpoints and re-create them later when editing source.
-        var breakpoints = WebInspector.breakpointManager.breakpointsForSourceID(sourceID);
+        var breakpoints = WebInspector.breakpointManager.breakpointsForSourceID(editData.sourceID);
         for (var i = 0; i < breakpoints.length; ++i)
             breakpoints[i].remove();
 
