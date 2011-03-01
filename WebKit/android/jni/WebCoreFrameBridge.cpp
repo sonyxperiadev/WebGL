@@ -1417,6 +1417,9 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
 #if ENABLE(ARCHIVE)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeSaveWebArchive must take a valid frame pointer!");
+    String mimeType = pFrame->loader()->documentLoader()->mainResource()->mimeType();
+    if ((mimeType != "text/html") && (mimeType != "application/xhtml+xml"))
+        return NULL;
 
     const char* basenameNative = getCharactersFromJStringInEnv(env, basename);
     String basenameString = String::fromUTF8(basenameNative);
