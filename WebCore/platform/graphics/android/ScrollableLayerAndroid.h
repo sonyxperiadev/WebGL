@@ -27,7 +27,7 @@ class ScrollableLayerAndroid : public LayerAndroid {
 
 public:
     ScrollableLayerAndroid(RenderLayer* owner)
-        : LayerAndroid(owner, false) {}
+        : LayerAndroid(owner) {}
     ScrollableLayerAndroid(const ScrollableLayerAndroid& layer)
         : LayerAndroid(layer)
         , m_scrollLimits(layer.m_scrollLimits) {}

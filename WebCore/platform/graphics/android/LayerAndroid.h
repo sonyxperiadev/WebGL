@@ -89,7 +89,7 @@ class TiledPage;
 class LayerAndroid : public SkLayer, public TextureOwner {
 
 public:
-    LayerAndroid(RenderLayer* owner, bool isRootLayer);
+    LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
@@ -176,9 +176,6 @@ public:
     }
     bool masksToBounds() const { return m_haveClip; }
 
-    void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
-    bool isRootLayer() const { return m_isRootLayer; }
-
     SkPicture* recordContext();
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
@@ -263,8 +260,6 @@ private:
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
-    bool m_isRootLayer;
-    bool m_drawsContent;
     bool m_haveClip;
     bool m_isFixed;
     bool m_backgroundColorSet;
