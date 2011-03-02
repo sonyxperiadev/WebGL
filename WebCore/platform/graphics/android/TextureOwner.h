@@ -26,8 +26,6 @@
 #ifndef TextureOwner_h
 #define TextureOwner_h
 
-#include <wtf/HashSet.h>
-
 namespace WebCore {
 
 class TiledPage;
@@ -35,15 +33,9 @@ class BackedDoubleBufferedTexture;
 
 class TextureOwner {
 public:
-    virtual ~TextureOwner();
+    virtual ~TextureOwner() { }
     virtual bool removeTexture(BackedDoubleBufferedTexture* texture) = 0;
     virtual TiledPage* page() = 0;
-
-    void addOwned(BackedDoubleBufferedTexture*);
-    void removeOwned(BackedDoubleBufferedTexture*);
-
-private:
-    WTF::HashSet<BackedDoubleBufferedTexture*> m_ownedTextures;
 };
 
 }
