@@ -49,6 +49,7 @@ MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid(false)
 
     m_currentTextureInfo = 0;
     m_isContentInverted = false;
+    m_outlineSize = 0;
     XLOG("Creating Media Layer %p", this);
 }
 
@@ -61,6 +62,7 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 
     m_currentTextureInfo = 0;
     m_isContentInverted = layer.m_isContentInverted;
+    m_outlineSize = layer.m_outlineSize;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
 }
 
@@ -73,7 +75,13 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(SkMatrix& matrix)
 {
-    TilesManager::instance()->shader()->clip(drawClip());
+    // when the plugin gains focus webkit applies an outline to the widget,
+    // which causes the layer to expand to accommodate the outline. Therefore,
+    // we shrink the clip by the outline's dimensions to ensure the plugin does
+    // not draw outside of its bounds.
+    FloatRect clip = drawClip();
+    clip.inflate(-m_outlineSize);
+    TilesManager::instance()->shader()->clip(clip);
 
     // check to see if we need to create a video texture
     m_videoTexture->initNativeWindowIfNeeded();

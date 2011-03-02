@@ -49,6 +49,7 @@ public:
     TextureInfo* getCurrentTextureInfo() const { return m_currentTextureInfo; }
 
     void invertContents(bool invertContent) { m_isContentInverted = invertContent; }
+    void setOutlineSize(int size) { m_outlineSize = size; }
 
     // functions to manipulate secondary layers for video playback
     ANativeWindow* acquireNativeWindowForVideo();
@@ -62,6 +63,7 @@ private:
     TextureInfo* m_currentTextureInfo;
 
     bool m_isContentInverted;
+    int m_outlineSize;
 
     // Video texture variables
     VideoTexture* m_videoTexture;
