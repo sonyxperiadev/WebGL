@@ -61,8 +61,7 @@ class OpacityDrawFilter : public SkDrawFilter {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
-    m_isRootLayer(isRootLayer),
+LayerAndroid::LayerAndroid(RenderLayer* owner) : SkLayer(),
     m_haveClip(false),
     m_isFixed(false),
     m_isIframe(false),
@@ -91,7 +90,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, bool isRootLayer) : SkLayer(),
 }
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
-    m_isRootLayer(layer.m_isRootLayer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
     m_extra(0), // deliberately not copied
@@ -143,7 +141,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 }
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
-    m_isRootLayer(true),
     m_haveClip(false),
     m_isFixed(false),
     m_isIframe(false),
@@ -616,7 +613,7 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 
 bool LayerAndroid::needsTexture()
 {
-    return m_contentsImage || (!m_isRootLayer && prepareContext()
+    return m_contentsImage || (prepareContext()
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
@@ -1069,17 +1066,12 @@ bool LayerAndroid::prepareContext(bool force)
     if (masksToBounds())
         return false;
 
-    if (!m_isRootLayer) {
-        if (force || !m_recordingPicture
-            || (m_recordingPicture
-                && ((m_recordingPicture->width() != (int) getSize().width())
-                   || (m_recordingPicture->height() != (int) getSize().height())))) {
-            SkSafeUnref(m_recordingPicture);
-            m_recordingPicture = new SkPicture();
-        }
-    } else if (m_recordingPicture) {
+    if (force || !m_recordingPicture ||
+        (m_recordingPicture &&
+         ((m_recordingPicture->width() != (int) getSize().width()) ||
+          (m_recordingPicture->height() != (int) getSize().height())))) {
         SkSafeUnref(m_recordingPicture);
-        m_recordingPicture = 0;
+        m_recordingPicture = new SkPicture();
     }
 
     return m_recordingPicture;
@@ -1224,7 +1216,6 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
     writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
-    writeIntVal(file, indentLevel + 1, "isRootLayer", m_isRootLayer);
     writeIntVal(file, indentLevel + 1, "isFixed", m_isFixed);
     writeIntVal(file, indentLevel + 1, "m_isIframe", m_isIframe);
     writePoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
