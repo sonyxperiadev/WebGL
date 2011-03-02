@@ -106,6 +106,7 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
                 }
 
                 bool forceBlending = textureInfo->m_internalFormat == GL_RGBA ||
+                                     textureInfo->m_internalFormat == GL_BGRA_EXT ||
                                      textureInfo->m_internalFormat == GL_ALPHA;
                 TilesManager::instance()->shader()->drawLayerQuad(m, rect,
                                                                   textureInfo->m_textureId,
