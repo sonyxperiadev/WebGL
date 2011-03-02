@@ -25,6 +25,7 @@
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "Length.h"
+#include "MediaLayer.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderLayerBacking.h"
@@ -321,6 +322,19 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
         return;
     MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
     GraphicsLayer::setSize(size);
+
+    // If it is a media layer the size may have changed as a result of the media
+    // element (e.g. plugin) gaining focus. Therefore, we must sync the size of
+    // the focus' outline so that our UI thread can draw accordingly.
+    if (m_contentLayer->isMedia() && m_client) {
+        RenderLayer* layer = renderLayerFromClient(m_client);
+        RenderBox* box = layer->renderBox();
+        int outline = box->view()->maximalOutlineSize();
+        static_cast<MediaLayer*>(m_contentLayer)->setOutlineSize(outline);
+        LOG("Media Outline: %d %p %p %p", outline, m_client, layer, box);
+        LOG("Media Size: %g,%g", size.width(), size.height());
+    }
+
     m_contentLayer->setSize(size.width(), size.height());
     askForSync();
 }
