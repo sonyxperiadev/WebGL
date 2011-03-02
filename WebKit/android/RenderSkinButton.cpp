@@ -31,29 +31,39 @@
 #include "IntRect.h"
 #include "Node.h"
 #include "RenderSkinButton.h"
+#include "RenderSkinNinePatch.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
 #include "SkRect.h"
+#include <utils/Asset.h>
+#include <utils/AssetManager.h>
 #include <utils/Debug.h>
 #include <utils/Log.h>
+#include <utils/ResourceTypes.h>
 #include <wtf/text/CString.h>
 
-struct PatchData {
-    const char* name;
-    int8_t outset, margin;
-};
-
-static const PatchData gFiles[] =
-    {
-        { "btn_default_normal_disable.9.png", 2, 7 },
-        { "btn_default_normal.9.png", 2, 7 },
-        { "btn_default_selected.9.png", 2, 7 },
-        { "btn_default_pressed.9.png", 2, 7 }
+static const char* gFiles[] = {
+    "btn_default_disabled_holo.9.png",
+    "btn_default_normal_holo.9.png",
+    "btn_default_focused_holo.9.png",
+    "btn_default_pressed_holo.9.png"
     };
 
-static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
 static bool gDecoded;
-static bool gHighRes;
+
+struct NinePatch {
+    SkBitmap m_bitmap;
+    void* m_serializedPatchData;
+};
+
+static NinePatch gButtons[4];
+class SkRegion;
+
+using namespace android;
+
+extern void NinePatch_Draw(SkCanvas* canvas, const SkRect& bounds,
+        const SkBitmap& bitmap, const Res_png_9patch& chunk,
+        const SkPaint* paint, SkRegion** outRegion);
 
 namespace WebCore {
 
@@ -65,14 +75,20 @@ void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
 
     gInited = true;
     gDecoded = true;
-    gHighRes = drawableDirectory[drawableDirectory.length() - 5] == 'h';
-    for (size_t i = 0; i < sizeof(gFiles)/sizeof(gFiles[0]); i++) {
-        String path = drawableDirectory + gFiles[i].name;
-        if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
-            gDecoded = false;
-            LOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
-            break;
+    for (size_t i = 0; i < 4; i++) {
+        String path = String(drawableDirectory.impl());
+        path.append(String(gFiles[i]));
+        android::Asset* asset = am->open(path.utf8().data(), android::Asset::ACCESS_BUFFER);
+        if (!asset) {
+            asset = am->openNonAsset(path.utf8().data(), android::Asset::ACCESS_BUFFER);
+            if (!asset) {
+                gDecoded = false;
+                LOGE("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
+                return;
+            }
         }
+        RenderSkinNinePatch::decodeAsset(asset, &gButtons[i].m_bitmap, &gButtons[i].m_serializedPatchData);
+        asset->close();
     }
 
     // Ensure our enums properly line up with our arrays.
@@ -94,26 +110,10 @@ void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroi
     SkASSERT(static_cast<unsigned>(newState) < 
             static_cast<unsigned>(RenderSkinAndroid::kNumStates));
 
-    // Set up the ninepatch information for drawing.
     SkRect bounds(r);
-    const PatchData& pd = gFiles[newState];
-    int marginValue = pd.margin + pd.outset;
-
-    SkIRect margin;
-
-    margin.set(marginValue, marginValue, marginValue, marginValue);
-    if (gHighRes) {
-    /* FIXME: it shoudn't be necessary to offset the button here,
-       but gives the right results. */
-        bounds.offset(0, SK_Scalar1 * 2);
-    /* FIXME: This temporarily gets around the fact that the margin values and
-       positioning were created for a low res asset, which was used on
-       g1-like devices. A better fix would be to read the offset information
-       out of the png. */
-        margin.set(10, 9, 10, 14);
-    }
-    // Draw to the canvas.
-    SkNinePatch::DrawNine(canvas, bounds, gButton[newState], margin);
+    NinePatch* patch = &gButtons[newState];
+    Res_png_9patch* data = Res_png_9patch::deserialize(patch->m_serializedPatchData);
+    NinePatch_Draw(canvas, bounds, patch->m_bitmap, *data, 0, 0);
 }
 
 } //WebCore
