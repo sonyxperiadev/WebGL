@@ -38,10 +38,10 @@
 #include "SkRect.h"
 #include <wtf/text/CString.h>
 
-static const char* checks[] = { "btn_check_off.png",
-                                "btn_check_on.png",
-                                "btn_radio_off.png",
-                                "btn_radio_on.png"};
+static const char* checks[] = { "btn_check_off_holo.png",
+                                "btn_check_on_holo.png",
+                                "btn_radio_off_holo.png",
+                                "btn_radio_on_holo.png"};
 // Matches the width of the bitmap
 static SkScalar SIZE;
 
