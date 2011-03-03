@@ -306,8 +306,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColo
     double currentTime = WTF::currentTime();
     double delta = currentTime - m_prevDrawTime;
 
-    if (delta < FRAMERATE_CAP)
-        return true;
+    if (delta < FRAMERATE_CAP) {
+        unsigned int usecs = (FRAMERATE_CAP - delta) * 1E6;
+        usleep(usecs);
+    }
 
     m_prevDrawTime = currentTime;
 
