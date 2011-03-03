@@ -27,21 +27,9 @@
 #define RenderSkinButton_h
 
 #include "RenderSkinAndroid.h"
-#include "SkBitmap.h"
+#include "RenderSkinNinePatch.h"
 
 class SkCanvas;
-
-struct NinePatch {
-    SkBitmap m_bitmap;
-    void* m_serializedPatchData;
-    NinePatch() {
-        m_serializedPatchData = 0;
-    }
-    ~NinePatch() {
-        if (m_serializedPatchData)
-            free(m_serializedPatchData);
-    }
-};
 
 namespace WebCore {
 class IntRect;

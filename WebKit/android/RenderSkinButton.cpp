@@ -49,14 +49,6 @@ static const char* gFiles[] = {
     "btn_default_pressed_holo.9.png"
     };
 
-class SkRegion;
-
-using namespace android;
-
-extern void NinePatch_Draw(SkCanvas* canvas, const SkRect& bounds,
-        const SkBitmap& bitmap, const Res_png_9patch& chunk,
-        const SkPaint* paint, SkRegion** outRegion);
-
 namespace WebCore {
 
 RenderSkinButton::RenderSkinButton(android::AssetManager* am, String drawableDirectory)
@@ -65,18 +57,11 @@ RenderSkinButton::RenderSkinButton(android::AssetManager* am, String drawableDir
     for (size_t i = 0; i < 4; i++) {
         String path = String(drawableDirectory.impl());
         path.append(String(gFiles[i]));
-        android::Asset* asset = am->open(path.utf8().data(), android::Asset::ACCESS_BUFFER);
-        if (!asset) {
-            asset = am->openNonAsset(path.utf8().data(), android::Asset::ACCESS_BUFFER);
-            if (!asset) {
-                m_decoded = false;
-                LOGE("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
-                return;
-            }
+        if (!RenderSkinNinePatch::decodeAsset(am, path.utf8().data(), &m_buttons[i])) {
+            m_decoded = false;
+            LOGE("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
+            return;
         }
-        RenderSkinNinePatch::decodeAsset(asset, &m_buttons[i].m_bitmap,
-                                         &m_buttons[i].m_serializedPatchData);
-        asset->close();
     }
 
     // Ensure our enums properly line up with our arrays.
@@ -99,10 +84,7 @@ void RenderSkinButton::draw(SkCanvas* canvas, const IntRect& r,
     SkASSERT(static_cast<unsigned>(newState) < 
             static_cast<unsigned>(RenderSkinAndroid::kNumStates));
 
-    SkRect bounds(r);
-    const NinePatch* patch = &m_buttons[newState];
-    Res_png_9patch* data = Res_png_9patch::deserialize(patch->m_serializedPatchData);
-    NinePatch_Draw(canvas, bounds, patch->m_bitmap, *data, 0, 0);
+    RenderSkinNinePatch::DrawNinePatch(canvas, SkRect(r), m_buttons[newState]);
 }
 
 } //WebCore

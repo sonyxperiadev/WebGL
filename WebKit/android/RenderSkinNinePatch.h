@@ -17,17 +17,32 @@
 #ifndef RenderSkinNinePatch_h
 #define RenderSkinNinePatch_h
 
+#include "SkBitmap.h"
 #include "utils/Asset.h"
 
 namespace android {
-    class Asset;
+    class AssetManager;
 }
 
-class SkBitmap;
+class SkCanvas;
+class SkRect;
+
+struct NinePatch {
+    SkBitmap m_bitmap;
+    void* m_serializedPatchData;
+    NinePatch() {
+        m_serializedPatchData = 0;
+    }
+    ~NinePatch() {
+        if (m_serializedPatchData)
+            free(m_serializedPatchData);
+    }
+};
 
 class RenderSkinNinePatch {
 public:
-    static bool decodeAsset(android::Asset* asset, SkBitmap* bitmap, void** data);
+    static bool decodeAsset(android::AssetManager*, const char* fileName, NinePatch*);
+    static void DrawNinePatch(SkCanvas*, const SkRect&, const NinePatch&);
 };
 
 #endif // RenderSkinNinePatch_h
