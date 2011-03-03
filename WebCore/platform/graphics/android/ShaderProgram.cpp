@@ -306,6 +306,8 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
 {
 
     TransformationMatrix renderMatrix = drawMatrix;
+    // move the drawing depending on where the texture is on the layer
+    renderMatrix.translate(geometry.fLeft, geometry.fTop);
     renderMatrix.scale3d(geometry.width(), geometry.height(), 1);
     renderMatrix.multiply(m_projectionMatrix);
 

@@ -75,43 +75,39 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(SkMatrix& matrix)
 {
-    // when the plugin gains focus webkit applies an outline to the widget,
-    // which causes the layer to expand to accommodate the outline. Therefore,
-    // we shrink the clip by the outline's dimensions to ensure the plugin does
-    // not draw outside of its bounds.
-    FloatRect clip = drawClip();
-    clip.inflate(-m_outlineSize);
-    TilesManager::instance()->shader()->clip(clip);
+    TilesManager::instance()->shader()->clip(drawClip());
+
+    // when the plugin gains focus webkit applies an outline to the
+    // widget, which causes the layer to expand to accommodate the
+    // outline. Therefore, we shrink the rect by the outline's dimensions
+    // to ensure the plugin does not draw outside of its bounds.
+    SkRect mediaBounds;
+    mediaBounds.set(0, 0, getSize().width(), getSize().height());
+    mediaBounds.inset(m_outlineSize, m_outlineSize);
 
     // check to see if we need to create a video texture
     m_videoTexture->initNativeWindowIfNeeded();
     // draw any video content if present
-    m_videoTexture->drawVideo(drawTransform());
+    m_videoTexture->drawVideo(drawTransform(), mediaBounds);
 
     // draw the primary content
     if (m_bufferedTexture) {
         TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
-        if (textureInfo) {
-
-            SkRect rect;
-            rect.set(0, 0, getSize().width(), getSize().height());
-
-            if (textureInfo->m_width != 0 && textureInfo->m_height != 0) {
-                // the layer's shader draws the content inverted so we must undo
-                // that change in the transformation matrix
-                TransformationMatrix m = drawTransform();
-                if (!m_isContentInverted) {
-                    m.flipY();
-                    m.translate(0, -getSize().height());
-                }
-
-                bool forceBlending = textureInfo->m_internalFormat == GL_RGBA ||
-                                     textureInfo->m_internalFormat == GL_BGRA_EXT ||
-                                     textureInfo->m_internalFormat == GL_ALPHA;
-                TilesManager::instance()->shader()->drawLayerQuad(m, rect,
-                                                                  textureInfo->m_textureId,
-                                                                  1.0f, forceBlending);
+        if (textureInfo && textureInfo->m_width != 0 && textureInfo->m_height != 0) {
+            // the layer's shader draws the content inverted so we must undo
+            // that change in the transformation matrix
+            TransformationMatrix m = drawTransform();
+            if (!m_isContentInverted) {
+                m.flipY();
+                m.translate(0, -getSize().height());
             }
+
+            bool forceBlending = textureInfo->m_internalFormat == GL_RGBA ||
+                                 textureInfo->m_internalFormat == GL_BGRA_EXT ||
+                                 textureInfo->m_internalFormat == GL_ALPHA;
+            TilesManager::instance()->shader()->drawLayerQuad(m, mediaBounds,
+                                                              textureInfo->m_textureId,
+                                                              1.0f, forceBlending);
         }
         m_bufferedTexture->consumerRelease();
     }

@@ -879,26 +879,19 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 
 bool LayerAndroid::drawGL(SkMatrix& matrix)
 {
-    SkRect rect;
-    rect.set(0, 0, getSize().width(), getSize().height());
-
     TilesManager::instance()->shader()->clip(m_clippingRect);
 
     if (prepareContext() && m_drawingTexture) {
         TextureInfo* textureInfo = m_drawingTexture->consumerLock();
         if (textureInfo) {
             SkRect bounds;
-            IntRect textureRect = m_drawingTexture->rect();
-            bounds.set(0, 0, textureRect.width(), textureRect.height());
-            // move the drawing depending on where the texture is on the layer
-            TransformationMatrix m = drawTransform();
-            m.translate(textureRect.x(), textureRect.y());
+            bounds.set(m_drawingTexture->rect());
             XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)",
                  uniqueId(), this, getWidth(), getHeight(),
-                 m_drawingTexture, textureRect.x(), textureRect.y(),
-                 textureRect.width(), textureRect.height());
+                 m_drawingTexture, bounds.x(), bounds.y(),
+                 bounds.width(), bounds.height());
             //TODO determine when drawing if the alpha value is used.
-            TilesManager::instance()->shader()->drawLayerQuad(m, bounds,
+            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), bounds,
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity, true);
         }
