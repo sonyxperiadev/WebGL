@@ -70,7 +70,9 @@
 #include <JNIUtility.h>
 #include <JNIHelp.h>
 #include <jni.h>
+#include <android_runtime/android_util_AssetManager.h>
 #include <ui/KeycodeLabels.h>
+#include <utils/AssetManager.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
@@ -137,7 +139,7 @@ struct JavaGlue {
     }
 } m_javaGlue;
 
-WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
+WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir, AssetManager* am) :
     m_ring((WebViewCore*) viewImpl)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
@@ -189,6 +191,10 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
+    if (drawableDir.isEmpty())
+        m_buttonSkin = 0;
+    else
+        m_buttonSkin = new RenderSkinButton(am, drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
 #endif
@@ -212,6 +218,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     delete m_navPictureUI;
     SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
+    delete m_buttonSkin;
 }
 
 void stopGL()
@@ -278,7 +285,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
     const CachedNode* cachedCursor = 0;
     // Lock the mutex, since we now share with the WebCore thread.
     m_viewImpl->gButtonMutex.lock();
-    if (m_viewImpl->m_buttons.size()) {
+    if (m_viewImpl->m_buttons.size() && m_buttonSkin) {
         // FIXME: In a future change, we should keep track of whether the selection
         // has changed to short circuit (note that we would still need to update
         // if we received new buttons from the WebCore thread).
@@ -307,7 +314,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
                         state = RenderSkinAndroid::kFocused;
                 }
             }
-            ptr->updateFocusState(state);
+            ptr->updateFocusState(state, m_buttonSkin);
         }
     }
     m_viewImpl->gButtonMutex.unlock();
@@ -1457,6 +1464,7 @@ private: // local state for WebView
 #if USE(ACCELERATED_COMPOSITING)
     GLWebViewState* m_glWebViewState;
 #endif
+    const RenderSkinButton* m_buttonSkin;
 }; // end of WebView class
 
 
@@ -1537,9 +1545,12 @@ static void nativeClearCursor(JNIEnv *env, jobject obj)
     view->clearCursor();
 }
 
-static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl)
+static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl, jstring drawableDir,
+                         jobject jAssetManager)
 {
-    WebView* webview = new WebView(env, obj, viewImpl);
+    AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
+    WTF::String dir = jstringToWtfString(env, drawableDir);
+    WebView* webview = new WebView(env, obj, viewImpl, dir, am);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
 }
@@ -2431,7 +2442,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCacheHitNodePointer },
     { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
-    { "nativeCreate", "(I)V",
+    { "nativeCreate", "(ILjava/lang/String;Landroid/content/res/AssetManager;)V",
         (void*) nativeCreate },
     { "nativeCursorFramePointer", "()I",
         (void*) nativeCursorFramePointer },

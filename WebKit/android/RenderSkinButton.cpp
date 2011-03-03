@@ -49,14 +49,6 @@ static const char* gFiles[] = {
     "btn_default_pressed_holo.9.png"
     };
 
-static bool gDecoded;
-
-struct NinePatch {
-    SkBitmap m_bitmap;
-    void* m_serializedPatchData;
-};
-
-static NinePatch gButtons[4];
 class SkRegion;
 
 using namespace android;
@@ -67,14 +59,9 @@ extern void NinePatch_Draw(SkCanvas* canvas, const SkRect& bounds,
 
 namespace WebCore {
 
-void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
+RenderSkinButton::RenderSkinButton(android::AssetManager* am, String drawableDirectory)
 {
-    static bool gInited;
-    if (gInited)
-        return;
-
-    gInited = true;
-    gDecoded = true;
+    m_decoded = true;
     for (size_t i = 0; i < 4; i++) {
         String path = String(drawableDirectory.impl());
         path.append(String(gFiles[i]));
@@ -82,12 +69,13 @@ void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
         if (!asset) {
             asset = am->openNonAsset(path.utf8().data(), android::Asset::ACCESS_BUFFER);
             if (!asset) {
-                gDecoded = false;
+                m_decoded = false;
                 LOGE("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
                 return;
             }
         }
-        RenderSkinNinePatch::decodeAsset(asset, &gButtons[i].m_bitmap, &gButtons[i].m_serializedPatchData);
+        RenderSkinNinePatch::decodeAsset(asset, &m_buttons[i].m_bitmap,
+                                         &m_buttons[i].m_serializedPatchData);
         asset->close();
     }
 
@@ -98,11 +86,12 @@ void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
     android::CompileTimeAssert<(RenderSkinAndroid::kPressed == 3)>      a4;
 }
 
-void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroid::State newState)
+void RenderSkinButton::draw(SkCanvas* canvas, const IntRect& r,
+                            RenderSkinAndroid::State newState) const
 {
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
-    if (!gDecoded) {
+    if (!m_decoded) {
         return;
     }
     
@@ -111,7 +100,7 @@ void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroi
             static_cast<unsigned>(RenderSkinAndroid::kNumStates));
 
     SkRect bounds(r);
-    NinePatch* patch = &gButtons[newState];
+    const NinePatch* patch = &m_buttons[newState];
     Res_png_9patch* data = Res_png_9patch::deserialize(patch->m_serializedPatchData);
     NinePatch_Draw(canvas, bounds, patch->m_bitmap, *data, 0, 0);
 }

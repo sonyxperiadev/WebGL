@@ -44,6 +44,7 @@
 #include "RenderSkinRadio.h"
 #include "SkCanvas.h"
 #include "UserAgentStyleSheets.h"
+#include "WebCoreFrameBridge.h"
 
 namespace WebCore {
 
@@ -65,6 +66,13 @@ const RGBA32 selectionColor = makeRGB(181, 224, 136);
 static SkCanvas* getCanvasFromInfo(const PaintInfo& info)
 {
     return info.context->platformContext()->mCanvas;
+}
+
+static android::WebFrame* getWebFrame(const Node* node)
+{
+    if (!node)
+        return 0;
+    return android::WebFrame::getWebFrame(node->document()->frame());
 }
 
 RenderTheme* theme()
@@ -223,9 +231,15 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
     // If it is a disabled button, simply paint it to the master picture.
     Node* node = obj->node();
     Element* formControlElement = static_cast<Element*>(node);
-    if (formControlElement && !formControlElement->isEnabledFormControl())
-        RenderSkinButton::Draw(getCanvasFromInfo(info), rect, RenderSkinAndroid::kDisabled);
-    else
+    if (formControlElement && !formControlElement->isEnabledFormControl()) {
+        android::WebFrame* webFrame = getWebFrame(node);
+        if (webFrame) {
+            const RenderSkinAndroid* skins = webFrame->renderSkins();
+            if (skins)
+                skins->renderSkinButton()->draw(getCanvasFromInfo(info), rect,
+                                                RenderSkinAndroid::kDisabled);
+        }
+    } else
         // Store all the important information in the platform context.
         info.context->platformContext()->storeButtonInfo(node, rect);
 

@@ -330,6 +330,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
     mBlockNetworkLoads = false;
+    m_renderSkins = 0;
 }
 
 WebFrame::~WebFrame()
@@ -341,6 +342,7 @@ WebFrame::~WebFrame()
         mJavaFrame->mObj = 0;
     }
     delete mJavaFrame;
+    delete m_renderSkins;
 }
 
 WebFrame* WebFrame::getWebFrame(const WebCore::Frame* frame)
@@ -1215,7 +1217,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
         // Setup the asset manager.
         AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
         // Initialize our skinning classes
-        WebCore::RenderSkinAndroid::Init(am, directory);
+        webFrame->setRenderSkins(new WebCore::RenderSkinAndroid(am, directory));
     }
     for (int i = WebCore::PlatformBridge::FileUploadLabel;
             i <= WebCore::PlatformBridge::FileUploadNoFileChosenLabel; i++)

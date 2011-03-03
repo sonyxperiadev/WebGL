@@ -27,24 +27,40 @@
 #define RenderSkinButton_h
 
 #include "RenderSkinAndroid.h"
+#include "SkBitmap.h"
 
 class SkCanvas;
 
+struct NinePatch {
+    SkBitmap m_bitmap;
+    void* m_serializedPatchData;
+    NinePatch() {
+        m_serializedPatchData = 0;
+    }
+    ~NinePatch() {
+        if (m_serializedPatchData)
+            free(m_serializedPatchData);
+    }
+};
+
 namespace WebCore {
 class IntRect;
-class RenderSkinButton
-{
+
+class RenderSkinButton {
 public:
     /**
      * Initialize the class before use. Uses the AssetManager to initialize any 
      * bitmaps the class may use.
      */
-    static void Init(android::AssetManager*, String drawableDirectory);
+    RenderSkinButton(android::AssetManager*, String drawableDirectory);
     /**
      * Draw the skin to the canvas, using the rectangle for its bounds and the 
      * State to determine which skin to use, i.e. focused or not focused.
      */
-    static void Draw(SkCanvas* , const IntRect& , RenderSkinAndroid::State);
+    void draw(SkCanvas* , const IntRect& , RenderSkinAndroid::State) const;
+private:
+    bool m_decoded;
+    NinePatch m_buttons[4];
 };
 
 } // WebCore

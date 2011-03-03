@@ -36,17 +36,11 @@ class SkBitmap;
 
 namespace WebCore {
 class Node;
-class PlatformGraphicsContext;
+class RenderSkinButton;
 
-/*  RenderSkinAndroid is the base class for all RenderSkins.  Form elements each have a
- *  subclass for drawing themselves.
- */
 class RenderSkinAndroid
 {
 public:
-    RenderSkinAndroid();
-    virtual ~RenderSkinAndroid() {}
-    
     enum State {
         kDisabled,
         kNormal,
@@ -60,7 +54,8 @@ public:
      * Initialize the Android skinning system. The AssetManager may be used to find resources used
      * in rendering.
      */
-    static void Init(android::AssetManager*, String drawableDirectory);
+    RenderSkinAndroid(android::AssetManager*, String drawableDirectory);
+    ~RenderSkinAndroid();
     
     /* DecodeBitmap determines which file to use, with the given fileName of the form 
      * "images/bitmap.png", and uses the asset manager to select the exact one.  It
@@ -68,24 +63,10 @@ public:
      */
     static bool DecodeBitmap(android::AssetManager* am, const char* fileName, SkBitmap* bitmap);
 
-    /*  draw() tells the skin to draw itself, and returns true if the skin needs
-     *  a redraw to animations, false otherwise
-     */
-    virtual bool draw(PlatformGraphicsContext*) { return false; }
-    
-    /*  notifyState() checks to see if the element is checked, focused, and enabled
-     *  it must be implemented in the subclass
-     */
-    virtual void notifyState(Node* element) { }
-    
-    /*  setDim() tells the skin its width and height
-     */
-    virtual void setDim(int width, int height) { m_width = width; m_height = height; }
+    const RenderSkinButton* renderSkinButton() const { return m_button; }
 
-protected:
-    int                     m_height;
-    int                     m_width;
-
+private:
+    RenderSkinButton* m_button;
 };
 
 } // WebCore

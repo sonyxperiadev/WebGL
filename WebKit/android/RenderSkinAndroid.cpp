@@ -37,15 +37,14 @@
 #include "utils/Asset.h"
 
 namespace WebCore {
- 
-RenderSkinAndroid::RenderSkinAndroid()
-    : m_height(0)
-    , m_width(0)
-{}
 
-void RenderSkinAndroid::Init(android::AssetManager* am, String drawableDirectory)
+RenderSkinAndroid::~RenderSkinAndroid()
 {
-    RenderSkinButton::Init(am, drawableDirectory);
+    delete m_button;
+}
+RenderSkinAndroid::RenderSkinAndroid(android::AssetManager* am, String drawableDirectory)
+{
+    m_button = new RenderSkinButton(am, drawableDirectory);
     RenderSkinCombo::Init(am, drawableDirectory);
     RenderSkinMediaButton::Init(am, drawableDirectory);
     RenderSkinRadio::Init(am, drawableDirectory);

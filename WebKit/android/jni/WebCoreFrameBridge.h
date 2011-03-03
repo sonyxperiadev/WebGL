@@ -43,6 +43,7 @@ namespace WebCore {
     class Image;
     class Page;
     class RenderPart;
+    class RenderSkinAndroid;
     class ResourceHandle;
     class ResourceLoaderAndroid;
     class ResourceRequest;
@@ -151,6 +152,8 @@ class WebFrame : public WebCoreRefObject {
 
     bool shouldSaveFormData();
     void saveFormData(WebCore::HTMLFormElement*);
+    const WebCore::RenderSkinAndroid* renderSkins() const { return m_renderSkins; }
+    void setRenderSkins(const WebCore::RenderSkinAndroid* skins) { m_renderSkins = skins; }
 private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;
@@ -158,6 +161,7 @@ private:
     WTF::String mUserAgent;
     bool mBlockNetworkLoads;
     bool mUserInitiatedAction;
+    const WebCore::RenderSkinAndroid* m_renderSkins;
 };
 
 }   // namespace android

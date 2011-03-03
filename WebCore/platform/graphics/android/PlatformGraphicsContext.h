@@ -106,7 +106,8 @@ public:
     // corresponds to the focused node passed in.  If its state has changed,
     // re-record to the subpicture, so the master picture will reflect the
     // change.
-    void updateFocusState(WebCore::RenderSkinAndroid::State state)
+    void updateFocusState(WebCore::RenderSkinAndroid::State state,
+                          const WebCore::RenderSkinButton* buttonSkin)
     {
         if (state == m_state)
             return;
@@ -118,7 +119,7 @@ public:
             return;
         m_state = state;
         SkCanvas* canvas = m_picture->beginRecording(m_rect.right(), m_rect.bottom());
-        WebCore::RenderSkinButton::Draw(canvas, m_rect, state);
+        buttonSkin->draw(canvas, m_rect, state);
         m_picture->endRecording();
     }
 private:
