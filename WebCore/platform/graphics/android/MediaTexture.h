@@ -47,7 +47,7 @@ public:
     ~VideoTexture();
 
     void initNativeWindowIfNeeded();
-    void drawVideo(const TransformationMatrix& matrix);
+    void drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds);
 
     ANativeWindow* requestNewWindow();
     ANativeWindow* getNativeWindow();

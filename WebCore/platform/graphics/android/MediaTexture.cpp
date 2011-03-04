@@ -94,7 +94,7 @@ void VideoTexture::initNativeWindowIfNeeded()
     m_newVideoRequestCond.signal();
 }
 
-void VideoTexture::drawVideo(const TransformationMatrix& matrix)
+void VideoTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
 {
     android::Mutex::Autolock lock(m_videoLock);
 
@@ -107,8 +107,17 @@ void VideoTexture::drawVideo(const TransformationMatrix& matrix)
     float surfaceMatrix[16];
     m_surfaceTexture->getTransformMatrix(surfaceMatrix);
 
+    SkRect dimensions = m_dimensions;
+    dimensions.offset(parentBounds.fLeft, parentBounds.fTop);
+
+#ifdef DEBUG
+    if (!parentBounds.contains(dimensions)) {
+        XLOG("The video exceeds is parent's bounds.");
+    }
+#endif // DEBUG
+
     TilesManager::instance()->shader()->drawVideoLayerQuad(matrix, surfaceMatrix,
-            m_dimensions, m_textureId);
+            dimensions, m_textureId);
 }
 
 ANativeWindow* VideoTexture::requestNewWindow()
