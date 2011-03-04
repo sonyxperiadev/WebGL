@@ -1644,4 +1644,17 @@ void DOMWindow::revokeObjectURL(const String& blobURLString)
 }
 #endif
 
+#if ENABLE(DOM_STORAGE) && defined(ANDROID)
+void DOMWindow::clearDOMStorage()
+{
+    if (m_sessionStorage)
+        m_sessionStorage->disconnectFrame();
+    m_sessionStorage = 0;
+
+    if (m_localStorage)
+        m_localStorage->disconnectFrame();
+    m_localStorage = 0;
+}
+#endif
+
 } // namespace WebCore
