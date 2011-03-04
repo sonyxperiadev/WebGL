@@ -53,6 +53,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinMediaButton.cpp \
+	android/RenderSkinNinePatch.cpp \
 	android/RenderSkinRadio.cpp \
 	android/TimeCounter.cpp \
 	\
