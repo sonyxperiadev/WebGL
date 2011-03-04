@@ -1702,10 +1702,10 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     }
 #elif USE(V8)
     if (pFrame) {
-        PassRefPtr<JavaInstance> addedObject = WeakJavaInstance::create(javascriptObj);
+        RefPtr<JavaInstance> addedObject = WeakJavaInstance::create(javascriptObj);
         const char* name = getCharactersFromJStringInEnv(env, interfaceName);
         // Pass ownership of the added object to bindToWindowObject.
-        NPObject* npObject = JavaInstanceToNPObject(addedObject);
+        NPObject* npObject = JavaInstanceToNPObject(addedObject.get());
         pFrame->script()->bindToWindowObject(pFrame, name, npObject);
         // bindToWindowObject calls NPN_RetainObject on the
         // returned one (see createV8ObjectForNPObject in V8NPObject.cpp).
