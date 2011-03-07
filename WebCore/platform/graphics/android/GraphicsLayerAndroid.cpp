@@ -124,11 +124,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_foregroundClipLayer(0)
 {
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
-    m_contentLayer = new LayerAndroid(renderLayer, true);
-    if (renderLayer) {
-        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer()
-            && !(renderLayer->renderer()->frame()->ownerElement()));
-    }
+    m_contentLayer = new LayerAndroid(renderLayer);
     gDebugGraphicsLayerAndroidInstances++;
 }
 
@@ -390,8 +386,6 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
     if (drawsContent == m_drawsContent)
         return;
     GraphicsLayer::setDrawsContent(drawsContent);
-    if (m_contentLayer->isRootLayer())
-        return;
     if (m_drawsContent) {
         m_haveContents = true;
         setNeedsDisplay();
@@ -503,7 +497,7 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         if (layerNeedsOverflow) {
             ASSERT(!m_foregroundLayer && !m_foregroundClipLayer);
             m_foregroundLayer = new ScrollableLayerAndroid(layer);
-            m_foregroundClipLayer = new LayerAndroid(layer, false);
+            m_foregroundClipLayer = new LayerAndroid(layer);
             m_foregroundClipLayer->setMasksToBounds(true);
             m_foregroundClipLayer->addChild(m_foregroundLayer);
             m_contentLayer->addChild(m_foregroundClipLayer);

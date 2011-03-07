@@ -40,7 +40,7 @@
 
 namespace WebCore {
 
-MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid(false)
+MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid((RenderLayer*) NULL)
 {
     m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
     m_bufferedTexture->incStrong(this);
