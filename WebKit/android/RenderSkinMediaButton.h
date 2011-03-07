@@ -52,8 +52,8 @@ public:
     /**
      * Slider dimensions
      */
-    static int sliderThumbWidth() { return 10; }
-    static int sliderThumbHeight() { return 30; }
+    static int sliderThumbWidth() { return 32; }
+    static int sliderThumbHeight() { return 32; }
 
 };
 

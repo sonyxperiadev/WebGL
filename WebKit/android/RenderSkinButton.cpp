@@ -45,10 +45,10 @@ struct PatchData {
 
 static const PatchData gFiles[] =
     {
-        { "btn_default_normal_disable.9.png", 2, 7 },
-        { "btn_default_normal.9.png", 2, 7 },
-        { "btn_default_selected.9.png", 2, 7 },
-        { "btn_default_pressed.9.png", 2, 7 }
+        { "btn_default_disabled_holo.9.png", 2, 7 },
+        { "btn_default_normal_holo.9.png", 2, 7 },
+        { "btn_default_focused_holo.9.png", 2, 7 },
+        { "btn_default_pressed_holo.9.png", 2, 7 }
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];

@@ -52,8 +52,8 @@ static const PatchData gFiles[] =
         { "ic_media_rew.png", 0, 0 }, // REWIND
         { "ic_media_ff.png", 0, 0 }, // FORWARD
         { "btn_media_player_disabled.9.png", 0, 0 }, // BACKGROUND_SLIDER
-        { "btn_media_player_pressed.9.png", 0, 0 },  // SLIDER_TRACK
-        { "btn_media_player.9.png", 0, 0 }           // SLIDER_THUMB
+        { "scrubber_track_holo_dark.9.png", 0, 0 },  // SLIDER_TRACK
+        { "scrubber_control_holo.png", 0, 0 }      // SLIDER_THUMB
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
@@ -89,9 +89,9 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
         return;
     }
 
-    bool drawsNinePatch = true;
+    bool drawsNinePatch = false;
     bool drawsImage = true;
-    bool drawsBackgroundColor = false;
+    bool drawsBackgroundColor = true;
 
     int ninePatchIndex = 0;
     int imageIndex = 0;
@@ -99,8 +99,8 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     SkRect bounds(r);
     SkScalar imageMargin = 8;
     SkPaint paint;
-    SkColor backgroundColor = SkColorSetARGB(255, 200, 200, 200);
-    SkColor trackBackgroundColor = SkColorSetARGB(255, 100, 100, 100);
+    SkColor backgroundColor = SkColorSetARGB(255, 34, 34, 34);
+    paint.setColor(backgroundColor);
 
     switch (buttonType) {
     case PAUSE:
@@ -110,37 +110,30 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     case FORWARD:
     {
          imageIndex = buttonType + 1;
-         drawsBackgroundColor = true;
          paint.setColor(backgroundColor);
          break;
     }
     case BACKGROUND_SLIDER:
     {
          drawsImage = false;
-         drawsNinePatch = false;
-         drawsBackgroundColor = true;
-         paint.setColor(backgroundColor);
          break;
     }
     case SLIDER_TRACK:
     {
-         drawsImage = false;
-         drawsNinePatch = false;
-         drawsBackgroundColor = true;
-         paint.setColor(trackBackgroundColor);
-         bounds.fTop += 8;
-         bounds.fBottom -= 8;
-         break;
-    }
-    case SLIDER_THUMB:
-    {
+         drawsNinePatch = true;
          drawsImage = false;
          ninePatchIndex = buttonType + 1;
          break;
     }
+    case SLIDER_THUMB:
+    {
+         drawsBackgroundColor = false;
+         imageMargin = 0;
+         imageIndex = buttonType + 1;
+         break;
+    }
     default:
-         drawsImage = false;
-         drawsNinePatch = false;
+         return;
     }
 
     if (drawsBackgroundColor) {
@@ -153,7 +146,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
 
         SkIRect margin;
         margin.set(marginValue, marginValue, marginValue, marginValue);
-        SkNinePatch::DrawNine(canvas, bounds, gButton[0], margin);
+        SkNinePatch::DrawNine(canvas, bounds, gButton[ninePatchIndex], margin);
     }
 
     if (drawsImage) {
