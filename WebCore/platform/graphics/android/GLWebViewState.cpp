@@ -110,7 +110,7 @@ GLWebViewState::~GLWebViewState()
 #endif
 }
 
-void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
+void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
                                   bool showVisualIndicator)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
@@ -131,7 +131,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
         SkSafeUnref(m_currentBaseLayer);
         m_currentBaseLayer = layer;
     }
-    inval(rect);
+    invalRegion(inval);
 
 #ifdef MEASURES_PERF
     if (m_measurePerfs && !showVisualIndicator)
@@ -142,15 +142,29 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect,
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
 }
 
+void GLWebViewState::invalRegion(const SkRegion& region)
+{
+    SkRegion::Iterator iterator(region);
+    while (!iterator.done()) {
+        SkIRect r = iterator.rect();
+        IntRect ir(r.fLeft, r.fTop, r.width(), r.height());
+        inval(ir);
+        iterator.next();
+    }
+}
+
 void GLWebViewState::unlockBaseLayerUpdate() {
+    if (m_baseLayerUpdate)
+        return;
+
     m_baseLayerUpdate = true;
     android::Mutex::Autolock lock(m_baseLayerLock);
     SkSafeRef(m_baseLayer);
     SkSafeUnref(m_currentBaseLayer);
     m_currentBaseLayer = m_baseLayer;
-    inval(m_invalidateRect);
-    IntRect empty;
-    m_invalidateRect = empty;
+
+    invalRegion(m_invalidateRegion);
+    m_invalidateRegion.setEmpty();
 }
 
 void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
@@ -182,7 +196,7 @@ void GLWebViewState::inval(const IntRect& rect)
             m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
         }
     } else {
-        m_invalidateRect.unite(rect);
+        m_invalidateRegion.op(rect.x(), rect.y(), rect.right(), rect.bottom(), SkRegion::kUnion_Op);
     }
 }
 

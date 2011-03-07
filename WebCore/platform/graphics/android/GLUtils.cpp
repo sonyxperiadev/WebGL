@@ -361,6 +361,27 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
+void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, SkBitmap& bitmap, GLint filter)
+{
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    GLUtils::checkGlError("glBindTexture");
+    SkBitmap::Config config = bitmap.getConfig();
+    int internalformat = getInternalFormat(config);
+    int type = getType(config);
+    bitmap.lockPixels();
+    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, bitmap.width(), bitmap.height(),
+                    internalformat, type, bitmap.getPixels());
+    bitmap.unlockPixels();
+    if (GLUtils::checkGlError("glTexSubImage2D")) {
+        XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+}
+
 void GLUtils::createEGLImageFromTexture(GLuint texture, EGLImageKHR* image)
 {
     EGLClientBuffer buffer = reinterpret_cast<EGLClientBuffer>(texture);

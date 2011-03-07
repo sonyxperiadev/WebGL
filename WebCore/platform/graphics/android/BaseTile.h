@@ -29,9 +29,11 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "HashMap.h"
+#include "SharedTexture.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
+#include "SkRegion.h"
 #include "TextureOwner.h"
 
 #include <EGL/egl.h>
@@ -75,18 +77,26 @@ public:
 
     // the only thread-safe function called by the background thread
     void paintBitmap();
+    int paintPartialBitmap(SkIRect rect, float tx, float ty,
+                            float scale, BackedDoubleBufferedTexture* texture,
+                            TextureInfo* textureInfo,
+                            TiledPage* tiledPage,
+                            bool fullRepaint = false);
     void drawTileInfo(SkCanvas* canvas,
                       BackedDoubleBufferedTexture* texture,
-                      int x, int y, float scale);
+                      int x, int y, float scale, int pictureCount);
 
-    void markAsDirty(const unsigned int pictureCount);
+    void markAsDirty(const unsigned int pictureCount,
+                     const SkRegion& dirtyArea);
     bool isDirty();
     void setUsable(bool usable);
     float scale() const { return m_scale; }
     void setScale(float scale);
+    void fullInval();
 
     int x() const { return m_x; }
     int y() const { return m_y; }
+    unsigned int lastPaintedPicture() const { return m_lastPaintedPicture; }
     BackedDoubleBufferedTexture* texture() { return m_texture; }
 
     // TextureOwner implementation
@@ -110,6 +120,15 @@ private:
     // become dirty. A tile is no longer dirty when it has been painted with a
     // picture that is newer than this value.
     unsigned int m_lastDirtyPicture;
+
+    // store the dirty region
+    SkRegion m_dirtyAreaA;
+    SkRegion m_dirtyAreaB;
+    bool m_fullRepaintA;
+    bool m_fullRepaintB;
+    SkRegion* m_currentDirtyArea;
+    bool m_painting;
+
     // stores the id of the latest picture painted to the tile. If the id is 0
     // then we know that the picture has not yet been painted an there is nothing
     // to display (dirty or otherwise).

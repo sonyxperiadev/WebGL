@@ -97,6 +97,9 @@ private:
     // terms of the (x,y) coordinates used to determine the location of the tile
     // within the page, not in content/view pixel coordinates.
     SkRegion m_invalRegion;
+
+    // inval regions in content coordinates
+    SkRegion m_invalTilesRegion;
     unsigned int m_latestPictureInval;
     bool m_prepare;
 };

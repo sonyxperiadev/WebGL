@@ -42,8 +42,6 @@ BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                          SkBitmap* bitmap,
                                                          SkBitmap::Config config)
     : DoubleBufferedTexture(eglGetCurrentContext())
-    , m_x(-1)
-    , m_y(-1)
     , m_usedLevel(-1)
     , m_config(config)
     , m_owner(0)
@@ -147,6 +145,21 @@ bool BackedDoubleBufferedTexture::busy()
     return m_busy;
 }
 
+bool BackedDoubleBufferedTexture::textureExist(TextureInfo* textureInfo)
+{
+    if (!m_bitmap)
+        return false;
+
+    if (!m_bitmap->width() || !m_bitmap->height())
+        return false;
+
+    if (textureInfo->m_width == m_bitmap->width() &&
+        textureInfo->m_height == m_bitmap->height())
+        return true;
+
+    return false;
+}
+
 void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
     if (!m_bitmap)
@@ -158,7 +171,7 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
         return;
     }
 
-    if (textureInfo->m_width == m_bitmap->width() && textureInfo->m_height == m_bitmap->height())
+    if (textureExist(textureInfo))
         GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
     else {
         GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
@@ -223,6 +236,33 @@ bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
             m_delayedRelease = true;
             m_delayedReleaseOwner = owner;
         }
+    }
+    return false;
+}
+
+void BackedDoubleBufferedTexture::setTile(TextureInfo* info, int x, int y,
+                                          float scale, unsigned int pictureCount)
+{
+    TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
+    if (!textureInfo) {
+        textureInfo = new TextureTileInfo();
+    }
+    textureInfo->m_x = x;
+    textureInfo->m_y = y;
+    textureInfo->m_scale = scale;
+    textureInfo->m_picture = pictureCount;
+    m_texturesInfo.set(getWriteableTexture(), textureInfo);
+}
+
+bool BackedDoubleBufferedTexture::readyFor(BaseTile* baseTile)
+{
+    TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
+    if (info &&
+        (info->m_x == baseTile->x()) &&
+        (info->m_y == baseTile->y()) &&
+        (info->m_scale == baseTile->scale()) &&
+        (info->m_picture == baseTile->lastPaintedPicture())) {
+        return true;
     }
     return false;
 }
