@@ -1484,22 +1484,32 @@ class GLDrawFunctor : Functor {
         scale = _scale;
         extras = _extras;
     };
-    status_t operator()() {
-        if (viewRect.isEmpty()) {
+    status_t operator()(float* dirty, uint32_t len) {
+        if (viewRect.isEmpty() || len != 4) {
             // NOOP operation if viewport is empty
             return 0;
         }
         bool retVal = (*wvInstance.*funcPtr)(viewRect, scale, extras);
+        if (retVal) {
+            dirty[0] = webViewRect.x();
+            dirty[1] = webViewRect.y();
+            dirty[2] = webViewRect.right();
+            dirty[3] = webViewRect.bottom();
+        }
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
     }
     void updateRect(WebCore::IntRect& _viewRect) {
         viewRect = _viewRect;
     }
+    void updateViewRect(WebCore::IntRect& _viewRect) {
+        webViewRect = _viewRect;
+    }
     private:
     WebView* wvInstance;
     bool (WebView::*funcPtr)(WebCore::IntRect&, float, int);
     WebCore::IntRect viewRect;
+    WebCore::IntRect webViewRect;
     jfloat scale;
     jint extras;
 };
@@ -1733,7 +1743,7 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
     return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
 }
 
-static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
+static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, jobject jviewrect,
         jfloat scale, jint extras) {
     WebCore::IntRect viewRect;
     if (jrect == NULL) {
@@ -1745,10 +1755,19 @@ static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
     GLDrawFunctor* functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
             viewRect, scale, extras);
     wvInstance->setFunctor((Functor*) functor);
+
+    WebCore::IntRect webViewRect;
+    if (jviewrect == NULL) {
+        webViewRect = WebCore::IntRect();
+    } else {
+        webViewRect = jrect_to_webrect(env, jviewrect);
+    }
+    functor->updateViewRect(webViewRect);
+
     return (jint)functor;
 }
 
-static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect) {
+static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, jobject jviewrect) {
     WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
     if (wvInstance != NULL) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
@@ -1760,6 +1779,14 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect) 
                 viewRect = jrect_to_webrect(env, jrect);
             }
             functor->updateRect(viewRect);
+
+            WebCore::IntRect webViewRect;
+            if (jviewrect == NULL) {
+                webViewRect = WebCore::IntRect();
+            } else {
+                webViewRect = jrect_to_webrect(env, jviewrect);
+            }
+            functor->updateViewRect(webViewRect);
         }
     }
 }
@@ -2470,9 +2497,9 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
         (void*) nativeDraw },
-    { "nativeGetDrawGLFunction", "(Landroid/graphics/Rect;FI)I",
+    { "nativeGetDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;FI)I",
         (void*) nativeGetDrawGLFunction },
-    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;)V",
+    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;)V",
         (void*) nativeUpdateDrawGLFunction },
     { "nativeDrawGL", "(Landroid/graphics/Rect;FI)Z",
         (void*) nativeDrawGL },
