@@ -63,12 +63,11 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
 
 class AndroidOpacityAnimation : public AndroidAnimation {
   public:
-    static PassRefPtr<AndroidOpacityAnimation> create(float fromValue,
-                                                     float toValue,
-                                                     const Animation* animation,
-                                                     double beginTime);
-    AndroidOpacityAnimation(float fromValue, float toValue,
-                            const Animation* animation,
+    static PassRefPtr<AndroidOpacityAnimation> create(const Animation* animation,
+                                                      KeyframeValueList* operations,
+                                                      double beginTime);
+    AndroidOpacityAnimation(const Animation* animation,
+                            KeyframeValueList* operations,
                             double beginTime);
     AndroidOpacityAnimation(AndroidOpacityAnimation* anim);
     virtual PassRefPtr<AndroidAnimation> copy();
@@ -76,8 +75,7 @@ class AndroidOpacityAnimation : public AndroidAnimation {
     virtual bool evaluate(LayerAndroid* layer, double time);
 
   private:
-    float m_fromValue;
-    float m_toValue;
+    KeyframeValueList* m_operations;
 };
 
 class AndroidTransformAnimation : public AndroidAnimation {
