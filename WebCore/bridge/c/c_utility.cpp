@@ -94,9 +94,15 @@ void convertValueToNPVariant(ExecState* exec, JSValue value, NPVariant* result)
                 OBJECT_TO_NPVARIANT(obj, *result);
             }
         } else {
+#ifdef ANDROID
+            RootObject* rootObject = findRootObject(exec->dynamicGlobalObject());
+            if (!rootObject)
+                rootObject = findRootObject(exec->lexicalGlobalObject());
+#else
             JSGlobalObject* globalObject = exec->dynamicGlobalObject();
 
             RootObject* rootObject = findRootObject(globalObject);
+#endif
             if (rootObject) {
                 NPObject* npObject = _NPN_CreateScriptObject(0, object, rootObject);
                 OBJECT_TO_NPVARIANT(npObject, *result);
