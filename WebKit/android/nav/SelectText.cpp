@@ -1303,22 +1303,17 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
     return extractor.text();
 }
 
-#define CONTROL_OFFSET 0
-#define CONTROL_NOTCH 19
+#define CONTROL_NOTCH 16
 #define CONTROL_HEIGHT 35
 #define CONTROL_WIDTH 21
-#define STROKE_WIDTH 2.0f
-#define STROKE_OUTSET 1.0f
-#define STROKE_NOTCH_R 2.2f
-#define STROKE_NOTCH_L 1.7f
+#define STROKE_WIDTH 1.0f
+#define STROKE_OUTSET 3.5f
+
+#define STROKE_COLOR 0x66000000
+#define OUTER_COLOR 0x33000000
+#define INNER_COLOR 0xe6aae300
+
 #define DROP_HEIGHT 4
-
-#define STROKE_COLOR 0x90000000
-#define FILL_GRADIENT_TOP 0xD0AFD835
-#define FILL_GRADIENT_BOTTOM 0xD0CAD284
-#define DROP_GRADIENT_TOP 0x50000000
-#define DROP_GRADIENT_BOTTOM 0x00000000
-
 #define SLOP 35
 
 SelectText::SelectText()
@@ -1326,78 +1321,77 @@ SelectText::SelectText()
     m_picture = 0;
     reset();
     SkPaint paint;
+    SkRect oval;
 
-    SkPath startFillPath;
-    startFillPath.moveTo(-CONTROL_WIDTH + STROKE_OUTSET, CONTROL_NOTCH);
-    startFillPath.lineTo(-CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
-    startFillPath.lineTo(-STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
-    startFillPath.lineTo(-STROKE_OUTSET, CONTROL_OFFSET + STROKE_NOTCH_R);
-    startFillPath.close();
-    SkPath startStrokePath;
-    startStrokePath.moveTo(-CONTROL_WIDTH, CONTROL_NOTCH);
-    startStrokePath.lineTo(-CONTROL_WIDTH, CONTROL_HEIGHT);
-    startStrokePath.lineTo(0, CONTROL_HEIGHT);
-    startStrokePath.lineTo(0, CONTROL_OFFSET);
-    startStrokePath.close();
-    SkPoint gradientLine[] = {{0, 0}, {0, CONTROL_HEIGHT}};
-    SkColor gradientColors[] = {FILL_GRADIENT_TOP, FILL_GRADIENT_BOTTOM};
-    SkShader* fillGradient = SkGradientShader::CreateLinear(gradientLine,
-        gradientColors, 0, 2, SkShader::kClamp_TileMode);
-    SkPoint dropLine[] = {{0, CONTROL_HEIGHT}, {0, CONTROL_HEIGHT + DROP_HEIGHT}};
-    SkColor dropColors[] = {DROP_GRADIENT_TOP, DROP_GRADIENT_BOTTOM};
-    SkShader* dropGradient = SkGradientShader::CreateLinear(dropLine,
-        dropColors, 0, 2, SkShader::kClamp_TileMode);
-    SkRect startDropRect = {-CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT,
-        STROKE_OUTSET, CONTROL_HEIGHT + DROP_HEIGHT};
+    SkPath startOuterPath;
+    oval.set(-CONTROL_WIDTH - STROKE_OUTSET, CONTROL_NOTCH - STROKE_OUTSET,
+        -CONTROL_WIDTH + STROKE_OUTSET, CONTROL_NOTCH + STROKE_OUTSET);
+    startOuterPath.arcTo(oval, 180, 45, true);
+    oval.set(-STROKE_OUTSET, -STROKE_OUTSET,  STROKE_OUTSET, STROKE_OUTSET);
+    startOuterPath.arcTo(oval, 180 + 45, 135, false);
+    oval.set(-STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET,
+        STROKE_OUTSET, CONTROL_HEIGHT + STROKE_OUTSET);
+    startOuterPath.arcTo(oval, 0, 90, false);
+    oval.set(-CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET,
+        -CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT + STROKE_OUTSET);
+    startOuterPath.arcTo(oval, 90, 90, false);
+    startOuterPath.close();
+    SkPath startInnerPath;
+    startInnerPath.moveTo(-CONTROL_WIDTH, CONTROL_NOTCH);
+    startInnerPath.lineTo(-CONTROL_WIDTH, CONTROL_HEIGHT);
+    startInnerPath.lineTo(0, CONTROL_HEIGHT);
+    startInnerPath.lineTo(0, 0);
+    startInnerPath.close();
+    startOuterPath.addPath(startInnerPath, 0, 0);
 
-    SkCanvas* canvas = m_startControl.beginRecording(CONTROL_WIDTH, CONTROL_HEIGHT + DROP_HEIGHT);
+    SkCanvas* canvas = m_startControl.beginRecording(
+        CONTROL_WIDTH + STROKE_OUTSET * 2,
+        CONTROL_HEIGHT + STROKE_OUTSET * 2);
     paint.setAntiAlias(true);
+    paint.setColor(INNER_COLOR);
     paint.setStyle(SkPaint::kFill_Style);
-    paint.setShader(fillGradient);
-    canvas->drawPath(startFillPath, paint);
-    paint.setShader(0);
+    canvas->drawPath(startInnerPath, paint);
+    paint.setColor(OUTER_COLOR);
+    canvas->drawPath(startOuterPath, paint);
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setColor(STROKE_COLOR);
     paint.setStrokeWidth(STROKE_WIDTH);
-    canvas->drawPath(startStrokePath, paint);
-    paint.setStyle(SkPaint::kFill_Style);
-    paint.setColor(0xff000000);
-    paint.setShader(dropGradient);
-    canvas->drawRect(startDropRect, paint);
+    canvas->drawPath(startInnerPath, paint);
     m_startControl.endRecording();
 
-    SkPath endFillPath;
-    endFillPath.moveTo(STROKE_OUTSET, CONTROL_OFFSET + STROKE_NOTCH_R);
-    endFillPath.lineTo(STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
-    endFillPath.lineTo(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
-    endFillPath.lineTo(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_NOTCH);
-    endFillPath.close();
-    SkPath endStrokePath;
-    endStrokePath.moveTo(0, CONTROL_OFFSET);
-    endStrokePath.lineTo(0, CONTROL_HEIGHT);
-    endStrokePath.lineTo(CONTROL_WIDTH, CONTROL_HEIGHT);
-    endStrokePath.lineTo(CONTROL_WIDTH, CONTROL_NOTCH);
-    endStrokePath.close();
-    SkRect endDropRect = {-STROKE_OUTSET, CONTROL_HEIGHT,
-        CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT + DROP_HEIGHT};
+    SkPath endOuterPath;
+    oval.set(-STROKE_OUTSET, -STROKE_OUTSET,  STROKE_OUTSET, STROKE_OUTSET);
+    endOuterPath.arcTo(oval, 180, 135, true);
+    oval.set(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_NOTCH - STROKE_OUTSET,
+        CONTROL_WIDTH + STROKE_OUTSET, CONTROL_NOTCH + STROKE_OUTSET);
+    endOuterPath.arcTo(oval, 360 - 45, 45, false);
+    oval.set(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET,
+        CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT + STROKE_OUTSET);
+    endOuterPath.arcTo(oval, 0, 90, false);
+    oval.set(-STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET,
+        STROKE_OUTSET, CONTROL_HEIGHT + STROKE_OUTSET);
+    endOuterPath.arcTo(oval, 90, 90, false);
+    startOuterPath.close();
+    SkPath endInnerPath;
+    endInnerPath.moveTo(0, 0);
+    endInnerPath.lineTo(0, CONTROL_HEIGHT);
+    endInnerPath.lineTo(CONTROL_WIDTH, CONTROL_HEIGHT);
+    endInnerPath.lineTo(CONTROL_WIDTH, CONTROL_NOTCH);
+    endInnerPath.close();
+    endOuterPath.addPath(endInnerPath, 0, 0);
 
-    canvas = m_endControl.beginRecording(CONTROL_WIDTH, CONTROL_HEIGHT + DROP_HEIGHT);
-    paint.setColor(0xff000000);
+    canvas = m_endControl.beginRecording(CONTROL_WIDTH + STROKE_OUTSET * 2,
+        CONTROL_HEIGHT + STROKE_OUTSET * 2);
+    paint.setColor(INNER_COLOR);
     paint.setStyle(SkPaint::kFill_Style);
-    paint.setShader(fillGradient);
-    canvas->drawPath(endFillPath, paint);
-    paint.setShader(0);
+    canvas->drawPath(endInnerPath, paint);
+    paint.setColor(OUTER_COLOR);
+    canvas->drawPath(endOuterPath, paint);
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setColor(STROKE_COLOR);
     paint.setStrokeWidth(STROKE_WIDTH);
-    canvas->drawPath(endStrokePath, paint);
-    paint.setStyle(SkPaint::kFill_Style);
-    paint.setColor(0xff000000);
-    paint.setShader(dropGradient);
-    canvas->drawRect(endDropRect, paint);
+    canvas->drawPath(endInnerPath, paint);
     m_endControl.endRecording();
-    SkSafeUnref(fillGradient);
-    SkSafeUnref(dropGradient);
 }
 
 SelectText::~SelectText()
