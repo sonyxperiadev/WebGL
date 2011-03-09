@@ -221,6 +221,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mSetCertificate;
     jmethodID   mShouldSaveFormData;
     jmethodID   mSaveFormData;
+    jmethodID   mAutoLogin;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -294,6 +295,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate", "([B)V");
     mJavaFrame->mShouldSaveFormData = env->GetMethodID(clazz, "shouldSaveFormData", "()Z");
     mJavaFrame->mSaveFormData = env->GetMethodID(clazz, "saveFormData", "(Ljava/util/HashMap;)V");
+    mJavaFrame->mAutoLogin = env->GetMethodID(clazz, "autoLogin",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -326,6 +329,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mSetCertificate, "Could not find method setCertificate");
     LOG_ASSERT(mJavaFrame->mShouldSaveFormData, "Could not find method shouldSaveFormData");
     LOG_ASSERT(mJavaFrame->mSaveFormData, "Could not find method saveFormData");
+    LOG_ASSERT(mJavaFrame->mAutoLogin, "Could not find method autoLogin");
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
@@ -982,6 +986,54 @@ void WebFrame::setCertificate(const std::string& cert)
     checkException(env);
 }
 #endif
+
+void WebFrame::autoLogin(const std::string& loginHeader)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimerCoutner::JavaCallbackTimeCounter);
+#endif
+    WTF::String header(loginHeader.c_str(), loginHeader.length());
+    WTF::Vector<WTF::String> split;
+    header.split('&', split);
+    if (!split.isEmpty()) {
+        WTF::String realm;
+        WTF::String account;
+        WTF::String args;
+        int len = split.size();
+        while (len--) {
+            WTF::String& str = split[len];
+            size_t equals = str.find('=');
+            if (equals == WTF::notFound)
+                continue;
+
+            WTF::String* result = 0;
+            if (str.startsWith("realm", false))
+                result = &realm;
+            else if (str.startsWith("account", false))
+                result = &account;
+            else if (str.startsWith("args", false))
+                result = &args;
+
+            if (result)
+                // Decode url escape sequences before sending to the app.
+                *result = WebCore::decodeURLEscapeSequences(str.substring(equals + 1));
+        }
+
+        // realm and args are required parameters.
+        if (realm.isEmpty() || args.isEmpty())
+            return;
+
+        // Args is double-encoded as it contains urls.
+        args = WebCore::decodeURLEscapeSequences(args);
+
+        JNIEnv* env = getJNIEnv();
+        jstring jRealm = wtfStringToJstring(env, realm, true);
+        jstring jAccount = wtfStringToJstring(env, account);
+        jstring jArgs = wtfStringToJstring(env, args, true);
+        env->CallVoidMethod(mJavaFrame->frame(env).get(),
+                mJavaFrame->mAutoLogin, jRealm, jAccount, jArgs);
+    }
+}
 
 void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request)
 {
