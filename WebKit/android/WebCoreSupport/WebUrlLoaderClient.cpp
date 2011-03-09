@@ -356,6 +356,11 @@ void WebUrlLoaderClient::didReceiveResponse(PassOwnPtr<WebResponse> webResponse)
             ssl_info.cert->GetChainDEREncodedBytes(&chain_bytes);
             m_webFrame->setCertificate(chain_bytes[0]);
         }
+
+        // Look for X-Auto-Login on the main resource to log in the user.
+        std::string login;
+        if (m_response->getHeader("x-auto-login", &login))
+            m_webFrame->autoLogin(login);
     }
 }
 
