@@ -41,9 +41,7 @@ struct JavaNPObject {
     RefPtr<JavaInstance> m_instance;
 };
 
-// ANDROID-specific change. TODO: Upstream
-NPObject* JavaInstanceToNPObject(PassRefPtr<JavaInstance>);
-// END ANDROID-specific change
+NPObject* JavaInstanceToNPObject(JavaInstance*);
 JavaInstance* ExtractJavaInstance(NPObject*);
 
 bool JavaNPObjectHasMethod(NPObject*, NPIdentifier name);
