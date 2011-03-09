@@ -54,7 +54,8 @@ long AndroidAnimation::instancesCount()
     return gDebugAndroidAnimationInstances;
 }
 
-AndroidAnimation::AndroidAnimation(const Animation* animation,
+AndroidAnimation::AndroidAnimation(AndroidAnimationType type,
+                                   const Animation* animation,
                                    double beginTime)
     : m_beginTime(beginTime)
     , m_duration(animation->duration())
@@ -63,6 +64,7 @@ AndroidAnimation::AndroidAnimation(const Animation* animation,
     , m_direction(animation->direction())
     , m_currentDirection(false)
     , m_timingFunction(animation->timingFunction())
+    , m_type(type)
 {
     ASSERT(m_timingFunction);
 
@@ -80,6 +82,7 @@ AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     , m_direction(anim->m_direction)
     , m_currentDirection(false)
     , m_timingFunction(anim->m_timingFunction)
+    , m_type(anim->m_type)
 {
     gDebugAndroidAnimationInstances++;
 }
@@ -147,7 +150,7 @@ PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
 AndroidOpacityAnimation::AndroidOpacityAnimation(const Animation* animation,
                                                  KeyframeValueList* operations,
                                                  double beginTime)
-    : AndroidAnimation(animation, beginTime)
+    : AndroidAnimation(AndroidAnimation::OPACITY, animation, beginTime)
     , m_operations(operations)
 {
 }
@@ -231,7 +234,7 @@ PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(
 AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
                                                      KeyframeValueList* operations,
                                                      double beginTime)
-    : AndroidAnimation(animation, beginTime)
+    : AndroidAnimation(AndroidAnimation::TRANSFORM, animation, beginTime)
     , m_operations(operations)
 {
 }
@@ -275,9 +278,9 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
         TransformAnimationValue* value = (TransformAnimationValue*) m_operations->at(i);
         TransformOperations* values = (TransformOperations*) value->value();
         float key = value->keyTime();
-        float d = fabs(progress - key);
+        float d = progress - key;
         XLOG("[%d] Key %.2f, %d values", i, key, values->size());
-        if (!fromValue || (d < distance && i + 1 < m_operations->size())) {
+        if (!fromValue || (d > 0 && d < distance && i + 1 < m_operations->size())) {
             fromValue = value;
             distance = d;
             foundAt = i;
