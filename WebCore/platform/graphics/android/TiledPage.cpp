@@ -129,6 +129,7 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
     // We defer marking the tile as dirty until the next time we need to prepare
     // to draw.
     m_invalRegion.op(firstDirtyTileX, firstDirtyTileY, lastDirtyTileX, lastDirtyTileY, SkRegion::kUnion_Op);
+    m_invalTilesRegion.op(inval.x(), inval.y(), inval.right(), inval.bottom(), SkRegion::kUnion_Op);
     m_latestPictureInval = pictureCount;
 }
 
@@ -183,11 +184,12 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
 {
     if (!m_glWebViewState || tileBounds.isEmpty()) {
         m_invalRegion.setEmpty();
+        m_invalTilesRegion.setEmpty();
         return;
     }
 
-    const int nbTilesWidth = tileBounds.width();
-    const int nbTilesHeight = tileBounds.height();
+    const int nbTilesWidth = tileBounds.width() - 1;
+    const int nbTilesHeight = tileBounds.height() - 1;
 
     const int lastTileX = tileBounds.fRight - 1;
     const int lastTileY = tileBounds.fBottom - 1;
@@ -196,13 +198,13 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
 
         BaseTile& tile = m_baseTiles[x];
 
+        // if the tile is in the dirty region then we must invalidate it
+        if (m_invalRegion.contains(tile.x(), tile.y()))
+            tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
+
         // if the tile no longer has a texture then proceed to the next tile
         if (tile.isAvailable())
             continue;
-
-        // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile.x(), tile.y()))
-            tile.markAsDirty(m_latestPictureInval);
 
         // set the used level of the tile (e.g. distance from the viewport)
         int dx = 0;
@@ -226,6 +228,7 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
     // clear the invalidated region as all tiles within that region have now
     // been marked as dirty.
     m_invalRegion.setEmpty();
+    m_invalTilesRegion.setEmpty();
 }
 
 void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds)

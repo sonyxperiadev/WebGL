@@ -67,11 +67,15 @@ BaseTile::BaseTile()
     , m_dirty(true)
     , m_usable(true)
     , m_lastDirtyPicture(0)
+    , m_fullRepaintA(true)
+    , m_fullRepaintB(true)
+    , m_painting(false)
     , m_lastPaintedPicture(0)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
 #endif
+    m_currentDirtyArea = &m_dirtyAreaA;
 }
 
 BaseTile::~BaseTile()
@@ -100,11 +104,12 @@ void BaseTile::reserveTexture()
     BackedDoubleBufferedTexture* texture = TilesManager::instance()->getAvailableTexture(this);
 
     android::AutoMutex lock(m_atomicSync);
-    if (m_texture != texture) {
+    if (texture && !m_painting &&
+        m_texture != texture) {
         m_lastPaintedPicture = 0;
-        m_dirty = true;
+        fullInval();
+        m_texture = texture;
     }
-    m_texture = texture;
 }
 
 bool BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
@@ -112,25 +117,39 @@ bool BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
     XLOG("%x removeTexture res: %x... page %x", this, m_texture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
+    if (m_painting)
+        return false;
     if (m_texture == texture)
         m_texture = 0;
     return true;
 }
 
+void BaseTile::fullInval()
+{
+    m_dirtyAreaA.setEmpty();
+    m_dirtyAreaB.setEmpty();
+    m_fullRepaintA = true;
+    m_fullRepaintB = true;
+    m_dirty = true;
+}
+
 void BaseTile::setScale(float scale)
 {
     android::AutoMutex lock(m_atomicSync);
-    if (m_scale != scale)
-        m_dirty = true;
-    m_scale = scale;
+    if (m_scale != scale) {
+        m_scale = scale;
+        fullInval();
+    }
 }
 
-void BaseTile::markAsDirty(int unsigned pictureCount)
+void BaseTile::markAsDirty(int unsigned pictureCount,
+                           const SkRegion& dirtyArea)
 {
     android::AutoMutex lock(m_atomicSync);
     m_lastDirtyPicture = pictureCount;
-    if (m_lastPaintedPicture < m_lastDirtyPicture)
-        m_dirty = true;
+    m_dirtyAreaA.op(dirtyArea, SkRegion::kUnion_Op);
+    m_dirtyAreaB.op(dirtyArea, SkRegion::kUnion_Op);
+    m_dirty = true;
 }
 
 void BaseTile::setUsable(bool usable)
@@ -154,6 +173,9 @@ void BaseTile::setUsedLevel(int usedLevel)
 
 void BaseTile::draw(float transparency, SkRect& rect)
 {
+    if (m_x < 0 || m_y < 0)
+        return;
+
     // No need to mutex protect reads of m_texture as it is only written to by
     // the consumer thread.
     if (!m_texture) {
@@ -175,9 +197,6 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
-    if (m_texture->x() != m_x || m_texture->y() != m_y)
-        return;
-
     TextureInfo* textureInfo = m_texture->consumerLock();
     if (!textureInfo) {
         XLOG("%x (%d, %d) trying to draw, but no textureInfo!", this, x(), y());
@@ -185,9 +204,11 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
-    TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
-                                                 transparency);
-
+    if (m_texture->readyFor(this)) {
+        XLOG("draw tile %d, %d, %.2f with texture %x", x(), y(), scale(), m_texture);
+        TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
+                                                     transparency);
+    }
     m_texture->consumerRelease();
 }
 
@@ -199,21 +220,33 @@ bool BaseTile::isTileReady()
         return false;
 
     android::AutoMutex lock(m_atomicSync);
-    return !m_dirty;
+    if (m_dirty)
+        return false;
+
+    m_texture->consumerLock();
+    bool ready = m_texture->readyFor(this);
+    m_texture->consumerRelease();
+
+    if (ready)
+        return true;
+
+    m_dirty = true;
+    return false;
 }
 
 void BaseTile::drawTileInfo(SkCanvas* canvas,
                             BackedDoubleBufferedTexture* texture,
-                            int x, int y, float scale)
+                            int x, int y, float scale,
+                            int pictureCount)
 {
     SkPaint paint;
     char str[256];
-    snprintf(str, 256, "(%d,%d) %.2f, tile %x, texture: %x",
-             x, y, scale, this, texture);
+    snprintf(str, 256, "(%d,%d) %.2f, tl%x tx%x p%x c%x",
+             x, y, scale, this, texture, m_page, pictureCount);
     paint.setARGB(255, 0, 0, 0);
-    canvas->drawText(str, strlen(str), 50, 100, paint);
+    canvas->drawText(str, strlen(str), 0, 10, paint);
     paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 51, 101, paint);
+    canvas->drawText(str, strlen(str), 0, 11, paint);
 }
 
 // This is called from the texture generation thread
@@ -226,11 +259,15 @@ void BaseTile::paintBitmap()
     m_atomicSync.lock();
     bool dirty = m_dirty;
     BackedDoubleBufferedTexture* texture = m_texture;
+    SkRegion dirtyArea = *m_currentDirtyArea;
+    m_painting = true;
     float scale = m_scale;
     m_atomicSync.unlock();
 
-    if (!dirty || !texture)
+    if (!dirty || !texture) {
+        m_painting = false;
         return;
+    }
 
     const int x = m_x;
     const int y = m_y;
@@ -243,6 +280,7 @@ void BaseTile::paintBitmap()
     // transferred to another BaseTile under us)
     if (texture->owner() != this || texture->usedLevel() > 1) {
         texture->producerRelease();
+        m_painting = false;
         return;
     }
 
@@ -255,70 +293,160 @@ void BaseTile::paintBitmap()
     float h = tileHeight * invScale;
 
     SkCanvas* canvas;
+    unsigned int pictureCount = 0;
 
-#ifdef USE_SKIA_GPU
-    GLuint fboId;
-    glGenFramebuffersEXT(1, &fboId);
-    glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureInfo->m_textureId, 0);
-    glCheckFramebufferStatus(GL_FRAMEBUFFER)); // should return GL_FRAMEBUFFER_COMPLETE
+    SkRegion::Iterator cliperator(dirtyArea);
 
-    //Do I need to assign a width/height/format?
+    bool fullRepaint = false;
+    if (((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA) ||
+        ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB))
+        fullRepaint = true;
 
-    GrContext* context = gr_get_global_ctx();
-    context->resetContext();
-    GrRenderTarget* target = context->createPlatformRenderTarget(fboId, tileWidth, tileHeight);
-    SkCanvas tmpCanvas;
-    SkDevice* device = new SkGpuDevice(context, bm, target);
-    tmpCanvas.setDevice(device)->unref();
-    canvas = &tmpCanvas;
-#else
-    canvas = texture->canvas();
-#endif
+    if (fullRepaint) {
+        SkIRect rect;
+        pictureCount = paintPartialBitmap(rect, 0, 0, scale, texture,
+                           textureInfo, tiledPage, true);
+    } else {
+        while (!cliperator.done()) {
+            SkRect dirtyRect;
+            dirtyRect.set(cliperator.rect());
 
-    canvas->save();
-    canvas->drawColor(tiledPage->glWebViewState()->getBackgroundColor());
-    canvas->scale(scale, scale);
-    canvas->translate(-x * w, -y * h);
+            SkRect tileRect;
+            tileRect.fLeft = x * tileWidth / scale;
+            tileRect.fTop = y * tileHeight / scale;
+            tileRect.fRight = tileRect.fLeft + (tileWidth / scale);
+            tileRect.fBottom = tileRect.fTop + (tileHeight / scale);
 
-    unsigned int pictureCount = tiledPage->paintBaseLayerContent(canvas);
+            if (!tileRect.intersect(dirtyRect)) {
+                cliperator.next();
+                continue;
+            }
 
-    canvas->restore();
+            // recompute the rect to corresponds to pixels
+            SkRect realTileRect;
+            realTileRect.fLeft = floorf(tileRect.fLeft * scale);
+            realTileRect.fTop = floorf(tileRect.fTop * scale);
+            realTileRect.fRight = ceilf(tileRect.fRight * scale);
+            realTileRect.fBottom = ceilf(tileRect.fBottom * scale);
+
+            SkIRect finalRealRect;
+            finalRealRect.fLeft = static_cast<int>(realTileRect.fLeft) % static_cast<int>(tileWidth);
+            finalRealRect.fTop = static_cast<int>(realTileRect.fTop) % static_cast<int>(tileHeight);
+            finalRealRect.fRight = finalRealRect.fLeft + realTileRect.width();
+            finalRealRect.fBottom = finalRealRect.fTop + realTileRect.height();
+
+            // the canvas translate can be recomputed accounting for the scale
+            float tx = - realTileRect.fLeft / scale;
+            float ty = - realTileRect.fTop / scale;
+
+            pictureCount = paintPartialBitmap(finalRealRect, tx, ty, scale, texture,
+                                              textureInfo, tiledPage);
+
+            cliperator.next();
+        }
+    }
+    XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
+
+    m_atomicSync.lock();
+    texture->setTile(textureInfo, x, y, scale, pictureCount);
+    texture->producerReleaseAndSwap();
+
+    m_lastPaintedPicture = pictureCount;
+
+    // set the fullrepaint flags
+
+    if ((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
+        m_fullRepaintA = false;
+
+    if ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
+        m_fullRepaintB = false;
+
+    // The various checks to see if we are still dirty...
+
+    m_dirty = false;
+
+    if (m_scale != scale)
+        m_dirty = true;
+
+    if (!fullRepaint)
+        m_currentDirtyArea->op(dirtyArea, SkRegion::kDifference_Op);
+
+    if (!m_currentDirtyArea->isEmpty())
+        m_dirty = true;
+
+    // Now we can swap the dirty areas
+
+    m_currentDirtyArea = m_currentDirtyArea == &m_dirtyAreaA ? &m_dirtyAreaB : &m_dirtyAreaA;
+
+    if (!m_currentDirtyArea->isEmpty())
+        m_dirty = true;
+
+    m_painting = false;
+
+    m_atomicSync.unlock();
+}
+
+int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
+                                  float scale, BackedDoubleBufferedTexture* texture,
+                                  TextureInfo* textureInfo,
+                                  TiledPage* tiledPage, bool fullRepaint)
+{
+    SkIRect rect = r;
+    float tx = ptx;
+    float ty = pty;
+    if (!texture->textureExist(textureInfo)) {
+        fullRepaint = true;
+    }
+
+    if (fullRepaint) {
+        rect.set(0, 0, TilesManager::instance()->tileWidth(),
+                 TilesManager::instance()->tileHeight());
+        tx = - x() * TilesManager::instance()->tileWidth() / scale;
+        ty = - y() * TilesManager::instance()->tileHeight() / scale;
+    }
+
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
+    bitmap.allocPixels();
+    bitmap.eraseColor(0);
+
+    SkCanvas canvas(bitmap);
+    canvas.drawARGB(255, 255, 255, 255);
+
+    canvas.save();
+    canvas.scale(scale, scale);
+    canvas.translate(tx, ty);
+    int pictureCount = tiledPage->paintBaseLayerContent(&canvas);
+    canvas.restore();
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
+        int color = 20 + pictureCount % 100;
+        canvas.drawARGB(color, 0, 255, 0);
+
         SkPaint paint;
         paint.setARGB(128, 255, 0, 0);
         paint.setStrokeWidth(3);
-        canvas->drawLine(0, 0, tileWidth, tileHeight, paint);
+        canvas.drawLine(0, 0, rect.width(), rect.height(), paint);
         paint.setARGB(128, 0, 255, 0);
-        canvas->drawLine(0, tileHeight, tileWidth, 0, paint);
+        canvas.drawLine(0, rect.height(), rect.width(), 0, paint);
         paint.setARGB(128, 0, 0, 255);
-        canvas->drawLine(0, 0, tileWidth, 0, paint);
-        canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
-        drawTileInfo(canvas, texture, x, y, scale);
+        canvas.drawLine(0, 0, rect.width(), 0, paint);
+        canvas.drawLine(rect.width(), 0, rect.width(), rect.height(), paint);
+
+        drawTileInfo(&canvas, texture, x(), y(), scale, pictureCount);
     }
 
-    texture->setTile(x, y);
-
-#ifdef USE_SKIA_GPU
-    // set the texture info w/h/format
-    textureInfo->m_width = tileWidth;
-    textureInfo->m_height = tileHeight;
-    texture->producerReleaseAndSwap();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
-    glDeleteFramebuffers(1, &fboId);
-#else
-    texture->producerUpdate(textureInfo);
-#endif
-
-    m_atomicSync.lock();
-    m_lastPaintedPicture = pictureCount;
-    if (m_lastPaintedPicture >= m_lastDirtyPicture) {
-        m_dirty = false;
-        m_usable = true;
+    if (!texture->textureExist(textureInfo)) {
+        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, bitmap);
+        textureInfo->m_width = rect.width();
+        textureInfo->m_height = rect.height();
+    } else {
+        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, rect.fLeft, rect.fTop, bitmap);
     }
-    m_atomicSync.unlock();
+
+    bitmap.reset();
+
+    return pictureCount;
 }
 
 } // namespace WebCore

@@ -159,7 +159,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
 
     bool zooming = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest) {
-        m_glWebViewState->unlockBaseLayerUpdate();
+        prepareNextTiledPage = true;
         zooming = true;
     }
 
@@ -168,7 +168,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
-        m_glWebViewState->unlockBaseLayerUpdate();
+        m_glWebViewState->lockBaseLayerUpdate();
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
     }
 
@@ -212,7 +212,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
 
     TiledPage* nextTiledPage = m_glWebViewState->backPage();
 
-    // We are now using an hybrid model -- during zooming or scrolling,
+    // We are now using an hybrid model -- during scrolling,
     // we will display the current tiledPage even if some tiles are
     // out of date. When standing still on the other hand, we wait until
     // the back page is ready before swapping the pages, ensuring that the
@@ -232,7 +232,9 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         }
     } else {
         // Ask for the tiles and draw -- tiles may be out of date.
-        m_glWebViewState->unlockBaseLayerUpdate();
+        if (!zooming)
+           m_glWebViewState->unlockBaseLayerUpdate();
+
         tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
         tiledPage->draw(transparency, preZoomBounds);
     }
@@ -245,6 +247,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
     if (doSwap) {
         m_glWebViewState->setCurrentScale(scale);
         m_glWebViewState->swapPages();
+        m_glWebViewState->unlockBaseLayerUpdate();
     }
 
     return ret;
@@ -260,8 +263,8 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     int top = viewRect.y();
     int width = viewRect.width();
     int height = viewRect.height();
-    XLOG("drawBasePicture drawGL() viewRect: %d, %d, %d, %d",
-         left, top, width, height);
+    XLOG("drawBasePicture drawGL() viewRect: %d, %d, %d, %d - %.2f",
+         left, top, width, height, scale);
 
     m_glWebViewState->setBackgroundColor(color);
     glClearColor((float)m_color.red() / 255.0,

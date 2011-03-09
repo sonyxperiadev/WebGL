@@ -48,12 +48,13 @@ public:
     void consumerRelease();
 
 protected:
+    SharedTexture* getReadableTexture();
+    SharedTexture* getWriteableTexture();
+
     SharedTexture m_textureA;
     SharedTexture m_textureB;
 
 private:
-    SharedTexture* getReadableTexture();
-    SharedTexture* getWriteableTexture();
 
     SharedTexture* m_writeableTexture;
     SharedTexture* m_lockedConsumerTexture; // only used by the consumer
