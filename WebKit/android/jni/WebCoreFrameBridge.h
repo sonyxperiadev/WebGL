@@ -129,6 +129,10 @@ class WebFrame : public WebCoreRefObject {
 
     void setCertificate(const std::string& cert);
 
+    // Parse the x-auto-login header and propagate the parameters to the
+    // application.
+    void autoLogin(const std::string& loginHeader);
+
     /**
      * When the user initiates a click, we set mUserInitiatedAction to true.
      * If a load happens due to this click, then we ask the application if it wants
