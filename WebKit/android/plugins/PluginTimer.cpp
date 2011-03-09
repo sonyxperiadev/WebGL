@@ -71,7 +71,12 @@ namespace WebCore {
         if (!m_unscheduled)
             m_timerFunc(m_instance, m_timerID);
 
-        if (!m_repeat || m_unscheduled)
+        // remove the timer if it is a one-shot timer (!m_repeat) or if is a
+        // repeating timer that has been unscheduled. In either case we must
+        // ensure that the refcount is 2 or greater since the PluginTimerList
+        // could have been deleted by the timerFunc and we must ensure that we
+        // do not double delete.
+        if ((!m_repeat || m_unscheduled) && refCount() > 1)
             deref(); // mark the timer for deletion as it is no longer needed
     }
     
