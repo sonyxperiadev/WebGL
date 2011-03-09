@@ -608,9 +608,6 @@ namespace android {
         int m_blurringNodePointer;
         int m_lastFocusedSelStart;
         int m_lastFocusedSelEnd;
-        // Pass along with a scroll message to tell the UI thread to only
-        // scroll the page if the IME is showing.
-        bool m_onlyScrollIfImeIsShowing;
         PictureSet m_content; // the set of pictures to draw
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)
         SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures

@@ -344,7 +344,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_isPaused = false;
     m_screenOnCounter = 0;
-    m_onlyScrollIfImeIsShowing = false;
     m_shouldPaintCaret = true;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
@@ -948,7 +947,7 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollTo,
-            x, y, animate, m_onlyScrollIfImeIsShowing);
+            x, y, animate, false);
     checkException(env);
 }
 
@@ -1316,14 +1315,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         }
     }
 
-    // If this was in response to touching a textfield and showing the IME,
-    // the IME may now cover textfield.  Bring it back into view.
-    // If the scale changed, however, this was the result of a zoom.
-    if (oldScale == m_scale && osh > screenHeight) {
-        m_onlyScrollIfImeIsShowing = true;
-        revealSelection();
-        m_onlyScrollIfImeIsShowing = false;
-    }
     // update the currently visible screen as perceived by the plugin
     sendPluginVisibleScreen();
 }
