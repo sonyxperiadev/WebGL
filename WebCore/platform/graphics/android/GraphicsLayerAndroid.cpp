@@ -728,15 +728,21 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
     case AnimatedPropertyInvalid: break;
     case AnimatedPropertyWebkitTransform: break;
     case AnimatedPropertyBackgroundColor: break;
+
     case AnimatedPropertyOpacity: {
         MLOG("ANIMATEDPROPERTYOPACITY");
-        const FloatAnimationValue* startVal =
-            static_cast<const FloatAnimationValue*>(valueList.at(0));
-        const FloatAnimationValue* endVal =
-            static_cast<const FloatAnimationValue*>(valueList.at(1));
-        RefPtr<AndroidOpacityAnimation> anim = AndroidOpacityAnimation::create(startVal->value(),
-                                                                               endVal->value(),
-                                                                               animation,
+
+        KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyOpacity);
+        for (unsigned int i = 0; i < valueList.size(); i++) {
+	        FloatAnimationValue* originalValue = (FloatAnimationValue*)valueList.at(i);
+	        FloatAnimationValue* value = new FloatAnimationValue(originalValue->keyTime(),
+	                                                             originalValue->value(), 0);
+	        // TODO: pass the timing function originalValue->timingFunction());
+	        operationsList->insert(value);
+        }
+
+        RefPtr<AndroidOpacityAnimation> anim = AndroidOpacityAnimation::create(animation,
+                                                                               operationsList,
                                                                                beginTime);
         if (keyframesName.isEmpty())
             anim->setName(propertyIdToString(valueList.property()));
