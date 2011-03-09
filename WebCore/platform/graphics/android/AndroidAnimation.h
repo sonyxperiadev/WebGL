@@ -35,7 +35,13 @@ class TimingFunction;
 
 class AndroidAnimation : public RefCounted<AndroidAnimation> {
   public:
-    AndroidAnimation(const Animation* animation,
+    enum AndroidAnimationType {
+        UNDEFINED,
+        OPACITY,
+        TRANSFORM
+    };
+    AndroidAnimation(AndroidAnimationType type,
+                     const Animation* animation,
                      double beginTime);
     AndroidAnimation(AndroidAnimation* anim);
 
@@ -48,6 +54,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     static long instancesCount();
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
+    AndroidAnimationType type() { return m_type; }
 
   protected:
     double m_beginTime;
@@ -59,6 +66,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     bool m_currentDirection;
     RefPtr<TimingFunction> m_timingFunction;
     String m_name;
+    AndroidAnimationType m_type;
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {
