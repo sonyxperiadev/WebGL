@@ -95,6 +95,10 @@ StorageAreaImpl::StorageAreaImpl(StorageAreaImpl* area)
 
 static bool privateBrowsingEnabled(Frame* frame)
 {
+#if PLATFORM(ANDROID)
+    if (!frame)
+        return false;
+#endif
 #if PLATFORM(CHROMIUM)
     // The frame pointer can be NULL in Chromium since this call is made in a different
     // process from where the Frame object exists.  Luckily, private browseing is
