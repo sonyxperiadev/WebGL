@@ -136,28 +136,25 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
 }
 
 PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
-                                                float fromValue,
-                                                float toValue,
                                                 const Animation* animation,
+                                                KeyframeValueList* operations,
                                                 double beginTime)
 {
-    return adoptRef(new AndroidOpacityAnimation(fromValue, toValue,
-                                                animation, beginTime));
+    return adoptRef(new AndroidOpacityAnimation(animation, operations,
+                                                beginTime));
 }
 
-AndroidOpacityAnimation::AndroidOpacityAnimation(float fromValue, float toValue,
-                                                 const Animation* animation,
+AndroidOpacityAnimation::AndroidOpacityAnimation(const Animation* animation,
+                                                 KeyframeValueList* operations,
                                                  double beginTime)
     : AndroidAnimation(animation, beginTime)
-    , m_fromValue(fromValue)
-    , m_toValue(toValue)
+    , m_operations(operations)
 {
 }
 
 AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
     : AndroidAnimation(anim)
-    , m_fromValue(anim->m_fromValue)
-    , m_toValue(anim->m_toValue)
+    , m_operations(anim->m_operations)
 {
 }
 
@@ -175,8 +172,51 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
     if (progress < 0) // we still want to be evaluated until we get progress > 0
         return true;
 
-    float value = m_fromValue + ((m_toValue - m_fromValue) * progress);
+    // First, we need to get the from and to values
+
+    FloatAnimationValue* fromValue = 0;
+    FloatAnimationValue* toValue = 0;
+
+    float distance = 0;
+    unsigned int foundAt = 0;
+    for (unsigned int i = 0; i < m_operations->size(); i++) {
+        FloatAnimationValue* value = (FloatAnimationValue*) m_operations->at(i);
+        float opacity = (float) value->value();
+        float key = value->keyTime();
+        float d = progress - key;
+        XLOG("[%d] Key %.2f, opacity %.4f", i, key, opacity);
+        if (!fromValue || (d > 0 && d < distance && i + 1 < m_operations->size())) {
+            fromValue = value;
+            distance = d;
+            foundAt = i;
+        }
+    }
+
+    if (foundAt + 1 < m_operations->size())
+        toValue = (FloatAnimationValue*) m_operations->at(foundAt + 1);
+    else
+        toValue = fromValue;
+
+    XLOG("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
+         layer->uniqueId(),
+         fromValue, fromValue->keyTime(),
+         toValue, toValue->keyTime(), progress);
+
+    // We now have the correct two values to work with, let's compute the
+    // progress value
+
+    float delta = toValue->keyTime() - fromValue->keyTime();
+    float rprogress = (progress - fromValue->keyTime()) / delta;
+    XLOG("We picked keys %.2f to %.2f for progress %.2f, real progress %.2f",
+         fromValue->keyTime(), toValue->keyTime(), progress, rprogress);
+    progress = rprogress;
+
+    float from = (float) fromValue->value();
+    float to = (float) toValue->value();
+    float value = from + ((to - from) * progress);
+
     layer->setOpacity(value);
+    XLOG("AndroidOpacityAnimation::evaluate(%p, %p, %L) value=%.6f", this, layer, time, value);
     return true;
 }
 
