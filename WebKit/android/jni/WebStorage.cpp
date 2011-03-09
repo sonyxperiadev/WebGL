@@ -29,6 +29,7 @@
 
 #include "JavaSharedClient.h"
 #include "KURL.h"
+#include "PageGroup.h"
 #include "WebCoreJni.h"
 
 #include <JNIHelp.h>
@@ -137,6 +138,12 @@ static void DeleteAllData(JNIEnv* env, jobject obj)
     int size = manifestUrls.size();
     for (int i = 0; i < size; ++i)
         WebCore::cacheStorage().deleteCacheGroup(manifestUrls[i]);
+
+    // FIXME: this is a workaround for eliminating any DOM Storage data (both
+    // session and local storage) as there is no functionality inside WebKit at the
+    // moment to do it. That functionality is a WIP in https://bugs.webkit.org/show_bug.cgi?id=51878
+    // and when that patch lands and we merge it, we should move towards that approach instead.
+    WebCore::PageGroup::clearDomStorage();
 }
 
 static void SetAppCacheMaximumSize(JNIEnv* env, jobject obj, unsigned long long size)
