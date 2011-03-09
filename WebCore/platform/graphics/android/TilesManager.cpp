@@ -56,10 +56,10 @@
 // second page used when scaling.
 // In our case, we use 300x300 textures. On the tablet, this equates to
 // at least 5 * 3 = 15 textures. We also enable offscreen textures to a maximum
-// of 154 textures used (i.e. ~106Mb max, accounting for the double buffer textures)
+// of 101 textures used (i.e. ~70Mb max, accounting for the double buffer textures)
 #define EXPANDED_TILE_BOUNDS_X 1
-#define EXPANDED_TILE_BOUNDS_Y 4
-#define MAX_TEXTURE_ALLOCATION (5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
+#define EXPANDED_TILE_BOUNDS_Y 2
+#define MAX_TEXTURE_ALLOCATION 3+(5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
@@ -162,7 +162,8 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     // Sanity check that the tile does not already own a texture
     if (owner->texture() && owner->texture()->owner() == owner) {
         owner->texture()->setUsedLevel(0);
-        XLOG("same owner, getAvailableTexture(%x) => texture %x", owner, owner->texture());
+        XLOG("same owner (%d, %d), getAvailableTexture(%x) => texture %x",
+             owner->x(), owner->y(), owner, owner->texture());
         return owner->texture();
     }
 
@@ -314,8 +315,10 @@ void TilesManager::cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup)
             i++;
         }
     }
+#ifdef DEBUG
     printLayersTextures("after cleanup");
     XLOG("after cleanup, memory %d", m_layersMemoryUsage);
+#endif
 }
 
 LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer, const IntRect& rect)
@@ -414,6 +417,7 @@ TilesManager* TilesManager::instance()
 {
     if (!gInstance) {
         gInstance = new TilesManager();
+        XLOG("instance(), new gInstance is %x", gInstance);
         XLOG("Waiting for the generator...");
         gInstance->waitForGenerator();
         XLOG("Generator ready!");

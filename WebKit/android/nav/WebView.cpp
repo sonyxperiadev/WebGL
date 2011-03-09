@@ -444,8 +444,11 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
     if (!m_glWebViewState) {
         m_glWebViewState = new GLWebViewState(&m_viewImpl->gButtonMutex);
         if (m_baseLayer->content()) {
-            IntRect rect(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
-            m_glWebViewState->setBaseLayer(m_baseLayer, rect, false);
+            SkRegion region;
+            SkIRect rect;
+            rect.set(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
+            region.setRect(rect);
+            m_glWebViewState->setBaseLayer(m_baseLayer, region, false);
         }
     }
 
@@ -1390,11 +1393,11 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
-void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect, bool showVisualIndicator)
+void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (m_glWebViewState)
-        m_glWebViewState->setBaseLayer(layer, rect, showVisualIndicator);
+        m_glWebViewState->setBaseLayer(layer, inval, showVisualIndicator);
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -1808,12 +1811,14 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
     return false;
 }
 
-static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject jrect,
+static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inval,
                                 jboolean showVisualIndicator)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
-    WebCore::IntRect rect = jrect_to_webrect(env, jrect);
-    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, rect, showVisualIndicator);
+    SkRegion invalRegion;
+    if (inval)
+        invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
+    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator);
 }
 
 static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
@@ -2605,7 +2610,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(ILandroid/graphics/Rect;Z)V",
+    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;Z)V",
         (void*) nativeSetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
         (void*) nativeReplaceBaseContent },

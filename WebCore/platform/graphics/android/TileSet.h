@@ -58,6 +58,11 @@ public:
         return m_tiledPage;
     }
 
+    unsigned int size()
+    {
+        return m_tiles.size();
+    }
+
 private:
     Vector<BaseTile*> m_tiles;
 

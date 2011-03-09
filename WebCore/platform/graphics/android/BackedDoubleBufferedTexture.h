@@ -37,6 +37,23 @@ namespace WebCore {
 
 class BaseTile;
 
+class TextureTileInfo {
+ public:
+  TextureTileInfo()
+      : m_x(-1)
+      , m_y(-1)
+      , m_scale(0)
+      , m_texture(0)
+      , m_picture(0)
+  {
+  }
+  int m_x;
+  int m_y;
+  float m_scale;
+  TextureInfo* m_texture;
+  unsigned int m_picture;
+};
+
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
 class BackedDoubleBufferedTexture : public DoubleBufferedTexture {
 public:
@@ -55,6 +72,8 @@ public:
     // updates the texture with current bitmap and releases (and if needed also
     // swaps) the texture.
     virtual void producerUpdate(TextureInfo* textureInfo);
+    void producerUpdate(TextureInfo* textureInfo, SkBitmap* bitmap, SkIRect& rect);
+    bool textureExist(TextureInfo* textureInfo);
 
     // The level can be one of the following values:
     //  * -1 for an unused texture.
@@ -76,21 +95,21 @@ public:
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
     SkCanvas* canvas(); // only used by the producer thread
+    SkBitmap* bitmap() { return m_bitmap; }
 
     bool busy();
     void setNotBusy();
 
     const SkSize& getSize() const { return m_size; }
 
-    int x() { return m_x; }
-    int y() { return m_y; }
-    void setTile(int x, int y) { m_x = x; m_y = y; }
+    void setTile(TextureInfo* info, int x, int y, float scale, unsigned int pictureCount);
+    bool readyFor(BaseTile* baseTile);
 
 private:
     void destroyTextures(SharedTexture** textures);
 
-    int m_x;
-    int m_y;
+    HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;
+
     SkBitmap* m_bitmap;
     bool m_sharedBitmap;
     SkSize m_size;

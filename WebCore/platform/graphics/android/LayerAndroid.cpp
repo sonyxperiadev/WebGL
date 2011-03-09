@@ -741,9 +741,9 @@ void LayerAndroid::showLayers(int indent)
 
     bool outside = outsideViewport();
     if (needsTexture() && !outside) {
-        XLOGC("%s Layer %d (%d, %d), cropped to (%d, %d), using %d Mb",
+        XLOGC("%s Layer %d (%.2f, %.2f), cropped to (%d, %d, %d, %d), using %d Mb",
             space, uniqueId(), getWidth(), getHeight(),
-            cr.width(), cr.height(), size / 1024 / 1024);
+            cr.x(), cr.y(), cr.width(), cr.height(), size / 1024 / 1024);
     } else if (needsTexture() && outside) {
         XLOGC("%s Layer %d is outside the viewport", space, uniqueId());
     } else {

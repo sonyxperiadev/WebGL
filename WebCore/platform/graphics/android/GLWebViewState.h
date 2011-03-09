@@ -32,6 +32,7 @@
 #include "IntRect.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
+#include "SkRegion.h"
 #include "TiledPage.h"
 #include <utils/threads.h>
 
@@ -174,7 +175,7 @@ public:
     void resetTransitionTime() { m_transitionTime = -1; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
-    void setBaseLayer(BaseLayerAndroid* layer, const IntRect& rect, bool showVisualIndicator);
+    void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator);
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
 
@@ -223,6 +224,7 @@ public:
 
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
+    void invalRegion(const SkRegion& region);
 
     // Delay between scheduling a new page when the scale
     // factor changes (i.e. zooming in or out)
@@ -259,7 +261,7 @@ private:
     android::Mutex* m_globalButtonMutex;
 
     bool m_baseLayerUpdate;
-    IntRect m_invalidateRect;
+    SkRegion m_invalidateRegion;
 
     SkColor m_backgroundColor;
     double m_prevDrawTime;
