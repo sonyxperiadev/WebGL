@@ -381,6 +381,9 @@ void BaseTile::paintBitmap()
     if (!m_currentDirtyArea->isEmpty())
         m_dirty = true;
 
+    if (!m_dirty)
+        m_usable = true;
+
     m_painting = false;
 
     m_atomicSync.unlock();
