@@ -54,17 +54,17 @@ long AndroidAnimation::instancesCount()
     return gDebugAndroidAnimationInstances;
 }
 
-AndroidAnimation::AndroidAnimation(AndroidAnimationType type,
+AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
                                    const Animation* animation,
+                                   KeyframeValueList* operations,
                                    double beginTime)
     : m_beginTime(beginTime)
     , m_duration(animation->duration())
     , m_iterationCount(animation->iterationCount())
-    , m_currentIteration(0)
     , m_direction(animation->direction())
-    , m_currentDirection(false)
     , m_timingFunction(animation->timingFunction())
     , m_type(type)
+    , m_operations(operations)
 {
     ASSERT(m_timingFunction);
 
@@ -78,11 +78,10 @@ AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     : m_beginTime(anim->m_beginTime)
     , m_duration(anim->m_duration)
     , m_iterationCount(anim->m_iterationCount)
-    , m_currentIteration(0)
     , m_direction(anim->m_direction)
-    , m_currentDirection(false)
     , m_timingFunction(anim->m_timingFunction)
     , m_type(anim->m_type)
+    , m_operations(anim->m_operations)
 {
     gDebugAndroidAnimationInstances++;
 }
@@ -92,7 +91,7 @@ AndroidAnimation::~AndroidAnimation()
     gDebugAndroidAnimationInstances--;
 }
 
-float AndroidAnimation::currentProgress(double time)
+double AndroidAnimation::elapsedTime(double time)
 {
     if (m_beginTime <= 0.000001) // overflow or not correctly set
         m_beginTime = time;
@@ -105,37 +104,69 @@ float AndroidAnimation::currentProgress(double time)
     if (m_elapsedTime < 0) // animation not yet started.
         return 0;
 
-    return m_elapsedTime / m_duration;
+    return m_elapsedTime;
 }
 
 bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgress)
 {
-    float progress = currentProgress(time);
+    double progress = elapsedTime(time);
+    double dur = m_duration;
+    if (m_iterationCount > 0)
+        dur *= m_iterationCount;
 
-    int currentIteration = static_cast<int>(progress);
-    if (currentIteration != m_currentIteration)
-        if (m_direction == Animation::AnimationDirectionAlternate)
-            swapDirection();
-
-    m_currentIteration = currentIteration;
-    progress -= m_currentIteration;
-
-    if ((m_currentIteration >= m_iterationCount)
-          && (m_iterationCount != Animation::IterationCountInfinite))
+    if (m_duration <= 0)
         return false;
 
-    if (m_timingFunction->isCubicBezierTimingFunction()) {
-        CubicBezierTimingFunction* bezierFunction = static_cast<CubicBezierTimingFunction*>(m_timingFunction.get());
+    // If not infinite, return false if we are done
+    if (m_iterationCount > 0 && progress > dur)
+        return false;
+
+    double fractionalTime = progress / m_duration;
+    int integralTime = static_cast<int>(fractionalTime);
+
+    fractionalTime -= integralTime;
+
+    if ((m_direction == Animation::AnimationDirectionAlternate) && (integralTime & 1))
+        fractionalTime = 1 - fractionalTime;
+
+    *finalProgress = fractionalTime;
+    return true;
+}
+
+double AndroidAnimation::applyTimingFunction(float from, float to, double progress,
+                                             const TimingFunction* tf)
+{
+    double fractionalTime = progress;
+    double offset = from;
+    double scale = 1.0 / (to - from);
+
+    if (scale != 1 || offset)
+        fractionalTime = (fractionalTime - offset) * scale;
+
+    const TimingFunction* timingFunction = tf;
+
+    if (!timingFunction)
+        timingFunction = m_timingFunction.get();
+
+    if (timingFunction && timingFunction->isCubicBezierTimingFunction()) {
+        const CubicBezierTimingFunction* bezierFunction = static_cast<const CubicBezierTimingFunction*>(timingFunction);
         UnitBezier bezier(bezierFunction->x1(),
                           bezierFunction->y1(),
                           bezierFunction->x2(),
                           bezierFunction->y2());
         if (m_duration > 0)
-            progress = bezier.solve(progress, 1.0f / (200.0f * m_duration));
+            fractionalTime = bezier.solve(fractionalTime, 1.0f / (200.0f * m_duration));
+    } else if (timingFunction && timingFunction->isStepsTimingFunction()) {
+        const StepsTimingFunction* stepFunction = static_cast<const StepsTimingFunction*>(timingFunction);
+        if (stepFunction->stepAtStart()) {
+            fractionalTime = (floor(stepFunction->numberOfSteps() * fractionalTime) + 1) / stepFunction->numberOfSteps();
+            if (fractionalTime > 1.0)
+                fractionalTime = 1.0;
+        } else {
+            fractionalTime = floor(stepFunction->numberOfSteps() * fractionalTime) / stepFunction->numberOfSteps();
+        }
     }
-
-    *finalProgress = progress;
-    return true;
+    return fractionalTime;
 }
 
 PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
@@ -150,20 +181,40 @@ PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
 AndroidOpacityAnimation::AndroidOpacityAnimation(const Animation* animation,
                                                  KeyframeValueList* operations,
                                                  double beginTime)
-    : AndroidAnimation(AndroidAnimation::OPACITY, animation, beginTime)
-    , m_operations(operations)
+    : AndroidAnimation(AnimatedPropertyOpacity, animation, operations, beginTime)
 {
 }
 
 AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
     : AndroidAnimation(anim)
-    , m_operations(anim->m_operations)
 {
 }
 
 PassRefPtr<AndroidAnimation> AndroidOpacityAnimation::copy()
 {
     return adoptRef(new AndroidOpacityAnimation(this));
+}
+
+void AndroidAnimation::pickValues(double progress, int* start, int* end)
+{
+    float distance = -1;
+    unsigned int foundAt = 0;
+    for (unsigned int i = 0; i < m_operations->size(); i++) {
+        const AnimationValue* value = m_operations->at(i);
+        float key = value->keyTime();
+        float d = progress - key;
+        if (distance == -1 || (d >= 0 && d < distance && i + 1 < m_operations->size())) {
+            distance = d;
+            foundAt = i;
+        }
+    }
+
+    *start = foundAt;
+
+    if (foundAt + 1 < m_operations->size())
+        *end = foundAt + 1;
+    else
+        *end = foundAt;
 }
 
 bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
@@ -177,30 +228,12 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
 
     // First, we need to get the from and to values
 
-    FloatAnimationValue* fromValue = 0;
-    FloatAnimationValue* toValue = 0;
+    int from, to;
+    pickValues(progress, &from, &to);
+    FloatAnimationValue* fromValue = (FloatAnimationValue*) m_operations->at(from);
+    FloatAnimationValue* toValue = (FloatAnimationValue*) m_operations->at(to);
 
-    float distance = 0;
-    unsigned int foundAt = 0;
-    for (unsigned int i = 0; i < m_operations->size(); i++) {
-        FloatAnimationValue* value = (FloatAnimationValue*) m_operations->at(i);
-        float opacity = (float) value->value();
-        float key = value->keyTime();
-        float d = progress - key;
-        XLOG("[%d] Key %.2f, opacity %.4f", i, key, opacity);
-        if (!fromValue || (d > 0 && d < distance && i + 1 < m_operations->size())) {
-            fromValue = value;
-            distance = d;
-            foundAt = i;
-        }
-    }
-
-    if (foundAt + 1 < m_operations->size())
-        toValue = (FloatAnimationValue*) m_operations->at(foundAt + 1);
-    else
-        toValue = fromValue;
-
-    XLOG("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
+    XLOG("[layer %d] opacity fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
          layer->uniqueId(),
          fromValue, fromValue->keyTime(),
          toValue, toValue->keyTime(), progress);
@@ -208,18 +241,14 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
     // We now have the correct two values to work with, let's compute the
     // progress value
 
-    float delta = toValue->keyTime() - fromValue->keyTime();
-    float rprogress = (progress - fromValue->keyTime()) / delta;
-    XLOG("We picked keys %.2f to %.2f for progress %.2f, real progress %.2f",
-         fromValue->keyTime(), toValue->keyTime(), progress, rprogress);
-    progress = rprogress;
-
-    float from = (float) fromValue->value();
-    float to = (float) toValue->value();
-    float value = from + ((to - from) * progress);
+    const TimingFunction* timingFunction = fromValue->timingFunction();
+    progress = applyTimingFunction(fromValue->keyTime(), toValue->keyTime(),
+                                   progress, timingFunction);
+    float value = fromValue->value() + ((toValue->value() - fromValue->value()) * progress);
 
     layer->setOpacity(value);
-    XLOG("AndroidOpacityAnimation::evaluate(%p, %p, %L) value=%.6f", this, layer, time, value);
+
+    XLOG("AndroidOpacityAnimation::evaluate(%p, %p, %.2f) value=%.6f", this, layer, time, value);
     return true;
 }
 
@@ -234,14 +263,12 @@ PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(
 AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
                                                      KeyframeValueList* operations,
                                                      double beginTime)
-    : AndroidAnimation(AndroidAnimation::TRANSFORM, animation, beginTime)
-    , m_operations(operations)
+    : AndroidAnimation(AnimatedPropertyWebkitTransform, animation, operations, beginTime)
 {
 }
 
 AndroidTransformAnimation::AndroidTransformAnimation(AndroidTransformAnimation* anim)
     : AndroidAnimation(anim)
-    , m_operations(anim->m_operations)
 {
 }
 
@@ -269,28 +296,10 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 
     // First, we need to get the from and to values
 
-    TransformAnimationValue* fromValue = 0;
-    TransformAnimationValue* toValue = 0;
-
-    float distance = 0;
-    unsigned int foundAt = 0;
-    for (unsigned int i = 0; i < m_operations->size(); i++) {
-        TransformAnimationValue* value = (TransformAnimationValue*) m_operations->at(i);
-        TransformOperations* values = (TransformOperations*) value->value();
-        float key = value->keyTime();
-        float d = progress - key;
-        XLOG("[%d] Key %.2f, %d values", i, key, values->size());
-        if (!fromValue || (d > 0 && d < distance && i + 1 < m_operations->size())) {
-            fromValue = value;
-            distance = d;
-            foundAt = i;
-        }
-    }
-
-    if (foundAt + 1 < m_operations->size())
-        toValue = (TransformAnimationValue*) m_operations->at(foundAt + 1);
-    else
-        toValue = fromValue;
+    int from, to;
+    pickValues(progress, &from, &to);
+    TransformAnimationValue* fromValue = (TransformAnimationValue*) m_operations->at(from);
+    TransformAnimationValue* toValue = (TransformAnimationValue*) m_operations->at(to);
 
     XLOG("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
          layer->uniqueId(),
@@ -300,12 +309,12 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
     // We now have the correct two values to work with, let's compute the
     // progress value
 
-    float delta = toValue->keyTime() - fromValue->keyTime();
-    float rprogress = (progress - fromValue->keyTime()) / delta;
-    XLOG("We picked keys %.2f to %.2f for progress %.2f, real progress %.2f",
-         fromValue->keyTime(), toValue->keyTime(), progress, rprogress);
-    progress = rprogress;
-
+    const TimingFunction* timingFunction = fromValue->timingFunction();
+    float p = applyTimingFunction(fromValue->keyTime(), toValue->keyTime(),
+                                  progress, timingFunction);
+    XLOG("progress %.2f => %.2f from: %.2f to: %.2f", progress, p, fromValue->keyTime(),
+         toValue->keyTime());
+    progress = p;
 
     // With both values and the progress, we also need to check out that
     // the operations are compatible (i.e. we are animating the same number

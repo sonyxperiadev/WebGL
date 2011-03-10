@@ -609,7 +609,7 @@ bool GraphicsLayerAndroid::repaint()
             }
         }
 
-        TLOG("(%x) repaint() on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
+        LOG("(%x) repaint() on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
             this, m_size.width(), m_size.height(),
             m_contentLayer->getPosition().fX,
             m_contentLayer->getPosition().fY,
@@ -722,23 +722,22 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
     bool isKeyframe = valueList.size() > 2;
     TLOG("createAnimationFromKeyframes(%d), name(%s) beginTime(%.2f)",
         isKeyframe, keyframesName.latin1().data(), beginTime);
-    // TODO: handles keyframe animations correctly
 
     switch (valueList.property()) {
     case AnimatedPropertyInvalid: break;
     case AnimatedPropertyWebkitTransform: break;
     case AnimatedPropertyBackgroundColor: break;
-
     case AnimatedPropertyOpacity: {
         MLOG("ANIMATEDPROPERTYOPACITY");
 
         KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyOpacity);
         for (unsigned int i = 0; i < valueList.size(); i++) {
-	        FloatAnimationValue* originalValue = (FloatAnimationValue*)valueList.at(i);
-	        FloatAnimationValue* value = new FloatAnimationValue(originalValue->keyTime(),
-	                                                             originalValue->value(), 0);
-	        // TODO: pass the timing function originalValue->timingFunction());
-	        operationsList->insert(value);
+            FloatAnimationValue* originalValue = (FloatAnimationValue*)valueList.at(i);
+            PassRefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
+            FloatAnimationValue* value = new FloatAnimationValue(originalValue->keyTime(),
+                                                                 originalValue->value(),
+                                                                 timingFunction);
+            operationsList->insert(value);
         }
 
         RefPtr<AndroidOpacityAnimation> anim = AndroidOpacityAnimation::create(animation,
@@ -776,9 +775,10 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
     KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyWebkitTransform);
     for (unsigned int i = 0; i < valueList.size(); i++) {
         TransformAnimationValue* originalValue = (TransformAnimationValue*)valueList.at(i);
+        PassRefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
         TransformAnimationValue* value = new TransformAnimationValue(originalValue->keyTime(),
-                                                                     originalValue->value(), 0);
-        // TODO: pass the timing function originalValue->timingFunction());
+                                                                     originalValue->value(),
+                                                                     timingFunction);
         operationsList->insert(value);
     }
 
@@ -801,14 +801,14 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
 void GraphicsLayerAndroid::removeAnimationsForProperty(AnimatedPropertyID anID)
 {
     TLOG("NRO removeAnimationsForProperty(%d)", anID);
-    m_contentLayer->removeAnimation(propertyIdToString(anID));
+    m_contentLayer->removeAnimationsForProperty(anID);
     askForSync();
 }
 
 void GraphicsLayerAndroid::removeAnimationsForKeyframes(const String& keyframesName)
 {
     TLOG("NRO removeAnimationsForKeyframes(%s)", keyframesName.latin1().data());
-    m_contentLayer->removeAnimation(keyframesName);
+    m_contentLayer->removeAnimationsForKeyframes(keyframesName);
     askForSync();
 }
 

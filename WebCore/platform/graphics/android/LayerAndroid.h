@@ -22,6 +22,7 @@
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
+#include "GraphicsLayerClient.h"
 #include "LayerTexture.h"
 #include "RefPtr.h"
 #include "SkColor.h"
@@ -179,7 +180,8 @@ public:
     SkPicture* recordContext();
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
-    void removeAnimation(const String& name);
+    void removeAnimationsForProperty(AnimatedPropertyID property);
+    void removeAnimationsForKeyframes(const String& name);
     bool evaluateAnimations() const;
     bool evaluateAnimations(double time) const;
     bool hasAnimations() const;
@@ -301,7 +303,7 @@ private:
 
     SkBitmapRef* m_contentsImage;
 
-    typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
+    typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
     SkPicture* m_extra;
     int m_uniqueId;
