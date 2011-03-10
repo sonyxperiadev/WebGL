@@ -71,6 +71,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_runnableFactory(this)
     , m_wantToPause(false)
     , m_isPaused(false)
+    , m_isSync(false)
 {
     GURL gurl(m_url);
 
@@ -96,6 +97,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_runnableFactory(this)
     , m_wantToPause(false)
     , m_isPaused(false)
+    , m_isSync(false)
 {
 }
 
@@ -196,6 +198,9 @@ void WebRequest::updateLoadFlags(int& loadFlags)
         loadFlags |= net::LOAD_BYPASS_CACHE;
     if (m_cacheMode == 3) // LOAD_CACHE_ONLY
         loadFlags |= net::LOAD_ONLY_FROM_CACHE;
+
+    if (m_isSync)
+        loadFlags |= net::LOAD_IGNORE_LIMITS;
 }
 
 void WebRequest::start()

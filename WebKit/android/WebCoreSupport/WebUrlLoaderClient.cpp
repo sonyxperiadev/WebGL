@@ -175,6 +175,7 @@ bool WebUrlLoaderClient::start(bool isMainResource, bool isMainFrame, bool sync,
     m_sync = sync;
     if (m_sync) {
         AutoLock autoLock(*syncLock());
+        m_request->setSync(sync);
         m_request->setRequestContext(context);
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start));
 
