@@ -35,38 +35,35 @@ class TimingFunction;
 
 class AndroidAnimation : public RefCounted<AndroidAnimation> {
   public:
-    enum AndroidAnimationType {
-        UNDEFINED,
-        OPACITY,
-        TRANSFORM
-    };
-    AndroidAnimation(AndroidAnimationType type,
+    AndroidAnimation(AnimatedPropertyID type,
                      const Animation* animation,
+                     KeyframeValueList* operations,
                      double beginTime);
     AndroidAnimation(AndroidAnimation* anim);
 
     virtual ~AndroidAnimation();
     virtual PassRefPtr<AndroidAnimation> copy() = 0;
-    float currentProgress(double time);
+    double elapsedTime(double time);
+    void pickValues(double progress, int* start, int* end);
     bool checkIterationsAndProgress(double time, float* finalProgress);
-    virtual void swapDirection() { m_currentDirection = !m_currentDirection; }
+    double applyTimingFunction(float from, float to, double progress,
+                               const TimingFunction* timingFunction);
     virtual bool evaluate(LayerAndroid* layer, double time) = 0;
     static long instancesCount();
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
-    AndroidAnimationType type() { return m_type; }
+    AnimatedPropertyID type() { return m_type; }
 
   protected:
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
     int m_iterationCount;
-    int m_currentIteration;
     int m_direction;
-    bool m_currentDirection;
     RefPtr<TimingFunction> m_timingFunction;
     String m_name;
-    AndroidAnimationType m_type;
+    AnimatedPropertyID m_type;
+    KeyframeValueList* m_operations;
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {
@@ -81,9 +78,6 @@ class AndroidOpacityAnimation : public AndroidAnimation {
     virtual PassRefPtr<AndroidAnimation> copy();
 
     virtual bool evaluate(LayerAndroid* layer, double time);
-
-  private:
-    KeyframeValueList* m_operations;
 };
 
 class AndroidTransformAnimation : public AndroidAnimation {
@@ -100,9 +94,6 @@ class AndroidTransformAnimation : public AndroidAnimation {
     virtual PassRefPtr<AndroidAnimation> copy();
 
     virtual bool evaluate(LayerAndroid* layer, double time);
-
-  private:
-    KeyframeValueList* m_operations;
 };
 
 } // namespace WebCore

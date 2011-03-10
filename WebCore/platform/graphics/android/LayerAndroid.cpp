@@ -132,8 +132,10 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
         addChild(layer.getChild(i)->copy())->unref();
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
-    for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
-        m_animations.add((it->second)->name(), (it->second)->copy());
+    for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
+        pair<String, int> key((it->second)->name(), (it->second)->type());
+        m_animations.add(key, (it->second)->copy());
+    }
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
@@ -243,15 +245,35 @@ bool LayerAndroid::evaluateAnimations(double time) const
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
 {
     RefPtr<AndroidAnimation> anim = prpAnim;
-    RefPtr<AndroidAnimation> currentAnim = m_animations.get(anim->name());
-    if (currentAnim && currentAnim->type() == anim->type())
-        removeAnimation(anim->name());
-    m_animations.add(anim->name(), anim);
+    pair<String, int> key(anim->name(), anim->type());
+    removeAnimationsForProperty(anim->type());
+    m_animations.add(key, anim);
 }
 
-void LayerAndroid::removeAnimation(const String& name)
+void LayerAndroid::removeAnimationsForProperty(AnimatedPropertyID property)
 {
-    m_animations.remove(name);
+    KeyframesMap::const_iterator end = m_animations.end();
+    Vector<pair<String, int> > toDelete;
+    for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
+        if ((it->second)->type() == property)
+            toDelete.append(it->first);
+    }
+
+    for (unsigned int i = 0; i < toDelete.size(); i++)
+        m_animations.remove(toDelete[i]);
+}
+
+void LayerAndroid::removeAnimationsForKeyframes(const String& name)
+{
+    KeyframesMap::const_iterator end = m_animations.end();
+    Vector<pair<String, int> > toDelete;
+    for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
+        if ((it->second)->name() == name)
+            toDelete.append(it->first);
+    }
+
+    for (unsigned int i = 0; i < toDelete.size(); i++)
+            m_animations.remove(toDelete[i]);
 }
 
 // We only use the bounding rect of the layer as mask...
