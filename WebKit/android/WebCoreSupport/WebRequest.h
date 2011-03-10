@@ -88,6 +88,7 @@ public:
     const std::string& getUrl() const;
     const std::string& getUserAgent() const;
 
+    void setSync(bool sync) { m_isSync = sync; }
 private:
     void startReading();
     bool read(int* bytesRead);
@@ -113,6 +114,7 @@ private:
     ScopedRunnableMethodFactory<WebRequest> m_runnableFactory;
     bool m_wantToPause;
     bool m_isPaused;
+    bool m_isSync;
 #ifdef LOG_REQUESTS
     time_t m_startTime;
 #endif
