@@ -2625,8 +2625,14 @@ void RenderLayer::paintPaginatedChildLayer(RenderLayer* childLayer, RenderLayer*
     for (RenderLayer* curr = childLayer->parent(); curr; curr = curr->parent()) {
         if (curr->renderer()->hasColumns())
             columnLayers.append(curr);
+#ifdef ANDROID
+        // Bug filed: 56107
+        if (curr == ancestorLayer)
+            break;
+#else
         if (curr == ancestorLayer || (curr->parent() && curr->parent()->renderer()->isPositioned()))
             break;
+#endif
     }
 
     ASSERT(columnLayers.size());
