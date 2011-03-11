@@ -99,7 +99,7 @@ public:
     bool supportsAcceleratedRendering() const { return true; }
     LayerAndroid* platformLayer() const
     {
-        return const_cast<VideoLayerAndroid*> (&m_videoLayer);
+        return m_videoLayer;
     }
 
 protected:
@@ -131,7 +131,7 @@ protected:
     bool m_naturalSizeUnknown;
 
     bool m_isVisible;
-    VideoLayerAndroid m_videoLayer;
+    VideoLayerAndroid* m_videoLayer;
 };
 
 } // namespace WebCore

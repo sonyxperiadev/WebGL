@@ -852,9 +852,9 @@ void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
         mediaLayer->setSize(m_contentLayer->getWidth(), m_contentLayer->getHeight());
         mediaLayer->setDrawTransform(m_contentLayer->drawTransform());
 
+        mediaLayer->ref();
         m_contentLayer->unref();
         m_contentLayer = mediaLayer;
-        m_contentLayer->ref();
 
         // If the parent exists then notify it to re-sync it's children
         if (m_parent) {
