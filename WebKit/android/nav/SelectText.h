@@ -84,11 +84,14 @@ private:
     SkIRect m_selEnd;
     SkIRect m_lastStart;
     SkIRect m_lastEnd;
+    SkIRect m_lastDrawnStart;
+    SkIRect m_lastDrawnEnd;
     SkIRect m_wordBounds;
     int m_startBase;
     int m_endBase;
     int m_layerId;
     SkIRect m_visibleRect; // constrains picture computations to visible area
+    SkRegion m_lastSelRegion;
     SkRegion m_selRegion; // computed from sel start, end
     SkPicture m_startControl;
     SkPicture m_endControl;
