@@ -72,6 +72,8 @@ struct MediaPlayerPrivate::JavaGlue {
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
 {
+    // m_videoLayer is reference counted, unref is enough here.
+    m_videoLayer->unref();
     if (m_glue->m_javaProxy) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (env) {
@@ -150,7 +152,8 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     m_poster(0),
     m_naturalSize(100, 100),
     m_naturalSizeUnknown(true),
-    m_isVisible(false)
+    m_isVisible(false),
+    m_videoLayer(new VideoLayerAndroid())
 {
 }
 
@@ -211,7 +214,7 @@ public:
         jstring jUrl = wtfStringToJstring(env, m_url);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl,
                             static_cast<jint>(m_currentTime * 1000.0f),
-                            m_videoLayer.uniqueId());
+                            m_videoLayer->uniqueId());
         env->DeleteLocalRef(jUrl);
 
         checkException(env);
