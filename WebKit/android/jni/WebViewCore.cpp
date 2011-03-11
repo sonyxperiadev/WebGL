@@ -299,6 +299,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_centerFitRect;
     jmethodID   m_setScrollbarModes;
     jmethodID   m_setInstallableWebApp;
+    jmethodID   m_enterFullscreenForVideoLayer;
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
     AutoJObject object(JNIEnv* env) {
@@ -396,6 +397,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
+#if ENABLE(VIDEO)
+    m_javaGlue->m_enterFullscreenForVideoLayer = GetJMethod(env, clazz, "enterFullscreenForVideoLayer", "(I)V");
+#endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
     env->DeleteLocalRef(clazz);
@@ -3607,6 +3611,16 @@ void WebViewCore::notifyWebAppCanBeInstalled()
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setInstallableWebApp);
     checkException(env);
 }
+
+#if ENABLE(VIDEO)
+void WebViewCore::enterFullscreenForVideoLayer(int layerId)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_enterFullscreenForVideoLayer, layerId);
+    checkException(env);
+}
+#endif
 
 void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previewSummary)
 {

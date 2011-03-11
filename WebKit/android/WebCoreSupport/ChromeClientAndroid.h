@@ -187,6 +187,12 @@ namespace android {
         virtual void webAppCanBeInstalled();
 #endif
 
+#if ENABLE(VIDEO)
+        virtual bool supportsFullscreenForNode(const WebCore::Node*);
+        virtual void enterFullscreenForNode(WebCore::Node*);
+        virtual void exitFullscreenForNode(WebCore::Node*);
+#endif
+
     private:
         android::WebFrame* m_webFrame;
         // The Geolocation permissions manager.
