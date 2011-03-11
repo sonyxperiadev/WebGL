@@ -59,7 +59,7 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
     #define MIN_RLE_ALLOC_SIZE          (8*1024*1024)
 
     // see dox for computeMaxBitmapSizeForCache()
-    #define MAX_SIZE_BEFORE_SUBSAMPLE   (8*1024*1024)
+    #define MAX_SIZE_BEFORE_SUBSAMPLE   (32*1024*1024)
 
     // preserve quality for 24/32bit src
     static const SkBitmap::Config gPrefConfigTable[6] = {
