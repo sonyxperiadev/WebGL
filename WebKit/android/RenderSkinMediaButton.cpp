@@ -99,7 +99,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     SkRect bounds(r);
     SkScalar imageMargin = 8;
     SkPaint paint;
-    SkColor backgroundColor = SkColorSetARGB(255, 34, 34, 34);
+    SkColor backgroundColor = SkColorSetARGB(190, 34, 34, 34);
     paint.setColor(backgroundColor);
 
     switch (buttonType) {
@@ -115,6 +115,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     }
     case BACKGROUND_SLIDER:
     {
+         drawsBackgroundColor = false;
          drawsImage = false;
          break;
     }

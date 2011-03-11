@@ -283,6 +283,7 @@ public:
 
     bool hasAudio() { return false; } // do not display the audio UI
     bool hasVideo() { return m_hasVideo; }
+    bool suppportsFullscreen() { return true; }
 
     MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player)
     {

@@ -539,6 +539,11 @@ namespace android {
         void splitContent(PictureSet*);
 
         void notifyWebAppCanBeInstalled();
+
+#if ENABLE(VIDEO)
+        void enterFullscreenForVideoLayer(int layerId);
+#endif
+
         void setWebTextViewAutoFillable(int queryId, const string16& previewSummary);
 
         DeviceMotionAndOrientationManager* deviceMotionAndOrientationManager() { return &m_deviceMotionAndOrientationManager; }

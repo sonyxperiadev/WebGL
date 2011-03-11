@@ -37,7 +37,10 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "Geolocation.h"
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
 #include "Icon.h"
+#include "LayerAndroid.h"
 #include "Page.h"
 #include "PopupMenuAndroid.h"
 #include "ScriptController.h"
@@ -556,5 +559,33 @@ void ChromeClientAndroid::webAppCanBeInstalled()
         core->notifyWebAppCanBeInstalled();
 }
 #endif
+
+#if ENABLE(VIDEO)
+bool ChromeClientAndroid::supportsFullscreenForNode(const Node* node)
+{
+      return node->hasTagName(HTMLNames::videoTag);
+}
+
+void ChromeClientAndroid::enterFullscreenForNode(Node* node)
+{
+      if (!node->hasTagName(HTMLNames::videoTag))
+          return;
+
+      HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(node);
+      LayerAndroid* layer = videoElement->platformLayer();
+      if (!layer)
+          return;
+
+      FrameView* frameView = m_webFrame->page()->mainFrame()->view();
+      android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
+      if (core)
+          core->enterFullscreenForVideoLayer(layer->uniqueId());
+}
+
+void ChromeClientAndroid::exitFullscreenForNode(Node* node)
+{
+}
+#endif
+
 
 }
