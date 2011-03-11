@@ -401,6 +401,10 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
         fullRepaint = true;
     }
 
+    if ((rect.width() > TilesManager::instance()->tileWidth()) ||
+        (rect.height() > TilesManager::instance()->tileHeight()))
+        fullRepaint = true;
+
     if (fullRepaint) {
         rect.set(0, 0, TilesManager::instance()->tileWidth(),
                  TilesManager::instance()->tileHeight());
