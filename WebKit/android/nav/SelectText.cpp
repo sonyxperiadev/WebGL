@@ -1308,12 +1308,11 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 #define CONTROL_WIDTH 21
 #define STROKE_WIDTH 1.0f
 #define STROKE_OUTSET 3.5f
-
+#define STROKE_I_OUTSET 4 // (int) ceil(STROKE_OUTSET)
 #define STROKE_COLOR 0x66000000
 #define OUTER_COLOR 0x33000000
 #define INNER_COLOR 0xe6aae300
 
-#define DROP_HEIGHT 4
 #define SLOP 35
 
 SelectText::SelectText()
@@ -1459,18 +1458,18 @@ void SelectText::drawSelectionPointer(SkCanvas* canvas, IntRect* inval)
 static void addStart(SkRegion* diff, const SkIRect& rect)
 {
     SkIRect bounds;
-    bounds.set(rect.fLeft - CONTROL_WIDTH - STROKE_WIDTH,
-        rect.fBottom - STROKE_WIDTH, rect.fLeft + STROKE_WIDTH,
-        rect.fBottom + CONTROL_HEIGHT + DROP_HEIGHT + STROKE_WIDTH);
+    bounds.set(rect.fLeft - CONTROL_WIDTH - STROKE_I_OUTSET,
+        rect.fBottom - STROKE_I_OUTSET, rect.fLeft + STROKE_I_OUTSET,
+        rect.fBottom + CONTROL_HEIGHT + STROKE_I_OUTSET);
     diff->op(bounds, SkRegion::kUnion_Op);
 }
 
 static void addEnd(SkRegion* diff, const SkIRect& rect)
 {
     SkIRect bounds;
-    bounds.set(rect.fLeft - STROKE_WIDTH, rect.fBottom - STROKE_WIDTH,
-        rect.fLeft + CONTROL_WIDTH + STROKE_WIDTH,
-        rect.fBottom + CONTROL_HEIGHT + DROP_HEIGHT + STROKE_WIDTH);
+    bounds.set(rect.fRight - STROKE_I_OUTSET, rect.fBottom - STROKE_I_OUTSET,
+        rect.fRight + CONTROL_WIDTH + STROKE_I_OUTSET,
+        rect.fBottom + CONTROL_HEIGHT + STROKE_I_OUTSET);
     diff->op(bounds, SkRegion::kUnion_Op);
 }
 
@@ -1486,7 +1485,9 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
         m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
         m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom,
         ivisBounds.fLeft, ivisBounds.fTop, ivisBounds.fRight, ivisBounds.fBottom);
-    SkRegion diff(m_selRegion);
+    if (m_lastSelRegion != m_selRegion)
+        m_lastSelRegion.set(m_selRegion);
+    SkRegion diff(m_lastSelRegion);
     m_selRegion.setEmpty();
     m_flipped = buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
         m_selEnd, m_endBase, &m_selRegion);
@@ -1517,20 +1518,20 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
     DBG_NAV_LOGD("lastStart=(%d,%d,r=%d,b=%d) m_lastEnd=(%d,%d,r=%d,b=%d)",
         m_lastStart.fLeft, m_lastStart.fTop, m_lastStart.fRight, m_lastStart.fBottom,
         m_lastEnd.fLeft, m_lastEnd.fTop, m_lastEnd.fRight, m_lastEnd.fBottom);
+    if (!m_lastDrawnStart.isEmpty())
+        addStart(&diff, m_lastDrawnStart);
     if (m_lastStart != m_selStart) {
-        if (!m_lastStart.isEmpty()) {
-            addStart(&diff, m_lastStart);
-            m_lastStart = m_selStart;
-        }
-        addStart(&diff, m_selStart);
+        m_lastDrawnStart = m_lastStart;
+        m_lastStart = m_selStart;
     }
+    addStart(&diff, m_selStart);
+    if (!m_lastDrawnEnd.isEmpty())
+        addEnd(&diff, m_lastDrawnEnd);
     if (m_lastEnd != m_selEnd) {
-        if (!m_lastEnd.isEmpty()) {
-            addEnd(&diff, m_lastEnd);
-            m_lastEnd = m_selEnd;
-        }
-        addEnd(&diff, m_selEnd);
+        m_lastDrawnEnd = m_lastEnd;
+        m_lastEnd = m_selEnd;
     }
+    addEnd(&diff, m_selEnd);
     SkIRect iBounds = diff.getBounds();
     DBG_NAV_LOGD("diff=(%d,%d,r=%d,b=%d)",
         iBounds.fLeft, iBounds.fTop, iBounds.fRight, iBounds.fBottom);
@@ -1799,8 +1800,10 @@ void SelectText::reset()
     DBG_NAV_LOG("m_extendSelection=false");
     m_selStart.setEmpty();
     m_lastStart.setEmpty();
+    m_lastDrawnStart.setEmpty();
     m_selEnd.setEmpty();
     m_lastEnd.setEmpty();
+    m_lastDrawnEnd.setEmpty();
     m_extendSelection = false;
     m_startSelection = false;
     SkSafeUnref(m_picture);
