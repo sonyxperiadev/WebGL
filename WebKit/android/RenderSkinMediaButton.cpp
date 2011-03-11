@@ -116,6 +116,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     }
     case BACKGROUND_SLIDER:
     {
+         drawsBackgroundColor = false;
          drawsImage = false;
          drawsNinePatch = false;
          drawsBackgroundColor = true;

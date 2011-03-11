@@ -262,7 +262,7 @@ bool RenderThemeAndroid::shouldRenderMediaControlPart(ControlPart part, Element*
           return false;
       case MediaSeekBackButtonPart:
       case MediaSeekForwardButtonPart:
-          return true;
+          return false;
       case MediaRewindButtonPart:
           return mediaElement->movieLoadType() != MediaPlayer::LiveStream;
       case MediaReturnToRealtimeButtonPart:
@@ -274,6 +274,12 @@ bool RenderThemeAndroid::shouldRenderMediaControlPart(ControlPart part, Element*
       default:
           return true;
       }
+}
+
+bool paintMediaFullscreenButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::PLAY);
+      return false;
 }
 
 bool RenderThemeAndroid::paintMediaMuteButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& rect)
