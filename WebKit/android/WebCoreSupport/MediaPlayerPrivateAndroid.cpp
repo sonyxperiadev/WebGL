@@ -28,29 +28,34 @@
 
 #if ENABLE(VIDEO)
 
+#include "BaseLayerAndroid.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "SkiaUtils.h"
+#include "VideoLayerAndroid.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
-
 #include <GraphicsJNI.h>
 #include <JNIHelp.h>
 #include <JNIUtility.h>
 #include <SkBitmap.h>
+#include <gui/SurfaceTexture.h>
 
 using namespace android;
+// Forward decl
+namespace android {
+sp<SurfaceTexture> SurfaceTexture_getSurfaceTexture(JNIEnv* env, jobject thiz);
+};
 
 namespace WebCore {
 
 static const char* g_ProxyJavaClass = "android/webkit/HTML5VideoViewProxy";
 static const char* g_ProxyJavaClassAudio = "android/webkit/HTML5Audio";
 
-struct MediaPlayerPrivate::JavaGlue
-{
+struct MediaPlayerPrivate::JavaGlue {
     jobject   m_javaProxy;
     jmethodID m_play;
     jmethodID m_teardown;
@@ -120,8 +125,8 @@ void MediaPlayerPrivate::seek(float time)
     checkException(env);
 }
 
-
-void MediaPlayerPrivate::prepareToPlay() {
+void MediaPlayerPrivate::prepareToPlay()
+{
     // We are about to start playing. Since our Java VideoView cannot
     // buffer any data, we just simply transition to the HaveEnoughData
     // state in here. This will allow the MediaPlayer to transition to
@@ -136,7 +141,7 @@ void MediaPlayerPrivate::prepareToPlay() {
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     : m_player(player),
     m_glue(0),
-    m_duration(6000),
+    m_duration(1), // keep this minimal to avoid initial seek problem
     m_currentTime(0),
     m_paused(true),
     m_hasVideo(false),
@@ -149,31 +154,33 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
 {
 }
 
-void MediaPlayerPrivate::onEnded() {
+void MediaPlayerPrivate::onEnded()
+{
     m_currentTime = duration();
     m_player->timeChanged();
     m_paused = true;
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
-    m_readyState = MediaPlayer::HaveNothing;
 }
 
-void MediaPlayerPrivate::onPaused() {
+void MediaPlayerPrivate::onPaused()
+{
     m_paused = true;
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
-    m_readyState = MediaPlayer::HaveNothing;
     m_player->playbackStateChanged();
 }
 
-void MediaPlayerPrivate::onTimeupdate(int position) {
+void MediaPlayerPrivate::onTimeupdate(int position)
+{
     m_currentTime = position / 1000.0f;
     m_player->timeChanged();
 }
 
 class MediaPlayerVideoPrivate : public MediaPlayerPrivate {
 public:
-    void load(const String& url) {
+    void load(const String& url)
+    {
         m_url = url;
         // Cheat a bit here to make sure Window.onLoad event can be triggered
         // at the right time instead of real video play time, since only full
@@ -185,7 +192,8 @@ public:
         m_player->readyStateChanged();
     }
 
-    void play() {
+    void play()
+    {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_url.length() || !m_glue->m_javaProxy)
             return;
@@ -201,13 +209,16 @@ public:
             m_currentTime = 0;
 
         jstring jUrl = wtfStringToJstring(env, m_url);
-        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl, static_cast<jint>(m_currentTime * 1000.0f));
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl,
+                            static_cast<jint>(m_currentTime * 1000.0f),
+                            m_videoLayer.uniqueId());
         env->DeleteLocalRef(jUrl);
 
         checkException(env);
     }
     bool canLoadPoster() const { return true; }
-    void setPoster(const String& url) {
+    void setPoster(const String& url)
+    {
         if (m_posterUrl == url)
             return;
 
@@ -220,7 +231,8 @@ public:
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
         env->DeleteLocalRef(jUrl);
     }
-    void paint(GraphicsContext* ctxt, const IntRect& r) {
+    void paint(GraphicsContext* ctxt, const IntRect& r)
+    {
         if (ctxt->paintingDisabled())
             return;
 
@@ -244,7 +256,8 @@ public:
         canvas->drawBitmapRect(*m_poster, 0, targetRect, 0);
     }
 
-    void onPosterFetched(SkBitmap* poster) {
+    void onPosterFetched(SkBitmap* poster)
+    {
         m_poster = poster;
         if (m_naturalSizeUnknown) {
             // We had to fake the size at startup, or else our paint
@@ -258,7 +271,8 @@ public:
         }
     }
 
-    void onPrepared(int duration, int width, int height) {
+    void onPrepared(int duration, int width, int height)
+    {
         m_duration = duration / 1000.0f;
         m_naturalSize = IntSize(width, height);
         m_naturalSizeUnknown = false;
@@ -270,7 +284,8 @@ public:
     bool hasAudio() { return false; } // do not display the audio UI
     bool hasVideo() { return m_hasVideo; }
 
-    MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player) {
+    MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player)
+    {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env)
             return;
@@ -283,18 +298,19 @@ public:
         m_glue = new JavaGlue;
         m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
         m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
-        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;I)V");
+        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;II)V");
 
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
         m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
-        m_glue->m_javaProxy = NULL;
+        m_glue->m_javaProxy = 0;
         env->DeleteLocalRef(clazz);
         // An exception is raised if any of the above fails.
         checkException(env);
     }
 
-    void createJavaPlayerIfNeeded() {
+    void createJavaPlayerIfNeeded()
+    {
         // Check if we have been already created.
         if (m_glue->m_javaProxy)
             return;
@@ -308,7 +324,7 @@ public:
         if (!clazz)
             return;
 
-        jobject obj = NULL;
+        jobject obj = 0;
 
         FrameView* frameView = m_player->frameView();
         if (!frameView)
@@ -335,14 +351,16 @@ public:
         checkException(env);
     }
 
-    float maxTimeSeekable() const {
+    float maxTimeSeekable() const
+    {
         return m_duration;
     }
 };
 
 class MediaPlayerAudioPrivate : public MediaPlayerPrivate {
 public:
-    void load(const String& url) {
+    void load(const String& url)
+    {
         m_url = url;
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_url.length())
@@ -360,7 +378,8 @@ public:
         checkException(env);
     }
 
-    void play() {
+    void play()
+    {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env || !m_url.length())
             return;
@@ -377,7 +396,8 @@ public:
 
     bool hasAudio() { return true; }
 
-    float maxTimeSeekable() const {
+    float maxTimeSeekable() const
+    {
         if (m_glue->m_javaProxy) {
             JNIEnv* env = JSC::Bindings::getJNIEnv();
             if (env) {
@@ -390,7 +410,8 @@ public:
         return 0;
     }
 
-    MediaPlayerAudioPrivate(MediaPlayer* player) : MediaPlayerPrivate(player) {
+    MediaPlayerAudioPrivate(MediaPlayer* player) : MediaPlayerPrivate(player)
+    {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env)
             return;
@@ -408,13 +429,14 @@ public:
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
         m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
-        m_glue->m_javaProxy = NULL;
+        m_glue->m_javaProxy = 0;
         env->DeleteLocalRef(clazz);
         // An exception is raised if any of the above fails.
         checkException(env);
     }
 
-    void createJavaPlayerIfNeeded() {
+    void createJavaPlayerIfNeeded()
+    {
         // Check if we have been already created.
         if (m_glue->m_javaProxy)
             return;
@@ -428,7 +450,7 @@ public:
         if (!clazz)
             return;
 
-        jobject obj = NULL;
+        jobject obj = 0;
 
         // Get the HTML5Audio instance
         obj = env->NewObject(clazz, m_glue->m_newInstance, this);
@@ -441,7 +463,8 @@ public:
         checkException(env);
     }
 
-    void onPrepared(int duration, int width, int height) {
+    void onPrepared(int duration, int width, int height)
+    {
         // Android media player gives us a duration of 0 for a live
         // stream, so in that case set the real duration to infinity.
         // We'll still be able to handle the case that we genuinely
@@ -469,28 +492,32 @@ MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
 
 namespace android {
 
-static void OnPrepared(JNIEnv* env, jobject obj, int duration, int width, int height, int pointer) {
+static void OnPrepared(JNIEnv* env, jobject obj, int duration, int width, int height, int pointer)
+{
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
         player->onPrepared(duration, width, height);
     }
 }
 
-static void OnEnded(JNIEnv* env, jobject obj, int pointer) {
+static void OnEnded(JNIEnv* env, jobject obj, int pointer)
+{
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
         player->onEnded();
     }
 }
 
-static void OnPaused(JNIEnv* env, jobject obj, int pointer) {
+static void OnPaused(JNIEnv* env, jobject obj, int pointer)
+{
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
         player->onPaused();
     }
 }
 
-static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointer) {
+static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointer)
+{
     if (!pointer || !poster)
         return;
 
@@ -501,19 +528,61 @@ static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointe
     player->onPosterFetched(posterNative);
 }
 
-static void OnBuffering(JNIEnv* env, jobject obj, int percent, int pointer) {
+static void OnBuffering(JNIEnv* env, jobject obj, int percent, int pointer)
+{
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
-        //TODO: player->onBuffering(percent);
+        // TODO: player->onBuffering(percent);
     }
 }
 
-static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer) {
+static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer)
+{
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
         player->onTimeupdate(position);
     }
 }
+
+// This is called on the UI thread only.
+// The video layers are composited on the webkit thread and then copied over
+// to the UI thread with the same ID. For rendering, we are only using the
+// video layers on the UI thread. Therefore, on the UI thread, we have to use
+// the videoLayerId from Java side to find the exact video layer in the tree
+// to set the surface texture.
+// Every time a play call into Java side, the videoLayerId will be sent and
+// saved in Java side. Then every time setBaseLayer call, the saved
+// videoLayerId will be passed to this function to find the Video Layer.
+// Return value: true when the video layer is found.
+static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
+                               int baseLayer, int videoLayerId,
+                               int textureName, bool updateTexture) {
+    if (!surfTex)
+        return false;
+
+    sp<SurfaceTexture> texture = android::SurfaceTexture_getSurfaceTexture(env, surfTex);
+    if (!texture.get())
+        return false;
+
+    BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(baseLayer);
+    if (!layerImpl)
+        return false;
+    if (!layerImpl->countChildren())
+        return false;
+    LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(layerImpl->getChild(0));
+    if (!compositedRoot)
+        return false;
+
+    VideoLayerAndroid* videoLayer =
+        static_cast<VideoLayerAndroid*>(compositedRoot->findById(videoLayerId));
+    if (!videoLayer)
+        return false;
+
+    // Set the SurfaceTexture to the layer we found
+    videoLayer->setSurfaceTexture(texture, textureName, updateTexture);
+    return true;
+}
+
 
 /*
  * JNI registration
@@ -527,6 +596,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPaused },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
+    { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIIZ)Z",
+        (void*) SendSurfaceTexture },
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
 };

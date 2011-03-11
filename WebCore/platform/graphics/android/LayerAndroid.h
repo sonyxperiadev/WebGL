@@ -244,6 +244,7 @@ public:
     void contentDraw(SkCanvas*);
 
     virtual bool isMedia() const { return false; }
+    virtual bool isVideo() const { return false; }
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 

@@ -32,6 +32,7 @@ class SkBitmap;
 
 #include "MediaPlayerPrivate.h"
 #include "TimeRanges.h"
+#include "VideoLayerAndroid.h"
 
 namespace WebCore {
 
@@ -93,6 +94,14 @@ public:
     virtual void onPosterFetched(SkBitmap*) { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
+
+    // These following two functions are used to turn on inline video support
+    bool supportsAcceleratedRendering() const { return true; }
+    LayerAndroid* platformLayer() const
+    {
+        return const_cast<VideoLayerAndroid*> (&m_videoLayer);
+    }
+
 protected:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
@@ -122,6 +131,7 @@ protected:
     bool m_naturalSizeUnknown;
 
     bool m_isVisible;
+    VideoLayerAndroid m_videoLayer;
 };
 
 } // namespace WebCore
