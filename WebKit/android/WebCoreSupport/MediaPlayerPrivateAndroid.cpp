@@ -399,6 +399,8 @@ public:
     }
 
     bool hasAudio() { return true; }
+    bool hasVideo() { return false; }
+    bool suppportsFullscreen() { return false; }
 
     float maxTimeSeekable() const
     {

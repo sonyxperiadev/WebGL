@@ -44,7 +44,7 @@ public:
      * Draw the skin to the canvas, using the rectangle for its bounds and the
      * State to determine which skin to use, i.e. focused or not focused.
      */
-    static void Draw(SkCanvas* , const IntRect& , int buttonType);
+    static void Draw(SkCanvas* , const IntRect& , int buttonType, bool translucent = false);
     /**
      * Button types
      */
