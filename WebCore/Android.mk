@@ -616,6 +616,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \
 	platform/graphics/android/LayerAndroid.cpp \
+	platform/graphics/android/LayerTexture.cpp \
 	platform/graphics/android/MediaLayer.cpp \
 	platform/graphics/android/MediaTexture.cpp \
 	platform/graphics/android/PaintLayerOperation.cpp \

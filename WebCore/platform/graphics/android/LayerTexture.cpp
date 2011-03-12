@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,54 +23,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LayerTexture_h
-#define LayerTexture_h
+#include "config.h"
+#include "LayerTexture.h"
 
-#include "BackedDoubleBufferedTexture.h"
-#include "ClassTracker.h"
-#include "IntRect.h"
+#include "LayerAndroid.h"
 
 namespace WebCore {
 
-class LayerTexture : public BackedDoubleBufferedTexture {
- public:
-    LayerTexture(uint32_t w, uint32_t h,
-                 SkBitmap::Config config = SkBitmap::kARGB_8888_Config)
-        : BackedDoubleBufferedTexture(w, h, 0, config)
-        , m_layerId(0)
-        , m_scale(1)
-        , m_ready(false)
-    {
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->increment("LayerTexture");
-#endif
-    }
-    virtual ~LayerTexture()
-    {
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->decrement("LayerTexture");
-#endif
-    };
+unsigned int LayerTexture::pictureUsed()
+{
+      consumerLock();
+      TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
+      unsigned int pictureUsed = 0;
+      if (info)
+          pictureUsed = info->m_picture;
+      consumerRelease();
+      return pictureUsed;
+}
 
-    void setTextureInfoFor(LayerAndroid* layer);
-    bool readyFor(LayerAndroid* layer);
-    void setRect(const IntRect& r) { m_rect = r; }
-    IntRect& rect() { return m_rect; }
-    int id() { return m_layerId; }
-    float scale() { return m_scale; }
-    void setId(int id) { m_layerId = id; }
-    void setScale(float scale) { m_scale = scale; }
-    bool ready() { return m_ready; }
-    unsigned int pictureUsed();
+void LayerTexture::setTextureInfoFor(LayerAndroid* layer)
+{
+      TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
+      if (!textureInfo) {
+          textureInfo = new TextureTileInfo();
+      }
+      textureInfo->m_layerId = layer->uniqueId();
+      textureInfo->m_picture = layer->pictureUsed();
+      textureInfo->m_scale = layer->getScale();
+      m_texturesInfo.set(getWriteableTexture(), textureInfo);
+      m_layerId = layer->uniqueId();
+      m_scale = layer->getScale();
+      if (!m_ready)
+          m_ready = true;
+}
 
- private:
-
-    IntRect m_rect;
-    int m_layerId;
-    float m_scale;
-    bool m_ready;
-};
+bool LayerTexture::readyFor(LayerAndroid* layer)
+{
+      TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
+      if (info &&
+          info->m_layerId == layer->uniqueId() &&
+          info->m_scale == layer->getScale() &&
+          info->m_picture == layer->pictureUsed())
+          return true;
+      return false;
+}
 
 } // namespace WebCore
-
-#endif // LayerTexture_h
