@@ -81,7 +81,7 @@ void RenderSkinMediaButton::Init(android::AssetManager* am, String drawableDirec
     }
 }
 
-void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType)
+void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType, bool translucent)
 {
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
@@ -99,7 +99,12 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     SkRect bounds(r);
     SkScalar imageMargin = 8;
     SkPaint paint;
-    SkColor backgroundColor = SkColorSetARGB(190, 34, 34, 34);
+
+    int alpha = 255;
+    if (translucent)
+        alpha = 190;
+
+    SkColor backgroundColor = SkColorSetARGB(alpha, 34, 34, 34);
     paint.setColor(backgroundColor);
 
     switch (buttonType) {
