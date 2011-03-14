@@ -103,6 +103,7 @@ void MediaPlayerPrivate::pause()
         return;
 
     m_paused = true;
+    m_player->playbackStateChanged();
     env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_pause);
     checkException(env);
 }
@@ -162,6 +163,7 @@ void MediaPlayerPrivate::onEnded()
     m_currentTime = duration();
     m_player->timeChanged();
     m_paused = true;
+    m_player->playbackStateChanged();
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
 }
@@ -169,6 +171,7 @@ void MediaPlayerPrivate::onEnded()
 void MediaPlayerPrivate::onPaused()
 {
     m_paused = true;
+    m_player->playbackStateChanged();
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_player->playbackStateChanged();
@@ -207,6 +210,7 @@ public:
             return;
 
         m_paused = false;
+        m_player->playbackStateChanged();
 
         if (m_currentTime == duration())
             m_currentTime = 0;
@@ -284,9 +288,9 @@ public:
         m_player->sizeChanged();
     }
 
-    bool hasAudio() { return false; } // do not display the audio UI
-    bool hasVideo() { return m_hasVideo; }
-    bool suppportsFullscreen() { return true; }
+    virtual bool hasAudio() const { return false; } // do not display the audio UI
+    virtual bool hasVideo() const { return m_hasVideo; }
+    virtual bool supportsFullscreen() const { return true; }
 
     MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player)
     {
@@ -394,13 +398,14 @@ public:
             return;
 
         m_paused = false;
+        m_player->playbackStateChanged();
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play);
         checkException(env);
     }
 
-    bool hasAudio() { return true; }
-    bool hasVideo() { return false; }
-    bool suppportsFullscreen() { return false; }
+    virtual bool hasAudio() const { return true; }
+    virtual bool hasVideo() const { return false; }
+    virtual bool supportsFullscreen() const { return false; }
 
     float maxTimeSeekable() const
     {

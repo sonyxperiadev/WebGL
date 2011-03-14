@@ -50,8 +50,9 @@ public:
 
     virtual IntSize naturalSize() const { return m_naturalSize; }
 
-    virtual bool hasAudio() const { return false; }
-    virtual bool hasVideo() const { return false; }
+    virtual bool supportsFullscreen() const = 0;
+    virtual bool hasAudio() const = 0;
+    virtual bool hasVideo() const = 0;
 
     virtual void setVisible(bool);
 

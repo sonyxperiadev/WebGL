@@ -51,6 +51,7 @@ static const PatchData gFiles[] =
         { "ic_media_pause.png", 0, 0 }, // MUTE
         { "ic_media_rew.png", 0, 0 }, // REWIND
         { "ic_media_ff.png", 0, 0 }, // FORWARD
+        { "ic_media_fullscreen.png", 0, 0 }, // FULLSCREEN
         { "btn_media_player_disabled.9.png", 0, 0 }, // BACKGROUND_SLIDER
         { "scrubber_track_holo_dark.9.png", 0, 0 },  // SLIDER_TRACK
         { "scrubber_control_holo.png", 0, 0 }      // SLIDER_THUMB
@@ -113,6 +114,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     case MUTE:
     case REWIND:
     case FORWARD:
+    case FULLSCREEN:
     {
          imageIndex = buttonType + 1;
          paint.setColor(backgroundColor);
