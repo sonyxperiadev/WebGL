@@ -38,14 +38,14 @@ enum AndroidMetaKeyState {
 };
 
 // Changes in next line is in ANDROID but waiting to upstream to WebKit. TODO: upstream it.
-PlatformTouchEvent::PlatformTouchEvent(const Vector<int>& ids, const Vector<IntPoint>& windowPoints, TouchEventType type, PlatformTouchPoint::State state, int metaState)
+PlatformTouchEvent::PlatformTouchEvent(const Vector<int>& ids, const Vector<IntPoint>& windowPoints, TouchEventType type, const Vector<PlatformTouchPoint::State>& states, int metaState)
     : m_type(type)
     , m_metaKey(false)
 {
     m_touchPoints.reserveCapacity(windowPoints.size());
     for (unsigned c = 0; c < windowPoints.size(); c++)
         // Changes in next line is in ANDROID but waiting to upstream to WebKit. TODO: upstream it.
-        m_touchPoints.append(PlatformTouchPoint(ids[c], windowPoints[c], state));
+        m_touchPoints.append(PlatformTouchPoint(ids[c], windowPoints[c], states[c]));
 
     m_altKey = metaState & META_ALT_ON;
     m_shiftKey = metaState & META_SHIFT_ON;

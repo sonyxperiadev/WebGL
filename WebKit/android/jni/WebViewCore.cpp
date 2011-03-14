@@ -3026,7 +3026,7 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 }
 #endif
 
-bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int metaState)
+bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState)
 {
     bool preventDefault = false;
 
@@ -3037,33 +3037,45 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
 #endif
 
 #if ENABLE(TOUCH_EVENTS) // Android
+    #define MOTION_EVENT_ACTION_POINTER_DOWN 5
+    #define MOTION_EVENT_ACTION_POINTER_UP 6
+
     WebCore::TouchEventType type = WebCore::TouchStart;
-    WebCore::PlatformTouchPoint::State touchState = WebCore::PlatformTouchPoint::TouchPressed;
+    WebCore::PlatformTouchPoint::State defaultTouchState;
+    Vector<WebCore::PlatformTouchPoint::State> touchStates(points.size());
+
     switch (action) {
     case 0: // MotionEvent.ACTION_DOWN
-    case 5: // MotionEvent.ACTION_POINTER_DOWN
         type = WebCore::TouchStart;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchPressed;
         break;
     case 1: // MotionEvent.ACTION_UP
-    case 6: // MotionEvent.ACTION_POINTER_UP
         type = WebCore::TouchEnd;
-        touchState = WebCore::PlatformTouchPoint::TouchReleased;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchReleased;
         break;
     case 2: // MotionEvent.ACTION_MOVE
         type = WebCore::TouchMove;
-        touchState = WebCore::PlatformTouchPoint::TouchMoved;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchMoved;
         break;
     case 3: // MotionEvent.ACTION_CANCEL
         type = WebCore::TouchCancel;
-        touchState = WebCore::PlatformTouchPoint::TouchCancelled;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchCancelled;
+        break;
+    case 5: // MotionEvent.ACTION_POINTER_DOWN
+        type = WebCore::TouchStart;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchStationary;
+        break;
+    case 6: // MotionEvent.ACTION_POINTER_UP
+        type = WebCore::TouchEnd;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchStationary;
         break;
     case 0x100: // WebViewCore.ACTION_LONGPRESS
         type = WebCore::TouchLongPress;
-        touchState = WebCore::PlatformTouchPoint::TouchPressed;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchPressed;
         break;
     case 0x200: // WebViewCore.ACTION_DOUBLETAP
         type = WebCore::TouchDoubleTap;
-        touchState = WebCore::PlatformTouchPoint::TouchPressed;
+        defaultTouchState = WebCore::PlatformTouchPoint::TouchPressed;
         break;
     default:
         // We do not support other kinds of touch event inside WebCore
@@ -3072,12 +3084,22 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
         return 0;
     }
 
-    // Track previous touch and if stationary set the state.
     for (unsigned c = 0; c < points.size(); c++) {
         points[c].setX(points[c].x() - m_scrollOffsetX);
         points[c].setY(points[c].y() - m_scrollOffsetY);
+
+        // Setting the touch state for each point.
+        // Note: actionIndex will be 0 for all actions that are not ACTION_POINTER_DOWN/UP.
+        if (action == MOTION_EVENT_ACTION_POINTER_DOWN && c == actionIndex) {
+            touchStates[c] = WebCore::PlatformTouchPoint::TouchPressed;
+        } else if (action == MOTION_EVENT_ACTION_POINTER_UP && c == actionIndex) {
+            touchStates[c] = WebCore::PlatformTouchPoint::TouchReleased;
+        } else {
+            touchStates[c] = defaultTouchState;
+        };
     }
-    WebCore::PlatformTouchEvent te(ids, points, type, touchState, metaState);
+
+    WebCore::PlatformTouchEvent te(ids, points, type, touchStates, metaState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 
@@ -3974,7 +3996,8 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
 }
 
 static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArray idArray,
-                                 jintArray xArray, jintArray yArray, jint count, jint metaState)
+                                 jintArray xArray, jintArray yArray,
+                                 jint count, jint actionIndex, jint metaState)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3995,7 +4018,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
     env->ReleaseIntArrayElements(xArray, ptrXArray, JNI_ABORT);
     env->ReleaseIntArrayElements(yArray, ptrYArray, JNI_ABORT);
 
-    return viewImpl->handleTouchEvent(action, ids, points, metaState);
+    return viewImpl->handleTouchEvent(action, ids, points, actionIndex, metaState);
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
@@ -4431,7 +4454,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(I[I[I[III)Z",
+    { "nativeHandleTouchEvent", "(I[I[I[IIII)Z",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
