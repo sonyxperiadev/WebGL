@@ -72,12 +72,7 @@ bool CSSSegmentedFontFace::isValid() const
 
 void CSSSegmentedFontFace::fontLoaded(CSSFontFace*)
 {
-    // On Android, rendering and font loading occur on separate threads, so
-    // pruning from here can leave dangling refs to deleted GlyphPageTreeNodes.
-    // Pruning will still occur via ~CSSSegmentedFontFace, when it's safe.
-#if !PLATFORM(ANDROID)
-     pruneTable();
-#endif
+    pruneTable();
 }
 
 void CSSSegmentedFontFace::appendFontFace(PassRefPtr<CSSFontFace> fontFace)
