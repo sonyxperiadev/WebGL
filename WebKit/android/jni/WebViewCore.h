@@ -327,7 +327,7 @@ namespace android {
         /**
          * Handle touch event
          */
-        bool handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int metaState);
+        bool handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState);
 
         /**
          * Handle motionUp event from the UI thread (called touchUp in the
