@@ -226,6 +226,8 @@ LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
                                                        LayerTexture* texture)
 {
     android::Mutex::Autolock lock(m_texturesLock);
+    LayerTexture* best = 0;
+    unsigned newestPictureUsed = 0;
     for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
         if (m_layersTextures[i]->id() != layer->uniqueId())
             continue;
@@ -236,13 +238,21 @@ LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
         if (any && texture == m_layersTextures[i])
             continue;
 
+        if (m_layersTextures[i]->ready()) {
+            unsigned int pictureUsed = m_layersTextures[i]->pictureUsed();
+            if (pictureUsed >= newestPictureUsed) {
+                newestPictureUsed = pictureUsed;
+                best = m_layersTextures[i];
+            }
+        }
+
         XLOG("return layer %d (%x) for tile %d (%x)",
              i, m_layersTextures[i],
              layer->uniqueId(), layer);
-
-        if (m_layersTextures[i]->acquire(layer))
-            return m_layersTextures[i];
     }
+
+    if (best && best->acquire(layer))
+        return best;
     return 0;
 }
 

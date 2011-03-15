@@ -42,6 +42,7 @@ class TextureTileInfo {
   TextureTileInfo()
       : m_x(-1)
       , m_y(-1)
+      , m_layerId(-1)
       , m_scale(0)
       , m_texture(0)
       , m_picture(0)
@@ -49,6 +50,7 @@ class TextureTileInfo {
   }
   int m_x;
   int m_y;
+  int m_layerId;
   float m_scale;
   TextureInfo* m_texture;
   unsigned int m_picture;
@@ -105,10 +107,11 @@ public:
     void setTile(TextureInfo* info, int x, int y, float scale, unsigned int pictureCount);
     bool readyFor(BaseTile* baseTile);
 
+protected:
+    HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;
+
 private:
     void destroyTextures(SharedTexture** textures);
-
-    HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;
 
     SkBitmap* m_bitmap;
     bool m_sharedBitmap;
