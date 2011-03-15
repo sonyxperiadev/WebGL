@@ -39,6 +39,10 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 
+#if PLATFORM(ANDROID)
+#define TOUCH_DELAY 4
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -57,6 +61,9 @@ RenderMedia::RenderMedia(HTMLMediaElement* video)
     , m_opacityAnimationDuration(0)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
+#if PLATFORM(ANDROID)
+    , m_lastTouch(0)
+#endif
 {
     setImageResource(RenderImageResource::create());
 }
@@ -70,6 +77,9 @@ RenderMedia::RenderMedia(HTMLMediaElement* video, const IntSize& intrinsicSize)
     , m_opacityAnimationDuration(0)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
+#if PLATFORM(ANDROID)
+    , m_lastTouch(0)
+#endif
 {
     setImageResource(RenderImageResource::create());
     setIntrinsicSize(intrinsicSize);
@@ -456,7 +466,14 @@ void RenderMedia::updateControlVisibility()
     // Don't fade if the media element is not visible
     if (style()->visibility() != VISIBLE)
         return;
-    
+
+#if PLATFORM(ANDROID)
+    if (WTF::currentTime() - m_lastTouch > TOUCH_DELAY)
+        m_mouseOver = false;
+    else
+        m_mouseOver = true;
+#endif
+
     bool shouldHideController = !m_mouseOver && !media->canPlay();
 
     // Do fading manually, css animations don't work with shadow trees
@@ -535,6 +552,11 @@ void RenderMedia::updateVolumeSliderContainer(bool visible)
 
 void RenderMedia::forwardEvent(Event* event)
 {
+#if PLATFORM(ANDROID)
+    if (event->isMouseEvent())
+        m_lastTouch = WTF::currentTime();
+#endif
+
     if (event->isMouseEvent() && m_controlsShadowRoot) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         IntPoint point(mouseEvent->absoluteLocation());

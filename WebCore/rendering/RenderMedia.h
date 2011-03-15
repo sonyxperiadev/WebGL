@@ -151,6 +151,9 @@ private:
     double m_opacityAnimationDuration;
     float m_opacityAnimationFrom;
     float m_opacityAnimationTo;
+#if PLATFORM(ANDROID)
+    double m_lastTouch;
+#endif
 };
 
 inline RenderMedia* toRenderMedia(RenderObject* object)

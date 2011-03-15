@@ -48,7 +48,7 @@ public:
     /**
      * Button types
      */
-    enum { PAUSE, PLAY, MUTE, REWIND, FORWARD, BACKGROUND_SLIDER, SLIDER_TRACK, SLIDER_THUMB };
+    enum { PAUSE, PLAY, MUTE, REWIND, FORWARD, FULLSCREEN, BACKGROUND_SLIDER, SLIDER_TRACK, SLIDER_THUMB };
     /**
      * Slider dimensions
      */

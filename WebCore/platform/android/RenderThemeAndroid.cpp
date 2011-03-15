@@ -276,12 +276,12 @@ bool RenderThemeAndroid::shouldRenderMediaControlPart(ControlPart part, Element*
       }
 }
 
-bool paintMediaFullscreenButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& rect)
+bool RenderThemeAndroid::paintMediaFullscreenButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& rect)
 {
       bool translucent = false;
       if (o && toParentMediaElement(o) && toParentMediaElement(o)->hasTagName(HTMLNames::videoTag))
           translucent = true;
-      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::PLAY, translucent);
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::FULLSCREEN, translucent);
       return false;
 }
 
