@@ -451,7 +451,6 @@ endif  # JAVASCRIPT_ENGINE == jsc
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
 # if you need to make webcore huge (for debugging), enable this line
-#LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
 LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
