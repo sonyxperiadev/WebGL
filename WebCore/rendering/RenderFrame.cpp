@@ -80,10 +80,9 @@ void RenderFrame::layout()
     setWidth(max(view->contentsWidth() + borderAndPaddingWidth(), width()));
     setHeight(max(view->contentsHeight() + borderAndPaddingHeight(), height()));
 
-    // This should trigger a layout of the FrameView which will schedule a
-    // relayout of this RenderFrame.
+    // Trigger a layout of the FrameView which will schedule a relayout of this RenderFrame.
     if (layoutWidth < width())
-        setHeight(0);
+        view->layout();
 
     setNeedsLayout(false);
 }
