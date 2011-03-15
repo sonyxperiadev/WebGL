@@ -878,13 +878,10 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
     if (!texture)
         return false;
 
-    if (!texture->ready() ||
-        texture->scale() != m_scale ||
-        texture->pictureUsed() != m_pictureUsed) {
-        XLOG("We mark layer %d (%x) as dirty because: m_pictureUsed(%d == 0?), texture picture used %x",
-             uniqueId(), this, m_pictureUsed, texture->pictureUsed());
+    TextureInfo* textureInfo = texture->consumerLock();
+    if (!texture->readyFor(this))
         m_dirty = true;
-    }
+    texture->consumerRelease();
 
     return m_dirty;
 }
@@ -1007,13 +1004,14 @@ void LayerAndroid::paintBitmapGL()
     canvas->restore();
 
     m_atomicSync.lock();
+    texture->setTextureInfoFor(this);
+
     m_dirty = false;
     m_requestSent = false;
 
     XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
     texture->producerUpdate(textureInfo);
 
-    texture->setPictureUsed(m_pictureUsed);
     m_atomicSync.unlock();
 
     XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
