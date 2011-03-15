@@ -950,15 +950,6 @@ void FrameView::layout(bool allowSubtree)
     }
     m_hasOverflowScroll = hasOverflowScroll;
 #endif
-#ifdef ANDROID_FLATTEN_FRAMESET
-    // Request a layout to use the content dimensions.
-    if (m_frame->ownerRenderer() && m_frame->ownerElement()->hasTagName(frameTag)) {
-        if (canHaveScrollbars() && layoutWidth() > 1 && layoutHeight() > 1) {
-            if (layoutWidth() < contentsWidth() || layoutHeight() < contentsHeight())
-                m_frame->ownerRenderer()->setNeedsLayout(true, true);
-        }
-    }
-#endif
 }
 
 void FrameView::addWidgetToUpdate(RenderEmbeddedObject* object)
@@ -1562,6 +1553,11 @@ void FrameView::scheduleRelayout()
         return;
     if (!m_frame->document()->shouldScheduleLayout())
         return;
+
+#ifdef ANDROID_FLATTEN_FRAMESET
+    if (m_frame->ownerRenderer())
+        m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+#endif
 
     // When frame flattening is enabled, the contents of the frame affects layout of the parent frames.
     // Also invalidate parent frame starting from the owner element of this frame.
