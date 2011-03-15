@@ -574,6 +574,7 @@ void ChromeClientAndroid::enterFullscreenForNode(Node* node)
           return;
 
       HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(node);
+      String url = videoElement->currentSrc();
       LayerAndroid* layer = videoElement->platformLayer();
       if (!layer)
           return;
@@ -581,7 +582,7 @@ void ChromeClientAndroid::enterFullscreenForNode(Node* node)
       FrameView* frameView = m_webFrame->page()->mainFrame()->view();
       android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
       if (core)
-          core->enterFullscreenForVideoLayer(layer->uniqueId());
+          core->enterFullscreenForVideoLayer(layer->uniqueId(), url);
 }
 
 void ChromeClientAndroid::exitFullscreenForNode(Node* node)
