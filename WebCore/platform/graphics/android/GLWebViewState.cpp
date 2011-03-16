@@ -111,12 +111,16 @@ GLWebViewState::~GLWebViewState()
 }
 
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
-                                  bool showVisualIndicator)
+                                  bool showVisualIndicator, bool isPictureAfterFirstLayout)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (!layer) {
+    if (!layer || isPictureAfterFirstLayout) {
         m_tiledPageA->setUsable(false);
         m_tiledPageB->setUsable(false);
+    }
+    if (isPictureAfterFirstLayout) {
+        m_baseLayerUpdate = true;
+        m_invalidateRegion.setEmpty();
     }
     if (m_baseLayer && layer)
         m_baseLayer->swapExtra(layer);

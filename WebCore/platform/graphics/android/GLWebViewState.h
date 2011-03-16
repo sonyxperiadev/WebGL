@@ -175,7 +175,8 @@ public:
     void resetTransitionTime() { m_transitionTime = -1; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
-    void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator);
+    void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator,
+                      bool isPictureAfterFirstLayout);
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
 
