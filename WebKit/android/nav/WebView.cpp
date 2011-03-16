@@ -441,7 +441,7 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
             SkIRect rect;
             rect.set(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
             region.setRect(rect);
-            m_glWebViewState->setBaseLayer(m_baseLayer, region, false);
+            m_glWebViewState->setBaseLayer(m_baseLayer, region, false, false);
         }
     }
 
@@ -1386,11 +1386,13 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
-void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator)
+void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
+                  bool isPictureAfterFirstLayout)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (m_glWebViewState)
-        m_glWebViewState->setBaseLayer(layer, inval, showVisualIndicator);
+        m_glWebViewState->setBaseLayer(layer, inval, showVisualIndicator,
+                                       isPictureAfterFirstLayout);
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -1801,13 +1803,15 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 }
 
 static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inval,
-                                jboolean showVisualIndicator)
+                                jboolean showVisualIndicator,
+                                jboolean isPictureAfterFirstLayout)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
     SkRegion invalRegion;
     if (inval)
         invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
-    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator);
+    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
+                                            isPictureAfterFirstLayout);
 }
 
 static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
@@ -2599,7 +2603,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;Z)V",
+    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZ)V",
         (void*) nativeSetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
         (void*) nativeReplaceBaseContent },
