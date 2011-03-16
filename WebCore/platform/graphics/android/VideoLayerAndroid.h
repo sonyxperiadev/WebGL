@@ -48,7 +48,7 @@ public:
     virtual LayerAndroid* copy() const { return new VideoLayerAndroid(*this); }
 
     // The following 3 functions are called in UI thread only.
-    virtual bool drawGL(SkMatrix& matrix);
+    virtual bool drawGL(GLWebViewState*, SkMatrix& matrix);
     void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, bool updateTexture);
     GLuint createPauseTexture();
 

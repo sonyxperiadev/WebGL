@@ -208,7 +208,7 @@ LayerAndroid::~LayerAndroid()
 
 static int gDebugNbAnims = 0;
 
-bool LayerAndroid::evaluateAnimations() const
+bool LayerAndroid::evaluateAnimations()
 {
     double time = WTF::currentTime();
     gDebugNbAnims = 0;
@@ -224,22 +224,35 @@ bool LayerAndroid::hasAnimations() const
     return !!m_animations.size();
 }
 
-bool LayerAndroid::evaluateAnimations(double time) const
+bool LayerAndroid::evaluateAnimations(double time)
 {
     bool hasRunningAnimations = false;
     for (int i = 0; i < countChildren(); i++) {
         if (getChild(i)->evaluateAnimations(time))
             hasRunningAnimations = true;
     }
+
+    m_hasRunningAnimations = false;
+    int nbAnims = 0;
     KeyframesMap::const_iterator end = m_animations.end();
     for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
         gDebugNbAnims++;
+        nbAnims++;
         LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
         if ((it->second)->evaluate(currentLayer, time))
-            hasRunningAnimations = true;
+            m_hasRunningAnimations = true;
     }
 
-    return hasRunningAnimations;
+    return hasRunningAnimations || m_hasRunningAnimations;
+}
+
+void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
+{
+    IntRect rect(0, 0, getWidth(), getHeight());
+    IntRect dirtyArea = drawTransform().mapRect(rect);
+    IntRect clip(m_clippingRect.x(), m_clippingRect.y(), m_clippingRect.width(), m_clippingRect.height());
+    dirtyArea.intersect(clip);
+    glWebViewState->addDirtyArea(dirtyArea);
 }
 
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
@@ -894,7 +907,7 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
     return transformA.m43() < transformB.m43();
 }
 
-bool LayerAndroid::drawGL(SkMatrix& matrix)
+bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     TilesManager::instance()->shader()->clip(m_clippingRect);
 
@@ -916,15 +929,17 @@ bool LayerAndroid::drawGL(SkMatrix& matrix)
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
-    bool askPaint = drawChildrenGL(matrix);
+    bool askPaint = drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
     askPaint |= m_dirty;
+    if (m_dirty || m_hasRunningAnimations)
+        addDirtyArea(glWebViewState);
     m_atomicSync.unlock();
     return askPaint;
 }
 
 
-bool LayerAndroid::drawChildrenGL(SkMatrix& matrix)
+bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     bool askPaint = false;
     int count = this->countChildren();
@@ -937,7 +952,7 @@ bool LayerAndroid::drawChildrenGL(SkMatrix& matrix)
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++) {
             LayerAndroid* layer = sublayers[i];
-            askPaint |= layer->drawGL(matrix);
+            askPaint |= layer->drawGL(glWebViewState, matrix);
         }
     }
 
