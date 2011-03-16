@@ -30,7 +30,9 @@
 #include "Document.h"
 #include "IntRect.h"
 #include "Node.h"
+#include "RenderObject.h"
 #include "RenderSkinMediaButton.h"
+#include "RenderSlider.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
 #include "SkRect.h"
@@ -45,7 +47,7 @@ struct PatchData {
 
 static const PatchData gFiles[] =
     {
-        { "btn_media_player.9.png", 0, 0 }, // DEFAULT BGD BUTTON
+        { "scrubber_primary_holo.9.png", 0, 0 }, // SLIDER_TRACK, left of the SLIDER_THUMB
         { "ic_media_pause.png", 0, 0}, // PAUSE
         { "ic_media_play.png", 0, 0 }, // PLAY
         { "ic_media_pause.png", 0, 0 }, // MUTE
@@ -82,7 +84,8 @@ void RenderSkinMediaButton::Init(android::AssetManager* am, String drawableDirec
     }
 }
 
-void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType, bool translucent)
+void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType,
+                                 bool translucent, RenderObject* o)
 {
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
@@ -163,7 +166,34 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
 
         SkIRect margin;
         margin.set(marginValue, marginValue, marginValue, marginValue);
-        SkNinePatch::DrawNine(canvas, bounds, gButton[0], margin);
+        if (buttonType == SLIDER_TRACK) {
+            // Cut the height in half (with some extra slop determined by trial
+            // and error to get the placement just right.
+            SkScalar quarterHeight = SkScalarHalf(SkScalarHalf(bounds.height()));
+            bounds.fTop += quarterHeight + SkScalarHalf(3);
+            bounds.fBottom += -quarterHeight + SK_ScalarHalf;
+            if (o && o->isSlider()) {
+                RenderSlider* slider = toRenderSlider(o);
+                IntRect thumb = slider->thumbRect();
+                // Inset the track by half the width of the thumb, so the track
+                // does not appear to go beyond the space where the thumb can
+                // be.
+                SkScalar thumbHalfWidth = SkIntToScalar(thumb.width()/2);
+                bounds.fLeft += thumbHalfWidth;
+                bounds.fRight -= thumbHalfWidth;
+                if (thumb.x() > 0) {
+                    // The video is past the starting point.  Show the area to
+                    // left of the thumb as having been played.
+                    SkScalar alreadyPlayed = SkIntToScalar(thumb.center().x() + r.x());
+                    SkRect playedRect(bounds);
+                    playedRect.fRight = alreadyPlayed;
+                    SkNinePatch::DrawNine(canvas, playedRect, gButton[0], margin);
+                    bounds.fLeft = alreadyPlayed;
+                }
+
+            }
+        }
+        SkNinePatch::DrawNine(canvas, bounds, gButton[ninePatchIndex], margin);
     }
 
     if (drawsImage) {
