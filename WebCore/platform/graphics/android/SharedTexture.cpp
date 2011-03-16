@@ -94,6 +94,10 @@ void SharedTexture::initSourceTexture()
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
     m_supportsEGLFenceSyncKHR = GLUtils::isEGLFenceSyncSupported();
 
+    // TODO temporarily disable fence sync until the EGL framework fixes
+    // performance issues that result from consistently adding/removing fences.
+    m_supportsEGLFenceSyncKHR = false;
+
     LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
 
     glGenTextures(1, &m_sourceTexture.m_textureId);
