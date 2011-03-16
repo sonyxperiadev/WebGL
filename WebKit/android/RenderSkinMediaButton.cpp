@@ -100,8 +100,15 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     SkRect bounds(r);
     SkScalar imageMargin = 8;
     SkPaint paint;
-    SkColor backgroundColor = SkColorSetARGB(255, 200, 200, 200);
+
+    int alpha = 255;
+    if (translucent)
+        alpha = 190;
+
+    SkColor backgroundColor = SkColorSetARGB(alpha, 34, 34, 34);
     SkColor trackBackgroundColor = SkColorSetARGB(255, 100, 100, 100);
+    paint.setColor(backgroundColor);
+    paint.setFlags(SkPaint::kFilterBitmap_Flag);
 
     switch (buttonType) {
     case PAUSE:
