@@ -327,7 +327,8 @@ bool RenderThemeAndroid::paintMediaSliderTrack(RenderObject* o, const PaintInfo&
       bool translucent = false;
       if (o && toParentMediaElement(o) && toParentMediaElement(o)->hasTagName(HTMLNames::videoTag))
           translucent = true;
-      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::SLIDER_TRACK, translucent);
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect,
+                                  RenderSkinMediaButton::SLIDER_TRACK, translucent, o);
       return false;
 }
 

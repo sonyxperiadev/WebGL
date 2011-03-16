@@ -32,6 +32,8 @@ class SkCanvas;
 
 namespace WebCore {
 class IntRect;
+class RenderObject;
+
 class RenderSkinMediaButton
 {
 public:
@@ -44,7 +46,8 @@ public:
      * Draw the skin to the canvas, using the rectangle for its bounds and the
      * State to determine which skin to use, i.e. focused or not focused.
      */
-    static void Draw(SkCanvas* , const IntRect& , int buttonType, bool translucent = false);
+    static void Draw(SkCanvas* , const IntRect& , int buttonType, bool translucent = false,
+                     RenderObject* o = 0);
     /**
      * Button types
      */
