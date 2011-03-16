@@ -34,8 +34,54 @@
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
+
+static const char* getFallbackFontName(const FontDescription& fontDescription)
+{
+    switch (fontDescription.genericFamily()) {
+    case FontDescription::StandardFamily:
+    case FontDescription::SerifFamily:
+        return "serif";
+    case FontDescription::SansSerifFamily:
+        return "sans-serif";
+    case FontDescription::MonospaceFamily:
+        return "monospace";
+    case FontDescription::CursiveFamily:
+        return "cursive";
+    case FontDescription::FantasyFamily:
+        return "fantasy";
+    case FontDescription::NoFamily:
+    default:
+        return "";
+    }
+}
+
+static bool isFallbackFamily(String family)
+{
+    return family.startsWith("-webkit-")
+        || equalIgnoringCase(family, "serif")
+        || equalIgnoringCase(family, "sans-serif")
+        || equalIgnoringCase(family, "sans")
+        || equalIgnoringCase(family, "monospace")
+        || equalIgnoringCase(family, "cursive")
+        || equalIgnoringCase(family, "fantasy");
+}
+
+static char* AtomicStringToUTF8String(const AtomicString& utf16)
+{
+    SkASSERT(sizeof(uint16_t) == sizeof(utf16.characters()[0]));
+    const uint16_t* uni = (uint16_t*)utf16.characters();
+
+    size_t bytes = SkUTF16_ToUTF8(uni, utf16.length(), 0);
+    char* utf8 = (char*)sk_malloc_throw(bytes + 1);
+
+    (void)SkUTF16_ToUTF8(uni, utf16.length(), utf8);
+    utf8[bytes] = 0;
+    return utf8;
+}
+
 
 void FontCache::platformInit()
 {
@@ -53,57 +99,41 @@ SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
     return 0;
 }
 
-SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& description)
 {
-    static AtomicString str("sans-serif");
-    return getCachedFontData(font, str);
-}
+    static const AtomicString sansStr("sans-serif");
+    static const AtomicString serifStr("serif");
+    static const AtomicString monospaceStr("monospace");
 
-static char* AtomicStringToUTF8String(const AtomicString& utf16)
-{
-    SkASSERT(sizeof(uint16_t) == sizeof(utf16.characters()[0]));
-    const uint16_t* uni = (uint16_t*)utf16.characters();
+    FontPlatformData* fontPlatformData = 0;
+    switch (description.genericFamily()) {
+    case FontDescription::SerifFamily:
+        fontPlatformData = getCachedFontPlatformData(description, serifStr);
+        break;
+    case FontDescription::MonospaceFamily:
+        fontPlatformData = getCachedFontPlatformData(description, monospaceStr);
+        break;
+    case FontDescription::SansSerifFamily:
+    default:
+        fontPlatformData = getCachedFontPlatformData(description, sansStr);
+        break;
+    }
 
-    size_t bytes = SkUTF16_ToUTF8(uni, utf16.length(), 0);
-    char*  utf8 = (char*)sk_malloc_throw(bytes + 1);
-
-    (void)SkUTF16_ToUTF8(uni, utf16.length(), utf8);
-    utf8[bytes] = 0;
-    return utf8;
+    ASSERT(fontPlatformData);
+    return getCachedFontData(fontPlatformData);
 }
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)
 {
-    char*       storage = 0;
+    char* storage = 0;
     const char* name = 0;
+    FontPlatformData* result = 0;
 
-    if (family.length() == 0) {
-        static const struct {
-            FontDescription::GenericFamilyType  mType;
-            const char*                         mName;
-        } gNames[] = {
-            { FontDescription::SerifFamily,     "serif" },
-            { FontDescription::SansSerifFamily, "sans-serif" },
-            { FontDescription::MonospaceFamily, "monospace" },
-            { FontDescription::CursiveFamily,   "cursive" },
-            { FontDescription::FantasyFamily,   "fantasy" }
-        };
-
-        FontDescription::GenericFamilyType type = fontDescription.genericFamily();
-        for (unsigned i = 0; i < SK_ARRAY_COUNT(gNames); i++)
-        {
-            if (type == gNames[i].mType)
-            {
-                name = gNames[i].mName;
-                break;
-            }
-        }
-        // if we fall out of the loop, its ok for name to still be 0
-    }
-    else {    // convert the name to utf8
+    if (family.length()) {
         storage = AtomicStringToUTF8String(family);
         name = storage;
-    }
+    } else
+        name = getFallbackFontName(fontDescription);
 
     int style = SkTypeface::kNormal;
     if (fontDescription.weight() >= FontWeightBold)
@@ -111,12 +141,31 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     if (fontDescription.italic())
         style |= SkTypeface::kItalic;
 
-    SkTypeface* tf = SkTypeface::CreateFromName(name, (SkTypeface::Style)style);
+    // CreateFromName always returns a typeface, falling back to a default font
+    // if the one requested is not found. Calling Equal() with a null pointer
+    // serves to compare the returned font against the default, with the caveat
+    // that the default is always of normal style. If we detect the default, we
+    // ignore it and allow WebCore to give us the next font on the CSS fallback
+    // list. The only exception is if the family name is a commonly used generic
+    // family, as when called by getSimilarFontPlatformData() and
+    // getLastResortFallbackFont(). In this case, the default font is an
+    // acceptable result.
 
-    FontPlatformData* result = new FontPlatformData(tf,
-                                                    fontDescription.computedSize(),
-                                                    (style & SkTypeface::kBold) && !tf->isBold(),
-                                                    (style & SkTypeface::kItalic) && !tf->isItalic());
+    SkTypeface* tf = SkTypeface::CreateFromName(name, SkTypeface::kNormal);
+
+    if (!SkTypeface::Equal(tf, 0) || isFallbackFamily(family.string())) {
+        // We had to use normal styling to see if this was a default font. If
+        // we need bold or italic, replace with the corrected typeface.
+        if (style != SkTypeface::kNormal) {
+            tf->unref();
+            tf = SkTypeface::CreateFromName(name, (SkTypeface::Style)style);
+        }
+
+        result = new FontPlatformData(tf, fontDescription.computedSize(),
+                            (style & SkTypeface::kBold) && !tf->isBold(),
+                            (style & SkTypeface::kItalic) && !tf->isItalic());
+    }
+
     tf->unref();
     sk_free(storage);
     return result;
