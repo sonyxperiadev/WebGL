@@ -1481,17 +1481,33 @@ class GLDrawFunctor : Functor {
         scale = _scale;
         extras = _extras;
     };
-    status_t operator()(float* dirty, uint32_t len) {
-        if (viewRect.isEmpty() || len != 4) {
+    status_t operator()(int messageId, void* data) {
+        if (viewRect.isEmpty()) {
             // NOOP operation if viewport is empty
             return 0;
         }
+
+        struct DrawConstraints {
+            // Input: clip rect as set on the Canvas, in screen coordinates
+            int clipLeft;
+            int clipTop;
+            int clipRight;
+            int clipBottom;
+
+            // Output: dirty region that must be redrawn
+            float dirtyLeft;
+            float dirtyTop;
+            float dirtyRight;
+            float dirtyBottom;
+        };
+
         bool retVal = (*wvInstance.*funcPtr)(viewRect, scale, extras);
         if (retVal) {
-            dirty[0] = webViewRect.x();
-            dirty[1] = webViewRect.y();
-            dirty[2] = webViewRect.right();
-            dirty[3] = webViewRect.bottom();
+            DrawConstraints* constraints = reinterpret_cast<DrawConstraints*>(data);
+            constraints->dirtyLeft = webViewRect.x();
+            constraints->dirtyTop = webViewRect.y();
+            constraints->dirtyRight = webViewRect.right();
+            constraints->dirtyBottom = webViewRect.bottom();
         }
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
