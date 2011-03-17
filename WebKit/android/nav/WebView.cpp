@@ -435,7 +435,7 @@ void drawCursorPostamble()
     }
 }
 
-bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
+bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, float scale, int extras)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_baseLayer || inFullScreenMode())
@@ -506,7 +506,7 @@ bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
-    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, scale);
+    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect, scale);
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
 #endif
@@ -1481,7 +1481,7 @@ private: // local state for WebView
 class GLDrawFunctor : Functor {
     public:
     GLDrawFunctor(WebView* _wvInstance,
-            bool(WebView::*_funcPtr)(WebCore::IntRect&, jfloat, jint),
+            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*, jfloat, jint),
             WebCore::IntRect _viewRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
@@ -1509,13 +1509,26 @@ class GLDrawFunctor : Functor {
             float dirtyBottom;
         };
 
-        bool retVal = (*wvInstance.*funcPtr)(viewRect, scale, extras);
+        WebCore::IntRect inval;
+        int titlebarHeight = webViewRect.height() - viewRect.height();
+        bool retVal = (*wvInstance.*funcPtr)(viewRect, &inval, scale, extras);
         if (retVal) {
             DrawConstraints* constraints = reinterpret_cast<DrawConstraints*>(data);
-            constraints->dirtyLeft = webViewRect.x();
-            constraints->dirtyTop = webViewRect.y();
-            constraints->dirtyRight = webViewRect.right();
-            constraints->dirtyBottom = webViewRect.bottom();
+            IntRect finalInval;
+            if (inval.isEmpty()) {
+                finalInval = webViewRect;
+                retVal = false;
+            } else {
+                finalInval.setX(webViewRect.x() + inval.x());
+                finalInval.setY(webViewRect.y() + inval.y() + titlebarHeight);
+                finalInval.setWidth(inval.width());
+                finalInval.setHeight(inval.height());
+                finalInval.intersect(webViewRect);
+            }
+            constraints->dirtyLeft = finalInval.x();
+            constraints->dirtyTop = finalInval.y();
+            constraints->dirtyRight = finalInval.right();
+            constraints->dirtyBottom = finalInval.bottom();
         }
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
@@ -1528,7 +1541,7 @@ class GLDrawFunctor : Functor {
     }
     private:
     WebView* wvInstance;
-    bool (WebView::*funcPtr)(WebCore::IntRect&, float, int);
+    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*, float, int);
     WebCore::IntRect viewRect;
     WebCore::IntRect webViewRect;
     jfloat scale;
@@ -1816,13 +1829,14 @@ static bool nativeDrawGL(JNIEnv *env, jobject obj, jobject jrect,
                          jfloat scale, jint extras)
 {
     WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
-    return GET_NATIVE_VIEW(env, obj)->drawGL(viewRect, scale, extras);
+    WebCore::IntRect invalRect;
+    return GET_NATIVE_VIEW(env, obj)->drawGL(viewRect, &invalRect, scale, extras);
 }
 
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    const LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
+    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
     if (root)
         return root->evaluateAnimations();
 #endif

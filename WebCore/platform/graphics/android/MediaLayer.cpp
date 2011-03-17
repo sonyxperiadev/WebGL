@@ -73,7 +73,7 @@ MediaLayer::~MediaLayer()
     m_videoTexture->decStrong(this);
 }
 
-bool MediaLayer::drawGL(SkMatrix& matrix)
+bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     TilesManager::instance()->shader()->clip(drawClip());
 
@@ -112,7 +112,7 @@ bool MediaLayer::drawGL(SkMatrix& matrix)
         m_bufferedTexture->consumerRelease();
     }
 
-    return drawChildrenGL(matrix);
+    return drawChildrenGL(glWebViewState, matrix);
 }
 
 ANativeWindow* MediaLayer::acquireNativeWindowForVideo()

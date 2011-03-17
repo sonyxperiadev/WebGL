@@ -101,7 +101,7 @@ GLuint VideoLayerAndroid::createPauseTexture()
     return texture;
 }
 
-bool VideoLayerAndroid::drawGL(SkMatrix& matrix)
+bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     // Lazy allocated the paused texture.
     if (!m_createdPauseTexture) {
@@ -127,7 +127,7 @@ bool VideoLayerAndroid::drawGL(SkMatrix& matrix)
                                                                rect, m_textureId);
     }
 
-    return drawChildrenGL(matrix);
+    return drawChildrenGL(glWebViewState, matrix);
 }
 
 }
