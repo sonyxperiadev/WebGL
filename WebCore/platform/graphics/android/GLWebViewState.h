@@ -213,7 +213,7 @@ public:
         return false;
     }
 
-    bool drawGL(IntRect& rect, SkRect& viewport,
+    bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 float scale, SkColor color = SK_ColorWHITE);
 
     void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
@@ -222,6 +222,10 @@ public:
 #ifdef MEASURES_PERF
     void dumpMeasures();
 #endif
+
+    void resetFrameworkInval();
+    void addDirtyArea(const IntRect& rect);
+    void resetLayersDirtyArea();
 
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
@@ -259,6 +263,8 @@ private:
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;
     IntRect m_lastInval;
+    IntRect m_frameworkInval;
+    IntRect m_frameworkLayersInval;
     android::Mutex* m_globalButtonMutex;
 
     bool m_baseLayerUpdate;

@@ -71,6 +71,8 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_currentBaseLayer(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
+    , m_frameworkInval(0, 0, 0, 0)
+    , m_frameworkLayersInval(0, 0, 0, 0)
     , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
@@ -198,6 +200,13 @@ void GLWebViewState::inval(const IntRect& rect)
             // find which tiles fall within the invalRect and mark them as dirty
             m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
             m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+            if (m_frameworkInval.isEmpty())
+                m_frameworkInval = rect;
+            else
+                m_frameworkInval.unite(rect);
+            XLOG("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
+                 m_frameworkInval.y(), m_frameworkInval.right(), m_frameworkInval.bottom(),
+                 rect.x(), rect.y(), rect.right(), rect.bottom());
         }
     } else {
         m_invalidateRegion.op(rect.x(), rect.y(), rect.right(), rect.bottom(), SkRegion::kUnion_Op);
@@ -353,7 +362,32 @@ void GLWebViewState::dumpMeasures()
 }
 #endif // MEASURES_PERF
 
-bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColor color)
+void GLWebViewState::resetFrameworkInval()
+{
+    m_frameworkInval.setX(0);
+    m_frameworkInval.setY(0);
+    m_frameworkInval.setWidth(0);
+    m_frameworkInval.setHeight(0);
+}
+
+void GLWebViewState::addDirtyArea(const IntRect& rect)
+{
+    if (m_frameworkLayersInval.isEmpty())
+        m_frameworkLayersInval = rect;
+    else
+        m_frameworkLayersInval.unite(rect);
+}
+
+void GLWebViewState::resetLayersDirtyArea()
+{
+    m_frameworkLayersInval.setX(0);
+    m_frameworkLayersInval.setY(0);
+    m_frameworkLayersInval.setWidth(0);
+    m_frameworkLayersInval.setHeight(0);
+}
+
+bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
+                            float scale, SkColor color)
 {
     glFinish();
 
@@ -374,7 +408,26 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, float scale, SkColo
     if (!baseLayer)
         return false;
 
+    XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
+         rect.x(), rect.y(), rect.right(), rect.bottom(),
+         viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
+
+    resetLayersDirtyArea();
     bool ret = baseLayer->drawGL(rect, viewport, scale, color);
+    if (ret) {
+        IntRect inval = m_frameworkInval;
+        inval.unite(m_frameworkLayersInval);
+
+        invalRect->setX((- viewport.fLeft + inval.x()) * scale);
+        invalRect->setY((- viewport.fTop + inval.y()) * scale);
+        invalRect->setWidth(inval.width() * scale);
+        invalRect->setHeight(inval.height() * scale);
+
+        XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
+             inval.y(), inval.right(), inval.bottom());
+    } else {
+        resetFrameworkInval();
+    }
 
 #ifdef MEASURES_PERF
     if (m_measurePerfs) {

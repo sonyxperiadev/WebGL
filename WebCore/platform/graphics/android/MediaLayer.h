@@ -36,7 +36,7 @@ public:
     MediaLayer(const MediaLayer& layer);
     virtual ~MediaLayer();
 
-    virtual bool drawGL(SkMatrix&);
+    virtual bool drawGL(GLWebViewState*, SkMatrix&);
     virtual void paintBitmapGL() const { };
     virtual bool needsTexture() { return false; }
 

@@ -128,8 +128,8 @@ public:
 
     void setScale(float scale);
     float getScale() { return m_scale; }
-    virtual bool drawGL(SkMatrix&);
-    bool drawChildrenGL(SkMatrix&);
+    virtual bool drawGL(GLWebViewState*, SkMatrix&);
+    bool drawChildrenGL(GLWebViewState*, SkMatrix&);
     virtual void paintBitmapGL();
     void updateGLPositions(const TransformationMatrix& parentMatrix,
                            const FloatRect& clip, float opacity);
@@ -182,9 +182,10 @@ public:
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimationsForProperty(AnimatedPropertyID property);
     void removeAnimationsForKeyframes(const String& name);
-    bool evaluateAnimations() const;
-    bool evaluateAnimations(double time) const;
+    bool evaluateAnimations();
+    bool evaluateAnimations(double time);
     bool hasAnimations() const;
+    void addDirtyArea(GLWebViewState*);
 
     SkPicture* picture() const { return m_recordingPicture; }
 
@@ -324,6 +325,9 @@ private:
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
     unsigned int m_pictureUsed;
+
+    // used to signal the framework we need a repaint
+    bool m_hasRunningAnimations;
 
     // painting request sent
     bool m_requestSent;

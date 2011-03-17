@@ -211,6 +211,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
     const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
 
     TiledPage* nextTiledPage = m_glWebViewState->backPage();
+    bool needsRedraw = false;
 
     // We are now using an hybrid model -- during scrolling,
     // we will display the current tiledPage even if some tiles are
@@ -225,12 +226,16 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         }
         if (nextTiledPage->ready(preZoomBounds, m_glWebViewState->currentScale())) {
             nextTiledPage->draw(transparency, preZoomBounds);
+            m_glWebViewState->resetFrameworkInval();
             m_glWebViewState->unlockBaseLayerUpdate();
             doSwap = true;
         } else {
             tiledPage->draw(transparency, preZoomBounds);
         }
     } else {
+        if (tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale()))
+           m_glWebViewState->resetFrameworkInval();
+
         // Ask for the tiles and draw -- tiles may be out of date.
         if (!zooming)
            m_glWebViewState->unlockBaseLayerUpdate();
@@ -239,10 +244,9 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         tiledPage->draw(transparency, preZoomBounds);
     }
 
-    bool ret = false;
     if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
         || !tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale()))
-      ret = true;
+        needsRedraw = true;
 
     if (doSwap) {
         m_glWebViewState->setCurrentScale(scale);
@@ -250,14 +254,14 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         m_glWebViewState->unlockBaseLayerUpdate();
     }
 
-    return ret;
+    return needsRedraw;
 }
 #endif // USE(ACCELERATED_COMPOSITING)
 
 bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
                               float scale, SkColor color)
 {
-    bool ret = false;
+    bool needsRedraw = false;
 #if USE(ACCELERATED_COMPOSITING)
     int left = viewRect.x();
     int top = viewRect.y();
@@ -285,11 +289,18 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     shader->resetBlending();
 
     double currentTime = WTF::currentTime();
-    ret = drawBasePictureInGL(visibleRect, scale, currentTime);
+    needsRedraw = drawBasePictureInGL(visibleRect, scale, currentTime);
+    if (!needsRedraw)
+        m_glWebViewState->resetFrameworkInval();
 
     if (countChildren() >= 1) {
         LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
         TransformationMatrix ident;
+
+        bool animsRunning = compositedRoot->evaluateAnimations();
+        if (animsRunning)
+            needsRedraw = true;
+
         compositedRoot->updateFixedLayersPositions(visibleRect);
         FloatRect clip(0, 0, viewRect.width(), viewRect.height());
         compositedRoot->updateGLPositions(ident, clip, 1);
@@ -331,8 +342,11 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         // repaints if needed
         compositedRoot->createGLTextures();
 
-        if (compositedRoot->drawGL(matrix))
-            ret = true;
+        if (compositedRoot->drawGL(m_glWebViewState, matrix))
+            needsRedraw = true;
+        else if (!animsRunning)
+            m_glWebViewState->resetLayersDirtyArea();
+
     } else {
         TilesManager::instance()->cleanupLayersTextures(0);
     }
@@ -344,7 +358,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 #ifdef DEBUG
     ClassTracker::instance()->show();
 #endif
-    return ret;
+    return needsRedraw;
 }
 
 } // namespace WebCore
