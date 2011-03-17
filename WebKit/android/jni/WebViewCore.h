@@ -541,7 +541,7 @@ namespace android {
         void notifyWebAppCanBeInstalled();
 
 #if ENABLE(VIDEO)
-        void enterFullscreenForVideoLayer(int layerId);
+        void enterFullscreenForVideoLayer(int layerId, const WTF::String& url);
 #endif
 
         void setWebTextViewAutoFillable(int queryId, const string16& previewSummary);
