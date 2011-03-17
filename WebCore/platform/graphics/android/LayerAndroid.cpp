@@ -186,9 +186,13 @@ bool LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
             m_reservedTexture != m_drawingTexture)
             textureReleased &= m_reservedTexture->release(this);
     }
-    if (m_drawingTexture && m_drawingTexture->owner() != this)
+    if (m_drawingTexture &&
+        ((m_drawingTexture->owner() != this) ||
+         (m_drawingTexture->delayedReleaseOwner() == this)))
         m_drawingTexture = 0;
-    if (m_reservedTexture && m_reservedTexture->owner() != this)
+    if (m_reservedTexture &&
+        ((m_reservedTexture->owner() != this) ||
+         (m_reservedTexture->delayedReleaseOwner() == this)))
         m_reservedTexture = 0;
     return textureReleased;
 }

@@ -96,6 +96,7 @@ public:
 
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
+    TextureOwner* delayedReleaseOwner() { return m_delayedReleaseOwner; }
     SkCanvas* canvas(); // only used by the producer thread
     SkBitmap* bitmap() { return m_bitmap; }
 
