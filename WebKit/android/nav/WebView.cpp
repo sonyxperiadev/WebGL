@@ -43,6 +43,7 @@
 #include "LayerAndroid.h"
 #include "Node.h"
 #include "utils/Functor.h"
+#include "private/hwui/DrawGlInfo.h"
 #include "PlatformGraphicsContext.h"
 #include "PlatformString.h"
 #include "ScrollableLayerAndroid.h"
@@ -1495,25 +1496,11 @@ class GLDrawFunctor : Functor {
             return 0;
         }
 
-        struct DrawConstraints {
-            // Input: clip rect as set on the Canvas, in screen coordinates
-            int clipLeft;
-            int clipTop;
-            int clipRight;
-            int clipBottom;
-
-            // Output: dirty region that must be redrawn
-            float dirtyLeft;
-            float dirtyTop;
-            float dirtyRight;
-            float dirtyBottom;
-        };
-
         WebCore::IntRect inval;
         int titlebarHeight = webViewRect.height() - viewRect.height();
         bool retVal = (*wvInstance.*funcPtr)(viewRect, &inval, scale, extras);
         if (retVal) {
-            DrawConstraints* constraints = reinterpret_cast<DrawConstraints*>(data);
+            uirenderer::DrawGlInfo* info = reinterpret_cast<uirenderer::DrawGlInfo*>(data);
             IntRect finalInval;
             if (inval.isEmpty()) {
                 finalInval = webViewRect;
@@ -1525,10 +1512,10 @@ class GLDrawFunctor : Functor {
                 finalInval.setHeight(inval.height());
                 finalInval.intersect(webViewRect);
             }
-            constraints->dirtyLeft = finalInval.x();
-            constraints->dirtyTop = finalInval.y();
-            constraints->dirtyRight = finalInval.right();
-            constraints->dirtyBottom = finalInval.bottom();
+            info->dirtyLeft = finalInval.x();
+            info->dirtyTop = finalInval.y();
+            info->dirtyRight = finalInval.right();
+            info->dirtyBottom = finalInval.bottom();
         }
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
