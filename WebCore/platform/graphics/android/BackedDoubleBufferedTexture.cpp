@@ -228,16 +228,16 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
 bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
 {
     android::Mutex::Autolock lock(m_busyLock);
-    if (m_owner == owner) {
-        if (!m_busy) {
-            m_owner = 0;
-            return true;
-        } else {
-            m_delayedRelease = true;
-            m_delayedReleaseOwner = owner;
-        }
+    if (m_owner != owner)
+        return false;
+
+    if (!m_busy) {
+        m_owner = 0;
+    } else {
+        m_delayedRelease = true;
+        m_delayedReleaseOwner = owner;
     }
-    return false;
+    return true;
 }
 
 void BackedDoubleBufferedTexture::setTile(TextureInfo* info, int x, int y,
