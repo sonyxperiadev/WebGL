@@ -149,17 +149,16 @@ public:
 
         bool setupShadowPaint(SkPaint* paint, SkPoint* offset)
         {
+            paint->setAntiAlias(true);
+            paint->setDither(true);
+            paint->setXfermodeMode(mode);
+            paint->setColor(shadow.color);
+            offset->set(shadow.dx, shadow.dy);
             if (shadow.blur > 0) {
-                paint->setAntiAlias(true);
-                paint->setDither(true);
-                paint->setXfermodeMode(mode);
-                paint->setColor(shadow.color);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(shadow.blur,
                                      SkBlurMaskFilter::kNormal_BlurStyle))->unref();
-                offset->set(shadow.dx, shadow.dy);
-                return true;
             }
-            return false;
+            return SkColorGetA(shadow.color) && (shadow.blur || shadow.dx || shadow.dy);
         }
 
         SkColor applyAlpha(SkColor c) const
