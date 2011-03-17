@@ -75,36 +75,45 @@ static SkPaint* setupStroke(SkPaint* paint, GraphicsContext* gc,
 
 static bool setupForText(SkPaint* paint, GraphicsContext* gc,
                          const SimpleFontData* font) {
-    int mode = gc->textDrawingMode();
+    int mode = gc->textDrawingMode() & (cTextFill | cTextStroke);
+    if (!mode)
+        return false;
 
-    if ((mode & (cTextFill | cTextStroke)) == (cTextFill | cTextStroke)) {
+    FloatSize shadowOffset;
+    float shadowBlur;
+    Color shadowColor;
+    bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor);
+
+    if (hasShadow || (mode == (cTextStroke & cTextFill))) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
 
         // we clear the looper, in case we have a shadow
 
-        SkPaint* fillP = NULL;
-        SkPaint* strokeP = NULL;
-        if (gc->willStroke()) {
+        SkPaint* fillP = 0;
+        SkPaint* strokeP = 0;
+        if ((mode & cTextStroke) && gc->willStroke()) {
             strokeP = setupStroke(looper->addLayer(), gc, font);
-            strokeP->setLooper(NULL);
+            strokeP->setLooper(0);
         }
-        if (gc->willFill()) {
+        if ((mode & cTextFill) && gc->willFill()) {
             fillP = setupFill(looper->addLayer(), gc, font);
-            fillP->setLooper(NULL);
+            fillP->setLooper(0);
         }
 
-        SkPaint shadowPaint;
-        SkPoint offset;
-        if (gc->setupShadowPaint(&shadowPaint, &offset)) {
-            SkPaint* p = looper->addLayer(offset.fX, offset.fY);
-            *p = shadowPaint;
-            if (strokeP && !fillP) {
-                // stroke the shadow if we have stroke but no fill
-                p->setStyle(SkPaint::kStroke_Style);
-                p->setStrokeWidth(strokeP->getStrokeWidth());
+        if (hasShadow) {
+            SkPaint shadowPaint;
+            SkPoint offset;
+            if (gc->setupShadowPaint(&shadowPaint, &offset)) {
+                SkPaint* p = looper->addLayer(offset.fX, offset.fY);
+                *p = shadowPaint;
+                if (strokeP && !fillP) {
+                    // stroke the shadow if we have stroke but no fill
+                    p->setStyle(SkPaint::kStroke_Style);
+                    p->setStrokeWidth(strokeP->getStrokeWidth());
+                }
+                updateForFont(p, font);
             }
-            updateForFont(p, font);
         }
     } else if (mode & cTextFill) {
         (void)setupFill(paint, gc, font);
