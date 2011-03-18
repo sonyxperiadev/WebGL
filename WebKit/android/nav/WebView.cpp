@@ -1490,9 +1490,14 @@ class GLDrawFunctor : Functor {
 
         WebCore::IntRect inval;
         int titlebarHeight = webViewRect.height() - viewRect.height();
-        bool retVal = (*wvInstance.*funcPtr)(viewRect, &inval, scale, extras);
+
+        uirenderer::DrawGlInfo* info = reinterpret_cast<uirenderer::DrawGlInfo*>(data);
+        WebCore::IntRect localViewRect = viewRect;
+        if (info->isLayer)
+            localViewRect.move(-1 * localViewRect.x(), -1 * localViewRect.y());
+
+        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, scale, extras);
         if (retVal) {
-            uirenderer::DrawGlInfo* info = reinterpret_cast<uirenderer::DrawGlInfo*>(data);
             IntRect finalInval;
             if (inval.isEmpty()) {
                 finalInval = webViewRect;
