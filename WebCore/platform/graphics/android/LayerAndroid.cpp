@@ -1014,13 +1014,16 @@ void LayerAndroid::paintBitmapGL()
     float scale = texture->scale();
 
     IntRect textureRect = texture->rect();
-
-    canvas->save();
     canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
-    canvas->scale(scale, scale);
-    canvas->translate(-textureRect.x(), -textureRect.y());
-    contentDraw(canvas);
-    canvas->restore();
+
+    SkPicture picture;
+    SkCanvas* nCanvas = picture.beginRecording(textureRect.width(),
+                                               textureRect.height());
+    nCanvas->scale(scale, scale);
+    nCanvas->translate(-textureRect.x(), -textureRect.y());
+    contentDraw(nCanvas);
+    picture.endRecording();
+    picture.draw(canvas);
 
     m_atomicSync.lock();
     texture->setTextureInfoFor(this);
