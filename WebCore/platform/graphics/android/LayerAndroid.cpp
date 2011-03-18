@@ -849,6 +849,9 @@ void LayerAndroid::createGLTextures()
     if (outsideViewport())
         return;
 
+    if (m_drawingTexture && !needsScheduleRepaint(m_drawingTexture))
+        return;
+
     LayerTexture* reservedTexture = m_reservedTexture;
     if (!reservedTexture)
         reservedTexture = TilesManager::instance()->createTextureForLayer(this, m_layerTextureRect);
