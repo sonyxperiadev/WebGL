@@ -151,6 +151,9 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         else
             x += i;
 
+        if (x < 0)
+            continue;
+
         BaseTile* currentTile = 0;
         BaseTile* availableTile = 0;
         for (int j = 0; j < m_baseTileSize; j++) {
