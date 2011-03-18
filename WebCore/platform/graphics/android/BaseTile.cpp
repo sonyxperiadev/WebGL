@@ -32,6 +32,7 @@
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
+#include "SkPicture.h"
 #include "TilesManager.h"
 
 #include <EGL/egl.h>
@@ -420,11 +421,13 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
     SkCanvas canvas(bitmap);
     canvas.drawARGB(255, 255, 255, 255);
 
-    canvas.save();
-    canvas.scale(scale, scale);
-    canvas.translate(tx, ty);
-    int pictureCount = tiledPage->paintBaseLayerContent(&canvas);
-    canvas.restore();
+    SkPicture picture;
+    SkCanvas* nCanvas = picture.beginRecording(rect.width(), rect.height());
+    nCanvas->scale(scale, scale);
+    nCanvas->translate(tx, ty);
+    int pictureCount = tiledPage->paintBaseLayerContent(nCanvas);
+    picture.endRecording();
+    picture.draw(&canvas);
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
         int color = 20 + pictureCount % 100;
