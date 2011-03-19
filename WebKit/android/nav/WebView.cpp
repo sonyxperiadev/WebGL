@@ -1504,7 +1504,7 @@ class GLDrawFunctor : Functor {
             IntRect finalInval;
             if (inval.isEmpty()) {
                 finalInval = webViewRect;
-                retVal = false;
+                retVal = true;
             } else {
                 finalInval.setX(webViewRect.x() + inval.x());
                 finalInval.setY(webViewRect.y() + inval.y() + titlebarHeight);
