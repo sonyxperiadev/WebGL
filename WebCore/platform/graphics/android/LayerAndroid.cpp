@@ -898,6 +898,11 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
     if (!texture)
         return false;
 
+    if (!texture->ready()) {
+        m_dirty = true;
+        return true;
+    }
+
     TextureInfo* textureInfo = texture->consumerLock();
     if (!texture->readyFor(this) ||
         (texture->rect() != m_layerTextureRect))
