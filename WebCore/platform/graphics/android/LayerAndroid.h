@@ -243,6 +243,7 @@ public:
     void needsRepaint() { m_pictureUsed++; }
     unsigned int pictureUsed() { return m_pictureUsed; }
     void contentDraw(SkCanvas*);
+    void extraDraw(SkCanvas*);
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
