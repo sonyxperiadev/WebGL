@@ -34,8 +34,7 @@ namespace WebCore {
 class IntRect;
 class RenderObject;
 
-class RenderSkinMediaButton
-{
+class RenderSkinMediaButton {
 public:
     /**
      * Initialize the class before use. Uses the AssetManager to initialize any
@@ -51,7 +50,7 @@ public:
     /**
      * Button types
      */
-    enum { PAUSE, PLAY, MUTE, REWIND, FORWARD, FULLSCREEN, BACKGROUND_SLIDER, SLIDER_TRACK, SLIDER_THUMB };
+    enum { PAUSE, PLAY, MUTE, REWIND, FORWARD, FULLSCREEN, SPINNER_OUTER, SPINNER_INNER , VIDEO, BACKGROUND_SLIDER, SLIDER_TRACK, SLIDER_THUMB };
     /**
      * Slider dimensions
      */

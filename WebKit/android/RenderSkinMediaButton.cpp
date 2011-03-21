@@ -54,9 +54,12 @@ static const PatchData gFiles[] =
         { "ic_media_rew.png", 0, 0 }, // REWIND
         { "ic_media_ff.png", 0, 0 }, // FORWARD
         { "ic_media_fullscreen.png", 0, 0 }, // FULLSCREEN
+        { "spinner_76_outer_holo.png", 0, 0 }, // SPINNER_OUTER
+        { "spinner_76_inner_holo.png", 0, 0 }, // SPINNER_INNER
+        { "ic_media_video_poster.png", 0, 0 }, // VIDEO
         { "btn_media_player_disabled.9.png", 0, 0 }, // BACKGROUND_SLIDER
-        { "scrubber_track_holo_dark.9.png", 0, 0 },  // SLIDER_TRACK
-        { "scrubber_control_holo.png", 0, 0 }      // SLIDER_THUMB
+        { "scrubber_track_holo_dark.9.png", 0, 0 }, // SLIDER_TRACK
+        { "scrubber_control_holo.png", 0, 0 } // SLIDER_THUMB
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
@@ -122,6 +125,14 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     {
          imageIndex = buttonType + 1;
          paint.setColor(backgroundColor);
+         break;
+    }
+    case SPINNER_OUTER:
+    case SPINNER_INNER:
+    case VIDEO:
+    {
+         drawsBackgroundColor = false;
+         imageIndex = buttonType + 1;
          break;
     }
     case BACKGROUND_SLIDER:
@@ -200,4 +211,4 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
     }
 }
 
-} //WebCore
+} // WebCore
