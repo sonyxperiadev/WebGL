@@ -1025,9 +1025,6 @@ void WebFrame::autoLogin(const std::string& loginHeader)
         if (realm.isEmpty() || args.isEmpty())
             return;
 
-        // Args is double-encoded as it contains urls.
-        args = WebCore::decodeURLEscapeSequences(args);
-
         JNIEnv* env = getJNIEnv();
         jstring jRealm = wtfStringToJstring(env, realm, true);
         jstring jAccount = wtfStringToJstring(env, account);
