@@ -1033,6 +1033,7 @@ void LayerAndroid::paintBitmapGL()
     contentDraw(nCanvas);
     picture.endRecording();
     picture.draw(canvas);
+    extraDraw(canvas);
 
     m_atomicSync.lock();
     texture->setTextureInfoFor(this);
@@ -1048,6 +1049,14 @@ void LayerAndroid::paintBitmapGL()
     XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
 }
 
+void LayerAndroid::extraDraw(SkCanvas* canvas)
+{
+    m_atomicSync.lock();
+    if (m_extra)
+        canvas->drawPicture(*m_extra);
+    m_atomicSync.unlock();
+}
+
 void LayerAndroid::contentDraw(SkCanvas* canvas)
 {
     if (m_contentsImage) {
@@ -1057,11 +1066,6 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
     } else {
       canvas->drawPicture(*m_recordingPicture);
     }
-
-    m_atomicSync.lock();
-    if (m_extra)
-        canvas->drawPicture(*m_extra);
-    m_atomicSync.unlock();
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
         float w = getSize().width();
