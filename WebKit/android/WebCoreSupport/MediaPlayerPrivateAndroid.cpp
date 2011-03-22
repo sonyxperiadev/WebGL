@@ -567,7 +567,7 @@ static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer)
 // Return value: true when the video layer is found.
 static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
                                int baseLayer, int videoLayerId,
-                               int textureName, bool updateTexture) {
+                               int textureName, int playerState) {
     if (!surfTex)
         return false;
 
@@ -590,7 +590,7 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
         return false;
 
     // Set the SurfaceTexture to the layer we found
-    videoLayer->setSurfaceTexture(texture, textureName, updateTexture);
+    videoLayer->setSurfaceTexture(texture, textureName, static_cast<PlayerState>(playerState));
     return true;
 }
 
@@ -607,7 +607,7 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPaused },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
-    { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIIZ)Z",
+    { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIII)Z",
         (void*) SendSurfaceTexture },
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
