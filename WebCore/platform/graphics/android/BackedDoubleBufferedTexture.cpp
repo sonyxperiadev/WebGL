@@ -191,8 +191,13 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 
 bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
 {
-    if (m_owner == owner)
+    if (m_owner == owner) {
+        if (m_delayedRelease) {
+            m_delayedRelease = false;
+            m_delayedReleaseOwner = 0;
+        }
         return true;
+    }
 
     return setOwner(owner);
 }
