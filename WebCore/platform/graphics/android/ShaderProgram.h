@@ -47,6 +47,8 @@ class ShaderProgram {
     void setViewRect(const IntRect& viewRect);
     FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
                                     const IntSize& size);
+    FloatRect projectedRect(const TransformationMatrix& drawMatrix,
+                            IntSize& size);
     void clip(const FloatRect& rect);
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
 

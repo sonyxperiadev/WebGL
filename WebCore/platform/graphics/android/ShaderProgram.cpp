@@ -300,6 +300,33 @@ IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
     return viewport;
 }
 
+FloatRect ShaderProgram::projectedRect(const TransformationMatrix& drawMatrix,
+                                     IntSize& size)
+{
+    FloatRect srect(0, 0, size.width(), size.height());
+
+    TransformationMatrix translate;
+    translate.translate(1.0, 1.0);
+    TransformationMatrix scale;
+    scale.scale3d(m_viewport.width() * 0.5f, m_viewport.height() * 0.5f, 1);
+    TransformationMatrix translateViewport;
+    translateViewport.translate(-m_viewport.fLeft, -m_viewport.fTop);
+
+    TransformationMatrix projectionMatrix = m_projectionMatrix;
+    projectionMatrix.scale3d(1, -1, 1);
+    projectionMatrix.multiply(translate);
+    projectionMatrix.multiply(scale);
+    projectionMatrix.multiply(translateViewport);
+
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.multiply(projectionMatrix);
+
+    FloatRect bounds = renderMatrix.mapRect(srect);
+    FloatRect ret(bounds.x(), bounds.y() - m_viewport.height(),
+                  bounds.width(), bounds.height());
+    return ret;
+}
+
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   SkRect& geometry, int textureId, float opacity,
                                   bool forceBlending)

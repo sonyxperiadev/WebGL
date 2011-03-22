@@ -252,8 +252,12 @@ bool LayerAndroid::evaluateAnimations(double time)
 
 void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
 {
-    IntRect rect(0, 0, getWidth(), getHeight());
-    IntRect dirtyArea = drawTransform().mapRect(rect);
+    IntSize layerSize(getSize().width(), getSize().height());
+
+    FloatRect area =
+        TilesManager::instance()->shader()->projectedRect(drawTransform(), layerSize);
+    IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
+
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(), m_clippingRect.width(), m_clippingRect.height());
     dirtyArea.intersect(clip);
     glWebViewState->addDirtyArea(dirtyArea);
@@ -945,7 +949,7 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     bool askPaint = drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
     askPaint |= m_dirty;
-    if (m_dirty || m_hasRunningAnimations)
+    if (m_dirty || m_hasRunningAnimations || drawTransform().hasPerspective())
         addDirtyArea(glWebViewState);
     m_atomicSync.unlock();
     return askPaint;
