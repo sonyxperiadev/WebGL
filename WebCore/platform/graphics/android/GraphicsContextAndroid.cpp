@@ -70,10 +70,16 @@ template <typename T> T* deepCopyPtr(const T* src)
 // Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
 
 struct ShadowRec {
-    SkScalar blur; // >0 means valid shadow
+    SkScalar blur;
     SkScalar dx;
     SkScalar dy;
-    SkColor color;
+    SkColor color;  // alpha>0 means valid shadow
+    ShadowRec(SkScalar b = 0,
+              SkScalar x = 0,
+              SkScalar y = 0,
+              SkColor c = 0) // by default, alpha=0, so no shadow
+            : blur(b), dx(x), dy(y), color(c)
+        {};
 };
 
 class GraphicsContextPlatformPrivate {
@@ -110,7 +116,6 @@ public:
             , strokeColor(SK_ColorBLACK)
             , useAA(true)
         {
-            shadow.blur = 0;
         }
 
         State(const State& other)
@@ -252,7 +257,7 @@ public:
         paint->setAntiAlias(m_state->useAA);
         paint->setDither(true);
         paint->setXfermodeMode(m_state->mode);
-        if (m_state->shadow.blur > 0) {
+        if (SkColorGetA(m_state->shadow.color) > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(m_state->shadow.blur,
                                                         m_state->shadow.dx,
                                                         m_state->shadow.dy,
