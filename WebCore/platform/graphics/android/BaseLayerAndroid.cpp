@@ -258,7 +258,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
 }
 #endif // USE(ACCELERATED_COMPOSITING)
 
-bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
+bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
+                              IntRect& viewRect, SkRect& visibleRect,
                               float scale, SkColor color)
 {
     bool needsRedraw = false;
@@ -293,8 +294,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     if (!needsRedraw)
         m_glWebViewState->resetFrameworkInval();
 
-    if (countChildren() >= 1) {
-        LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
+    if (compositedRoot) {
         TransformationMatrix ident;
 
         bool animsRunning = compositedRoot->evaluateAnimations();
@@ -324,23 +324,31 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
             scale = m_glWebViewState->futureScale();
         }
+        bool fullSetup = true;
+        if ((m_glWebViewState->previouslyUsedRoot() == compositedRoot) &&
+            (compositedRoot->getScale() == scale) &&
+            (!m_glWebViewState->moving()))
+            fullSetup = false;
+
         compositedRoot->setScale(scale);
-        compositedRoot->computeTextureSize(currentTime);
-        compositedRoot->reserveGLTextures();
+
+        if (fullSetup) {
+            compositedRoot->computeTextureSize(currentTime);
+            compositedRoot->reserveGLTextures();
 
 #ifdef DEBUG
-        int size = compositedRoot->countTextureSize();
-        int nbLayers = compositedRoot->nbLayers();
-        XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
-        compositedRoot->showLayers();
+            int size = compositedRoot->countTextureSize();
+            int nbLayers = compositedRoot->nbLayers();
+            XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
+            compositedRoot->showLayers();
 #endif
-
-        // Now that we marked the textures being used, we delete
-        // the unnecessary ones to make space...
-        TilesManager::instance()->cleanupLayersTextures(compositedRoot);
-        // Finally do another pass to create new textures and schedule
-        // repaints if needed
-        compositedRoot->createGLTextures();
+            // Now that we marked the textures being used, we delete
+            // the unnecessary ones to make space...
+            TilesManager::instance()->cleanupLayersTextures(compositedRoot);
+            // Finally do another pass to create new textures and schedule
+            // repaints if needed
+            compositedRoot->createGLTextures();
+        }
 
         if (compositedRoot->drawGL(m_glWebViewState, matrix))
             needsRedraw = true;
