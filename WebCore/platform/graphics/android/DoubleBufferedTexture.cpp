@@ -102,6 +102,18 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
     return context;
 }
 
+void DoubleBufferedTexture::producerDeleteTextures()
+{
+    m_textureA.lock();
+    m_textureB.lock();
+    LOGV("Deleting Producer Textures A/B (%d:%d)", m_textureA.getSourceTextureId(),
+                                                   m_textureB.getSourceTextureId());
+    m_textureA.deleteSourceTexture();
+    m_textureB.deleteSourceTexture();
+    m_textureA.unlock();
+    m_textureB.unlock();
+}
+
 TextureInfo* DoubleBufferedTexture::producerLock()
 {
     SharedTexture* sharedTex = getWriteableTexture();

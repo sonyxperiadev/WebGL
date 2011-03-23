@@ -80,6 +80,7 @@ public:
     void unlock() { m_lock.unlock(); }
 
     void initSourceTexture(); // producer thread only
+    void deleteSourceTexture(); // producer thread only
     GLuint getSourceTextureId() { return m_sourceTexture.m_textureId; }
     GLuint getTargetTextureId() { return m_targetTexture.m_textureId; }
     EGLImageKHR getEGLImage() { return m_eglImage; }

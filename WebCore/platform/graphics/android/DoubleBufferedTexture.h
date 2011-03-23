@@ -42,6 +42,7 @@ public:
     virtual void producerRelease();
     virtual void producerReleaseAndSwap();
     EGLContext producerAcquireContext();
+    void producerDeleteTextures();
 
     // consumer thread functions
     TextureInfo* consumerLock();

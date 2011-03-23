@@ -77,8 +77,7 @@ SharedTexture::SharedTexture()
 
 // called by the consumer when it no longer wants to consume and after it has
 // terminated all providers. If EGLImages are used, the deletion of the
-// source texture and EGLImage is the responsibility of the caller. In the case
-// of double buffered textures this is handled in the onDestroy(...) method.
+// source texture and EGLImage is the responsibility of the caller.
 SharedTexture::~SharedTexture()
 {
     if (m_supportsEGLImage)
@@ -101,6 +100,24 @@ void SharedTexture::initSourceTexture()
     LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
 
     glGenTextures(1, &m_sourceTexture.m_textureId);
+}
+
+
+void SharedTexture::deleteSourceTexture()
+{
+    // We need to delete the source texture and EGLImage in the thread in which
+    // it was created. In theory we should be able to delete the EGLImage
+    // from either thread, but it currently throws an error if not deleted
+    // in the same EGLContext from which it was created.
+    if (m_supportsEGLImage) {
+        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
+        if (m_eglImage != EGL_NO_IMAGE_KHR) {
+            eglDestroyImageKHR(eglGetCurrentDisplay(), m_eglImage);
+            m_eglImage = EGL_NO_IMAGE_KHR;
+            m_isNewImage = true;
+        }
+        LOGI("Deleted Source Texture and EGLImage");
+    }
 }
 
 TextureInfo* SharedTexture::lockSource()
