@@ -54,7 +54,7 @@ public:
     // we are running in different threads.
     void drawCanvas(SkCanvas* canvas);
 
-    bool drawGL(IntRect& rect, SkRect& viewport,
+    bool drawGL(LayerAndroid* compositedRoot, IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:

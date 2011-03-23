@@ -69,6 +69,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_transitionTime(-1)
     , m_baseLayer(0)
     , m_currentBaseLayer(0)
+    , m_previouslyUsedRoot(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
     , m_frameworkInval(0, 0, 0, 0)
@@ -107,6 +108,9 @@ GLWebViewState::~GLWebViewState()
     delete m_tiledPageA;
     delete m_tiledPageB;
     SkSafeUnref(m_currentBaseLayer);
+    SkSafeUnref(m_baseLayer);
+    m_baseLayer = 0;
+    m_currentBaseLayer = 0;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
@@ -126,10 +130,13 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     }
     if (m_baseLayer && layer)
         m_baseLayer->swapExtra(layer);
+
+    SkSafeRef(layer);
+    SkSafeUnref(m_baseLayer);
     m_baseLayer = layer;
-    if (m_baseLayer) {
+    if (m_baseLayer)
         m_baseLayer->setGLWebViewState(this);
-    }
+
     // We only update the layers if we are not currently
     // waiting for a tiledPage to be painted
     if (m_baseLayerUpdate) {
@@ -404,16 +411,33 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
     SkSafeRef(baseLayer);
+    BaseLayerAndroid* baseForComposited = m_baseLayer;
+    SkSafeRef(baseForComposited);
     m_baseLayerLock.unlock();
-    if (!baseLayer)
+    if (!baseLayer) {
+        SkSafeUnref(baseForComposited);
         return false;
+    }
 
     XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
          rect.x(), rect.y(), rect.right(), rect.bottom(),
          viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
 
     resetLayersDirtyArea();
-    bool ret = baseLayer->drawGL(rect, viewport, scale, color);
+
+    if (!baseForComposited ||
+        (baseForComposited && !baseForComposited->countChildren())) {
+        SkSafeRef(baseLayer);
+        SkSafeUnref(baseForComposited);
+        baseForComposited = baseLayer;
+    }
+
+    LayerAndroid* compositedRoot = 0;
+    if (baseForComposited && baseForComposited->countChildren() >= 1)
+        compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
+
+    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, scale, color);
+    m_previouslyUsedRoot = compositedRoot;
     if (ret) {
         IntRect inval = m_frameworkInval;
         inval.unite(m_frameworkLayersInval);
@@ -437,6 +461,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 #endif
 
+    SkSafeUnref(baseForComposited);
     SkSafeUnref(baseLayer);
     return ret;
 }
