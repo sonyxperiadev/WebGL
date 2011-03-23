@@ -89,6 +89,8 @@ public:
         return doIRect(mUnion);
     }
 
+    bool isEmpty() { return mUnion.isEmpty(); }
+
     bool joinGlyphs(const SkIRect& rect) {
         bool isGlyph = mType == kDrawGlyph_Type;
         if (isGlyph)
@@ -188,7 +190,8 @@ public:
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
         INHERITED::drawPosText(text, byteLength, pos, paint);
-        mBounder.doRect(CommonCheck::kDrawPosText_Type);
+        if (!mBounder.isEmpty())
+            mBounder.doRect(CommonCheck::kDrawPosText_Type);
     }
 
     virtual void drawPosTextH(const void* text, size_t byteLength,
