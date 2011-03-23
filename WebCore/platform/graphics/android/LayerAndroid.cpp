@@ -243,7 +243,8 @@ bool LayerAndroid::evaluateAnimations(double time)
         gDebugNbAnims++;
         nbAnims++;
         LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
-        if ((it->second)->evaluate(currentLayer, time))
+        if (!(it->second)->finished() &&
+            (it->second)->evaluate(currentLayer, time))
             m_hasRunningAnimations = true;
     }
 
@@ -889,7 +890,7 @@ void LayerAndroid::createGLTextures()
              uniqueId(), this, m_dirty, m_reservedTexture,
              m_reservedTexture->rect().width(), m_reservedTexture->rect().height());
         PaintLayerOperation* operation = new PaintLayerOperation(this);
-        TilesManager::instance()->scheduleOperation(operation);
+        TilesManager::instance()->scheduleOperation(operation, !m_drawingTexture);
     } else {
         XLOG("We don't schedule a paint for layer %d (%x), because we already sent a request",
              uniqueId(), this);

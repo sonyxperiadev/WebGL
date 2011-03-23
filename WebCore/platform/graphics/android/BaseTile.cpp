@@ -427,9 +427,15 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
     nCanvas->translate(tx, ty);
     int pictureCount = tiledPage->paintBaseLayerContent(nCanvas);
     picture.endRecording();
-    picture.draw(&canvas);
 
-    if (TilesManager::instance()->getShowVisualIndicator()) {
+    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
+    if (visualIndicator)
+        canvas.save();
+    picture.draw(&canvas);
+    if (visualIndicator)
+        canvas.restore();
+
+    if (visualIndicator) {
         int color = 20 + pictureCount % 100;
         canvas.drawARGB(color, 0, 255, 0);
 

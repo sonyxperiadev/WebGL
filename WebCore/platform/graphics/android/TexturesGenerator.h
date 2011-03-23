@@ -54,7 +54,7 @@ public:
     void removeOperationsForTexture(LayerTexture* texture);
     void removeOperationsForFilter(OperationFilter* filter);
 
-    void scheduleOperation(QueuedOperation* operation);
+    void scheduleOperation(QueuedOperation* operation, bool scheduleFirst);
 
 private:
     virtual bool threadLoop();
