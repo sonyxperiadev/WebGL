@@ -43,33 +43,45 @@ namespace WebCore {
 MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid((RenderLayer*) NULL)
 {
     m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
-    m_bufferedTexture->incStrong(this);
+    m_bufferedTexture->producerInc();
     m_videoTexture = new VideoTexture(weakWebViewRef);
     m_videoTexture->incStrong(this);
 
+    m_isCopy = false;
     m_currentTextureInfo = 0;
     m_isContentInverted = false;
     m_outlineSize = 0;
     XLOG("Creating Media Layer %p", this);
+    XLOG("producer: %d consumer: %d", m_bufferedTexture->getProducerCount(),
+            m_bufferedTexture->getConsumerCount());
 }
 
 MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 {
     m_bufferedTexture = layer.getTexture();
-    m_bufferedTexture->incStrong(this);
+    m_bufferedTexture->consumerInc();
     m_videoTexture = layer.m_videoTexture;
     m_videoTexture->incStrong(this);
 
+    m_isCopy = true;
     m_currentTextureInfo = 0;
     m_isContentInverted = layer.m_isContentInverted;
     m_outlineSize = layer.m_outlineSize;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
+    XLOG("producer: %d consumer: %d COPY", m_bufferedTexture->getProducerCount(),
+            m_bufferedTexture->getConsumerCount());
 }
 
 MediaLayer::~MediaLayer()
 {
     XLOG("Deleting Media Layer");
-    m_bufferedTexture->decStrong(this);
+    XLOG("producer: %d consumer: %d %s", m_bufferedTexture->getProducerCount(),
+            m_bufferedTexture->getConsumerCount(), (m_isCopy) ? "COPY" : "");
+
+    if (m_isCopy)
+        m_bufferedTexture->consumerDec();
+    else
+        m_bufferedTexture->producerDec();
     m_videoTexture->decStrong(this);
 }
 

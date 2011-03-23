@@ -33,11 +33,23 @@ namespace WebCore {
 
 class VideoListener;
 
-class MediaTexture : public DoubleBufferedTexture,
-                     public android::LightRefBase<MediaTexture> {
+class MediaTexture : public DoubleBufferedTexture {
 
 public:
-    MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext) { };
+    MediaTexture(EGLContext sharedContext);
+
+    void producerInc();
+    void producerDec();
+    void consumerInc();
+    void consumerDec();
+
+    int getProducerCount() { android::Mutex::Autolock lock(m_mediaLock); return m_producerRefCount; }
+    int getConsumerCount() { android::Mutex::Autolock lock(m_mediaLock); return m_consumerRefCount; }
+
+private:
+    android::Mutex m_mediaLock;
+    int m_producerRefCount;
+    int m_consumerRefCount;
 };
 
 class VideoTexture : public android::LightRefBase<VideoTexture> {
