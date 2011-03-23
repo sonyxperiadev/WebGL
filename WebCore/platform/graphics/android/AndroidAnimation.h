@@ -53,11 +53,13 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
     AnimatedPropertyID type() { return m_type; }
+    bool finished() { return m_finished; }
 
   protected:
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
+    bool m_finished;
     int m_iterationCount;
     int m_direction;
     RefPtr<TimingFunction> m_timingFunction;
