@@ -57,6 +57,7 @@ public:
     void releaseNativeWindowForVideo(ANativeWindow* window);
 
 private:
+    bool m_isCopy;
 
     // Primary GL texture variables
     MediaTexture* m_bufferedTexture;

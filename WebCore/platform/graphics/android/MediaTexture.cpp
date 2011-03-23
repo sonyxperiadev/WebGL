@@ -48,6 +48,85 @@
 
 namespace WebCore {
 
+MediaTexture::MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext)
+{
+    m_producerRefCount = 0;
+    m_consumerRefCount = 0;
+}
+
+/* Increment the number of objects in the producer's thread that hold a reference
+ * to this object. In practice, there is often only one producer reference for
+ * the lifetime of the object.
+ */
+void MediaTexture::producerInc()
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    m_producerRefCount++;
+}
+
+/* Decrement the number of objects in the producer's thread that are holding a
+ * reference to this object. When removing the last reference we must cleanup
+ * all GL objects that are associated with the producer's thread. There may not
+ * be a consumer reference as the object may not have synced to the UI thread,
+ * in which case the producer needs to handle the deletion of the object.
+ */
+void MediaTexture::producerDec()
+{
+    bool needsDeleted = false;
+
+    m_mediaLock.lock();
+    m_producerRefCount--;
+    if (m_producerRefCount == 0) {
+        producerDeleteTextures();
+        if (m_consumerRefCount < 1) {
+            XLOG("INFO: This texture has not been synced to the UI thread");
+            needsDeleted = true;
+        }
+    }
+    m_mediaLock.unlock();
+
+    if (needsDeleted) {
+        XLOG("Deleting MediaTexture Object");
+        delete this;
+    }
+}
+
+/* Increment the number of objects in the consumer's thread that hold a reference
+ * to this object. In practice, there can be multiple producer references as the
+ * consumer (i.e. UI) thread may have multiple copies of the layer tree.
+ */
+void MediaTexture::consumerInc()
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    m_consumerRefCount++;
+}
+
+/* Decrement the number of objects in the consumer's thread that are holding a
+ * reference to this object. When removing the last reference we must delete
+ * this object and by extension cleanup all GL objects that are associated with
+ * the consumer's thread. At the time of deletion there should be no remaining
+ * producer references.
+ */
+void MediaTexture::consumerDec()
+{
+    bool needsDeleted = false;
+
+    m_mediaLock.lock();
+    m_consumerRefCount--;
+    if (m_consumerRefCount == 0) {
+        needsDeleted = true;
+        if (m_producerRefCount != 0) {
+            XLOG("ERROR: We should not delete the consumer before the producer is finished");
+        }
+    }
+    m_mediaLock.unlock();
+
+    if (needsDeleted) {
+        XLOG("Deleting MediaTexture Object");
+        delete this;
+    }
+}
+
 VideoTexture::VideoTexture(jobject weakWebViewRef) : android::LightRefBase<VideoTexture>()
 {
     m_weakWebViewRef = weakWebViewRef;
