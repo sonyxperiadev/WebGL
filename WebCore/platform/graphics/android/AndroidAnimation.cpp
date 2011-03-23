@@ -60,6 +60,7 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
                                    double beginTime)
     : m_beginTime(beginTime)
     , m_duration(animation->duration())
+    , m_finished(false)
     , m_iterationCount(animation->iterationCount())
     , m_direction(animation->direction())
     , m_timingFunction(animation->timingFunction())
@@ -77,6 +78,7 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
 AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     : m_beginTime(anim->m_beginTime)
     , m_duration(anim->m_duration)
+    , m_finished(anim->m_finished)
     , m_iterationCount(anim->m_iterationCount)
     , m_direction(anim->m_direction)
     , m_timingFunction(anim->m_timingFunction)
@@ -118,8 +120,10 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
         return false;
 
     // If not infinite, return false if we are done
-    if (m_iterationCount > 0 && progress > dur)
+    if (m_iterationCount > 0 && progress > dur) {
+        *finalProgress = 1.0;
         return false;
+    }
 
     double fractionalTime = progress / m_duration;
     int integralTime = static_cast<int>(fractionalTime);
@@ -280,8 +284,11 @@ PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
 bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 {
     float progress;
-    if (!checkIterationsAndProgress(time, &progress))
-        return false;
+    bool ret = true;
+    if (!checkIterationsAndProgress(time, &progress)) {
+        m_finished = true;
+        ret = false;
+    }
 
     if (progress < 0) // we still want to be evaluated until we get progress > 0
         return true;
@@ -292,7 +299,7 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
          , m_operations->size(), progress, layer->uniqueId(), size.width(), size.height());
 
     if (!m_operations->size())
-        return true;
+        return false;
 
     // First, we need to get the from and to values
 
@@ -351,7 +358,7 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
     // Set the final transform on the layer
     layer->setTransform(transformMatrix);
 
-    return true;
+    return ret;
 }
 
 } // namespace WebCore

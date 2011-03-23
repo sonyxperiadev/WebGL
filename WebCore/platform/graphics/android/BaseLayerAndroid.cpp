@@ -345,15 +345,20 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
             // Now that we marked the textures being used, we delete
             // the unnecessary ones to make space...
             TilesManager::instance()->cleanupLayersTextures(compositedRoot);
-            // Finally do another pass to create new textures and schedule
-            // repaints if needed
-            compositedRoot->createGLTextures();
         }
+        // Finally do another pass to create new textures and schedule
+        // repaints if needed
+        compositedRoot->createGLTextures();
 
         if (compositedRoot->drawGL(m_glWebViewState, matrix))
             needsRedraw = true;
         else if (!animsRunning)
             m_glWebViewState->resetLayersDirtyArea();
+
+        if (animsRunning) {
+            m_glWebViewState->resetLayersDirtyArea();
+            m_glWebViewState->resetFrameworkInval();
+        }
 
     } else {
         TilesManager::instance()->cleanupLayersTextures(0);
