@@ -51,7 +51,7 @@
 
 namespace WebCore {
 
-void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
+void TexturesGenerator::scheduleOperation(QueuedOperation* operation, bool scheduleFirst)
 {
     {
         android::Mutex::Autolock lock(mRequestedOperationsLock);
@@ -68,7 +68,10 @@ void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
             }
         }
 
-        mRequestedOperations.append(operation);
+        if (scheduleFirst)
+            mRequestedOperations.prepend(operation);
+        else
+            mRequestedOperations.append(operation);
     }
     mRequestedOperationsCond.signal();
 }

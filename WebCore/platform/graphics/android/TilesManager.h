@@ -67,9 +67,9 @@ public:
         m_pixmapsGenerationThread->removeOperationsForTexture(texture);
     }
 
-    void scheduleOperation(QueuedOperation* operation)
+    void scheduleOperation(QueuedOperation* operation, bool scheduleFirst = false)
     {
-        m_pixmapsGenerationThread->scheduleOperation(operation);
+        m_pixmapsGenerationThread->scheduleOperation(operation, scheduleFirst);
     }
 
     ShaderProgram* shader() { return &m_shader; }
