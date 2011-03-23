@@ -317,9 +317,10 @@ public:
         }
 
         if (width > 0) {
-            SkScalar intervals[] = { width, width };
-            pe = new SkDashPathEffect(intervals, 2, 0);
-            paint->setPathEffect(pe)->unref();
+            // TODO: Add this back when SkDashPathEffect's performance has been improved
+            //SkScalar intervals[] = { width, width };
+            //pe = new SkDashPathEffect(intervals, 2, 0);
+            //paint->setPathEffect(pe)->unref();
             // Return true if we're basically a dotted dash of squares
             return RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
         }
