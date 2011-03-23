@@ -54,6 +54,10 @@ bool logMessageHandler(int severity, const char* file, int line, size_t message_
     return false;
 }
 
+namespace {
+    scoped_ptr<net::NetworkChangeNotifier> networkChangeNotifier;
+}
+
 void initChromium()
 {
     static Lock lock;
@@ -61,6 +65,7 @@ void initChromium()
     static bool initCalled = false;
     if (!initCalled) {
         logging::SetLogMessageHandler(logMessageHandler);
+        networkChangeNotifier.reset(net::NetworkChangeNotifier::Create());
         net::HttpNetworkLayer::EnableSpdy("npn");
         initCalled = true;
     }
