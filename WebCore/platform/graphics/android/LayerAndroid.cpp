@@ -928,8 +928,10 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     TilesManager::instance()->shader()->clip(m_clippingRect);
 
-    if (prepareContext() && m_drawingTexture) {
+    if (m_drawingTexture) {
         TextureInfo* textureInfo = m_drawingTexture->consumerLock();
+        if (!m_drawingTexture->readyFor(this))
+            m_dirty = true;
         if (textureInfo) {
             SkRect bounds;
             bounds.set(m_drawingTexture->rect());
@@ -943,6 +945,8 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
                                                               m_drawOpacity, true);
         }
         m_drawingTexture->consumerRelease();
+    } else {
+        m_dirty = true;
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.

@@ -226,6 +226,7 @@ public:
     void resetFrameworkInval();
     void addDirtyArea(const IntRect& rect);
     void resetLayersDirtyArea();
+    LayerAndroid* previouslyUsedRoot() { return m_previouslyUsedRoot; }
 
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
@@ -258,6 +259,8 @@ private:
     android::Mutex m_baseLayerLock;
     BaseLayerAndroid* m_baseLayer;
     BaseLayerAndroid* m_currentBaseLayer;
+    LayerAndroid* m_previouslyUsedRoot;
+
     unsigned int m_currentPictureCounter;
     bool m_usePageA;
     TiledPage* m_tiledPageA;
