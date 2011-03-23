@@ -163,11 +163,15 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
     if (!(ts > 0))
         ts = 12;
 
+    if (hashTableDeletedFontValue() == mTypeface)
+        paint->setTypeface(0);
+    else
+        paint->setTypeface(mTypeface);
+
     paint->setAntiAlias(true);
     paint->setSubpixelText(true);
     paint->setHinting(SkPaint::kSlight_Hinting);
     paint->setTextSize(SkFloatToScalar(ts));
-    paint->setTypeface(mTypeface);
     paint->setFakeBoldText(mFakeBold);
     paint->setTextSkewX(mFakeItalic ? -SK_Scalar1/4 : 0);
 #ifndef SUPPORT_COMPLEX_SCRIPTS
@@ -177,7 +181,10 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
 
 uint32_t FontPlatformData::uniqueID() const
 {
-    return mTypeface->uniqueID();
+    if (hashTableDeletedFontValue() == mTypeface)
+        return SkTypeface::UniqueID(0);
+    else
+        return SkTypeface::UniqueID(mTypeface);
 }
 
 bool FontPlatformData::operator==(const FontPlatformData& a) const
@@ -207,7 +214,10 @@ unsigned FontPlatformData::hash() const
 
 bool FontPlatformData::isFixedPitch() const
 {
-    return mTypeface ? mTypeface->isFixedWidth() : false;
+    if (mTypeface && (mTypeface != hashTableDeletedFontValue()))
+        return mTypeface->isFixedWidth();
+    else
+        return false;
 }
 
 HB_FaceRec_* FontPlatformData::harfbuzzFace() const
