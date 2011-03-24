@@ -234,6 +234,7 @@ public:
     */
     void setContentsImage(SkBitmapRef* img);
     bool hasContentsImage() { return m_contentsImage; }
+    void copyBitmap(SkBitmap*);
 
     void bounds(SkRect*) const;
 
@@ -304,7 +305,7 @@ private:
     // it is a much faster method than using m_recordingPicture.
     SkPicture* m_recordingPicture;
 
-    SkBitmapRef* m_contentsImage;
+    SkBitmap* m_contentsImage;
 
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;

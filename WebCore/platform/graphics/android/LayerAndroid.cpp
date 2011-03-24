@@ -92,6 +92,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : SkLayer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
+    m_contentsImage(0),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
     m_drawingTexture(0),
@@ -100,8 +101,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_owningLayer(layer.m_owningLayer)
 {
     m_isFixed = layer.m_isFixed;
-    m_contentsImage = layer.m_contentsImage;
-    SkSafeRef(m_contentsImage);
+    copyBitmap(layer.m_contentsImage);
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backgroundColor = layer.m_backgroundColor;
@@ -202,7 +202,7 @@ LayerAndroid::~LayerAndroid()
     removeTexture(0);
     removeChildren();
     delete m_extra;
-    SkSafeUnref(m_contentsImage);
+    delete m_contentsImage;
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
@@ -650,9 +650,23 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
         this->getChild(i)->updateGLPositions(localMatrix, drawClip(), opacity);
 }
 
+void LayerAndroid::copyBitmap(SkBitmap* bitmap)
+{
+    if (!bitmap)
+        return;
+
+    delete m_contentsImage;
+    m_contentsImage = new SkBitmap();
+    SkBitmap::Config config = bitmap->config();
+    int w = bitmap->width();
+    int h = bitmap->height();
+    m_contentsImage->setConfig(config, w, h);
+    bitmap->copyTo(m_contentsImage, config);
+}
+
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
 {
-    SkRefCnt_SafeAssign(m_contentsImage, img);
+    copyBitmap(&img->bitmap());
 }
 
 bool LayerAndroid::needsTexture()
@@ -930,9 +944,8 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 
     if (m_drawingTexture) {
         TextureInfo* textureInfo = m_drawingTexture->consumerLock();
-        if (!m_drawingTexture->readyFor(this))
-            m_dirty = true;
-        if (textureInfo) {
+        bool ready = m_drawingTexture->readyFor(this);
+        if (textureInfo && (!m_contentsImage || (ready && m_contentsImage))) {
             SkRect bounds;
             bounds.set(m_drawingTexture->rect());
             XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)",
@@ -944,6 +957,8 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
                                                               textureInfo->m_textureId,
                                                               m_drawOpacity, true);
         }
+        if (!ready)
+            m_dirty = true;
         m_drawingTexture->consumerRelease();
     } else if (needsTexture()) {
         m_dirty = true;
@@ -1034,14 +1049,18 @@ void LayerAndroid::paintBitmapGL()
     IntRect textureRect = texture->rect();
     canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
 
-    SkPicture picture;
-    SkCanvas* nCanvas = picture.beginRecording(textureRect.width(),
-                                               textureRect.height());
-    nCanvas->scale(scale, scale);
-    nCanvas->translate(-textureRect.x(), -textureRect.y());
-    contentDraw(nCanvas);
-    picture.endRecording();
-    picture.draw(canvas);
+    if (m_contentsImage) {
+        contentDraw(canvas);
+    } else {
+        SkPicture picture;
+        SkCanvas* nCanvas = picture.beginRecording(textureRect.width(),
+                                                   textureRect.height());
+        nCanvas->scale(scale, scale);
+        nCanvas->translate(-textureRect.x(), -textureRect.y());
+        contentDraw(nCanvas);
+        picture.endRecording();
+        picture.draw(canvas);
+    }
     extraDraw(canvas);
 
     m_atomicSync.lock();
@@ -1071,7 +1090,7 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
     if (m_contentsImage) {
       SkRect dest;
       dest.set(0, 0, getSize().width(), getSize().height());
-      canvas->drawBitmapRect(m_contentsImage->bitmap(), 0, dest);
+      canvas->drawBitmapRect(*m_contentsImage, 0, dest);
     } else {
       canvas->drawPicture(*m_recordingPicture);
     }
