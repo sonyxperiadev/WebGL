@@ -234,7 +234,8 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
     m_invalTilesRegion.setEmpty();
 }
 
-void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds)
+void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds,
+                        bool scheduleFirst)
 {
     if (!m_glWebViewState)
         return;
@@ -254,23 +255,25 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     const int baseContentHeight = m_glWebViewState->baseContentHeight();
     const int baseContentWidth = m_glWebViewState->baseContentWidth();
 
-    TileSet* highResSet = new TileSet(this, nbTilesHeight, nbTilesWidth);
+    TileSet* set = new TileSet(this, nbTilesHeight, nbTilesWidth);
 
-    // Expand number of tiles to allow tiles outside of viewport to be prepared for
-    // smoother scrolling.
-    int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
-    int nMaxTilesPerPage = m_baseTileSize / 2;
-    int expandX = TilesManager::instance()->expandedTileBoundsX();
-    int expandY = TilesManager::instance()->expandedTileBoundsY();
-    if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
-        firstTileX -= expandX;
-        lastTileX += expandX;
-        nbTilesWidth += expandX * 2;
-    }
-    if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
-        firstTileY -= expandY;
-        lastTileY += expandY;
-        nbTilesHeight += expandY * 2;
+    if (!scheduleFirst) {
+        // Expand number of tiles to allow tiles outside of viewport to be prepared for
+        // smoother scrolling.
+        int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
+        int nMaxTilesPerPage = m_baseTileSize / 2;
+        int expandX = TilesManager::instance()->expandedTileBoundsX();
+        int expandY = TilesManager::instance()->expandedTileBoundsY();
+        if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
+            firstTileX -= expandX;
+            lastTileX += expandX;
+            nbTilesWidth += expandX * 2;
+        }
+        if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
+            firstTileY -= expandY;
+            lastTileY += expandY;
+            nbTilesHeight += expandY * 2;
+        }
     }
 
     // We chose to prepare tiles depending on the scroll direction. Tiles are
@@ -279,16 +282,16 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     // to the are processed first.
     if (goingDown) {
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, lastTileY - i, highResSet);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, lastTileY - i, set);
     } else {
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, highResSet);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, set);
     }
 
     // The paint operation will take ownership of the tileSet here, so no delete
     // is necessary.
-    PaintTileSetOperation* operation = new PaintTileSetOperation(highResSet);
-    TilesManager::instance()->scheduleOperation(operation);
+    PaintTileSetOperation* operation = new PaintTileSetOperation(set);
+    TilesManager::instance()->scheduleOperation(operation, scheduleFirst);
 }
 
 bool TiledPage::ready(const SkIRect& tileBounds, float scale)
@@ -296,7 +299,7 @@ bool TiledPage::ready(const SkIRect& tileBounds, float scale)
     if (!m_glWebViewState)
         return false;
 
-    if (!m_invalRegion.isEmpty() && !m_prepare)
+    if (!m_prepare)
         return false;
 
     if (m_scale != scale)

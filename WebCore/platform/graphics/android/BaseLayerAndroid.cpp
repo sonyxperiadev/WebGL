@@ -169,7 +169,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
         m_glWebViewState->lockBaseLayerUpdate();
-        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds, true);
     }
 
     float transparency = 1;
@@ -240,7 +240,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         if (!zooming)
            m_glWebViewState->unlockBaseLayerUpdate();
 
-        tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
+        tiledPage->prepare(goingDown, goingLeft, preZoomBounds, true);
         tiledPage->draw(transparency, preZoomBounds);
     }
 
