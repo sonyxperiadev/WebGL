@@ -120,6 +120,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsNotifyClient(false),
     m_haveContents(false),
     m_haveImage(false),
+    m_newImage(false),
+    m_imageRef(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -623,6 +625,14 @@ bool GraphicsLayerAndroid::repaint()
 
         return true;
     }
+    if (m_needsRepaint && m_haveImage && m_newImage) {
+        // We need to tell the GL thread that we will need to repaint the
+        // texture. Only do so if we effectively have a new image!
+        m_contentLayer->needsRepaint();
+        m_newImage = false;
+        m_needsRepaint = false;
+        return true;
+    }
     return false;
 }
 
@@ -834,9 +844,15 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
     if (image) {
         m_haveContents = true;
         m_haveImage = true;
-        m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
-        setNeedsDisplay();
-        askForSync();
+        // Only pass the new image if it's a different one
+        if (image->nativeImageForCurrentFrame() != m_imageRef) {
+            m_newImage = true;
+            m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
+            // remember the passed image.
+            m_imageRef = image->nativeImageForCurrentFrame();
+            setNeedsDisplay();
+            askForSync();
+        }
     }
 }
 
