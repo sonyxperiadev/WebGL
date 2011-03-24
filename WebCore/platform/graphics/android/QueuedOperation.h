@@ -32,13 +32,14 @@ namespace WebCore {
 
 class QueuedOperation {
  public:
-    enum OperationType { Undefined, PaintTileSet, PaintLayer, DeleteTexture };
+    enum OperationType { Undefined, PaintTile, PaintLayer, DeleteTexture };
     QueuedOperation(OperationType type, TiledPage* page)
         : m_type(type)
         , m_page(page) {}
     virtual ~QueuedOperation() {}
     virtual void run() = 0;
     virtual bool operator==(const QueuedOperation* operation) = 0;
+    virtual int priority() { return -1; }
     OperationType type() const { return m_type; }
     TiledPage* page() const { return m_page; }
  private:
@@ -58,6 +59,20 @@ class PageFilter : public OperationFilter {
     virtual bool check(QueuedOperation* operation)
     {
         if (operation->page() == m_page)
+            return true;
+        return false;
+    }
+ private:
+    TiledPage* m_page;
+};
+
+class PagePaintFilter : public OperationFilter {
+ public:
+    PagePaintFilter(TiledPage* page) : m_page(page) {}
+    virtual bool check(QueuedOperation* operation)
+    {
+        if (operation->type() == QueuedOperation::PaintTile
+                && operation->page() == m_page)
             return true;
         return false;
     }
