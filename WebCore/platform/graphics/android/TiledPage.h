@@ -57,7 +57,8 @@ public:
     TiledPage* sibling();
 
     // prepare the page for display on the screen
-    void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds);
+    void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds,
+                 bool scheduleFirst = false);
     // check to see if the page is ready for display
     bool ready(const SkIRect& tileBounds, float scale);
     // draw the page on the screen
