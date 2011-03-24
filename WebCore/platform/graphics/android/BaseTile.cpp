@@ -66,6 +66,7 @@ BaseTile::BaseTile()
     , m_texture(0)
     , m_scale(1)
     , m_dirty(true)
+    , m_repaintPending(false)
     , m_usable(true)
     , m_lastDirtyPicture(0)
     , m_fullRepaintA(true)
@@ -166,10 +167,29 @@ bool BaseTile::isDirty()
     return m_dirty;
 }
 
+bool BaseTile::isRepaintPending()
+{
+    android::AutoMutex lock(m_atomicSync);
+    return m_repaintPending;
+}
+
+void BaseTile::setRepaintPending(bool pending)
+{
+    android::AutoMutex lock(m_atomicSync);
+    m_repaintPending = pending;
+}
+
 void BaseTile::setUsedLevel(int usedLevel)
 {
     if (m_texture)
         m_texture->setUsedLevel(usedLevel);
+}
+
+int BaseTile::usedLevel()
+{
+    if (m_texture)
+        return m_texture->usedLevel();
+    return -1;
 }
 
 void BaseTile::draw(float transparency, SkRect& rect)

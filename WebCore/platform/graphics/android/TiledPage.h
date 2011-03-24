@@ -31,7 +31,6 @@
 #include "BaseTile.h"
 #include "SkCanvas.h"
 #include "SkRegion.h"
-#include "TileSet.h"
 
 namespace WebCore {
 
@@ -57,8 +56,7 @@ public:
     TiledPage* sibling();
 
     // prepare the page for display on the screen
-    void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds,
-                 bool scheduleFirst = false);
+    void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds);
     // check to see if the page is ready for display
     bool ready(const SkIRect& tileBounds, float scale);
     // draw the page on the screen
@@ -75,10 +73,13 @@ public:
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
     void setUsable(bool usable);
     void updateBaseTileSize();
+    bool scrollingDown() { return m_scrollingDown; }
+    SkIRect* expandedTileBounds() { return &m_expandedTileBounds; }
 
 private:
     void updateTileState(const SkIRect& tileBounds);
-    void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
+    void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds);
+    void updateTileUsedLevel(const SkIRect& tileBounds, BaseTile& tile);
 
     BaseTile* getBaseTile(int x, int y) const;
 
@@ -103,6 +104,8 @@ private:
     SkRegion m_invalTilesRegion;
     unsigned int m_latestPictureInval;
     bool m_prepare;
+    bool m_scrollingDown;
+    SkIRect m_expandedTileBounds;
 };
 
 } // namespace WebCore

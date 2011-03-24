@@ -163,13 +163,19 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         zooming = true;
     }
 
+    // Display the current page
+    TiledPage* tiledPage = m_glWebViewState->frontPage();
+    tiledPage->setScale(m_glWebViewState->currentScale());
+
     // Let's prepare the page if needed
     if (prepareNextTiledPage) {
         TiledPage* nextTiledPage = m_glWebViewState->backPage();
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
         m_glWebViewState->lockBaseLayerUpdate();
-        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds, true);
+        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        // Cancel pending paints for the foreground page
+        TilesManager::instance()->removePaintOperationsForPage(tiledPage, false);
     }
 
     float transparency = 1;
@@ -205,9 +211,6 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         }
     }
 
-    // Display the current page
-    TiledPage* tiledPage = m_glWebViewState->frontPage();
-    tiledPage->setScale(m_glWebViewState->currentScale());
     const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
 
     TiledPage* nextTiledPage = m_glWebViewState->backPage();
@@ -240,7 +243,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         if (!zooming)
            m_glWebViewState->unlockBaseLayerUpdate();
 
-        tiledPage->prepare(goingDown, goingLeft, preZoomBounds, true);
+        if (!prepareNextTiledPage)
+            tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
         tiledPage->draw(transparency, preZoomBounds);
     }
 
