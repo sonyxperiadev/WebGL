@@ -299,7 +299,7 @@ bool TiledPage::ready(const SkIRect& tileBounds, float scale)
     if (!m_glWebViewState)
         return false;
 
-    if (!m_prepare)
+    if (!m_invalRegion.isEmpty() && !m_prepare)
         return false;
 
     if (m_scale != scale)
