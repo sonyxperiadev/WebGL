@@ -104,8 +104,9 @@ void MediaTexture::consumerInc()
 /* Decrement the number of objects in the consumer's thread that are holding a
  * reference to this object. When removing the last reference we must delete
  * this object and by extension cleanup all GL objects that are associated with
- * the consumer's thread. At the time of deletion there should be no remaining
- * producer references.
+ * the consumer's thread. At the time of deletion if there is a remaining
+ * producer reference we must cleanup the consumer GL objects in the event that
+ * this texture will not be re-synced with the UI thread.
  */
 void MediaTexture::consumerDec()
 {
@@ -114,9 +115,10 @@ void MediaTexture::consumerDec()
     m_mediaLock.lock();
     m_consumerRefCount--;
     if (m_consumerRefCount == 0) {
-        needsDeleted = true;
-        if (m_producerRefCount != 0) {
-            XLOG("ERROR: We should not delete the consumer before the producer is finished");
+        consumerDeleteTextures();
+        if (m_producerRefCount < 1) {
+            XLOG("WARNING: This texture still exists within webkit.");
+            needsDeleted = true;
         }
     }
     m_mediaLock.unlock();

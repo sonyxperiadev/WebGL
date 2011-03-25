@@ -47,6 +47,7 @@ public:
     // consumer thread functions
     TextureInfo* consumerLock();
     void consumerRelease();
+    void consumerDeleteTextures();
 
 protected:
     SharedTexture* getReadableTexture();
