@@ -62,6 +62,37 @@ template <typename T> T* deepCopyPtr(const T* src)
     return src ? new T(*src) : 0;
 }
 
+// Set a bitmap shader that mimics dashing by width-on, width-off.
+// Returns false if it could not succeed (e.g. there was an existing shader)
+static bool setBitmapDash(SkPaint* paint, int width) {
+    if (width <= 0 || paint->getShader())
+        return false;
+
+    SkColor c = paint->getColor();
+
+    SkBitmap bm;
+    bm.setConfig(SkBitmap::kARGB_8888_Config, 2, 1);
+    bm.allocPixels();
+    bm.lockPixels();
+
+    // set the ON pixel
+    *bm.getAddr32(0, 0) = SkPreMultiplyARGB(0xFF, SkColorGetR(c),
+                                            SkColorGetG(c), SkColorGetB(c));
+    // set the OFF pixel
+    *bm.getAddr32(1, 0) = 0;
+    bm.unlockPixels();
+
+    SkMatrix matrix;
+    matrix.setScale(SkIntToScalar(width), SK_Scalar1);
+
+    SkShader* s = SkShader::CreateBitmapShader(bm, SkShader::kRepeat_TileMode,
+                                               SkShader::kClamp_TileMode);
+    s->setLocalMatrix(matrix);
+
+    paint->setShader(s)->unref();
+    return true;
+}
+
 // TODO / questions
 
 // alpha: how does this interact with the alpha in Color? multiply them together?
@@ -277,7 +308,7 @@ public:
 
     // Sets up the paint for stroking. Returns true if the style is really
     // just a dash of squares (the size of the paint's stroke-width.
-    bool setupPaintStroke(SkPaint* paint, SkRect* rect)
+    bool setupPaintStroke(SkPaint* paint, SkRect* rect, bool isHLine = false)
     {
         this->setupPaintCommon(paint);
         paint->setColor(m_state->applyAlpha(m_state->strokeColor));
@@ -317,12 +348,19 @@ public:
         }
 
         if (width > 0) {
-            // TODO: Add this back when SkDashPathEffect's performance has been improved
-            //SkScalar intervals[] = { width, width };
-            //pe = new SkDashPathEffect(intervals, 2, 0);
-            //paint->setPathEffect(pe)->unref();
             // Return true if we're basically a dotted dash of squares
-            return RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
+            bool justSqrs = RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
+
+            if (justSqrs || !isHLine || !setBitmapDash(paint, width)) {
+#if 0
+                // this is slow enough that we just skip it for now
+                // see http://b/issue?id=4163023
+                SkScalar intervals[] = { width, width };
+                pe = new SkDashPathEffect(intervals, 2, 0);
+                paint->setPathEffect(pe)->unref();
+#endif
+            }
+            return justSqrs;
         }
         return false;
     }
@@ -520,7 +558,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     const int idy = SkAbs32(point2.y() - point1.y());
 
     // Special-case horizontal and vertical lines that are really just dots
-    if (m_data->setupPaintStroke(&paint, 0) && (!idx || !idy)) {
+    if (m_data->setupPaintStroke(&paint, 0, !idy) && (!idx || !idy)) {
         const SkScalar diameter = paint.getStrokeWidth();
         const SkScalar radius = SkScalarHalf(diameter);
         SkScalar x = SkIntToScalar(SkMin32(point1.x(), point2.x()));
