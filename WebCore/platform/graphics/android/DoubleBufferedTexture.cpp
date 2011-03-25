@@ -114,6 +114,18 @@ void DoubleBufferedTexture::producerDeleteTextures()
     m_textureB.unlock();
 }
 
+void DoubleBufferedTexture::consumerDeleteTextures()
+{
+    m_textureA.lock();
+    m_textureB.lock();
+    LOGV("Deleting Consumer Textures A/B (%d:%d)", m_textureA.getTargetTextureId(),
+                                                   m_textureB.getTargetTextureId());
+    m_textureA.deleteTargetTexture();
+    m_textureB.deleteTargetTexture();
+    m_textureA.unlock();
+    m_textureB.unlock();
+}
+
 TextureInfo* DoubleBufferedTexture::producerLock()
 {
     SharedTexture* sharedTex = getWriteableTexture();

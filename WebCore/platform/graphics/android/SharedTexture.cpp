@@ -80,10 +80,7 @@ SharedTexture::SharedTexture()
 // source texture and EGLImage is the responsibility of the caller.
 SharedTexture::~SharedTexture()
 {
-    if (m_supportsEGLImage)
-        GLUtils::deleteTexture(&m_targetTexture.m_textureId);
-    else
-        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
+    deleteTargetTexture();
 }
 
 void SharedTexture::initSourceTexture()
@@ -118,6 +115,14 @@ void SharedTexture::deleteSourceTexture()
         }
         LOGI("Deleted Source Texture and EGLImage");
     }
+}
+
+void SharedTexture::deleteTargetTexture()
+{
+    if (m_supportsEGLImage)
+        GLUtils::deleteTexture(&m_targetTexture.m_textureId);
+    else
+        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
 }
 
 TextureInfo* SharedTexture::lockSource()
