@@ -83,8 +83,9 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     float shadowBlur;
     Color shadowColor;
     bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor);
-
-    if (hasShadow || (mode == (cTextStroke & cTextFill))) {
+    bool hasBothStrokeAndFill =
+        (mode & (cTextStroke | cTextFill)) == (cTextStroke | cTextFill);
+    if (hasShadow || hasBothStrokeAndFill) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
 
