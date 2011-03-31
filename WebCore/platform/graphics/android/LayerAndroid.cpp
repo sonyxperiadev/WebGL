@@ -946,7 +946,7 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
                                                               m_drawOpacity, true);
         }
         m_drawingTexture->consumerRelease();
-    } else {
+    } else if (needsTexture()) {
         m_dirty = true;
     }
 
