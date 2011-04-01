@@ -230,6 +230,11 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
     if (progress < 0) // we still want to be evaluated until we get progress > 0
         return true;
 
+    if (progress >= 1) {
+        m_finished = true;
+        return false;
+    }
+
     // First, we need to get the from and to values
 
     int from, to;
@@ -292,6 +297,11 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 
     if (progress < 0) // we still want to be evaluated until we get progress > 0
         return true;
+
+    if (progress >= 1) {
+        m_finished = true;
+        return false;
+    }
 
     IntSize size(layer->getSize().width(), layer->getSize().height());
     TransformationMatrix matrix;
