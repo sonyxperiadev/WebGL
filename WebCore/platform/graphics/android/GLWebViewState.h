@@ -214,7 +214,8 @@ public:
     }
 
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
-                float scale, SkColor color = SK_ColorWHITE);
+                IntRect& webViewRect, int titleBarHeight,
+                IntRect& clip, float scale, SkColor color = SK_ColorWHITE);
 
     void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
     SkColor getBackgroundColor() { return m_backgroundColor; }
