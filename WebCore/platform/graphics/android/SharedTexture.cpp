@@ -156,8 +156,9 @@ void SharedTexture::releaseSource()
             m_targetTexture.copyAttributes(&m_sourceTexture);
         }
 
-        // create an image from the texture
-        if (m_eglImage == EGL_NO_IMAGE_KHR) {
+        // create an image from the texture, only when the texture is valid
+        if (m_eglImage == EGL_NO_IMAGE_KHR && m_sourceTexture.m_width
+            && m_sourceTexture.m_height) {
             GLUtils::createEGLImageFromTexture(m_sourceTexture.m_textureId, &m_eglImage);
             LOGV("Generating Image (%d) 0x%x", m_sourceTexture.m_textureId, m_eglImage);
 
