@@ -313,7 +313,8 @@ void GLWebViewState::swapPages()
     android::Mutex::Autolock lock(m_tiledPageLock);
     m_usePageA ^= true;
     TiledPage* working = m_usePageA ? m_tiledPageB : m_tiledPageA;
-    TilesManager::instance()->resetTextureUsage(working);
+    if (m_scaleRequestState != kNoScaleRequest)
+        TilesManager::instance()->resetTextureUsage(working);
 
     m_scaleRequestState = kNoScaleRequest;
 }
