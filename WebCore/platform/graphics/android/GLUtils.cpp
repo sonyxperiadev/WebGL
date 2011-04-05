@@ -375,8 +375,8 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, SkBitmap& bi
     bitmap.unlockPixels();
     if (GLUtils::checkGlError("glTexSubImage2D")) {
         XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
-             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+             " x %d, y %d, internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+             bitmap.width(), bitmap.height(), x, y, internalformat, type, bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
