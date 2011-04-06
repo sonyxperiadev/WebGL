@@ -147,7 +147,6 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     m_duration(1), // keep this minimal to avoid initial seek problem
     m_currentTime(0),
     m_paused(true),
-    m_hasVideo(false),
     m_readyState(MediaPlayer::HaveNothing),
     m_networkState(MediaPlayer::Empty),
     m_poster(0),
@@ -164,7 +163,6 @@ void MediaPlayerPrivate::onEnded()
     m_player->timeChanged();
     m_paused = true;
     m_player->playbackStateChanged();
-    m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
 }
 
@@ -172,7 +170,6 @@ void MediaPlayerPrivate::onPaused()
 {
     m_paused = true;
     m_player->playbackStateChanged();
-    m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_player->playbackStateChanged();
 }
@@ -283,13 +280,12 @@ public:
         m_duration = duration / 1000.0f;
         m_naturalSize = IntSize(width, height);
         m_naturalSizeUnknown = false;
-        m_hasVideo = true;
         m_player->durationChanged();
         m_player->sizeChanged();
     }
 
     virtual bool hasAudio() const { return false; } // do not display the audio UI
-    virtual bool hasVideo() const { return m_hasVideo; }
+    virtual bool hasVideo() const { return true; }
     virtual bool supportsFullscreen() const { return true; }
 
     MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player)
