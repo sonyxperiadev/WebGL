@@ -40,11 +40,11 @@ public:
             : m_inputStream(env->NewGlobalRef(inputStream))
             , m_buffer(0) {
         LOG_ALWAYS_FATAL_IF(!inputStream);
-        m_inputStreamClass = env->FindClass("java/io/InputStream");
-        LOG_ALWAYS_FATAL_IF(!m_inputStreamClass);
-        m_read = env->GetMethodID(m_inputStreamClass, "read", "([B)I");
+        jclass inputStreamClass = env->FindClass("java/io/InputStream");
+        LOG_ALWAYS_FATAL_IF(!inputStreamClass);
+        m_read = env->GetMethodID(inputStreamClass, "read", "([B)I");
         LOG_ALWAYS_FATAL_IF(!m_read);
-        m_close = env->GetMethodID(m_inputStreamClass, "close", "()V");
+        m_close = env->GetMethodID(inputStreamClass, "close", "()V");
         LOG_ALWAYS_FATAL_IF(!m_close);
     }
 
@@ -76,7 +76,6 @@ public:
 private:
     jobject    m_inputStream;
     jbyteArray m_buffer;
-    jclass     m_inputStreamClass;
     jmethodID  m_read;
     jmethodID  m_close;
 };
