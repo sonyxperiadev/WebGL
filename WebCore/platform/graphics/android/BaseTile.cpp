@@ -332,23 +332,30 @@ void BaseTile::paintBitmap()
             SkRect dirtyRect;
             dirtyRect.set(cliperator.rect());
 
-            SkRect tileRect;
-            tileRect.fLeft = x * tileWidth / scale;
-            tileRect.fTop = y * tileHeight / scale;
-            tileRect.fRight = tileRect.fLeft + (tileWidth / scale);
-            tileRect.fBottom = tileRect.fTop + (tileHeight / scale);
+            float left = x * tileWidth;
+            float top = y * tileHeight;
 
-            if (!tileRect.intersect(dirtyRect)) {
+            // compute the rect to corresponds to pixels
+            SkRect realTileRect;
+            realTileRect.fLeft = left;
+            realTileRect.fTop = top;
+            realTileRect.fRight = left + tileWidth;
+            realTileRect.fBottom = top + tileHeight;
+
+            // scale the dirtyRect for intersect computation.
+            SkRect realDirtyRect = SkRect::MakeWH(dirtyRect.width() * scale,
+                                                  dirtyRect.height() * scale);
+            realDirtyRect.offset(dirtyRect.fLeft * scale, dirtyRect.fTop * scale);
+
+            if (!realTileRect.intersect(realDirtyRect)) {
                 cliperator.next();
                 continue;
             }
 
-            // recompute the rect to corresponds to pixels
-            SkRect realTileRect;
-            realTileRect.fLeft = floorf(tileRect.fLeft * scale);
-            realTileRect.fTop = floorf(tileRect.fTop * scale);
-            realTileRect.fRight = ceilf(tileRect.fRight * scale);
-            realTileRect.fBottom = ceilf(tileRect.fBottom * scale);
+            realTileRect.fLeft = floorf(realTileRect.fLeft);
+            realTileRect.fTop = floorf(realTileRect.fTop);
+            realTileRect.fRight = ceilf(realTileRect.fRight);
+            realTileRect.fBottom = ceilf(realTileRect.fBottom);
 
             SkIRect finalRealRect;
             finalRealRect.fLeft = static_cast<int>(realTileRect.fLeft) % static_cast<int>(tileWidth);
