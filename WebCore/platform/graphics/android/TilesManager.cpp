@@ -201,10 +201,7 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     TiledPage* nextPage = currentPage->sibling();
     for (unsigned int i = 0; i < max; i++) {
         BackedDoubleBufferedTexture* texture = m_textures[i];
-        if (texture->owner()
-            && texture->owner()->page() != currentPage
-            && texture->owner()->page() != nextPage
-            && texture->acquire(owner)) {
+        if (texture->tryAcquire(owner, currentPage, nextPage)) {
             XLOG("grab a texture that wasn't ours, (%x != %x) at %d => texture %x",
                  owner->page(), texture->owner()->page(), i, texture);
             texture->setUsedLevel(0);
