@@ -90,6 +90,7 @@ public:
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(TextureOwner* owner);
     bool release(TextureOwner* owner);
+    bool tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage);
 
     // set the texture owner if not busy. Return false if busy, true otherwise.
     bool setOwner(TextureOwner* owner);

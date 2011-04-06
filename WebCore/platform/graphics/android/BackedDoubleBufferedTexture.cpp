@@ -202,6 +202,20 @@ bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
     return setOwner(owner);
 }
 
+bool BackedDoubleBufferedTexture::tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage)
+{
+    m_busyLock.lock();
+    if (!m_busy
+        && m_owner
+        && m_owner->page() != currentPage
+        && m_owner->page() != nextPage) {
+        m_busyLock.unlock();
+        return this->acquire(owner);
+    }
+    m_busyLock.unlock();
+    return false;
+}
+
 bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
 {
     // if the writable texture is busy (i.e. currently being written to) then we
