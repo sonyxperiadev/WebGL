@@ -121,7 +121,6 @@ protected:
     float m_currentTime;
 
     bool m_paused;
-    bool m_hasVideo;
     MediaPlayer::ReadyState m_readyState;
     MediaPlayer::NetworkState m_networkState;
 
