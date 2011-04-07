@@ -148,8 +148,9 @@ void TilesManager::resetTextureUsage(TiledPage* page)
     android::Mutex::Autolock lock(m_texturesLock);
     for (unsigned int i = 0; i < m_textures.size(); i++) {
         BackedDoubleBufferedTexture* texture = m_textures[i];
-        if (texture->owner()) {
-            if (texture->owner()->page() == page)
+        TextureOwner* owner = texture->owner();
+        if (owner) {
+            if (owner->page() == page)
                 texture->setUsedLevel(-1);
         }
     }
