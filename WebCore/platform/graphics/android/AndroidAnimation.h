@@ -66,6 +66,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     String m_name;
     AnimatedPropertyID m_type;
     KeyframeValueList* m_operations;
+    LayerAndroid* m_originalLayer;
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {

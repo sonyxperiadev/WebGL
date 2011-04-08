@@ -66,6 +66,7 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
     , m_timingFunction(animation->timingFunction())
     , m_type(type)
     , m_operations(operations)
+    , m_originalLayer(0)
 {
     ASSERT(m_timingFunction);
 
@@ -84,6 +85,7 @@ AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     , m_timingFunction(anim->m_timingFunction)
     , m_type(anim->m_type)
     , m_operations(anim->m_operations)
+    , m_originalLayer(0)
 {
     gDebugAndroidAnimationInstances++;
 }
@@ -232,8 +234,12 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
 
     if (progress >= 1) {
         m_finished = true;
-        return false;
+        if (layer != m_originalLayer)
+            return false;
     }
+
+    if (!m_originalLayer)
+        m_originalLayer = layer;
 
     // First, we need to get the from and to values
 
@@ -258,6 +264,7 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
     layer->setOpacity(value);
 
     XLOG("AndroidOpacityAnimation::evaluate(%p, %p, %.2f) value=%.6f", this, layer, time, value);
+
     return true;
 }
 
@@ -300,8 +307,12 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 
     if (progress >= 1) {
         m_finished = true;
-        return false;
+        if (layer != m_originalLayer)
+            return false;
     }
+
+    if (!m_originalLayer)
+        m_originalLayer = layer;
 
     IntSize size(layer->getSize().width(), layer->getSize().height());
     TransformationMatrix matrix;
