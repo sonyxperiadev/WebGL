@@ -70,7 +70,6 @@ BaseTile::BaseTile()
     , m_lastDirtyPicture(0)
     , m_fullRepaintA(true)
     , m_fullRepaintB(true)
-    , m_painting(false)
     , m_lastPaintedPicture(0)
 {
 #ifdef DEBUG_COUNT
@@ -105,8 +104,7 @@ void BaseTile::reserveTexture()
     BackedDoubleBufferedTexture* texture = TilesManager::instance()->getAvailableTexture(this);
 
     android::AutoMutex lock(m_atomicSync);
-    if (texture && !m_painting &&
-        m_texture != texture) {
+    if (texture && m_texture != texture) {
         m_lastPaintedPicture = 0;
         fullInval();
         m_texture = texture;
@@ -118,8 +116,6 @@ bool BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
     XLOG("%x removeTexture res: %x... page %x", this, m_texture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
-    if (m_painting)
-        return false;
     if (m_texture == texture)
         m_texture = 0;
     return true;
@@ -261,14 +257,12 @@ void BaseTile::paintBitmap()
     bool dirty = m_dirty;
     BackedDoubleBufferedTexture* texture = m_texture;
     SkRegion dirtyArea = *m_currentDirtyArea;
-    m_painting = true;
     float scale = m_scale;
     const int x = m_x;
     const int y = m_y;
     m_atomicSync.unlock();
 
     if (!dirty || !texture) {
-        m_painting = false;
         return;
     }
 
@@ -281,7 +275,6 @@ void BaseTile::paintBitmap()
     // transferred to another BaseTile under us)
     if (texture->owner() != this || texture->usedLevel() > 1) {
         texture->producerRelease();
-        m_painting = false;
         return;
     }
 
@@ -359,40 +352,40 @@ void BaseTile::paintBitmap()
     texture->setTile(textureInfo, x, y, scale, pictureCount);
     texture->producerReleaseAndSwap();
 
-    m_lastPaintedPicture = pictureCount;
+    if (texture == m_texture) {
+        m_lastPaintedPicture = pictureCount;
 
-    // set the fullrepaint flags
+        // set the fullrepaint flags
 
-    if ((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
-        m_fullRepaintA = false;
+        if ((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
+            m_fullRepaintA = false;
 
-    if ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
-        m_fullRepaintB = false;
+        if ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
+            m_fullRepaintB = false;
 
-    // The various checks to see if we are still dirty...
+        // The various checks to see if we are still dirty...
 
-    m_dirty = false;
+        m_dirty = false;
 
-    if (m_scale != scale)
-        m_dirty = true;
+        if (m_scale != scale)
+            m_dirty = true;
 
-    if (!fullRepaint)
-        m_currentDirtyArea->op(dirtyArea, SkRegion::kDifference_Op);
+        if (!fullRepaint)
+            m_currentDirtyArea->op(dirtyArea, SkRegion::kDifference_Op);
 
-    if (!m_currentDirtyArea->isEmpty())
-        m_dirty = true;
+        if (!m_currentDirtyArea->isEmpty())
+            m_dirty = true;
 
-    // Now we can swap the dirty areas
+        // Now we can swap the dirty areas
 
-    m_currentDirtyArea = m_currentDirtyArea == &m_dirtyAreaA ? &m_dirtyAreaB : &m_dirtyAreaA;
+        m_currentDirtyArea = m_currentDirtyArea == &m_dirtyAreaA ? &m_dirtyAreaB : &m_dirtyAreaA;
 
-    if (!m_currentDirtyArea->isEmpty())
-        m_dirty = true;
+        if (!m_currentDirtyArea->isEmpty())
+            m_dirty = true;
 
-    if (!m_dirty)
-        m_usable = true;
-
-    m_painting = false;
+        if (!m_dirty)
+            m_usable = true;
+    }
 
     m_atomicSync.unlock();
 }
