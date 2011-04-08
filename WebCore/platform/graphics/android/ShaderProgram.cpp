@@ -262,20 +262,67 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     TransformationMatrix scale;
     scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
 
-    m_clippingMatrix = m_projectionMatrix;
-    m_clippingMatrix.multiply(translate);
-    m_clippingMatrix.multiply(scale);
+    m_documentToScreenMatrix = m_projectionMatrix;
+    m_documentToScreenMatrix.multiply(translate);
+    m_documentToScreenMatrix.multiply(scale);
+
+    m_documentToInvScreenMatrix = m_projectionMatrix;
+    translate.scale3d(1, -1, 1);
+    m_documentToInvScreenMatrix.multiply(translate);
+    m_documentToInvScreenMatrix.multiply(scale);
 }
 
 // This function transform a clip rect extracted from the current layer
-// into a clip rect in screen coordinates
-FloatRect ShaderProgram::clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
-                             const IntSize& size)
+// into a clip rect in screen coordinates -- used by the clipping rects
+FloatRect ShaderProgram::rectInScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
 {
     FloatRect srect(0, 0, size.width(), size.height());
     TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.multiply(m_clippingMatrix);
+    renderMatrix.multiply(m_documentToScreenMatrix);
     return renderMatrix.mapRect(srect);
+}
+
+// used by the partial screen invals
+FloatRect ShaderProgram::rectInInvScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
+{
+    FloatRect srect(0, 0, size.width(), size.height());
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.multiply(m_documentToInvScreenMatrix);
+    return renderMatrix.mapRect(srect);
+}
+
+FloatRect ShaderProgram::rectInInvScreenCoord(const FloatRect& rect)
+{
+    return m_documentToInvScreenMatrix.mapRect(rect);
+}
+
+FloatRect ShaderProgram::rectInScreenCoord(const FloatRect& rect)
+{
+    return m_documentToScreenMatrix.mapRect(rect);
+}
+
+FloatRect ShaderProgram::convertInvScreenCoordToScreenCoord(const FloatRect& rect)
+{
+    FloatRect documentRect = m_documentToInvScreenMatrix.inverse().mapRect(rect);
+    return rectInScreenCoord(documentRect);
+}
+
+FloatRect ShaderProgram::convertScreenCoordToInvScreenCoord(const FloatRect& rect)
+{
+    FloatRect documentRect = m_documentToScreenMatrix.inverse().mapRect(rect);
+    return rectInInvScreenCoord(documentRect);
+}
+
+void ShaderProgram::setScreenClip(const IntRect& clip)
+{
+    m_screenClip = clip;
+    IntRect mclip = clip;
+
+    // the clip from frameworks is in full screen coordinates
+    mclip.setY(clip.y() - m_webViewRect.y() - m_titleBarHeight);
+    FloatRect tclip = convertInvScreenCoordToScreenCoord(mclip);
+    IntRect screenClip(tclip.x(), tclip.y(), tclip.width(), tclip.height());
+    m_screenClip = screenClip;
 }
 
 // clip is in screen coordinates
@@ -286,8 +333,15 @@ void ShaderProgram::clip(const FloatRect& clip)
 
     // we should only call glScissor in this function, so that we can easily
     // track the current clipping rect.
-    glScissor(m_viewRect.x() + clip.x(), m_viewRect.y() + clip.y(),
-              clip.width(), clip.height());
+
+    IntRect screenClip(clip.x(),
+                       clip.y(),
+                       clip.width(), clip.height());
+
+    if (!m_screenClip.isEmpty())
+        screenClip.intersect(m_screenClip);
+
+    glScissor(screenClip.x(), screenClip.y(), screenClip.width(), screenClip.height());
 
     m_clipRect = clip;
 }
@@ -298,33 +352,6 @@ IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
                      m_viewport.width() + margin, m_viewport.height() + margin);
     viewport.intersect(rect);
     return viewport;
-}
-
-FloatRect ShaderProgram::projectedRect(const TransformationMatrix& drawMatrix,
-                                     IntSize& size)
-{
-    FloatRect srect(0, 0, size.width(), size.height());
-
-    TransformationMatrix translate;
-    translate.translate(1.0, 1.0);
-    TransformationMatrix scale;
-    scale.scale3d(m_viewport.width() * 0.5f, m_viewport.height() * 0.5f, 1);
-    TransformationMatrix translateViewport;
-    translateViewport.translate(-m_viewport.fLeft, -m_viewport.fTop);
-
-    TransformationMatrix projectionMatrix = m_projectionMatrix;
-    projectionMatrix.scale3d(1, -1, 1);
-    projectionMatrix.multiply(translate);
-    projectionMatrix.multiply(scale);
-    projectionMatrix.multiply(translateViewport);
-
-    TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.multiply(projectionMatrix);
-
-    FloatRect bounds = renderMatrix.mapRect(srect);
-    FloatRect ret(bounds.x(), bounds.y() - m_viewport.height(),
-                  bounds.width(), bounds.height());
-    return ret;
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,

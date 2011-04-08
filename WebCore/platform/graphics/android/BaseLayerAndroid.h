@@ -55,6 +55,7 @@ public:
     void drawCanvas(SkCanvas* canvas);
 
     bool drawGL(LayerAndroid* compositedRoot, IntRect& rect, SkRect& viewport,
+                IntRect& webViewRect, int titleBarHeight, IntRect& screenClip,
                 float scale, SkColor color = SK_ColorWHITE);
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:

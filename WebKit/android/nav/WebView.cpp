@@ -429,7 +429,8 @@ void drawCursorPostamble()
     }
 }
 
-bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, float scale, int extras)
+bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::IntRect& webViewRect,
+            int titleBarHeight, WebCore::IntRect& clip, float scale, int extras)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_baseLayer || inFullScreenMode())
@@ -500,7 +501,8 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, float scale
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
-    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect, scale);
+    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect,
+                                        webViewRect, titleBarHeight, clip, scale);
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
 #endif
@@ -1474,7 +1476,7 @@ private: // local state for WebView
 class GLDrawFunctor : Functor {
     public:
     GLDrawFunctor(WebView* _wvInstance,
-            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*, jfloat, jint),
+            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*, WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint),
             WebCore::IntRect _viewRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
@@ -1496,7 +1498,11 @@ class GLDrawFunctor : Functor {
         if (info->isLayer)
             localViewRect.move(-1 * localViewRect.x(), -1 * localViewRect.y());
 
-        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, scale, extras);
+        WebCore::IntRect clip(info->clipLeft, info->clipTop,
+                              info->clipRight - info->clipLeft,
+                              info->clipBottom - info->clipTop);
+
+        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect, titlebarHeight, clip, scale, extras);
         if (retVal) {
             IntRect finalInval;
             if (inval.isEmpty()) {
@@ -1504,10 +1510,9 @@ class GLDrawFunctor : Functor {
                 retVal = true;
             } else {
                 finalInval.setX(webViewRect.x() + inval.x());
-                finalInval.setY(webViewRect.y() + inval.y() + titlebarHeight);
+                finalInval.setY(webViewRect.y() + titlebarHeight + inval.y());
                 finalInval.setWidth(inval.width());
                 finalInval.setHeight(inval.height());
-                finalInval.intersect(webViewRect);
             }
             info->dirtyLeft = finalInval.x();
             info->dirtyTop = finalInval.y();
@@ -1525,14 +1530,12 @@ class GLDrawFunctor : Functor {
     }
     private:
     WebView* wvInstance;
-    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*, float, int);
+    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*, WebCore::IntRect&, int, WebCore::IntRect&, float, int);
     WebCore::IntRect viewRect;
     WebCore::IntRect webViewRect;
     jfloat scale;
     jint extras;
 };
-
-
 
 /*
  * Native JNI methods
@@ -1804,14 +1807,6 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, 
             functor->updateViewRect(webViewRect);
         }
     }
-}
-
-static bool nativeDrawGL(JNIEnv *env, jobject obj, jobject jrect,
-                         jfloat scale, jint extras)
-{
-    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
-    WebCore::IntRect invalRect;
-    return GET_NATIVE_VIEW(env, obj)->drawGL(viewRect, &invalRect, scale, extras);
 }
 
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
@@ -2521,8 +2516,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetDrawGLFunction },
     { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;)V",
         (void*) nativeUpdateDrawGLFunction },
-    { "nativeDrawGL", "(Landroid/graphics/Rect;FI)Z",
-        (void*) nativeDrawGL },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "()Z",

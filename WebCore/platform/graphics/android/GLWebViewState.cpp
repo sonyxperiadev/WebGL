@@ -380,10 +380,15 @@ void GLWebViewState::resetFrameworkInval()
 
 void GLWebViewState::addDirtyArea(const IntRect& rect)
 {
+    if (rect.isEmpty())
+        return;
+
+    IntRect inflatedRect = rect;
+    inflatedRect.inflate(8);
     if (m_frameworkLayersInval.isEmpty())
-        m_frameworkLayersInval = rect;
+        m_frameworkLayersInval = inflatedRect;
     else
-        m_frameworkLayersInval.unite(rect);
+        m_frameworkLayersInval.unite(inflatedRect);
 }
 
 void GLWebViewState::resetLayersDirtyArea()
@@ -395,7 +400,8 @@ void GLWebViewState::resetLayersDirtyArea()
 }
 
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
-                            float scale, SkColor color)
+                            IntRect& webViewRect, int titleBarHeight,
+                            IntRect& clip, float scale, SkColor color)
 {
     glFinish();
 
@@ -437,16 +443,18 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (baseForComposited && baseForComposited->countChildren() >= 1)
         compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
 
-    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, scale, color);
+    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect, titleBarHeight, clip, scale, color);
     m_previouslyUsedRoot = compositedRoot;
     if (ret) {
-        IntRect inval = m_frameworkInval;
+        FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(m_frameworkInval);
+        IntRect inval(frameworkInval.x(), frameworkInval.y(), frameworkInval.width(), frameworkInval.height());
+
         inval.unite(m_frameworkLayersInval);
 
-        invalRect->setX((- viewport.fLeft + inval.x()) * scale);
-        invalRect->setY((- viewport.fTop + inval.y()) * scale);
-        invalRect->setWidth(inval.width() * scale);
-        invalRect->setHeight(inval.height() * scale);
+        invalRect->setX(inval.x());
+        invalRect->setY(inval.y());
+        invalRect->setWidth(inval.width());
+        invalRect->setHeight(inval.height());
 
         XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
              inval.y(), inval.right(), inval.bottom());
