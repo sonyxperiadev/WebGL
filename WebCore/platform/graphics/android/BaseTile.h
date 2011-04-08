@@ -73,7 +73,7 @@ public:
     void reserveTexture();
     void setUsedLevel(int);
     bool isTileReady();
-    void draw(float transparency, SkRect& rect);
+    void draw(float transparency, SkRect& rect, float scale);
 
     // the only thread-safe function called by the background thread
     void paintBitmap();
