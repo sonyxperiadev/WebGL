@@ -255,12 +255,11 @@ void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
 {
     IntSize layerSize(getSize().width(), getSize().height());
 
-    FloatRect area =
-        TilesManager::instance()->shader()->projectedRect(drawTransform(), layerSize);
-    IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
+    FloatRect area = TilesManager::instance()->shader()->rectInInvScreenCoord(drawTransform(), layerSize);
+    FloatRect clip = TilesManager::instance()->shader()->convertScreenCoordToInvScreenCoord(m_clippingRect);
 
-    IntRect clip(m_clippingRect.x(), m_clippingRect.y(), m_clippingRect.width(), m_clippingRect.height());
-    dirtyArea.intersect(clip);
+    area.intersect(clip);
+    IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
     glWebViewState->addDirtyArea(dirtyArea);
 }
 
@@ -618,7 +617,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     if (m_haveClip) {
         // The clipping rect calculation and intersetion will be done in Screen Coord now.
         FloatRect clip =
-            TilesManager::instance()->shader()->clipRectInScreenCoord(drawTransform(), layerSize);
+            TilesManager::instance()->shader()->rectInScreenCoord(drawTransform(), layerSize);
         clip.intersect(clipping);
         setDrawClip(clip);
     } else {
@@ -954,8 +953,9 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     bool askPaint = drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
     askPaint |= m_dirty;
-    if (m_dirty || m_hasRunningAnimations || drawTransform().hasPerspective())
+    if ((m_dirty && needsTexture()) || m_hasRunningAnimations || drawTransform().hasPerspective())
         addDirtyArea(glWebViewState);
+
     m_atomicSync.unlock();
     return askPaint;
 }
