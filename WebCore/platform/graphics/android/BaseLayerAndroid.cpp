@@ -260,7 +260,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
 
 bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
                               IntRect& viewRect, SkRect& visibleRect,
-                              float scale, SkColor color)
+                              IntRect& webViewRect, int titleBarHeight,
+                              IntRect& screenClip, float scale, SkColor color)
 {
     bool needsRedraw = false;
 #if USE(ACCELERATED_COMPOSITING)
@@ -287,6 +288,9 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
     glUniform1i(shader->textureSampler(), 0);
     shader->setViewRect(viewRect);
     shader->setViewport(visibleRect);
+    shader->setWebViewRect(webViewRect);
+    shader->setTitleBarHeight(titleBarHeight);
+    shader->setScreenClip(screenClip);
     shader->resetBlending();
 
     double currentTime = WTF::currentTime();
@@ -354,11 +358,6 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
             needsRedraw = true;
         else if (!animsRunning)
             m_glWebViewState->resetLayersDirtyArea();
-
-        if (animsRunning) {
-            m_glWebViewState->resetLayersDirtyArea();
-            m_glWebViewState->resetFrameworkInval();
-        }
 
     } else {
         TilesManager::instance()->cleanupLayersTextures(0);

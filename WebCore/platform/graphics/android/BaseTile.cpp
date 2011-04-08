@@ -263,6 +263,8 @@ void BaseTile::paintBitmap()
     SkRegion dirtyArea = *m_currentDirtyArea;
     m_painting = true;
     float scale = m_scale;
+    const int x = m_x;
+    const int y = m_y;
     m_atomicSync.unlock();
 
     if (!dirty || !texture) {
@@ -270,8 +272,6 @@ void BaseTile::paintBitmap()
         return;
     }
 
-    const int x = m_x;
-    const int y = m_y;
     TiledPage* tiledPage = m_page;
 
     texture->producerAcquireContext();

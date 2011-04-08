@@ -45,10 +45,19 @@ class ShaderProgram {
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
     void setViewRect(const IntRect& viewRect);
-    FloatRect clipRectInScreenCoord(const TransformationMatrix& drawMatrix,
-                                    const IntSize& size);
-    FloatRect projectedRect(const TransformationMatrix& drawMatrix,
-                            IntSize& size);
+    FloatRect rectInScreenCoord(const TransformationMatrix& drawMatrix,
+                                const IntSize& size);
+    FloatRect rectInInvScreenCoord(const TransformationMatrix& drawMatrix,
+                                const IntSize& size);
+
+    FloatRect rectInInvScreenCoord(const FloatRect& rect);
+    FloatRect rectInScreenCoord(const FloatRect& rect);
+    FloatRect convertInvScreenCoordToScreenCoord(const FloatRect& rect);
+    FloatRect convertScreenCoordToInvScreenCoord(const FloatRect& rect);
+
+    void setTitleBarHeight(int height) { m_titleBarHeight = height; }
+    void setWebViewRect(const IntRect& rect) { m_webViewRect = rect; }
+    void setScreenClip(const IntRect& clip);
     void clip(const FloatRect& rect);
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
 
@@ -69,10 +78,14 @@ class ShaderProgram {
     TransformationMatrix m_projectionMatrix;
     GLuint m_textureBuffer[1];
 
-    TransformationMatrix m_clippingMatrix;
+    TransformationMatrix m_documentToScreenMatrix;
+    TransformationMatrix m_documentToInvScreenMatrix;
     SkRect m_viewport;
     IntRect m_viewRect;
     FloatRect m_clipRect;
+    IntRect m_screenClip;
+    int m_titleBarHeight;
+    IntRect m_webViewRect;
 
     // uniforms
     int m_hProjectionMatrix;
