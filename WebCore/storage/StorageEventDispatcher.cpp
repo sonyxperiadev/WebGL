@@ -40,6 +40,10 @@ namespace WebCore {
 
 void StorageEventDispatcher::dispatch(const String& key, const String& oldValue, const String& newValue, StorageType storageType, SecurityOrigin* securityOrigin, Frame* sourceFrame)
 {
+#ifdef ANDROID
+    if (!sourceFrame)
+        return;
+#endif
     Page* page = sourceFrame->page();
     if (!page)
         return;

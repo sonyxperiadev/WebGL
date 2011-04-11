@@ -41,6 +41,11 @@
 #include "ChromiumBridge.h"
 #endif
 
+#ifdef ANDROID
+#include "DOMWindow.h"
+#include "FileSystem.h"
+#endif
+
 namespace WebCore {
 
 static unsigned getUniqueIdentifier()
@@ -108,6 +113,91 @@ void PageGroup::closeLocalStorage()
     }
 #endif
 }
+
+#if ENABLE(DOM_STORAGE) && defined(ANDROID)
+void PageGroup::clearDomStorage()
+{
+    if (!pageGroups)
+        return;
+
+
+    PageGroupMap::iterator end = pageGroups->end();
+
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        String basePath = "";
+
+        // This is being called as a result of the user explicitly
+        // asking to clear all stored data (e.g. through a settings
+        // dialog. We need a page in the page group to fire a
+        // StorageEvent. There isn't really a correct page to use
+        // as the source (as the clear request hasn't come from a
+        // particular page). One thing we should ensure though is that
+        // we don't try to clear a private browsing mode page as that has no concept
+        // of DOM storage..
+
+        HashSet<Page*> pages = it->second->pages();
+        HashSet<Page*>::iterator pagesEnd = pages.end();
+        Page* page = 0;
+        for(HashSet<Page*>::iterator pit = pages.begin(); pit != pagesEnd; ++pit) {
+            Page* p = *pit;
+
+            // Grab the storage location from an arbitrary page. This is set
+            // to the same value on all private browsing and "normal" pages,
+            // so we can get it from anything.
+            if (basePath.isEmpty())
+                basePath = p->settings()->localStorageDatabasePath();
+
+            // DOM storage is disabled in private browsing pages, so nothing to do if
+            // this is such a page.
+            if (p->settings()->privateBrowsingEnabled())
+                continue;
+
+            // Clear session storage.
+            StorageNamespace* sessionStorage = p->sessionStorage(false);
+            if (sessionStorage)
+                sessionStorage->clear(p);
+
+            // Save this page so we can clear local storage.
+            page = p;
+        }
+
+        // If page is still null at this point, then the only pages that are
+        // open are private browsing pages. Hence no pages are currently using local
+        // storage, so we don't need a page pointer to send any events and the
+        // clear function will handle a 0 input.
+        it->second->localStorage()->clear(page);
+        it->second->localStorage()->close();
+
+        // Closing the storage areas will stop the background thread and so
+        // we need to remove the local storage ref here so that next time
+        // we come to a site that uses it the thread will get started again.
+        it->second->removeLocalStorage();
+
+        // At this point, active local and session storage have been cleared and the
+        // StorageAreas for this PageGroup closed. The final sync will have taken
+        // place. All that is left is to purge the database files.
+        if (!basePath.isEmpty()) {
+            Vector<String> files = listDirectory(basePath, "*.localstorage");
+            Vector<String>::iterator filesEnd = files.end();
+            for (Vector<String>::iterator it = files.begin(); it != filesEnd; ++it)
+                deleteFile(*it);
+        }
+    }
+}
+
+void PageGroup::removeLocalStorage()
+{
+    HashSet<Page*> pages = this->pages();
+    HashSet<Page*>::iterator pagesEnd = pages.end();
+    for(HashSet<Page*>::iterator pit = pages.begin(); pit != pagesEnd; ++pit) {
+        Page* p = *pit;
+        for (Frame* frame = p->mainFrame(); frame; frame = frame->tree()->traverseNext())
+            frame->document()->domWindow()->clearDOMStorage();
+    }
+
+    m_localStorage = 0;
+}
+#endif
 
 void PageGroup::addPage(Page* page)
 {

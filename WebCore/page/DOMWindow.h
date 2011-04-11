@@ -205,6 +205,9 @@ namespace WebCore {
         // HTML 5 key/value storage
         Storage* sessionStorage() const;
         Storage* localStorage() const;
+#ifdef ANDROID
+        void clearDOMStorage();
+#endif
 #endif
 
         Console* console() const;

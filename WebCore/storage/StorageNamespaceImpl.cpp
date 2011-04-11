@@ -35,6 +35,10 @@
 #include "StorageSyncManager.h"
 #include <wtf/StdLibExtras.h>
 
+#ifdef ANDROID
+#include "Page.h"
+#endif
+
 namespace WebCore {
 
 typedef HashMap<String, StorageNamespace*> LocalStorageNamespaceMap;
@@ -136,6 +140,25 @@ void StorageNamespaceImpl::close()
 
     m_isShutdown = true;
 }
+
+#ifdef ANDROID
+void StorageNamespaceImpl::clear(Page* page)
+{
+    ASSERT(isMainThread());
+    if (m_isShutdown)
+        return;
+
+    // Clear all the keys for each of the storage areas.
+    StorageAreaMap::iterator end = m_storageAreaMap.end();
+    for (StorageAreaMap::iterator it = m_storageAreaMap.begin(); it != end; ++it) {
+        // if there is no page provided, then the user tried to clear storage
+        // with only pages in private browsing mode open. So we do not need to
+        // provide a Frame* here (as the frame is only used to dispatch storage events
+        // and private browsing pages won't be using them).
+        it->second->clear(page ? page->mainFrame() : 0);
+    }
+}
+#endif
 
 void StorageNamespaceImpl::unlock()
 {

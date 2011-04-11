@@ -50,6 +50,10 @@ public:
     virtual PassRefPtr<StorageNamespace> copy() = 0;
     virtual void close() = 0;
     virtual void unlock() = 0;
+
+#ifdef ANDROID
+    virtual void clear(Page*) = 0;
+#endif
 };
 
 } // namespace WebCore
