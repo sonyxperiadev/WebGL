@@ -48,6 +48,10 @@ namespace WebCore {
         static PageGroup* pageGroup(const String& groupName);
         static void closeLocalStorage();
         
+#if ENABLE(DOM_STORAGE) && defined(ANDROID)
+        static void clearDomStorage();
+#endif
+
         const HashSet<Page*>& pages() const { return m_pages; }
 
         void addPage(Page*);
@@ -89,6 +93,10 @@ namespace WebCore {
 
     private:
         void addVisitedLink(LinkHash stringHash);
+
+#if ENABLE(DOM_STORAGE) && defined(ANDROID)
+        void removeLocalStorage();
+#endif
 
         String m_name;
 

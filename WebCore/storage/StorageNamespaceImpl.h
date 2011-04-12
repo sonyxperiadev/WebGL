@@ -37,7 +37,9 @@
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
-
+#ifdef ANDROID
+    class Page;
+#endif
     class StorageAreaImpl;
 
     class StorageNamespaceImpl : public StorageNamespace {
@@ -50,6 +52,10 @@ namespace WebCore {
         virtual PassRefPtr<StorageNamespace> copy();
         virtual void close();
         virtual void unlock();
+
+#ifdef ANDROID
+        virtual void clear(Page*);
+#endif
 
     private:
         StorageNamespaceImpl(StorageType, const String& path, unsigned quota);
