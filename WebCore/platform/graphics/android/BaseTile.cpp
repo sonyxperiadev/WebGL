@@ -188,9 +188,9 @@ int BaseTile::usedLevel()
     return -1;
 }
 
-void BaseTile::draw(float transparency, SkRect& rect)
+void BaseTile::draw(float transparency, SkRect& rect, float scale)
 {
-    if (m_x < 0 || m_y < 0)
+    if (m_x < 0 || m_y < 0 || m_scale != scale)
         return;
 
     // No need to mutex protect reads of m_texture as it is only written to by

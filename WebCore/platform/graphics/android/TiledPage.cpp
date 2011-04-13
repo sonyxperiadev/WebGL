@@ -331,7 +331,7 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
 
-            tile.draw(transparency, rect);
+            tile.draw(transparency, rect, m_scale);
         }
     }
 }
