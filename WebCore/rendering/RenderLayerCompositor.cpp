@@ -535,8 +535,17 @@ bool RenderLayerCompositor::overlapsCompositedLayers(OverlapMap& overlapMap, con
     RenderLayerCompositor::OverlapMap::const_iterator end = overlapMap.end();
     for (RenderLayerCompositor::OverlapMap::const_iterator it = overlapMap.begin(); it != end; ++it) {
         const IntRect& bounds = it->second;
-        if (layerBounds.intersects(bounds))
+        if (layerBounds.intersects(bounds)) {
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+            RenderLayer* intersectedLayer = it->first;
+            if (intersectedLayer && intersectedLayer->isFixed()) {
+                if (bounds.contains(layerBounds)) {
+                    continue;
+                }
+            }
+#endif
             return true;
+        }
     }
     
     return false;
@@ -1169,15 +1178,6 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 {
     if (!canBeComposited(layer))
         return false;
-
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    // if an ancestor is fixed positioned, we need to be composited...
-    const RenderLayer* currLayer = layer;
-    while ((currLayer = currLayer->parent())) {
-        if (currLayer->isComposited() && currLayer->isFixed())
-            return true;
-    }
-#endif
 
     // The root layer always has a compositing layer, but it may not have backing.
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers() || (inCompositingMode() && layer->isRootLayer());
