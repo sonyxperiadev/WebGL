@@ -180,14 +180,29 @@ bool WebUrlLoaderClient::start(bool isMainResource, bool isMainFrame, bool sync,
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::start));
 
         // Run callbacks until the queue is exhausted and m_finished is true.
+        // Sometimes, a sync load can wait forever and lock up the WebCore thread,
+        // here we use TimedWait() with multiple tries to avoid locking.
+        const int kMaxNumTimeout = 3;
+        const int kCallbackWaitingTime = 10;
+        int num_timeout = 0;
         while(!m_finished) {
             while (!m_queue.empty()) {
                 OwnPtr<Task> task(m_queue.front());
                 m_queue.pop_front();
                 task->Run();
             }
-            if (m_queue.empty() && !m_finished) {
-                syncCondition()->Wait();
+            if (m_finished) break;
+
+            syncCondition()->TimedWait(base::TimeDelta::FromSeconds(kCallbackWaitingTime));
+            if (m_queue.empty()) {
+                LOGE("Synchronous request timed out after %d seconds for the %dth try, URL: %s",
+                     kCallbackWaitingTime, num_timeout, m_request->getUrl().c_str());
+                num_timeout++;
+                if (num_timeout >= kMaxNumTimeout) {
+                    cancel();
+                    m_resourceHandle = 0;
+                    return false;
+                }
             }
         }
 
