@@ -260,22 +260,17 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     TransformationMatrix translate;
     translate.translate(1.0, 1.0);
 
-    TransformationMatrix screenTranslate;
-    screenTranslate.translate(-viewRect.x(), -viewRect.y());
-
     TransformationMatrix scale;
     scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
 
     m_documentToScreenMatrix = m_projectionMatrix;
     m_documentToScreenMatrix.multiply(translate);
     m_documentToScreenMatrix.multiply(scale);
-    m_documentToScreenMatrix.multiply(screenTranslate);
 
     m_documentToInvScreenMatrix = m_projectionMatrix;
     translate.scale3d(1, -1, 1);
     m_documentToInvScreenMatrix.multiply(translate);
     m_documentToInvScreenMatrix.multiply(scale);
-    m_documentToScreenMatrix.multiply(screenTranslate);
 }
 
 // This function transform a clip rect extracted from the current layer
@@ -337,6 +332,9 @@ void ShaderProgram::clip(const FloatRect& clip)
     if (clip == m_clipRect)
         return;
 
+    if (clip.width() == 0 && clip.height() == 0)
+        return;
+
     // we should only call glScissor in this function, so that we can easily
     // track the current clipping rect.
 
@@ -346,6 +344,20 @@ void ShaderProgram::clip(const FloatRect& clip)
 
     if (!m_screenClip.isEmpty())
         screenClip.intersect(m_screenClip);
+
+    screenClip.setY(screenClip.y() + m_viewRect.y());
+    if (screenClip.x() < 0) {
+        int w = screenClip.width();
+        w += screenClip.x();
+        screenClip.setX(0);
+        screenClip.setWidth(w);
+    }
+    if (screenClip.y() < 0) {
+        int h = screenClip.height();
+        h += screenClip.y();
+        screenClip.setY(0);
+        screenClip.setHeight(h);
+    }
 
     glScissor(screenClip.x(), screenClip.y(), screenClip.width(), screenClip.height());
 
