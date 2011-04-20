@@ -88,12 +88,12 @@ public:
 
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
-    bool acquire(TextureOwner* owner);
+    bool acquire(TextureOwner* owner, bool force = false);
     bool release(TextureOwner* owner);
     bool tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage);
 
     // set the texture owner if not busy. Return false if busy, true otherwise.
-    bool setOwner(TextureOwner* owner);
+    bool setOwner(TextureOwner* owner, bool force = false);
 
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
@@ -136,6 +136,9 @@ private:
     // We mutex protect the reads/writes of m_busy to ensure that we are reading
     // the most up-to-date value even across processors in an SMP system.
     android::Mutex m_busyLock;
+    // We use this condition variable to signal that the texture
+    // is not busy anymore
+    android::Condition m_busyCond;
 };
 
 } // namespace WebCore
