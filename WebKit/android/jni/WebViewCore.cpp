@@ -3993,10 +3993,8 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     bool success = CacheBuilder::FindAddress(addrChars, length,
         &start, &end, caseInsensitive) == CacheBuilder::FOUND_COMPLETE;
     jstring ret = 0;
-    if (success) {
+    if (success)
         ret = env->NewString(addrChars + start, end - start);
-        env->DeleteLocalRef(ret);
-    }
     env->ReleaseStringChars(addr, addrChars);
     return ret;
 }
