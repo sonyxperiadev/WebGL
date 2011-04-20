@@ -259,17 +259,23 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     // content coordinates in screen coordinates.
     TransformationMatrix translate;
     translate.translate(1.0, 1.0);
+
+    TransformationMatrix screenTranslate;
+    screenTranslate.translate(-viewRect.x(), -viewRect.y());
+
     TransformationMatrix scale;
     scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
 
     m_documentToScreenMatrix = m_projectionMatrix;
     m_documentToScreenMatrix.multiply(translate);
     m_documentToScreenMatrix.multiply(scale);
+    m_documentToScreenMatrix.multiply(screenTranslate);
 
     m_documentToInvScreenMatrix = m_projectionMatrix;
     translate.scale3d(1, -1, 1);
     m_documentToInvScreenMatrix.multiply(translate);
     m_documentToInvScreenMatrix.multiply(scale);
+    m_documentToScreenMatrix.multiply(screenTranslate);
 }
 
 // This function transform a clip rect extracted from the current layer
