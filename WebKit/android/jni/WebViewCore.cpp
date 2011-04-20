@@ -3079,7 +3079,7 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
         return 0;
     }
 
-    for (unsigned c = 0; c < points.size(); c++) {
+    for (int c = 0; c < static_cast<int>(points.size()); c++) {
         points[c].setX(points[c].x() - m_scrollOffsetX);
         points[c].setY(points[c].y() - m_scrollOffsetY);
 
