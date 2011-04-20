@@ -137,6 +137,7 @@ void BackedDoubleBufferedTexture::setNotBusy()
         m_delayedRelease = false;
         m_delayedReleaseOwner = 0;
     }
+    m_busyCond.signal();
 }
 
 bool BackedDoubleBufferedTexture::busy()
@@ -189,7 +190,7 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
     producerReleaseAndSwap();
 }
 
-bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
+bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner, bool force)
 {
     if (m_owner == owner) {
         if (m_delayedRelease) {
@@ -199,7 +200,7 @@ bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner)
         return true;
     }
 
-    return setOwner(owner);
+    return setOwner(owner, force);
 }
 
 bool BackedDoubleBufferedTexture::tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage)
@@ -216,13 +217,16 @@ bool BackedDoubleBufferedTexture::tryAcquire(TextureOwner* owner, TiledPage* cur
     return false;
 }
 
-bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner)
+bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner, bool force)
 {
     // if the writable texture is busy (i.e. currently being written to) then we
     // can't change the owner out from underneath that texture
     m_busyLock.lock();
+    while (m_busy && force)
+        m_busyCond.wait(m_busyLock);
     bool busy = m_busy;
     m_busyLock.unlock();
+
     if (!busy) {
         // if we are not busy we can try to remove the texture from the layer;
         // LayerAndroid::removeTexture() is protected by the same lock as

@@ -249,7 +249,7 @@ LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
              layer->uniqueId(), layer);
     }
 
-    if (best && best->acquire(layer))
+    if (best && best->acquire(layer, any))
         return best;
     return 0;
 }
