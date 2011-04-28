@@ -35,6 +35,7 @@
 #include "IntRect.h"
 #include "PlatformGraphicsContext.h"
 #include "SkCanvas.h"
+#include "SkColorFilter.h"
 #include "SkLayerDrawLooper.h"
 #include "SkPaint.h"
 #include "SkTemplates.h"
@@ -89,29 +90,53 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
 
-        // we clear the looper, in case we have a shadow
+        // Specify the behavior of the looper
+        SkLayerDrawLooper::LayerInfo info;
+        info.fPaintBits = SkLayerDrawLooper::kEntirePaint_Bits;
+        info.fColorMode = SkXfermode::kSrc_Mode;
 
-        SkPaint* fillP = 0;
-        SkPaint* strokeP = 0;
+        // The paint is only valid until the looper receives another call to
+        // addLayer(). Therefore, we must cache certain state for later use.
+        bool hasFillPaint = false;
+        bool hasStrokePaint = false;
+        SkScalar strokeWidth;
+
         if ((mode & cTextStroke) && gc->willStroke()) {
-            strokeP = setupStroke(looper->addLayer(), gc, font);
-            strokeP->setLooper(0);
+            strokeWidth = setupStroke(looper->addLayer(info), gc, font)->getStrokeWidth();
+            hasStrokePaint = true;
         }
         if ((mode & cTextFill) && gc->willFill()) {
-            fillP = setupFill(looper->addLayer(), gc, font);
-            fillP->setLooper(0);
+            setupFill(looper->addLayer(info), gc, font);
+            hasFillPaint = true;
         }
 
         if (hasShadow) {
             SkPaint shadowPaint;
             SkPoint offset;
             if (gc->setupShadowPaint(&shadowPaint, &offset)) {
-                SkPaint* p = looper->addLayer(offset.fX, offset.fY);
+
+                // add an offset to the looper when creating a shadow layer
+                info.fOffset.set(offset.fX, offset.fY);
+
+                SkPaint* p = looper->addLayer(info);
                 *p = shadowPaint;
-                if (strokeP && !fillP) {
+
+                // Currently, only GraphicsContexts associated with the
+                // HTMLCanvasElement have shadows ignore transforms set.  This
+                // allows us to distinguish between CSS and Canvas shadows which
+                // have different rendering specifications.
+                if (gc->shadowsIgnoreTransforms()) {
+                    SkColorFilter* cf = SkColorFilter::CreateModeFilter(p->getColor(),
+                            SkXfermode::kSrcIn_Mode);
+                    p->setColorFilter(cf)->unref();
+                } else { // in CSS
+                    p->setShader(NULL);
+                }
+
+                if (hasStrokePaint && !hasFillPaint) {
                     // stroke the shadow if we have stroke but no fill
                     p->setStyle(SkPaint::kStroke_Style);
-                    p->setStrokeWidth(strokeP->getStrokeWidth());
+                    p->setStrokeWidth(strokeWidth);
                 }
                 updateForFont(p, font);
             }
