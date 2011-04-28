@@ -30,6 +30,8 @@
 #include "SkTypes.h"
 #include "media/AudioTrack.h"
 
+#include <hardware/audio.h>
+
 struct ANPAudioTrack {
     void*                mUser;
     ANPAudioCallbackProc mProc;
@@ -38,9 +40,9 @@ struct ANPAudioTrack {
 
 static ANPSampleFormat toANPFormat(int fm) {
     switch (fm) {
-        case android::AudioSystem::PCM_16_BIT:
+        case AUDIO_FORMAT_PCM_16_BIT:
             return kPCM16Bit_ANPSampleFormat;
-        case android::AudioSystem::PCM_8_BIT:
+        case AUDIO_FORMAT_PCM_8_BIT:
             return kPCM8Bit_ANPSampleFormat;
         default:
             return kUnknown_ANPSamleFormat;
@@ -50,11 +52,11 @@ static ANPSampleFormat toANPFormat(int fm) {
 static int fromANPFormat(ANPSampleFormat fm) {
     switch (fm) {
         case kPCM16Bit_ANPSampleFormat:
-            return android::AudioSystem::PCM_16_BIT;
+            return AUDIO_FORMAT_PCM_16_BIT;
         case kPCM8Bit_ANPSampleFormat:
-            return android::AudioSystem::PCM_8_BIT;
+            return AUDIO_FORMAT_PCM_8_BIT;
         default:
-            return android::AudioSystem::INVALID_FORMAT;
+            return AUDIO_FORMAT_INVALID;
     }
 }
 
@@ -95,10 +97,10 @@ static ANPAudioTrack* ANPCreateTrack(uint32_t sampleRate,
     
     track->mUser = user;
     track->mProc = proc;
-    track->mTrack = new android::AudioTrack(android::AudioSystem::MUSIC,
+    track->mTrack = new android::AudioTrack(AUDIO_STREAM_MUSIC,
                                             sampleRate,
                                             fromANPFormat(format),
-                                            (channelCount > 1) ? android::AudioSystem::CHANNEL_OUT_STEREO : android::AudioSystem::CHANNEL_OUT_MONO,
+                                            (channelCount > 1) ? AUDIO_CHANNEL_OUT_STEREO : AUDIO_CHANNEL_OUT_MONO,
                                             0,  // frameCount
                                             0,  // flags
                                             callbackProc,
