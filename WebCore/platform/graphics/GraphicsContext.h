@@ -197,6 +197,7 @@ namespace WebCore {
         Gradient* fillGradient() const;
 
         void setShadowsIgnoreTransforms(bool);
+        bool shadowsIgnoreTransforms() const;
 
         void setShouldAntialias(bool);
         bool shouldAntialias() const;

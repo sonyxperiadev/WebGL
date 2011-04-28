@@ -183,13 +183,24 @@ public:
             shadow.color = c;
         }
 
-        bool setupShadowPaint(SkPaint* paint, SkPoint* offset)
+        bool setupShadowPaint(GraphicsContext* ctx, SkPaint* paint, SkPoint* offset)
         {
             paint->setAntiAlias(true);
             paint->setDither(true);
             paint->setXfermodeMode(mode);
             paint->setColor(shadow.color);
             offset->set(shadow.dx, shadow.dy);
+
+            // Currently, only GraphicsContexts associated with the
+            // HTMLCanvasElement have shadows ignore transforms set.  This
+            // allows us to distinguish between CSS and Canvas shadows which
+            // have different rendering specifications.
+            uint32_t flags = SkBlurMaskFilter::kHighQuality_BlurFlag;
+            if (ctx->shadowsIgnoreTransforms()) {
+                offset->fY = -offset->fY;
+                flags |= SkBlurMaskFilter::kIgnoreTransform_BlurFlag;
+            }
+
             if (shadow.blur > 0) {
                 paint->setMaskFilter(SkBlurMaskFilter::Create(shadow.blur,
                                      SkBlurMaskFilter::kNormal_BlurStyle))->unref();
@@ -289,10 +300,24 @@ public:
         paint->setDither(true);
         paint->setXfermodeMode(m_state->mode);
         if (SkColorGetA(m_state->shadow.color) > 0) {
+
+            // Currently, only GraphicsContexts associated with the
+            // HTMLCanvasElement have shadows ignore transforms set.  This
+            // allows us to distinguish between CSS and Canvas shadows which
+            // have different rendering specifications.
+            SkScalar dy = m_state->shadow.dy;
+            uint32_t flags = SkBlurDrawLooper::kHighQuality_BlurFlag;
+            if (m_parentGfxCtx->shadowsIgnoreTransforms()) {
+                dy = -dy;
+                flags |= SkBlurDrawLooper::kIgnoreTransform_BlurFlag;
+                flags |= SkBlurDrawLooper::kOverrideColor_BlurFlag;
+            }
+
             SkDrawLooper* looper = new SkBlurDrawLooper(m_state->shadow.blur,
                                                         m_state->shadow.dx,
-                                                        m_state->shadow.dy,
-                                                        m_state->shadow.color);
+                                                        dy,
+                                                        m_state->shadow.color,
+                                                        flags);
             paint->setLooper(looper)->unref();
         }
     }
@@ -953,7 +978,7 @@ void GraphicsContext::setupStrokePaint(SkPaint* paint)
 
 bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset)
 {
-    return m_data->getState()->setupShadowPaint(paint, offset);
+    return m_data->getState()->setupShadowPaint(this, paint, offset);
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace)
