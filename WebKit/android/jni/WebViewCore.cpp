@@ -569,6 +569,11 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         DBG_SET_LOG("!m_mainFrame->document()");
         return;
     }
+    // If there is a pending style recalculation, just return.
+    if (m_mainFrame->document()->isPendingStyleRecalc()) {
+        LOGW("recordPictureSet: pending style recalc, ignoring.");
+        return;
+    }
     if (m_addInval.isEmpty()) {
         DBG_SET_LOG("m_addInval.isEmpty()");
         return;
@@ -1116,9 +1121,7 @@ void WebViewCore::requestKeyboard(bool showKeyboard)
 
 void WebViewCore::notifyProgressFinished()
 {
-    DBG_NAV_LOG("call updateFrameCache");
     m_check_domtree_version = true;
-    updateFrameCache();
     sendNotifyProgressFinished();
 }
 
@@ -1513,6 +1516,18 @@ void WebViewCore::updateFrameCache()
 {
     if (!m_frameCacheOutOfDate) {
         DBG_NAV_LOG("!m_frameCacheOutOfDate");
+        return;
+    }
+
+    // If there is a pending style recalculation, do not update the frame cache.
+    // Until the recalculation is complete, there may be internal objects that
+    // are in an inconsistent state (such as font pointers).
+    // In any event, there's not much point to updating the cache while a style
+    // recalculation is pending, since it will simply have to be updated again
+    // once the recalculation is complete.
+    // TODO: Do we need to reschedule an update for after the style is recalculated?
+    if (m_mainFrame && m_mainFrame->document() && m_mainFrame->document()->isPendingStyleRecalc()) {
+        LOGW("updateFrameCache: pending style recalc, ignoring.");
         return;
     }
 #ifdef ANDROID_INSTRUMENT
