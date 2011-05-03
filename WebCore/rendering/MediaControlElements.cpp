@@ -719,8 +719,12 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     }
 
     RenderSlider* slider = toRenderSlider(renderer());
-    if (slider && slider->inDragMode())
+    if (slider && slider->inDragMode()) {
         toRenderMedia(mediaElement()->renderer())->updateTimeDisplay();
+#if PLATFORM(ANDROID)
+        toRenderMedia(mediaElement()->renderer())->updateLastTouch();
+#endif
+    }
 
     if (event->type() == eventNames().mouseupEvent)
         mediaElement()->endScrubbing();

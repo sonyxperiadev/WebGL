@@ -1554,7 +1554,14 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         toRenderTextControlSingleLine(renderer())->forwardEvent(evt);
 
-    if (deprecatedInputType() == RANGE && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent()))
+    if (deprecatedInputType() == RANGE
+        && renderer()
+        && (evt->isMouseEvent()
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+            || evt->isTouchEvent()
+#endif
+            || evt->isDragEvent()
+            || evt->isWheelEvent()))
         toRenderSlider(renderer())->forwardEvent(evt);
 
     if (!callBaseClassEarly && !evt->defaultHandled())

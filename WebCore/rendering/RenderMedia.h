@@ -71,6 +71,9 @@ public:
     void updateTimeDisplay();
     
     void forwardEvent(Event*);
+#if PLATFORM(ANDROID)
+    void updateLastTouch();
+#endif
 
 protected:
     virtual void layout();

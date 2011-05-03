@@ -550,11 +550,22 @@ void RenderMedia::updateVolumeSliderContainer(bool visible)
     }
 }
 
+#if PLATFORM(ANDROID)
+void RenderMedia::updateLastTouch()
+{
+    m_lastTouch = WTF::currentTime();
+}
+#endif
+
 void RenderMedia::forwardEvent(Event* event)
 {
 #if PLATFORM(ANDROID)
     if (event->isMouseEvent())
-        m_lastTouch = WTF::currentTime();
+        updateLastTouch();
+#if ENABLE(TOUCH_EVENTS)
+    if (event->isTouchEvent())
+        updateLastTouch();
+#endif
 #endif
 
     if (event->isMouseEvent() && m_controlsShadowRoot) {
