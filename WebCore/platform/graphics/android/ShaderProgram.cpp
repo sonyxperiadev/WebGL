@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "FloatPoint3D.h"
 #include "GLUtils.h"
 
 #include <GLES2/gl2.h>
@@ -370,6 +371,16 @@ IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
                      m_viewport.width() + margin, m_viewport.height() + margin);
     viewport.intersect(rect);
     return viewport;
+}
+
+float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, float h)
+{
+    TransformationMatrix renderMatrix = drawMatrix;
+    renderMatrix.scale3d(w, h, 1);
+    renderMatrix.multiply(m_projectionMatrix);
+    FloatPoint3D point(0.5, 0.5, 0.0);
+    FloatPoint3D result = renderMatrix.mapPoint(point);
+    return result.z();
 }
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,

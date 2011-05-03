@@ -252,6 +252,7 @@ public:
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
     void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
+    float zValue() const { return m_zValue; }
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
@@ -287,6 +288,7 @@ private:
     IntPoint m_renderLayerPos;
 
     TransformationMatrix m_transform;
+    float m_zValue;
 
     SkColor m_backgroundColor;
 

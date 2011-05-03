@@ -604,6 +604,8 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
                             -anchorPointZ());
 
     setDrawTransform(localMatrix);
+    m_zValue = TilesManager::instance()->shader()->zValue(drawTransform(), getSize().width(), getSize().height());
+
     opacity *= getOpacity();
     setDrawOpacity(opacity);
 
@@ -925,10 +927,7 @@ bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 {
-    const TransformationMatrix& transformA = a->drawTransform();
-    const TransformationMatrix& transformB = b->drawTransform();
-
-    return transformA.m43() < transformB.m43();
+    return a->zValue() > b->zValue();
 }
 
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)

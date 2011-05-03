@@ -39,6 +39,7 @@ class ShaderProgram {
     // Drawing
     void setViewport(SkRect& viewport);
     void drawQuad(SkRect& geometry, int textureId, float opacity);
+    float zValue(const TransformationMatrix& drawMatrix, float w, float h);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                      SkRect& geometry, int textureId, float opacity,
                      bool forceBlending = false);
