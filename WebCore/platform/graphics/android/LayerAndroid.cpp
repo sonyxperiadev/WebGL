@@ -58,6 +58,8 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : SkLayer(),
     m_haveClip(false),
     m_isFixed(false),
     m_isIframe(false),
+    m_backfaceVisibility(true),
+    m_visible(true),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_recordingPicture(0),
@@ -97,6 +99,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     copyBitmap(layer.m_contentsImage);
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
+    m_backfaceVisibility = layer.m_backfaceVisibility;
+    m_visible = layer.m_visible;
     m_backgroundColor = layer.m_backgroundColor;
 
     m_fixedLeft = layer.m_fixedLeft;
@@ -619,6 +623,14 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
         setDrawClip(clipping);
     }
 
+    if (!m_backfaceVisibility
+         && drawTransform().inverse().m33() < 0) {
+         setVisible(false);
+         return;
+    } else {
+         setVisible(true);
+    }
+
     int count = this->countChildren();
     if (!count)
         return;
@@ -933,6 +945,8 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     TilesManager::instance()->shader()->clip(m_clippingRect);
+    if (!m_visible)
+        return false;
 
     if (m_drawingTexture) {
         TextureInfo* textureInfo = m_drawingTexture->consumerLock();

@@ -61,6 +61,7 @@ public:
     virtual void setAnchorPoint(const FloatPoint3D&);
     virtual void setSize(const FloatSize&);
 
+    virtual void setBackfaceVisibility(bool b);
     virtual void setTransform(const TransformationMatrix&);
 
     virtual void setChildrenTransform(const TransformationMatrix&);

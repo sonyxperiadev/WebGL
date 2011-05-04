@@ -337,6 +337,13 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     askForSync();
 }
 
+void GraphicsLayerAndroid::setBackfaceVisibility(bool b)
+{
+    GraphicsLayer::setBackfaceVisibility(b);
+    m_contentLayer->setBackfaceVisibility(b);
+    askForSync();
+}
+
 void GraphicsLayerAndroid::setTransform(const TransformationMatrix& t)
 {
     if (t == m_transform)

@@ -101,6 +101,7 @@ public:
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
 
+    void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
     SkRect bounds() const;
@@ -134,6 +135,7 @@ public:
     void updateGLPositions(const TransformationMatrix& parentMatrix,
                            const FloatRect& clip, float opacity);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
+    void setVisible(bool value) { m_visible = value; }
 
     bool preserves3D() { return m_preserves3D; }
     void setPreserves3D(bool value) { m_preserves3D = value; }
@@ -289,6 +291,8 @@ private:
 
     TransformationMatrix m_transform;
     float m_zValue;
+    bool m_backfaceVisibility;
+    bool m_visible;
 
     SkColor m_backgroundColor;
 
