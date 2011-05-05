@@ -380,16 +380,14 @@ public:
     void flipForWritingMode(IntRect&) const;
     IntSize locationOffsetIncludingFlipping() const;
 
-<<<<<<< HEAD
-#ifdef ANDROID_LAYOUT
-    int getVisibleWidth() const { return m_visibleWidth; }
-#endif
-=======
     IntRect logicalVisualOverflowRectForPropagation(RenderStyle*) const;
     IntRect visualOverflowRectForPropagation(RenderStyle*) const;
     IntRect logicalLayoutOverflowRectForPropagation(RenderStyle*) const;
     IntRect layoutOverflowRectForPropagation(RenderStyle*) const;
->>>>>>> webkit.org at r74534 (trunk)
+
+#ifdef ANDROID_LAYOUT
+    int getVisibleWidth() const { return m_visibleWidth; }
+#endif
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

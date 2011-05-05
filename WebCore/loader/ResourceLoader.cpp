@@ -146,16 +146,7 @@ void ResourceLoader::start()
     ASSERT(!m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
 
-<<<<<<< HEAD
-    willSendRequest(m_request, ResourceResponse());
-    if (m_request.isNull()) {
-        didFail(frameLoader()->cancelledError(m_request));
-        return;
-    }    
-    
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
->>>>>>> webkit.org at r74534 (trunk)
     if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
         return;
 #endif

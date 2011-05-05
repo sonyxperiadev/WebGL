@@ -86,20 +86,6 @@ void RenderSVGResourceSolidColor::postApplyResource(RenderObject*, GraphicsConte
         else if (resourceMode & ApplyToStrokeMode)
             context->strokePath(*path);
     }
-<<<<<<< HEAD
-
-#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
-    // FIXME: Move this into the GraphicsContext
-    // WebKit implicitly expects us to reset the path.
-    // For example in fillAndStrokePath() of RenderSVGPath.cpp the path is
-    // added back to the context after filling. This is because internally it
-    // calls CGContextFillPath() which closes the path.
-    context->beginPath();
-    context->platformContext()->setFillShader(0);
-    context->platformContext()->setStrokeShader(0);
-#endif
-=======
->>>>>>> webkit.org at r74534 (trunk)
 }
 
 }

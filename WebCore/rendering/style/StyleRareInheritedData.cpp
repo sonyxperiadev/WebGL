@@ -71,7 +71,7 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , textStrokeColor(o.textStrokeColor)
     , textStrokeWidth(o.textStrokeWidth)
     , textFillColor(o.textFillColor)
-<<<<<<< HEAD
+    , textEmphasisColor(o.textEmphasisColor)
 #ifdef ANDROID_CSS_RING
     , ringFillColor(o.ringFillColor)
     , ringInnerWidth(o.ringInnerWidth)
@@ -86,9 +86,6 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     , tapHighlightColor(o.tapHighlightColor)
 #endif
-=======
-    , textEmphasisColor(o.textEmphasisColor)
->>>>>>> webkit.org at r74534 (trunk)
     , textShadow(o.textShadow ? new ShadowData(*o.textShadow) : 0)
     , highlight(o.highlight)
     , cursorData(o.cursorData)

@@ -465,7 +465,6 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
         styleSheet->addSubresourceStyleURLs(urls);
 }
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
 void* HTMLLinkElement::operator new(size_t size)
 {
@@ -487,7 +486,7 @@ void HTMLLinkElement::operator delete[](void* p, size_t size)
     Node::operator delete[](p, size);
 }
 #endif
-=======
+
 void HTMLLinkElement::addPendingSheet(PendingSheetType type)
 {
     if (type <= m_pendingSheetType)
@@ -513,6 +512,5 @@ void HTMLLinkElement::removePendingSheet()
     }
     document()->removePendingSheet();
 }
->>>>>>> webkit.org at r74534 (trunk)
 
 }

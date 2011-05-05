@@ -63,15 +63,10 @@ void convertV8ObjectToNPVariant(v8::Local<v8::Value> object, NPObject* owner, NP
         VOID_TO_NPVARIANT(*result);
     else if (object->IsString()) {
         v8::String::Utf8Value utf8(object);
-<<<<<<< HEAD
         int length = utf8.length() + 1;
         char* utf8Chars = reinterpret_cast<char*>(malloc(length));
         memcpy(utf8Chars, *utf8, length);
         STRINGN_TO_NPVARIANT(utf8Chars, utf8.length(), *result);
-=======
-        char* utf8_chars = strdup(*utf8);
-        STRINGN_TO_NPVARIANT(utf8_chars, utf8.length(), *result);
->>>>>>> webkit.org at r74534 (trunk)
     } else if (object->IsObject()) {
         DOMWindow* window = V8Proxy::retrieveWindow(V8Proxy::currentContext());
         NPObject* npobject = npCreateV8ScriptObject(0, v8::Handle<v8::Object>::Cast(object), window);

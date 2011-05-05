@@ -53,15 +53,11 @@ static unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const 
     return bytesExtracted;
 }
 
-<<<<<<< HEAD
 #if !OS(ANDROID)
 // This method requires BMPImageDecoder, PNGImageDecoder, ICOImageDecoder and
 // JPEGDecoder, which aren't used on Android, and which don't all compile.
 // TODO: Find a better fix.
-ImageDecoder* ImageDecoder::create(const SharedBuffer& data, bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
-=======
 ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
->>>>>>> webkit.org at r74534 (trunk)
 {
     // We need at least 4 bytes to figure out what kind of image we're dealing
     // with.

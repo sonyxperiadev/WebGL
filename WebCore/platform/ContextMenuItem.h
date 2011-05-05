@@ -184,28 +184,7 @@ namespace WebCore {
         bool enabled;
     };
 #elif PLATFORM(GTK)
-<<<<<<< HEAD
-    struct PlatformMenuItemDescription {
-        PlatformMenuItemDescription()
-            : type(ActionType)
-            , action(ContextMenuItemTagNoAction)
-            , subMenu(0)
-            , checked(false)
-            , enabled(true)
-        {}
-
-        ContextMenuItemType type;
-        ContextMenuAction action;
-        String title;
-        GtkMenu* subMenu;
-        bool checked;
-        bool enabled;
-    };
-#elif defined ANDROID
-    typedef void* PlatformMenuItemDescription;
-=======
     typedef GtkMenuItem* PlatformMenuItemDescription;
->>>>>>> webkit.org at r74534 (trunk)
 #elif PLATFORM(WX)
     struct PlatformMenuItemDescription {
         PlatformMenuItemDescription()

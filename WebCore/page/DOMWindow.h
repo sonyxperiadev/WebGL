@@ -203,27 +203,8 @@ namespace WebCore {
         PassRefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt, bool authorOnly = true) const;
         double devicePixelRatio() const;
 
-<<<<<<< HEAD
-        PassRefPtr<WebKitPoint> webkitConvertPointFromPageToNode(Node* node, const WebKitPoint* p) const;
-        PassRefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node* node, const WebKitPoint* p) const;        
-
-#if ENABLE(DATABASE)
-        // HTML 5 client-side database
-        PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
-#endif
-
-#if ENABLE(DOM_STORAGE)
-        // HTML 5 key/value storage
-        Storage* sessionStorage(ExceptionCode&) const;
-        Storage* localStorage(ExceptionCode&) const;
-#ifdef ANDROID
-        void clearDOMStorage();
-#endif
-#endif
-=======
         PassRefPtr<WebKitPoint> webkitConvertPointFromPageToNode(Node*, const WebKitPoint*) const;
         PassRefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node*, const WebKitPoint*) const;        
->>>>>>> webkit.org at r74534 (trunk)
 
         Console* console() const;
 
@@ -379,6 +360,9 @@ namespace WebCore {
         Storage* localStorage(ExceptionCode&) const;
         Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
         Storage* optionalLocalStorage() const { return m_localStorage.get(); }
+#ifdef ANDROID
+        void clearDOMStorage();
+#endif
 #endif
 
 #if ENABLE(FILE_SYSTEM)

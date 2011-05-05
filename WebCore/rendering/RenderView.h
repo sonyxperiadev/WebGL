@@ -97,14 +97,11 @@ public:
     void updateWidgetPositions();
     void addWidget(RenderWidget*);
     void removeWidget(RenderWidget*);
-<<<<<<< HEAD
+    
+    void notifyWidgets(WidgetNotification);
 #ifdef ANDROID_PLUGINS
     const HashSet<RenderWidget*>& widgets() const { return m_widgets; }
 #endif
-=======
-    
-    void notifyWidgets(WidgetNotification);
->>>>>>> webkit.org at r74534 (trunk)
 
     // layoutDelta is used transiently during layout to store how far an object has moved from its
     // last layout location, in order to repaint correctly.

@@ -1203,12 +1203,8 @@ int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) 
     return f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
 #else
     return f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
-<<<<<<< HEAD
-                                lineOffset - logicalLeft(), includePartialGlyphs);
-#endif
-=======
         lineOffset - logicalLeft(), includePartialGlyphs);
->>>>>>> webkit.org at r74534 (trunk)
+#endif
 }
 
 int InlineTextBox::positionForOffset(int offset) const

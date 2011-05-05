@@ -583,9 +583,6 @@ void GraphicsContext::fillRect(const FloatRect& rect, Generator& generator)
     generator.fill(this, rect);
 }
 
-<<<<<<< HEAD
-#if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
-=======
 void GraphicsContext::setCompositeOperation(CompositeOperator compositeOperation)
 {
     m_state.compositeOperator = compositeOperation;
@@ -597,8 +594,7 @@ CompositeOperator GraphicsContext::compositeOperation() const
     return m_state.compositeOperator;
 }
 
-#if !PLATFORM(SKIA)
->>>>>>> webkit.org at r74534 (trunk)
+#if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
 void GraphicsContext::setPlatformFillGradient(Gradient*)
 {
 }

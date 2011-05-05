@@ -38,11 +38,19 @@
 #include "MouseEvent.h"
 #include "RenderSlider.h"
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+#include "TouchEvent.h"
+#endif
+
 namespace WebCore {
 
 void SliderThumbElement::defaultEventHandler(Event* event)
 {
-    if (!event->isMouseEvent()) {
+    if (!event->isMouseEvent()
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+        && !event->isTouchEvent()
+#endif
+        ) {
         ShadowBlockElement::defaultEventHandler(event);
         return;
     }
@@ -51,7 +59,11 @@ void SliderThumbElement::defaultEventHandler(Event* event)
     bool isLeftButton = mouseEvent->button() == LeftButton;
     const AtomicString& eventType = event->type();
 
-    if (eventType == eventNames().mousedownEvent && isLeftButton) {
+    if (eventType == eventNames().mousedownEvent && isLeftButton
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+        || eventType == eventNames().touchstartEvent
+#endif
+        ) {
         if (document()->frame() && renderer()) {
             RenderSlider* slider = toRenderSlider(renderer()->parent());
             if (slider) {
@@ -72,7 +84,11 @@ void SliderThumbElement::defaultEventHandler(Event* event)
                 return;
             }
         }
-    } else if (eventType == eventNames().mouseupEvent && isLeftButton) {
+    } else if (eventType == eventNames().mouseupEvent && isLeftButton
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+               || eventType == eventNames().touchendEvent
+#endif
+               ) {
         if (m_inDragMode) {
             if (Frame* frame = document()->frame())
                 frame->eventHandler()->setCapturingMouseEventsNode(0);      
@@ -80,11 +96,28 @@ void SliderThumbElement::defaultEventHandler(Event* event)
             event->setDefaultHandled();
             return;
         }
-    } else if (eventType == eventNames().mousemoveEvent) {
+    } else if (eventType == eventNames().mousemoveEvent
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+               || eventType == eventNames().touchmoveEvent
+#endif
+               ) {
         if (m_inDragMode && renderer() && renderer()->parent()) {
             RenderSlider* slider = toRenderSlider(renderer()->parent());
             if (slider) {
                 FloatPoint curPoint = slider->absoluteToLocal(mouseEvent->absoluteLocation(), false, true);
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+                // Update the position when it is a touch event
+                if (event->isTouchEvent()) {
+                    TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
+                    if (touchEvent && touchEvent->touches() && touchEvent->touches()->item(0)) {
+                        curPoint.setX(touchEvent->touches()->item(0)->pageX());
+                        curPoint.setY(touchEvent->touches()->item(0)->pageY());
+                        curPoint = slider->absoluteToLocal(curPoint, false, true);
+                    }
+                }
+                // Tell the webview that webkit will handle the following move events
+                event->setDefaultPrevented(true);
+#endif
                 IntPoint eventOffset(curPoint.x() + m_offsetToThumb.x(), curPoint.y() + m_offsetToThumb.y());
                 slider->setValueForPosition(slider->positionForOffset(eventOffset));
                 event->setDefaultHandled();

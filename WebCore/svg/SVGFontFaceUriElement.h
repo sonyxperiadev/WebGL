@@ -45,27 +45,23 @@ private:
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
     virtual void insertedIntoDocument();
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
-        void* operator new(size_t size) {
-            return SVGElement::operator new(size);
-        }
-        void* operator new[](size_t size) {
-            return SVGElement::operator new[](size);
-        }
+    void* operator new(size_t size) {
+        return SVGElement::operator new(size);
+    }
+    void* operator new[](size_t size) {
+        return SVGElement::operator new[](size);
+    }
 
-        void operator delete(void* p, size_t size) {
-            SVGElement::operator delete(p, size);
-        }
-        void operator delete[](void* p, size_t size) {
-            SVGElement::operator delete[](p, size);
-        }
+    void operator delete(void* p, size_t size) {
+        SVGElement::operator delete(p, size);
+    }
+    void operator delete[](void* p, size_t size) {
+        SVGElement::operator delete[](p, size);
+    }
 #endif
 
-        void loadFont();
-=======
     void loadFont();
->>>>>>> webkit.org at r74534 (trunk)
 
     CachedResourceHandle<CachedFont> m_cachedFont;
 };

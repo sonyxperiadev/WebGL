@@ -1634,7 +1634,6 @@ void DOMWindow::revokeObjectURL(const String& blobURLString)
 }
 #endif
 
-<<<<<<< HEAD
 #if ENABLE(DOM_STORAGE) && defined(ANDROID)
 void DOMWindow::clearDOMStorage()
 {
@@ -1647,7 +1646,7 @@ void DOMWindow::clearDOMStorage()
     m_localStorage = 0;
 }
 #endif
-=======
+
 void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow)
 {
     Frame* activeFrame = activeWindow->frame();
@@ -1853,6 +1852,5 @@ void DOMWindow::showModalDialog(const String& urlString, const String& dialogFea
 
     dialogFrame->page()->chrome()->runModal();
 }
->>>>>>> webkit.org at r74534 (trunk)
 
 } // namespace WebCore

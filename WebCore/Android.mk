@@ -389,14 +389,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/TextDocumentParser.cpp \
 	html/parser/TextViewSourceParser.cpp \
 	\
-<<<<<<< HEAD
-	inspector/InspectorFileSystemAgent.cpp \
-	inspector/ScriptArguments.cpp \
-	inspector/ScriptCallFrame.cpp \
-	inspector/ScriptCallStack.cpp \
-=======
 	html/shadow/SliderThumbElement.cpp \
->>>>>>> webkit.org at r74534 (trunk)
 	\
 	loader/cache/CachedCSSStyleSheet.cpp \
 	loader/cache/CachedFont.cpp \
@@ -427,11 +420,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/PolicyCallback.cpp \
 	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
-<<<<<<< HEAD
-	loader/Request.cpp \
-=======
 	loader/NavigationScheduler.cpp \
->>>>>>> webkit.org at r74534 (trunk)
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoadScheduler.cpp \
 	loader/ResourceLoader.cpp \

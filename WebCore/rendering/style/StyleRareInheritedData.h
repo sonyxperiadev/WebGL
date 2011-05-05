@@ -55,7 +55,8 @@ public:
     Color textStrokeColor;
     float textStrokeWidth;
     Color textFillColor;
-<<<<<<< HEAD
+    Color textEmphasisColor;
+
 #ifdef ANDROID_CSS_RING
     Color ringFillColor;
     Length ringInnerWidth;
@@ -70,9 +71,6 @@ public:
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     Color tapHighlightColor;
 #endif
-=======
-    Color textEmphasisColor;
->>>>>>> webkit.org at r74534 (trunk)
 
     ShadowData* textShadow; // Our text shadow information for shadowed text drawing.
     AtomicString highlight; // Apple-specific extension for custom highlight rendering.

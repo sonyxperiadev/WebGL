@@ -1855,7 +1855,9 @@ bool CSSParser::parseValue(int propId, bool important)
             validPrimitive = true;
         break;
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextEmphasisStyle:
+        return parseTextEmphasisStyle(important);
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1893,10 +1895,6 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
-=======
-    case CSSPropertyWebkitTextEmphasisStyle:
-        return parseTextEmphasisStyle(important);
->>>>>>> webkit.org at r74534 (trunk)
 
 #if ENABLE(SVG)
     default:

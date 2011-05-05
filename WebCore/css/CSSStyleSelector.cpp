@@ -5562,7 +5562,56 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
         return;
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextEmphasisPosition:
+        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textEmphasisPosition, TextEmphasisPosition)
+        return;
+
+    case CSSPropertyWebkitTextEmphasisStyle:
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisFill, TextEmphasisFill)
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisMark, TextEmphasisMark)
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisCustomMark, TextEmphasisCustomMark)
+        if (isInherit || isInitial)
+            return;
+
+        if (value->isValueList()) {
+            CSSValueList* list = static_cast<CSSValueList*>(value);
+            ASSERT(list->length() == 2);
+            if (list->length() != 2)
+                return;
+            for (unsigned i = 0; i < 2; ++i) {
+                ASSERT(list->itemWithoutBoundsCheck(i)->isPrimitiveValue());
+                CSSPrimitiveValue* value = static_cast<CSSPrimitiveValue*>(list->itemWithoutBoundsCheck(i));
+                if (value->getIdent() == CSSValueFilled || value->getIdent() == CSSValueOpen)
+                    m_style->setTextEmphasisFill(*value);
+                else
+                    m_style->setTextEmphasisMark(*value);
+            }
+            m_style->setTextEmphasisCustomMark(nullAtom);
+            return;
+        }
+
+        if (!primitiveValue)
+            return;
+
+        if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_STRING) {
+            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
+            m_style->setTextEmphasisMark(TextEmphasisMarkCustom);
+            m_style->setTextEmphasisCustomMark(primitiveValue->getStringValue());
+            return;
+        }
+
+        m_style->setTextEmphasisCustomMark(nullAtom);
+
+        if (primitiveValue->getIdent() == CSSValueFilled || primitiveValue->getIdent() == CSSValueOpen) {
+            m_style->setTextEmphasisFill(*primitiveValue);
+            m_style->setTextEmphasisMark(TextEmphasisMarkAuto);
+        } else {
+            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
+            m_style->setTextEmphasisMark(*primitiveValue);
+        }
+
+        return;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
         if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
@@ -5706,57 +5755,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
-=======
-    case CSSPropertyWebkitTextEmphasisPosition:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textEmphasisPosition, TextEmphasisPosition)
-        return;
-
-    case CSSPropertyWebkitTextEmphasisStyle:
-        HANDLE_INHERIT_AND_INITIAL(textEmphasisFill, TextEmphasisFill)
-        HANDLE_INHERIT_AND_INITIAL(textEmphasisMark, TextEmphasisMark)
-        HANDLE_INHERIT_AND_INITIAL(textEmphasisCustomMark, TextEmphasisCustomMark)
-        if (isInherit || isInitial)
-            return;
-
-        if (value->isValueList()) {
-            CSSValueList* list = static_cast<CSSValueList*>(value);
-            ASSERT(list->length() == 2);
-            if (list->length() != 2)
-                return;
-            for (unsigned i = 0; i < 2; ++i) {
-                ASSERT(list->itemWithoutBoundsCheck(i)->isPrimitiveValue());
-                CSSPrimitiveValue* value = static_cast<CSSPrimitiveValue*>(list->itemWithoutBoundsCheck(i));
-                if (value->getIdent() == CSSValueFilled || value->getIdent() == CSSValueOpen)
-                    m_style->setTextEmphasisFill(*value);
-                else
-                    m_style->setTextEmphasisMark(*value);
-            }
-            m_style->setTextEmphasisCustomMark(nullAtom);
-            return;
-        }
-
-        if (!primitiveValue)
-            return;
-
-        if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_STRING) {
-            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
-            m_style->setTextEmphasisMark(TextEmphasisMarkCustom);
-            m_style->setTextEmphasisCustomMark(primitiveValue->getStringValue());
-            return;
-        }
-
-        m_style->setTextEmphasisCustomMark(nullAtom);
-
-        if (primitiveValue->getIdent() == CSSValueFilled || primitiveValue->getIdent() == CSSValueOpen) {
-            m_style->setTextEmphasisFill(*primitiveValue);
-            m_style->setTextEmphasisMark(TextEmphasisMarkAuto);
-        } else {
-            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
-            m_style->setTextEmphasisMark(*primitiveValue);
-        }
-
-        return;
->>>>>>> webkit.org at r74534 (trunk)
 
 #if ENABLE(SVG)
     default:

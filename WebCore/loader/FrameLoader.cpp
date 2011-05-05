@@ -927,11 +927,13 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
 {
     ASSERT(childFrame);
 
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());    
     if (subframeArchive) {
         childFrame->loader()->loadArchive(subframeArchive.release());
         return;
     }
+#endif
 
     HistoryItem* parentItem = history()->currentItem();
     // If we're moving in the back/forward list, we might want to replace the content
@@ -944,18 +946,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
         }
     }
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());
-    
-    if (subframeArchive)
-        childFrame->loader()->loadArchive(subframeArchive.release());
-    else
-#endif
-        childFrame->loader()->loadURL(workingURL, referer, String(), false, childLoadType, 0, 0);
-=======
     childFrame->loader()->loadURL(url, referer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
->>>>>>> webkit.org at r74534 (trunk)
 }
 
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
@@ -2230,13 +2221,8 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
 #endif
-<<<<<<< HEAD
     
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    // If loading a webarchive, run through webarchive machinery
-    const String& responseMIMEType = loader->responseMIMEType();
-=======
->>>>>>> webkit.org at r74534 (trunk)
 
     // Give archive machinery a crack at this document. If the MIME type is not an archive type, it will return 0.
     RefPtr<Archive> archive = ArchiveFactory::create(loader->mainResourceData().get(), loader->responseMIMEType());
