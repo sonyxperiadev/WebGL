@@ -312,11 +312,6 @@ bool GraphicsContext::shadowsIgnoreTransforms() const
     return m_state.shadowsIgnoreTransforms;
 }
 
-bool GraphicsContext::shadowsIgnoreTransforms() const
-{
-    return m_common->state.shadowsIgnoreTransforms;
-}
-
 bool GraphicsContext::updatingControlTints() const
 {
     return m_updatingControlTints;
