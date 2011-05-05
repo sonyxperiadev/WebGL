@@ -488,7 +488,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     m_glWebViewState->resetRings();
     if (extra) {
         if (extra == &m_ring) {
-            m_glWebViewState->setRings(m_ring.rings());
+            m_glWebViewState->setRings(m_ring.rings(), m_ring.m_isPressed);
         } else {
             LayerAndroid mainPicture(m_navPictureUI);
             PictureSet* content = m_baseLayer->content();

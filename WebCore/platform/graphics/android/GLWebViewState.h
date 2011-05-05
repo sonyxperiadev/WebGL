@@ -181,7 +181,7 @@ public:
     void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
     void paintExtras();
 
-    void setRings(Vector<IntRect>& rings);
+    void setRings(Vector<IntRect>& rings, bool isPressed);
     void resetRings();
     void drawFocusRing(IntRect& rect);
 
@@ -290,6 +290,7 @@ private:
 #endif
     bool m_displayRings;
     Vector<IntRect> m_rings;
+    bool m_ringsIsPressed;
     int m_focusRingTexture;
 };
 
