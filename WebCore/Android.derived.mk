@@ -129,7 +129,7 @@ $(GEN): $(LOCAL_BISON)
 LOCAL_GENERATED_SOURCES += $(GEN)
 # user agent style sheets
 
-style_sheets := $(LOCAL_PATH)/css/html.css $(LOCAL_PATH)/css/quirks.css $(LOCAL_PATH)/css/view-source.css $(LOCAL_PATH)/css/mediaControls.css $(LOCAL_PATH)/css/mediaControlsAndroid.css
+style_sheets := $(LOCAL_PATH)/css/html.css $(LOCAL_PATH)/css/quirks.css $(LOCAL_PATH)/css/fullscreen.css $(LOCAL_PATH)/css/view-source.css $(LOCAL_PATH)/css/mediaControls.css $(LOCAL_PATH)/css/mediaControlsAndroid.css
 ifeq ($(ENABLE_SVG), true)
 style_sheets := $(style_sheets) $(LOCAL_PATH)/css/svg.css
 endif

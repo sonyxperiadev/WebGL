@@ -187,6 +187,10 @@ namespace android {
         virtual void webAppCanBeInstalled();
 #endif
 
+#if ENABLE(FULLSCREEN_API)
+        virtual void exitFullScreenForElement(Element*);
+#endif
+
 #if ENABLE(VIDEO)
         virtual bool supportsFullscreenForNode(const WebCore::Node*);
         virtual void enterFullscreenForNode(WebCore::Node*);

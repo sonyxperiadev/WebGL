@@ -180,6 +180,14 @@ void MediaPlayerPrivate::onTimeupdate(int position)
     m_player->timeChanged();
 }
 
+void MediaPlayerPrivate::onStopFullscreen()
+{
+    if (m_player && m_player->mediaPlayerClient()
+        && m_player->mediaPlayerClient()->mediaPlayerOwningDocument()) {
+        m_player->mediaPlayerClient()->mediaPlayerOwningDocument()->webkitCancelFullScreen();
+    }
+}
+
 class MediaPlayerVideoPrivate : public MediaPlayerPrivate {
 public:
     void load(const String& url)
@@ -590,6 +598,14 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     return true;
 }
 
+static void OnStopFullscreen(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player =
+            reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onStopFullscreen();
+    }
+}
 
 /*
  * JNI registration
@@ -599,6 +615,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPrepared },
     { "nativeOnEnded", "(I)V",
         (void*) OnEnded },
+    { "nativeOnStopFullscreen", "(I)V",
+        (void*) OnStopFullscreen },
     { "nativeOnPaused", "(I)V",
         (void*) OnPaused },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",

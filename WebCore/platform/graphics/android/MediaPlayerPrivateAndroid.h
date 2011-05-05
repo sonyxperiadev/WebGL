@@ -102,6 +102,7 @@ public:
     {
         return m_videoLayer;
     }
+    void onStopFullscreen();
 
 protected:
     // Android-specific methods and fields.

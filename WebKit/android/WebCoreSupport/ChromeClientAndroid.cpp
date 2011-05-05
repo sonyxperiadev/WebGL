@@ -581,6 +581,7 @@ void ChromeClientAndroid::enterFullscreenForNode(Node* node)
 
       FrameView* frameView = m_webFrame->page()->mainFrame()->view();
       android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
+      m_webFrame->page()->mainFrame()->document()->webkitWillEnterFullScreenForElement(videoElement);
       if (core)
           core->enterFullscreenForVideoLayer(layer->uniqueId(), url);
 }
@@ -590,5 +591,15 @@ void ChromeClientAndroid::exitFullscreenForNode(Node* node)
 }
 #endif
 
+#if ENABLE(FULLSCREEN_API)
+void ChromeClientAndroid::exitFullScreenForElement(Element* element)
+{
+    if (!element)
+        return;
+
+    HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(element);
+    videoElement->exitFullscreen();
+}
+#endif
 
 }
