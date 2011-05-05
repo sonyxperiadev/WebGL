@@ -372,7 +372,7 @@ void CachedResourceLoader::setBlockNetworkImage(bool block)
         if (resource->type() == CachedResource::ImageResource) {
             CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage*>(resource));
             if (image->stillNeedsLoad())
-                cache()->loader()->load(this, image, true);
+                load(image, true);
         }
     }
 }
