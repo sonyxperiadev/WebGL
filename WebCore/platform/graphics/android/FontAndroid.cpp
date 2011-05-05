@@ -83,7 +83,8 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
-    bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor);
+    ColorSpace shadowColorSpace;
+    bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
     bool hasBothStrokeAndFill =
         (mode & (cTextStroke | cTextFill)) == (cTextStroke | cTextFill);
     if (hasShadow || hasBothStrokeAndFill) {
