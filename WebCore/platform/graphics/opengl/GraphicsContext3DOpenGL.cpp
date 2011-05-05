@@ -125,7 +125,10 @@ void GraphicsContext3D::paintRenderingResultsToCanvas(CanvasRenderingContext* co
 
 void GraphicsContext3D::reshape(int width, int height)
 {
-    if (width == m_currentWidth && height == m_currentHeight || !m_contextObj)
+    if (!m_contextObj)
+        return;
+
+    if (width == m_currentWidth && height == m_currentHeight)
         return;
     
     m_currentWidth = width;
@@ -1324,9 +1327,20 @@ long GraphicsContext3D::getVertexAttribOffset(unsigned long index, unsigned long
 
 int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels)
 {
+    if (width && height && !pixels) {
+        synthesizeGLError(INVALID_VALUE);
+        return 1;
+    }
     makeContextCurrent();
+    unsigned openGLInternalFormat = internalformat;
+    if (type == GL_FLOAT) {
+        if (format == GL_RGBA)
+            openGLInternalFormat = GL_RGBA32F_ARB;
+        else if (format == GL_RGB)
+            openGLInternalFormat = GL_RGB32F_ARB;
+    }
 
-    ::glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
+    ::glTexImage2D(target, level, openGLInternalFormat, width, height, border, format, type, pixels);
     return 0;
 }
 

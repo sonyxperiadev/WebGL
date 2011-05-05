@@ -50,8 +50,21 @@ typedef enum {
     WEBKIT_NAVIGATION_RESPONSE_DOWNLOAD
 } WebKitNavigationResponse;
 
+/*  
+ * WebKitCacheModel:
+ * @WEBKIT_CACHE_MODEL_DEFAULT: The default cache model. This is
+ *   WEBKIT_CACHE_MODEL_WEB_BROWSER.
+ * @WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER: Disable the cache completely, which 
+ *   substantially reduces memory usage. Useful for applications that only
+ *   access local files.
+ * @WEBKIT_CACHE_MODEL_WEB_BROWSER: Improve document load speed substantially
+ *   by caching previously viewed content.
+ * 
+ * Enum values used for determining the webview cache model.
+ */
 typedef enum {
-    WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER = 1,
+    WEBKIT_CACHE_MODEL_DEFAULT,
+    WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER,
     WEBKIT_CACHE_MODEL_WEB_BROWSER
 } WebKitCacheModel;
 
@@ -351,6 +364,9 @@ webkit_web_view_set_full_content_zoom           (WebKitWebView        *webView,
 WEBKIT_API SoupSession*
 webkit_get_default_session                      (void);
 
+WEBKIT_API WebKitWebPluginDatabase *
+webkit_get_web_plugin_database                  (void);
+
 WEBKIT_API const gchar*
 webkit_web_view_get_encoding                    (WebKitWebView        * webView);
 
@@ -413,6 +429,9 @@ webkit_get_cache_model                          (void);
 
 WEBKIT_API WebKitDOMDocument *
 webkit_web_view_get_dom_document                (WebKitWebView        *webView);
+
+WEBKIT_API WebKitViewportAttributes*
+webkit_web_view_get_viewport_attributes         (WebKitWebView        *webView);
 
 G_END_DECLS
 

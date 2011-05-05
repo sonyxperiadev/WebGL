@@ -58,6 +58,8 @@
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
 #include "RenderText.h"
+#include "SelectElement.h"
+#include "Settings.h"
 #include "TextEncoding.h"
 #include "TextIterator.h"
 #include "WebKitAccessibleHyperlink.h"
@@ -171,7 +173,7 @@ static const gchar* webkit_accessible_get_name(AtkObject* object)
                 return webkit_accessible_text_get_text(ATK_TEXT(atkObject), 0, -1);
         }
 
-        // Try text under the node.
+        // Try text under the node
         String textUnder = renderObject->textUnderElement();
         if (textUnder.length())
             return returnString(textUnder);
@@ -185,13 +187,6 @@ static const gchar* webkit_accessible_get_name(AtkObject* object)
             if (!alt.isEmpty())
                 return returnString(alt);
         }
-    }
-
-    // Fallback for the webArea object: just return the document's title.
-    if (renderObject->isWebArea()) {
-        Document* document = coreObject->document();
-        if (document)
-            return returnString(document->title());
     }
 
     return returnString(coreObject->stringValue());
@@ -483,6 +478,61 @@ static AtkRole webkit_accessible_get_role(AtkObject* object)
     return atkRole(axObject->roleValue());
 }
 
+static bool selectionBelongsToObject(AccessibilityObject* coreObject, VisibleSelection& selection)
+{
+    if (!coreObject || !coreObject->isAccessibilityRenderObject())
+        return false;
+
+    if (selection.isNone())
+        return false;
+
+    RefPtr<Range> range = selection.toNormalizedRange();
+    if (!range)
+        return false;
+
+    // We want to check that both the selection intersects the node
+    // AND that the selection is not just "touching" one of the
+    // boundaries for the selected node. We want to check whether the
+    // node is actually inside the region, at least partially.
+    Node* node = coreObject->node();
+    Node* lastDescendant = node->lastDescendant();
+    ExceptionCode ec = 0;
+    return (range->intersectsNode(node, ec)
+            && (range->endContainer() != node || range->endOffset())
+            && (range->startContainer() != lastDescendant || range->startOffset() != lastOffsetInNode(lastDescendant)));
+}
+
+static bool isTextWithCaret(AccessibilityObject* coreObject)
+{
+    if (!coreObject || !coreObject->isAccessibilityRenderObject())
+        return false;
+
+    Document* document = coreObject->document();
+    if (!document)
+        return false;
+
+    Frame* frame = document->frame();
+    if (!frame)
+        return false;
+
+    Settings* settings = frame->settings();
+    if (!settings || !settings->caretBrowsingEnabled())
+        return false;
+
+    // Check text objects and paragraphs only.
+    AtkObject* axObject = coreObject->wrapper();
+    AtkRole role = axObject ? atk_object_get_role(axObject) : ATK_ROLE_INVALID;
+    if (role != ATK_ROLE_TEXT && role != ATK_ROLE_PARAGRAPH)
+        return false;
+
+    // Finally, check whether the caret is set in the current object.
+    VisibleSelection selection = coreObject->selection();
+    if (!selection.isCaret())
+        return false;
+
+    return selectionBelongsToObject(coreObject, selection);
+}
+
 static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkStateSet* stateSet)
 {
     AccessibilityObject* parent = coreObject->parentObject();
@@ -507,10 +557,16 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
         atk_state_set_add_state(stateSet, ATK_STATE_SENSITIVE);
     }
 
+    if (coreObject->canSetExpandedAttribute())
+        atk_state_set_add_state(stateSet, ATK_STATE_EXPANDABLE);
+
+    if (coreObject->isExpanded())
+        atk_state_set_add_state(stateSet, ATK_STATE_EXPANDED);
+
     if (coreObject->canSetFocusAttribute())
         atk_state_set_add_state(stateSet, ATK_STATE_FOCUSABLE);
 
-    if (coreObject->isFocused())
+    if (coreObject->isFocused() || isTextWithCaret(coreObject))
         atk_state_set_add_state(stateSet, ATK_STATE_FOCUSED);
 
     // TODO: ATK_STATE_HORIZONTAL
@@ -579,8 +635,12 @@ static AtkStateSet* webkit_accessible_ref_state_set(AtkObject* object)
         return stateSet;
     }
 
-    setAtkStateSetFromCoreObject(coreObject, stateSet);
+    // Text objects must be focusable.
+    AtkRole role = atk_object_get_role(object);
+    if (role == ATK_ROLE_TEXT || role == ATK_ROLE_PARAGRAPH)
+        atk_state_set_add_state(stateSet, ATK_STATE_FOCUSABLE);
 
+    setAtkStateSetFromCoreObject(coreObject, stateSet);
     return stateSet;
 }
 
@@ -701,13 +761,44 @@ static void atk_action_interface_init(AtkActionIface* iface)
 
 // Selection (for controls)
 
+static AccessibilityObject* listObjectForSelection(AtkSelection* selection)
+{
+    AccessibilityObject* coreSelection = core(selection);
+
+    // Only list boxes and menu lists supported so far.
+    if (!coreSelection->isListBox() && !coreSelection->isMenuList())
+        return 0;
+
+    // For list boxes the list object is just itself.
+    if (coreSelection->isListBox())
+        return coreSelection;
+
+    // For menu lists we need to return the first accessible child,
+    // with role MenuListPopupRole, since that's the one holding the list
+    // of items with role MenuListOptionRole.
+    AccessibilityObject::AccessibilityChildrenVector children = coreSelection->children();
+    if (!children.size())
+        return 0;
+
+    AccessibilityObject* listObject = children.at(0).get();
+    if (!listObject->isMenuListPopup())
+        return 0;
+
+    return listObject;
+}
+
 static AccessibilityObject* optionFromList(AtkSelection* selection, gint i)
 {
     AccessibilityObject* coreSelection = core(selection);
     if (!coreSelection || i < 0)
         return 0;
 
-    AccessibilityRenderObject::AccessibilityChildrenVector options = core(selection)->children();
+    // Need to select the proper list object depending on the type.
+    AccessibilityObject* listObject = listObjectForSelection(selection);
+    if (!listObject)
+        return 0;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector options = listObject->children();
     if (i < static_cast<gint>(options.size()))
         return options.at(i).get();
 
@@ -719,14 +810,26 @@ static AccessibilityObject* optionFromSelection(AtkSelection* selection, gint i)
     // i is the ith selection as opposed to the ith child.
 
     AccessibilityObject* coreSelection = core(selection);
-    if (!coreSelection || i < 0)
+    if (!coreSelection || !coreSelection->isAccessibilityRenderObject() || i < 0)
         return 0;
 
     AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
     if (coreSelection->isListBox())
-        static_cast<AccessibilityListBox*>(coreSelection)->selectedChildren(selectedItems);
+        coreSelection->selectedChildren(selectedItems);
+    else if (coreSelection->isMenuList()) {
+        RenderObject* renderer = toAccessibilityRenderObject(coreSelection)->renderer();
+        if (!renderer)
+            return 0;
 
-    // TODO: Combo boxes
+        SelectElement* selectNode = toSelectElement(static_cast<Element*>(renderer->node()));
+        int selectedIndex = selectNode->selectedIndex();
+        const Vector<Element*> listItems = selectNode->listItems();
+
+        if (selectedIndex < 0 || selectedIndex >= static_cast<int>(listItems.size()))
+            return 0;
+
+        return optionFromList(selection, selectedIndex);
+    }
 
     if (i < static_cast<gint>(selectedItems.size()))
         return selectedItems.at(i).get();
@@ -736,11 +839,14 @@ static AccessibilityObject* optionFromSelection(AtkSelection* selection, gint i)
 
 static gboolean webkit_accessible_selection_add_selection(AtkSelection* selection, gint i)
 {
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection)
+        return false;
+
     AccessibilityObject* option = optionFromList(selection, i);
-    if (option && core(selection)->isListBox()) {
-        AccessibilityListBoxOption* listBoxOption = static_cast<AccessibilityListBoxOption*>(option);
-        listBoxOption->setSelected(true);
-        return listBoxOption->isSelected();
+    if (option && (coreSelection->isListBox() || coreSelection->isMenuList())) {
+        option->setSelected(true);
+        return option->isSelected();
     }
 
     return false;
@@ -753,7 +859,7 @@ static gboolean webkit_accessible_selection_clear_selection(AtkSelection* select
         return false;
 
     AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
-    if (coreSelection->isListBox()) {
+    if (coreSelection->isListBox() || coreSelection->isMenuList()) {
         // Set the list of selected items to an empty list; then verify that it worked.
         AccessibilityListBox* listBox = static_cast<AccessibilityListBox*>(coreSelection);
         listBox->setSelectedChildren(selectedItems);
@@ -778,10 +884,25 @@ static AtkObject* webkit_accessible_selection_ref_selection(AtkSelection* select
 static gint webkit_accessible_selection_get_selection_count(AtkSelection* selection)
 {
     AccessibilityObject* coreSelection = core(selection);
-    if (coreSelection && coreSelection->isListBox()) {
+    if (!coreSelection || !coreSelection->isAccessibilityRenderObject())
+        return 0;
+
+    if (coreSelection->isListBox()) {
         AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
-        static_cast<AccessibilityListBox*>(coreSelection)->selectedChildren(selectedItems);
+        coreSelection->selectedChildren(selectedItems);
         return static_cast<gint>(selectedItems.size());
+    }
+
+    if (coreSelection->isMenuList()) {
+        RenderObject* renderer = toAccessibilityRenderObject(coreSelection)->renderer();
+        if (!renderer)
+            return 0;
+
+        SelectElement* selectNode = toSelectElement(static_cast<Element*>(renderer->node()));
+        int selectedIndex = selectNode->selectedIndex();
+        const Vector<Element*> listItems = selectNode->listItems();
+
+        return selectedIndex >= 0 && selectedIndex < static_cast<int>(listItems.size());
     }
 
     return 0;
@@ -789,21 +910,28 @@ static gint webkit_accessible_selection_get_selection_count(AtkSelection* select
 
 static gboolean webkit_accessible_selection_is_child_selected(AtkSelection* selection, gint i)
 {
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection)
+        return 0;
+
     AccessibilityObject* option = optionFromList(selection, i);
-    if (option && core(selection)->isListBox())
-        return static_cast<AccessibilityListBoxOption*>(option)->isSelected();
+    if (option && (coreSelection->isListBox() || coreSelection->isMenuList()))
+        return option->isSelected();
 
     return false;
 }
 
 static gboolean webkit_accessible_selection_remove_selection(AtkSelection* selection, gint i)
 {
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection)
+        return 0;
+
     // TODO: This is only getting called if i == 0. What is preventing the rest?
     AccessibilityObject* option = optionFromSelection(selection, i);
-    if (option && core(selection)->isListBox()) {
-        AccessibilityListBoxOption* listBoxOption = static_cast<AccessibilityListBoxOption*>(option);
-        listBoxOption->setSelected(false);
-        return !listBoxOption->isSelected();
+    if (option && (coreSelection->isListBox() || coreSelection->isMenuList())) {
+        option->setSelected(false);
+        return !option->isSelected();
     }
 
     return false;
@@ -976,8 +1104,11 @@ static gchar* webkit_accessible_text_get_text(AtkText* text, gint startOffset, g
 
     if (coreObject->isTextControl())
         ret = coreObject->doAXStringForRange(PlainTextRange(start, length));
-    else
-        ret = coreObject->textUnderElement().substring(start, length);
+    else {
+        ret = coreObject->stringValue().substring(start, length);
+        if (!ret)
+            ret = coreObject->textUnderElement().substring(start, length);
+    }
 
     if (!ret.length()) {
         // This can happen at least with anonymous RenderBlocks (e.g. body text amongst paragraphs)
@@ -1414,27 +1545,6 @@ static gint webkit_accessible_text_get_offset_at_point(AtkText* text, gint x, gi
     return range.start;
 }
 
-static bool selectionBelongsToObject(AccessibilityObject* coreObject, VisibleSelection& selection)
-{
-    if (!coreObject->isAccessibilityRenderObject())
-        return false;
-
-    RefPtr<Range> range = selection.toNormalizedRange();
-    if (!range)
-        return false;
-
-    // We want to check that both the selection intersects the node
-    // AND that the selection is not just "touching" one of the
-    // boundaries for the selected node. We want to check whether the
-    // node is actually inside the region, at least partially
-    Node* node = coreObject->node();
-    Node* lastDescendant = node->lastDescendant();
-    ExceptionCode ec = 0;
-    return (range->intersectsNode(node, ec)
-            && (range->endContainer() != node || range->endOffset())
-            && (range->startContainer() != lastDescendant || range->startOffset() != lastOffsetInNode(lastDescendant)));
-}
-
 static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, VisibleSelection& selection, gint& startOffset, gint& endOffset)
 {
     if (!coreObject->isAccessibilityRenderObject())
@@ -1498,7 +1608,7 @@ static gint webkit_accessible_text_get_n_selections(AtkText* text)
     // belong to the currently selected object. We have to check since
     // there's no way to get the selection for a given object, only
     // the global one (the API is a bit confusing)
-    return !selectionBelongsToObject(coreObject, selection) || selection.isNone() ? 0 : 1;
+    return selectionBelongsToObject(coreObject, selection) ? 1 : 0;
 }
 
 static gchar* webkit_accessible_text_get_selection(AtkText* text, gint selectionNum, gint* startOffset, gint* endOffset)
@@ -1718,7 +1828,8 @@ static IntPoint atkToContents(AccessibilityObject* coreObject, AtkCoordType coor
 static AtkObject* webkit_accessible_component_ref_accessible_at_point(AtkComponent* component, gint x, gint y, AtkCoordType coordType)
 {
     IntPoint pos = atkToContents(core(component), coordType, x, y);
-    AccessibilityObject* target = core(component)->doAccessibilityHitTest(pos);
+    
+    AccessibilityObject* target = core(component)->accessibilityHitTest(pos);
     if (!target)
         return 0;
     g_object_ref(target->wrapper());
@@ -2184,19 +2295,23 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
     AccessibilityRole role = coreObject->roleValue();
 
     // Action
-    if (!coreObject->actionVerb().isEmpty()) {
-        interfaceMask |= 1 << WAI_ACTION;
+    // As the implementation of the AtkAction interface is a very
+    // basic one (just relays in executing the default action for each
+    // object, and only supports having one action per object), it is
+    // better just to implement this interface for every instance of
+    // the WebKitAccessible class and let WebCore decide what to do.
+    interfaceMask |= 1 << WAI_ACTION;
 
-        if (!coreObject->accessibilityIsIgnored() && coreObject->isLink())
-            interfaceMask |= 1 << WAI_HYPERLINK;
-    }
+    // Hyperlink
+    if (coreObject->isLink())
+        interfaceMask |= 1 << WAI_HYPERLINK;
 
     // Selection
-    if (coreObject->isListBox())
+    if (coreObject->isListBox() || coreObject->isMenuList())
         interfaceMask |= 1 << WAI_SELECTION;
 
     // Text & Editable Text
-    if (role == StaticTextRole)
+    if (role == StaticTextRole || coreObject->isMenuListOption())
         interfaceMask |= 1 << WAI_TEXT;
     else if (coreObject->isAccessibilityRenderObject()) {
         if (coreObject->isTextControl()) {
@@ -2302,9 +2417,6 @@ AccessibilityObject* webkit_accessible_get_accessibility_object(WebKitAccessible
 void webkit_accessible_detach(WebKitAccessible* accessible)
 {
     ASSERT(accessible->m_object);
-
-    if (core(accessible)->roleValue() == WebAreaRole)
-        g_signal_emit_by_name(accessible, "state-change", "defunct", true);
 
     // We replace the WebCore AccessibilityObject with a fallback object that
     // provides default implementations to avoid repetitive null-checking after

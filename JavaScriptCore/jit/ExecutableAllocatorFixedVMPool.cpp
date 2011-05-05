@@ -48,9 +48,6 @@
     #define COALESCE_LIMIT (4u * 1024u * 1024u) // 4Mb
 #endif
 
-// ASLR currently only works on darwin (due to arc4random) & 64-bit (due to address space size).
-#define VM_POOL_ASLR (OS(DARWIN) && CPU(X86_64))
-
 using namespace WTF;
 
 namespace JSC {
@@ -136,8 +133,7 @@ class FixedVMPoolAllocator
 
     void reuse(void* position, size_t size)
     {
-        bool okay = m_allocation.commit(position, size);
-        ASSERT_UNUSED(okay, okay);
+        m_allocation.commit(position, size);
         addToCommittedByteCount(static_cast<long>(size));
     }
 
@@ -282,24 +278,7 @@ public:
         : m_commonSize(commonSize)
         , m_countFreedSinceLastCoalesce(0)
     {
-        // Cook up an address to allocate at, using the following recipe:
-        //   17 bits of zero, stay in userspace kids.
-        //   26 bits of randomness for ASLR.
-        //   21 bits of zero, at least stay aligned within one level of the pagetables.
-        //
-        // But! - as a temporary workaround for some plugin problems (rdar://problem/6812854),
-        // for now instead of 2^26 bits of ASLR lets stick with 25 bits of randomization plus
-        // 2^24, which should put up somewhere in the middle of userspace (in the address range
-        // 0x200000000000 .. 0x5fffffffffff).
-#if VM_POOL_ASLR
-        intptr_t randomLocation = 0;
-        randomLocation = arc4random() & ((1 << 25) - 1);
-        randomLocation += (1 << 24);
-        randomLocation <<= 21;
-        m_allocation = PageReservation::reserveAt(reinterpret_cast<void*>(randomLocation), false, totalHeapSize, PageAllocation::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
-#else
-        m_allocation = PageReservation::reserve(totalHeapSize, PageAllocation::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
-#endif
+        m_allocation = PageReservation::reserve(totalHeapSize, OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
 
         if (!!m_allocation)
             m_freeList.insert(new FreeListEntry(m_allocation.base(), m_allocation.size()));
@@ -452,7 +431,8 @@ void ExecutableAllocator::intializePageSize()
 }
 
 static FixedVMPoolAllocator* allocator = 0;
-    
+static size_t allocatedCount = 0;
+
 bool ExecutableAllocator::isValid() const
 {
     SpinLockHolder lock_holder(&spinlock);
@@ -461,10 +441,18 @@ bool ExecutableAllocator::isValid() const
     return allocator->isValid();
 }
 
+bool ExecutableAllocator::underMemoryPressure()
+{
+    // Technically we should take the spin lock here, but we don't care if we get stale data.
+    // This is only really a heuristic anyway.
+    return allocatedCount > (VM_POOL_SIZE / 2);
+}
+
 ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t size)
 {
     SpinLockHolder lock_holder(&spinlock);
     ASSERT(allocator);
+    allocatedCount += size;
     return allocator->alloc(size);
 }
 
@@ -472,6 +460,7 @@ void ExecutablePool::systemRelease(ExecutablePool::Allocation& allocation)
 {
     SpinLockHolder lock_holder(&spinlock);
     ASSERT(allocator);
+    allocatedCount -= allocation.size();
     allocator->free(allocation);
 }
 

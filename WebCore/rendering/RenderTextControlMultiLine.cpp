@@ -41,7 +41,7 @@ RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node, bool placehol
 
 RenderTextControlMultiLine::~RenderTextControlMultiLine()
 {
-    if (node() && node()->inDocument())
+    if (node())
         static_cast<HTMLTextAreaElement*>(node())->rendererWillBeDestroyed();
 }
 
@@ -150,4 +150,14 @@ int RenderTextControlMultiLine::textBlockInsetRight() const
     return inset;
 }
 
+int RenderTextControlMultiLine::textBlockInsetTop() const
+{
+    int inset = borderTop() + paddingTop();
+    if (HTMLElement* innerText = innerTextElement()) {
+        if (RenderBox* innerTextRenderer = innerText->renderBox())
+            inset += innerTextRenderer->paddingTop();
+    }
+    return inset;
+}
+    
 }

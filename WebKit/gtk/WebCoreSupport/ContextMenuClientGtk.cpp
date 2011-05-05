@@ -18,18 +18,20 @@
  */
 
 #include "config.h"
-#include "ContextMenu.h"
 #include "ContextMenuClientGtk.h"
 
+#include "ContextMenu.h"
+#include "ContextMenuController.h"
 #include "HitTestResult.h"
 #include "KURL.h"
 #include "NotImplemented.h"
-#include <wtf/text/CString.h>
-
-#include <glib/gi18n-lib.h>
-#include <glib-object.h>
-#include <gtk/gtk.h>
+#include "Page.h"
 #include "webkitprivate.h"
+#include "webkitwebviewprivate.h"
+#include <glib-object.h>
+#include <glib/gi18n-lib.h>
+#include <gtk/gtk.h>
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
@@ -60,7 +62,7 @@ static GtkWidget* inputMethodsMenuItem (WebKitWebView* webView)
     GtkWidget* menuitem = gtk_image_menu_item_new_with_mnemonic(
         _("Input _Methods"));
 
-    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
+    WebKitWebViewPrivate* priv = webView->priv;
     GtkWidget* imContextMenu = gtk_menu_new();
     gtk_im_multicontext_append_menuitems(GTK_IM_MULTICONTEXT(priv->imContext.get()), GTK_MENU_SHELL(imContextMenu));
 
@@ -129,8 +131,8 @@ PlatformMenuDescription ContextMenuClient::getCustomMenuFromDefaultItems(Context
 {
     GtkMenu* gtkmenu = menu->releasePlatformDescription();
 
-    HitTestResult result = menu->hitTestResult();
     WebKitWebView* webView = m_webView;
+    HitTestResult result = core(webView)->contextMenuController()->hitTestResult();
 
     if (result.isContentEditable()) {
 

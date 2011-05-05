@@ -41,23 +41,21 @@ PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 WebGLProgram::WebGLProgram(WebGLRenderingContext* ctx)
     : WebGLObject(ctx)
     , m_linkStatus(false)
+    , m_linkCount(0)
 {
     setObject(context()->graphicsContext3D()->createProgram());
 }
 
 void WebGLProgram::deleteObjectImpl(Platform3DObject obj)
 {
-    if (!isDeleted())
-        context()->graphicsContext3D()->deleteProgram(obj);
-    if (!getAttachmentCount()) {
-        if (m_vertexShader) {
-            m_vertexShader->onDetached();
-            m_vertexShader = 0;
-        }
-        if (m_fragmentShader) {
-            m_fragmentShader->onDetached();
-            m_fragmentShader = 0;
-        }
+    context()->graphicsContext3D()->deleteProgram(obj);
+    if (m_vertexShader) {
+        m_vertexShader->onDetached();
+        m_vertexShader = 0;
+    }
+    if (m_fragmentShader) {
+        m_fragmentShader->onDetached();
+        m_fragmentShader = 0;
     }
 }
 
@@ -67,9 +65,9 @@ bool WebGLProgram::cacheActiveAttribLocations()
     if (!object())
         return false;
     GraphicsContext3D* context3d = context()->graphicsContext3D();
-    int linkStatus;
-    context3d->getProgramiv(object(), GraphicsContext3D::LINK_STATUS, &linkStatus);
-    if (!linkStatus)
+
+    // Assume link status has already been cached.
+    if (!m_linkStatus)
         return false;
 
     int numAttribs = 0;

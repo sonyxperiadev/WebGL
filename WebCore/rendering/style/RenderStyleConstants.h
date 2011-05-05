@@ -134,7 +134,7 @@ enum WritingMode {
 };
 
 enum TextCombine {
-    TextCombineNone, TextCombineCluster, TextCombineUpright
+    TextCombineNone, TextCombineHorizontal
 };
 
 enum EFillAttachment {
@@ -290,6 +290,8 @@ enum EListStyleType {
     Footnotes,
     Hebrew,
     Armenian,
+    LowerArmenian,
+    UpperArmenian,
     Georgian,
     CJKIdeographic,
     Hiragana,
@@ -420,7 +422,13 @@ enum ELineClampType { LineClampLineCount, LineClampPercentage };
 enum Hyphens { HyphensNone, HyphensManual, HyphensAuto };
 
 enum ESpeak { SpeakNone, SpeakNormal, SpeakSpellOut, SpeakDigits, SpeakLiteralPunctuation, SpeakNoPunctuation };
-    
+
+enum TextEmphasisFill { TextEmphasisFillFilled, TextEmphasisFillOpen };
+
+enum TextEmphasisMark { TextEmphasisMarkNone, TextEmphasisMarkAuto, TextEmphasisMarkDot, TextEmphasisMarkCircle, TextEmphasisMarkDoubleCircle, TextEmphasisMarkTriangle, TextEmphasisMarkSesame, TextEmphasisMarkCustom };
+
+enum TextEmphasisPosition { TextEmphasisPositionOver, TextEmphasisPositionUnder };
+
 } // namespace WebCore
 
 #endif // RenderStyleConstants_h

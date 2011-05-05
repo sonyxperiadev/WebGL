@@ -56,10 +56,11 @@ static inline CGFloat ceilCGFloat(CGFloat f)
     return static_cast<CGFloat>(ceil(f));
 }
 
-ComplexTextController::ComplexTextController(const Font* font, const TextRun& run, bool mayUseNaturalWritingDirection, HashSet<const SimpleFontData*>* fallbackFonts)
+ComplexTextController::ComplexTextController(const Font* font, const TextRun& run, bool mayUseNaturalWritingDirection, HashSet<const SimpleFontData*>* fallbackFonts, bool forTextEmphasis)
     : m_font(*font)
     , m_run(run)
     , m_mayUseNaturalWritingDirection(mayUseNaturalWritingDirection)
+    , m_forTextEmphasis(forTextEmphasis)
     , m_currentCharacter(0)
     , m_end(run.length())
     , m_totalWidth(0)
@@ -240,7 +241,7 @@ void ComplexTextController::collectComplexTextRuns()
                 nextGlyphData = m_font.glyphDataForCharacter(U16_GET_SUPPLEMENTARY(curr[-1], curr[0]), false);
             }
         } else
-            nextGlyphData = m_font.glyphDataForCharacter(*curr, false, forceSmallCaps);
+            nextGlyphData = m_font.glyphDataForCharacter(*curr, false, forceSmallCaps ? SmallCapsVariant : AutoVariant);
 
         if (!isSurrogate && m_font.isSmallCaps()) {
             nextIsSmallCaps = forceSmallCaps || (newC = u_toupper(c)) != c;
@@ -462,7 +463,7 @@ void ComplexTextController::adjustGlyphsAndAdvances()
             if (ch == '\t' && m_run.allowTabs()) {
                 float tabWidth = m_font.tabWidth(*fontData);
                 advance.width = tabWidth - fmodf(m_run.xPos() + m_totalWidth + widthSinceLastRounding, tabWidth);
-            } else if (ch == zeroWidthSpace || Font::treatAsZeroWidthSpace(ch) && !treatAsSpace) {
+            } else if (ch == zeroWidthSpace || (Font::treatAsZeroWidthSpace(ch) && !treatAsSpace)) {
                 advance.width = 0;
                 glyph = fontData->spaceGlyph();
             }
@@ -518,7 +519,7 @@ void ComplexTextController::adjustGlyphsAndAdvances()
 
             // Check to see if the next character is a "rounding hack character", if so, adjust the
             // width so that the total run width will be on an integer boundary.
-            if (m_run.applyWordRounding() && !lastGlyph && Font::isRoundingHackCharacter(nextCh) || m_run.applyRunRounding() && lastGlyph) {
+            if ((m_run.applyWordRounding() && !lastGlyph && Font::isRoundingHackCharacter(nextCh)) || (m_run.applyRunRounding() && lastGlyph)) {
                 CGFloat totalWidth = widthSinceLastRounding + advance.width;
                 widthSinceLastRounding = ceilCGFloat(totalWidth);
                 CGFloat extraWidth = widthSinceLastRounding - totalWidth;
@@ -535,6 +536,10 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                 widthSinceLastRounding = 0;
             } else
                 widthSinceLastRounding += advance.width;
+
+            // FIXME: Combining marks should receive a text emphasis mark if they are combine with a space.
+            if (m_forTextEmphasis && (!Font::canReceiveTextEmphasis(ch) || (U_GET_GC_MASK(ch) & U_GC_M_MASK)))
+                glyph = 0;
 
             advance.height *= -1;
             m_adjustedAdvances.append(advance);

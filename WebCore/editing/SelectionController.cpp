@@ -305,19 +305,15 @@ TextDirection SelectionController::directionOfEnclosingBlock()
 
 VisiblePosition SelectionController::positionForPlatform(bool isGetStart) const
 {
-    Position pos;
     Settings* settings = m_frame ? m_frame->settings() : 0;
     if (settings && settings->editingBehaviorType() == EditingMacBehavior)
-        pos = isGetStart ? m_selection.start() : m_selection.end();
-    else {
-        // Linux and Windows always extend selections from the extent endpoint.
-        // FIXME: VisibleSelection should be fixed to ensure as an invariant that
-        // base/extent always point to the same nodes as start/end, but which points
-        // to which depends on the value of isBaseFirst. Then this can be changed
-        // to just return m_sel.extent().
-        pos = m_selection.isBaseFirst() ? m_selection.end() : m_selection.start();
-    }
-    return VisiblePosition(pos, m_selection.affinity());
+        return isGetStart ? m_selection.visibleStart() : m_selection.visibleEnd();
+    // Linux and Windows always extend selections from the extent endpoint.
+    // FIXME: VisibleSelection should be fixed to ensure as an invariant that
+    // base/extent always point to the same nodes as start/end, but which points
+    // to which depends on the value of isBaseFirst. Then this can be changed
+    // to just return m_sel.extent().
+    return m_selection.isBaseFirst() ? m_selection.visibleEnd() : m_selection.visibleStart();
 }
 
 VisiblePosition SelectionController::startForPlatform() const
@@ -388,9 +384,7 @@ VisiblePosition SelectionController::modifyExtendingForward(TextGranularity gran
         pos = endOfSentence(endForPlatform());
         break;
     case LineBoundary:
-        pos = endForPlatform();
-        pos.setAffinity(UPSTREAM);
-        pos = logicalEndOfLine(pos);
+        pos = logicalEndOfLine(endForPlatform());
         break;
     case ParagraphBoundary:
         pos = endOfParagraph(endForPlatform());
@@ -1558,12 +1552,8 @@ void SelectionController::setFocusedNodeIfNeeded()
     }
 
     if (Node* target = rootEditableElement()) {
-        RenderObject* renderer = target->renderer();
-
-        // Walk up the render tree to search for a node to focus.
-        // Walking up the DOM tree wouldn't work for shadow trees, like those behind the engine-based text fields.
-        // FIXME: Combine with the same traversal code in EventHandle::dispatchMouseEvent.
-        while (renderer) {
+        // Walk up the DOM tree to search for a node to focus. 
+        while (target) {
             // We don't want to set focus on a subframe when selecting in a parent frame,
             // so add the !isFrameElement check here. There's probably a better way to make this
             // work in the long term, but this is the safest fix at this time.
@@ -1571,9 +1561,7 @@ void SelectionController::setFocusedNodeIfNeeded()
                 m_frame->page()->focusController()->setFocusedNode(target, m_frame);
                 return;
             }
-            renderer = renderer->parent();
-            if (renderer)
-                target = renderer->node();
+            target = target->parentOrHostNode(); 
         }
         m_frame->document()->setFocusedNode(0);
     }
@@ -1595,6 +1583,13 @@ void SelectionController::paintDragCaret(GraphicsContext* p, int tx, int ty, con
     UNUSED_PARAM(ty);
     UNUSED_PARAM(clipRect);
 #endif
+}
+
+PassRefPtr<CSSMutableStyleDeclaration> SelectionController::copyTypingStyle() const
+{
+    if (!m_typingStyle || !m_typingStyle->style())
+        return 0;
+    return m_typingStyle->style()->copy();
 }
 
 bool SelectionController::shouldDeleteSelection(const VisibleSelection& selection) const

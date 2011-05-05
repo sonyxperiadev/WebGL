@@ -26,11 +26,13 @@ aria-grabbed
 aria-haspopup
 aria-help
 aria-hidden
+aria-invalid
 aria-label
 aria-labeledby
 aria-labelledby
 aria-level
 aria-live
+aria-multiline
 aria-multiselectable
 aria-orientation
 aria-owns
@@ -231,6 +233,7 @@ onwebkitbeginfullscreen
 onwebkitendfullscreen
 onwebkitfullscreenchange
 onwebkittransitionend
+open
 optimum
 pattern
 placeholder

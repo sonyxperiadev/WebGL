@@ -365,10 +365,11 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitSpatialNavigationEnabledPreferenceKey,
-        [NSNumber numberWithBool:YES],  WebKitDNSPrefetchingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],  WebKitDNSPrefetchingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFullScreenEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitAsynchronousSpellCheckingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitMemoryInfoEnabledPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitHyperlinkAuditingEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitHyperlinkAuditingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitUsePreHTML5ParserQuirksKey,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheTotalQuota,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheDefaultOriginQuota,
@@ -1391,6 +1392,16 @@ static NSString *classIBCreatorID = nil;
 - (BOOL)fullScreenEnabled
 {
     return [self _boolValueForKey:WebKitFullScreenEnabledPreferenceKey];
+}
+
+- (void)setAsynchronousSpellCheckingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitAsynchronousSpellCheckingEnabledPreferenceKey];
+}
+
+- (BOOL)asynchronousSpellCheckingEnabled
+{
+    return [self _boolValueForKey:WebKitAsynchronousSpellCheckingEnabledPreferenceKey];
 }
 
 + (void)setWebKitLinkTimeVersion:(int)version

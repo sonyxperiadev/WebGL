@@ -304,7 +304,7 @@ public:
         }
 
         if ((bytes.byte1 == bytes.byte3) && !(bytes.byte0 | bytes.byte2)) {
-            encoding.immediate = bytes.byte0;
+            encoding.immediate = bytes.byte1;
             encoding.pattern = 2;
             return ARMThumbImmediate(TypeEncoded, encoding);
         }
@@ -553,6 +553,7 @@ public:
         }
 
         bool isUsed() const { return m_used; }
+        bool isSet() const { return (m_offset != -1); }
         void used() { m_used = true; }
     private:
         JmpDst(int offset)

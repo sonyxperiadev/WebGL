@@ -24,8 +24,12 @@
 #include "SVGDefsElement.h"
 
 #include "RenderSVGHiddenContainer.h"
+#include "SVGNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_BOOLEAN(SVGDefsElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 inline SVGDefsElement::SVGDefsElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)

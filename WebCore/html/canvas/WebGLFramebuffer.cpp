@@ -181,17 +181,18 @@ bool WebGLFramebuffer::isIncomplete(bool checkInternalFormat) const
     return false;
 }
 
-bool WebGLFramebuffer::onAccess()
+bool WebGLFramebuffer::onAccess(bool needToInitializeRenderbuffers)
 {
     if (isIncomplete(true))
         return false;
-    return initializeRenderbuffers();
+    if (needToInitializeRenderbuffers)
+        return initializeRenderbuffers();
+    return true;
 }
 
 void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
 {
-    if (!isDeleted())
-        context()->graphicsContext3D()->deleteFramebuffer(object);
+    context()->graphicsContext3D()->deleteFramebuffer(object);
     m_colorAttachment = 0;
     m_depthAttachment = 0;
     m_stencilAttachment = 0;
@@ -201,8 +202,6 @@ void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
 bool WebGLFramebuffer::initializeRenderbuffers()
 {
     ASSERT(object());
-    if (!isColorAttached())
-        return false;
     bool initColor = false, initDepth = false, initStencil = false;
     unsigned long mask = 0;
     if (isUninitialized(m_colorAttachment.get())) {
@@ -233,7 +232,7 @@ bool WebGLFramebuffer::initializeRenderbuffers()
 
     float colorClearValue[] = {0, 0, 0, 0}, depthClearValue = 0;
     int stencilClearValue = 0;
-    unsigned char colorMask[] = {1, 1, 1, 1}, depthMask = 1;
+    unsigned char colorMask[] = {0, 0, 0, 0}, depthMask = 0;
     unsigned int stencilMask = 0xffffffff;
     bool isScissorEnabled = false;
     bool isDitherEnabled = false;

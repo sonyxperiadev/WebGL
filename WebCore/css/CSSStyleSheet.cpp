@@ -53,6 +53,7 @@ static bool isAcceptableCSSStyleSheetParent(Node* parentNode)
 
 CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, const KURL& baseURL, const String& charset)
     : StyleSheet(parentSheet, href, baseURL)
+    , m_document(parentSheet ? parentSheet->document() : 0)
     , m_charset(charset)
     , m_loadCompleted(false)
     , m_strictParsing(!parentSheet || parentSheet->useStrictParsing())
@@ -63,6 +64,7 @@ CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, con
 
 CSSStyleSheet::CSSStyleSheet(Node* parentNode, const String& href, const KURL& baseURL, const String& charset)
     : StyleSheet(parentNode, href, baseURL)
+    , m_document(parentNode->document())
     , m_charset(charset)
     , m_loadCompleted(false)
     , m_strictParsing(false)
@@ -80,6 +82,7 @@ CSSStyleSheet::CSSStyleSheet(CSSRule* ownerRule, const String& href, const KURL&
     , m_hasSyntacticallyValidCSSHeader(true)
 {
     CSSStyleSheet* parentSheet = ownerRule ? ownerRule->parentStyleSheet() : 0;
+    m_document = parentSheet ? parentSheet->document() : 0;
     m_isUserStyleSheet = parentSheet ? parentSheet->isUserStyleSheet() : false;
 }
 
@@ -161,7 +164,6 @@ void CSSStyleSheet::deleteRule(unsigned index, ExceptionCode& ec)
     }
 
     ec = 0;
-    item(index)->setParent(0);
     remove(index);
     styleSheetChanged();
 }
@@ -228,24 +230,6 @@ void CSSStyleSheet::checkLoaded()
     // See <rdar://problem/6622300>.
     RefPtr<CSSStyleSheet> protector(this);
     m_loadCompleted = ownerNode() ? ownerNode()->sheetLoaded() : true;
-}
-
-Document* CSSStyleSheet::document()
-{
-    StyleBase* styleObject = this;
-    while (styleObject) {
-        if (styleObject->isCSSStyleSheet()) {
-            Node* ownerNode = static_cast<CSSStyleSheet*>(styleObject)->ownerNode();
-            if (ownerNode)
-                return ownerNode->document();
-        }
-        if (styleObject->isRule())
-            styleObject = static_cast<CSSRule*>(styleObject)->parentStyleSheet();
-        else
-            styleObject = styleObject->parent();
-    }
-
-    return 0;
 }
 
 void CSSStyleSheet::styleSheetChanged()

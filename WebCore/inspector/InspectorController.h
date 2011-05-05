@@ -51,6 +51,7 @@ class Document;
 class DocumentLoader;
 class FloatRect;
 class GraphicsContext;
+class HTTPHeaderMap;
 class HitTestResult;
 class InjectedScript;
 class InjectedScriptHost;
@@ -59,7 +60,6 @@ class InspectorBackend;
 class InspectorBackendDispatcher;
 class InspectorClient;
 class InspectorCSSAgent;
-class InspectorCSSStore;
 class InspectorDOMAgent;
 class InspectorDOMStorageResource;
 class InspectorDatabaseResource;
@@ -146,7 +146,7 @@ public:
     void disconnectFrontend();
 
     void setConsoleMessagesEnabled(bool enabled, bool* newState);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack>);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack>);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String&);
     void clearConsoleMessages();
     const Vector<OwnPtr<ConsoleMessage> >& consoleMessages() const { return m_consoleMessages; }
@@ -173,6 +173,8 @@ public:
     void didFailLoading(unsigned long identifier, const ResourceError&);
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
     void scriptImported(unsigned long identifier, const String& sourceString);
+
+    void setExtraHeaders(PassRefPtr<InspectorObject>);
 
     void ensureSettingsLoaded();
 
@@ -230,7 +232,7 @@ public:
     void startTiming(const String& title);
     bool stopTiming(const String& title, double& elapsed);
 
-    void startGroup(PassOwnPtr<ScriptArguments>, PassOwnPtr<ScriptCallStack> callFrame, bool collapsed = false);
+    void startGroup(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack> callFrame, bool collapsed = false);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
     void markTimeline(const String& message);
@@ -256,8 +258,13 @@ public:
     InspectorDebuggerAgent* debuggerAgent() const { return m_debuggerAgent.get(); }
     void resume();
 
-    void setNativeBreakpoint(PassRefPtr<InspectorObject> breakpoint, String* breakpointId);
-    void removeNativeBreakpoint(const String& breakpointId);
+    void setStickyBreakpoints(PassRefPtr<InspectorObject> breakpoints);
+    void setEventListenerBreakpoint(const String& eventName);
+    void removeEventListenerBreakpoint(const String& eventName);
+    bool hasEventListenerBreakpoint(const String& eventName);
+    void setXHRBreakpoint(const String& url);
+    void removeXHRBreakpoint(const String& url);
+    bool hasXHRBreakpoint(const String& url, String* breakpointURL);
 #endif
 
     void evaluateForTestInFrontend(long testCallId, const String& script);
@@ -306,10 +313,8 @@ private:
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void toggleRecordButton(bool);
     void enableDebuggerFromFrontend(bool always);
-
-    String findEventListenerBreakpoint(const String& eventName);
-    String findXHRBreakpoint(const String& url);
-    void clearNativeBreakpoints();
+    void restoreStickyBreakpoints();
+    void restoreStickyBreakpoint(PassRefPtr<InspectorObject> breakpoint);
 #endif
 #if ENABLE(DATABASE)
     void selectDatabase(Database* database);
@@ -330,13 +335,6 @@ private:
 
     void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    friend class InspectorDebuggerAgent;
-    String breakpointsSettingKey();
-    PassRefPtr<InspectorValue> loadBreakpoints();
-    void saveBreakpoints(PassRefPtr<InspectorObject> breakpoints);
-#endif
-
     Page* m_inspectedPage;
     InspectorClient* m_client;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
@@ -345,7 +343,6 @@ private:
     OwnPtr<InspectorCSSAgent> m_cssAgent;
     RefPtr<InspectorDOMAgent> m_domAgent;
     RefPtr<InspectorStorageAgent> m_storageAgent;
-    OwnPtr<InspectorCSSStore> m_cssStore;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
     OwnPtr<InspectorState> m_state;
 
@@ -372,7 +369,6 @@ private:
 #endif
     String m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
-    unsigned m_groupLevel;
     ConsoleMessage* m_previousMessage;
     bool m_settingsLoaded;
     RefPtr<InspectorBackend> m_inspectorBackend;
@@ -389,14 +385,13 @@ private:
     bool m_attachDebuggerWhenShown;
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
 
-    HashMap<String, String> m_nativeBreakpoints;
     HashSet<String> m_eventListenerBreakpoints;
-    HashMap<String, String> m_XHRBreakpoints;
-
-    unsigned int m_lastBreakpointId;
+    HashSet<String> m_XHRBreakpoints;
+    bool m_hasXHRBreakpointWithEmptyURL;
 
     OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif
+    OwnPtr<HTTPHeaderMap> m_extraHeaders;
 #if ENABLE(WORKERS)
     typedef HashMap<intptr_t, RefPtr<InspectorWorkerResource> > WorkersMap;
 

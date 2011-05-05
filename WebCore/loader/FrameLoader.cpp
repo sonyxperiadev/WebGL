@@ -268,38 +268,36 @@ bool FrameLoader::canHandleRequest(const ResourceRequest& request)
     return m_client->canHandleRequest(request);
 }
 
-void FrameLoader::changeLocation(const KURL& url, const String& referrer, bool lockHistory, bool lockBackForwardList, bool refresh)
+void FrameLoader::changeLocation(PassRefPtr<SecurityOrigin> securityOrigin, const KURL& url, const String& referrer, bool lockHistory, bool lockBackForwardList, bool refresh)
 {
     RefPtr<Frame> protect(m_frame);
-
-    ResourceRequest request(url, referrer, refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy);
-    
-    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, SendReferrer, ReplaceDocumentIfJavaScriptURL);
+    urlSelected(FrameLoadRequest(securityOrigin, ResourceRequest(url, referrer, refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy), "_self"),
+        0, lockHistory, lockBackForwardList, SendReferrer, ReplaceDocumentIfJavaScriptURL);
 }
 
 void FrameLoader::urlSelected(const KURL& url, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, ReferrerPolicy referrerPolicy)
 {
-    urlSelected(ResourceRequest(url), passedTarget, triggeringEvent, lockHistory, lockBackForwardList, referrerPolicy, DoNotReplaceDocumentIfJavaScriptURL);
+    urlSelected(FrameLoadRequest(m_frame->document()->securityOrigin(), ResourceRequest(url), passedTarget),
+        triggeringEvent, lockHistory, lockBackForwardList, referrerPolicy, DoNotReplaceDocumentIfJavaScriptURL);
 }
 
 // The shouldReplaceDocumentIfJavaScriptURL parameter will go away when the FIXME to eliminate the
 // corresponding parameter from ScriptController::executeIfJavaScriptURL() is addressed.
-void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, ReferrerPolicy referrerPolicy, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
+void FrameLoader::urlSelected(const FrameLoadRequest& passedRequest, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, ReferrerPolicy referrerPolicy, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
 {
     ASSERT(!m_suppressOpenerInNewFrame);
 
-    if (m_frame->script()->executeIfJavaScriptURL(request.url(), shouldReplaceDocumentIfJavaScriptURL))
+    FrameLoadRequest frameRequest(passedRequest);
+
+    if (m_frame->script()->executeIfJavaScriptURL(frameRequest.resourceRequest().url(), shouldReplaceDocumentIfJavaScriptURL))
         return;
 
-    String target = passedTarget;
-    if (target.isEmpty())
-        target = m_frame->document()->baseTarget();
-
-    FrameLoadRequest frameRequest(request, target);
+    if (frameRequest.frameName().isEmpty())
+        frameRequest.setFrameName(m_frame->document()->baseTarget());
 
     if (referrerPolicy == NoReferrer)
         m_suppressOpenerInNewFrame = true;
-    else if (frameRequest.resourceRequest().httpReferrer().isEmpty())
+    if (frameRequest.resourceRequest().httpReferrer().isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
     addHTTPOriginIfNeeded(frameRequest.resourceRequest(), outgoingOrigin());
 
@@ -438,7 +436,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
         doc->setReadyState(Document::Complete);
 
         if (CachedResourceLoader* cachedResourceLoader = doc->cachedResourceLoader())
-            cache()->loader()->cancelRequests(cachedResourceLoader);
+            cachedResourceLoader->cancelRequests();
 
 #if ENABLE(DATABASE)
         if (databasePolicy == DatabasePolicyStop)
@@ -929,26 +927,24 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
 {
     ASSERT(childFrame);
 
-    HistoryItem* parentItem = history()->currentItem();
-    FrameLoadType loadType = this->loadType();
-    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedBackForwardList;
+    RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());    
+    if (subframeArchive) {
+        childFrame->loader()->loadArchive(subframeArchive.release());
+        return;
+    }
 
-    KURL workingURL = url;
-    
+    HistoryItem* parentItem = history()->currentItem();
     // If we're moving in the back/forward list, we might want to replace the content
     // of this child frame with whatever was there at that point.
-    if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType)) {
+    if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType())) {
         HistoryItem* childItem = parentItem->childItemWithTarget(childFrame->tree()->uniqueName());
         if (childItem) {
-            // Use the original URL to ensure we get all the side-effects, such as
-            // onLoad handlers, of any redirects that happened. An example of where
-            // this is needed is Radar 3213556.
-            workingURL = KURL(ParsedURLString, childItem->originalURLString());
-            childLoadType = loadType;
-            childFrame->loader()->history()->setProvisionalItem(childItem);
+            childFrame->loader()->loadDifferentDocumentItem(childItem, loadType());
+            return;
         }
     }
 
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());
     
@@ -957,6 +953,9 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
     else
 #endif
         childFrame->loader()->loadURL(workingURL, referer, String(), false, childLoadType, 0, 0);
+=======
+    childFrame->loader()->loadURL(url, referer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
+>>>>>>> webkit.org at r74534 (trunk)
 }
 
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
@@ -1268,21 +1267,19 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
 {    
     KURL url = request.resourceRequest().url();
 
+    ASSERT(m_frame->document());
+    // FIXME: Should we move the isFeedWithNestedProtocolInHTTPFamily logic inside SecurityOrigin::canDisplay?
+    if (!isFeedWithNestedProtocolInHTTPFamily(url) && !request.requester()->canDisplay(url)) {
+        reportLocalLoadFailed(m_frame, url.string());
+        return;
+    }
+
     String referrer;
     String argsReferrer = request.resourceRequest().httpReferrer();
     if (!argsReferrer.isEmpty())
         referrer = argsReferrer;
     else
         referrer = m_outgoingReferrer;
-
-    ASSERT(frame()->document());
-    // FIXME: Should we move the isFeedWithNestedProtocolInHTTPFamily logic inside SecurityOrigin::canDisplay?
-    if (!isFeedWithNestedProtocolInHTTPFamily(url)) {
-        if (!frame()->document()->securityOrigin()->canDisplay(url) && !SecurityOrigin::deprecatedCanDisplay(referrer, url)) {
-            reportLocalLoadFailed(m_frame, url.string());
-            return;
-        }
-    }
 
     if (SecurityOrigin::shouldHideReferrer(url, referrer) || referrerPolicy == NoReferrer)
         referrer = String();
@@ -2233,31 +2230,23 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
 #endif
+<<<<<<< HEAD
     
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     // If loading a webarchive, run through webarchive machinery
     const String& responseMIMEType = loader->responseMIMEType();
+=======
+>>>>>>> webkit.org at r74534 (trunk)
 
-    // FIXME: Mac's FrameLoaderClient::finishedLoading() method does work that is required even with Archive loads
-    // so we still need to call it.  Other platforms should only call finishLoading for non-archive loads
-    // That work should be factored out so this #ifdef can be removed
-#if PLATFORM(MAC)
-    m_client->finishedLoading(loader);
-    if (!ArchiveFactory::isArchiveMimeType(responseMIMEType))
-        return;
-#else
-    if (!ArchiveFactory::isArchiveMimeType(responseMIMEType)) {
+    // Give archive machinery a crack at this document. If the MIME type is not an archive type, it will return 0.
+    RefPtr<Archive> archive = ArchiveFactory::create(loader->mainResourceData().get(), loader->responseMIMEType());
+    if (!archive) {
         m_client->finishedLoading(loader);
         return;
     }
-#endif
-        
-    RefPtr<Archive> archive(ArchiveFactory::create(loader->mainResourceData().get(), responseMIMEType));
-    if (!archive)
-        return;
 
-    // FIXME: The remainder of this function should be in DocumentLoader.
-    
+    // FIXME: The remainder of this function should be moved to DocumentLoader.
+
     loader->addAllArchiveResources(archive.get());
 
     ArchiveResource* mainResource = archive->mainResource();
@@ -3157,7 +3146,7 @@ Frame* FrameLoader::findFrameForNavigation(const AtomicString& name)
     return frame;
 }
 
-void FrameLoader::navigateWithinDocument(HistoryItem* item)
+void FrameLoader::loadSameDocumentItem(HistoryItem* item)
 {
     ASSERT(item->documentSequenceNumber() == history()->currentItem()->documentSequenceNumber());
 
@@ -3179,7 +3168,7 @@ void FrameLoader::navigateWithinDocument(HistoryItem* item)
 // FIXME: This function should really be split into a couple pieces, some of
 // which should be methods of HistoryController and some of which should be
 // methods of FrameLoader.
-void FrameLoader::navigateToDifferentDocument(HistoryItem* item, FrameLoadType loadType)
+void FrameLoader::loadDifferentDocumentItem(HistoryItem* item, FrameLoadType loadType)
 {
     // Remember this item so we can traverse any child items as child frames load
     history()->setProvisionalItem(item);
@@ -3282,9 +3271,9 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
 #endif
 
     if (sameDocumentNavigation)
-        navigateWithinDocument(item);
+        loadSameDocumentItem(item);
     else
-        navigateToDifferentDocument(item, loadType);
+        loadDifferentDocumentItem(item, loadType);
 }
 
 void FrameLoader::setMainDocumentError(DocumentLoader* loader, const ResourceError& error)
@@ -3463,7 +3452,7 @@ void FrameLoader::tellClientAboutPastMemoryCacheLoads()
 
     size_t size = pastLoads.size();
     for (size_t i = 0; i < size; ++i) {
-        CachedResource* resource = cache()->resourceForURL(pastLoads[i]);
+        CachedResource* resource = cache()->resourceForURL(KURL(ParsedURLString, pastLoads[i]));
 
         // FIXME: These loads, loaded from cache, but now gone from the cache by the time
         // Page::setMemoryCacheClientCallsEnabled(true) is called, will not be seen by the client.

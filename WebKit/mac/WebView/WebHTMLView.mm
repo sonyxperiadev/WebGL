@@ -129,6 +129,53 @@ using namespace HTMLNames;
 using namespace WTF;
 using namespace std;
 
+@interface WebMenuTarget : NSObject {
+    WebCore::ContextMenuController* _menuController;
+}
++ (WebMenuTarget*)sharedMenuTarget;
+- (WebCore::ContextMenuController*)menuController;
+- (void)setMenuController:(WebCore::ContextMenuController*)menuController;
+- (void)forwardContextMenuAction:(id)sender;
+- (BOOL)validateMenuItem:(NSMenuItem *)item;
+@end
+
+static WebMenuTarget* target;
+
+@implementation WebMenuTarget
+
++ (WebMenuTarget*)sharedMenuTarget
+{
+    if (!target)
+        target = [[WebMenuTarget alloc] init];
+    return target;
+}
+
+- (WebCore::ContextMenuController*)menuController
+{
+    return _menuController;
+}
+
+- (void)setMenuController:(WebCore::ContextMenuController*)menuController
+{
+    _menuController = menuController;
+}
+
+- (void)forwardContextMenuAction:(id)sender
+{
+    WebCore::ContextMenuItem item(WebCore::ActionType, static_cast<WebCore::ContextMenuAction>([sender tag]), [sender title]);
+    _menuController->contextMenuItemSelected(&item);
+}
+
+- (BOOL)validateMenuItem:(NSMenuItem *)item
+{
+    WebCore::ContextMenuItem coreItem(item);
+    ASSERT(_menuController->contextMenu());
+    _menuController->checkOrEnableIfNeeded(coreItem);
+    return coreItem.enabled();
+}
+
+@end
+
 @interface NSWindow (BorderViewAccess)
 - (NSView*)_web_borderView;
 @end
@@ -523,6 +570,16 @@ static NSCellStateValue kit(TriState state)
     }
     ASSERT_NOT_REACHED();
     return NSOffState;
+}
+
+static FindOptions coreOptions(WebFindOptions options)
+{
+    return (options & WebFindOptionsCaseInsensitive ? CaseInsensitive : 0)
+        | (options & WebFindOptionsAtWordStarts ? AtWordStarts : 0)
+        | (options & WebFindOptionsTreatMedialCapitalAsWordStart ? TreatMedialCapitalAsWordStart : 0)
+        | (options & WebFindOptionsBackwards ? Backwards : 0)
+        | (options & WebFindOptionsWrapAround ? WrapAround : 0)
+        | (options & WebFindOptionsStartInSelection ? StartInSelection : 0);
 }
 
 @implementation WebHTMLViewPrivate
@@ -2078,7 +2135,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     // The _hasHTMLDocument clause here is a workaround for a bug in NSAttributedString: Radar 5052369.
     // If we call _documentFromRange on an XML document we'll get "setInnerHTML: method not found".
     // FIXME: Remove this once bug 5052369 is fixed.
-    if ([self _hasHTMLDocument] && pboardType == NSRTFPboardType || pboardType == NSRTFDPboardType) {
+    if ([self _hasHTMLDocument] && (pboardType == NSRTFPboardType || pboardType == NSRTFDPboardType)) {
         NSAttributedString *string = nil;
         if (pboardType == NSRTFDPboardType)
             string = [[NSAttributedString alloc] initWithRTFD:[pasteboard dataForType:NSRTFDPboardType] documentAttributes:NULL];
@@ -3213,6 +3270,28 @@ WEBCORE_COMMAND(yankAndSelect)
         coreframe->eventHandler()->mouseUp(event);
 }
 
+static void setMenuItemTarget(NSMenuItem* menuItem)
+{
+    // Don't set the menu item's action to the context menu action forwarder if we already
+    // have an action.
+    if ([menuItem action])
+        return;
+
+    [menuItem setTarget:[WebMenuTarget sharedMenuTarget]];
+    [menuItem setAction:@selector(forwardContextMenuAction:)];
+}
+
+static void setMenuTargets(NSMenu* menu)
+{
+    NSInteger itemCount = [menu numberOfItems];
+    for (NSInteger i = 0; i < itemCount; ++i) {
+        NSMenuItem *item = [menu itemAtIndex:i];
+        setMenuItemTarget(item);
+        if ([item hasSubmenu])
+            setMenuTargets([item submenu]);
+    }
+}
+
 - (NSMenu *)menuForEvent:(NSEvent *)event
 {
     // There's a chance that if we run a nested event loop the event will be released.
@@ -3260,6 +3339,10 @@ WEBCORE_COMMAND(yankAndSelect)
     NSMenu* menu = [[[NSMenu alloc] init] autorelease];
     for (NSUInteger i = 0; i < count; i++)
         [menu addItem:[menuItems objectAtIndex:i]];
+    setMenuTargets(menu);
+    
+    [[WebMenuTarget sharedMenuTarget] setMenuController:page->contextMenuController()];
+    
     return menu;
 }
 
@@ -6198,10 +6281,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
 {
-    if (![string length])
-        return NO;
-    Frame* coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->editor()->findString(string, forward, caseFlag, wrapFlag, startInSelection);
+    return [self findString:string options:(forward ? 0 : WebFindOptionsBackwards) | (caseFlag ? 0 : WebFindOptionsCaseInsensitive) | (startInSelection ? WebFindOptionsStartInSelection : 0)];
 }
 
 @end
@@ -6221,17 +6301,13 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     return [[[WebElementDictionary alloc] initWithHitTestResult:coreFrame->eventHandler()->hitTestResultAtPoint(IntPoint(point), allow)] autorelease];
 }
 
-- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(NSUInteger)limit
-{
-    return [self countMatchesForText:string caseSensitive:caseFlag limit:limit markMatches:YES];
-}
-
-- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+- (NSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options limit:(NSUInteger)limit markMatches:(BOOL)markMatches
 {
     Frame* coreFrame = core([self _frame]);
     if (!coreFrame)
         return 0;
-    return coreFrame->editor()->countMatchesForText(string, caseFlag, limit, markMatches);
+
+    return coreFrame->editor()->countMatchesForText(string, core(range), coreOptions(options), limit, markMatches);
 }
 
 - (void)setMarkedTextMatchesAreHighlighted:(BOOL)newValue
@@ -6274,6 +6350,14 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     for (unsigned index = 0; index < count; ++index)
         [result addObject:[NSValue valueWithRect:rects[index]]];    
     return result;
+}
+
+- (BOOL)findString:(NSString *)string options:(WebFindOptions)options
+{
+    if (![string length])
+        return NO;
+    Frame* coreFrame = core([self _frame]);
+    return coreFrame && coreFrame->editor()->findString(string, coreOptions(options));
 }
 
 @end

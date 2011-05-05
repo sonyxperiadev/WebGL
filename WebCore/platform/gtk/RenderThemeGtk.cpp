@@ -55,6 +55,19 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+static void paintStockIcon(GraphicsContext* context, const IntPoint& iconPoint, GtkStyle* style, const char* iconName,
+                           GtkTextDirection direction, GtkStateType state, GtkIconSize iconSize)
+{
+    GtkIconSet* iconSet = gtk_style_lookup_icon_set(style, iconName);
+    PlatformRefPtr<GdkPixbuf> icon = adoptPlatformRef(gtk_icon_set_render_icon(iconSet, style, direction, state, iconSize, 0, 0));
+
+    cairo_t* cr = context->platformContext();
+    cairo_save(cr);
+    gdk_cairo_set_source_pixbuf(cr, icon.get(), iconPoint.x(), iconPoint.y());
+    cairo_paint(cr);
+    cairo_restore(cr);
+}
+
 #if ENABLE(VIDEO)
 static HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o)
 {
@@ -66,57 +79,46 @@ static HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o)
     return static_cast<HTMLMediaElement*>(mediaNode);
 }
 
-static gchar* getIconNameForTextDirection(const char* baseName)
+static GtkIconSize getMediaButtonIconSize(int mediaIconSize)
 {
-    GString* nameWithDirection = g_string_new(baseName);
-    GtkTextDirection textDirection = gtk_widget_get_default_direction();
-
-    if (textDirection == GTK_TEXT_DIR_RTL)
-        g_string_append(nameWithDirection, "-rtl");
-    else if (textDirection == GTK_TEXT_DIR_LTR)
-        g_string_append(nameWithDirection, "-ltr");
-
-    return g_string_free(nameWithDirection, FALSE);
+    GtkIconSize iconSize = gtk_icon_size_from_name("webkit-media-button-size");
+    if (!iconSize)
+        iconSize = gtk_icon_size_register("webkit-media-button-size", mediaIconSize, mediaIconSize);
+    return iconSize;
 }
 
-void RenderThemeGtk::initMediaStyling(GtkStyle* style, bool force)
+void RenderThemeGtk::initMediaColors()
 {
-    static bool stylingInitialized = false;
+    GtkStyle* style = gtk_widget_get_style(GTK_WIDGET(gtkContainer()));
+    m_panelColor = style->bg[GTK_STATE_NORMAL];
+    m_sliderColor = style->bg[GTK_STATE_ACTIVE];
+    m_sliderThumbColor = style->bg[GTK_STATE_SELECTED];
+}
 
-    if (!stylingInitialized || force) {
-        m_panelColor = style->bg[GTK_STATE_NORMAL];
-        m_sliderColor = style->bg[GTK_STATE_ACTIVE];
-        m_sliderThumbColor = style->bg[GTK_STATE_SELECTED];
+void RenderThemeGtk::initMediaButtons()
+{
+    static bool iconsInitialized = false;
 
-        // Names of these icons can vary because of text direction.
-        gchar* playButtonIconName = getIconNameForTextDirection("gtk-media-play");
-        gchar* seekBackButtonIconName = getIconNameForTextDirection("gtk-media-rewind");
-        gchar* seekForwardButtonIconName = getIconNameForTextDirection("gtk-media-forward");
+    if (iconsInitialized)
+        return;
 
-        m_fullscreenButton.clear();
-        m_muteButton.clear();
-        m_unmuteButton.clear();
-        m_playButton.clear();
-        m_pauseButton.clear();
-        m_seekBackButton.clear();
-        m_seekForwardButton.clear();
+    PlatformRefPtr<GtkIconFactory> iconFactory = adoptPlatformRef(gtk_icon_factory_new());
+    GtkIconSource* iconSource = gtk_icon_source_new();
+    const char* icons[] = { "audio-volume-high", "audio-volume-muted" };
 
-        m_fullscreenButton = Image::loadPlatformThemeIcon("gtk-fullscreen", m_mediaIconSize);
-        // Note that the muteButton and unmuteButton take icons reflecting
-        // the *current* state. Hence, the unmuteButton represents the *muted*
-        // status, the muteButton represents the then current *unmuted* status.
-        m_muteButton = Image::loadPlatformThemeIcon("audio-volume-high", m_mediaIconSize);
-        m_unmuteButton = Image::loadPlatformThemeIcon("audio-volume-muted", m_mediaIconSize);
-        m_playButton = Image::loadPlatformThemeIcon(reinterpret_cast<const char*>(playButtonIconName), m_mediaIconSize);
-        m_pauseButton = Image::loadPlatformThemeIcon("gtk-media-pause", m_mediaIconSize);
-        m_seekBackButton = Image::loadPlatformThemeIcon(reinterpret_cast<const char*>(seekBackButtonIconName), m_mediaIconSize);
-        m_seekForwardButton = Image::loadPlatformThemeIcon(reinterpret_cast<const char*>(seekForwardButtonIconName), m_mediaIconSize);
+    gtk_icon_factory_add_default(iconFactory.get());
 
-        g_free(playButtonIconName);
-        g_free(seekBackButtonIconName);
-        g_free(seekForwardButtonIconName);
-        stylingInitialized = true;
+    for (size_t i = 0; i < G_N_ELEMENTS(icons); ++i) {
+        gtk_icon_source_set_icon_name(iconSource, icons[i]);
+        GtkIconSet* iconSet = gtk_icon_set_new();
+        gtk_icon_set_add_source(iconSet, iconSource);
+        gtk_icon_factory_add(iconFactory.get(), icons[i], iconSet);
+        gtk_icon_set_unref(iconSet);
     }
+
+    gtk_icon_source_free(iconSource);
+
+    iconsInitialized = true;
 }
 #endif
 
@@ -146,13 +148,6 @@ RenderThemeGtk::RenderThemeGtk()
     , m_mediaSliderHeight(14)
     , m_mediaSliderThumbWidth(12)
     , m_mediaSliderThumbHeight(12)
-    , m_fullscreenButton(0)
-    , m_muteButton(0)
-    , m_unmuteButton(0)
-    , m_playButton(0)
-    , m_pauseButton(0)
-    , m_seekBackButton(0)
-    , m_seekForwardButton(0)
 #ifdef GTK_API_VERSION_2
     , m_themePartsHaveRGBAColormap(true)
 #endif
@@ -176,7 +171,8 @@ RenderThemeGtk::RenderThemeGtk()
     ++mozGtkRefCount;
 
 #if ENABLE(VIDEO)
-    initMediaStyling(gtk_rc_get_style(GTK_WIDGET(gtkContainer())), false);
+    initMediaColors();
+    initMediaButtons();
 #endif
 }
 
@@ -186,14 +182,6 @@ RenderThemeGtk::~RenderThemeGtk()
 
     if (!mozGtkRefCount)
         moz_gtk_shutdown();
-
-    m_fullscreenButton.clear();
-    m_muteButton.clear();
-    m_unmuteButton.clear();
-    m_playButton.clear();
-    m_pauseButton.clear();
-    m_seekBackButton.clear();
-    m_seekForwardButton.clear();
 
     gtk_widget_destroy(m_gtkWindow);
 }
@@ -227,6 +215,17 @@ static bool supportsFocus(ControlPart appearance)
     default:
         return false;
     }
+}
+
+GtkStateType RenderThemeGtk::getGtkStateType(RenderObject* object)
+{
+    if (!isEnabled(object) || isReadOnlyControl(object))
+        return GTK_STATE_INSENSITIVE;
+    if (isPressed(object))
+        return GTK_STATE_ACTIVE;
+    if (isHovered(object))
+        return GTK_STATE_PRELIGHT;
+    return GTK_STATE_NORMAL;
 }
 
 bool RenderThemeGtk::supportsFocusRing(const RenderStyle* style) const
@@ -266,23 +265,16 @@ static GtkTextDirection gtkTextDirection(TextDirection direction)
     }
 }
 
-static void adjustMozillaStyle(const RenderThemeGtk* theme, RenderStyle* style, GtkThemeWidgetType type)
+GtkStateType RenderThemeGtk::gtkIconState(RenderObject* renderObject)
 {
-    gint left, top, right, bottom;
-    GtkTextDirection direction = gtkTextDirection(style->direction());
-    gboolean inhtml = true;
+    if (!isEnabled(renderObject))
+        return GTK_STATE_INSENSITIVE;
+    if (isPressed(renderObject))
+        return GTK_STATE_ACTIVE;
+    if (isHovered(renderObject))
+        return GTK_STATE_PRELIGHT;
 
-    if (moz_gtk_get_widget_border(type, &left, &top, &right, &bottom, direction, inhtml) != MOZ_GTK_SUCCESS)
-        return;
-
-    // FIXME: This approach is likely to be incorrect. See other ports and layout tests to see the problem.
-    const int xpadding = 1;
-    const int ypadding = 1;
-
-    style->setPaddingLeft(Length(xpadding + left, Fixed));
-    style->setPaddingTop(Length(ypadding + top, Fixed));
-    style->setPaddingRight(Length(xpadding + right, Fixed));
-    style->setPaddingBottom(Length(ypadding + bottom, Fixed));
+    return GTK_STATE_NORMAL;
 }
 
 bool RenderThemeGtk::paintRenderObject(GtkThemeWidgetType type, RenderObject* renderObject, GraphicsContext* context, const IntRect& rect, int flags)
@@ -306,14 +298,7 @@ bool RenderThemeGtk::paintRenderObject(GtkThemeWidgetType type, RenderObject* re
     widgetState.disabled = !isEnabled(renderObject) || isReadOnlyControl(renderObject);
     widgetState.isDefault = false;
     widgetState.canDefault = false;
-
-    // FIXME: The depressed value should probably apply for other theme parts too.
-    // It must be used for range thumbs, because otherwise when the thumb is pressed,
-    // the rendering is incorrect.
-    if (type == MOZ_GTK_SCALE_THUMB_HORIZONTAL || type == MOZ_GTK_SCALE_THUMB_VERTICAL)
-        widgetState.depressed = isPressed(renderObject);
-    else
-        widgetState.depressed = false;
+    widgetState.depressed = false;
 
     WidgetRenderingContext widgetContext(context, rect);
     return !widgetContext.paintMozillaWidget(type, &widgetState, flags, gtkTextDirection(renderObject->style()->direction()));
@@ -366,9 +351,56 @@ void RenderThemeGtk::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* 
         style->setLineHeight(RenderStyle::initialLineHeight());
 }
 
-bool RenderThemeGtk::paintButton(RenderObject* o, const PaintInfo& i, const IntRect& rect)
+bool RenderThemeGtk::paintButton(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
-    return paintRenderObject(MOZ_GTK_BUTTON, o, i.context, rect, GTK_RELIEF_NORMAL);
+    if (info.context->paintingDisabled())
+        return false;
+
+    GtkWidget* widget = gtkButton();
+    IntRect buttonRect(IntPoint(), rect.size());
+    IntRect focusRect(buttonRect);
+
+    GtkStateType state = getGtkStateType(object);
+    gtk_widget_set_state(widget, state);
+    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
+
+    if (isFocused(object)) {
+        if (isEnabled(object)) {
+#if !GTK_CHECK_VERSION(2, 22, 0)
+            GTK_WIDGET_SET_FLAGS(widget, GTK_HAS_FOCUS);
+#endif
+            g_object_set(widget, "has-focus", TRUE, NULL);
+        }
+
+        gboolean interiorFocus = 0, focusWidth = 0, focusPadding = 0;
+        gtk_widget_style_get(widget,
+                             "interior-focus", &interiorFocus,
+                             "focus-line-width", &focusWidth,
+                             "focus-padding", &focusPadding, NULL);
+        // If we are using exterior focus, we shrink the button rect down before
+        // drawing. If we are using interior focus we shrink the focus rect. This
+        // approach originates from the Mozilla theme drawing code (gtk2drawing.c).
+        if (interiorFocus) {
+            GtkStyle* style = gtk_widget_get_style(widget);
+            focusRect.inflateX(-style->xthickness - focusPadding);
+            focusRect.inflateY(-style->ythickness - focusPadding);
+        } else {
+            buttonRect.inflateX(-focusWidth - focusPadding);
+            buttonRect.inflateY(-focusPadding - focusPadding);
+        }
+    }
+
+    WidgetRenderingContext widgetContext(info.context, rect);
+    GtkShadowType shadowType = state == GTK_STATE_ACTIVE ? GTK_SHADOW_IN : GTK_SHADOW_OUT;
+    widgetContext.gtkPaintBox(buttonRect, widget, state, shadowType, "button");
+    if (isFocused(object))
+        widgetContext.gtkPaintFocus(focusRect, widget, state, "button");
+
+#if !GTK_CHECK_VERSION(2, 22, 0)
+    GTK_WIDGET_UNSET_FLAGS(widget, GTK_HAS_FOCUS);
+#endif
+    g_object_set(widget, "has-focus", FALSE, NULL);
+    return false;
 }
 
 static void getComboBoxPadding(RenderStyle* style, int& left, int& top, int& right, int& bottom)
@@ -433,18 +465,37 @@ bool RenderThemeGtk::paintMenuListButton(RenderObject* object, const PaintInfo& 
     return paintMenuList(object, info, rect);
 }
 
+static void setTextInputBorders(RenderStyle* style)
+{
+    // If this control isn't drawn using the native theme, we don't touch the borders.
+    if (style->appearance() == NoControlPart)
+        return;
+
+    // We cannot give a proper rendering when border radius is active, unfortunately.
+    style->resetBorderRadius();
+
+    int left = 0, top = 0, right = 0, bottom = 0;
+    moz_gtk_get_widget_border(MOZ_GTK_ENTRY, &left, &top, &right, &bottom,
+                              gtkTextDirection(style->direction()), TRUE);
+    style->setBorderLeftWidth(left);
+    style->setBorderTopWidth(top);
+    style->setBorderRightWidth(right);
+    style->setBorderBottomWidth(bottom);
+}
+
 void RenderThemeGtk::adjustTextFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
 {
-    style->resetBorder();
-    style->resetPadding();
-    style->setHeight(Length(Auto));
-    style->setWhiteSpace(PRE);
-    adjustMozillaStyle(this, style, MOZ_GTK_ENTRY);
+    setTextInputBorders(style);
 }
 
 bool RenderThemeGtk::paintTextField(RenderObject* o, const PaintInfo& i, const IntRect& rect)
 {
     return paintRenderObject(MOZ_GTK_ENTRY, o, i.context, rect);
+}
+
+void RenderThemeGtk::adjustTextAreaStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+{
+    setTextInputBorders(style);
 }
 
 bool RenderThemeGtk::paintTextArea(RenderObject* o, const PaintInfo& i, const IntRect& r)
@@ -467,32 +518,33 @@ void RenderThemeGtk::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* s
     style->resetBorder();
     style->resetPadding();
 
-    // FIXME: This should not be hard-coded.
-    IntSize size = IntSize(14, 14);
-    style->setWidth(Length(size.width(), Fixed));
-    style->setHeight(Length(size.height(), Fixed));
+    gint width = 0, height = 0;
+    gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &width, &height);
+    style->setWidth(Length(width, Fixed));
+    style->setHeight(Length(height, Fixed));
 }
 
-static IntRect centerRectVerticallyInParentInputElement(RenderObject* object, const IntRect& rect)
+static IntPoint centerRectVerticallyInParentInputElement(RenderObject* object, const IntRect& rect)
 {
-    IntRect centeredRect(rect);
     Node* input = object->node()->shadowAncestorNode(); // Get the renderer of <input> element.
-    if (!input->renderer()->isBox()) 
-        return centeredRect;
+    if (!input->renderer()->isBox())
+        return rect.topLeft();
 
     // If possible center the y-coordinate of the rect vertically in the parent input element.
     // We also add one pixel here to ensure that the y coordinate is rounded up for box heights
     // that are even, which looks in relation to the box text.
     IntRect inputContentBox = toRenderBox(input->renderer())->absoluteContentBox();
-    centeredRect.setY(inputContentBox.y() + (inputContentBox.height() - centeredRect.height() + 1) / 2);
-    return centeredRect;
+
+    return IntPoint(rect.x(), inputContentBox.y() + (inputContentBox.height() - rect.height() + 1) / 2);
 }
 
-bool RenderThemeGtk::paintSearchFieldResultsDecoration(RenderObject* object, const PaintInfo& i, const IntRect& rect)
+bool RenderThemeGtk::paintSearchFieldResultsDecoration(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    static Image* searchImage = Image::loadPlatformThemeIcon(GTK_STOCK_FIND, rect.width()).releaseRef();
-    IntRect centeredRect(centerRectVerticallyInParentInputElement(object, rect));
-    i.context->drawImage(searchImage, ColorSpaceDeviceRGB, centeredRect);
+    GtkStyle* style = gtk_widget_get_style(GTK_WIDGET(gtkEntry()));
+    IntPoint iconPoint(centerRectVerticallyInParentInputElement(renderObject, rect));
+    paintStockIcon(paintInfo.context, iconPoint, style, GTK_STOCK_FIND,
+                   gtkTextDirection(renderObject->style()->direction()),
+                   gtkIconState(renderObject), GTK_ICON_SIZE_MENU);
     return false;
 }
 
@@ -501,24 +553,26 @@ void RenderThemeGtk::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* select
     style->resetBorder();
     style->resetPadding();
 
-    // FIXME: This should not be hard-coded.
-    IntSize size = IntSize(14, 14);
-    style->setWidth(Length(size.width(), Fixed));
-    style->setHeight(Length(size.height(), Fixed));
+    gint width = 0, height = 0;
+    gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &width, &height);
+    style->setWidth(Length(width, Fixed));
+    style->setHeight(Length(height, Fixed));
 }
 
-bool RenderThemeGtk::paintSearchFieldCancelButton(RenderObject* object, const PaintInfo& i, const IntRect& rect)
+bool RenderThemeGtk::paintSearchFieldCancelButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    // TODO: Brightening up the image on hover is desirable here, I believe.
-    static Image* cancelImage = Image::loadPlatformThemeIcon(GTK_STOCK_CLEAR, rect.width()).releaseRef();
-    IntRect centeredRect(centerRectVerticallyInParentInputElement(object, rect));
-    i.context->drawImage(cancelImage, ColorSpaceDeviceRGB, centeredRect);
+    GtkStyle* style = gtk_widget_get_style(GTK_WIDGET(gtkEntry()));
+    IntPoint iconPoint(centerRectVerticallyInParentInputElement(renderObject, rect));
+    paintStockIcon(paintInfo.context, iconPoint, style, GTK_STOCK_CLEAR,
+                   gtkTextDirection(renderObject->style()->direction()),
+                   gtkIconState(renderObject), GTK_ICON_SIZE_MENU);
     return false;
 }
 
 void RenderThemeGtk::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
 {
-    adjustTextFieldStyle(selector, style, e);
+    style->setLineHeight(RenderStyle::initialLineHeight());
+    setTextInputBorders(style);
 }
 
 bool RenderThemeGtk::paintSearchField(RenderObject* o, const PaintInfo& i, const IntRect& rect)
@@ -528,14 +582,30 @@ bool RenderThemeGtk::paintSearchField(RenderObject* o, const PaintInfo& i, const
 
 bool RenderThemeGtk::paintSliderTrack(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
+    if (info.context->paintingDisabled())
+        return false;
+
     ControlPart part = object->style()->appearance();
     ASSERT(part == SliderHorizontalPart || part == SliderVerticalPart);
 
-    GtkThemeWidgetType gtkPart = MOZ_GTK_SCALE_HORIZONTAL;
-    if (part == SliderVerticalPart)
-        gtkPart = MOZ_GTK_SCALE_VERTICAL;
+    // We shrink the trough rect slightly to make room for the focus indicator.
+    IntRect troughRect(IntPoint(), rect.size()); // This is relative to rect.
+    GtkWidget* widget = 0;
+    if (part == SliderVerticalPart) {
+        widget = gtkVScale();
+        troughRect.inflateY(-gtk_widget_get_style(widget)->ythickness);
+    } else {
+        widget = gtkHScale();
+        troughRect.inflateX(-gtk_widget_get_style(widget)->xthickness);
+    }
+    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
 
-    return paintRenderObject(gtkPart, object, info.context, rect);
+    WidgetRenderingContext widgetContext(info.context, rect);
+    widgetContext.gtkPaintBox(troughRect, widget, GTK_STATE_ACTIVE, GTK_SHADOW_OUT, "trough");
+    if (isFocused(object))
+        widgetContext.gtkPaintFocus(IntRect(IntPoint(), rect.size()), widget, getGtkStateType(object), "trough");
+
+    return false;
 }
 
 void RenderThemeGtk::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
@@ -545,14 +615,34 @@ void RenderThemeGtk::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle* styl
 
 bool RenderThemeGtk::paintSliderThumb(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
+    if (info.context->paintingDisabled())
+        return false;
+
     ControlPart part = object->style()->appearance();
     ASSERT(part == SliderThumbHorizontalPart || part == SliderThumbVerticalPart);
 
-    GtkThemeWidgetType gtkPart = MOZ_GTK_SCALE_THUMB_HORIZONTAL;
-    if (part == SliderThumbVerticalPart)
-        gtkPart = MOZ_GTK_SCALE_THUMB_VERTICAL;
+    GtkWidget* widget = 0;
+    const char* detail = 0;
+    GtkOrientation orientation;
+    if (part == SliderThumbVerticalPart) {
+        widget = gtkVScale();
+        detail = "vscale";
+        orientation = GTK_ORIENTATION_VERTICAL;
+    } else {
+        widget = gtkHScale();
+        detail = "hscale";
+        orientation = GTK_ORIENTATION_HORIZONTAL;
+    }
+    gtk_widget_set_direction(widget, gtkTextDirection(object->style()->direction()));
 
-    return paintRenderObject(gtkPart, object, info.context, rect);
+    // Only some themes have slider thumbs respond to clicks and some don't. This information is
+    // gathered via the 'activate-slider' property, but it's deprecated in GTK+ 2.22 and removed in
+    // GTK+ 3.x. The drawback of not honoring it is that slider thumbs change color when you click
+    // on them. 
+    IntRect thumbRect(IntPoint(), rect.size());
+    WidgetRenderingContext widgetContext(info.context, rect);
+    widgetContext.gtkPaintSlider(thumbRect, widget, getGtkStateType(object), GTK_SHADOW_OUT, detail, orientation);
+    return false;
 }
 
 void RenderThemeGtk::adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
@@ -567,14 +657,27 @@ void RenderThemeGtk::adjustSliderThumbSize(RenderObject* o) const
     if (part == MediaSliderThumbPart) {
         o->style()->setWidth(Length(m_mediaSliderThumbWidth, Fixed));
         o->style()->setHeight(Length(m_mediaSliderThumbHeight, Fixed));
-    } else
-#endif
-    if (part == SliderThumbHorizontalPart || part == SliderThumbVerticalPart) {
-        gint width, height;
-        moz_gtk_get_scalethumb_metrics(part == SliderThumbHorizontalPart ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, &width, &height);
-        o->style()->setWidth(Length(width, Fixed));
-        o->style()->setHeight(Length(height, Fixed));
+        return;
     }
+    if (part == MediaVolumeSliderThumbPart)
+        return;
+#endif
+
+    GtkWidget* widget = part == SliderThumbHorizontalPart ? gtkHScale() : gtkVScale();
+    int length = 0, width = 0;
+    gtk_widget_style_get(widget,
+                         "slider_length", &length,
+                         "slider_width", &width,
+                         NULL);
+
+    if (part == SliderThumbHorizontalPart) {
+        o->style()->setWidth(Length(length, Fixed));
+        o->style()->setHeight(Length(width, Fixed));
+        return;
+    }
+    ASSERT(part == SliderThumbVerticalPart);
+    o->style()->setWidth(Length(width, Fixed));
+    o->style()->setHeight(Length(length, Fixed));
 }
 
 Color RenderThemeGtk::platformActiveSelectionBackgroundColor() const
@@ -700,17 +803,30 @@ static void gtkStyleSetCallback(GtkWidget* widget, GtkStyle* previous, RenderThe
     renderTheme->platformColorsDidChange();
 }
 
-GtkContainer* RenderThemeGtk::gtkContainer() const
+void RenderThemeGtk::setupWidgetAndAddToContainer(GtkWidget* widget, GtkWidget* window) const
+{
+    gtk_container_add(GTK_CONTAINER(window), widget);
+    gtk_widget_realize(widget);
+    g_object_set_data(G_OBJECT(widget), "transparent-bg-hint", GINT_TO_POINTER(TRUE));
+
+    // FIXME: Perhaps this should only be called for the containing window or parent container.
+    g_signal_connect(widget, "style-set", G_CALLBACK(gtkStyleSetCallback), const_cast<RenderThemeGtk*>(this));
+}
+
+GtkWidget* RenderThemeGtk::gtkContainer() const
 {
     if (m_gtkContainer)
         return m_gtkContainer;
 
     m_gtkWindow = gtk_window_new(GTK_WINDOW_POPUP);
-    m_gtkContainer = GTK_CONTAINER(gtk_fixed_new());
-    g_signal_connect(m_gtkWindow, "style-set", G_CALLBACK(gtkStyleSetCallback), const_cast<RenderThemeGtk*>(this));
-    gtk_container_add(GTK_CONTAINER(m_gtkWindow), GTK_WIDGET(m_gtkContainer));
+#ifdef GTK_API_VERSION_2
+    gtk_widget_set_colormap(m_gtkWindow, m_themeParts.colormap);
+#endif
     gtk_widget_realize(m_gtkWindow);
+    gtk_widget_set_name(m_gtkWindow, "MozillaGtkWidget");
 
+    m_gtkContainer = gtk_fixed_new();
+    setupWidgetAndAddToContainer(m_gtkContainer, m_gtkWindow);
     return m_gtkContainer;
 }
 
@@ -718,12 +834,8 @@ GtkWidget* RenderThemeGtk::gtkButton() const
 {
     if (m_gtkButton)
         return m_gtkButton;
-
     m_gtkButton = gtk_button_new();
-    g_signal_connect(m_gtkButton, "style-set", G_CALLBACK(gtkStyleSetCallback), const_cast<RenderThemeGtk*>(this));
-    gtk_container_add(gtkContainer(), m_gtkButton);
-    gtk_widget_realize(m_gtkButton);
-
+    setupWidgetAndAddToContainer(m_gtkButton, gtkContainer());
     return m_gtkButton;
 }
 
@@ -731,12 +843,8 @@ GtkWidget* RenderThemeGtk::gtkEntry() const
 {
     if (m_gtkEntry)
         return m_gtkEntry;
-
     m_gtkEntry = gtk_entry_new();
-    g_signal_connect(m_gtkEntry, "style-set", G_CALLBACK(gtkStyleSetCallback), const_cast<RenderThemeGtk*>(this));
-    gtk_container_add(gtkContainer(), m_gtkEntry);
-    gtk_widget_realize(m_gtkEntry);
-
+    setupWidgetAndAddToContainer(m_gtkEntry, gtkContainer());
     return m_gtkEntry;
 }
 
@@ -744,13 +852,27 @@ GtkWidget* RenderThemeGtk::gtkTreeView() const
 {
     if (m_gtkTreeView)
         return m_gtkTreeView;
-
     m_gtkTreeView = gtk_tree_view_new();
-    g_signal_connect(m_gtkTreeView, "style-set", G_CALLBACK(gtkStyleSetCallback), const_cast<RenderThemeGtk*>(this));
-    gtk_container_add(gtkContainer(), m_gtkTreeView);
-    gtk_widget_realize(m_gtkTreeView);
-
+    setupWidgetAndAddToContainer(m_gtkTreeView, gtkContainer());
     return m_gtkTreeView;
+}
+
+GtkWidget* RenderThemeGtk::gtkVScale() const
+{
+    if (m_gtkVScale)
+        return m_gtkVScale;
+    m_gtkVScale = gtk_vscale_new(0);
+    setupWidgetAndAddToContainer(m_gtkVScale, gtkContainer());
+    return m_gtkVScale;
+}
+
+GtkWidget* RenderThemeGtk::gtkHScale() const
+{
+    if (m_gtkHScale)
+        return m_gtkHScale;
+    m_gtkHScale = gtk_hscale_new(0);
+    setupWidgetAndAddToContainer(m_gtkHScale, gtkContainer());
+    return m_gtkHScale;
 }
 
 GtkWidget* RenderThemeGtk::gtkScrollbar()
@@ -761,7 +883,7 @@ GtkWidget* RenderThemeGtk::gtkScrollbar()
 void RenderThemeGtk::platformColorsDidChange()
 {
 #if ENABLE(VIDEO)
-    initMediaStyling(gtk_rc_get_style(GTK_WIDGET(gtkContainer())), true);
+    initMediaColors();
 #endif
     RenderTheme::platformColorsDidChange();
 }
@@ -772,49 +894,50 @@ String RenderThemeGtk::extraMediaControlsStyleSheet()
     return String(mediaControlsGtkUserAgentStyleSheet, sizeof(mediaControlsGtkUserAgentStyleSheet));
 }
 
-static inline bool paintMediaButton(GraphicsContext* context, const IntRect& r, Image* image, Color panelColor, int mediaIconSize)
+bool RenderThemeGtk::paintMediaButton(RenderObject* renderObject, GraphicsContext* context, const IntRect& rect, const char* iconName)
 {
-    context->fillRect(FloatRect(r), panelColor, ColorSpaceDeviceRGB);
-    context->drawImage(image, ColorSpaceDeviceRGB,
-                       IntRect(r.x() + (r.width() - mediaIconSize) / 2,
-                               r.y() + (r.height() - mediaIconSize) / 2,
-                               mediaIconSize, mediaIconSize));
+    GtkStyle* style = gtk_widget_get_style(GTK_WIDGET(gtkContainer()));
+    IntPoint iconPoint(rect.x() + (rect.width() - m_mediaIconSize) / 2,
+                       rect.y() + (rect.height() - m_mediaIconSize) / 2);
+    context->fillRect(FloatRect(rect), m_panelColor, ColorSpaceDeviceRGB);
+    paintStockIcon(context, iconPoint, style, iconName, gtkTextDirection(renderObject->style()->direction()),
+                   gtkIconState(renderObject), getMediaButtonIconSize(m_mediaIconSize));
 
     return false;
 }
 
-bool RenderThemeGtk::paintMediaFullscreenButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeGtk::paintMediaFullscreenButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    return paintMediaButton(paintInfo.context, r, m_fullscreenButton.get(), m_panelColor, m_mediaIconSize);
+    return paintMediaButton(renderObject, paintInfo.context, rect, GTK_STOCK_FULLSCREEN);
 }
 
-bool RenderThemeGtk::paintMediaMuteButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeGtk::paintMediaMuteButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    HTMLMediaElement* mediaElement = getMediaElementFromRenderObject(o);
+    HTMLMediaElement* mediaElement = getMediaElementFromRenderObject(renderObject);
     if (!mediaElement)
         return false;
 
-    return paintMediaButton(paintInfo.context, r, mediaElement->muted() ? m_unmuteButton.get() : m_muteButton.get(), m_panelColor, m_mediaIconSize);
+    return paintMediaButton(renderObject, paintInfo.context, rect, mediaElement->muted() ? "audio-volume-muted" : "audio-volume-high");
 }
 
-bool RenderThemeGtk::paintMediaPlayButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeGtk::paintMediaPlayButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    Node* node = o->node();
+    Node* node = renderObject->node();
     if (!node)
         return false;
 
     MediaControlPlayButtonElement* button = static_cast<MediaControlPlayButtonElement*>(node);
-    return paintMediaButton(paintInfo.context, r, button->displayType() == MediaPlayButton ? m_playButton.get() : m_pauseButton.get(), m_panelColor, m_mediaIconSize);
+    return paintMediaButton(renderObject, paintInfo.context, rect, button->displayType() == MediaPlayButton ? GTK_STOCK_MEDIA_PLAY : GTK_STOCK_MEDIA_PAUSE);
 }
 
-bool RenderThemeGtk::paintMediaSeekBackButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeGtk::paintMediaSeekBackButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    return paintMediaButton(paintInfo.context, r, m_seekBackButton.get(), m_panelColor, m_mediaIconSize);
+    return paintMediaButton(renderObject, paintInfo.context, rect, GTK_STOCK_MEDIA_REWIND);
 }
 
-bool RenderThemeGtk::paintMediaSeekForwardButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeGtk::paintMediaSeekForwardButton(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    return paintMediaButton(paintInfo.context, r, m_seekForwardButton.get(), m_panelColor, m_mediaIconSize);
+    return paintMediaButton(renderObject, paintInfo.context, rect, GTK_STOCK_MEDIA_FORWARD);
 }
 
 bool RenderThemeGtk::paintMediaSliderTrack(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
@@ -852,7 +975,7 @@ bool RenderThemeGtk::paintMediaSliderTrack(RenderObject* o, const PaintInfo& pai
             rangeRect = trackRect;
             rangeRect.setWidth(width);
         } else {
-            rangeRect.setLocation(IntPoint((start * totalWidth) / mediaDuration, trackRect.y()));
+            rangeRect.setLocation(IntPoint(trackRect.x() + start / mediaDuration* totalWidth, trackRect.y()));
             rangeRect.setSize(IntSize(width, trackRect.height()));
         }
 

@@ -66,7 +66,7 @@ ImageBufferData::~ImageBufferData()
     m_bitmap.Unlock();
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, RenderingMode, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -368,7 +368,7 @@ String ImageBuffer::toDataURL(const String& mimeType, const double*) const
     base64Encode(reinterpret_cast<const char*>(translatedStream.Buffer()),
                  translatedStream.BufferLength(), encodedBuffer);
 
-    return makeString("data:", mimeType, ";base64,", encodedBuffer.data());
+    return makeString("data:", mimeType, ";base64,", encodedBuffer);
 }
 
 } // namespace WebCore

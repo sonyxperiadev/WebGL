@@ -167,7 +167,7 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 
     if (!wrapInAnonymousSection) {
         // If the next renderer is actually wrapped in an anonymous table section, we need to go up and find that.
-        while (beforeChild && beforeChild->parent() != this)
+        while (beforeChild && !beforeChild->isTableSection() && !beforeChild->isTableCol() && beforeChild->style()->display() != TABLE_CAPTION)
             beforeChild = beforeChild->parent();
 
         RenderBox::addChild(child, beforeChild);
@@ -183,8 +183,6 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
     while (lastBox && lastBox->parent()->isAnonymous() && !lastBox->isTableSection() && lastBox->style()->display() != TABLE_CAPTION && lastBox->style()->display() != TABLE_COLUMN_GROUP)
         lastBox = lastBox->parent();
     if (lastBox && lastBox->isAnonymous() && !isAfterContent(lastBox)) {
-        if (beforeChild == lastBox)
-            beforeChild = lastBox->firstChild();
         lastBox->addChild(child, beforeChild);
         return;
     }
@@ -418,7 +416,7 @@ void RenderTable::layout()
     while (section) {
         if (!sectionMoved && section->logicalTop() != logicalHeight()) {
             sectionMoved = true;
-            movedSectionLogicalTop = min(logicalHeight(), section->logicalTop()) + (style()->isHorizontalWritingMode() ? section->topVisibleOverflow() : section->leftVisibleOverflow());
+            movedSectionLogicalTop = min(logicalHeight(), section->logicalTop()) + (style()->isHorizontalWritingMode() ? section->topVisualOverflow() : section->leftVisualOverflow());
         }
         section->setLogicalLocation(sectionLogicalLeft, logicalHeight());
 
@@ -445,16 +443,44 @@ void RenderTable::layout()
     // FIXME: Only pass true if width or height changed.
     layoutPositionedObjects(true);
 
+    updateLayerTransform();
+
+    computeOverflow(clientLogicalBottom());
+
+    statePusher.pop();
+
+    if (view()->layoutState()->pageLogicalHeight())
+        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(y()));
+
+    bool didFullRepaint = repainter.repaintAfterLayout();
+    // Repaint with our new bounds if they are different from our old bounds.
+    if (!didFullRepaint && sectionMoved) {
+        if (style()->isHorizontalWritingMode())
+            repaintRectangle(IntRect(leftVisualOverflow(), movedSectionLogicalTop, rightVisualOverflow() - leftVisualOverflow(), bottomVisualOverflow() - movedSectionLogicalTop));
+        else
+            repaintRectangle(IntRect(movedSectionLogicalTop, topVisualOverflow(), rightVisualOverflow() - movedSectionLogicalTop, bottomVisualOverflow() - topVisualOverflow()));
+    }
+
+    setNeedsLayout(false);
+}
+
+void RenderTable::addOverflowFromChildren()
+{
     // Add overflow from borders.
-    int rightBorderOverflow = width() + (collapsing ? outerBorderRight() - borderRight() : 0);
-    int leftBorderOverflow = collapsing ? borderLeft() - outerBorderLeft() : 0;
-    int bottomBorderOverflow = height() + (collapsing ? outerBorderBottom() - borderBottom() : 0);
-    int topBorderOverflow = collapsing ? borderTop() - outerBorderTop() : 0;
-    addLayoutOverflow(IntRect(leftBorderOverflow, topBorderOverflow, rightBorderOverflow - leftBorderOverflow, bottomBorderOverflow - topBorderOverflow));
-    
-    // Add visual overflow from box-shadow and reflections.
-    addShadowOverflow();
-    
+    // Technically it's odd that we are incorporating the borders into layout overflow, which is only supposed to be about overflow from our
+    // descendant objects, but since tables don't support overflow:auto, this works out fine.
+    if (collapseBorders()) {
+        int rightBorderOverflow = width() + outerBorderRight() - borderRight();
+        int leftBorderOverflow = borderLeft() - outerBorderLeft();
+        int bottomBorderOverflow = height() + outerBorderBottom() - borderBottom();
+        int topBorderOverflow = borderTop() - outerBorderTop();
+        IntRect borderOverflowRect(leftBorderOverflow, topBorderOverflow, rightBorderOverflow - leftBorderOverflow, bottomBorderOverflow - topBorderOverflow);
+        if (borderOverflowRect != borderBoxRect()) {
+            addLayoutOverflow(borderOverflowRect);
+            addVisualOverflow(borderOverflowRect);
+        }
+    }
+
     // Add overflow from our caption.
     if (m_caption)
         addOverflowFromChild(m_caption);
@@ -466,22 +492,6 @@ void RenderTable::layout()
             addOverflowFromChild(section);
         }
     }
-
-    statePusher.pop();
-
-    if (view()->layoutState()->m_pageHeight)
-        setPageY(view()->layoutState()->pageY(y()));
-
-    bool didFullRepaint = repainter.repaintAfterLayout();
-    // Repaint with our new bounds if they are different from our old bounds.
-    if (!didFullRepaint && sectionMoved) {
-        if (style()->isHorizontalWritingMode())
-            repaintRectangle(IntRect(leftVisibleOverflow(), movedSectionLogicalTop, rightVisibleOverflow() - leftVisibleOverflow(), bottomVisibleOverflow() - movedSectionLogicalTop));
-        else
-            repaintRectangle(IntRect(movedSectionLogicalTop, topVisibleOverflow(), rightVisibleOverflow() - movedSectionLogicalTop, bottomVisibleOverflow() - topVisibleOverflow()));
-    }
-
-    setNeedsLayout(false);
 }
 
 void RenderTable::setCellLogicalWidths()
@@ -500,9 +510,9 @@ void RenderTable::paint(PaintInfo& paintInfo, int tx, int ty)
     PaintPhase paintPhase = paintInfo.phase;
 
     int os = 2 * maximalOutlineSize(paintPhase);
-    if (ty + topVisibleOverflow() >= paintInfo.rect.bottom() + os || ty + bottomVisibleOverflow() <= paintInfo.rect.y() - os)
+    if (ty + topVisualOverflow() >= paintInfo.rect.bottom() + os || ty + bottomVisualOverflow() <= paintInfo.rect.y() - os)
         return;
-    if (tx + leftVisibleOverflow() >= paintInfo.rect.right() + os || tx + rightVisibleOverflow() <= paintInfo.rect.x() - os)
+    if (tx + leftVisualOverflow() >= paintInfo.rect.right() + os || tx + rightVisualOverflow() <= paintInfo.rect.x() - os)
         return;
 
     bool pushedClip = pushContentsClip(paintInfo, tx, ty);    
@@ -1171,8 +1181,6 @@ int RenderTable::firstLineBoxBaseline() const
 {
     if (isWritingModeRoot())
         return -1;
-
-    recalcSectionsIfNeeded();
 
     RenderTableSection* firstNonEmptySection = m_head ? m_head : (m_firstBody ? m_firstBody : m_foot);
     if (firstNonEmptySection && !firstNonEmptySection->numRows())

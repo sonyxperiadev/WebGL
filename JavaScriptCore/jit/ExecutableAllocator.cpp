@@ -45,13 +45,13 @@ void ExecutableAllocator::intializePageSize()
     // for moving memory model limitation
     ExecutableAllocator::pageSize = 256 * 1024;
 #else
-    ExecutableAllocator::pageSize = PageAllocation::pageSize();
+    ExecutableAllocator::pageSize = WTF::pageSize();
 #endif
 }
 
 ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t size)
 {
-    PageAllocation allocation = PageAllocation::allocate(size, PageAllocation::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
+    PageAllocation allocation = PageAllocation::allocate(size, OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
     if (!allocation)
         CRASH();
     return allocation;
@@ -65,6 +65,11 @@ void ExecutablePool::systemRelease(ExecutablePool::Allocation& allocation)
 bool ExecutableAllocator::isValid() const
 {
     return true;
+}
+    
+bool ExecutableAllocator::underMemoryPressure()
+{
+    return false;
 }
     
 size_t ExecutableAllocator::committedByteCount()

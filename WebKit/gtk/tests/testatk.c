@@ -21,11 +21,10 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <webkit/webkit.h>
 
-#if GLIB_CHECK_VERSION(2, 16, 0) && GTK_CHECK_VERSION(2, 14, 0)
+#if GTK_CHECK_VERSION(2, 14, 0)
 
 static const char* centeredContents = "<html><body><p style='text-align: center;'>Short line</p><p style='text-align: center;'>Long-size line with some foo bar baz content</p><p style='text-align: center;'>Short line</p><p style='text-align: center;'>This is a multi-line paragraph<br />where the first line<br />is the biggest one</p></body></html>";
 
@@ -44,6 +43,8 @@ static const char* contentsInParagraphAndBodyModerate = "<html><body><p>This is 
 static const char* contentsInTable = "<html><body><table><tr><td>foo</td><td>bar</td></tr></table></body></html>";
 
 static const char* contentsInTableWithHeaders = "<html><body><table><tr><th>foo</th><th>bar</th><th colspan='2'>baz</th></tr><tr><th>qux</th><td>1</td><td>2</td><td>3</td></tr><tr><th rowspan='2'>quux</th><td>4</td><td>5</td><td>6</td></tr><tr><td>6</td><td>7</td><td>8</td></tr><tr><th>corge</th><td>9</td><td>10</td><td>11</td></tr></table><table><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></table></body></html>";
+
+static const char* comboBoxSelector = "<html><body><select><option selected value='foo'>foo</option><option value='bar'>bar</option></select></body></html>";
 
 static const char* formWithTextInputs = "<html><body><form><input type='text' name='entry' /></form></body></html>";
 
@@ -222,77 +223,106 @@ static void runGetTextTests(AtkText* textObject)
                         0, "This is a test. This is the second sentence. And this the third.", 0, 64);
 }
 
-static void stateChangedCb(AtkObject* object, gchar* stateName, gboolean stateSet, gpointer unused)
-{
-    /* Only 'defunct' and 'busy' state changes are considered. */
-    if (!g_strcmp0(stateName, "defunct")) {
-        g_print("[defunct]");
-        return;
-    }
-
-    if (!g_strcmp0(stateName, "busy")) {
-        g_print("[busy:%d]", stateSet);
-        /* If 'busy' state is unset, it means we're done. */
-        if (!stateSet)
-            exit(0);
-    }
-}
-
-static void documentReloadCb(AtkDocument* document, gpointer unused)
-{
-    g_print("[reloaded]");
-}
-
-static void documentLoadCompleteCb(AtkDocument* document, gpointer unused)
-{
-    g_print("[load completed]");
-}
-
-static void webviewLoadStatusChangedCb(WebKitWebView* webView, GParamSpec* pspec, gpointer unused)
-{
-    /* We need to explicitly connect here to the signals emitted by
-     * the AtkObject associated to the webView because the AtkObject
-     * iniatially associated at the beginning of the process (when in
-     * the LOAD_PROVISIONAL state) will get destroyed and replaced by
-     * a new one later on, when the LOAD_COMMITED state is reached. */
-    WebKitLoadStatus loadStatus = webkit_web_view_get_load_status(webView);
-    if (loadStatus == WEBKIT_LOAD_PROVISIONAL || loadStatus == WEBKIT_LOAD_COMMITTED) {
-        AtkObject* axWebView = gtk_widget_get_accessible(GTK_WIDGET(webView));
-        g_assert(ATK_IS_DOCUMENT(axWebView));
-
-        g_signal_connect(axWebView, "state-change", G_CALLBACK(stateChangedCb), 0);
-        g_signal_connect(axWebView, "reload", G_CALLBACK(documentReloadCb), 0);
-        g_signal_connect(axWebView, "load-complete", G_CALLBACK(documentLoadCompleteCb), 0);
-    }
-}
-
-static void testWebkitAtkDocumentReloadEvents()
+static void testWebkitAtkComboBox()
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
     g_object_ref_sink(webView);
     GtkAllocation allocation = { 0, 0, 800, 600 };
     gtk_widget_size_allocate(GTK_WIDGET(webView), &allocation);
-
-    webkit_web_view_load_string(webView, contents, 0, 0, 0);
+    webkit_web_view_load_string(webView, comboBoxSelector, 0, 0, 0);
 
     /* Wait for the accessible objects to be created. */
     waitForAccessibleObjects();
 
-    AtkObject* axWebView = gtk_widget_get_accessible(GTK_WIDGET(webView));
-    g_assert(ATK_IS_DOCUMENT(axWebView));
+    AtkObject* object = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    g_assert(object);
 
-    if (g_test_trap_fork (2000000, G_TEST_TRAP_SILENCE_STDOUT)) {
-        g_signal_connect(webView, "notify::load-status", G_CALLBACK(webviewLoadStatusChangedCb), 0);
-        webkit_web_view_reload(webView);
-    }
+    AtkObject* formObject = atk_object_ref_accessible_child(object, 0);
+    g_assert(formObject);
 
-    /* Check results. */
-    g_test_trap_assert_passed();
-    g_test_trap_assert_stdout("[busy:1][reloaded][defunct][load completed][busy:0]");
+    AtkObject* comboBox = atk_object_ref_accessible_child(formObject, 0);
+    g_assert(ATK_IS_OBJECT(comboBox));
 
+    AtkObject* menuPopup = atk_object_ref_accessible_child(comboBox, 0);
+    g_assert(ATK_IS_OBJECT(menuPopup));
+
+    AtkObject* item1 = atk_object_ref_accessible_child(menuPopup, 0);
+    g_assert(ATK_IS_OBJECT(item1));
+
+    AtkObject* item2 = atk_object_ref_accessible_child(menuPopup, 1);
+    g_assert(ATK_IS_OBJECT(item2));
+
+    /* Check roles. */
+    g_assert(atk_object_get_role(comboBox) == ATK_ROLE_COMBO_BOX);
+    g_assert(atk_object_get_role(menuPopup) == ATK_ROLE_MENU);
+    g_assert(atk_object_get_role(item1) == ATK_ROLE_MENU_ITEM);
+    g_assert(atk_object_get_role(item2) == ATK_ROLE_MENU_ITEM);
+
+    /* Check the implementation of the AtkSelection interface. */
+    g_assert(ATK_IS_SELECTION(comboBox));
+    AtkSelection* atkSelection = ATK_SELECTION(comboBox);
+    g_assert_cmpint(atk_selection_get_selection_count(atkSelection), ==, 1);
+    g_assert(atk_selection_is_child_selected(atkSelection, 0));
+    g_assert(!atk_selection_is_child_selected(atkSelection, 1));
+    AtkObject* selectedItem = atk_selection_ref_selection(atkSelection, 0);
+    g_assert(selectedItem == item1);
+    g_object_unref(selectedItem);
+
+    /* Check the implementations of the AtkAction interface. */
+    g_assert(ATK_IS_ACTION(comboBox));
+    AtkAction* atkAction = ATK_ACTION(comboBox);
+    g_assert_cmpint(atk_action_get_n_actions(atkAction), ==, 1);
+    g_assert(atk_action_do_action(atkAction, 0));
+
+    g_assert(ATK_IS_ACTION(menuPopup));
+    atkAction = ATK_ACTION(menuPopup);
+    g_assert_cmpint(atk_action_get_n_actions(atkAction), ==, 1);
+    g_assert(atk_action_do_action(atkAction, 0));
+
+    g_assert(ATK_IS_ACTION(item1));
+    atkAction = ATK_ACTION(item1);
+    g_assert_cmpint(atk_action_get_n_actions(atkAction), ==, 1);
+    g_assert(atk_action_do_action(atkAction, 0));
+
+    g_assert(ATK_IS_ACTION(item2));
+    atkAction = ATK_ACTION(item2);
+    g_assert_cmpint(atk_action_get_n_actions(atkAction), ==, 1);
+    g_assert(atk_action_do_action(atkAction, 0));
+
+    /* After selecting the second item, selection should have changed. */
+    g_assert_cmpint(atk_selection_get_selection_count(atkSelection), ==, 1);
+    g_assert(!atk_selection_is_child_selected(atkSelection, 0));
+    g_assert(atk_selection_is_child_selected(atkSelection, 1));
+    selectedItem = atk_selection_ref_selection(atkSelection, 0);
+    g_assert(selectedItem == item2);
+    g_object_unref(selectedItem);
+
+    /* Check the implementation of the AtkText interface. */
+    g_assert(ATK_IS_TEXT(item1));
+    AtkText* atkText = ATK_TEXT(item1);
+    char *text = atk_text_get_text(atkText, 0, -1);
+    g_assert_cmpstr(text, ==, "foo");
+    g_free(text);
+    text = atk_text_get_text(atkText, 0, 2);
+    g_assert_cmpstr(text, ==, "fo");
+    g_free(text);
+
+    g_assert(ATK_IS_TEXT(item2));
+    atkText = ATK_TEXT(item2);
+    text = atk_text_get_text(atkText, 0, -1);
+    g_assert_cmpstr(text, ==, "bar");
+    g_free(text);
+    text = atk_text_get_text(atkText, 1, 3);
+    g_assert_cmpstr(text, ==, "ar");
+    g_free(text);
+
+    g_object_unref(formObject);
+    g_object_unref(comboBox);
+    g_object_unref(menuPopup);
+    g_object_unref(item1);
+    g_object_unref(item2);
     g_object_unref(webView);
 }
-
 
 static void testWebkitAtkGetTextAtOffsetForms()
 {
@@ -1284,7 +1314,7 @@ int main(int argc, char** argv)
     gtk_test_init(&argc, &argv, 0);
 
     g_test_bug_base("https://bugs.webkit.org/");
-    g_test_add_func("/webkit/atk/documentReloadEvents", testWebkitAtkDocumentReloadEvents);
+    g_test_add_func("/webkit/atk/comboBox", testWebkitAtkComboBox);
     g_test_add_func("/webkit/atk/getTextAtOffset", testWebkitAtkGetTextAtOffset);
     g_test_add_func("/webkit/atk/getTextAtOffsetForms", testWebkitAtkGetTextAtOffsetForms);
     g_test_add_func("/webkit/atk/getTextAtOffsetNewlines", testWebkitAtkGetTextAtOffsetNewlines);
@@ -1308,7 +1338,7 @@ int main(int argc, char** argv)
 #else
 int main(int argc, char** argv)
 {
-    g_critical("You will need at least glib-2.16.0 and gtk-2.14.0 to run the unit tests. Doing nothing now.");
+    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
     return 0;
 }
 

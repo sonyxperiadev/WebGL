@@ -52,6 +52,8 @@
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptCallStack.h"
+#include "ScriptCallStackFactory.h"
 #include "SharedBuffer.h"
 #include "TextEncoding.h"
 #include "WebSocketHandshakeRequest.h"
@@ -128,10 +130,9 @@ PassRefPtr<SharedBuffer> InspectorResourceAgent::resourceData(Frame* frame, cons
 
 CachedResource* InspectorResourceAgent::cachedResource(Frame* frame, const KURL& url)
 {
-    const String& urlString = url.string();
-    CachedResource* cachedResource = frame->document()->cachedResourceLoader()->cachedResource(urlString);
+    CachedResource* cachedResource = frame->document()->cachedResourceLoader()->cachedResource(url);
     if (!cachedResource)
-        cachedResource = cache()->resourceForURL(urlString);
+        cachedResource = cache()->resourceForURL(url);
     return cachedResource;
 }
 
@@ -285,7 +286,13 @@ InspectorResourceAgent::~InspectorResourceAgent()
 void InspectorResourceAgent::identifierForInitialRequest(unsigned long identifier, const KURL& url, DocumentLoader* loader)
 {
     RefPtr<InspectorObject> loaderObject = buildObjectForDocumentLoader(loader);
-    m_frontend->identifierForInitialRequest(identifier, url.string(), loaderObject);
+    RefPtr<ScriptCallStack> callStack = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
+    RefPtr<InspectorValue> callStackValue;
+    if (callStack)
+        callStackValue = callStack->buildInspectorObject();
+    else
+        callStackValue = InspectorValue::null();
+    m_frontend->identifierForInitialRequest(identifier, url.string(), loaderObject, callStackValue);
 }
 
 void InspectorResourceAgent::willSendRequest(unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)

@@ -175,6 +175,7 @@ IDL_BINDINGS += \
     fileapi/FileException.idl \
     fileapi/FileList.idl \
     fileapi/FileReader.idl \
+    fileapi/FileReaderSync.idl \
     fileapi/FileSystemCallback.idl \
     fileapi/FileWriter.idl \
     fileapi/FileWriterCallback.idl \
@@ -191,6 +192,7 @@ IDL_BINDINGS += \
     html/canvas/CanvasPattern.idl \
     html/canvas/CanvasRenderingContext.idl \
     html/canvas/CanvasRenderingContext2D.idl \
+    html/canvas/OESTextureFloat.idl \
     html/canvas/WebGLActiveInfo.idl \
     html/canvas/WebGLBuffer.idl \
     html/canvas/WebGLContextAttributes.idl \
@@ -228,6 +230,7 @@ IDL_BINDINGS += \
     html/HTMLDataGridColElement.idl \
     html/HTMLDataGridRowElement.idl \
     html/HTMLDataListElement.idl \
+    html/HTMLDetailsElement.idl \
     html/HTMLDirectoryElement.idl \
     html/HTMLDivElement.idl \
     html/HTMLDListElement.idl \
@@ -489,6 +492,26 @@ IDL_BINDINGS += \
     svg/SVGUseElement.idl \
     svg/SVGViewElement.idl \
     svg/SVGVKernElement.idl \
+    webaudio/AudioBuffer.idl \
+    webaudio/AudioBufferSourceNode.idl \
+    webaudio/AudioChannelMerger.idl \
+    webaudio/AudioChannelSplitter.idl \
+    webaudio/AudioContext.idl \
+    webaudio/AudioDestinationNode.idl \
+    webaudio/AudioGain.idl \
+    webaudio/AudioGainNode.idl \
+    webaudio/AudioListener.idl \
+    webaudio/AudioNode.idl \
+    webaudio/AudioPannerNode.idl \
+    webaudio/AudioParam.idl \
+    webaudio/AudioProcessingEvent.idl \
+    webaudio/AudioSourceNode.idl \
+    webaudio/ConvolverNode.idl \
+    webaudio/DelayNode.idl \
+    webaudio/HighPass2FilterNode.idl \
+    webaudio/JavaScriptAudioNode.idl \
+    webaudio/LowPass2FilterNode.idl \
+    webaudio/RealtimeAnalyserNode.idl \
     websockets/WebSocket.idl \
     workers/AbstractWorker.idl \
     workers/DedicatedWorkerContext.idl \
@@ -576,7 +599,20 @@ idl.input = IDL_BINDINGS
 idl.wkScript = $$PWD/bindings/scripts/generate-bindings.pl
 v8: generator = V8
 else: generator = JS
-idl.commands = perl -I$$PWD/bindings/scripts $$idl.wkScript --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator $$generator --include $$PWD/dom --include $$PWD/fileapi --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --include $$PWD/storage --include $$PWD/css --include $$PWD/workers --outputDir $$WC_GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
+idl.commands = perl -I$$PWD/bindings/scripts $$idl.wkScript \
+               --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" \
+               --generator $$generator \
+               --include $$PWD/dom \
+               --include $$PWD/fileapi \
+               --include $$PWD/html \
+               --include $$PWD/xml \
+               --include $$PWD/svg \
+               --include $$PWD/storage \
+               --include $$PWD/css \
+               --include $$PWD/webaudio \
+               --include $$PWD/workers \
+               --outputDir $$WC_GENERATED_SOURCES_DIR \
+               --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
 v8 {
     idl.output = $${WC_GENERATED_SOURCES_DIR}/V8${QMAKE_FILE_BASE}.cpp
     idl.depends = $$PWD/bindings/scripts/CodeGenerator.pm \

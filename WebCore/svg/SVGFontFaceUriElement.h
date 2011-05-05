@@ -27,24 +27,25 @@
 
 namespace WebCore {
 
-    class CSSFontFaceSrcValue;
-    class CachedFont;
+class CSSFontFaceSrcValue;
+class CachedFont;
 
-    class SVGFontFaceUriElement : public SVGElement, public CachedResourceClient {
-    public:
-        static PassRefPtr<SVGFontFaceUriElement> create(const QualifiedName&, Document*);
+class SVGFontFaceUriElement : public SVGElement, public CachedResourceClient {
+public:
+    static PassRefPtr<SVGFontFaceUriElement> create(const QualifiedName&, Document*);
 
-        virtual ~SVGFontFaceUriElement();
+    virtual ~SVGFontFaceUriElement();
 
-        PassRefPtr<CSSFontFaceSrcValue> srcValue() const;
+    PassRefPtr<CSSFontFaceSrcValue> srcValue() const;
 
-    private:
-        SVGFontFaceUriElement(const QualifiedName&, Document*);
-        
-        virtual void parseMappedAttribute(Attribute*);
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-        virtual void insertedIntoDocument();
+private:
+    SVGFontFaceUriElement(const QualifiedName&, Document*);
+    
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void insertedIntoDocument();
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
         void* operator new(size_t size) {
             return SVGElement::operator new(size);
@@ -62,9 +63,12 @@ namespace WebCore {
 #endif
 
         void loadFont();
+=======
+    void loadFont();
+>>>>>>> webkit.org at r74534 (trunk)
 
-        CachedResourceHandle<CachedFont> m_cachedFont;
-    };
+    CachedResourceHandle<CachedFont> m_cachedFont;
+};
 
 } // namespace WebCore
 

@@ -67,8 +67,10 @@ RenderTextControlSingleLine::~RenderTextControlSingleLine()
         m_searchPopup = 0;
     }
  
-    if (m_innerBlock)
+    if (m_innerBlock) {
         m_innerBlock->detach();
+        m_innerBlock = 0;
+    }
 
     if (m_innerSpinButton)
         m_innerSpinButton->detach();
@@ -669,6 +671,21 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
     }
 }
 
+#if ENABLE(INPUT_SPEECH)
+void RenderTextControlSingleLine::speechAttributeChanged()
+{
+    // The inner text element of this renderer has different styles depending on whether the
+    // speech button is visible or not. So when the speech attribute changes, we reset the
+    // whole thing and recreate to get the right styles and layout.
+    if (m_speechButton)
+        m_speechButton->detach();
+    setChildrenInline(true);
+    RenderStyle* parentStyle = m_innerBlock ? m_innerBlock->renderer()->style() : style();
+    setStyle(createInnerTextStyle(parentStyle));
+    updateFromElement();
+}
+#endif
+
 void RenderTextControlSingleLine::updateFromElement()
 {
     createSubtreeIfNeeded();
@@ -1073,6 +1090,14 @@ bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranul
     return RenderBlock::scroll(direction, granularity, multiplier, stopNode);
 }
 
+bool RenderTextControlSingleLine::logicalScroll(ScrollLogicalDirection direction, ScrollGranularity granularity, float multiplier, Node** stopNode)
+{
+    RenderLayer* layer = innerTextElement()->renderBox()->layer();
+    if (layer && layer->scroll(logicalToPhysical(direction, style()->isHorizontalWritingMode(), style()->isFlippedBlocksWritingMode()), granularity, multiplier))
+        return true;
+    return RenderBlock::logicalScroll(direction, granularity, multiplier, stopNode);
+}
+
 PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
     RefPtr<Scrollbar> widget;
@@ -1108,5 +1133,19 @@ int RenderTextControlSingleLine::textBlockInsetRight() const
     }
     return inset;
 }
+
+int RenderTextControlSingleLine::textBlockInsetTop() const
+{
+    RenderBox* innerRenderer = 0;
+    if (m_innerBlock)
+        innerRenderer = m_innerBlock->renderBox();
+    else if (HTMLElement* innerText = innerTextElement())
+        innerRenderer = innerText->renderBox();
+    
+    if (innerRenderer)
+        return innerRenderer->y();
+    
+    return borderTop() + paddingTop();
+}    
 
 }

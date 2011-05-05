@@ -55,12 +55,14 @@ void WebPerformance::assign(const WebPerformance& other)
 WebNavigationType WebPerformance::navigationType() const
 {
     switch (m_private->navigation()->type()) {
-    case PerformanceNavigation::NAVIGATE:
+    case PerformanceNavigation::TYPE_NAVIGATE:
         return WebNavigationTypeOther;
-    case PerformanceNavigation::RELOAD:
+    case PerformanceNavigation::TYPE_RELOAD:
         return WebNavigationTypeReload;
-    case PerformanceNavigation::BACK_FORWARD:
+    case PerformanceNavigation::TYPE_BACK_FORWARD:
         return WebNavigationTypeBackForward;
+    case PerformanceNavigation::TYPE_RESERVED:
+        return WebNavigationTypeOther;
     }
     ASSERT_NOT_REACHED();
     return WebNavigationTypeOther;
@@ -129,6 +131,31 @@ double WebPerformance::responseStart() const
 double WebPerformance::responseEnd() const
 {
     return millisecondsToSeconds(m_private->timing()->responseEnd());
+}
+
+double WebPerformance::domLoading() const
+{
+    return millisecondsToSeconds(m_private->timing()->domLoading());
+}
+
+double WebPerformance::domInteractive() const
+{
+    return millisecondsToSeconds(m_private->timing()->domInteractive());
+}
+
+double WebPerformance::domContentLoadedEventStart() const
+{
+    return millisecondsToSeconds(m_private->timing()->domContentLoadedEventStart());
+}
+
+double WebPerformance::domContentLoadedEventEnd() const
+{
+    return millisecondsToSeconds(m_private->timing()->domContentLoadedEventEnd());
+}
+
+double WebPerformance::domComplete() const
+{
+    return millisecondsToSeconds(m_private->timing()->domComplete());
 }
 
 double WebPerformance::loadEventStart() const

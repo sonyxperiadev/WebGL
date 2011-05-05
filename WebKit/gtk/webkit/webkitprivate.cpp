@@ -43,9 +43,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
-#include "SecurityOrigin.h"
 #include "TextEncodingRegistry.h"
-#include "WebKitDOMBinding.h"
 #include "webkitnetworkresponse.h"
 #include "webkitsoupauthdialog.h"
 #include "webkitversion.h"
@@ -66,123 +64,9 @@ using namespace WebCore;
 
 namespace WebKit {
 
-WebKitWebView* getViewFromFrame(WebKitWebFrame* frame)
-{
-    WebKitWebFramePrivate* priv = frame->priv;
-    return priv->webView;
-}
-
-WebCore::Frame* core(WebKitWebFrame* frame)
-{
-    if (!frame)
-        return 0;
-
-    WebKitWebFramePrivate* priv = frame->priv;
-    return priv ? priv->coreFrame : 0;
-}
-
-WebKitWebFrame* kit(WebCore::Frame* coreFrame)
-{
-    if (!coreFrame)
-        return 0;
-
-    ASSERT(coreFrame->loader());
-    WebKit::FrameLoaderClient* client = static_cast<WebKit::FrameLoaderClient*>(coreFrame->loader()->client());
-    return client ? client->webFrame() : 0;
-}
-
-WebCore::Page* core(WebKitWebView* webView)
-{
-    if (!webView)
-        return 0;
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv ? priv->corePage : 0;
-}
-
-WebKitWebView* kit(WebCore::Page* corePage)
-{
-    if (!corePage)
-        return 0;
-
-    ASSERT(corePage->chrome());
-    WebKit::ChromeClient* client = static_cast<WebKit::ChromeClient*>(corePage->chrome()->client());
-    return client ? client->webView() : 0;
-}
-
-WebKitWebNavigationReason kit(WebCore::NavigationType type)
-{
-    return (WebKitWebNavigationReason)type;
-}
-
-WebCore::NavigationType core(WebKitWebNavigationReason type)
-{
-    return static_cast<WebCore::NavigationType>(type);
-}
-
-WebCore::ResourceRequest core(WebKitNetworkRequest* request)
-{
-    SoupMessage* soupMessage = webkit_network_request_get_message(request);
-    if (soupMessage)
-        return ResourceRequest(soupMessage);
-
-    KURL url = KURL(KURL(), String::fromUTF8(webkit_network_request_get_uri(request)));
-    return ResourceRequest(url);
-}
-
-WebCore::ResourceResponse core(WebKitNetworkResponse* response)
-{
-    SoupMessage* soupMessage = webkit_network_response_get_message(response);
-    if (soupMessage)
-        return ResourceResponse(soupMessage);
-
-    return ResourceResponse();
-}
-
 WebCore::EditingBehaviorType core(WebKitEditingBehavior type)
 {
     return (WebCore::EditingBehaviorType)type;
-}
-
-WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
-{
-    guint context = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT;
-    GOwnPtr<char> linkURI(0);
-    GOwnPtr<char> imageURI(0);
-    GOwnPtr<char> mediaURI(0);
-    WebKitDOMNode* node = 0;
-
-    if (!result.absoluteLinkURL().isEmpty()) {
-        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK;
-        linkURI.set(g_strdup(result.absoluteLinkURL().string().utf8().data()));
-    }
-
-    if (!result.absoluteImageURL().isEmpty()) {
-        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE;
-        imageURI.set(g_strdup(result.absoluteImageURL().string().utf8().data()));
-    }
-
-    if (!result.absoluteMediaURL().isEmpty()) {
-        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
-        mediaURI.set(g_strdup(result.absoluteMediaURL().string().utf8().data()));
-    }
-
-    if (result.isSelected())
-        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION;
-
-    if (result.isContentEditable())
-        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
-
-    if (result.innerNonSharedNode())
-        node = kit(result.innerNonSharedNode());
-
-    return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
-                                               "link-uri", linkURI.get(),
-                                               "image-uri", imageURI.get(),
-                                               "media-uri", mediaURI.get(),
-                                               "context", context,
-                                               "inner-node", node,
-                                               NULL));
 }
 
 PasteboardHelperGtk* pasteboardHelperInstance()
@@ -226,45 +110,6 @@ static void closeIconDatabaseOnExit()
     iconDatabase()->close();
 }
 
-#ifdef HAVE_GSETTINGS
-static bool isSchemaAvailable(const char* schemaID)
-{
-    const char* const* availableSchemas = g_settings_list_schemas();
-    char* const* iter = const_cast<char* const*>(availableSchemas);
-
-    while (*iter) {
-        if (g_str_equal(schemaID, *iter))
-            return true;
-        iter++;
-    }
-
-    return false;
-}
-
-GSettings* inspectorGSettings()
-{
-    static GSettings* settings = 0;
-
-    if (settings)
-        return settings;
-
-    const gchar* schemaID = "org.webkitgtk-"WEBKITGTK_API_VERSION_STRING".inspector";
-
-    // Unfortunately GSettings will abort the process execution if the
-    // schema is not installed, which is the case for when running
-    // tests, or even the introspection dump at build time, so check
-    // if we have the schema before trying to initialize it.
-    if (!isSchemaAvailable(schemaID)) {
-        g_warning("GSettings schema not found - settings will not be used or saved.");
-        return 0;
-    }
-
-    settings = g_settings_new(schemaID);
-
-    return settings;
-}
-#endif
-
 void webkit_init()
 {
     static bool isInitialized = false;
@@ -283,11 +128,6 @@ void webkit_init()
     // We make sure the text codecs have been initialized, because
     // that may only be done by the main thread.
     atomicCanonicalTextEncodingName("UTF-8");
-
-    // Page cache capacity (in pages). Comment from Mac port:
-    // (Research indicates that value / page drops substantially after 3 pages.)
-    // FIXME: Expose this with an API and/or calculate based on available resources
-    webkit_set_cache_model(WEBKIT_CACHE_MODEL_WEB_BROWSER);
 
 #if ENABLE(DATABASE)
     gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "webkit", "databases", NULL);
@@ -322,43 +162,3 @@ void webkit_init()
 
     soup_session_add_feature_by_type(session, SOUP_TYPE_CONTENT_DECODER);
 }
-
-void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains)
-{
-    SecurityOrigin::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
-}
-
-void webkit_reset_origin_access_white_lists()
-{
-    SecurityOrigin::resetOriginAccessWhitelists();
-}
-
-
-void webkitWebViewEnterFullscreen(WebKitWebView* webView, Node* node)
-{
-    if (!node->hasTagName(HTMLNames::videoTag))
-        return;
-
-#if ENABLE(VIDEO)
-    HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(node);
-    WebKitWebViewPrivate* priv = webView->priv;
-
-    // First exit Fullscreen for the old mediaElement.
-    if (priv->fullscreenVideoController)
-        priv->fullscreenVideoController->exitFullscreen();
-
-    priv->fullscreenVideoController = new FullscreenVideoController;
-    priv->fullscreenVideoController->setMediaElement(videoElement);
-    priv->fullscreenVideoController->enterFullscreen();
-#endif
-}
-
-void webkitWebViewExitFullscreen(WebKitWebView* webView)
-{
-#if ENABLE(VIDEO)
-    WebKitWebViewPrivate* priv = webView->priv;
-    if (priv->fullscreenVideoController)
-        priv->fullscreenVideoController->exitFullscreen();
-#endif
-}
-

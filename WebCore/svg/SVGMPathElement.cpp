@@ -23,9 +23,14 @@
 #include "SVGMPathElement.h"
 
 #include "Document.h"
+#include "SVGNames.h"
 #include "SVGPathElement.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGMPathElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGMPathElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 inline SVGMPathElement::SVGMPathElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)

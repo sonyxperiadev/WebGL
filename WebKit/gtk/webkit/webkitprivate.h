@@ -30,42 +30,29 @@
  */
 
 #include <webkit/webkitdefines.h>
-#include <webkit/webkitdownload.h>
-#include <webkit/webkithittestresult.h>
 #include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitwebview.h>
 #include <webkit/webkitwebdatasource.h>
 #include <webkit/webkitwebframe.h>
-#include <webkit/webkitwebpolicydecision.h>
-#include <webkit/webkitwebnavigationaction.h>
-#include <webkit/webkitwebresource.h>
 #include <webkit/webkitwebsettings.h>
 #include <webkit/webkitwebwindowfeatures.h>
-#include <webkit/webkitwebbackforwardlist.h>
 #include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitsecurityorigin.h>
 
-#include "ArchiveResource.h"
-#include "BackForwardListImpl.h"
 #include "DataObjectGtk.h"
 #include "DragActions.h"
 #include "Frame.h"
 #include "GOwnPtr.h"
 #include "Geolocation.h"
-#include "HistoryItem.h"
-#include "InspectorClientGtk.h"
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "FrameLoaderClient.h"
-#include "FullscreenVideoController.h"
 #include "Node.h"
 #include "Page.h"
 #include "PlatformString.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
-#include "ResourceResponse.h"
 #include "WindowFeatures.h"
-#include "SecurityOrigin.h"
 #include "Settings.h"
 #include <enchant.h>
 #include <wtf/OwnPtr.h>
@@ -75,365 +62,37 @@
 #include <glib.h>
 #include <libsoup/soup.h>
 
-class DownloadClient;
-
 namespace WebKit {
 
     class DocumentLoader;
     class PasteboardHelperGtk;
 
-    WebKitWebView* getViewFromFrame(WebKitWebFrame*);
-
-    WebCore::Frame* core(WebKitWebFrame*);
-    WebKitWebFrame* kit(WebCore::Frame*);
-
-    WebCore::Page* core(WebKitWebView*);
-    WebKitWebView* kit(WebCore::Page*);
-
-    WebCore::HistoryItem* core(WebKitWebHistoryItem*);
-    WebKitWebHistoryItem* kit(PassRefPtr<WebCore::HistoryItem>);
-
-    WebCore::BackForwardListImpl* core(WebKitWebBackForwardList*);
-
-    WebKitWebNavigationReason kit(WebCore::NavigationType type);
-    WebCore::NavigationType core(WebKitWebNavigationReason reason);
-
-    WebCore::ResourceRequest core(WebKitNetworkRequest* request);
-
-    WebCore::ResourceResponse core(WebKitNetworkResponse* response);
-
     WebCore::EditingBehaviorType core(WebKitEditingBehavior type);
 
-    WebKitSecurityOrigin* kit(WebCore::SecurityOrigin*);
-    WebCore::SecurityOrigin* core(WebKitSecurityOrigin*);
-
-    WebKitHitTestResult* kit(const WebCore::HitTestResult&);
-
     PasteboardHelperGtk* pasteboardHelperInstance();
-
-    typedef struct DroppingContext_ {
-        WebKitWebView* webView;
-        GdkDragContext* gdkContext;
-        RefPtr<WebCore::DataObjectGtk> dataObject;
-        WebCore::IntPoint lastMotionPosition;
-        int pendingDataRequests;
-        bool dropHappened;
-    } DroppingContext;
 }
 
 extern "C" {
     void webkit_init();
 
-#ifdef HAVE_GSETTINGS
-    GSettings* inspectorGSettings();
-#endif
-
 #define WEBKIT_PARAM_READABLE ((GParamFlags)(G_PARAM_READABLE|G_PARAM_STATIC_NAME|G_PARAM_STATIC_NICK|G_PARAM_STATIC_BLURB))
 #define WEBKIT_PARAM_READWRITE ((GParamFlags)(G_PARAM_READWRITE|G_PARAM_STATIC_NAME|G_PARAM_STATIC_NICK|G_PARAM_STATIC_BLURB))
-
-    #define WEBKIT_WEB_VIEW_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_VIEW, WebKitWebViewPrivate))
-    typedef struct _WebKitWebViewPrivate WebKitWebViewPrivate;
-    struct _WebKitWebViewPrivate {
-        WebCore::Page* corePage;
-        PlatformRefPtr<WebKitWebSettings> webSettings;
-        PlatformRefPtr<WebKitWebInspector> webInspector;
-        PlatformRefPtr<WebKitWebWindowFeatures> webWindowFeatures;
-
-        WebKitWebFrame* mainFrame;
-        PlatformRefPtr<WebKitWebBackForwardList> backForwardList;
-
-        PlatformRefPtr<GtkMenu> currentMenu;
-        gint lastPopupXPosition;
-        gint lastPopupYPosition;
-
-        HashSet<GtkWidget*> children;
-        bool editable;
-        PlatformRefPtr<GtkIMContext> imContext;
-
-        gboolean transparent;
-
-        PlatformRefPtr<GtkAdjustment> horizontalAdjustment;
-        PlatformRefPtr<GtkAdjustment> verticalAdjustment;
-
-#ifndef GTK_API_VERSION_2
-        // GtkScrollablePolicy needs to be checked when
-        // driving the scrollable adjustment values
-        GtkScrollablePolicy horizontalScrollingPolicy;
-        GtkScrollablePolicy verticalScrollingPolicy;
-#endif
-
-        gboolean zoomFullContent;
-        WebKitLoadStatus loadStatus;
-        CString encoding;
-        CString customEncoding;
-
-        CString iconURI;
-
-        gboolean disposing;
-        gboolean usePrimaryForPaste;
-
-#if ENABLE(VIDEO)
-        FullscreenVideoController* fullscreenVideoController;
-#endif
-
-        // These are hosted here because the DataSource object is
-        // created too late in the frame loading process.
-        PlatformRefPtr<WebKitWebResource> mainResource;
-        CString mainResourceIdentifier;
-        PlatformRefPtr<GHashTable> subResources;
-        CString tooltipText;
-        WebCore::IntRect tooltipArea;
-
-        int currentClickCount;
-        WebCore::IntPoint previousClickPoint;
-        guint previousClickButton;
-        guint32 previousClickTime;
-        HashMap<GdkDragContext*, RefPtr<WebCore::DataObjectGtk> > draggingDataObjects;
-        HashMap<GdkDragContext*, WebKit::DroppingContext*> droppingContexts;
-    };
-
-    #define WEBKIT_WEB_FRAME_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate))
-    typedef struct _WebKitWebFramePrivate WebKitWebFramePrivate;
-    struct _WebKitWebFramePrivate {
-        WebCore::Frame* coreFrame;
-        WebKitWebView* webView;
-
-        gchar* name;
-        gchar* title;
-        gchar* uri;
-        WebKitLoadStatus loadStatus;
-        WebKitSecurityOrigin* origin;
-    };
-
-#define WEBKIT_SECURITY_ORIGIN_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_SECURITY_ORIGIN, WebKitSecurityOriginPrivate))
-    struct _WebKitSecurityOriginPrivate {
-        RefPtr<WebCore::SecurityOrigin> coreOrigin;
-        gchar* protocol;
-        gchar* host;
-        GHashTable* webDatabases;
-
-        gboolean disposed;
-    };
 
     WTF::String
     webkitUserAgent();
 
-    void
-    webkit_web_frame_core_frame_gone(WebKitWebFrame*);
-
-    // WebKitWebHistoryItem private
-    WebKitWebHistoryItem*
-    webkit_web_history_item_new_with_core_item(PassRefPtr<WebCore::HistoryItem> historyItem);
-
-    WEBKIT_API G_CONST_RETURN gchar*
-    webkit_web_history_item_get_target(WebKitWebHistoryItem*);
-
-    WEBKIT_API gboolean
-    webkit_web_history_item_is_target_item(WebKitWebHistoryItem*);
-
-    WEBKIT_API GList*
-    webkit_web_history_item_get_children(WebKitWebHistoryItem*);
-    // end WebKitWebHistoryItem private
-
-    // WebKitWebResource private
-    #define WEBKIT_WEB_RESOURCE_GET_PRIVATE(obj)        (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_RESOURCE, WebKitWebResourcePrivate))
-    struct _WebKitWebResourcePrivate {
-        WebCore::ArchiveResource* resource;
-
-        gchar* uri;
-        gchar* mimeType;
-        gchar* textEncoding;
-        gchar* frameName;
-
-        GString* data;
-    };
-    WebKitWebResource*
-    webkit_web_resource_new_with_core_resource(PassRefPtr<WebCore::ArchiveResource>);
-
-    void
-    webkit_web_resource_init_with_core_resource(WebKitWebResource*, PassRefPtr<WebCore::ArchiveResource>);
-
-    // end WebKitWebResource private
-
-    void
-    webkit_web_inspector_set_inspector_client(WebKitWebInspector*, WebCore::Page*);
-
-    void
-    webkit_web_inspector_set_web_view(WebKitWebInspector *web_inspector, WebKitWebView *web_view);
-
-    void
-    webkit_web_inspector_set_inspected_uri(WebKitWebInspector* web_inspector, const gchar* inspected_uri);
-
-    WEBKIT_API void
-    webkit_web_inspector_execute_script(WebKitWebInspector* inspector, long callId, const gchar* script);
-
-
     WebKitWebWindowFeatures*
     webkit_web_window_features_new_from_core_features (const WebCore::WindowFeatures& features);
-
-    void
-    webkit_web_view_notify_ready (WebKitWebView* web_view);
-
-    void
-    webkit_web_view_request_download(WebKitWebView* web_view, WebKitNetworkRequest* request, const WebCore::ResourceResponse& response = WebCore::ResourceResponse(), WebCore::ResourceHandle* handle = 0);
-
-    void
-    webkit_web_view_add_resource(WebKitWebView*, const char*, WebKitWebResource*);
-
-    void
-    webkit_web_view_remove_resource(WebKitWebView*, const char*);
-
-    WebKitWebResource*
-    webkit_web_view_get_resource(WebKitWebView*, char*);
-
-    WebKitWebResource*
-    webkit_web_view_get_main_resource(WebKitWebView*);
-
-    void
-    webkit_web_view_clear_resources(WebKitWebView*);
-
-    GList*
-    webkit_web_view_get_subresources(WebKitWebView*);
-
-    void
-    webkit_web_view_set_tooltip_text(WebKitWebView*, const char*);
-
-    GtkMenu*
-    webkit_web_view_get_context_menu(WebKitWebView*);
-
-    WEBKIT_API void
-    webkit_web_view_execute_core_command_by_name(WebKitWebView* webView, const gchar* name, const gchar* value);
-
-    WEBKIT_API gboolean
-    webkit_web_view_is_command_enabled(WebKitWebView* webView, const gchar* name);
-
-    WebKitDownload*
-    webkit_download_new_with_handle(WebKitNetworkRequest* request, WebCore::ResourceHandle* handle, const WebCore::ResourceResponse& response);
-
-    void
-    webkit_download_set_suggested_filename(WebKitDownload* download, const gchar* suggestedFilename);
-
-    WebKitWebPolicyDecision*
-    webkit_web_policy_decision_new (WebKitWebFrame*, WebCore::FramePolicyFunction);
-
-    void
-    webkit_web_policy_decision_cancel (WebKitWebPolicyDecision* decision);
-
-    WebKitNetworkRequest*
-    webkit_network_request_new_with_core_request(const WebCore::ResourceRequest& resourceRequest);
-
-    WebKitNetworkResponse*
-    webkit_network_response_new_with_core_response(const WebCore::ResourceResponse& resourceResponse);
 
     WebKitGeolocationPolicyDecision*
     webkit_geolocation_policy_decision_new(WebKitWebFrame*, WebCore::Geolocation*);
 
-    // FIXME: move this to webkitnetworkrequest.h once the API is agreed upon.
-    WEBKIT_API SoupMessage*
-    webkit_network_request_get_message(WebKitNetworkRequest* request);
-
-    // FIXME: move this functionality into a 'WebKitWebDataSource' once implemented
-    WEBKIT_API gchar*
-    webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame);
-
-    // FIXME: Move these to webkitwebframe.h once their API has been discussed.
-
-    WEBKIT_API GSList*
-    webkit_web_frame_get_children (WebKitWebFrame* frame);
-
-    WEBKIT_API gchar*
-    webkit_web_frame_get_inner_text (WebKitWebFrame* frame);
-
-    WEBKIT_API gchar*
-    webkit_web_frame_dump_render_tree (WebKitWebFrame* frame);
-
-    WEBKIT_API gchar*
-    webkit_web_frame_counter_value_for_element_by_id (WebKitWebFrame* frame, const gchar* id);
-
-    WEBKIT_API int
-    webkit_web_frame_page_number_for_element_by_id(WebKitWebFrame* frame, const gchar* id, float pageWidth, float pageHeight);
-
-    WEBKIT_API int
-    webkit_web_frame_number_of_pages(WebKitWebFrame* frame, float pageWidth, float pageHeight);
-
-    WEBKIT_API guint
-    webkit_web_frame_get_pending_unload_event_count(WebKitWebFrame* frame);
-
-    WEBKIT_API bool
-    webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
-
-    WEBKIT_API bool
-    webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
-
-    WEBKIT_API bool
-    webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* animationId, double time, const gchar* elementId);
-
-    WEBKIT_API gchar*
-    webkit_web_frame_marker_text_for_list_item(WebKitWebFrame* frame, JSContextRef context, JSValueRef nodeObject);
-
-    WEBKIT_API unsigned int
-    webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
-
-    WEBKIT_API void
-    webkit_web_frame_suspend_animations(WebKitWebFrame* frame);
-
-    WEBKIT_API void
-    webkit_web_frame_resume_animations(WebKitWebFrame* frame);
-
-    WEBKIT_API void
-    webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame);
-
-    WEBKIT_API AtkObject*
-    webkit_web_frame_get_focused_accessible_element(WebKitWebFrame* frame);
-
-    WEBKIT_API gchar*
-    webkit_web_view_get_selected_text (WebKitWebView* web_view);
-
-    WEBKIT_API void
-    webkit_web_settings_add_extra_plugin_directory (WebKitWebView *web_view, const gchar* directory);
-
-    GSList*
-    webkit_web_settings_get_enchant_dicts(WebKitWebView* web_view);
-
-    bool
-    webkit_web_view_use_primary_for_paste(WebKitWebView* web_view);
-
-    GHashTable*
-    webkit_history_items(void);
-
-    WEBKIT_API void
-    webkit_gc_collect_javascript_objects();
-
-    WEBKIT_API void
-    webkit_gc_collect_javascript_objects_on_alternate_thread(gboolean waitUntilDone);
-
-    WEBKIT_API gsize
-    webkit_gc_count_javascript_objects();
-
     WEBKIT_API void
     webkit_application_cache_set_maximum_size(unsigned long long size);
-
-    WEBKIT_API unsigned int
-    webkit_worker_thread_count();
-    
-    WEBKIT_API void
-    webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains);
-    
-    WEBKIT_API void
-    webkit_reset_origin_access_white_lists();
 
     // WebKitWebDataSource private
     WebKitWebDataSource*
     webkit_web_data_source_new_with_loader(PassRefPtr<WebKit::DocumentLoader>);
-
-    WEBKIT_API WebKitWebDatabase *
-    webkit_security_origin_get_web_database(WebKitSecurityOrigin* securityOrigin, const char* databaseName);
-
-    WEBKIT_API void
-    webkit_web_frame_layout(WebKitWebFrame* frame);
-
-    void webkitWebViewEnterFullscreen(WebKitWebView* webView, WebCore::Node* node);
-    void webkitWebViewExitFullscreen(WebKitWebView* webView);
 }
 
 #endif

@@ -36,6 +36,7 @@
 #include "CairoUtilities.h"
 #include "ContextShadow.h"
 #include "GraphicsContext.h"
+#include "NotImplemented.h"
 #include "SimpleFontData.h"
 #include <cairo.h>
 #include <gdk/gdk.h>
@@ -218,13 +219,13 @@ static void drawGlyphsShadow(GraphicsContext* graphicsContext, cairo_t* context,
     ContextShadow* shadow = graphicsContext->contextShadow();
     ASSERT(shadow);
 
-    if (!(graphicsContext->textDrawingMode() & cTextFill) || shadow->m_type == ContextShadow::NoShadow)
+    if (!(graphicsContext->textDrawingMode() & TextModeFill) || shadow->m_type == ContextShadow::NoShadow)
         return;
 
     FloatPoint totalOffset(point + shadow->m_offset);
 
     // Optimize non-blurry shadows, by just drawing text without the ContextShadow.
-    if (shadow->m_type == ContextShadow::SolidShadow) {
+    if (!shadow->mustUseContextShadow(context)) {
         cairo_save(context);
         cairo_translate(context, totalOffset.x(), totalOffset.y());
 
@@ -300,7 +301,7 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 
     pango_cairo_show_layout_line(cr, layoutLine);
 
-    if (context->textDrawingMode() & cTextStroke) {
+    if (context->textDrawingMode() & TextModeStroke) {
         Color strokeColor = context->strokeColor();
         strokeColor.getRGBA(red, green, blue, alpha);
         cairo_set_source_rgba(cr, red, green, blue, alpha);
@@ -317,6 +318,11 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
     g_object_unref(layout);
 
     cairo_restore(cr);
+}
+
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
 }
 
 // We should create the layout with our actual context but we can't access it from here.

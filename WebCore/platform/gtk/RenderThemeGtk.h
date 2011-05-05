@@ -100,6 +100,7 @@ protected:
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
 
+    void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
 
     int popupInternalPaddingLeft(RenderStyle*) const;
@@ -137,7 +138,8 @@ protected:
     virtual void adjustSliderThumbSize(RenderObject* object) const;
 
 #if ENABLE(VIDEO)
-    virtual void initMediaStyling(GtkStyle* style, bool force);
+    void initMediaColors();
+    void initMediaButtons();
     virtual bool paintMediaFullscreenButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
@@ -155,26 +157,28 @@ protected:
 #endif
 
 private:
-    /*
-     * hold the state
-     */
     GtkWidget* gtkButton() const;
     GtkWidget* gtkEntry() const;
     GtkWidget* gtkTreeView() const;
+    GtkWidget* gtkVScale() const;
+    GtkWidget* gtkHScale() const;
+    GtkWidget* gtkContainer() const;
 
-    /*
-     * unmapped GdkWindow having a container. This is holding all
-     * our fake widgets
-     */
-    GtkContainer* gtkContainer() const;
-
+    void setupWidgetAndAddToContainer(GtkWidget*, GtkWidget*) const;
+    GtkStateType getGtkStateType(RenderObject* object);
     bool paintRenderObject(GtkThemeWidgetType, RenderObject*, GraphicsContext*, const IntRect& rect, int flags = 0);
+#if ENABLE(VIDEO)
+    bool paintMediaButton(RenderObject*, GraphicsContext*, const IntRect&, const char* iconName);
+#endif
+    GtkStateType gtkIconState(RenderObject*);
 
     mutable GtkWidget* m_gtkWindow;
-    mutable GtkContainer* m_gtkContainer;
+    mutable GtkWidget* m_gtkContainer;
     mutable GtkWidget* m_gtkButton;
     mutable GtkWidget* m_gtkEntry;
     mutable GtkWidget* m_gtkTreeView;
+    mutable GtkWidget* m_gtkVScale;
+    mutable GtkWidget* m_gtkHScale;
 
     mutable Color m_panelColor;
     mutable Color m_sliderColor;
@@ -185,13 +189,6 @@ private:
     const int m_mediaSliderThumbWidth;
     const int m_mediaSliderThumbHeight;
 
-    RefPtr<Image> m_fullscreenButton;
-    RefPtr<Image> m_muteButton;
-    RefPtr<Image> m_unmuteButton;
-    RefPtr<Image> m_playButton;
-    RefPtr<Image> m_pauseButton;
-    RefPtr<Image> m_seekBackButton;
-    RefPtr<Image> m_seekForwardButton;
     GtkThemeParts m_themeParts;
 #ifdef GTK_API_VERSION_2
     bool m_themePartsHaveRGBAColormap;

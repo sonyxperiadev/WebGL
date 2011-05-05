@@ -26,11 +26,10 @@
 WebInspector.CallStackSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Call Stack"));
-    WebInspector.breakpointManager.addEventListener("breakpoint-hit", this._breakpointHit, this);
 }
 
 WebInspector.CallStackSidebarPane.prototype = {
-    update: function(callFrames, sourceIDMap)
+    update: function(callFrames, eventType, eventData)
     {
         this.bodyElement.removeChildren();
 
@@ -47,7 +46,7 @@ WebInspector.CallStackSidebarPane.prototype = {
 
         var title;
         var subtitle;
-        var scriptOrResource;
+        var script;
 
         for (var i = 0; i < callFrames.length; ++i) {
             var callFrame = callFrames[i];
@@ -60,9 +59,9 @@ WebInspector.CallStackSidebarPane.prototype = {
                 break;
             }
 
-            scriptOrResource = sourceIDMap[callFrame.sourceID];
-            if (scriptOrResource)
-                subtitle = WebInspector.displayNameForURL(scriptOrResource.sourceURL || scriptOrResource.url);
+            script = WebInspector.debuggerModel.scriptForSourceID(callFrame.sourceID);
+            if (script)
+                subtitle = WebInspector.displayNameForURL(script.sourceURL);
             else
                 subtitle = WebInspector.UIString("(internal script)");
 
@@ -81,6 +80,19 @@ WebInspector.CallStackSidebarPane.prototype = {
             this.placards.push(placard);
             this.bodyElement.appendChild(placard.element);
         }
+
+        if (eventType === WebInspector.DebuggerEventTypes.JavaScriptPause)
+            return;
+
+        var statusMessageElement = document.createElement("div");
+        statusMessageElement.className = "info";
+        if (eventType === WebInspector.DebuggerEventTypes.NativeBreakpoint) {
+            var breakpoint = WebInspector.breakpointManager.breakpointViewForEventData(eventData);
+            if (breakpoint)
+                breakpoint.populateStatusMessageElement(statusMessageElement, eventData);
+        } else
+            statusMessageElement.appendChild(document.createTextNode(WebInspector.UIString("Paused on a JavaScript breakpoint.")));
+        this.bodyElement.appendChild(statusMessageElement);
     },
 
     get selectedCallFrame()
@@ -168,17 +180,6 @@ WebInspector.CallStackSidebarPane.prototype = {
         this._shortcuts[prevCallFrame.key] = this._selectPreviousCallFrameOnStack.bind(this);
 
         section.addRelatedKeys([ nextCallFrame.name, prevCallFrame.name ], WebInspector.UIString("Next/previous call frame"));
-    },
-
-    _breakpointHit:  function(event)
-    {
-        var breakpoint = event.data.breakpoint;
-        if (breakpoint.populateStatusMessageElement) {
-            var statusMessageElement = document.createElement("div");
-            statusMessageElement.className = "info";
-            breakpoint.populateStatusMessageElement(statusMessageElement, event.data.eventData);
-            this.bodyElement.appendChild(statusMessageElement);
-        }
     }
 }
 

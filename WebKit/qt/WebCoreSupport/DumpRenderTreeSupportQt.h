@@ -44,6 +44,7 @@ public:
 
     static void executeCoreCommandByName(QWebPage* page, const QString& name, const QString& value);
     static bool isCommandEnabled(QWebPage* page, const QString& name);
+    static bool findString(QWebPage* page, const QString& string, const QStringList& optionArray);
     static void setSmartInsertDeleteEnabled(QWebPage* page, bool enabled);
     static void setSelectTrailingWhitespaceEnabled(QWebPage* page, bool enabled);
     static QVariantList selectedRange(QWebPage* page);
@@ -87,9 +88,15 @@ public:
     static bool elementDoesAutoCompleteForElementWithId(QWebFrame* frame, const QString& elementId);
     static void setEditingBehavior(QWebPage* page, const QString& editingBehavior);
 
+    static void clearAllApplicationCaches();
+
     static void whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
     static void removeWhiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
     static void resetOriginAccessWhiteLists();
+
+    static void activeMockDeviceOrientationClient(bool b);
+    static void removeMockDeviceOrientation();
+    static void setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
 
     static void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
     static void setMockGeolocationError(int errorCode, const QString& message);

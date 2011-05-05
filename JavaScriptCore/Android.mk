@@ -172,9 +172,15 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
+<<<<<<< HEAD
 	wtf/PageAllocation.cpp \
+=======
+	wtf/PageAllocationAligned.cpp\
+	wtf/PageBlock.cpp\
+>>>>>>> webkit.org at r74534 (trunk)
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
+    wtf/StackBounds.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/ThreadIdentifierDataPthreads.cpp \
 	wtf/Threading.cpp \

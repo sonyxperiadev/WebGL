@@ -19,16 +19,16 @@ $typeTransform{"Backend"} = {
     "header" => "InspectorBackend.h",
     "domainAccessor" => "m_inspectorController->inspectorBackend()",
 };
-$typeTransform{"Controller"} = {
+$typeTransform{"Inspector"} = {
     "forwardHeader" => "InspectorController.h",
     "domainAccessor" => "m_inspectorController",
 };
-$typeTransform{"Debug"} = {
+$typeTransform{"Debugger"} = {
     "forward" => "InspectorDebuggerAgent",
     "header" => "InspectorDebuggerAgent.h",
     "domainAccessor" => "m_inspectorController->debuggerAgent()",
 };
-$typeTransform{"Resource"} = {
+$typeTransform{"Resources"} = {
     "forward" => "InspectorResourceAgent",
     "header" => "InspectorResourceAgent.h",
     "domainAccessor" => "m_inspectorController->m_resourceAgent",
@@ -240,7 +240,7 @@ sub GenerateInterface
     push(@backendHead, "    static bool getCommandName(const String& message, String* result);");
     $backendConstructor = join("\n", @backendHead);
     $backendFooter = "    InspectorController* m_inspectorController;";
-    $backendTypes{"Controller"} = 1;
+    $backendTypes{"Inspector"} = 1;
     $backendTypes{"InspectorClient"} = 1;
     $backendTypes{"PassRefPtr"} = 1;
     $backendTypes{"Object"} = 1;
@@ -282,6 +282,7 @@ sub generateFrontendFunction
 
     my $functionName = $function->signature->name;
 
+    my $domain = $function->signature->extendedAttributes->{"domain"} || "Inspector";
     my @argsFiltered = grep($_->direction eq "out", @{$function->parameters}); # just keep only out parameters for frontend interface.
     map($frontendTypes{$_->type} = 1, @argsFiltered); # register required types.
     my $arguments = join(", ", map($typeTransform{$_->type}->{"param"} . " " . $_->name, @argsFiltered)); # prepare arguments for function signature.
@@ -295,6 +296,7 @@ sub generateFrontendFunction
         push(@function, "{");
         push(@function, "    RefPtr<InspectorObject> ${functionName}Message = InspectorObject::create();");
         push(@function, "    ${functionName}Message->setString(\"type\", \"event\");");
+        push(@function, "    ${functionName}Message->setString(\"domain\", \"$domain\");");
         push(@function, "    ${functionName}Message->setString(\"event\", \"$functionName\");");
         push(@function, "    RefPtr<InspectorObject> payloadDataObject = InspectorObject::create();");
         my @pushArguments = map("    payloadDataObject->set" . $typeTransform{$_->type}->{"JSONType"} . "(\"" . $_->name . "\", " . $_->name . ");", @argsFiltered);
@@ -340,7 +342,7 @@ sub generateBackendFunction
     push(@function, "    RefPtr<InspectorArray> protocolErrors = InspectorArray::create();");
     push(@function, "");
 
-    my $domain = $function->signature->extendedAttributes->{"handler"} || "Controller";
+    my $domain = $function->signature->extendedAttributes->{"domain"} || "Inspector";
     my $domainAccessor = $typeTransform{$domain}->{"domainAccessor"};
     $backendTypes{$domain} = 1;
     push(@function, "    if (!$domainAccessor)");
@@ -377,6 +379,7 @@ sub generateBackendFunction
     push(@function, "    if ((callId || protocolErrors->length()) && m_inspectorController->hasFrontend()) {");
     push(@function, "        RefPtr<InspectorObject> responseMessage = InspectorObject::create();");
     push(@function, "        responseMessage->setNumber(\"seq\", callId);");
+    push(@function, "        responseMessage->setString(\"domain\", \"$domain\");");
     push(@function, "        responseMessage->setBoolean(\"success\", !protocolErrors->length());");
     push(@function, "");
     push(@function, "        if (protocolErrors->length())");
@@ -547,7 +550,7 @@ sub generateBackendStubJS
 
     foreach my $function (@backendFunctions) {
         my $name = $function->signature->name;
-        my $domain = $function->signature->extendedAttributes->{"handler"};
+        my $domain = $function->signature->extendedAttributes->{"domain"};
         my $argumentNames = join(",", map("\"" . $_->name . "\": \"" . lc($typeTransform{$_->type}->{"JSONType"}) . "\"", grep($_->direction eq "in", @{$function->parameters})));
         push(@JSStubs, "    this._registerDelegate('{" .
             "\"seq\": 0, " .
@@ -561,12 +564,34 @@ sub generateBackendStubJS
     my $inspectorBackendStubJS = << "EOF";
 $licenseTemplate
 
-WebInspector.InspectorBackendStub = function()
+InspectorBackendStub = function()
 {
+    this._lastCallbackId = 1;
+    this._callbacks = {};
+    this._domainDispatchers = {};
 $JSStubs
 }
 
-WebInspector.InspectorBackendStub.prototype = {
+InspectorBackendStub.prototype = {
+    _wrap: function(callback)
+    {
+        var callbackId = this._lastCallbackId++;
+        this._callbacks[callbackId] = callback || function() {};
+        return callbackId;
+    },
+
+    _processResponse: function(callbackId, args)
+    {
+        var callback = this._callbacks[callbackId];
+        callback.apply(null, args);
+        delete this._callbacks[callbackId];
+    },
+
+    _removeResponseCallbackEntry: function(callbackId)
+    {
+        delete this._callbacks[callbackId];
+    },
+
     _registerDelegate: function(commandInfo)
     {
         var commandObject = JSON.parse(commandInfo);
@@ -596,7 +621,7 @@ WebInspector.InspectorBackendStub.prototype = {
                 console.error("Protocol Error: Optional callback argument for 'InspectorBackend.%s' call should be a function but its type is '%s'.", request.command, typeof args[0]);
                 return;
             }
-            request.seq = WebInspector.Callback.wrap(args[0]);
+            request.seq = this._wrap(args[0]);
         }
 
         if (window.dumpInspectorProtocolMessages)
@@ -604,10 +629,59 @@ WebInspector.InspectorBackendStub.prototype = {
 
         var message = JSON.stringify(request);
         InspectorFrontendHost.sendMessageToBackend(message);
+    },
+
+    registerDomainDispatcher: function(domain, dispatcher)
+    {
+        this._domainDispatchers[domain] = dispatcher;
+    },
+
+    dispatch: function(message)
+    {
+        if (window.dumpInspectorProtocolMessages)
+            console.log("backend: " + ((typeof message === "string") ? message : JSON.stringify(message)));
+
+        var messageObject = (typeof message === "string") ? JSON.parse(message) : message;
+
+        var arguments = [];
+        if (messageObject.data)
+            for (var key in messageObject.data)
+                arguments.push(messageObject.data[key]);
+
+        if ("seq" in messageObject) { // just a response for some request
+            if (messageObject.success)
+                this._processResponse(messageObject.seq, arguments);
+            else {
+                this._removeResponseCallbackEntry(messageObject.seq)
+                this.reportProtocolError(messageObject);
+            }
+            return;
+        }
+
+        if (messageObject.type === "event") {
+            if (!(messageObject.domain in this._domainDispatchers)) {
+                console.error("Protocol Error: the message is for non-existing domain '%s'", messageObject.domain);
+                return;
+            }
+            var dispatcher = this._domainDispatchers[messageObject.domain];
+            if (!(messageObject.event in dispatcher)) {
+                console.error("Protocol Error: Attempted to dispatch an unimplemented method '%s.%s'", messageObject.domain, messageObject.event);
+                return;
+            }
+            dispatcher[messageObject.event].apply(dispatcher, arguments);
+        }
+    },
+
+    reportProtocolError: function(messageObject)
+    {
+        console.error("Protocol Error: InspectorBackend request with seq = %d failed.", messageObject.seq);
+        for (var i = 0; i < messageObject.errors.length; ++i)
+            console.error("    " + messageObject.errors[i]);
+        this._removeResponseCallbackEntry(messageObject.seq);
     }
 }
 
-InspectorBackend = new WebInspector.InspectorBackendStub();
+InspectorBackend = new InspectorBackendStub();
 
 EOF
     return split("\n", $inspectorBackendStubJS);

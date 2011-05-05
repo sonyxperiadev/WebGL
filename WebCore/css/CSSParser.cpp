@@ -129,6 +129,13 @@ static bool hasPrefix(const char* string, unsigned length, const char* prefix)
     return false;
 }
 
+static int clampToSignedInteger(double d)
+{
+    const double minIntAsDouble = std::numeric_limits<int>::min();
+    const double maxIntAsDouble = std::numeric_limits<int>::max();
+    return static_cast<int>(max(minIntAsDouble, min(d, maxIntAsDouble)));
+}
+
 CSSParser::CSSParser(bool strictParsing)
     : m_strict(strictParsing)
     , m_important(false)
@@ -881,6 +888,7 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyTextUnderlineColor:
     case CSSPropertyTextOverlineColor:
     case CSSPropertyWebkitColumnRuleColor:
+    case CSSPropertyWebkitTextEmphasisColor:
     case CSSPropertyWebkitTextFillColor:
     case CSSPropertyWebkitTextStrokeColor:
         if (id == CSSValueWebkitText)
@@ -1833,10 +1841,21 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 
     case CSSPropertyWebkitTextCombine:
-        if (id == CSSValueNone || id == CSSValueCluster || id == CSSValueUpright)
+        if (id == CSSValueNone || id == CSSValueHorizontal)
             validPrimitive = true;
         break;
 
+    case CSSPropertyWebkitTextEmphasis: {
+        const int properties[] = { CSSPropertyWebkitTextEmphasisStyle, CSSPropertyWebkitTextEmphasisColor };
+        return parseShorthand(propId, properties, WTF_ARRAY_LENGTH(properties), important);
+    }
+
+    case CSSPropertyWebkitTextEmphasisPosition:
+        if (id == CSSValueOver || id == CSSValueUnder)
+            validPrimitive = true;
+        break;
+
+<<<<<<< HEAD
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1874,6 +1893,10 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
+=======
+    case CSSPropertyWebkitTextEmphasisStyle:
+        return parseTextEmphasisStyle(important);
+>>>>>>> webkit.org at r74534 (trunk)
 
 #if ENABLE(SVG)
     default:
@@ -4704,7 +4727,7 @@ bool CSSParser::parseCounter(int propId, int defaultValue, bool important)
             case VAL: {
                 int i = defaultValue;
                 if (val && val->unit == CSSPrimitiveValue::CSS_NUMBER) {
-                    i = (int)val->fValue;
+                    i = clampToSignedInteger(val->fValue);
                     m_valueList->next();
                 }
 
@@ -5074,9 +5097,17 @@ PassRefPtr<CSSValueList> CSSParser::parseTransform()
         while (a) {
             CSSParser::Units unit = info.unit();
 
-            // 4th param of rotate3d() is an angle rather than a bare number, validate it as such
             if (info.type() == WebKitCSSTransformValue::Rotate3DTransformOperation && argNumber == 3) {
+                // 4th param of rotate3d() is an angle rather than a bare number, validate it as such
                 if (!validUnit(a, FAngle, true))
+                    return 0;
+            } else if (info.type() == WebKitCSSTransformValue::Translate3DTransformOperation && argNumber == 2) {
+                // 3rd param of translate3d() cannot be a percentage
+                if (!validUnit(a, FLength, true))
+                    return 0;
+            } else if (info.type() == WebKitCSSTransformValue::TranslateZTransformOperation && argNumber == 0) {
+                // 1st param of translateZ() cannot be a percentage
+                if (!validUnit(a, FLength, true))
                     return 0;
             } else if (!validUnit(a, unit, true))
                 return 0;
@@ -5131,7 +5162,7 @@ bool CSSParser::parseTransformOrigin(int propId, int& propId1, int& propId2, int
         }
         case CSSPropertyWebkitTransformOriginZ: {
             if (validUnit(m_valueList->current(), FLength, m_strict))
-            value = CSSPrimitiveValue::create(m_valueList->current()->fValue, (CSSPrimitiveValue::UnitTypes)m_valueList->current()->unit);
+                value = CSSPrimitiveValue::create(m_valueList->current()->fValue, (CSSPrimitiveValue::UnitTypes)m_valueList->current()->unit);
             if (value)
                 m_valueList->next();
             break;
@@ -5171,6 +5202,63 @@ bool CSSParser::parsePerspectiveOrigin(int propId, int& propId1, int& propId2, R
     }
 
     return value;
+}
+
+bool CSSParser::parseTextEmphasisStyle(bool important)
+{
+    unsigned valueListSize = m_valueList->size();
+
+    RefPtr<CSSPrimitiveValue> fill;
+    RefPtr<CSSPrimitiveValue> shape;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (value->unit == CSSPrimitiveValue::CSS_STRING) {
+            if (fill || shape || (valueListSize != 1 && !inShorthand()))
+                return false;
+            addProperty(CSSPropertyWebkitTextEmphasisStyle, CSSPrimitiveValue::create(value->string, CSSPrimitiveValue::CSS_STRING), important);
+            m_valueList->next();
+            return true;
+        }
+
+        if (value->id == CSSValueNone) {
+            if (fill || shape || (valueListSize != 1 && !inShorthand()))
+                return false;
+            addProperty(CSSPropertyWebkitTextEmphasisStyle, CSSPrimitiveValue::createIdentifier(CSSValueNone), important);
+            m_valueList->next();
+            return true;
+        }
+
+        if (value->id == CSSValueOpen || value->id == CSSValueFilled) {
+            if (fill)
+                return false;
+            fill = CSSPrimitiveValue::createIdentifier(value->id);
+        } else if (value->id == CSSValueDot || value->id == CSSValueCircle || value->id == CSSValueDoubleCircle || value->id == CSSValueTriangle || value->id == CSSValueSesame) {
+            if (shape)
+                return false;
+            shape = CSSPrimitiveValue::createIdentifier(value->id);
+        } else if (!inShorthand())
+            return false;
+        else
+            break;
+    }
+
+    if (fill && shape) {
+        RefPtr<CSSValueList> parsedValues = CSSValueList::createSpaceSeparated();
+        parsedValues->append(fill.release());
+        parsedValues->append(shape.release());
+        addProperty(CSSPropertyWebkitTextEmphasisStyle, parsedValues.release(), important);
+        return true;
+    }
+    if (fill) {
+        addProperty(CSSPropertyWebkitTextEmphasisStyle, fill.release(), important);
+        return true;
+    }
+    if (shape) {
+        addProperty(CSSPropertyWebkitTextEmphasisStyle, shape.release(), important);
+        return true;
+    }
+
+    return false;
 }
 
 static inline int yyerror(const char*) { return 1; }
@@ -5558,10 +5646,10 @@ WebKitCSSKeyframesRule* CSSParser::createKeyframesRule()
 
 CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
 {
-    m_allowImportRules = m_allowNamespaceDeclarations = false;
     CSSStyleRule* result = 0;
     markRuleBodyEnd();
     if (selectors) {
+        m_allowImportRules = m_allowNamespaceDeclarations = false;
         RefPtr<CSSStyleRule> rule = CSSStyleRule::create(m_styleSheet, m_lastSelectorLineNumber);
         rule->adoptSelectorVector(*selectors);
         if (m_hasFontFaceOnlyValues)
@@ -5588,7 +5676,6 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
 CSSRule* CSSParser::createFontFaceRule()
 {
     m_allowImportRules = m_allowNamespaceDeclarations = false;
-    RefPtr<CSSFontFaceRule> rule = CSSFontFaceRule::create(m_styleSheet);
     for (unsigned i = 0; i < m_numParsedProperties; ++i) {
         CSSProperty* property = m_parsedProperties[i];
         int id = property->id();
@@ -5596,8 +5683,14 @@ CSSRule* CSSParser::createFontFaceRule()
             RefPtr<CSSValue> value = property->m_value.release();
             property->m_value = CSSValueList::createCommaSeparated();
             static_cast<CSSValueList*>(property->m_value.get())->append(value.release());
+        } else if (id == CSSPropertyFontFamily && static_cast<CSSValueList*>(property->m_value.get())->length() != 1) {
+            // Unlike font-family property, font-family descriptor in @font-face rule can take only one family name.
+            // See http://dev.w3.org/csswg/css3-fonts/#font-family-desc
+            clearProperties();
+            return 0;
         }
     }
+    RefPtr<CSSFontFaceRule> rule = CSSFontFaceRule::create(m_styleSheet);
     rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
     clearProperties();
     CSSFontFaceRule* result = rule.get();

@@ -66,6 +66,7 @@ class HTMLElement;
 class KeyboardEvent;
 class Node;
 class Range;
+class SpellChecker;
 class VisibleSelection;
 class VisiblePosition;
 
@@ -190,8 +191,8 @@ public:
 #endif
 
 #if SUPPORT_AUTOCORRECTION_PANEL
-    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacmentString, Editor*) = 0;
-    virtual void dismissCorrectionPanel(CorrectionWasRejectedOrNot) = 0;
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacmentString, const Vector<String>& alternativeReplacementStrings, Editor*) = 0;
+    virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) = 0;
     virtual bool isShowingCorrectionPanel() = 0;
 #endif
 
@@ -199,9 +200,11 @@ public:
     virtual void updateSpellingUIWithMisspelledWord(const String&) = 0;
     virtual void showSpellingUI(bool show) = 0;
     virtual bool spellingUIIsShowing() = 0;
-    virtual void getGuessesForWord(const String&, Vector<String>& guesses) = 0;
+    // For spellcheckers that support multiple languages, it's often important to be able to identify the language in order to provide more accurate correction suggestions. Caller can pass in more text in "context" to aid such spellcheckers on language identification. Noramlly it's the text surrounding the "word" for which we are getting correction suggestions.
+    virtual void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses) = 0;
     virtual void willSetInputMethodState() = 0;
     virtual void setInputMethodState(bool enabled) = 0;
+    virtual void requestCheckingOfString(SpellChecker*, int, const String&) = 0;
 };
 
 }

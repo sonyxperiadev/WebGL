@@ -40,6 +40,8 @@
 #include "GLES2Canvas.h"
 #include "GraphicsContext.h"
 #include "ImageData.h"
+#include "JPEGImageEncoder.h"
+#include "MIMETypeRegistry.h"
 #include "PNGImageEncoder.h"
 #include "PlatformContextSkia.h"
 #include "SkColorPriv.h"
@@ -60,7 +62,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, RenderingMode, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -244,14 +246,6 @@ PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect
     return getImageData<Premultiplied>(rect, *context()->platformContext()->bitmap(), m_size);
 }
 
-// This function does the equivalent of (a * b + 254) / 255, without an integer divide.
-// Valid for a, b in the range [0..255].
-unsigned mulDiv255Ceil(unsigned a, unsigned b)
-{
-    unsigned value = a * b + 255;
-    return (value + (value >> 8)) >> 8;
-}
-
 template <Multiply multiplied>
 void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, 
                   const SkBitmap& bitmap, const IntSize& size)
@@ -295,9 +289,9 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
             const unsigned char* srcPixel = &srcRow[x * 4];
             if (multiplied == Unmultiplied) {
                 unsigned char alpha = srcPixel[3];
-                unsigned char r = mulDiv255Ceil(srcPixel[0], alpha);
-                unsigned char g = mulDiv255Ceil(srcPixel[1], alpha);
-                unsigned char b = mulDiv255Ceil(srcPixel[2], alpha);
+                unsigned char r = SkMulDiv255Ceiling(srcPixel[0], alpha);
+                unsigned char g = SkMulDiv255Ceiling(srcPixel[1], alpha);
+                unsigned char b = SkMulDiv255Ceiling(srcPixel[2], alpha);
                 destRow[x] = SkPackARGB32(alpha, r, g, b);
             } else
                 destRow[x] = SkPackARGB32(srcPixel[3], srcPixel[0],
@@ -318,20 +312,27 @@ void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& so
     putImageData<Premultiplied>(source, sourceRect, destPoint, *context()->platformContext()->bitmap(), m_size);
 }
 
-String ImageBuffer::toDataURL(const String&, const double*) const
+String ImageBuffer::toDataURL(const String& mimeType, const double* quality) const
 {
-    // Encode the image into a vector.
-    Vector<unsigned char> pngEncodedData;
-    PNGImageEncoder::encode(*context()->platformContext()->bitmap(), &pngEncodedData);
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
 
-    // Convert it into base64.
-    Vector<char> base64EncodedData;
-    base64Encode(*reinterpret_cast<Vector<char>*>(&pngEncodedData), base64EncodedData);
-    // Append with a \0 so that it's a valid string.
-    base64EncodedData.append('\0');
+    Vector<unsigned char> encodedImage;
+    if (mimeType == "image/jpeg") {
+        int compressionQuality = JPEGImageEncoder::DefaultCompressionQuality;
+        if (quality && *quality >= 0.0 && *quality <= 1.0)
+            compressionQuality = static_cast<int>(*quality * 100 + 0.5);
+        if (!JPEGImageEncoder::encode(*context()->platformContext()->bitmap(), compressionQuality, &encodedImage))
+            return "data:,";
+    } else {
+        if (!PNGImageEncoder::encode(*context()->platformContext()->bitmap(), &encodedImage))
+            return "data:,";
+        ASSERT(mimeType == "image/png");
+    }
 
-    // And the resulting string.
-    return makeString("data:image/png;base64,", base64EncodedData.data());
+    Vector<char> base64Data;
+    base64Encode(*reinterpret_cast<Vector<char>*>(&encodedImage), base64Data);
+
+    return makeString("data:", mimeType, ";base64,", base64Data);
 }
 
 } // namespace WebCore

@@ -23,17 +23,18 @@
 #if ENABLE(SVG)
 #include "SVGTextPathElement.h"
 
-#include "AffineTransform.h"
 #include "Attribute.h"
-#include "FloatRect.h"
+#include "SVGNames.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTextPath.h"
-#include "SVGLengthList.h"
-#include "SVGPathElement.h"
-#include "SVGRenderStyle.h"
-#include "SVGTransformList.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGTextPathElement, SVGNames::startOffsetAttr, StartOffset, startOffset)
+DEFINE_ANIMATED_ENUMERATION(SVGTextPathElement, SVGNames::methodAttr, Method, method)
+DEFINE_ANIMATED_ENUMERATION(SVGTextPathElement, SVGNames::spacingAttr, Spacing, spacing)
+DEFINE_ANIMATED_STRING(SVGTextPathElement, XLinkNames::hrefAttr, Href, href)
 
 inline SVGTextPathElement::SVGTextPathElement(const QualifiedName& tagName, Document* document)
     : SVGTextContentElement(tagName, document)
@@ -117,14 +118,20 @@ RenderObject* SVGTextPathElement::createRenderer(RenderArena* arena, RenderStyle
 bool SVGTextPathElement::childShouldCreateRenderer(Node* child) const
 {
     if (child->isTextNode()
-#if ENABLE(SVG_FONTS)
-        || child->hasTagName(SVGNames::altGlyphTag)
-#endif
-        || child->hasTagName(SVGNames::trefTag)
-        || child->hasTagName(SVGNames::tspanTag)
         || child->hasTagName(SVGNames::aTag)
-        || child->hasTagName(SVGNames::textPathTag))
+        || child->hasTagName(SVGNames::trefTag)
+        || child->hasTagName(SVGNames::tspanTag))
         return true;
+
+    return false;
+}
+
+bool SVGTextPathElement::rendererIsNeeded(RenderStyle* style)
+{
+    if (parentNode()
+        && (parentNode()->hasTagName(SVGNames::aTag)
+            || parentNode()->hasTagName(SVGNames::textTag)))
+        return StyledElement::rendererIsNeeded(style);
 
     return false;
 }

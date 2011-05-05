@@ -546,16 +546,16 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
     if (quads.isEmpty())
         return ClientRect::create();
 
-    IntRect result = quads[0].enclosingBoundingBox();
+    FloatRect result = quads[0].boundingBox();
     for (size_t i = 1; i < quads.size(); ++i)
-        result.unite(quads[i].enclosingBoundingBox());
+        result.unite(quads[i].boundingBox());
 
     if (FrameView* view = document()->view()) {
         IntRect visibleContentRect = view->visibleContentRect();
         result.move(-visibleContentRect.x(), -visibleContentRect.y());
     }
 
-    adjustIntRectForAbsoluteZoom(result, renderer());
+    adjustFloatRectForAbsoluteZoom(result, renderer());
     return ClientRect::create(result);
 }
 
@@ -703,6 +703,8 @@ void Element::updateAfterAttributeChanged(Attribute* attr)
         document()->axObjectCache()->handleAriaExpandedChange(renderer());
     else if (attrName == aria_hiddenAttr)
         document()->axObjectCache()->childrenChanged(renderer());
+    else if (attrName == aria_invalidAttr)
+        document()->axObjectCache()->postNotification(renderer(), AXObjectCache::AXInvalidStatusChanged, true);
 }
     
 void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
@@ -856,6 +858,8 @@ void Element::insertedIntoDocument()
     // need to do superclass processing first so inDocument() is true
     // by the time we reach updateId
     ContainerNode::insertedIntoDocument();
+    if (Node* shadow = shadowRoot())
+        shadow->insertedIntoDocument();
 
     if (hasID()) {
         if (m_attributeMap) {
@@ -877,6 +881,26 @@ void Element::removedFromDocument()
     }
 
     ContainerNode::removedFromDocument();
+    if (Node* shadow = shadowRoot())
+        shadow->removedFromDocument();
+}
+
+void Element::insertedIntoTree(bool deep)
+{
+    ContainerNode::insertedIntoTree(deep);
+    if (!deep)
+        return;
+    if (Node* shadow = shadowRoot())
+        shadow->insertedIntoTree(true);
+}
+
+void Element::removedFromTree(bool deep)
+{
+    ContainerNode::removedFromTree(deep);
+    if (!deep)
+        return;
+    if (Node* shadow = shadowRoot())
+        shadow->removedFromTree(true);
 }
 
 void Element::attach()
@@ -886,6 +910,8 @@ void Element::attach()
 
     createRendererIfNeeded();
     ContainerNode::attach();
+    if (Node* shadow = shadowRoot())
+        shadow->attach();
     if (hasRareData()) {   
         ElementRareData* data = rareData();
         if (data->needsFocusAppearanceUpdateSoonAfterAttach()) {
@@ -907,6 +933,8 @@ void Element::detach()
     if (hasRareData())
         rareData()->resetComputedStyle();
     ContainerNode::detach();
+    if (Node* shadow = shadowRoot())
+        shadow->detach();
 
     RenderWidget::resumeWidgetHierarchyUpdates();
 }
@@ -967,14 +995,9 @@ void Element::recalcStyle(StyleChange change)
 {
     // Ref currentStyle in case it would otherwise be deleted when setRenderStyle() is called.
     RefPtr<RenderStyle> currentStyle(renderStyle());
-    bool hasParentStyle = parentNode() ? parentNode()->renderStyle() : false;
+    bool hasParentStyle = parentOrHostNode() ? parentOrHostNode()->renderStyle() : false;
     bool hasPositionalRules = needsStyleRecalc() && currentStyle && currentStyle->childrenAffectedByPositionalRules();
     bool hasDirectAdjacentRules = currentStyle && currentStyle->childrenAffectedByDirectAdjacentRules();
-
-#if ENABLE(SVG)
-    if (!hasParentStyle && isShadowNode() && isSVGElement())
-        hasParentStyle = true;
-#endif
 
     if ((change > NoChange || needsStyleRecalc())) {
 #ifdef ANDROID_STYLE_VERSION
@@ -1058,9 +1081,41 @@ void Element::recalcStyle(StyleChange change)
         if (n->isElementNode())
             forceCheckOfNextElementSibling = childRulesChanged && hasDirectAdjacentRules;
     }
+    // FIXME: This does not care about sibling combinators. Will be necessary in XBL2 world.
+    if (Node* shadow = shadowRoot()) {
+        if (change >= Inherit || shadow->isTextNode() || shadow->childNeedsStyleRecalc() || shadow->needsStyleRecalc())
+            shadow->recalcStyle(change);
+    }
 
     clearNeedsStyleRecalc();
     clearChildNeedsStyleRecalc();
+}
+
+Node* Element::shadowRoot()
+{
+    return hasRareData() ? rareData()->m_shadowRoot.get() : 0;
+}
+
+void Element::setShadowRoot(PassRefPtr<Node> node)
+{
+    ASSERT(node);
+
+    // FIXME: Once all instances of shadow DOM are converted to use this code, add setting of shadow host (shadowParent) on node.
+    ensureRareData()->m_shadowRoot = node;
+}
+
+void Element::clearShadowRoot()
+{
+    if (!hasRareData())
+        return;
+
+    RefPtr<Node> shadowRoot = rareData()->m_shadowRoot.release();
+    document()->removeFocusedNodeOfSubtree(shadowRoot.get());
+    // FIXME: Once all instances of shadow DOM are converted to use this code, add clearing of shadow host (shadowParent).
+    if (shadowRoot->inDocument())
+        shadowRoot->removedFromDocument();
+    else
+        shadowRoot->removedFromTree(true);
 }
 
 bool Element::childTypeAllowed(NodeType type)
@@ -1181,7 +1236,7 @@ void Element::dispatchAttrRemovalEvent(Attribute*)
     if (!document()->hasListenerType(Document::DOMATTRMODIFIED_LISTENER))
         return;
     ExceptionCode ec = 0;
-    dispatchEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
+    dispatchScopedEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
         attr->value(), document()->attrName(attr->id()), MutationEvent::REMOVAL), ec);
 #endif
 }
@@ -1194,7 +1249,7 @@ void Element::dispatchAttrAdditionEvent(Attribute*)
     if (!document()->hasListenerType(Document::DOMATTRMODIFIED_LISTENER))
         return;
     ExceptionCode ec = 0;
-    dispatchEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
+    dispatchScopedEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
         attr->value(), document()->attrName(attr->id()), MutationEvent::ADDITION), ec);
 #endif
 }

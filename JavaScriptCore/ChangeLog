@@ -1,19 +1,2073 @@
+2010-12-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Unreviewed build fix.
+
+        [Symbian] Make sure OSAllocatorSymbian builds
+
+        This patch only addresses the build problem.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51128 tracks the full
+        (re)implementation of the Symbian allocator.
+
+        * wtf/OSAllocatorSymbian.cpp:
+        (WTF::OSAllocator::reserveUncommitted):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+
+2010-12-22  Dan Bernstein  <mitz@apple.com>
+
+        Changed WebKitTools to Tools.
+
+        * JavaScriptCore.vcproj/JavaScriptCore.sln:
+
+2010-12-22  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Changed WebKitTools to Tools in script build phases.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-12-22  Andrei Popescu  <andreip@google.com>
+
+        Unreviewed build fix.
+
+        Fix Chromium Linux shared library build.
+        [Chromium] r74431 broke the Chromium Linux shared library build
+        https://bugs.webkit.org/show_bug.cgi?id=51462
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * JavaScriptCore.gypi:
+
+2010-12-21  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r74462.
+        http://trac.webkit.org/changeset/74462
+        https://bugs.webkit.org/show_bug.cgi?id=51449
+
+        broke chromium win (Requested by tonyg-cr on #webkit).
+
+        * JavaScriptCore.gypi:
+
+2010-12-21  Tony Gentilcore  <tonyg@chromium.org>
+
+        Unreviewed build fix.
+
+        [chromium] Build fix after r74431
+        https://bugs.webkit.org/show_bug.cgi?id=51447
+
+        * JavaScriptCore.gypi:
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative build fix.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::underMemoryPressure):
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 26276 - Need a mechanism to determine stack extent
+
+        This patch adds accurate stack size calculation for:
+            DARWIN, QNX, UNIX
+        We still need to fix:
+            WINDOWS, SOLARIS, OPENBSD, SYMBIAN, HAIKU, WINCE
+
+        * wtf/StackBounds.cpp:
+        (WTF::StackBounds::initialize):
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+         Reviewed by Geoff Garen.
+ 
+        <rdar://problem/8765333> CRASH running out of executable memory, loading io9.com
+        https://bugs.webkit.org/show_bug.cgi?id=51443
+
+        The problem here is that each page uses a reasonable amount of memory, (~4Mb),
+        and that when miultiple pages are open we keep all JIT code for all functions
+        in all pages alive.
+
+        Add a check to detect high memory pressure situations in the executable allocator
+        (>50% of available memory allocated), and upon a top level entry into JSC (no code
+        running on the stack) in this situation throw away all JIT code.
+
+        * JavaScriptCore.exp:
+        * debugger/Debugger.cpp:
+        (JSC::Debugger::recompileAllJSFunctions): stop passing exec to recompile.
+        * jit/ExecutableAllocator.h:
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::ExecutablePool::systemAlloc): Count allocations.
+        (JSC::ExecutablePool::systemRelease): Count deallocations.
+        (JSC::ExecutablePool::underMemoryPressure): Check memory pressure.
+        * jit/ExecutableAllocatorPosix.cpp:
+        (JSC::ExecutablePool::underMemoryPressure): Stub out; only meaningful with FixedVMPool.
+        * jit/ExecutableAllocatorWin.cpp:
+        (JSC::ExecutablePool::underMemoryPressure): Stub out; only meaningful with FixedVMPool.
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::recompile): Remove ExecState argument to recompile.
+        * runtime/Executable.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::recompileAllJSFunctions): throws away all JIT code.
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.h:
+        (JSC::DynamicGlobalObjectScope::DynamicGlobalObjectScope): add check / call to throw away.
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        <rdar://problem/8241425> JIT executable memory excessive usage due to regex caching
+        https://bugs.webkit.org/show_bug.cgi?id=51434
+
+        Reduce the amount of memory the RegExpCache can hold on to on iOS.
+        Currently the RegExpCache can hold 256 RegExp objects. If each falls into a separate
+        ExecutablePool, with a common size of 16Kb, this means we end up holding onto 4Mb of
+        memory. Firstly, we can reduce this by simply reducing the size of the cache to 32
+        entries. Secondly, we can use a separate set of ExecutablePools for JIT code generated
+        from RegExp objects. This helps in two ways (1) it increases the probability that
+        RegExps in the cache share the same pool, and (2) it means that a RegExp can't end
+        up holding on to a large ExecutablePool containing a translation of JS code.
+        (A RegExp could end up keeping a larger RegExp alive that happened to be sharing the
+        same pool, but large RegExp patterns are less common).
+
+        * runtime/JSGlobalData.h:
+        * runtime/RegExpCache.h:
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::compile):
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Eeeep! build fix!
+
+        * wtf/OSAllocator.h:
+        (WTF::OSAllocator::decommitAndRelease):
+
+2010-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Ooops, fixed typo in comment.
+
+        * wtf/OSAllocator.h:
+
+2010-12-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough & Oliver Hunt.
+
+        Added PageAllocationAligned, a cross-platform abstraction for memory allocations with arbitrary alignment requirements
+        https://bugs.webkit.org/show_bug.cgi?id=51359
+        
+        I think this patch fixes <rdar://problem/8107952> [5.0.1] WER crash in
+        Heap::allocateBlock (1902752929), and some other leaks and crashes as well.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj: Updated build files.
+
+        * runtime/AlignedMemoryAllocator.h: Removed. Supplanted by
+        PageAllocationAligned.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::destroy):
+        (JSC::Heap::allocateBlock):
+        (JSC::Heap::freeBlock):
+        (JSC::Heap::addWeakGCHandle):
+        * runtime/Collector.h: Switched from AlignedMemoryAllocator to
+        PageAllocationAligned.
+
+        * runtime/GCHandle.cpp:
+        * runtime/GCHandle.h: Ditto.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::PageAllocation): Removed aligned memory allocation
+        functions. Supplanted by PageAllocationAligned.
+
+        * wtf/PageAllocationAligned.cpp: Added.
+        (WTF::PageAllocationAligned::allocate):
+        (WTF::PageAllocationAligned::deallocate):
+        * wtf/PageAllocationAligned.h: Added.
+        (WTF::PageAllocationAligned::PageAllocationAligned): New cross-platform
+        class for doing aligned memory allocation. This class properly matches
+        allocation and deallocation library calls, fixing a long-standing bug
+        in PageAllocation.
+
+        * wtf/Platform.h: Removed some defunction VM platform defines.
+
+        * wtf/wtf.pri: Updated build files.
+
+2010-12-21  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        ASSERTION FAILED: base->index() == m_codeBlock->argumentsRegister() while loading taobao.com
+        https://bugs.webkit.org/show_bug.cgi?id=49006
+
+        This problem was caused by having a parameter named 'arguments'.
+        The fix is to treat parameters named 'arguments' as shadowing
+        the actual arguments property, and so logically turn the function
+        into one that doesn't "use" arguments.
+
+        This required a bit of fiddling in the parser to ensure we correctly
+        propagate the 'feature' of shadowing is set correctly.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::createArgumentsIfNecessary):
+          Change assertion to an early return as we may now reference
+          a property named 'arguments' without being in a function that
+          has the ArgumentsFeature
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::declareParameter):
+        (JSC::JSParser::Scope::shadowsArguments):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionInfo):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::usesArguments):
+
+2010-12-21  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel and Darin Adler.
+
+        Deallocate GregorianDateTime.timeZone (if allocated) when copying so that we don't leak memory.
+        https://bugs.webkit.org/show_bug.cgi?id=51367
+
+        Inspired by a patch by George Staikos.
+
+        * wtf/DateMath.cpp:
+        (JSC::msToGregorianDateTime): Modified to set timeZone to nullptr since timeZone is now
+        of type OwnPtrArray<char>.
+        * wtf/DateMath.h: Change timeZone to type OwnArrayPtr<char>; Removed destructor since it is no longer needed.
+        (JSC::GregorianDateTime::GregorianDateTime): Modified to use OwnPtrArray semantics for timeZone.
+        (JSC::GregorianDateTime::operator tm): Ditto.
+        (JSC::GregorianDateTime::copyFrom): Ditto.
+
+2010-12-21  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r74402.
+        http://trac.webkit.org/changeset/74402
+        https://bugs.webkit.org/show_bug.cgi?id=51402
+
+        This patch broke the Windows 7 Release Layout Tests (Requested
+        by jessieberlin on #webkit).
+
+        * wtf/StackBounds.cpp:
+        (WTF::estimateStackBound):
+        (WTF::StackBounds::initialize):
+
+2010-12-21  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Unify the name of parentheses in YARR: rename parenthesis to
+        parentheses.
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::RegexPatternConstructor::atomParenthesesEnd):
+
+2010-12-21  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Set BUILDING_QT__ consistently
+        https://bugs.webkit.org/show_bug.cgi?id=51341
+
+        * JavaScriptCore.pri: Remove the definition of BUILDING_QT__ as it
+        is already defined in WebKit.pri.
+
+2010-12-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 26276 - Need a mechanism to determine stack extent
+
+        This patch adds accurate stack size calculation for:
+            DARWIN, WINDOWS, QNX, UNIX
+        We still need to fix:
+            SOLARIS, OPENBSD, SYMBIAN, HAIKU, WINCE
+
+        * wtf/StackBounds.cpp:
+        (WTF::StackBounds::initialize):
+
+2010-12-20  Gavin Barraclough  <barraclough@apple.com>
+
+        PPC build fix; stop using std::swap on PageAllocation/PageReservation,
+        this was failing on some compilers since the lack of default construction
+        for the m_executable/m_writable fields meant the value being swapped may
+        not have been fully initialized.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::deallocate):
+        * wtf/PageBlock.h:
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::deallocate):
+
+2010-12-20  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        |delete name| in strict mode code should be an early error
+        https://bugs.webkit.org/show_bug.cgi?id=50431
+
+        Disallow the |delete IDENTIFIER| production in strict mode, and removed
+        a bunch of now unnecessary code.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::collectFreeVariables):
+        (JSC::jsParse):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseUnaryExpression):
+        * parser/JSParser.h:
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+
+2010-12-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Olver Hunt.
+
+        Bug 51358 - Should check stack depth rather than using recursion limits in byte compilation
+
+        The current implementation of recursion limit checking is not safe on smaller stacks.
+        Switch to using a common mechanism, shared with the parser, to check recursion limits.
+
+        Make bytecompiler use StackBounds. Empirical testing shows emitStrcat to have the largest
+        footprint on the stack, at just under 1k on x86-64.  Given this, the default recursion
+        check (requiring 4k of available space to recurse) seems reasonable.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::emitNode):
+        (JSC::BytecodeGenerator::emitNodeInConditionContext):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::BinaryOpNode::emitStrcat):
+
+2010-12-20  Tony Gentilcore  <tonyg@chromium.org>
+
+        Unreviewed build fix.
+
+        Include pthread to fix chromium mac build (broken by r74360)
+        https://bugs.webkit.org/show_bug.cgi?id=51356
+
+        * wtf/StackBounds.cpp:
+
+2010-12-20  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        * GNUmakefile.am: add missing files.
+
+2010-12-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 26276 - Need a mechanism to determine stack extent
+
+        This patch adds a class 'StackBounds', to hold information about the machine stack.
+        The implementation of this class broadly adheres to the current implmentation of
+        stack limit checking, and as such does not solve the problem of determining stack
+        extent, but gives us a common place to do so.
+
+        Currently two mechanism are provided to determine the stack origin (the point the
+        stack is growing away from). currentThreadStackBase() in Collector provides a
+        more accurate determination of the stack origin, so use this to calculate
+        StackBounds::m_origin; WTFThreadData::approximatedStackStart is less accurate, and
+        as such can be removed.  Cache the StackBounds on WTFThreadData such that they
+        need only be determined once per thread, and for non-API contexts cache this
+        information in JSGlobalData, to save a thread-specific access.
+
+        For the time being retain the estimate of stack size used by JSC's parser
+        (128 * sizeof(void*) * 1024), with a view to replacing this with something more
+        accurate in the near future.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::canRecurse):
+        (JSC::JSParser::JSParser):
+            Change to use StackBounds.
+        * runtime/Collector.cpp:
+        (JSC::Heap::registerThread):
+        (JSC::Heap::markCurrentThreadConservativelyInternal):
+            Change to use StackBounds, cached on JSGlobalData.
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::stack):
+            Add a cached copy of StackBounds.
+        * wtf/StackBounds.cpp: Copied from JavaScriptCore/runtime/Collector.cpp.
+        (WTF::estimateStackBound):
+        (WTF::StackBounds::initialize):
+        (WTF::getStackMax):
+            Copy code from Collector.cpp to determine stack origin.
+        * wtf/StackBounds.h: Added.
+        (WTF::StackBounds::StackBounds):
+            No argument constructor; returns a null StackBounds.
+        (WTF::StackBounds::currentThreadStackBounds):
+            Returns a StackBounds object representing the stack limits
+            of the current thread.
+        (WTF::StackBounds::origin):
+            Returns to stack origin (the point the stack is growing away
+            from; the highest extent of the stack on machines where the
+            stack grows downwards.
+        (WTF::StackBounds::recursionLimit):
+            Returns a limit value that is 'a comfortable distance from
+            the end of the stack'. Our concept of this is currently 1 page
+            away from the end, however the default value may be tuned in
+            the future, and clients may override passing a larger delta;
+            should only be called on StackBounds object representing the
+            stack of the thread this method is called on (checked by
+            checkConsistency).
+        (WTF::StackBounds::recursionCheck):
+            Checks whether we are currently 'a comfortable distance from
+            the end of the stack'. Our concept of this is currently 1 page
+            away from the end, however the default value may be tuned in
+            the future, and clients may override passing a larger delta
+            to apply when checking, if they wish to do so. This method
+            should only be called on StackBounds object representing the
+            stack of the thread this method is called on (checked by
+            checkConsistency).
+        (WTF::StackBounds::current):
+            Approximate current stack position. On machines where the stack
+            is growing downwards this is the lowest address that might need
+            conservative collection.
+        (WTF::StackBounds::isGrowingDownward):
+            True for all platforms other than WINCE, which has to check.
+        (WTF::StackBounds::checkConsistency):
+            This is called in methods that shoulds only be operating on a
+            valid set of bounds; as such we expect m_origin != m_bounds
+            (i.e. stack size != zero) - we're really testing that this
+            object is not null (the constructor initializes both fields
+            to zero).  Also checks that current() is within the stack's
+            bounds.
+        * wtf/WTFThreadData.cpp:
+        (WTF::WTFThreadData::WTFThreadData):
+        * wtf/WTFThreadData.h:
+        (WTF::WTFThreadData::stack):
+            Add the StackBounds member variable.
+
+2010-12-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Factored common page set management into a new PageBlock base class
+        https://bugs.webkit.org/show_bug.cgi?id=51285
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile):
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::intializePageSize):
+        * wtf/PageAllocation.cpp: Removed.
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::deallocate):
+        (WTF::PageAllocation::PageAllocation):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::deallocate):
+        (WTF::PageReservation::PageReservation):
+        * wtf/wtf.pri:
+
+2010-12-17  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        RegExp Jit'ed expression crashes clicking link on yelp.com
+        https://bugs.webkit.org/show_bug.cgi?id=51284
+
+        When transitioning between an non-repeating beginning of line
+        anchored expression and the remaining refactored repeating 
+        expression, we should not clear any residual datalabel in 
+        state's m_backtrack.  It will be resolved and cleared in subsequent
+        code when linkAlternativeBacktracks() is called for the repeating
+        alternative(s).
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::clear):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::clearBacktrack):
+
+2010-12-17  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Updated for the renaming of WebKitTools to Tools
+
+        * JavaScriptCore.vcproj/JavaScriptCore/build-generated-files.sh:
+
+2010-12-17  Ariya Hidayat  <ariya@sencha.com>
+
+        Reviewed by Oliver Hunt.
+
+        [JSC] parseAssignmentExpression should use TreeBuilder::CreatesAST
+        https://bugs.webkit.org/show_bug.cgi?id=51268
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseAssignmentExpression):
+
+2010-12-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Removed RChunk from PageAllocation/PageReservation, since it's now unused.
+        https://bugs.webkit.org/show_bug.cgi?id=51276
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::PageAllocation):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::PageReservation):
+
+2010-12-17  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Incorrect encoding of some constants in ARMv7 JIT
+        https://bugs.webkit.org/show_bug.cgi?id=51273
+        <rdar://problem/8650210>
+
+        When using immediate encoding 3 we need to write the byte
+        that holds a duplicated value.
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMThumbImmediate::makeEncodedImm):
+
+2010-12-16  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] useless warnings when building on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=50985
+
+        Disable some compiler warnings that aren't indicative of real problems.
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+
+2010-12-16  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51166
+        ExecutableAllocator::cacheFlush should call sys_cache_control
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::cacheFlush): Use the more correct and forward looking API -
+        sys_cache_control(kCacheFunctionPrepareForExecution,...).
+
+2010-12-16  Ariya Hidayat  <ariya@sencha.com>
+
+        Reviewed by Andreas Kling.
+
+        [JSC] Const correctness in ASTBuilder and SyntaxChecker
+        https://bugs.webkit.org/show_bug.cgi?id=51141
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::getName):
+        (JSC::ASTBuilder::getType):
+        (JSC::ASTBuilder::isResolve):
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::operatorStackPop):
+
+2010-12-15  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        Web Audio API: port FFTFrame to MKL
+        https://bugs.webkit.org/show_bug.cgi?id=50986
+
+        Fixed bug in log2 emulation function provided for Windows port of
+        Web Audio API.
+
+        * wtf/MathExtras.h:
+        (log2):
+
+2010-12-14  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <http://webkit.org/b/51064> Reproducible crash inside WebCore::MediaPlayerPrivateQTKit::createQTMovie when loading <video>
+
+        * wtf/text/WTFString.h: Prevent String from being implicitly convertable to bool.
+        It was previously implicitly convertible to bool on Mac via operator NSString*,
+        but since that always has a non-zero return value it would give unexpected results.
+
+2010-12-14  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] [Symbian] Do not use pkg-config on Symbian as it is not supported
+        https://bugs.webkit.org/show_bug.cgi?id=50231
+
+        Guard CONFIG+=link_pkgconfig with !symbian.
+
+        * jsc.pro:
+
+2010-12-14  Cameron Zwarich  <zwarich@apple.com>
+
+        Not reviewed.
+
+        Revert accidental change disabling the JIT for most platforms.
+
+        * wtf/Platform.h:
+
+2010-12-13  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Clang fails to build the JSC interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=51016
+
+        Clang does not allow indirect gotos out of scopes with cleanup. GCC 4.2 allows
+        them, but it does not correctly generate the cleanup, causing a leak if the
+        cleanup decrements a reference count.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute): Put an Identifier into its own scope.
+
+2010-12-14  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Simplify context-menu handling code
+        https://bugs.webkit.org/show_bug.cgi?id=49658
+
+        * wtf/PlatformRefPtr.h: Add leakRef()
+
+2010-12-13  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        JavaScriptCore should not use "asm volatile" outside of a function
+        https://bugs.webkit.org/show_bug.cgi?id=50991
+
+        * jit/JITStubs.cpp: Remove the volatile keyword from asm statements.
+
+2010-12-13  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows production build fix.
+        Try copying ICU 4.6 in addition to 4.4 and 4.2.
+
+        * JavaScriptCore.vcproj/jsc/jscPostBuild.cmd:
+
+2010-12-13  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        REGRESSION: mobileme mail viewing is broken
+        https://bugs.webkit.org/show_bug.cgi?id=50884
+
+        Fixed problem where simple parenthesis (those without capture and
+        with a fixed count) where not propagating backtrack to labels for 
+        nested parentheses.  Also added the nesting level for the parentheses 
+        state created in that case as well.
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::copyBacktrackToLabel):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::isLastTerm):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::RegexGenerator::generateParenthesesSingle):
+
+2010-12-13  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Reduce the size of the RegexStackSpaceForBackTrackInfoParentheses in YARR
+        https://bugs.webkit.org/show_bug.cgi?id=49385
+
+        Remove the BackTrackInfoParentheses struct prevBegin and prevEnd members.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::matchParentheses):
+        (JSC::Yarr::Interpreter::backtrackParentheses):
+        * yarr/RegexPattern.h:
+
+2010-12-10  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION Hang inside Yarr::RegexCodeBlock::execute when visiting
+        bugs.webkit.org
+        https://bugs.webkit.org/show_bug.cgi?id=50816
+
+        First nested parentheses of the second or greater alternative
+        where backtracking to the prior parentheses.  Changed the default
+        handling of initial parentheses for all alternatives to go back
+        to the immediate outer paren.
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::GenerationState::addParenthesesTail):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::TermGenerationState):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::isLastTerm):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::getTermIndex):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::setParenthesesTail):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::getParenthesesTail):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::ParenthesesTail):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::processBacktracks):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::RegexGenerator::generateParenthesesSingle):
+
+2010-12-11  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add an overload to makeString for Vector<char>
+        https://bugs.webkit.org/show_bug.cgi?id=50123
+
+        Also cleanup StringTypeAdapter.
+
+        * wtf/text/StringConcatenate.h:
+
+2010-12-10  Siddharth Mathur  <siddharth.mathur@nokia.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Build fix for Symbian: don't compile POSIX memory management implementation 
+        https://bugs.webkit.org/show_bug.cgi?id=50707
+
+        * wtf/wtf.pri:
+
+2010-12-10  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows production build fix.
+        
+        Don't stop if react-to-vsprops-changes.py exits with an error,
+        since this will occur in production builds.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2010-12-10  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Turn on USE(CROSS_PLATFORM_CONTEXT_MENUS) for Windows.
+
+        * wtf/Platform.h:
+
+2010-12-10  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r73703.
+        http://trac.webkit.org/changeset/73703
+        https://bugs.webkit.org/show_bug.cgi?id=49658
+
+        This patch is causing crashes on the GTK+ bots.
+
+        * wtf/PlatformRefPtr.h:
+
+2010-12-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Cleanup StringWx.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=50525
+
+        Use StringImpl::createUninitialized to avoid memcpy and fix style issues.
+
+        * wtf/wx/StringWx.cpp:
+        (WTF::String::String):
+
+2010-12-10  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Simplify context-menu handling code
+        https://bugs.webkit.org/show_bug.cgi?id=49658
+
+        * wtf/PlatformRefPtr.h:
+
+2010-12-09  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION (r73065?): A regex no longer works 
+        https://bugs.webkit.org/show_bug.cgi?id=50570
+
+        Changed the handling of adjacent parentheses backtracks in two ways.
+        First, only outer most paren backtracks default to back tracking
+        to the "next character" looping code.  Second, added a jump around 
+        backtracks that fall through to the next backtrack where the
+        second backtrack has some greedy processing before the backtracking
+        from outside the parentheses code.
+        Also cleaned up extraneous white spce, removing white space at the
+        end of or that makes up a whole line.
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::GenerationState::GenerationState):
+        (JSC::Yarr::RegexGenerator::GenerationState::incrementParenNestingLevel):
+        (JSC::Yarr::RegexGenerator::GenerationState::decrementParenNestingLevel):
+        (JSC::Yarr::RegexGenerator::GenerationState::addParenthesesTail):
+        (JSC::Yarr::RegexGenerator::GenerationState::emitParenthesesTail):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::ParenthesesTail):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::setNextIteration):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::RegexGenerator::generateParenthesesSingle):
+
+2010-12-09  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Addressed the "FIXME" issues in array sort for toString() methods that
+        mutate the array in either size or contents.  The change is to mark
+        the temporary array contents so that they are not garbage collected
+        and to make sure the array is large enough to hold the contents
+        of the sorted temporary vector.
+        https://bugs.webkit.org/show_bug.cgi?id=50718
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::addTempSortVector):
+        (JSC::Heap::removeTempSortVector):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/Collector.h:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort):
+        * runtime/JSValue.h:
+
+2010-12-09  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Changed setting of backtrack labels to not overwrite a prior
+        label.  Where losing prior labe which then reverted back to 
+        next character label.
+        https://bugs.webkit.org/show_bug.cgi?id=50579
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setBacktrackToLabel):
+
+2010-12-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Permit Character Class Escape in CharacterRange in Character Class.
+        https://bugs.webkit.org/show_bug.cgi?id=50483
+        https://bugs.webkit.org/show_bug.cgi?id=50538
+        https://bugs.webkit.org/show_bug.cgi?id=50654
+        https://bugs.webkit.org/show_bug.cgi?id=50646
+
+        We recently tightened up our spec conformance in generating syntax
+        error in these cases, however testing in the wild has shown this
+        to be problematic. This reverts the previous change in allowing
+        class escapes (e.g. \d) in ranges in character classes ([]), but
+        does retain some closer conformance to the spec in only allowing
+        ranges that would be permitted per the grammar rules in the spec
+        (e.g. in /[\d-a-z]/ "a-z" cannot be considered as a range).
+
+        * yarr/RegexParser.h:
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::atomPatternCharacter):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::atomBuiltInCharacterClass):
+        (JSC::Yarr::Parser::parse):
+
+2010-12-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Try to fix crash-on-launch seen on Windows builder.
+
+        * wtf/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::release): Disabled an ASSERT, because it checks for
+        a bug that hasn't been fixed yet.
+
+2010-12-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Updated .def file.
+
+2010-12-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Updated .def
+        file to remove a symbol -- the next build failure will say which symbol
+        to add back.
+
+2010-12-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Updated .def file.
+
+2010-12-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix GTK Linux build.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutablePool::systemAlloc):
+        * runtime/AlignedMemoryAllocator.h:
+        (JSC::::AlignedMemoryAllocator): Updated for Usage enum moving to OSAllocator.
+
+2010-12-07  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Migrated OS-specific allocation code from PageReservation and PageAllocation to OSAllocator
+        https://bugs.webkit.org/show_bug.cgi?id=50653
+
+        * JavaScriptCore.exp: Updated for new function signature.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile):
+        (JSC::RegisterFile::grow):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator): Removed checkAllocatedOkay.
+        OSAllocator is now the central location for verifying that allocation succeeds.
+        This allowed me to remove some complicating cross-platform cruft.
+
+        * runtime/AlignedMemoryAllocator.h:
+        (JSC::::allocate): Updated for code motion.
+
+        * wtf/OSAllocator.h: Added Usage, writable, and executable parameters, to
+        support VM features required by clients of PageAllocation and PageReservation.
+
+        * wtf/OSAllocatorPosix.cpp:
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit): Moved PageAllocation support for randomizing
+        executable memory here.
+
+        * wtf/OSAllocatorSymbian.cpp:
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit): Updated for new function signatures.
+
+        * wtf/OSAllocatorWin.cpp:
+        (WTF::protection):
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+        (WTF::OSAllocator::release): Updated for new function signatures. Moved
+        some protection-related and WINCE-related code from PageAllocation here.
+
+        * wtf/PageAllocation.cpp: Nixed cross-platform lastError abstraction, since
+        it was only used by checkAllocatedOkay, which is now gone.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::allocate):
+        (WTF::PageAllocation::allocateAligned):
+        (WTF::PageAllocation::deallocate):
+        (WTF::PageAllocation::isPowerOfTwo):
+        (WTF::PageAllocation::systemAllocateAligned): Removed system* functions,
+        and replaced calls to them with calls to OSAllocator.
+
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::reserve):
+        (WTF::PageReservation::deallocate):
+        (WTF::PageReservation::PageReservation): Ditto. Added m_writable and
+        m_executable because these flags are now required when committing memory.
+
+2010-12-08  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Add web audio files to mac port Xcode projects
+        https://bugs.webkit.org/show_bug.cgi?id=50721
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-12-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Marking the active global object re-enters through markConservatively
+        https://bugs.webkit.org/show_bug.cgi?id=50711
+
+        draining of the MarkStack is not allowed to be re-entrant, we got away
+        with this simply due to the logic in MarkStack::drain implicitly handling
+        changes that could be triggered by the re-entry.
+
+        Just to be safe this patch removes the re-entry through markConservatively
+        so we don't accidentally introduce such an issue in future.  I've also
+        added an assertion to catch such errors.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::markConservatively):
+        (JSC::Heap::markCurrentThreadConservativelyInternal):
+        (JSC::Heap::markOtherThreadConservatively):
+        * runtime/JSArray.h:
+        (JSC::MarkStack::drain):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::MarkStack):
+
+2010-12-08  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Share code between Mac (CA) and Windows (CACF) GraphicsLayer implementations
+        https://bugs.webkit.org/show_bug.cgi?id=49388
+
+        Added a WTF_PLATFORM_CA flag. Set when platform is MAC or IOS or (WINDOWS AND CG)
+        which was decided was the best way to identify a build with CoreAnimation
+
+        * wtf/Platform.h:
+
+2010-12-07  Anders Carlsson  <andersca@apple.com>
+
+        Build fix follow up build fix.
+
+        * pcre/pcre_ucp_searchfuncs.cpp:
+        (jsc_pcre_ucp_othercase):
+
+2010-12-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix clang++ build
+        https://bugs.webkit.org/show_bug.cgi?id=50645
+
+        Explicitly cast offset to int.
+
+        * pcre/pcre_ucp_searchfuncs.cpp:
+        (jsc_pcre_ucp_othercase):
+
+2010-12-07  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by David Levin.
+
+        Fix compilation of core web audio files on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=50603
+
+        Added log2 definition to MathExtras.h on Windows platform.
+
+        * wtf/MathExtras.h:
+        (log2):
+
+2010-12-07  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50412
+        http://www.wunderground.com/US/CA/Hayward.html causes big memory spike during page loading 
+        
+        Creating a substring caused the original string be flattened if it was in the rope form. This could use
+        significant amount of memory by reducing buffer sharing between strings.
+        
+        Add a rope specific substring function that constructs the substring by reusing the rope fibers
+        instead of flattening the rope.
+        
+        No change observed in SunSpider.
+
+        * runtime/JSString.cpp:
+        (JSC::JSString::substringFromRope):
+        * runtime/JSString.h:
+        (JSC::jsSubstring):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncSubstr):
+        (JSC::stringProtoFuncSubstring):
+
+2010-12-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Simplified some ASLR-related code in PageAllocation/Reservation
+        https://bugs.webkit.org/show_bug.cgi?id=50599
+        
+        Removed reserveAt, allocateAt, and friends, since they all existed to
+        serve one feature: ASLR for executable memory on x86_64 on Mac. Moved
+        ASLR code down into systemAllocate -- now, any time you allocate
+        executable memory on a supporting platform, the memory's location is
+        randomized.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator): No need for the caller
+        to randomize anything.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::systemAllocate): Removed some *At() functions, and
+        beefed up executable allocation with randomization.
+
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::systemReserve): Removed some *At() functions.
+
+2010-12-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        reserveAndCommit doesn't commit on MADVISE_FREE_REUSE systems
+        https://bugs.webkit.org/show_bug.cgi?id=50588
+        
+        * wtf/OSAllocatorPosix.cpp:
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit): Tightened up some comments. Changed
+        reserveAndCommit to actually commit on MADVISE_FREE_REUSE systems.
+
+2010-12-06  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [WINCE] Add build system
+        https://bugs.webkit.org/show_bug.cgi?id=50522
+
+        * CMakeListsWinCE.txt: Added.
+        * shell/CMakeListsWinCE.txt: Added.
+        * wtf/CMakeListsWinCE.txt: Added.
+
+2010-12-06  John Tantalo  <john.tantalo@gmail.com>
+
+        Reviewed by Geoffrey Garen.
+
+        jsc does not ignore shebang
+        https://bugs.webkit.org/show_bug.cgi?id=49576
+
+        * jsc.cpp:
+        (fillBufferWithContentsOfFile):
+          - translate shebang into a valid JavaScript comment so the lexer ignores it
+
+2010-12-05  Adam Roben  <aroben@apple.com>
+
+        Windows production build fix
+
+        Put spaces after trailing backslashes when setting
+        %WebKitVSPropsRedirectionDir%. According to MSDN
+        <http://msdn.microsoft.com/en-us/library/2kzfk8c7(v=VS.80).aspx>:
+
+           A backslash ( \ ) followed by a newline character is interpreted as
+           a space in the command; use a backslash at the end of a line to
+           continue a command onto the next line. NMAKE interprets the
+           backslash literally if any other character, including a space or
+           tab, follows the backslash.
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make:
+
+2010-12-04  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed, build fix after r69132.
+
+        * shell/CMakeLists.txt: Fix directory name (jsc -> shell).
+
+2010-12-04  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Drop GdkDrawable usage, it's deprecated in GTK+3.x and we can use GdkWindow
+        https://bugs.webkit.org/show_bug.cgi?id=50451
+
+        * wtf/gobject/GTypedefs.h: add GdkWindow defines.
+
+2010-12-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Oliver Hunt.
+
+        Bug 50509 - set* methods on MacroAssembler are awfully named.
+
+        Methods set32 and setTest32 compare 32-bit operands, and set a 32-bit results based on the comparison.
+        set8 compares 32-bit operands, and sets an 8-bit result based on the comparison.
+        setTest8 compares 8-bit operands, and sets a 32-bit result based on the comparison.
+
+        Rename to clarify.
+
+        set32 -> set32Compare32
+        setTest32 -> set32Test32
+        set8 -> set8Compare32
+        setTest8 -> set32Test8
+
+        * assembler/MacroAssembler.h:
+        (JSC::MacroAssembler::setPtr):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::set32Compare32):
+        (JSC::MacroAssemblerARM::set8Compare32):
+        (JSC::MacroAssemblerARM::set32Test32):
+        (JSC::MacroAssemblerARM::set32Test8):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::set32Compare32):
+        (JSC::MacroAssemblerARMv7::set8Compare32):
+        (JSC::MacroAssemblerARMv7::set32Test32):
+        (JSC::MacroAssemblerARMv7::set32Test8):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::set8Compare32):
+        (JSC::MacroAssemblerMIPS::set32Compare32):
+        (JSC::MacroAssemblerMIPS::set32Test8):
+        (JSC::MacroAssemblerMIPS::set32Test32):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::set8Compare32):
+        (JSC::MacroAssemblerX86Common::set32Compare32):
+        (JSC::MacroAssemblerX86Common::set32Test8):
+        (JSC::MacroAssemblerX86Common::set32Test32):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_eq):
+        (JSC::JIT::emit_op_neq):
+        (JSC::JIT::compileOpStrictEq):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_eq):
+        (JSC::JIT::emit_op_neq):
+        (JSC::JIT::compileOpStrictEq):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+
+2010-12-03  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Incorrect logic for returning memory at the end of linking.
+        Reviewed by Geoff Garen.
+
+        At the end of linking we return any space at the end of the
+        allocated executable region that was saved due to branch
+        compaction.  This is currently by done by subtracting the
+        different from the m_freePtr in the allocation pool.  This
+        can be incorrect if your allocation was made from a new
+        page that was not selected for subsequent allocations.
+
+        This patch corrects this behaviour by verifying that the
+        memory being returned actually comes from the current
+        allocation pool.
+
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::linkCode):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::tryShrink):
+
+2010-12-03  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough
+
+        Changes to significantly reduce branches to branches in JIT'ed
+        parentheses backtrack processing.  The changes include the following:
+        - Taking the backtracking processing out of line and adding it as
+          code at the end of the JIT'ed routine.
+        - Allow backtracks to be direct via an indirect branch for an address
+          pushed onto the stack.  If the use of an indirect branch is from a
+          conditional jump, then we emit a trampoline at the end of the 
+          routine.
+        - Propogate backtracks instead of adding trampolines.  Backtracks are
+          propogated to where they are used.  This change also eliminated 
+          trampoline branch code that aren't used.
+        - Added global expression state to keep track of parentheses tail
+          code and indirect branches.
+        Other changes made to support these changes.
+        - Split invertOrCapture flag on Patterns to two separate flags.  Added
+          getters for these flags.  Rippled these changes to both the JIT 
+          and interpreter code.
+        - Split BacktrackDestination out off TermGenerationState struct.
+          This is done to hold references to a backtrack for later code
+          generation.
+        https://bugs.webkit.org/show_bug.cgi?id=50295
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::JmpDst::isSet):
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::JmpDst::isSet):
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::Label::isSet):
+        (JSC::AbstractMacroAssembler::DataLabelPtr::isUsed):
+        (JSC::AbstractMacroAssembler::DataLabelPtr::used):
+        (JSC::AbstractMacroAssembler::JumpList::clear):
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::JmpDst::isSet):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::JmpDst::isSet):
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::RegexPatternConstructor::atomParenthesesSubpatternBegin):
+        (JSC::Yarr::RegexPatternConstructor::atomParentheticalAssertionBegin):
+        (JSC::Yarr::RegexPatternConstructor::atomBackReference):
+        (JSC::Yarr::RegexPatternConstructor::setupAlternativeBeginTerms):
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::atomParenthesesOnceBegin):
+        (JSC::Yarr::ByteCompiler::atomParenthesesTerminalBegin):
+        (JSC::Yarr::ByteCompiler::atomParenthesesSubpatternBegin):
+        (JSC::Yarr::ByteCompiler::atomParentheticalAssertionBegin):
+        (JSC::Yarr::ByteCompiler::atomParentheticalAssertionEnd):
+        (JSC::Yarr::ByteCompiler::atomParenthesesSubpatternEnd):
+        (JSC::Yarr::ByteCompiler::atomParenthesesOnceEnd):
+        (JSC::Yarr::ByteCompiler::atomParenthesesTerminalEnd):
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+        * yarr/RegexInterpreter.h:
+        (JSC::Yarr::ByteTerm::ByteTerm):
+        (JSC::Yarr::ByteTerm::BackReference):
+        (JSC::Yarr::ByteTerm::invert):
+        (JSC::Yarr::ByteTerm::capture):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::IndirectJumpEntry::IndirectJumpEntry):
+        (JSC::Yarr::RegexGenerator::IndirectJumpEntry::addJump):
+        (JSC::Yarr::RegexGenerator::GenerationState::GenerationState):
+        (JSC::Yarr::RegexGenerator::GenerationState::addIndirectJumpEntry):
+        (JSC::Yarr::RegexGenerator::GenerationState::emitIndirectJumpTable):
+        (JSC::Yarr::RegexGenerator::GenerationState::addParenthesesTail):
+        (JSC::Yarr::RegexGenerator::GenerationState::emitParenthesesTail):
+        (JSC::Yarr::RegexGenerator::GenerationState::addJumpToNextInteration):
+        (JSC::Yarr::RegexGenerator::GenerationState::addJumpsToNextInteration):
+        (JSC::Yarr::RegexGenerator::GenerationState::addDataLabelToNextIteration):
+        (JSC::Yarr::RegexGenerator::GenerationState::linkToNextIteration):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::BacktrackDestination):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::clear):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::clearDataLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::haveDestination):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::isStackOffset):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::isLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::isJumpList):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::haveDataLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::copyTarget):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::copyTo):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::addBacktrackJump):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setStackOffset):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setNextBacktrackLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setBacktrackToLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setBacktrackJumpList):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setBacktrackSourceLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setDataLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::setSubDataLabelPtr):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::linkToNextBacktrack):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::getStackOffset):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::getLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::getBacktrackJumps):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::getDataLabel):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::jumpToBacktrack):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::linkDataLabelToHereIfExists):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::plantJumpToBacktrackIfExists):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::linkAlternativeBacktracks):
+        (JSC::Yarr::RegexGenerator::BacktrackDestination::linkAlternativeBacktracksTo):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::TermGenerationState):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::resetAlternative):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::isLastAlternative):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::clearBacktrack):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::jumpToBacktrack):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::plantJumpToBacktrackIfExists):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::linkDataLabelToBacktrackIfExists):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::addBacktrackJump):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::setDataLabelPtr):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::setBackTrackStackOffset):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::setBacktrackLabel):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::linkAlternativeBacktracks):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::linkAlternativeBacktracksTo):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::setBacktrackLink):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::chainBacktracks):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::chainBacktrackJumps):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::getBacktrackDestination):
+        (JSC::Yarr::RegexGenerator::TermGenerationState::propagateBacktrackingFrom):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::ParenthesesTail):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::processBacktracks):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::setNextIteration):
+        (JSC::Yarr::RegexGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::RegexGenerator::generateAssertionBOL):
+        (JSC::Yarr::RegexGenerator::generateAssertionEOL):
+        (JSC::Yarr::RegexGenerator::generateAssertionWordBoundary):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterSingle):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterPair):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterFixed):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterGreedy):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterNonGreedy):
+        (JSC::Yarr::RegexGenerator::generateCharacterClassSingle):
+        (JSC::Yarr::RegexGenerator::generateCharacterClassFixed):
+        (JSC::Yarr::RegexGenerator::generateCharacterClassGreedy):
+        (JSC::Yarr::RegexGenerator::generateCharacterClassNonGreedy):
+        (JSC::Yarr::RegexGenerator::generateParenthesesDisjunction):
+        (JSC::Yarr::RegexGenerator::generateParenthesesSingle):
+        (JSC::Yarr::RegexGenerator::generateParenthesesGreedyNoBacktrack):
+        (JSC::Yarr::RegexGenerator::generateParentheticalAssertion):
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+        (JSC::Yarr::RegexGenerator::compile):
+        * yarr/RegexPattern.h:
+        (JSC::Yarr::PatternTerm::PatternTerm):
+        (JSC::Yarr::PatternTerm::invert):
+        (JSC::Yarr::PatternTerm::capture):
+
+2010-12-03  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        First steps to adding web audio files to build systems
+        https://bugs.webkit.org/show_bug.cgi?id=49952
+
+        * wtf/Complex.h:
+
+2010-12-03  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Move StringWx.cpp into wtf directory
+        https://bugs.webkit.org/show_bug.cgi?id=50060
+
+        * wtf/wx/StringWx.cpp: Renamed from WebCore/platform/text/wx/StringWx.cpp.
+        (WTF::String::String):
+
+2010-12-03  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Move StringBrew.cpp into wtf directory
+        https://bugs.webkit.org/show_bug.cgi?id=50058
+
+        * wtf/brew/StringBrew.cpp: Renamed from WebCore/platform/text/brew/StringBrew.cpp.
+        (WTF::String::String):
+
+2010-12-03  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Move StringHaiku.cpp into wtf directory
+        https://bugs.webkit.org/show_bug.cgi?id=50057
+
+        * wtf/haiku/StringHaiku.cpp: Renamed from WebCore/platform/text/haiku/StringHaiku.cpp.
+        (WTF::String::String):
+        (WTF::String::operator BString):
+
+2010-12-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build.
+
+        * runtime/GCActivityCallback.cpp:
+        (JSC::DefaultGCActivityCallback::synchronize): Added a non-CF implementation.
+
+2010-12-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fixed <rdar://problem/8310571> CrashTracer: 60 crashes in Photo Booth at
+        com.apple.JavaScriptCore: JSC::Heap::markRoots + 746
+        
+        * API/APIShims.h:
+        (JSC::APIEntryShimWithoutLock::APIEntryShimWithoutLock): Call our new
+        synchronize() function.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::activityCallback):
+        * runtime/Collector.h: Added an activityCallback() accessor, for the
+        call above.
+
+        * runtime/GCActivityCallback.h:
+        (JSC::GCActivityCallback::synchronize):
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallback::DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::~DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::operator()):
+        (JSC::DefaultGCActivityCallback::synchronize): Track the run loop we're
+        scheduled in. If we begin/resume execution within a new run loop, reschedule
+        on it. This prevents a crash when using a lockless context group on
+        multiple threads -- the crash would happen if the GC timer scheduled on
+        thread A, then you continued execution on thread B, then the thread A
+        timer fired.
+
+2010-12-02  Darin Adler  <darin@apple.com>
+
+        * wtf/ASCIICType.h: Fix wrong type from last check-in.
+
+2010-12-02  Darin Adler  <darin@apple.com>
+
+        Try to fix certain builds (Qt Windows).
+
+        * wtf/ASCIICType.h: Added an overload for unsigned because in obsolete
+        versions of ICU, UChar32 can be a typedef for unsigned. Adding this
+        overload should make us compatible with these old ICUs.
+
+2010-12-02  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add AtomicString::fromUTF8
+        https://bugs.webkit.org/show_bug.cgi?id=45594
+
+        Unicode::calculateStringHashFromUTF8 creates a StringHash out of UTF8 input data and
+        calculates the required length for the UTF16 conversation in one step.
+        This is then used in a specialized translator for the string table of AtomicString.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/text/AtomicString.cpp:
+        (WTF::CStringTranslator::equal):
+        (WTF::HashAndUTF8CharactersTranslator::hash):
+        (WTF::HashAndUTF8CharactersTranslator::equal):
+        (WTF::HashAndUTF8CharactersTranslator::translate):
+        (WTF::AtomicString::add):
+        (WTF::AtomicString::addSlowCase):
+        (WTF::AtomicString::find):
+        (WTF::AtomicString::fromUTF8):
+        * wtf/text/AtomicString.h:
+        * wtf/text/StringImpl.h:
+        * wtf/text/WTFString.h:
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::readUTF8Sequence):
+        (WTF::Unicode::convertUTF8ToUTF16):
+        (WTF::Unicode::calculateStringHashFromUTF8):
+        (WTF::Unicode::equalUTF16WithUTF8):
+        * wtf/unicode/UTF8.h:
+
+2010-12-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Added a little hardening to OSAllocator.
+
+        * wtf/OSAllocatorPosix.cpp:
+        (WTF::OSAllocator::release):
+        * wtf/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+        (WTF::OSAllocator::decommit):
+        (WTF::OSAllocator::release): CRASH() if the OS's virtual memory system
+        reports an error.
+
+2010-12-02  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        [Qt] Make platform managing of OSAllocator better than r73106
+        https://bugs.webkit.org/show_bug.cgi?id=50385
+
+        * wtf/OSAllocatorPosix.cpp: Remove platform specific guard.
+        * wtf/OSAllocatorSymbian.cpp: Remove platform specific guard.
+        * wtf/OSAllocatorWin.cpp: Remove platform specific guard.
+        * wtf/wtf.pri: Add the correct platform specific source file instead of all of them.
+
+2010-12-02  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [WINCE] Use GetTickCount() for srand()
+        https://bugs.webkit.org/show_bug.cgi?id=50338
+
+        time() is not a native function on WinCE, so use GetTickCount() instead.
+
+        * wtf/RandomNumberSeed.h:
+        (WTF::initializeRandomNumberGenerator):
+
+2010-12-02  Norbert Leser  <norbert.leser@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] [Symbian] Reintroduce compiler optimizations for JSC
+        https://bugs.webkit.org/show_bug.cgi?id=50270
+
+        Add compiler optimization (symbian ARM target) which was lost after split from WebCore.
+        Tested via Sunspider and V8 - both of which show significant performance improvement.
+
+        * JavaScriptCore.pro:
+
+2010-12-02  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Move regex parsing and fallback handling to runtime/RegExp.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=50015
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::create):
+        (JSC::RegExp::compile):
+        (JSC::RegExp::match):
+        (JSC::RegExp::printTraceData):
+        * runtime/RegExp.h:
+        (JSC::RegExp::pattern):
+        * yarr/RegexInterpreter.cpp:
+        * yarr/RegexInterpreter.h:
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::compile):
+        (JSC::Yarr::jitCompileRegex):
+        * yarr/RegexJIT.h:
+        (JSC::Yarr::RegexCodeBlock::RegexCodeBlock):
+        (JSC::Yarr::RegexCodeBlock::setFallBack):
+        (JSC::Yarr::RegexCodeBlock::isFallBack):
+        (JSC::Yarr::executeRegex):
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the GTK build.
+
+        * GNUmakefile.am: Use a full path to OSAllocator*.cpp.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the EFL Linux build.
+
+        * CMakeListsEfl.txt: Added OSAllocator to the project.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Qt build: Include all OS files for Qt's sake, and then
+        use #ifdefs in the files to exclude things based on OS.
+        
+        This is a pretty bad way to manage platforms -- hopefully we can
+        fix the Qt build system and move away from this in the future.
+
+        * wtf/OSAllocatorPosix.cpp:
+        * wtf/OSAllocatorSymbian.cpp:
+        * wtf/OSAllocatorWin.cpp:
+        * wtf/wtf.pri:
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Chromium build.
+        
+        * JavaScriptCore.gypi: This is a Windows build file, so use OSAllocatorWin.cpp.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the GTK build.
+
+        * GNUmakefile.am: Added OSAllocator to another project.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the GTK Linux build.
+
+        * JavaScriptCore.gypi: Added OSAllocator to the project.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Qt Linux build.
+
+        * wtf/OSAllocatorPosix.cpp: Use the right errno.h.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build: export some more symbols.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Qt Linux build.
+
+        * wtf/wtf.pri: Use the POSIX OSAllocator for Qt Linux.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Windows build fix: commit doesn't have a return value.
+
+        * wtf/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::commit):
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: Export some symbols.
+
+        * JavaScriptCore.exp:
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Export OSAllocator.h as private
+        so other projects can see it.
+
+        * wtf/OSAllocatorPosix.cpp: #include UnusedParam.h for UNUSED_PARAM.
+
+2010-12-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Baby step toward a cross-platform virtual memory abstraction: created
+        an all-static OSAllocator class and changed MarkStack to use it.
+
+        * JavaScriptCore.exp: These functions are inlined now.
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Added OSAllocatorWin.cpp.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Added OSAllocatorPosix.cpp.
+
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::allocateStack):
+        (JSC::MarkStack::releaseStack): Use OSAllocator instead of rolling our
+        own platform-specific code.
+
+        * runtime/MarkStackNone.cpp: Removed. Nothing used this.
+
+        * runtime/MarkStackPosix.cpp: 
+        * runtime/MarkStackSymbian.cpp:
+        * runtime/MarkStackWin.cpp: Removed custom platform-specific code, since
+        we use the OSAllocator abstraction now.
+
+        * wtf/OSAllocator.h: Added.
+        * wtf/OSAllocatorPosix.cpp: Added.
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+        (WTF::OSAllocator::decommit):
+        (WTF::OSAllocator::release):
+        * wtf/OSAllocatorSymbian.cpp: Added.
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+        (WTF::OSAllocator::decommit):
+        (WTF::OSAllocator::release):
+        * wtf/OSAllocatorWin.cpp: Added.
+        (WTF::OSAllocator::reserve):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::OSAllocator::commit):
+        (WTF::OSAllocator::decommit):
+        (WTF::OSAllocator::release): The new OSAllocator abstraction.
+
+        * wtf/wtf.pri: Added OSAllocatorSymbian.cpp.
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WinCairo build should not use link-time code generation (LTCG)
+        https://bugs.webkit.org/show_bug.cgi?id=50353
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.vcproj/jsc/jsc.vcproj:
+        * JavaScriptCore.vcproj/testapi/testapi.vcproj:
+
+010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        vcproj changes can't be applied cleanly by the Windows EWS bot
+        https://bugs.webkit.org/show_bug.cgi?id=50328
+
+        * JavaScriptCore.vcproj/JavaScriptCore.sln: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCF.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCFLite.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedCommon.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/JavaScriptCoreSubmit.sln: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/WTF/WTFCommon.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/jsc/jsc.vcproj: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/testapi/testapi.vcproj: Modified property svn:eol-style.
+        * JavaScriptCore.vcproj/testapi/testapiCommon.vsprops: Added property svn:eol-style.
+
+2010-12-01  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 50298 - /()()()()()()()()()(?:(\10a|b)(X|Y))+/.exec("bXXaYYaY") ASSERTs
+
+        For unmatched subpattens we previously used to set the subpattern end to -1,
+        but now we only set the start value. E.g. consider the following:
+            /a(b)?c/.exec("ac");
+        Previously we would generate an internal results array of:
+            [ 0, 2, -1, -1 ]
+        Since fairly recently we have generated results of:
+            [ 0, 2, -1, ??? ]
+        (With the end index of the subpattern uninitialized).
+
+        Update these ASSERTs to account for this.
+
+        Also, when stripping out self-referencing backreferences, (e.g. /(\1)/) we
+        were checking the wrong property on the pattern term. We should have been
+        looking at term.parentheses.subpatternId, but instead were checking
+        term.subpatternId. The latter is actually only the subpatternId for
+        back reference terms. Rename this to backReferenceSubpatternId.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::matchBackReference):
+        (JSC::Yarr::Interpreter::backtrackBackReference):
+
+2010-11-30  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Bug 50297 - \s in YARR should match BOMs.
+
+        From section 15.10.2.12 CharacterClassEscape contains:
+
+        The production CharacterClassEscape :: s evaluates by returning the set of characters containing the
+        characters that are on the right-hand side of the WhiteSpace (7.2) or LineTerminator (7.3) productions.
+
+        Table 2 in section 7.2 contains:
+
+        \uFEFF Byte Order Mark <BOM>
+
+        * create_regex_tables:
+            Add BOM to spaces table.
+
+2010-11-30  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fixed review comments following bug #48101.
+        Mostly typos, plus gave quantifyInfinite a symbolic name.
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::RegexPatternConstructor::quantifyAtom):
+        (JSC::Yarr::RegexPatternConstructor::checkForTerminalParentheses):
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::backtrackParenthesesOnceEnd):
+        (JSC::Yarr::Interpreter::matchParenthesesTerminalBegin):
+        (JSC::Yarr::Interpreter::backtrackParenthesesTerminalBegin):
+        (JSC::Yarr::Interpreter::backtrackParenthesesTerminalEnd):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterGreedy):
+        (JSC::Yarr::RegexGenerator::generatePatternCharacterNonGreedy):
+        (JSC::Yarr::RegexGenerator::generateCharacterClassGreedy):
+        * yarr/RegexParser.h:
+        (JSC::Yarr::Parser::parseTokens):
+        (JSC::Yarr::parse):
+
+2010-11-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WTF project missing build-stopping code from its pre-build event
+        https://bugs.webkit.org/show_bug.cgi?id=50281
+
+        * JavaScriptCore.vcproj/WTF/WTFPreBuild.cmd:
+
+2010-11-30  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Cleanup UTF8.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=49581
+
+        Use macros and functions instead of range values directly.
+
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::inlineUTF8SequenceLength):
+        (WTF::Unicode::UTF8SequenceLength):
+        (WTF::Unicode::convertUTF16ToUTF8):
+        (WTF::Unicode::readUTF8Sequence):
+        (WTF::Unicode::convertUTF8ToUTF16):
+        * wtf/unicode/UnicodeMacrosFromICU.h: Added U_IS_SUPPLEMENTARY macro.
+
+2010-11-30  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fixed a crash seen when using a PageAllocation to store itself.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::systemDeallocate): Zero out m_base before unmapping
+        it, in case unmapping m_base unmaps the PageAllocation.
+
+        * wtf/BumpPointerAllocator.h:
+        (WTF::BumpPointerPool::destroy): Now this work-around isn't needed!
+
+2010-11-30  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Darin Adler.
+
+        m_hasNonEnumerableProperties is never initialized in Structure
+        https://bugs.webkit.org/show_bug.cgi?id=50266
+
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure): initialize member variable.
+
+2010-11-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix (part 1). Use correct environment variable syntax in cmd files.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePostBuild.cmd:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePreBuild.cmd:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePreLink.cmd:
+        * JavaScriptCore.vcproj/WTF/WTFPostBuild.cmd:
+        * JavaScriptCore.vcproj/jsc/jscPostBuild.cmd:
+        * JavaScriptCore.vcproj/jsc/jscPreBuild.cmd:
+        * JavaScriptCore.vcproj/jsc/jscPreLink.cmd:
+        * JavaScriptCore.vcproj/testapi/testapiPostBuild.cmd:
+        * JavaScriptCore.vcproj/testapi/testapiPreBuild.cmd:
+        * JavaScriptCore.vcproj/testapi/testapiPreLink.cmd:
+
+2010-11-29  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WTF support for <rdar://problem/8650085> adding word-prefix search options to the text search API.
+        https://bugs.webkit.org/show_bug.cgi?id=50038
+
+        * wtf/unicode/UnicodeMacrosFromICU.h: Copied additional macros from icu/unicode/utf16.h.
+
+2010-11-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        JavaScriptCore projects on Windows should use cmd files for build events
+        https://bugs.webkit.org/show_bug.cgi?id=50193
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePostBuild.cmd: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePreBuild.cmd: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCorePreLink.cmd: Added.
+        * JavaScriptCore.vcproj/WTF/WTFPostBuild.cmd: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/WTF/WTFPreBuild.cmd: Added property svn:eol-style.
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscPostBuild.cmd: Added.
+        * JavaScriptCore.vcproj/jsc/jscPreBuild.cmd: Added.
+        * JavaScriptCore.vcproj/jsc/jscPreLink.cmd: Added.
+        * JavaScriptCore.vcproj/testapi/testapiCommon.vsprops:
+        * JavaScriptCore.vcproj/testapi/testapiPostBuild.cmd: Added.
+        * JavaScriptCore.vcproj/testapi/testapiPreBuild.cmd: Added.
+        * JavaScriptCore.vcproj/testapi/testapiPreLink.cmd: Added.
+
+2010-11-29  Dai Mikurube  <dmikurube@google.com>
+
+        Reviewed by Kent Tamura.
+
+        when empty, clicking "down" on outer-spin-button returns "max value"
+        https://bugs.webkit.org/show_bug.cgi?id=45491
+
+        It is required to calculate UTC/DST offsets to retrieve the current local milliseconds for
+        date/time type inputs. WTF::currentTimeMS() returns a UTC time, and WTF::getLocalTime()
+        returns a struct tm, not milliseconds.
+
+        Calculating milliseconds from a struct tm is not simple since timegm() cannot be used in all
+        environments. This calculation is already done in calculateUTCOffset(), and complicated.
+        Duplicating this complicated calculation is unreasonable because of maintainability.
+        To achieve this without duplication, we must call calculate{UTC|DST}Offset in some way.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/DateMath.cpp: Changed calculateUTCOffset() and calculateDSTOffset() to external functions.
+        (WTF::calculateUTCOffset):
+        (WTF::calculateDSTOffset):
+        * wtf/DateMath.h:
+
+2010-11-29  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Switch web audio code to use FloatPoint3D instead of Vector3
+        https://bugs.webkit.org/show_bug.cgi?id=50186
+
+        * wtf/Vector3.h: Removed.
+
+2010-11-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add a mechanism for Windows pre-build/pre-link/post-build events to be separated into individual cmd files
+        https://bugs.webkit.org/show_bug.cgi?id=49858
+
+        We're migrating our prebuild/prelink/postbuild steps out of vcproj and vsprops files:
+        - To simplify editing (editing vsprops build steps is confusing).
+        - For more readable diffs.
+
+        * JavaScriptCore.vcproj/WTF/WTFCommon.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTFPostBuild.cmd: Added.
+        * JavaScriptCore.vcproj/WTF/WTFPreBuild.cmd: Added.
+
+2010-11-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Improved accuracy of command-line SunSpider.
+
+        * jsc.cpp:
+        (functionRun): Changed the "run" function to run a given test in
+        its own global object. Previously, all tests ran in the same global
+        object, which created name conflicts, and made globals from previous
+        tests artificially survive into later tests.
+        
+        Also changed "run" to return the elapsed milliseconds when running a
+        given test, for slightly more accurate numbers.
+
+        (functionCheckSyntax): Ditto on returning elapsed milliseconds.
+
+2010-11-29  Darin Adler  <darin@apple.com>
+
+        Reviewed by Andreas Kling.
+
+        Remove a couple unneeded overflow checks
+        https://bugs.webkit.org/show_bug.cgi?id=49816
+
+        * wtf/text/CString.cpp:
+        (WTF::CString::init): Use an ASSERT instead of
+        an overflow check with CRASH.
+
+2010-11-29  Adam Roben  <aroben@apple.com>
+
+        Robustify react-to-vsprops-changes.py against changes to its location
+        or the location of the .vsprops files
+
+        Suggested by John Sullivan.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/react-to-vsprops-changes.py:
+        Removed file_modification_times.
+        (main): Use glob.glob to find the .vsprops files and assert that we found some.
+
+2010-11-29  Adam Roben  <aroben@apple.com>
+
+        Touch wtf/Platform.h whenever any .vsprops file changes
+
+        This will cause all files to be recompiled, which will make changes to
+        preprocessor macros (e.g., ENABLE_*) actually take effect.
+
+        Fixes <http://webkit.org/b/50167> Windows build fails when ENABLE_*
+        macros are changed (because not enough files are rebuilt)
+
+        Reviewed by John Sullivan.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/react-to-vsprops-changes.py:
+        (main): Touch wtf/Platform.h if it's older than any .vsprops file. Also
+        added some comments and logging to make it clearer what the script is
+        doing and why.
+
+2010-11-29  Adam Roben  <aroben@apple.com>
+
+        Update react-to-vsprops-changes.py after r72555
+
+        .vsprops files are no longer accessed relative to $WebKitLibrariesDir.
+
+        Fixes <http://webkit.org/b/50166> REGRESSION (r72555):
+        react-to-vsprops-changes.py no longer works for people with a
+        non-default $WebKitLibrariesDir
+
+        Reviewed by John Sullivan.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/react-to-vsprops-changes.py:
+        (main): Always look in WebKitLibraries/win for .vsprops files, not in
+        $WebKitLibrariesDir.
+
+2010-11-28  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 48100 - YARR allows what seems like a bogus character-class range
+
+        Per ECMA-262 character classes containing character ranges containing
+        character classes are invalid, eg:
+            /[\d-x]/
+            /[x-\d]/
+            /[\d-\d]/
+        These should throw a syntax error.
+
+        * yarr/RegexParser.h:
+
 2010-11-27  Gavin Barraclough  <barraclough@apple.com>
 
         Reviewed by Sam Weinig.
 
         Bug 48101 - Yarr gives different results for /(?:a*?){2,}/
 
-        The test cases in the linked mozilla bug demostrate a couple of
+        The test cases in the linked mozilla bug demonstrate a couple of
         problems in subpattern matching. These bugs lie in the optimized
         cases - for matching parentheses with a quantity count of 1, and
         for matching greedy quantified parentheses at the end of a regex
         (which do not backtrack).
 
         In both of these cases we are failing to correctly handle empty
-        matches. In the case of parenthese-single matches (quantity count
+        matches. In the case of parentheses-single matches (quantity count
         one) we are failing to test for empty matches at all. In the case
-        of terminal subpattern matches we do currenty check, however there
+        of terminal subpattern matches we do currently check, however there
         is a subtler bug here too. In the case of an empty match we will
         presently immediately fall through to the next alternative (or
         complete the regex match), whereas upon a failed match we should
@@ -25,7 +2079,7 @@
         which point the non-greedy a?? will match, and as such the result
         should be "ab", not "a").
 
-        Terminal sunpattern matching contains a second bug, too. The frame
+        Terminal subpattern matching contains a second bug, too. The frame
         location values in the subpattern should be being allocated with
         the outer disjunction's frame (as we do for the parentheses-single
         optimization). Consider the following three regexes:

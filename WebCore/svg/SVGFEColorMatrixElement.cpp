@@ -25,9 +25,13 @@
 
 #include "Attribute.h"
 #include "SVGNames.h"
-#include "SVGNumberList.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFEColorMatrixElement, SVGNames::inAttr, In1, in1)
+DEFINE_ANIMATED_ENUMERATION(SVGFEColorMatrixElement, SVGNames::typeAttr, Type, type)
+DEFINE_ANIMATED_NUMBER_LIST(SVGFEColorMatrixElement, SVGNames::valuesAttr, Values, values)
 
 inline SVGFEColorMatrixElement::SVGFEColorMatrixElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -52,8 +56,7 @@ void SVGFEColorMatrixElement::parseMappedAttribute(Attribute* attr)
             setTypeBaseValue(FECOLORMATRIX_TYPE_HUEROTATE);
         else if (value == "luminanceToAlpha")
             setTypeBaseValue(FECOLORMATRIX_TYPE_LUMINANCETOALPHA);
-    }
-    else if (attr->name() == SVGNames::inAttr)
+    } else if (attr->name() == SVGNames::inAttr)
         setIn1BaseValue(value);
     else if (attr->name() == SVGNames::valuesAttr) {
         SVGNumberList newList;
@@ -135,6 +138,6 @@ PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filter
     return effect.release();
 }
 
-} //namespace WebCore
+} // namespace WebCore
 
 #endif // ENABLE(SVG)

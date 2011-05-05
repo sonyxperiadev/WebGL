@@ -31,7 +31,6 @@
 #include "AffineTransform.h"
 #include "FloatConversion.h"
 #include "GraphicsContextPlatformPrivateCG.h"
-#include "GraphicsContextPrivate.h"
 #include "ImageBuffer.h"
 #include "KURL.h"
 #include "Path.h"
@@ -42,6 +41,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/UnusedParam.h>
 
 #if PLATFORM(MAC) || PLATFORM(CHROMIUM)
 #include "WebCoreSystemInterface.h"
@@ -107,10 +107,9 @@ CGColorSpaceRef linearRGBColorSpaceRef()
 #endif
 }
 
-GraphicsContext::GraphicsContext(CGContextRef cgContext)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(cgContext))
+void GraphicsContext::platformInit(CGContextRef cgContext)
 {
+    m_data = new GraphicsContextPlatformPrivate(cgContext);
     setPaintingDisabled(!cgContext);
     if (cgContext) {
         // Make sure the context starts in sync with our state.
@@ -119,9 +118,8 @@ GraphicsContext::GraphicsContext(CGContextRef cgContext)
     }
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -299,21 +297,12 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 // This method is only used to draw the little circles used in lists.
 void GraphicsContext::drawEllipse(const IntRect& rect)
 {
-    // FIXME: CG added CGContextAddEllipseinRect in Tiger, so we should be able to quite easily draw an ellipse.
-    // This code can only handle circles, not ellipses. But khtml only
-    // uses it for circles.
-    ASSERT(rect.width() == rect.height());
-
     if (paintingDisabled())
         return;
 
-    CGContextRef context = platformContext();
-    CGContextBeginPath(context);
-    float r = (float)rect.width() / 2;
-    CGContextAddArc(context, rect.x() + r, rect.y() + r, r, 0.0f, 2.0f * piFloat, 0);
-    CGContextClosePath(context);
-
-    drawPath();
+    Path path;
+    path.addEllipse(rect);
+    drawPath(path);
 }
 
 
@@ -405,21 +394,22 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     CGContextRestoreGState(context);
 }
 
-static void addConvexPolygonToContext(CGContextRef context, size_t numPoints, const FloatPoint* points)
+static void addConvexPolygonToPath(Path& path, size_t numberOfPoints, const FloatPoint* points)
 {
-    CGContextBeginPath(context);
-    CGContextMoveToPoint(context, points[0].x(), points[0].y());
-    for (size_t i = 1; i < numPoints; i++)
-        CGContextAddLineToPoint(context, points[i].x(), points[i].y());
-    CGContextClosePath(context);
+    ASSERT(numberOfPoints > 0);
+
+    path.moveTo(points[0]);
+    for (size_t i = 1; i < numberOfPoints; ++i)
+        path.addLineTo(points[i]);
+    path.closeSubpath();
 }
 
-void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool antialiased)
+void GraphicsContext::drawConvexPolygon(size_t numberOfPoints, const FloatPoint* points, bool antialiased)
 {
     if (paintingDisabled())
         return;
 
-    if (npoints <= 1)
+    if (numberOfPoints <= 1)
         return;
 
     CGContextRef context = platformContext();
@@ -427,28 +417,30 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     if (antialiased != shouldAntialias())
         CGContextSetShouldAntialias(context, antialiased);
 
-    addConvexPolygonToContext(context, npoints, points);
-    drawPath();
+    Path path;
+    addConvexPolygonToPath(path, numberOfPoints, points);
+    drawPath(path);
 
     if (antialiased != shouldAntialias())
         CGContextSetShouldAntialias(context, shouldAntialias());
 }
 
-void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialias)
+void GraphicsContext::clipConvexPolygon(size_t numberOfPoints, const FloatPoint* points, bool antialias)
 {
     if (paintingDisabled())
         return;
 
-    if (numPoints <= 1)
+    if (numberOfPoints <= 1)
         return;
 
     CGContextRef context = platformContext();
 
     if (antialias != shouldAntialias())
         CGContextSetShouldAntialias(context, antialias);
-    
-    addConvexPolygonToContext(context, numPoints, points);
-    clipPath(RULE_NONZERO);
+
+    Path path;
+    addConvexPolygonToPath(path, numberOfPoints, points);
+    clipPath(path, RULE_NONZERO);
 
     if (antialias != shouldAntialias())
         CGContextSetShouldAntialias(context, shouldAntialias());
@@ -458,7 +450,7 @@ void GraphicsContext::applyStrokePattern()
 {
     CGContextRef cgContext = platformContext();
 
-    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.strokePattern->createPlatformPattern(getCTM()));
+    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_state.strokePattern->createPlatformPattern(getCTM()));
     if (!platformPattern)
         return;
 
@@ -473,7 +465,7 @@ void GraphicsContext::applyFillPattern()
 {
     CGContextRef cgContext = platformContext();
 
-    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.fillPattern->createPlatformPattern(getCTM()));
+    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_state.fillPattern->createPlatformPattern(getCTM()));
     if (!platformPattern)
         return;
 
@@ -511,20 +503,24 @@ static inline bool calculateDrawingMode(const GraphicsContextState& state, CGPat
     return shouldFill || shouldStroke;
 }
 
-void GraphicsContext::drawPath()
+void GraphicsContext::drawPath(const Path& path)
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
-    const GraphicsContextState& state = m_common->state;
+    const GraphicsContextState& state = m_state;
 
     if (state.fillGradient || state.strokeGradient) {
         // We don't have any optimized way to fill & stroke a path using gradients
-        fillPath();
-        strokePath();
+        // FIXME: Be smarter about this.
+        fillPath(path);
+        strokePath(path);
         return;
     }
+
+    CGContextBeginPath(context);
+    CGContextAddPath(context, path.platformPath());
 
     if (state.fillPattern)
         applyFillPattern();
@@ -544,48 +540,54 @@ static inline void fillPathWithFillRule(CGContextRef context, WindRule fillRule)
         CGContextFillPath(context);
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& path)
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
 
-    if (m_common->state.fillGradient) {
+    CGContextBeginPath(context);
+    CGContextAddPath(context, path.platformPath());
+
+    if (m_state.fillGradient) {
         CGContextSaveGState(context);
         if (fillRule() == RULE_EVENODD)
             CGContextEOClip(context);
         else
             CGContextClip(context);
-        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
-        m_common->state.fillGradient->paint(this);
+        CGContextConcatCTM(context, m_state.fillGradient->gradientSpaceTransform());
+        m_state.fillGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
 
-    if (m_common->state.fillPattern)
+    if (m_state.fillPattern)
         applyFillPattern();
     fillPathWithFillRule(context, fillRule());
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& path)
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
 
-    if (m_common->state.strokeGradient) {
+    CGContextBeginPath(context);
+    CGContextAddPath(context, path.platformPath());
+
+    if (m_state.strokeGradient) {
         CGContextSaveGState(context);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
-        CGContextConcatCTM(context, m_common->state.strokeGradient->gradientSpaceTransform());
-        m_common->state.strokeGradient->paint(this);
+        CGContextConcatCTM(context, m_state.strokeGradient->gradientSpaceTransform());
+        m_state.strokeGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
 
-    if (m_common->state.strokePattern)
+    if (m_state.strokePattern)
         applyStrokePattern();
     CGContextStrokePath(context);
 }
@@ -597,16 +599,16 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     CGContextRef context = platformContext();
 
-    if (m_common->state.fillGradient) {
+    if (m_state.fillGradient) {
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
-        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
-        m_common->state.fillGradient->paint(this);
+        CGContextConcatCTM(context, m_state.fillGradient->gradientSpaceTransform());
+        m_state.fillGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
 
-    if (m_common->state.fillPattern)
+    if (m_state.fillPattern)
         applyFillPattern();
     CGContextFillRect(context, rect);
 }
@@ -643,8 +645,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
     Path path;
     path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
-    addPath(path);
-    fillPath();
+    fillPath(path);
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, oldFillColor, oldColorSpace);
@@ -669,19 +670,23 @@ void GraphicsContext::clipOut(const IntRect& rect)
     CGContextEOClip(platformContext());
 }
 
-void GraphicsContext::clipPath(WindRule clipRule)
+void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
 {
     if (paintingDisabled())
         return;
 
+    if (path.isEmpty())
+        return;
+
     CGContextRef context = platformContext();
 
-    if (!CGContextIsPathEmpty(context)) {
-        if (clipRule == RULE_EVENODD)
-            CGContextEOClip(context);
-        else
-            CGContextClip(context);
-    }
+    CGContextBeginPath(platformContext());
+    CGContextAddPath(platformContext(), path.platformPath());
+
+    if (clipRule == RULE_EVENODD)
+        CGContextEOClip(context);
+    else
+        CGContextClip(context);
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -733,7 +738,7 @@ void GraphicsContext::setPlatformShadow(const FloatSize& offset, float blur, con
     CGFloat blurRadius = blur;
     CGContextRef context = platformContext();
 
-    if (!m_common->state.shadowsIgnoreTransforms) {
+    if (!m_state.shadowsIgnoreTransforms) {
         CGAffineTransform userToBaseCTM = wkGetUserToBaseCTM(context);
 
         CGFloat A = userToBaseCTM.a * userToBaseCTM.a + userToBaseCTM.b * userToBaseCTM.b;
@@ -808,18 +813,18 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
 
     CGContextRef context = platformContext();
 
-    if (m_common->state.strokeGradient) {
+    if (m_state.strokeGradient) {
         CGContextSaveGState(context);
         setStrokeThickness(lineWidth);
         CGContextAddRect(context, r);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
-        m_common->state.strokeGradient->paint(this);
+        m_state.strokeGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
 
-    if (m_common->state.strokePattern)
+    if (m_state.strokePattern)
         applyStrokePattern();
     CGContextStrokeRectWithWidth(context, r, lineWidth);
 }
@@ -861,16 +866,6 @@ void GraphicsContext::setLineJoin(LineJoin join)
         CGContextSetLineJoin(platformContext(), kCGLineJoinBevel);
         break;
     }
-}
-
-void GraphicsContext::beginPath()
-{
-    CGContextBeginPath(platformContext());
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-    CGContextAddPath(platformContext(), path.platformPath());
 }
 
 void GraphicsContext::clip(const Path& path)
@@ -1119,7 +1114,16 @@ InterpolationQuality GraphicsContext::imageInterpolationQuality() const
     return InterpolationDefault;
 }
 
-void GraphicsContext::setPlatformTextDrawingMode(int mode)
+void GraphicsContext::setAllowsFontSmoothing(bool allowsFontSmoothing)
+{
+    UNUSED_PARAM(allowsFontSmoothing);
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    CGContextRef context = platformContext();
+    CGContextSetAllowsFontSmoothing(context, allowsFontSmoothing);
+#endif
+}
+
+void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 {
     if (paintingDisabled())
         return;
@@ -1127,28 +1131,28 @@ void GraphicsContext::setPlatformTextDrawingMode(int mode)
     // Wow, wish CG had used bits here.
     CGContextRef context = platformContext();
     switch (mode) {
-    case cTextInvisible: // Invisible
+    case TextModeInvisible:
         CGContextSetTextDrawingMode(context, kCGTextInvisible);
         break;
-    case cTextFill: // Fill
+    case TextModeFill:
         CGContextSetTextDrawingMode(context, kCGTextFill);
         break;
-    case cTextStroke: // Stroke
+    case TextModeStroke:
         CGContextSetTextDrawingMode(context, kCGTextStroke);
         break;
-    case 3: // Fill | Stroke
+    case TextModeFill | TextModeStroke:
         CGContextSetTextDrawingMode(context, kCGTextFillStroke);
         break;
-    case cTextClip: // Clip
+    case TextModeClip:
         CGContextSetTextDrawingMode(context, kCGTextClip);
         break;
-    case 5: // Fill | Clip
+    case TextModeFill | TextModeClip:
         CGContextSetTextDrawingMode(context, kCGTextFillClip);
         break;
-    case 6: // Stroke | Clip
+    case TextModeStroke | TextModeClip:
         CGContextSetTextDrawingMode(context, kCGTextStrokeClip);
         break;
-    case 7: // Fill | Stroke | Clip
+    case TextModeFill | TextModeStroke | TextModeClip:
         CGContextSetTextDrawingMode(context, kCGTextFillStrokeClip);
         break;
     default:
@@ -1184,8 +1188,15 @@ void GraphicsContext::setPlatformShouldAntialias(bool enable)
     CGContextSetShouldAntialias(platformContext(), enable);
 }
 
-#ifndef BUILDING_ON_TIGER // Tiger's setCompositeOperation() is defined in GraphicsContextMac.mm.
-void GraphicsContext::setCompositeOperation(CompositeOperator mode)
+void GraphicsContext::setPlatformShouldSmoothFonts(bool enable)
+{
+    if (paintingDisabled())
+        return;
+    CGContextSetShouldSmoothFonts(platformContext(), enable);
+}
+
+#ifndef BUILDING_ON_TIGER // Tiger's setPlatformCompositeOperation() is defined in GraphicsContextMac.mm.
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator mode)
 {
     if (paintingDisabled())
         return;

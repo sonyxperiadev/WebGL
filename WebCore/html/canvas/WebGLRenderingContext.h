@@ -43,6 +43,7 @@ namespace WebCore {
 class WebGLActiveInfo;
 class WebGLBuffer;
 class WebGLContextAttributes;
+class WebGLExtension;
 class WebGLFramebuffer;
 class WebGLObject;
 class WebGLProgram;
@@ -55,6 +56,7 @@ class HTMLVideoElement;
 class ImageBuffer;
 class ImageData;
 class IntSize;
+class OESTextureFloat;
 
 class WebGLRenderingContext : public CanvasRenderingContext {
 public:
@@ -145,6 +147,8 @@ public:
 
     unsigned long getError();
 
+    WebGLExtension* getExtension(const String& name);
+
     WebGLGetInfo getFramebufferAttachmentParameter(unsigned long target, unsigned long attachment, unsigned long pname, ExceptionCode&);
 
     WebGLGetInfo getParameter(unsigned long pname, ExceptionCode&);
@@ -163,6 +167,8 @@ public:
     // void glGetShaderPrecisionFormat (GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision);
 
     String getShaderSource(WebGLShader*, ExceptionCode&);
+
+    Vector<String> getSupportedExtensions();
 
     WebGLGetInfo getTexParameter(unsigned long target, unsigned long pname, ExceptionCode&);
 
@@ -291,6 +297,10 @@ public:
     virtual void paintRenderingResultsToCanvas();
 
     void removeObject(WebGLObject*);
+
+    // Helpers for JSC bindings.
+    int getNumberOfExtensions();
+    WebGLExtension* getExtensionNumber(int i);
 
   private:
     friend class WebGLObject;
@@ -456,6 +466,9 @@ public:
     bool m_isResourceSafe;
     bool m_isDepthStencilSupported;
 
+    // Enabled extension objects.
+    RefPtr<OESTextureFloat> m_oesTextureFloat;
+
     // Helpers for getParameter and others
     WebGLGetInfo getBooleanParameter(unsigned long pname);
     WebGLGetInfo getBooleanArrayParameter(unsigned long pname);
@@ -488,6 +501,9 @@ public:
     // is valid.
     bool isTexInternalFormatColorBufferCombinationValid(unsigned long texInternalFormat,
                                                         unsigned long colorBufferFormat);
+
+    // Helper function to get the bound framebuffer's color buffer format.
+    unsigned long getBoundFramebufferColorFormat();
 
     // Helper function to check target and texture bound to the target.
     // Generate GL errors and return 0 if target is invalid or texture bound is

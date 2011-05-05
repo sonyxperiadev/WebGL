@@ -24,13 +24,14 @@
 #include "SVGStyledTransformableElement.h"
 
 #include "AffineTransform.h"
-#include "Attr.h"
+#include "Attribute.h"
 #include "RenderSVGPath.h"
-#include "SVGDocument.h"
-#include "SVGStyledElement.h"
-#include "SVGTransformList.h"
+#include "SVGNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGStyledTransformableElement, SVGNames::transformAttr, Transform, transform)
 
 SVGStyledTransformableElement::SVGStyledTransformableElement(const QualifiedName& tagName, Document* document)
     : SVGStyledLocatableElement(tagName, document)

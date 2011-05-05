@@ -104,9 +104,10 @@ public:
     virtual void updateSpellingUIWithMisspelledWord(const String&);
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
-    virtual void getGuessesForWord(const String&, Vector<String>& guesses);
+    virtual void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
+    virtual void requestCheckingOfString(SpellChecker*, int, const String&) {}
 
     bool isEditing() const;
 

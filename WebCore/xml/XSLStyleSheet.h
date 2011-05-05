@@ -79,8 +79,7 @@ public:
 
     CachedResourceLoader* cachedResourceLoader();
 
-    Document* ownerDocument();
-    XSLStyleSheet* parentStyleSheet() const { return m_parentStyleSheet; }
+    Document* ownerDocument() { return m_ownerDocument; }
     void setParentStyleSheet(XSLStyleSheet* parent);
 
 #if USE(QXMLQUERY)

@@ -33,6 +33,7 @@
 #include "EditingBehavior.h"
 #include "EditorDeleteAction.h"
 #include "EditorInsertAction.h"
+#include "FindOptions.h"
 #include "SelectionController.h"
 
 #if PLATFORM(MAC) && !defined(__OBJC__)
@@ -54,6 +55,7 @@ class HitTestResult;
 class KillRing;
 class Pasteboard;
 class SimpleFontData;
+class SpellChecker;
 class Text;
 class TextEvent;
 
@@ -299,6 +301,7 @@ public:
     VisibleSelection selectionForCommand(Event*);
 
     KillRing* killRing() const { return m_killRing.get(); }
+    SpellChecker* spellChecker() const { return m_spellChecker.get(); }
 
     EditingBehavior behavior() const;
 
@@ -307,13 +310,13 @@ public:
     // We should make these functions private when their callers in Frame are moved over here to Editor
     bool insideVisibleArea(const IntPoint&) const;
     bool insideVisibleArea(Range*) const;
-    PassRefPtr<Range> nextVisibleRange(Range*, const String&, bool forward, bool caseFlag, bool wrapFlag);
 
     void addToKillRing(Range*, bool prepend);
 
     void handleCancelOperation();
     void startCorrectionPanelTimer(CorrectionPanelInfo::PanelType);
-    void handleRejectedCorrection();
+    // If user confirmed a correction in the correction panel, correction has non-zero length, otherwise it means that user has dismissed the panel.
+    void handleCorrectionPanelResult(const String& correction);
     bool isShowingCorrectionPanel();
 
     void pasteAsFragment(PassRefPtr<DocumentFragment>, bool smartReplace, bool matchStyle);
@@ -328,6 +331,8 @@ public:
     Node* findEventTargetFrom(const VisibleSelection& selection) const;
 
     String selectedText() const;
+    bool findString(const String&, FindOptions);
+    // FIXME: Switch callers over to the FindOptions version and retire this one.
     bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
 
     const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
@@ -344,7 +349,8 @@ public:
 
     RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
 
-    unsigned countMatchesForText(const String&, bool caseFlag, unsigned limit, bool markMatches);
+    unsigned countMatchesForText(const String&, FindOptions, unsigned limit, bool markMatches);
+    unsigned countMatchesForText(const String&, Range*, FindOptions, unsigned limit, bool markMatches);
     bool markedTextMatchesAreHighlighted() const;
     void setMarkedTextMatchesAreHighlighted(bool);
 
@@ -360,6 +366,8 @@ public:
 #if PLATFORM(MAC)
     NSDictionary* fontAttributesForSelectionStart() const;
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
+    bool canCopyExcludingStandaloneImages();
+    void takeFindStringFromSelection();
 #endif
 
     bool selectionStartHasSpellingMarkerFor(int from, int length) const;
@@ -379,7 +387,9 @@ private:
     bool m_shouldStyleWithCSS;
     OwnPtr<KillRing> m_killRing;
     CorrectionPanelInfo m_correctionPanelInfo;
+    OwnPtr<SpellChecker> m_spellChecker;
     Timer<Editor> m_correctionPanelTimer;
+    bool m_correctionPanelIsDismissedByEditor;
     VisibleSelection m_mark;
     bool m_areMarkedTextMatchesHighlighted;
 
@@ -398,15 +408,16 @@ private:
     void confirmComposition(const String&, bool preserveSelection);
     void setIgnoreCompositionSelectionChange(bool ignore);
 
-    PassRefPtr<Range> firstVisibleRange(const String&, bool caseFlag);
-    PassRefPtr<Range> lastVisibleRange(const String&, bool caseFlag);
+    PassRefPtr<Range> firstVisibleRange(const String&, FindOptions);
+    PassRefPtr<Range> lastVisibleRange(const String&, FindOptions);
+    PassRefPtr<Range> nextVisibleRange(Range*, const String&, FindOptions);
 
     void changeSelectionAfterCommand(const VisibleSelection& newSelection, bool closeTyping, bool clearTypingStyle);
     void correctionPanelTimerFired(Timer<Editor>*);
     Node* findEventTargetFromSelection() const;
     void stopCorrectionPanelTimer();
-    void dismissCorrectionPanel(CorrectionWasRejectedOrNot);
-    void applyCorrectionPanelInfo(bool addCorrectionIndicatorMarker);
+    void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel);
+    void applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd);
 };
 
 inline void Editor::setStartNewKillRingSequence(bool flag)

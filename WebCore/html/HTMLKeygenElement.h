@@ -36,10 +36,10 @@ private:
     HTMLKeygenElement(const QualifiedName&, Document*, HTMLFormElement*);
 
     virtual const AtomicString& formControlType() const;
-    virtual bool isEnumeratable() const { return false; }
     virtual void parseMappedAttribute(Attribute*);
     virtual bool appendFormData(FormDataList&, bool);
 
+    virtual bool willValidate() const { return false; }
     virtual bool isOptionalFormControl() const { return false; }
 
     AtomicString m_challenge;

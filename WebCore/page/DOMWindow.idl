@@ -486,7 +486,15 @@ module window {
         attribute CanvasGradientConstructor CanvasGradient;
         attribute CanvasRenderingContext2DConstructor CanvasRenderingContext2D;
         attribute ImageDataConstructor ImageData;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLActiveInfoConstructor WebGLActiveInfo;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLBufferConstructor WebGLBuffer;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLFramebufferConstructor WebGLFramebuffer;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLProgramConstructor WebGLProgram;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLRenderbufferConstructor WebGLRenderbuffer;
         attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLRenderingContextConstructor WebGLRenderingContext;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLShaderConstructor WebGLShader;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLTextureConstructor WebGLTexture;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUniformLocationConstructor WebGLUniformLocation;
         attribute TextMetricsConstructor TextMetrics;
 
         attribute DOMStringMapConstructor DOMStringMap;
@@ -500,6 +508,9 @@ module window {
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Uint32ArrayConstructor Uint32Array; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] DataViewConstructor DataView; // Usable with new operator
+
+        attribute [JSCCustomGetter,Conditional=WEB_AUDIO] AudioContextConstructor webkitAudioContext; // Usable with new operator
+        attribute [Conditional=WEB_AUDIO] AudioPannerNodeConstructor webkitAudioPannerNode; // Needed for panning model constants
 
         attribute EventConstructor Event;
         attribute BeforeLoadEventConstructor BeforeLoadEvent;

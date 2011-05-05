@@ -318,7 +318,6 @@ void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Just add it...
         children->insertChildNode(this, newChild, beforeChild);
     }
-    RenderCounter::rendererSubtreeAttached(newChild);
     if (newChild->isText() && newChild->style()->textTransform() == CAPITALIZE) {
         RefPtr<StringImpl> textToTransform = toRenderText(newChild)->originalText();
         if (textToTransform)
@@ -535,18 +534,6 @@ RenderLayer* RenderObject::enclosingLayer() const
     while (curr) {
         RenderLayer* layer = curr->hasLayer() ? toRenderBoxModelObject(curr)->layer() : 0;
         if (layer)
-            return layer;
-        curr = curr->parent();
-    }
-    return 0;
-}
-
-RenderLayer* RenderObject::enclosingSelfPaintingLayer() const
-{
-    const RenderObject* curr = this;
-    while (curr) {
-        RenderLayer* layer = curr->hasLayer() ? toRenderBoxModelObject(curr)->layer() : 0;
-        if (layer && layer->isSelfPaintingLayer())
             return layer;
         curr = curr->parent();
     }
@@ -959,8 +946,7 @@ void RenderObject::drawBoxSideFromPath(GraphicsContext* graphicsContext, IntRect
         lineDash.append(patWidth);
         lineDash.append(whiteSpaceWidth);
         graphicsContext->setLineDash(lineDash, patWidth);
-        graphicsContext->addPath(borderPath);
-        graphicsContext->strokePath();
+        graphicsContext->strokePath(borderPath);
         return;
     }
     case DOUBLE: {
@@ -1609,7 +1595,7 @@ Color RenderObject::selectionBackgroundColor() const
     return color;
 }
 
-Color RenderObject::selectionForegroundColor() const
+Color RenderObject::selectionColor(int colorProperty) const
 {
     Color color;
     // If the element is unselectable, or we are only painting the selection,
@@ -1619,7 +1605,7 @@ Color RenderObject::selectionForegroundColor() const
         return color;
 
     if (RefPtr<RenderStyle> pseudoStyle = getUncachedPseudoStyle(SELECTION)) {
-        color = pseudoStyle->visitedDependentColor(CSSPropertyWebkitTextFillColor);
+        color = pseudoStyle->visitedDependentColor(colorProperty);
         if (!color.isValid())
             color = pseudoStyle->visitedDependentColor(CSSPropertyColor);
     } else
@@ -1628,6 +1614,16 @@ Color RenderObject::selectionForegroundColor() const
                 theme()->inactiveSelectionForegroundColor();
 
     return color;
+}
+
+Color RenderObject::selectionForegroundColor() const
+{
+    return selectionColor(CSSPropertyWebkitTextFillColor);
+}
+
+Color RenderObject::selectionEmphasisMarkColor() const
+{
+    return selectionColor(CSSPropertyWebkitTextEmphasisColor);
 }
 
 #if ENABLE(DRAG_SUPPORT)

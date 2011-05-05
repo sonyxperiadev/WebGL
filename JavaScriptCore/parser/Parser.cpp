@@ -33,12 +33,16 @@
 
 namespace JSC {
 
-void Parser::parse(JSGlobalObject* lexicalGlobalObject, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode mode, int* errLine, UString* errMsg)
+void Parser::parse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode mode, int* errLine, UString* errMsg)
 {
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
 #endif
     ASSERT(lexicalGlobalObject);
+=======
+    ASSERT(globalData);
+>>>>>>> webkit.org at r74534 (trunk)
     m_sourceElements = 0;
 
     int defaultErrLine;
@@ -52,10 +56,10 @@ void Parser::parse(JSGlobalObject* lexicalGlobalObject, FunctionParameters* para
     *errLine = -1;
     *errMsg = UString();
 
-    Lexer& lexer = *lexicalGlobalObject->globalData().lexer;
+    Lexer& lexer = *globalData->lexer;
     lexer.setCode(*m_source, m_arena);
 
-    int parseError = jsParse(lexicalGlobalObject, parameters, strictness, mode, m_source);
+    int parseError = jsParse(globalData, parameters, strictness, mode, m_source);
     int lineNumber = lexer.lineNumber();
     bool lexError = lexer.sawError();
     lexer.clear();

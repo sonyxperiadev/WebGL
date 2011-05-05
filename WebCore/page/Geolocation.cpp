@@ -222,7 +222,6 @@ Geolocation::Geolocation(Frame* frame)
     , m_service(GeolocationService::create(this))
 #endif
     , m_allowGeolocation(Unknown)
-    , m_positionCache(new GeolocationPositionCache)
 {
     if (!m_frame)
         return;
@@ -236,8 +235,13 @@ Geolocation::~Geolocation()
 
 void Geolocation::disconnectFrame()
 {
-    if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
+    if (m_frame && m_frame->page() && m_allowGeolocation == InProgress) {
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+        m_frame->page()->geolocationController()->cancelPermissionRequest(this);
+#else
         m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
+#endif
+    }
     cancelAllRequests();
     stopUpdating();
     if (m_frame && m_frame->document())
@@ -356,7 +360,7 @@ void Geolocation::makeCachedPositionCallbacks()
     GeoNotifierSet::const_iterator end = m_requestsAwaitingCachedPosition.end();
     for (GeoNotifierSet::const_iterator iter = m_requestsAwaitingCachedPosition.begin(); iter != end; ++iter) {
         GeoNotifier* notifier = iter->get();
-        notifier->runSuccessCallback(m_positionCache->cachedPosition());
+        notifier->runSuccessCallback(m_positionCache.cachedPosition());
 
         // If this is a one-shot request, stop it. Otherwise, if the watch still
         // exists, start the service to get updates.
@@ -387,14 +391,14 @@ void Geolocation::requestTimedOut(GeoNotifier* notifier)
 
 bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
 {
-    if (!m_positionCache->cachedPosition())
+    if (!m_positionCache.cachedPosition())
         return false;
     if (!options->hasMaximumAge())
         return true;
     if (!options->maximumAge())
         return false;
     DOMTimeStamp currentTimeMillis = convertSecondsToDOMTimeStamp(currentTime());
-    return m_positionCache->cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
+    return m_positionCache.cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
 }
 
 void Geolocation::clearWatch(int watchId)
@@ -599,13 +603,17 @@ void Geolocation::requestPermission()
 
     m_allowGeolocation = InProgress;
 
-    // Ask the chrome: it maintains the geolocation challenge policy itself.
+    // Ask the embedder: it maintains the geolocation challenge policy itself.
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    page->geolocationController()->requestPermission(this);
+#else
     page->chrome()->requestGeolocationPermissionForFrame(m_frame, this);
+#endif
 }
 
 void Geolocation::positionChangedInternal()
 {
-    m_positionCache->setCachedPosition(lastPosition());
+    m_positionCache.setCachedPosition(lastPosition());
 
     // Stop all currently running timers.
     stopTimers();

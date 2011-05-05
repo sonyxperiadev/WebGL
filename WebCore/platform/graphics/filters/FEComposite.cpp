@@ -97,23 +97,66 @@ void FEComposite::setK4(float k4)
     m_k4 = k4;
 }
 
-inline void arithmetic(const ByteArray* srcPixelArrayA, ByteArray* srcPixelArrayB,
-                       float k1, float k2, float k3, float k4)
+template <int b1, int b2, int b3, int b4>
+inline void computeArithmeticPixels(unsigned char* source, unsigned char* destination, int pixelArrayLength,
+                                    float k1, float k2, float k3, float k4)
 {
-    float scaledK1 = k1 / 255.f;
-    float scaledK4 = k4 * 255.f;
-    unsigned pixelArrayLength = srcPixelArrayA->length();
-    for (unsigned pixelOffset = 0; pixelOffset < pixelArrayLength; pixelOffset += 4) {
-        for (unsigned channel = 0; channel < 4; ++channel) {
-            unsigned char i1 = srcPixelArrayA->get(pixelOffset + channel);
-            unsigned char i2 = srcPixelArrayB->get(pixelOffset + channel);
+    float scaledK4;
+    float scaledK1;
+    if (b1)
+        scaledK1 = k1 / 255.f;
+    if (b4)
+        scaledK4 = k4 * 255.f;
 
-            double result = scaledK1 * i1 * i2 + k2 * i1 + k3 * i2 + scaledK4;
-            srcPixelArrayB->set(pixelOffset + channel, result);
-        }
+    while (--pixelArrayLength >= 0) {
+        unsigned char i1 = *source;
+        unsigned char i2 = *destination;
+        float result = 0;
+        if (b1)
+            result += scaledK1 * i1 * i2;
+        if (b2)
+            result += k2 * i1;
+        if (b3)
+            result += k3 * i2;
+        if (b4)
+            result += scaledK4;
+
+        if (result <= 0)
+            *destination = 0;
+        else if (result >= 255)
+            *destination = 255;
+        else
+            *destination = result;
+        ++source;
+        ++destination;
     }
 }
-    
+
+inline void arithmetic(ByteArray* srcPixelArrayA, ByteArray* srcPixelArrayB,
+                       float k1, float k2, float k3, float k4)
+{
+    int pixelArrayLength = srcPixelArrayA->length();
+    ASSERT(pixelArrayLength == static_cast<int>(srcPixelArrayB->length()));
+    unsigned char* source = srcPixelArrayA->data();
+    unsigned char* destination = srcPixelArrayB->data();
+
+    if (!k4) {
+        if (!k1) {
+            computeArithmeticPixels<0, 1, 1, 0>(source, destination, pixelArrayLength, k1, k2, k3, k4);
+            return;
+        }
+
+        computeArithmeticPixels<1, 1, 1, 0>(source, destination, pixelArrayLength, k1, k2, k3, k4);
+        return;
+    }
+
+    if (!k1) {
+        computeArithmeticPixels<0, 1, 1, 1>(source, destination, pixelArrayLength, k1, k2, k3, k4);
+        return;
+    }
+    computeArithmeticPixels<1, 1, 1, 1>(source, destination, pixelArrayLength, k1, k2, k3, k4);
+}
+
 void FEComposite::determineAbsolutePaintRect()
 {
     switch (m_type) {
@@ -137,53 +180,58 @@ void FEComposite::determineAbsolutePaintRect()
 
 void FEComposite::apply()
 {
+    if (hasResult())
+        return;
     FilterEffect* in = inputEffect(0);
     FilterEffect* in2 = inputEffect(1);
     in->apply();
     in2->apply();
-    if (!in->resultImage() || !in2->resultImage())
+    if (!in->hasResult() || !in2->hasResult())
         return;
 
-    GraphicsContext* filterContext = effectContext();
-    if (!filterContext)
+    if (m_type == FECOMPOSITE_OPERATOR_ARITHMETIC) {
+        ImageData* resultImage = createPremultipliedImageResult();
+        if (!resultImage)
+            return;
+
+        IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
+        RefPtr<ImageData> srcImageData = in->asPremultipliedImage(effectADrawingRect);
+
+        IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
+        in2->copyPremultipliedImage(resultImage, effectBDrawingRect);
+
+        arithmetic(srcImageData->data()->data(), resultImage->data()->data(), m_k1, m_k2, m_k3, m_k4);
         return;
+    }
+
+    ImageBuffer* resultImage = createImageBufferResult();
+    if (!resultImage)
+        return;
+    GraphicsContext* filterContext = resultImage->context();
 
     FloatRect srcRect = FloatRect(0, 0, -1, -1);
     switch (m_type) {
     case FECOMPOSITE_OPERATOR_OVER:
-        filterContext->drawImageBuffer(in2->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
-        filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
+        filterContext->drawImageBuffer(in2->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
         break;
     case FECOMPOSITE_OPERATOR_IN:
         filterContext->save();
-        filterContext->clipToImageBuffer(in2->resultImage(), drawingRegionOfInputImage(in2->absolutePaintRect()));
-        filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
+        filterContext->clipToImageBuffer(in2->asImageBuffer(), drawingRegionOfInputImage(in2->absolutePaintRect()));
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
         filterContext->restore();
         break;
     case FECOMPOSITE_OPERATOR_OUT:
-        filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
-        filterContext->drawImageBuffer(in2->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()), srcRect, CompositeDestinationOut);
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
+        filterContext->drawImageBuffer(in2->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()), srcRect, CompositeDestinationOut);
         break;
     case FECOMPOSITE_OPERATOR_ATOP:
-        filterContext->drawImageBuffer(in2->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
-        filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()), srcRect, CompositeSourceAtop);
+        filterContext->drawImageBuffer(in2->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()), srcRect, CompositeSourceAtop);
         break;
     case FECOMPOSITE_OPERATOR_XOR:
-        filterContext->drawImageBuffer(in2->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
-        filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()), srcRect, CompositeXOR);
-        break;
-    case FECOMPOSITE_OPERATOR_ARITHMETIC: {
-        IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-        RefPtr<ImageData> srcImageData = in->resultImage()->getPremultipliedImageData(effectADrawingRect);
-        ByteArray* srcPixelArrayA = srcImageData->data()->data();
-
-        IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
-        RefPtr<ImageData> imageData = in2->resultImage()->getPremultipliedImageData(effectBDrawingRect);
-        ByteArray* srcPixelArrayB = imageData->data()->data();
-
-        arithmetic(srcPixelArrayA, srcPixelArrayB, m_k1, m_k2, m_k3, m_k4);
-        resultImage()->putPremultipliedImageData(imageData.get(), IntRect(IntPoint(), resultImage()->size()), IntPoint());
-        }
+        filterContext->drawImageBuffer(in2->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in2->absolutePaintRect()));
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()), srcRect, CompositeXOR);
         break;
     default:
         break;

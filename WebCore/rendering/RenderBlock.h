@@ -55,7 +55,6 @@ public:
     RenderObjectChildList* children() { return &m_children; }
 
     virtual void destroy();
-    bool beingDestroyed() const { return m_beingDestroyed; }
 
     // These two functions are overridden for inline-block.
     virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
@@ -72,7 +71,7 @@ public:
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0);
     virtual void removeChild(RenderObject*);
 
-    virtual void layoutBlock(bool relayoutChildren, int pageHeight = 0);
+    virtual void layoutBlock(bool relayoutChildren, int pageLogicalHeight = 0);
 
     void insertPositionedObject(RenderBox*);
     void removePositionedObject(RenderBox*);
@@ -99,11 +98,6 @@ public:
     int availableLogicalWidthForLine(int position, bool firstLine) const;
     int logicalRightOffsetForLine(int position, bool firstLine) const { return logicalRightOffsetForLine(position, logicalRightOffsetForContent(), firstLine); }
     int logicalLeftOffsetForLine(int position, bool firstLine) const { return logicalLeftOffsetForLine(position, logicalLeftOffsetForContent(), firstLine); }
-
-    virtual int topmostPosition(bool includeOverflowInterior = true, bool includeSelf = true, ApplyTransform = IncludeTransform) const;
-    virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true, ApplyTransform = IncludeTransform) const;
-    virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true, ApplyTransform = IncludeTransform) const;
-    virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true, ApplyTransform = IncludeTransform) const;
     
     virtual VisiblePosition positionForPoint(const IntPoint&);
     
@@ -159,9 +153,12 @@ public:
     IntRect columnRectAt(ColumnInfo*, unsigned) const;
 
     int paginationStrut() const { return m_rareData ? m_rareData->m_paginationStrut : 0; }
-    int pageY() const { return m_rareData ? m_rareData->m_pageY : 0; }
-    void setPaginationStrut(int strut);
-    void setPageY(int y);
+    void setPaginationStrut(int);
+    
+    // The page logical offset is the object's offset from the top of the page in the page progression
+    // direction (so an x-offset in vertical text and a y-offset for horizontal text).
+    int pageLogicalOffset() const { return m_rareData ? m_rareData->m_pageLogicalOffset : 0; }
+    void setPageLogicalOffset(int);
 
     // Accessors for logical width/height and margins in the containing block's block-flow direction.
     enum ApplyLayoutDeltaMode { ApplyLayoutDelta, DoNotApplyLayoutDelta };
@@ -209,6 +206,8 @@ public:
         int m_negativeMarginAfter;
     };
     MarginValues marginValuesForChild(RenderBox* child);
+
+    virtual void scrollbarsChanged(bool /*horizontalScrollbarChanged*/, bool /*verticalScrollbarChanged*/) { };
 
 protected:
     // These functions are only used internally to manipulate the render tree structure via remove/insert/appendChildNode.
@@ -287,6 +286,13 @@ protected:
     virtual bool hasLineIfEmpty() const;
     bool layoutOnlyPositionedObjects();
 
+    void computeOverflow(int oldClientAfterEdge, bool recomputeFloats = false);
+    virtual void addOverflowFromChildren();
+    void addOverflowFromFloats();
+    void addOverflowFromPositionedObjects();
+    void addOverflowFromBlockChildren();
+    void addOverflowFromInlineChildren();
+
 #if ENABLE(SVG)
 protected:
 
@@ -298,8 +304,6 @@ protected:
         layoutInlineChildren(true, repaintLogicalTop, repaintLogicalBottom);
     }
 #endif
-
-    void addOverflowFromBlockChildren();
 
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
@@ -330,8 +334,6 @@ private:
 
     void layoutBlockChildren(bool relayoutChildren, int& maxFloatLogicalBottom);
     void layoutInlineChildren(bool relayoutChildren, int& repaintLogicalTop, int& repaintLogicalBottom);
-
-    virtual void positionListMarker() { }
 
     virtual void borderFitAdjust(int& x, int& w) const; // Shrink the box in which the border paints if border-fit is set.
 
@@ -464,14 +466,11 @@ private:
     void computeBlockDirectionPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void deleteEllipsisLineBoxes();
     void checkLinesForTextOverflow();
-    void addOverflowFromInlineChildren();
-    int beforeSideVisibleOverflowForLine(RootInlineBox*) const;
-    int afterSideVisibleOverflowForLine(RootInlineBox*) const;
+    int beforeSideVisualOverflowForLine(RootInlineBox*) const;
+    int afterSideVisualOverflowForLine(RootInlineBox*) const;
     int beforeSideLayoutOverflowForLine(RootInlineBox*) const;
     int afterSideLayoutOverflowForLine(RootInlineBox*) const;
     // End of functions defined in RenderBlockLineLayout.cpp.
-
-    void addOverflowFromFloats();
 
     void paintFloats(PaintInfo&, int tx, int ty, bool preservePhase = false);
     void paintContents(PaintInfo&, int tx, int ty);
@@ -571,7 +570,7 @@ private:
     void offsetForContents(int& tx, int& ty) const;
 
     void calcColumnWidth();
-    bool layoutColumns(bool hasSpecifiedPageHeight, int pageHeight, LayoutStateMaintainer&);
+    bool layoutColumns(bool hasSpecifiedPageLogicalHeight, int pageLogicalHeight, LayoutStateMaintainer&);
     void makeChildrenAnonymousColumnBlocks(RenderObject* beforeChild, RenderBlock* newBlockBox, RenderObject* newChild);
 
     bool expandsToEncloseOverhangingFloats() const;
@@ -686,7 +685,7 @@ private:
         RenderBlockRareData(const RenderBlock* block) 
             : m_margins(positiveMarginBeforeDefault(block), negativeMarginBeforeDefault(block), positiveMarginAfterDefault(block), negativeMarginAfterDefault(block))
             , m_paginationStrut(0)
-            , m_pageY(0)
+            , m_pageLogicalOffset(0)
         { 
         }
 
@@ -710,7 +709,7 @@ private:
         
         MarginValues m_margins;
         int m_paginationStrut;
-        int m_pageY;
+        int m_pageLogicalOffset;
      };
 
     OwnPtr<RenderBlockRareData> m_rareData;
@@ -718,8 +717,7 @@ private:
     RenderObjectChildList m_children;
     RenderLineBoxList m_lineBoxes;   // All of the root line boxes created for this block flow.  For example, <div>Hello<br>world.</div> will have two total lines for the <div>.
 
-    mutable int m_lineHeight : 31;
-    bool m_beingDestroyed : 1;
+    mutable int m_lineHeight;
 
     // RenderRubyBase objects need to be able to split and merge, moving their children around
     // (calling moveChildTo, moveAllChildrenTo, and makeChildrenNonInline).

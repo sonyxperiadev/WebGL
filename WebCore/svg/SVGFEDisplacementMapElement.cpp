@@ -23,8 +23,16 @@
 #include "SVGFEDisplacementMapElement.h"
 
 #include "Attribute.h"
+#include "SVGNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFEDisplacementMapElement, SVGNames::inAttr, In1, in1)
+DEFINE_ANIMATED_STRING(SVGFEDisplacementMapElement, SVGNames::in2Attr, In2, in2)
+DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::xChannelSelectorAttr, XChannelSelector, xChannelSelector)
+DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::yChannelSelectorAttr, YChannelSelector, yChannelSelector)    
+DEFINE_ANIMATED_NUMBER(SVGFEDisplacementMapElement, SVGNames::scaleAttr, Scale, scale)
 
 inline SVGFEDisplacementMapElement::SVGFEDisplacementMapElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -42,11 +50,11 @@ ChannelSelectorType SVGFEDisplacementMapElement::stringToChannel(const String& k
 {
     if (key == "R")
         return CHANNEL_R;
-    else if (key == "G")
+    if (key == "G")
         return CHANNEL_G;
-    else if (key == "B")
+    if (key == "B")
         return CHANNEL_B;
-    else if (key == "A")
+    if (key == "A")
         return CHANNEL_A;
 
     return CHANNEL_UNKNOWN;

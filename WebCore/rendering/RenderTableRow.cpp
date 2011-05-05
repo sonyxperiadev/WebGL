@@ -73,9 +73,7 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
         if (!last)
             last = lastChild();
         if (last && last->isAnonymous() && last->isTableCell()) {
-            if (beforeChild == last)
-                beforeChild = last->firstChild();
-            last->addChild(child, beforeChild);
+            last->addChild(child, child->isBeforeContent() ? last->firstChild() : 0);
             return;
         }
 
@@ -124,7 +122,7 @@ void RenderTableRow::layout()
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableCell()) {
             RenderTableCell* cell = toRenderTableCell(child);
-            if (!cell->needsLayout() && paginated && view()->layoutState()->m_pageHeight && view()->layoutState()->pageY(cell->y()) != cell->pageY())
+            if (!cell->needsLayout() && paginated && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->y()) != cell->pageLogicalOffset())
                 cell->setChildNeedsLayout(true, false);
 
             if (child->needsLayout()) {
@@ -147,6 +145,7 @@ void RenderTableRow::layout()
     }
 
     statePusher.pop();
+    // RenderTableSection::layoutRows will set our logical height and width later, so it calls updateLayerTransform().
     setNeedsLayout(false);
 }
 

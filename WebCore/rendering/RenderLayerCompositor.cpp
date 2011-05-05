@@ -310,6 +310,14 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
                 repaintOnCompositingChange(layer);
 
             layer->ensureBacking();
+
+#if PLATFORM(MAC) && PLATFORM(CA)
+            if (layer->renderer()->isCanvas()) {
+                HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(layer->renderer()->node());
+                if (canvas->renderingContext() && canvas->renderingContext()->isAccelerated())
+                    layer->backing()->graphicsLayer()->setAcceleratesDrawing(true);
+            }
+#endif
             layerChanged = true;
         }
     } else {
@@ -1108,18 +1116,19 @@ void RenderLayerCompositor::willMoveOffscreen()
 
 void RenderLayerCompositor::updateRootLayerPosition()
 {
-    // Eventually we will need to account for scrolling here.
-    // https://bugs.webkit.org/show_bug.cgi?id=38518
-    if (m_rootPlatformLayer)
-        m_rootPlatformLayer->setSize(FloatSize(m_renderView->rightLayoutOverflow(), m_renderView->bottomLayoutOverflow()));
+    if (m_rootPlatformLayer) {
+        m_rootPlatformLayer->setSize(FloatSize(m_renderView->docWidth(), m_renderView->docHeight()));
+        m_rootPlatformLayer->setPosition(FloatPoint(m_renderView->docLeft(), m_renderView->docTop()));
+    }
 }
 
-void RenderLayerCompositor::didStartAcceleratedAnimation()
+void RenderLayerCompositor::didStartAcceleratedAnimation(CSSPropertyID property)
 {
     // If an accelerated animation or transition runs, we have to turn off overlap checking because
     // we don't do layout for every frame, but we have to ensure that the layering is
     // correct between the animating object and other objects on the page.
-    setCompositingConsultsOverlap(false);
+    if (property == CSSPropertyWebkitTransform)
+        setCompositingConsultsOverlap(false);
 }
 
 bool RenderLayerCompositor::has3DContent() const

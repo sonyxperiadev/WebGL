@@ -26,7 +26,6 @@
 
 package CodeGeneratorV8;
 
-use File::stat;
 use Digest::MD5;
 
 my $module = "";
@@ -202,7 +201,8 @@ sub GetSVGPropertyTypes
         $implIncludes{"SVGAnimatedPropertyTearOff.h"} = 1;
     } elsif ($svgNativeType =~ /SVGListPropertyTearOff/ or $svgNativeType =~ /SVGStaticListPropertyTearOff/) {
         $svgListPropertyType = $svgWrappedNativeType;
-        $implIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
+        $headerIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
+        $headerIncludes{"SVGStaticListPropertyTearOff.h"} = 1;
     } elsif ($svgNativeType =~ /SVGTransformListPropertyTearOff/) {
         $svgListPropertyType = $svgWrappedNativeType;
         $headerIncludes{"SVGAnimatedListPropertyTearOff.h"} = 1;
@@ -1267,9 +1267,9 @@ END
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         push(@implContentDecls, <<END);
-    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
+    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(args, $numParameters));
     size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;
-    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
+    RefPtr<ScriptCallStack> callStack(createScriptCallStack(maxStackSize));
     if (!callStack)
         return v8::Undefined();
 END
@@ -2529,7 +2529,6 @@ sub HasCustomToV8Implementation {
     # We don't generate a custom converter (but JSC does) for the following:
     return 0 if $interfaceName eq "AbstractWorker";
     return 0 if $interfaceName eq "CanvasRenderingContext";
-    return 0 if $interfaceName eq "ImageData";
     return 0 if $interfaceName eq "SVGElementInstance";
 
     # For everything else, do what JSC does.
@@ -2653,7 +2652,7 @@ sub GenerateFunctionCallString()
 
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         $functionString .= ", " if $index;
-        $functionString .= "scriptArguments.release(), callStack.release()";
+        $functionString .= "scriptArguments, callStack";
         $index += 2;
     }
 
@@ -2905,10 +2904,6 @@ sub JSValueToNative
         return "V8DOMWrapper::wrapNativeNodeFilter($value)";
     }
 
-    if ($type eq "SVGRect") {
-        $implIncludes{"FloatRect.h"} = 1;
-    }
-
     if ($type eq "MediaQueryListListener") {
         $implIncludes{"MediaQueryListListener.h"} = 1;
         return "MediaQueryListListener::create(" . $value . ")";
@@ -3090,9 +3085,16 @@ sub ReturnNativeToJSValue
     my $indent = shift;
     my $type = GetTypeFromSignature($signature);
 
-    return "return v8::Date::New(static_cast<double>($value))" if $type eq "DOMTimeStamp";
     return "return v8Boolean($value)" if $type eq "boolean";
     return "return v8::Handle<v8::Value>()" if $type eq "void";     # equivalent to v8::Undefined()
+
+    # HTML5 says that unsigned reflected attributes should be in the range
+    # [0, 2^31). When a value isn't in this range, a default value (or 0)
+    # should be returned instead.
+    if ($signature->extendedAttributes->{"Reflect"} and ($type eq "unsigned long" or $type eq "unsigned short")) {
+        $value =~ s/getUnsignedIntegralAttribute/getIntegralAttribute/g;
+        return "return v8::Integer::NewFromUnsigned(std::max(0, " . $value . "))";
+    }
 
     # For all the types where we use 'int' as the representation type,
     # we use Integer::New which has a fast Smi conversion check.
@@ -3102,7 +3104,7 @@ sub ReturnNativeToJSValue
 
     return "return v8DateOrNull($value)" if $type eq "Date";
     # long long and unsigned long long are not representable in ECMAScript.
-    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long";
+    return "return v8::Number::New(static_cast<double>($value))" if $type eq "long long" or $type eq "unsigned long long" or $type eq "DOMTimeStamp";
     return "return v8::Number::New($value)" if $codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType";
     return "return $value.v8Value()" if $nativeType eq "ScriptValue";
 

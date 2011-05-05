@@ -172,6 +172,7 @@ void SelectElement::updateListBoxSelection(SelectElementData& data, Element* ele
             optionElement->setSelectedState(cachedStateForActiveSelection[i]);
     }
 
+    toSelectElement(element)->updateValidity();
     scrollToSelection(data, element);
 }
 
@@ -453,6 +454,7 @@ void SelectElement::parseMultipleAttribute(SelectElementData& data, Element* ele
 {
     bool oldUsesMenuList = data.usesMenuList();
     data.setMultiple(!attribute->isNull());
+    toSelectElement(element)->updateValidity();
     if (oldUsesMenuList != data.usesMenuList() && element->attached()) {
         element->detach();
         element->attach();
@@ -493,7 +495,7 @@ void SelectElement::reset(SelectElementData& data, Element* element)
         if (!optionElement)
             continue;
 
-        if (!items[i]->getAttribute(HTMLNames::selectedAttr).isNull()) {
+        if (items[i]->fastHasAttribute(HTMLNames::selectedAttr)) {
             if (selectedOption && !data.multiple())
                 selectedOption->setSelectedState(false);
             optionElement->setSelectedState(true);

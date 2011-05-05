@@ -28,16 +28,17 @@
 #include "FloatRect.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGText.h"
-#include "SVGLengthList.h"
+#include "SVGNames.h"
 #include "SVGRenderStyle.h"
 #include "SVGTSpanElement.h"
-#include "SVGTransformList.h"
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGTextElement, SVGNames::transformAttr, Transform, transform)
+
 inline SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document* doc)
     : SVGTextPositioningElement(tagName, doc)
-    , SVGTransformable()
 {
 }
 
@@ -106,11 +107,15 @@ RenderObject* SVGTextElement::createRenderer(RenderArena* arena, RenderStyle*)
 bool SVGTextElement::childShouldCreateRenderer(Node* child) const
 {
     if (child->isTextNode()
+        || child->hasTagName(SVGNames::aTag)
 #if ENABLE(SVG_FONTS)
         || child->hasTagName(SVGNames::altGlyphTag)
 #endif
-        || child->hasTagName(SVGNames::tspanTag) || child->hasTagName(SVGNames::trefTag) || child->hasTagName(SVGNames::aTag) || child->hasTagName(SVGNames::textPathTag))
+        || child->hasTagName(SVGNames::textPathTag)
+        || child->hasTagName(SVGNames::trefTag)
+        || child->hasTagName(SVGNames::tspanTag))
         return true;
+
     return false;
 }
 

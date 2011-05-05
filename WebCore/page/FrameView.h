@@ -257,6 +257,9 @@ protected:
     virtual bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
 
+    virtual bool isVerticalDocument() const;
+    virtual bool isFlippedDocument() const;
+
 private:
     FrameView(Frame*);
 
@@ -312,6 +315,8 @@ private:
     virtual void updateScrollCorner();
     virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
 
+    void notifyWidgetsInAllFrames(WidgetNotification);
+    
     static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     IntSize m_size;

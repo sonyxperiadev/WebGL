@@ -44,18 +44,22 @@ namespace WebCore {
 struct CorrectionPanelInfo {
     enum PanelType {
         PanelTypeCorrection = 0,
-        PanelTypeReversion
+        PanelTypeReversion,
+        PanelTypeSpellingSuggestions
     };
 
-    RefPtr<Range> m_rangeToBeReplaced;
-    String m_replacedString;
-    String m_replacementString;
-    PanelType m_panelType;
-    bool m_isActive;
+    RefPtr<Range> rangeToBeReplaced;
+    String replacedString;
+    String replacementString;
+    PanelType panelType;
+    bool isActive;
 };
 
-enum CorrectionWasRejectedOrNot { CorrectionWasNotRejected, CorrectionWasRejected };
-
+enum ReasonForDismissingCorrectionPanel {
+    ReasonForDismissingCorrectionPanelCancelled = 0,
+    ReasonForDismissingCorrectionPanelIgnored,
+    ReasonForDismissingCorrectionPanelAccepted
+};
 } // namespace WebCore
 
 #endif // CorrectionPanelInfo_h

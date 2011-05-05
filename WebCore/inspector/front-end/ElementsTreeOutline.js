@@ -268,6 +268,7 @@ WebInspector.ElementsTreeOutline.prototype = {
         if (this.showInElementsPanelEnabled) {
             function focusElement()
             {
+                WebInspector.currentPanel = WebInspector.panels.elements;
                 WebInspector.panels.elements.focusedDOMNode = listItem.treeElement.representedObject;
             }
             contextMenu.appendItem(WebInspector.UIString("Reveal in Elements Panel"), focusElement.bind(this));
@@ -871,7 +872,11 @@ WebInspector.ElementsTreeElement.prototype = {
         // Remove zero-width spaces that were added by nodeTitleInfo.
         removeZeroWidthSpaceRecursive(attribute);
 
-        this._editing = WebInspector.startEditing(attribute, this._attributeEditingCommitted.bind(this), this._editingCancelled.bind(this), attributeName);
+        this._editing = WebInspector.startEditing(attribute, {
+            context: attributeName,
+            commitHandler: this._attributeEditingCommitted.bind(this),
+            cancelHandler: this._editingCancelled.bind(this)
+        });
         window.getSelection().setBaseAndExtent(elementForSelection, 0, elementForSelection, 1);
 
         return true;
@@ -882,7 +887,11 @@ WebInspector.ElementsTreeElement.prototype = {
         if (WebInspector.isBeingEdited(textNode))
             return true;
 
-        this._editing = WebInspector.startEditing(textNode, this._textNodeEditingCommitted.bind(this), this._editingCancelled.bind(this));
+        this._editing = WebInspector.startEditing(textNode, {
+            context: null,
+            commitHandler: this._textNodeEditingCommitted.bind(this),
+            cancelHandler: this._editingCancelled.bind(this)
+        });
         window.getSelection().setBaseAndExtent(textNode, 0, textNode, 1);
 
         return true;
@@ -925,7 +934,11 @@ WebInspector.ElementsTreeElement.prototype = {
 
         tagNameElement.addEventListener('keyup', keyupListener, false);
 
-        this._editing = WebInspector.startEditing(tagNameElement, editingComitted.bind(this), editingCancelled.bind(this), tagName);
+        this._editing = WebInspector.startEditing(tagNameElement, {
+            context: tagName,
+            commitHandler: editingComitted.bind(this),
+            cancelHandler: editingCancelled.bind(this)
+        });
         window.getSelection().setBaseAndExtent(tagNameElement, 0, tagNameElement, 1);
         return true;
     },
@@ -979,7 +992,12 @@ WebInspector.ElementsTreeElement.prototype = {
             this.updateSelection();
         }
 
-        this._editing = WebInspector.startEditing(this._htmlEditElement, commit.bind(this), dispose.bind(this), null, true);
+        this._editing = WebInspector.startEditing(this._htmlEditElement, {
+            context: null,
+            commitHandler: commit.bind(this),
+            cancelHandler: dispose.bind(this),
+            multiline: true
+        });
     },
 
     _attributeEditingCommitted: function(element, newText, oldText, attributeName, moveDirection)
@@ -1015,8 +1033,12 @@ WebInspector.ElementsTreeElement.prototype = {
             if (!found) {
                 if (moveDirection === "backward" && attributes.length > 0)
                     moveToAttribute = attributes[attributes.length - 1].name;
-                else if (moveDirection === "forward" && !/^\s*$/.test(newText))
-                    moveToNewAttribute = true;
+                else if (moveDirection === "forward") {
+                    if (!/^\s*$/.test(newText))
+                        moveToNewAttribute = true;
+                    else
+                        moveToTagName = true;
+                }
             }
         }
 
@@ -1094,8 +1116,10 @@ WebInspector.ElementsTreeElement.prototype = {
 
         function moveToNextAttributeIfNeeded()
         {
-            if (moveDirection !== "forward")
+            if (moveDirection !== "forward") {
+                this._addNewAttribute();
                 return;
+            }
 
             var attributes = this.representedObject.attributes;
             if (attributes.length > 0)

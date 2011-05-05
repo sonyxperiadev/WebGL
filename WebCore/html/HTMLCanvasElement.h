@@ -32,7 +32,7 @@
 #include "HTMLElement.h"
 #include "IntSize.h"
 
-#if PLATFORM(CHROMIUM)
+#if PLATFORM(CHROMIUM) || PLATFORM(QT)
 #define DefaultInterpolationQuality InterpolationMedium
 #elif PLATFORM(CG)
 #define DefaultInterpolationQuality InterpolationLow
@@ -65,8 +65,8 @@ public:
     static PassRefPtr<HTMLCanvasElement> create(const QualifiedName&, Document*);
     virtual ~HTMLCanvasElement();
 
-    void addObserver(CanvasObserver* observer);
-    void removeObserver(CanvasObserver* observer);
+    void addObserver(CanvasObserver*);
+    void removeObserver(CanvasObserver*);
 
     // Attributes and functions exposed to script
     int width() const { return size().width(); }
@@ -108,7 +108,7 @@ public:
 
     IntRect convertLogicalToDevice(const FloatRect&) const;
     IntSize convertLogicalToDevice(const FloatSize&) const;
-    IntPoint convertLogicalToDevice(const FloatPoint&) const;
+    IntSize convertToValidDeviceSize(float width, float height) const;
 
     const SecurityOrigin& securityOrigin() const;
     void setOriginTainted() { m_originClean = false; }

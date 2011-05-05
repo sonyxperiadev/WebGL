@@ -67,10 +67,10 @@ void FEColorMatrix::setValues(const Vector<float> &values)
 
 inline void matrix(double& red, double& green, double& blue, double& alpha, const Vector<float>& values)
 {
-    double r = values[0]  * red + values[1]  * green + values[2]  * blue + values[3]  * alpha;
-    double g = values[5]  * red + values[6]  * green + values[7]  * blue + values[8]  * alpha;
-    double b = values[10]  * red + values[11]  * green + values[12] * blue + values[13] * alpha;
-    double a = values[15] * red + values[16] * green + values[17] * blue + values[18] * alpha;
+    double r = values[0]  * red + values[1]  * green + values[2]  * blue + values[3]  * alpha + values[4] * 255;
+    double g = values[5]  * red + values[6]  * green + values[7]  * blue + values[8]  * alpha + values[9] * 255;
+    double b = values[10]  * red + values[11]  * green + values[12] * blue + values[13] * alpha + values[14] * 255;
+    double a = values[15] * red + values[16] * green + values[17] * blue + values[18] * alpha + values[19] * 255;
 
     red = r;
     green = g;
@@ -150,19 +150,21 @@ void effectType(ByteArray* pixelArray, const Vector<float>& values)
 
 void FEColorMatrix::apply()
 {
+    if (hasResult())
+        return;
     FilterEffect* in = inputEffect(0);
     in->apply();
-    if (!in->resultImage())
+    if (!in->hasResult())
         return;
 
-    GraphicsContext* filterContext = effectContext();
-    if (!filterContext)
+    ImageBuffer* resultImage = createImageBufferResult();
+    if (!resultImage)
         return;
 
-    filterContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
+    resultImage->context()->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
 
-    IntRect imageRect(IntPoint(), resultImage()->size());
-    RefPtr<ImageData> imageData = resultImage()->getUnmultipliedImageData(imageRect);
+    IntRect imageRect(IntPoint(), absolutePaintRect().size());
+    RefPtr<ImageData> imageData = resultImage->getUnmultipliedImageData(imageRect);
     ByteArray* pixelArray = imageData->data()->data();
 
     switch (m_type) {
@@ -183,7 +185,7 @@ void FEColorMatrix::apply()
             break;
     }
 
-    resultImage()->putUnmultipliedImageData(imageData.get(), imageRect, IntPoint());
+    resultImage->putUnmultipliedImageData(imageData.get(), imageRect, IntPoint());
 }
 
 void FEColorMatrix::dump()

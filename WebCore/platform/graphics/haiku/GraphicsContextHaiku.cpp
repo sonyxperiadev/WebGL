@@ -62,16 +62,14 @@ GraphicsContextPlatformPrivate::~GraphicsContextPlatformPrivate()
 {
 }
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(context))
+void GraphicsContext::platformInit(PlatformGraphicsContext* context)
 {
+    m_data = new GraphicsContextPlatformPrivate(context);
     setPaintingDisabled(!context);
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -132,7 +130,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     m_data->m_view->StrokeArc(rect, startAngle, angleSpan, getHaikuStrokeStyle());
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path&)
 {
     notImplemented();
 }
@@ -191,17 +189,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     // FillRect and FillArc calls are needed.
 }
 
-void GraphicsContext::fillPath()
-{
-    notImplemented();
-}
-
-void GraphicsContext::beginPath()
-{
-    notImplemented();
-}
-
-void GraphicsContext::addPath(const Path& path)
+void GraphicsContext::fillPath(const Path&)
 {
     notImplemented();
 }
@@ -355,7 +343,7 @@ void GraphicsContext::setAlpha(float opacity)
     notImplemented();
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
@@ -370,7 +358,7 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         mode = B_OP_OVER;
         break;
     default:
-        printf("GraphicsContext::setCompositeOperation: Unsupported composite operation %s\n",
+        printf("GraphicsContext::setPlatformCompositeOperation: Unsupported composite operation %s\n",
                 compositeOperatorName(op).utf8().data());
     }
     m_data->m_view->SetDrawingMode(mode);

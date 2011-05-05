@@ -36,6 +36,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "ShadowElement.h"
+#include "SliderThumbElement.h"
 #include "StepRange.h"
 #include <wtf/MathExtras.h>
 
@@ -60,6 +61,7 @@ static double sliderPosition(HTMLInputElement* element)
     return range.proportionFromValue(range.valueFromElement(element));
 }
 
+<<<<<<< HEAD
 class SliderThumbElement : public ShadowBlockElement {
 public:
     static PassRefPtr<SliderThumbElement> create(HTMLElement* shadowParent);
@@ -181,6 +183,8 @@ void SliderThumbElement::detach()
     ShadowBlockElement::detach();
 }
 
+=======
+>>>>>>> webkit.org at r74534 (trunk)
 RenderSlider::RenderSlider(HTMLInputElement* element)
     : RenderBlock(element)
 {
@@ -314,6 +318,7 @@ void RenderSlider::layout()
     setSize(baseSize);
     computeLogicalWidth();
     computeLogicalHeight();
+    updateLayerTransform();
 
     if (thumb) {
         if (oldSize != size())

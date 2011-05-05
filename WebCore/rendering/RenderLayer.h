@@ -260,14 +260,14 @@ public:
     // Scrolling methods for layers that can scroll their overflow.
     void scrollByRecursively(int xDelta, int yDelta);
 
-    IntSize scrolledContentOffset() const { return IntSize(scrollXOffset() + m_scrollLeftOverflow, scrollYOffset()); }
+    IntSize scrolledContentOffset() const { return IntSize(scrollXOffset() + m_scrollLeftOverflow, scrollYOffset() + m_scrollTopOverflow); }
 
-    int scrollXOffset() const { return m_scrollX + m_scrollOriginX; }
-    int scrollYOffset() const { return m_scrollY; }
+    int scrollXOffset() const { return m_scrollX + m_scrollOrigin.x(); }
+    int scrollYOffset() const { return m_scrollY + m_scrollOrigin.y(); }
 
     void scrollToOffset(int x, int y, bool updateScrollbars = true, bool repaint = true);
-    void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY); }
-    void scrollToYOffset(int y) { scrollToOffset(m_scrollX + m_scrollOriginX, y); }
+    void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY + m_scrollOrigin.y()); }
+    void scrollToYOffset(int y) { scrollToOffset(m_scrollX + m_scrollOrigin.x(), y); }
     void scrollRectToVisible(const IntRect&, bool scrollToAnchor = false, const ScrollAlignment& alignX = ScrollAlignment::alignCenterIfNeeded, const ScrollAlignment& alignY = ScrollAlignment::alignCenterIfNeeded);
 
     IntRect getRectToExpose(const IntRect& visibleRect, const IntRect& exposeRect, const ScrollAlignment& alignX, const ScrollAlignment& alignY);
@@ -314,7 +314,8 @@ public:
     
     // Notification from the renderer that its content changed (e.g. current frame of image changed).
     // Allows updates of layer content without repainting.
-    void rendererContentChanged();
+    enum ContentChangeType { ImageChanged, MaskImageChanged, CanvasChanged, VideoChanged };
+    void contentChanged(ContentChangeType);
 #endif
 
     // Returns true if the accelerated compositing is enabled
@@ -628,6 +629,11 @@ private:
     // Only safe to call from RenderBoxModelObject::destroyLayer(RenderArena*)
     void destroy(RenderArena*);
 
+    int overflowTop() const;
+    int overflowBottom() const;
+    int overflowLeft() const;
+    int overflowRight() const;
+
 protected:
     RenderBoxModelObject* m_renderer;
 
@@ -655,9 +661,22 @@ protected:
     // Our scroll offsets if the view is scrolled.
     int m_scrollX;
     int m_scrollY;
-    int m_scrollOriginX;        // only non-zero for rtl content
-    int m_scrollLeftOverflow;   // only non-zero for rtl content
-
+    
+    // There are 8 possible combinations of writing mode and direction.  Scroll origin (and its corresponding left/top overflow)
+    // will be non-zero in the x or y axis if there is any reversed direction or writing-mode.  The combinations are:
+    // writing-mode / direction     scrollOrigin.x() set    scrollOrigin.y() set
+    // horizontal-tb / ltr          NO                      NO
+    // horizontal-tb / rtl          YES                     NO
+    // horizontal-bt / ltr          NO                      YES
+    // horizontal-bt / rtl          YES                     YES
+    // vertical-lr / ltr            NO                      NO
+    // vertical-lr / rtl            NO                      YES
+    // vertical-rl / ltr            YES                     NO
+    // vertical-rl / rtl            YES                     YES
+    IntPoint m_scrollOrigin;
+    int m_scrollLeftOverflow;
+    int m_scrollTopOverflow;
+    
     // The width/height of our scrolled area.
     int m_scrollWidth;
     int m_scrollHeight;

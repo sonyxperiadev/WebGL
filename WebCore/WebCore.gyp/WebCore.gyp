@@ -39,7 +39,10 @@
   'conditions': [
     ['inside_chromium_build==0', {
       # Webkit is being built outside of the full chromium project.
-      'variables': {'chromium_src_dir': '../../WebKit/chromium'},
+      'variables': {
+        'chromium_src_dir': '../../WebKit/chromium',
+        'libjpeg_gyp_path': '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp',
+      },
     },{
       # WebKit is checked out in src/chromium/third_party/WebKit
       'variables': {'chromium_src_dir': '../../../..'},
@@ -130,6 +133,7 @@
       '../html',
       '../html/canvas',
       '../html/parser',
+      '../html/shadow',
       '../inspector',
       '../loader',
       '../loader/appcache',
@@ -143,6 +147,8 @@
       '../page/chromium',
       '../platform',
       '../platform/animation',
+      '../platform/audio',
+      '../platform/audio/chromium',
       '../platform/chromium',
       '../platform/graphics',
       '../platform/graphics/chromium',
@@ -179,6 +185,7 @@
       '../svg/graphics',
       '../svg/graphics/filters',
       '../svg/properties',
+      '../webaudio',
       '../websockets',
       '../workers',
       '../xml',
@@ -241,25 +248,24 @@
           # related directories.
           # platform/graphics/cg may need to stick around, though.
           '../loader/archive/cf',
+          '../platform/audio/mac',
           '../platform/graphics/mac',
           '../platform/mac',
           '../platform/text/mac',
         ],
-        # enable -Wall and -Werror, just for Mac and Linux builds for now
-        # FIXME: Also enable this for Windows after verifying no warnings
-        'chromium_code': 1,
       }],
-# FIXME: disabled for now due to failures on different gcc versions
-#     ['OS=="linux"', {
-#        'chromium_code': 1,
-#      }],
       ['OS=="win"', {
         'webcore_include_dirs': [
           '../page/win',
+          '../platform/audio/win',
           '../platform/graphics/win',
           '../platform/text/win',
           '../platform/win',
         ],
+      },{
+        # enable -Wall and -Werror, just for Mac and Linux builds for now
+        # FIXME: Also enable this for Windows after verifying no warnings
+        'chromium_code': 1,
       }],
       ['OS=="win" and buildtype=="Official"', {
         # On windows official release builds, we try to preserve symbol space.
@@ -277,7 +283,7 @@
           '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings/V8DerivedSources7.cpp',
           '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings/V8DerivedSources8.cpp',
         ],
-      }]
+      }],
     ],
   },
   'targets': [
@@ -682,6 +688,7 @@
               '--include', '../plugins',
               '--include', '../storage',
               '--include', '../svg',
+              '--include', '../webaudio',
               '--include', '../websockets',
               '--include', '../workers',
               '--include', '../xml',
@@ -721,13 +728,13 @@
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
         '<(chromium_src_dir)/third_party/iccjpeg/iccjpeg.gyp:iccjpeg',
-        '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
         '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
         '<(chromium_src_dir)/third_party/libxml/libxml.gyp:libxml',
         '<(chromium_src_dir)/third_party/libxslt/libxslt.gyp:libxslt',
         '<(chromium_src_dir)/third_party/libwebp/libwebp.gyp:libwebp',
         '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
         '<(chromium_src_dir)/third_party/sqlite/sqlite.gyp:sqlite',
+        '<(libjpeg_gyp_path):libjpeg',
       ],
       'include_dirs': [
         '<(INTERMEDIATE_DIR)',
@@ -819,6 +826,13 @@
             'include_dirs+++': ['../dom'],
           },
         }],
+        # FIXME: (kbr) ideally this target should just depend on webcore_prerequisites
+        # to pick up this include directory, but I'm nervous about making that change.
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
+          'include_dirs': [
+            '<(chromium_src_dir)/third_party/mkl/include',
+          ],
+        }],
       ],
     },
     {
@@ -833,7 +847,6 @@
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
         '<(chromium_src_dir)/third_party/iccjpeg/iccjpeg.gyp:iccjpeg',
-        '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
         '<(chromium_src_dir)/third_party/libwebp/libwebp.gyp:libwebp',
         '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
         '<(chromium_src_dir)/third_party/libxml/libxml.gyp:libxml',
@@ -842,6 +855,7 @@
         '<(chromium_src_dir)/third_party/ots/ots.gyp:ots',
         '<(chromium_src_dir)/third_party/sqlite/sqlite.gyp:sqlite',
         '<(chromium_src_dir)/third_party/angle/src/build_angle.gyp:translator_common',
+        '<(libjpeg_gyp_path):libjpeg',
       ],
       'export_dependent_settings': [
         'webcore_bindings',
@@ -850,7 +864,6 @@
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
         '<(chromium_src_dir)/third_party/iccjpeg/iccjpeg.gyp:iccjpeg',
-        '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
         '<(chromium_src_dir)/third_party/libwebp/libwebp.gyp:libwebp',
         '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
         '<(chromium_src_dir)/third_party/libxml/libxml.gyp:libxml',
@@ -859,6 +872,7 @@
         '<(chromium_src_dir)/third_party/ots/ots.gyp:ots',
         '<(chromium_src_dir)/third_party/sqlite/sqlite.gyp:sqlite',
         '<(chromium_src_dir)/third_party/angle/src/build_angle.gyp:translator_common',
+        '<(libjpeg_gyp_path):libjpeg',
       ],
       # This is needed for mac because of webkit_system_interface. It'd be nice
       # if this hard dependency could be split off the rest.
@@ -987,6 +1001,14 @@
           # by a system header on windows.
           'include_dirs++': ['../dom'],
         }],
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
+          # This directory needs to be on the include path for multiple sub-targets of webcore.
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '<(chromium_src_dir)/third_party/mkl/include',
+            ],
+          },
+        }],
       ],
     },
     {
@@ -1049,7 +1071,7 @@
         # Exclude things that don't apply to the Chromium platform on the basis
         # of their enclosing directories and tags at the ends of their
         # filenames.
-        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|opentype|posix|qt|soup|svg|symbian|win|wx)/'],
+        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
 
         # A few things can't be excluded by patterns.  List them individually.
@@ -1122,6 +1144,13 @@
             # Use native Mac font code from WebCore.
             ['include', 'platform/(graphics/)?mac/[^/]*Font[^/]*\\.(cpp|mm?)$'],
             ['include', 'platform/graphics/mac/ComplexText[^/]*\\.(cpp|h)$'],
+
+            # Necessary for web audio API bringup on Chrome.
+            # They will later be replaced with chromium-specific code.
+            ['include', 'platform/audio/mac/AudioBusMac\\.mm$'],
+            ['include', 'platform/audio/mac/AudioDestinationMac\\.cpp$'],
+            ['include', 'platform/audio/mac/AudioFileReaderMac\\.cpp$'],
+            ['include', 'platform/audio/mac/FFTFrameMac\\.cpp$'],
 
             # Cherry-pick some files that can't be included by broader regexps.
             # Some of these are used instead of Chromium platform files, see
@@ -1208,6 +1237,11 @@
         ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
           'sources/': [
             ['exclude', '/GeolocationService.*$'],
+          ],
+        }],
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
+          'sources/': [
+            ['include', 'platform/audio/mkl/FFTFrameMKL\\.cpp$'],
           ],
         }],
       ],
@@ -1342,6 +1376,11 @@
             ['exclude', 'rendering/RenderThemeChromiumSkia\\.cpp$'],
           ],
         }],
+        ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and gcc_version==42', {
+          # Due to a bug in gcc 4.2.1 (the current version on hardy), we get
+          # warnings about uninitialized this.7.
+          'cflags': ['-Wno-uninitialized'],
+        }],
         ['OS!="linux" and OS!="freebsd"', {
           'sources/': [
             ['exclude', '(Gtk|Linux)\\.cpp$'],
@@ -1385,6 +1424,13 @@
         ],
         'mac_framework_dirs': [
           '$(SDKROOT)/System/Library/Frameworks/ApplicationServices.framework/Frameworks',
+          '$(SDKROOT)/System/Library/Frameworks/Accelerate.framework',
+          '$(SDKROOT)/System/Library/Frameworks/CoreServices.framework',
+          '$(SDKROOT)/System/Library/Frameworks/Foundation.framework',
+          '$(SDKROOT)/System/Library/Frameworks/CoreFoundation.framework',
+          '$(SDKROOT)/System/Library/Frameworks/AudioToolbox.framework',
+          '$(SDKROOT)/System/Library/Frameworks/AudioUnit.framework',
+          '$(SDKROOT)/System/Library/Frameworks/CoreAudio.framework',
         ],
       },
       'conditions': [
@@ -1407,6 +1453,29 @@
         ['OS=="win"', {
           'direct_dependent_settings': {
             'include_dirs+++': ['../dom'],
+          },
+        }],
+        ['OS=="win" and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
+          # FIXME: (kbr) figure out how to make these dependencies
+          # work in a cross-platform way. Attempts to use
+          # "link_settings" and "libraries" in conjunction with the
+          # msvs-specific settings didn't work so far.
+          'all_dependent_settings': {
+            'msvs_settings': {
+              'VCLinkerTool': {
+                'AdditionalLibraryDirectories': [
+                  # This is a hack to make this directory correct
+                  # relative to targets like chrome_dll. Should use
+                  # <(chromium_src_dir).
+                  '../third_party/mkl/lib/win/ia32',
+                ],
+                'AdditionalDependencies': [
+                  'mkl_intel_c.lib',
+                  'mkl_sequential.lib',
+                  'mkl_core.lib',
+                ],
+              },
+            },
           },
         }],
         ['enable_svg!=0', {

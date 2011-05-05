@@ -25,8 +25,6 @@
 
 package CodeGeneratorJS;
 
-use File::stat;
-
 my $module = "";
 my $outputDir = "";
 my $writeDependencies = 0;
@@ -1908,9 +1906,9 @@ sub GenerateImplementation
                     my $hasOptionalArguments = 0;
 
                     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
-                        push(@implContent, "    OwnPtr<ScriptArguments> scriptArguments(createScriptArguments(exec, $numParameters));\n");
+                        push(@implContent, "    RefPtr<ScriptArguments> scriptArguments(createScriptArguments(exec, $numParameters));\n");
                         push(@implContent, "    size_t maxStackSize = imp->shouldCaptureFullStackTrace() ? ScriptCallStack::maxCallStackSizeToCapture : 1;\n");
-                        push(@implContent, "    OwnPtr<ScriptCallStack> callStack(createScriptCallStack(exec, maxStackSize));\n");
+                        push(@implContent, "    RefPtr<ScriptCallStack> callStack(createScriptCallStack(exec, maxStackSize));\n");
                         $implIncludes{"ScriptArguments.h"} = 1;
                         $implIncludes{"ScriptCallStack.h"} = 1;
                         $implIncludes{"ScriptCallStackFactory.h"} = 1;
@@ -2302,7 +2300,7 @@ sub GenerateImplementationFunctionCall()
     if ($function->signature->extendedAttributes->{"CustomArgumentHandling"}) {
         $functionString .= ", " if $paramIndex;
         $paramIndex += 2;
-        $functionString .= "scriptArguments.release(), callStack.release()";
+        $functionString .= "scriptArguments, callStack";
     }
 
     if (@{$function->raisesExceptions}) {
@@ -2499,6 +2497,12 @@ sub NativeToJSValue
     if ($type eq "Date") {
         return "jsDateOrNull(exec, $value)";
     }
+
+    if ($signature->extendedAttributes->{"Reflect"} and ($type eq "unsigned long" or $type eq "unsigned short")) {
+        $value =~ s/getUnsignedIntegralAttribute/getIntegralAttribute/g;
+        return "jsNumber(std::max(0, " . $value . "))";
+    }
+
     if ($codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType" or $type eq "DOMTimeStamp") {
         $implIncludes{"<runtime/JSNumberCell.h>"} = 1;
         return "jsNumber($value)";

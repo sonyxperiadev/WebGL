@@ -65,7 +65,7 @@ unsigned Shader::loadShader(GraphicsContext3D* context, unsigned type, const cha
     String shaderSourceStr(shaderSource);
     context->shaderSource(shader, shaderSourceStr);
     context->compileShader(shader);
-    int compileStatus;
+    int compileStatus = 0;
     context->getShaderiv(shader, GraphicsContext3D::COMPILE_STATUS, &compileStatus);
     if (!compileStatus) {
         String infoLog = context->getShaderInfoLog(shader);
@@ -91,7 +91,7 @@ unsigned Shader::loadProgram(GraphicsContext3D* context, const char* vertexShade
     context->attachShader(program, vertexShader);
     context->attachShader(program, fragmentShader);
     context->linkProgram(program);
-    int linkStatus;
+    int linkStatus = 0;
     context->getProgramiv(program, GraphicsContext3D::LINK_STATUS, &linkStatus);
     if (!linkStatus)
         context->deleteProgram(program);

@@ -20,17 +20,18 @@
  */
 
 #include "config.h"
+
 #if ENABLE(SVG) && ENABLE(SVG_ANIMATION)
 #include "SVGAnimateElement.h"
 
 #include "ColorDistance.h"
 #include "FloatConversion.h"
 #include "SVGColor.h"
+#include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGPathParserFactory.h"
 #include "SVGPathSegList.h"
 #include "SVGPointList.h"
-#include <math.h>
 
 using namespace std;
 
@@ -164,8 +165,9 @@ void SVGAnimateElement::calculateAnimatedValue(float percentage, unsigned repeat
             }
         }
         return;
-    } else if (m_propertyType == PointsProperty) {
-        if (percentage == 0)
+    }
+    if (m_propertyType == PointsProperty) {
+        if (!percentage)
             results->m_animatedPoints = m_fromPoints;
         else if (percentage == 1.f)
             results->m_animatedPoints = m_toPoints;
@@ -317,7 +319,8 @@ float SVGAnimateElement::calculateDistance(const String& fromString, const Strin
         if (!parseNumberValueAndUnit(toString, to, unit))
             return -1.f;
         return narrowPrecisionToFloat(fabs(to - from));
-    } else if (m_propertyType == ColorProperty) {
+    }
+    if (m_propertyType == ColorProperty) {
         Color from = SVGColor::colorFromRGBColorString(fromString);
         if (!from.isValid())
             return -1.f;

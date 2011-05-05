@@ -22,6 +22,7 @@
 #define SpatialNavigation_h
 
 #include "FocusDirection.h"
+#include "HTMLFrameOwnerElement.h"
 #include "IntRect.h"
 #include "Node.h"
 
@@ -31,6 +32,7 @@ namespace WebCore {
 
 class Element;
 class Frame;
+class HTMLAreaElement;
 class IntRect;
 class RenderObject;
 
@@ -99,7 +101,8 @@ enum RectsAlignment {
 
 struct FocusCandidate {
     FocusCandidate()
-        : node(0)
+        : visibleNode(0)
+        , focusableNode(0)
         , enclosingScrollableBox(0)
         , distance(maxDistance())
         , parentDistance(maxDistance())
@@ -111,11 +114,17 @@ struct FocusCandidate {
     }
 
     FocusCandidate(Node* n, FocusDirection);
-    bool isNull() const { return !node; }
-    bool inScrollableContainer() const { return node && enclosingScrollableBox; }
-    Document* document() const { return node ? node->document() : 0; }
+    explicit FocusCandidate(HTMLAreaElement* area, FocusDirection);
+    bool isNull() const { return !visibleNode; }
+    bool inScrollableContainer() const { return visibleNode && enclosingScrollableBox; }
+    bool isFrameOwnerElement() const { return visibleNode && visibleNode->isFrameOwnerElement(); }
+    Document* document() const { return visibleNode ? visibleNode->document() : 0; }
 
-    Node* node;
+    // We handle differently visibleNode and FocusableNode to properly handle the areas of imagemaps,
+    // where visibleNode would represent the image element and focusableNode would represent the area element.
+    // In all other cases, visibleNode and focusableNode are one and the same.
+    Node* visibleNode;
+    Node* focusableNode;
     Node* enclosingScrollableBox;
     long long distance;
     long long parentDistance;
@@ -126,19 +135,20 @@ struct FocusCandidate {
     bool isOffscreenAfterScrolling;
 };
 
+bool hasOffscreenRect(Node*, FocusDirection direction = FocusDirectionNone);
 bool scrollInDirection(Frame*, FocusDirection);
 bool scrollInDirection(Node* container, FocusDirection);
-bool hasOffscreenRect(Node*, FocusDirection direction = FocusDirectionNone);
-bool isScrollableContainerNode(const Node*);
-bool isNodeDeepDescendantOfDocument(Node*, Document*);
-Node* scrollableEnclosingBoxOrParentFrameForNodeInDirection(FocusDirection, Node* node);
 bool canScrollInDirection(FocusDirection, const Node* container);
 bool canScrollInDirection(FocusDirection, const Frame*);
+bool canBeScrolledIntoView(FocusDirection, const FocusCandidate&);
+void distanceDataForNode(FocusDirection, const FocusCandidate& current, FocusCandidate& candidate);
+Node* scrollableEnclosingBoxOrParentFrameForNodeInDirection(FocusDirection, Node*);
 IntRect nodeRectInAbsoluteCoordinates(Node*, bool ignoreBorder = false);
 IntRect frameRectInAbsoluteCoordinates(Frame*);
-void distanceDataForNode(FocusDirection, FocusCandidate& current, FocusCandidate& candidate);
-bool canBeScrolledIntoView(FocusDirection, const FocusCandidate&);
-IntRect virtualRectForDirection(FocusDirection, const IntRect& startingRect);
+IntRect virtualRectForDirection(FocusDirection, const IntRect& startingRect, int width = 0);
+IntRect virtualRectForAreaElementAndDirection(FocusDirection, HTMLAreaElement*);
+HTMLFrameOwnerElement* frameOwnerElement(FocusCandidate&);
+
 } // namspace WebCore
 
 #endif // SpatialNavigation_h

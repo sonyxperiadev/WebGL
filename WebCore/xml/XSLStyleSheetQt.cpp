@@ -29,12 +29,12 @@
 #include "Node.h"
 #include "NotImplemented.h"
 #include "XSLTProcessor.h"
-#include "loader.h"
 
 namespace WebCore {
 
 XSLStyleSheet::XSLStyleSheet(Node* parentNode, const String& originalURL, const KURL& finalURL,  bool embedded)
     : StyleSheet(parentNode, originalURL, finalURL)
+    , m_ownerDocument(parentNode->document())
     , m_embedded(embedded)
 {
 }
@@ -62,10 +62,9 @@ void XSLStyleSheet::clearDocuments()
 
 CachedResourceLoader* XSLStyleSheet::cachedResourceLoader()
 {
-    Document* document = ownerDocument();
-    if (!document)
+    if (!m_ownerDocument)
         return 0;
-    return document->cachedResourceLoader();
+    return m_ownerDocument->cachedResourceLoader();
 }
 
 bool XSLStyleSheet::parseString(const String& string, bool)
@@ -86,12 +85,6 @@ void XSLStyleSheet::loadChildSheets()
 void XSLStyleSheet::loadChildSheet(const String&)
 {
     notImplemented();
-}
-
-Document* XSLStyleSheet::ownerDocument()
-{
-    Node* node = ownerNode();
-    return node ? node->document() : 0;
 }
 
 void XSLStyleSheet::setParentStyleSheet(XSLStyleSheet*)

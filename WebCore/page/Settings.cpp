@@ -172,10 +172,11 @@ Settings::Settings(Page* page)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
     , m_paginateDuringLayoutEnabled(false)
-    , m_dnsPrefetchingEnabled(true)
+    , m_dnsPrefetchingEnabled(false)
 #if ENABLE(FULLSCREEN_API)
     , m_fullScreenAPIEnabled(false)
 #endif
+    , m_asynchronousSpellCheckingEnabled(false)
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
@@ -759,7 +760,11 @@ void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 
 void Settings::setDNSPrefetchingEnabled(bool dnsPrefetchingEnabled)
 {
+    if (m_dnsPrefetchingEnabled == dnsPrefetchingEnabled)
+        return;
+
     m_dnsPrefetchingEnabled = dnsPrefetchingEnabled;
+    m_page->dnsPrefetchingStateChanged();
 }
 
 void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)

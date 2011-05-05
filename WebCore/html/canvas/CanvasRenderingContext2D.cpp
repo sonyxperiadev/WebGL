@@ -144,7 +144,9 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D()
 
 bool CanvasRenderingContext2D::isAccelerated() const
 {
-#if ENABLE(ACCELERATED_2D_CANVAS)
+#if defined(USE_IOSURFACE)
+    return true;
+#elif ENABLE(ACCELERATED_2D_CANVAS)
     return m_context3D;
 #else
     return false;
@@ -813,9 +815,7 @@ void CanvasRenderingContext2D::fill()
         return;
 
     if (!m_path.isEmpty()) {
-        c->beginPath();
-        c->addPath(m_path);
-        c->fillPath();
+        c->fillPath(m_path);
         didDraw(m_path.boundingRect());
     }
 
@@ -833,9 +833,6 @@ void CanvasRenderingContext2D::stroke()
         return;
 
     if (!m_path.isEmpty()) {
-        c->beginPath();
-        c->addPath(m_path);
-
 #if PLATFORM(QT)
         // Fast approximation of the stroke's bounding rect.
         // This yields a slightly oversized rect but is very fast
@@ -846,7 +843,7 @@ void CanvasRenderingContext2D::stroke()
         CanvasStrokeStyleApplier strokeApplier(this);
         FloatRect boundingRect = m_path.strokeBoundingRect(&strokeApplier);
 #endif
-        c->strokePath();
+        c->strokePath(m_path);
         didDraw(boundingRect);
     }
 
@@ -1503,10 +1500,10 @@ void CanvasRenderingContext2D::didDraw(const FloatRect& r, unsigned options)
         drawingContext()->markDirtyRect(enclosingIntRect(dirtyRect));
 #endif
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
-    // If we are drawing to hardware and we have a composited layer, just call rendererContentChanged().
+    // If we are drawing to hardware and we have a composited layer, just call contentChanged().
     RenderBox* renderBox = canvas()->renderBox();
     if (isAccelerated() && renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
-        renderBox->layer()->rendererContentChanged();
+        renderBox->layer()->contentChanged(RenderLayer::CanvasChanged);
     else
 #endif
         canvas()->didDraw(dirtyRect);
@@ -1759,6 +1756,8 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         return;
     if (!state().m_invertibleCTM)
         return;
+    if (!isfinite(x) | !isfinite(y))
+        return;
 
     const Font& font = accessFont();
 
@@ -1824,7 +1823,11 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         // FIXME: The rect is not big enough for miters on stroked text.
         IntRect maskRect = enclosingIntRect(textRect);
 
+#if defined(USE_IOSURFACE)
+        OwnPtr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size(), ColorSpaceDeviceRGB, Accelerated);
+#else
         OwnPtr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size());
+#endif
 
         GraphicsContext* maskImageContext = maskImage->context();
 
@@ -1835,7 +1838,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
             maskImageContext->setStrokeThickness(c->strokeThickness());
         }
 
-        maskImageContext->setTextDrawingMode(fill ? cTextFill : cTextStroke);
+        maskImageContext->setTextDrawingMode(fill ? TextModeFill : TextModeStroke);
         maskImageContext->translate(-maskRect.x(), -maskRect.y());
 
         maskImageContext->drawBidiText(font, textRun, location);
@@ -1850,7 +1853,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     }
 #endif
 
-    c->setTextDrawingMode(fill ? cTextFill : cTextStroke);
+    c->setTextDrawingMode(fill ? TextModeFill : TextModeStroke);
 
 #if PLATFORM(QT)
     // We always use complex text shaping since it can't be turned off for QPainterPath::addText().

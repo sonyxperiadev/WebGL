@@ -7,13 +7,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -50,9 +50,8 @@ WebInspector.ConsoleView = function(drawer)
     this.prompt = new WebInspector.TextPrompt(this.promptElement, this.completions.bind(this), ExpressionStopCharacters + ".");
     this.prompt.history = WebInspector.settings.consoleHistory;
 
-    this.topGroup = new WebInspector.ConsoleGroup(null, 0);
+    this.topGroup = new WebInspector.ConsoleGroup(null);
     this.messagesElement.insertBefore(this.topGroup.element, this.promptElement);
-    this.groupLevel = 0;
     this.currentGroup = this.topGroup;
 
     this.toggleConsoleButton = document.getElementById("console-status-bar-item");
@@ -69,30 +68,29 @@ WebInspector.ConsoleView = function(drawer)
     }
 
     var updateFilterHandler = this._updateFilter.bind(this);
-    function createFilterElement(category) {
+    function createFilterElement(category, label) {
         var categoryElement = document.createElement("li");
         categoryElement.category = category;
-        categoryElement.addStyleClass(categoryElement.category);            
+        categoryElement.className = category;
         categoryElement.addEventListener("click", updateFilterHandler, false);
-
-        var label = category.toString();
-        categoryElement.appendChild(document.createTextNode(label));
+        categoryElement.textContent = label;
 
         this.filterBarElement.appendChild(categoryElement);
+
         return categoryElement;
     }
-    
-    this.allElement = createFilterElement.call(this, WebInspector.UIString("All"));
+
+    this.allElement = createFilterElement.call(this, "all", WebInspector.UIString("All"));
     createDividerElement.call(this);
-    this.errorElement = createFilterElement.call(this, WebInspector.UIString("Errors"));
-    this.warningElement = createFilterElement.call(this, WebInspector.UIString("Warnings"));
-    this.logElement = createFilterElement.call(this, WebInspector.UIString("Logs"));
+    this.errorElement = createFilterElement.call(this, "errors", WebInspector.UIString("Errors"));
+    this.warningElement = createFilterElement.call(this, "warnings", WebInspector.UIString("Warnings"));
+    this.logElement = createFilterElement.call(this, "logs", WebInspector.UIString("Logs"));
 
     this.filter(this.allElement, false);
     this._registerShortcuts();
 
     this.messagesElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), true);
-    
+
     this._customFormatters = {
         "object": this._formatobject,
         "array":  this._formatarray,
@@ -113,7 +111,7 @@ WebInspector.ConsoleView.prototype = {
 
         this.filter(e.target, selectMultiple);
     },
-    
+
     filter: function(target, selectMultiple)
     {
         function unselectAll()
@@ -122,16 +120,16 @@ WebInspector.ConsoleView.prototype = {
             this.errorElement.removeStyleClass("selected");
             this.warningElement.removeStyleClass("selected");
             this.logElement.removeStyleClass("selected");
-            
+
             this.messagesElement.removeStyleClass("filter-all");
             this.messagesElement.removeStyleClass("filter-errors");
             this.messagesElement.removeStyleClass("filter-warnings");
             this.messagesElement.removeStyleClass("filter-logs");
         }
-        
-        var targetFilterClass = "filter-" + target.category.toLowerCase();
 
-        if (target.category == "All") {
+        var targetFilterClass = "filter-" + target.category;
+
+        if (target.category === "all") {
             if (target.hasStyleClass("selected")) {
                 // We can't unselect all, so we break early here
                 return;
@@ -145,18 +143,18 @@ WebInspector.ConsoleView.prototype = {
                 this.messagesElement.removeStyleClass("filter-all");
             }
         }
-        
+
         if (!selectMultiple) {
             // If multiple selection is off, we want to unselect everything else
             // and just select ourselves.
             unselectAll.call(this);
-            
+
             target.addStyleClass("selected");
             this.messagesElement.addStyleClass(targetFilterClass);
-            
+
             return;
         }
-        
+
         if (target.hasStyleClass("selected")) {
             // If selectMultiple is turned on, and we were selected, we just
             // want to unselect ourselves.
@@ -169,7 +167,7 @@ WebInspector.ConsoleView.prototype = {
             this.messagesElement.addStyleClass(targetFilterClass);
         }
     },
-    
+
     _toggleConsoleButtonClicked: function()
     {
         this.drawer.visibleView = this;
@@ -192,7 +190,7 @@ WebInspector.ConsoleView.prototype = {
 
     afterShow: function()
     {
-        WebInspector.currentFocusElement = this.promptElement;  
+        WebInspector.currentFocusElement = this.promptElement;
     },
 
     hide: function()
@@ -208,7 +206,7 @@ WebInspector.ConsoleView.prototype = {
 
         function scrollIntoView()
         {
-            this.promptElement.scrollIntoView(false);
+            this.promptElement.scrollIntoView(true);
             delete this._scrollIntoViewTimer;
         }
         this._scrollIntoViewTimer = setTimeout(scrollIntoView.bind(this), 20);
@@ -216,6 +214,8 @@ WebInspector.ConsoleView.prototype = {
 
     addMessage: function(msg)
     {
+        var shouldScrollToLastMessage = this.messagesElement.isScrolledToBottom();
+
         if (msg instanceof WebInspector.ConsoleMessage && !(msg instanceof WebInspector.ConsoleCommandResult)) {
             this._incrementErrorWarningCount(msg);
             WebInspector.resourceManager.addConsoleMessage(msg);
@@ -230,17 +230,12 @@ WebInspector.ConsoleView.prototype = {
         this.messages.push(msg);
 
         if (msg.type === WebInspector.ConsoleMessage.MessageType.EndGroup) {
-            if (this.groupLevel < 1)
-                return;
-
-            this.groupLevel--;
-
-            this.currentGroup = this.currentGroup.parentGroup;
+            var parentGroup = this.currentGroup.parentGroup
+            if (parentGroup)
+                this.currentGroup = parentGroup;
         } else {
             if (msg.type === WebInspector.ConsoleMessage.MessageType.StartGroup || msg.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed) {
-                this.groupLevel++;
-
-                var group = new WebInspector.ConsoleGroup(this.currentGroup, this.groupLevel);
+                var group = new WebInspector.ConsoleGroup(this.currentGroup);
                 this.currentGroup.messagesElement.appendChild(group.element);
                 this.currentGroup = group;
             }
@@ -248,14 +243,15 @@ WebInspector.ConsoleView.prototype = {
             this.currentGroup.addMessage(msg);
         }
 
-        this._scheduleScrollIntoView();
+        if (shouldScrollToLastMessage)
+            this._scheduleScrollIntoView();
     },
 
     updateMessageRepeatCount: function(count)
     {
         var msg = this.previousMessage;
         var prevRepeatCount = msg.totalRepeatCount;
-        
+
         if (!this.commandSincePreviousMessage) {
             msg.repeatDelta = count - prevRepeatCount;
             msg.repeatCount = msg.repeatCount + msg.repeatDelta;
@@ -263,7 +259,7 @@ WebInspector.ConsoleView.prototype = {
             msg._updateRepeatCount();
             this._incrementErrorWarningCount(msg);
         } else {
-            var msgCopy = new WebInspector.ConsoleMessage(msg.source, msg.type, msg.level, msg.line, msg.url, msg.groupLevel, count - prevRepeatCount, msg._messageText, msg._parameters, msg._stackTrace);
+            var msgCopy = new WebInspector.ConsoleMessage(msg.source, msg.type, msg.level, msg.line, msg.url, count - prevRepeatCount, msg._messageText, msg._parameters, msg._stackTrace, msg._requestId);
             msgCopy.totalRepeatCount = count;
             msgCopy._formatMessage();
             this.addMessage(msgCopy);
@@ -293,7 +289,6 @@ WebInspector.ConsoleView.prototype = {
 
         this.messages = [];
 
-        this.groupLevel = 0;
         this.currentGroup = this.topGroup;
         this.topGroup.messagesElement.removeChildren();
 
@@ -568,8 +563,12 @@ WebInspector.ConsoleView.prototype = {
     {
         function printNode(nodeId)
         {
-            if (!nodeId)
+            if (!nodeId) {
+                // Sometimes DOM is loaded after the sync message is being formatted, so we get no
+                // nodeId here. So we fall back to object formatting here.
+                this._formatobject(object, elem);
                 return;
+            }
             var treeOutline = new WebInspector.ElementsTreeOutline();
             treeOutline.showInElementsPanelEnabled = true;
             treeOutline.rootDOMNode = WebInspector.domAgent.nodeForId(nodeId);
@@ -578,8 +577,7 @@ WebInspector.ConsoleView.prototype = {
                 treeOutline.element.addStyleClass("single-node");
             elem.appendChild(treeOutline.element);
         }
-
-        object.pushNodeToFrontend(printNode);
+        object.pushNodeToFrontend(printNode.bind(this));
     },
 
     _formatarray: function(arr, elem)
@@ -634,70 +632,117 @@ WebInspector.ConsoleView.prototype = {
 
 WebInspector.ConsoleView.prototype.__proto__ = WebInspector.View.prototype;
 
-WebInspector.ConsoleMessage = function(source, type, level, line, url, groupLevel, repeatCount, message, parameters, stackTrace)
+WebInspector.ConsoleMessage = function(source, type, level, line, url, repeatCount, message, parameters, stackTrace, requestId)
 {
     this.source = source;
     this.type = type;
     this.level = level;
     this.line = line;
     this.url = url;
-    this.groupLevel = groupLevel;
     this.repeatCount = repeatCount;
     this.repeatDelta = repeatCount;
     this.totalRepeatCount = repeatCount;
     this._messageText = message;
     this._parameters = parameters;
     this._stackTrace = stackTrace;
+    this._requestId = requestId;
     this._formatMessage();
 }
 
 WebInspector.ConsoleMessage.createTextMessage = function(text, level)
 {
     level = level || WebInspector.ConsoleMessage.MessageLevel.Log;
-    return new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Log, level, 0, null, null, 1, null, [text], null);
+    return new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Log, level, 0, null, 1, null, [text], null);
 }
 
 WebInspector.ConsoleMessage.prototype = {
     _formatMessage: function()
     {
+        var stackTrace = this._stackTrace;
+        var messageText;
         switch (this.type) {
-            case WebInspector.ConsoleMessage.MessageType.Assert:
             case WebInspector.ConsoleMessage.MessageType.Trace:
+                messageText = document.createTextNode("console.trace()");
+                break;
             case WebInspector.ConsoleMessage.MessageType.UncaughtException:
-                var ol = document.createElement("ol");
-                ol.className = "outline-disclosure";
-                var treeOutline = new TreeOutline(ol);
-                var messageText;
-                if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)
-                    messageText = this._format(this._parameters);
-                else if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
-                    messageText = document.createTextNode("console.trace()");
-                else
-                    messageText = document.createTextNode(this._messageText);
+                messageText = document.createTextNode(this._messageText);
+                break;
+            case WebInspector.ConsoleMessage.MessageType.NetworkError:
+                var resource = this._requestId && WebInspector.panels.network.resources[this._requestId];
+                if (resource) {
+                    stackTrace = resource.stackTrace;
 
-                var content = document.createElement("div");
-                this._addMessageHeader(content, messageText);
-                var root = new TreeElement(content, null, true);
-                content.treeElementForTest = root;
-                treeOutline.appendChild(root);
-                if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
-                    root.expand();
-
-                this._populateStackTraceTreeElement(root);
-                this.formattedMessage = ol;
+                    messageText = document.createElement("span");
+                    messageText.appendChild(document.createTextNode(resource.requestMethod + " "));
+                    messageText.appendChild(WebInspector.linkifyURLAsNode(resource.url));
+                    if (resource.failed)
+                        messageText.appendChild(document.createTextNode(" " + resource.localizedFailDescription));
+                    else
+                        messageText.appendChild(document.createTextNode(" " + resource.statusCode + " (" + resource.statusText + ")"));
+                } else
+                    messageText = this._format([this._messageText]);
+                break;
+            case WebInspector.ConsoleMessage.MessageType.Assert:
+                var args = [WebInspector.UIString("Assertion failed:")];
+                if (this._parameters)
+                    args = args.concat(this._parameters);
+                messageText = this._format(args);
                 break;
             case WebInspector.ConsoleMessage.MessageType.Object:
                 var obj = this._parameters ? this._parameters[0] : undefined;
-                this.formattedMessage = this._format(["%O", obj]);
+                var args = ["%O", obj];
+                messageText = this._format(args);
                 break;
             default:
                 var args = this._parameters || [this._messageText];
-                this.formattedMessage = this._format(args);
+                messageText = this._format(args);
                 break;
         }
 
+        this._formattedMessage = document.createElement("span");
+        this._formattedMessage.className = "console-message-text source-code";
+
+        if (stackTrace && stackTrace.length) {
+            var topCallFrame = stackTrace[0];
+            var sourceName = topCallFrame.scriptName;
+            var sourceLine = topCallFrame.lineNumber;
+        } else {
+            var sourceName = this.url;
+            var sourceLine = this.line;
+        }
+
+        if (sourceName && sourceName !== "undefined") {
+            var urlElement = WebInspector.linkifyResourceAsNode(sourceName, "scripts", sourceLine, "console-message-url");
+            this._formattedMessage.appendChild(urlElement);
+        }
+
+        this._formattedMessage.appendChild(messageText);
+
+        if (this._stackTrace) {
+            switch (this.type) {
+                case WebInspector.ConsoleMessage.MessageType.Trace:
+                case WebInspector.ConsoleMessage.MessageType.UncaughtException:
+                case WebInspector.ConsoleMessage.MessageType.NetworkError:
+                case WebInspector.ConsoleMessage.MessageType.Assert: {
+                    var ol = document.createElement("ol");
+                    ol.className = "outline-disclosure";
+                    var treeOutline = new TreeOutline(ol);
+
+                    var content = this._formattedMessage;
+                    var root = new TreeElement(content, null, true);
+                    content.treeElementForTest = root;
+                    treeOutline.appendChild(root);
+                    if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
+                        root.expand();
+
+                    this._populateStackTraceTreeElement(root);
+                    this._formattedMessage = ol;
+                }
+            }
+        }
+
         // This is used for inline message bubbles in SourceFrames, or other plain-text representations.
-        this.message = this.formattedMessage.textContent;
+        this.message = this._formattedMessage.textContent;
     },
 
     isErrorOrWarning: function()
@@ -790,27 +835,6 @@ WebInspector.ConsoleMessage.prototype = {
 
         this._element = element;
 
-        switch (this.source) {
-            case WebInspector.ConsoleMessage.MessageSource.HTML:
-                element.addStyleClass("console-html-source");
-                break;
-            case WebInspector.ConsoleMessage.MessageSource.WML:
-                element.addStyleClass("console-wml-source");
-                break;
-            case WebInspector.ConsoleMessage.MessageSource.XML:
-                element.addStyleClass("console-xml-source");
-                break;
-            case WebInspector.ConsoleMessage.MessageSource.JS:
-                element.addStyleClass("console-js-source");
-                break;
-            case WebInspector.ConsoleMessage.MessageSource.CSS:
-                element.addStyleClass("console-css-source");
-                break;
-            case WebInspector.ConsoleMessage.MessageSource.Other:
-                element.addStyleClass("console-other-source");
-                break;
-        }
-
         switch (this.level) {
             case WebInspector.ConsoleMessage.MessageLevel.Tip:
                 element.addStyleClass("console-tip-level");
@@ -838,12 +862,7 @@ WebInspector.ConsoleMessage.prototype = {
             return element;
         }
 
-        if (this.type === WebInspector.ConsoleMessage.MessageType.Trace ||
-            this.type === WebInspector.ConsoleMessage.MessageType.Assert ||
-            this.type === WebInspector.ConsoleMessage.MessageType.UncaughtException)
-            element.appendChild(this.formattedMessage);
-        else
-            this._addMessageHeader(element, this.formattedMessage);
+        element.appendChild(this._formattedMessage);
 
         if (this.repeatCount > 1)
             this._updateRepeatCount();
@@ -863,7 +882,7 @@ WebInspector.ConsoleMessage.prototype = {
             messageTextElement.appendChild(document.createTextNode(functionName));
             content.appendChild(messageTextElement);
 
-            var urlElement = WebInspector.linkifyResourceAsNode(frame.sourceURL, "scripts", frame.lineNumber, "console-message-url"); 
+            var urlElement = WebInspector.linkifyResourceAsNode(frame.scriptName, "scripts", frame.lineNumber, "console-message-url");
             content.appendChild(urlElement);
 
             var treeElement = new TreeElement(content);
@@ -871,26 +890,11 @@ WebInspector.ConsoleMessage.prototype = {
         }
     },
 
-    _addMessageHeader: function(parentElement, formattedMessage)
-    {
-        if (this.url && this.url !== "undefined") {
-            var urlElement = WebInspector.linkifyResourceAsNode(this.url, "scripts", this.line, "console-message-url"); 
-            parentElement.appendChild(urlElement);
-        }
-
-        var messageTextElement = document.createElement("span");
-        messageTextElement.className = "console-message-text source-code";
-        if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)
-            messageTextElement.appendChild(document.createTextNode(WebInspector.UIString("Assertion failed: ")));
-        messageTextElement.appendChild(formattedMessage);
-        parentElement.appendChild(messageTextElement);
-    },
-
     _updateRepeatCount: function() {
         if (!this.repeatCountElement) {
             this.repeatCountElement = document.createElement("span");
             this.repeatCountElement.className = "bubble";
-    
+
             this._element.insertBefore(this.repeatCountElement, this._element.firstChild);
             this._element.addStyleClass("repeated-message");
         }
@@ -925,6 +929,7 @@ WebInspector.ConsoleMessage.prototype = {
         switch (this.type) {
             case WebInspector.ConsoleMessage.MessageType.Log:
             case WebInspector.ConsoleMessage.MessageType.UncaughtException:
+            case WebInspector.ConsoleMessage.MessageType.NetworkError:
                 typeString = "Log";
                 break;
             case WebInspector.ConsoleMessage.MessageType.Object:
@@ -947,7 +952,7 @@ WebInspector.ConsoleMessage.prototype = {
                 typeString = "Result";
                 break;
         }
-        
+
         var levelString;
         switch (this.level) {
             case WebInspector.ConsoleMessage.MessageLevel.Tip:
@@ -967,22 +972,35 @@ WebInspector.ConsoleMessage.prototype = {
                 break;
         }
 
-        return sourceString + " " + typeString + " " + levelString + ": " + this.formattedMessage.textContent + "\n" + this.url + " line " + this.line;
+        return sourceString + " " + typeString + " " + levelString + ": " + this._formattedMessage.textContent + "\n" + this.url + " line " + this.line;
     },
 
-    isEqual: function(msg, disreguardGroup)
+    isEqual: function(msg)
     {
         if (!msg)
             return false;
 
-        var ret = (this.source == msg.source)
-            && (this.type == msg.type)
-            && (this.level == msg.level)
-            && (this.line == msg.line)
-            && (this.url == msg.url)
-            && (this.message == msg.message);
+        if (this._stackTrace) {
+            if (!msg._stackTrace)
+                return false;
+            var l = this._stackTrace;
+            var r = msg._stackTrace;
+            for (var i = 0; i < l.length; i++) {
+                if (l[i].scriptName !== r[i].scriptName ||
+                    l[i].functionName !== r[i].functionName ||
+                    l[i].lineNumber !== r[i].lineNumber ||
+                    l[i].column !== r[i].column)
+                    return false;
+            }
+        }
 
-        return (disreguardGroup ? ret : (ret && (this.groupLevel == msg.groupLevel)));
+        return (this.source === msg.source)
+            && (this.type === msg.type)
+            && (this.level === msg.level)
+            && (this.line === msg.line)
+            && (this.url === msg.url)
+            && (this.message === msg.message)
+            && (this._requestId === msg._requestId);
     }
 }
 
@@ -1005,7 +1023,8 @@ WebInspector.ConsoleMessage.MessageType = {
     EndGroup: 5,
     Assert: 6,
     UncaughtException: 7,
-    Result: 8
+    NetworkError:8,
+    Result: 9
 }
 
 WebInspector.ConsoleMessage.MessageLevel = {
@@ -1041,7 +1060,7 @@ WebInspector.ConsoleCommandResult = function(result, originatingCommand)
 {
     var level = (result.isError() ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log);
     this.originatingCommand = originatingCommand;
-    WebInspector.ConsoleMessage.call(this, WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Result, level, -1, null, null, 1, null, [result]);
+    WebInspector.ConsoleMessage.call(this, WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Result, level, -1, null, 1, null, [result]);
 }
 
 WebInspector.ConsoleCommandResult.prototype = {
@@ -1055,10 +1074,9 @@ WebInspector.ConsoleCommandResult.prototype = {
 
 WebInspector.ConsoleCommandResult.prototype.__proto__ = WebInspector.ConsoleMessage.prototype;
 
-WebInspector.ConsoleGroup = function(parentGroup, level)
+WebInspector.ConsoleGroup = function(parentGroup)
 {
     this.parentGroup = parentGroup;
-    this.level = level;
 
     var element = document.createElement("div");
     element.className = "console-group";

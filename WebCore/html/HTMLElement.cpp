@@ -116,8 +116,9 @@ bool HTMLElement::ieForbidsInsertHTML() const
 
 bool HTMLElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
-    if (attrName == alignAttr ||
-        attrName == contenteditableAttr) {
+    if (attrName == alignAttr
+        || attrName == contenteditableAttr
+        || attrName == hiddenAttr) {
         result = eUniversal;
         return false;
     }
@@ -142,6 +143,8 @@ void HTMLElement::parseMappedAttribute(Attribute* attr)
             addCSSProperty(attr, CSSPropertyTextAlign, attr->value());
     } else if (attr->name() == contenteditableAttr) {
         setContentEditable(attr);
+    } else if (attr->name() == hiddenAttr) {
+        addCSSProperty(attr, CSSPropertyDisplay, CSSValueNone);
     } else if (attr->name() == tabindexAttr) {
         indexstring = getAttribute(tabindexAttr);
         int tabindex = 0;
@@ -474,7 +477,7 @@ void HTMLElement::setOuterText(const String &text, ExceptionCode& ec)
     // Is previous node a text node? If so, merge into it.
     Node* prev = t->previousSibling();
     if (prev && prev->isTextNode()) {
-        RefPtr<Text> textPrev = static_cast<Text*>(prev);
+        Text* textPrev = static_cast<Text*>(prev);
         textPrev->appendData(t->data(), ec);
         if (ec)
             return;
@@ -487,7 +490,7 @@ void HTMLElement::setOuterText(const String &text, ExceptionCode& ec)
     // Is next node a text node? If so, merge it in.
     Node* next = t->nextSibling();
     if (next && next->isTextNode()) {
-        RefPtr<Text> textNext = static_cast<Text*>(next);
+        Text* textNext = static_cast<Text*>(next);
         t->appendData(textNext->data(), ec);
         if (ec)
             return;
@@ -778,14 +781,16 @@ PassRefPtr<HTMLCollection> HTMLElement::children()
 
 bool HTMLElement::rendererIsNeeded(RenderStyle *style)
 {
-#if !ENABLE(XHTMLMP)
     if (hasLocalName(noscriptTag)) {
         Frame* frame = document()->frame();
+#if ENABLE(XHTMLMP)
+        if (!document()->shouldProcessNoscriptElement())
+            return false;
+#else
         if (frame && frame->script()->canExecuteScripts(NotAboutToExecuteScript))
             return false;
-    } else
-#endif
-    if (hasLocalName(noembedTag)) {
+#endif        
+    } else if (hasLocalName(noembedTag)) {
         Frame* frame = document()->frame();
         if (frame && frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
             return false;

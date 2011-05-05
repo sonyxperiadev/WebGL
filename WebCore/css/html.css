@@ -90,6 +90,15 @@ blockquote {
     margin: 1__qem 40px 1em 40px
 }
 
+figcaption {
+    display: block
+}
+
+figure {
+    display: block;
+    margin: 1em 40px 1em 40px
+}
+
 q {
     display: inline
 }
@@ -757,6 +766,14 @@ frameset {
 
 iframe {
     border: 2px inset
+}
+
+details {
+    display: block
+}
+
+summary {
+    display: block
 }
 
 /* page */

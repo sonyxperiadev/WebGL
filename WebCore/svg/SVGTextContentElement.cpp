@@ -27,11 +27,17 @@
 #include "CSSValueKeywords.h"
 #include "Frame.h"
 #include "RenderObject.h"
+#include "SVGNames.h"
 #include "SVGTextQuery.h"
 #include "SelectionController.h"
 #include "XMLNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGTextContentElement, SVGNames::textLengthAttr, TextLength, textLength)
+DEFINE_ANIMATED_ENUMERATION(SVGTextContentElement, SVGNames::lengthAdjustAttr, LengthAdjust, lengthAdjust)
+DEFINE_ANIMATED_BOOLEAN(SVGTextContentElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 SVGTextContentElement::SVGTextContentElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)

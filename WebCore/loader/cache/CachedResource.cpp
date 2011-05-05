@@ -30,12 +30,12 @@
 #include "CachedResourceClientWalker.h"
 #include "CachedResourceHandle.h"
 #include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "KURL.h"
 #include "Logging.h"
 #include "PurgeableBuffer.h"
-#include "Request.h"
 #include "ResourceHandle.h"
 #include "SharedBuffer.h"
 #include <wtf/CurrentTime.h>
@@ -47,6 +47,28 @@
 using namespace WTF;
 
 namespace WebCore {
+    
+static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type type)
+{
+    switch (type) {
+        case CachedResource::CSSStyleSheet:
+#if ENABLE(XSLT)
+        case CachedResource::XSLStyleSheet:
+#endif
+            return ResourceLoadPriorityHigh;
+        case CachedResource::Script:
+        case CachedResource::FontResource:
+            return ResourceLoadPriorityMedium;
+        case CachedResource::ImageResource:
+            return ResourceLoadPriorityLow;
+#if ENABLE(LINK_PREFETCH)
+        case CachedResource::LinkPrefetch:
+            return ResourceLoadPriorityVeryLow;
+#endif
+    }
+    ASSERT_NOT_REACHED();
+    return ResourceLoadPriorityLow;
+}
 
 #ifndef NDEBUG
 static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
@@ -55,6 +77,7 @@ static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
 CachedResource::CachedResource(const String& url, Type type)
     : m_url(url)
     , m_request(0)
+    , m_loadPriority(defaultPriorityForResourceType(type))
     , m_responseTimestamp(currentTime())
     , m_lastDecodedAccessTime(0)
     , m_encodedSize(0)
@@ -93,7 +116,7 @@ CachedResource::~CachedResource()
     ASSERT(canDelete());
     ASSERT(!inCache());
     ASSERT(!m_deleted);
-    ASSERT(url().isNull() || cache()->resourceForURL(url()) != this);
+    ASSERT(url().isNull() || cache()->resourceForURL(KURL(ParsedURLString, url())) != this);
 #ifndef NDEBUG
     m_deleted = true;
     cachedResourceLeakCounter.decrement();
@@ -106,7 +129,7 @@ CachedResource::~CachedResource()
 void CachedResource::load(CachedResourceLoader* cachedResourceLoader, bool incremental, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks)
 {
     m_sendResourceLoadCallbacks = sendResourceLoadCallbacks;
-    cache()->loader()->load(cachedResourceLoader, this, incremental, securityCheck, sendResourceLoadCallbacks);
+    cachedResourceLoader->load(this, incremental, securityCheck, sendResourceLoadCallbacks);
     m_loading = true;
 }
 
@@ -115,6 +138,7 @@ void CachedResource::data(PassRefPtr<SharedBuffer>, bool allDataReceived)
     if (!allDataReceived)
         return;
     
+    setLoading(false);
     CachedResourceClientWalker w(m_clients);
     while (CachedResourceClient* c = w.next())
         c->notifyFinished(this);
@@ -201,7 +225,7 @@ CachedMetadata* CachedResource::cachedMetadata(unsigned dataTypeID) const
     return m_cachedMetadata.get();
 }
 
-void CachedResource::setRequest(Request* request)
+void CachedResource::setRequest(CachedResourceRequest* request)
 {
     if (request && !m_request)
         m_status = Pending;

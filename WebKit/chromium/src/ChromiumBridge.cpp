@@ -134,7 +134,7 @@ static WebCookieJar* getCookieJar(const Document* document)
     WebFrameImpl* frameImpl = WebFrameImpl::fromFrame(document->frame());
     if (!frameImpl || !frameImpl->client())
         return 0;
-    WebCookieJar* cookieJar = frameImpl->client()->cookieJar();
+    WebCookieJar* cookieJar = frameImpl->client()->cookieJar(frameImpl);
     if (!cookieJar)
         cookieJar = webKitClient()->cookieJar();
     return cookieJar;
@@ -636,7 +636,7 @@ PassOwnPtr<AudioBus> ChromiumBridge::loadPlatformAudioResource(const char* name,
 PassOwnPtr<AudioBus> ChromiumBridge::decodeAudioFileData(const char* data, size_t size, double sampleRate)
 {
     WebAudioBus webAudioBus;
-    if (webKitClient()->decodeAudioFileData(&webAudioBus, data, size, sampleRate))
+    if (webKitClient()->loadAudioResource(&webAudioBus, data, size, sampleRate))
         return webAudioBus.release();
     return 0;
 }

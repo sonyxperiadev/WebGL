@@ -30,6 +30,7 @@
 
 #if ENABLE(SVG)
 #include "SVGCursorElement.h"
+#include "SVGNames.h"
 #include "SVGURIReference.h"
 #endif
 
@@ -70,7 +71,7 @@ CSSCursorImageValue::~CSSCursorImageValue()
 
     for (; it != end; ++it) {
         SVGElement* referencedElement = *it;
-        referencedElement->cursorImageValueRemoved();
+        referencedElement->cursorElementRemoved();
         if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, referencedElement->document()))
             cursorElement->removeClient(referencedElement);
     }

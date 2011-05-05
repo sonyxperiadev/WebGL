@@ -35,6 +35,7 @@
 #include "ChromiumBridge.h"
 #include "FontFallbackList.h"
 #include "GlyphBuffer.h"
+#include "NotImplemented.h"
 #include "PlatformContextSkia.h"
 #include "SimpleFontData.h"
 #include "SkiaFontWin.h"
@@ -276,7 +277,8 @@ bool TransparencyAwareGlyphPainter::drawGlyphs(int numGlyphs,
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
-    if (m_graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor)) {
+    ColorSpace shadowColorSpace;
+    if (m_graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace)) {
         // If there is a shadow and this code is reached, windowsCanHandleDrawTextShadow()
         // will have already returned true during the ctor initiatization of m_useGDI
         ASSERT(shadowColor.alpha() == 255);
@@ -488,7 +490,8 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
-    if (graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor) && windowsCanHandleDrawTextShadow(graphicsContext)) {
+    ColorSpace shadowColorSpace;
+    if (graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace) && windowsCanHandleDrawTextShadow(graphicsContext)) {
         COLORREF textColor = skia::SkColorToCOLORREF(SkColorSetARGB(255, shadowColor.red(), shadowColor.green(), shadowColor.blue()));
         COLORREF savedTextColor = GetTextColor(hdc);
         SetTextColor(hdc, textColor);
@@ -503,6 +506,11 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
                static_cast<int>(point.y() - ascent()), from, to);
 
     context->canvas()->endPlatformPaint();
+}
+
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
 }
 
 float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow* /* glyphOverflow */) const

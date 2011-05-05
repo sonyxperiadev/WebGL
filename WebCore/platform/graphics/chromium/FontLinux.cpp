@@ -91,32 +91,50 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     // patches may be upstreamed to WebKit so we always use the slower path
     // here.
     const GlyphBufferAdvance* adv = glyphBuffer.advances(from);
-    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
+    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs), storage2(numGlyphs), storage3(numGlyphs);
     SkPoint* pos = storage.get();
+    SkPoint* vPosBegin = storage2.get();
+    SkPoint* vPosEnd = storage3.get();
 
+    bool isVertical = font->orientation() == Vertical;
     for (int i = 0; i < numGlyphs; i++) {
+        SkScalar myWidth = SkFloatToScalar(adv[i].width());
         pos[i].set(x, y);
-        x += SkFloatToScalar(adv[i].width());
+        if (isVertical) {
+            vPosBegin[i].set(x + myWidth, y);
+            vPosEnd[i].set(x + myWidth, y - myWidth);
+        }
+        x += myWidth;
         y += SkFloatToScalar(adv[i].height());
     }
 
     gc->platformContext()->prepareForSoftwareDraw();
 
     SkCanvas* canvas = gc->platformContext()->canvas();
-    int textMode = gc->platformContext()->getTextDrawingMode();
+    TextDrawingModeFlags textMode = gc->platformContext()->getTextDrawingMode();
 
     // We draw text up to two times (once for fill, once for stroke).
-    if (textMode & cTextFill) {
+    if (textMode & TextModeFill) {
         SkPaint paint;
         gc->platformContext()->setupPaintForFilling(&paint);
         font->platformData().setupPaint(&paint);
         adjustTextRenderMode(&paint, gc->platformContext());
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->fillColor().rgb());
-        canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
+
+        if (isVertical) {
+            SkPath path;
+            for (int i = 0; i < numGlyphs; ++i) {
+                path.reset();
+                path.moveTo(vPosBegin[i]);
+                path.lineTo(vPosEnd[i]);
+                canvas->drawTextOnPath(glyphs + i, 2, path, 0, paint);
+            }
+        } else
+            canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
     }
 
-    if ((textMode & cTextStroke)
+    if ((textMode & TextModeStroke)
         && gc->platformContext()->getStrokeStyle() != NoStroke
         && gc->platformContext()->getStrokeThickness() > 0) {
 
@@ -127,13 +145,22 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->strokeColor().rgb());
 
-        if (textMode & cTextFill) {
+        if (textMode & TextModeFill) {
             // If we also filled, we don't want to draw shadows twice.
             // See comment in FontChromiumWin.cpp::paintSkiaText() for more details.
             SkSafeUnref(paint.setLooper(0));
         }
 
-        canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
+        if (isVertical) {
+            SkPath path;
+            for (int i = 0; i < numGlyphs; ++i) {
+                path.reset();
+                path.moveTo(vPosBegin[i]);
+                path.lineTo(vPosEnd[i]);
+                canvas->drawTextOnPath(glyphs + i, 2, path, 0, paint);
+            }
+        } else
+            canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
     }
 }
 
@@ -341,7 +368,6 @@ void TextRunWalker::setPadding(int padding)
     // amount to each space. The last space gets the smaller amount, if
     // any.
     unsigned numWordBreaks = 0;
-    bool isRTL = m_iterateBackwards;
 
     for (unsigned i = 0; i < m_item.stringLength; i++) {
         if (isWordBreak(i))
@@ -382,7 +408,7 @@ bool TextRunWalker::nextScriptRun()
         // (and the glyphs in each A, C and T section are backwards too)
         if (!hb_utf16_script_run_prev(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
             return false;
-        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, false).fontData;
+        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
     } else {
         if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
             return false;
@@ -394,10 +420,10 @@ bool TextRunWalker::nextScriptRun()
         // in the harfbuzz data structures to e.g. pick the correct script's shaper.
         // So we allow that to run first, then do a second pass over the range it
         // found and take the largest subregion that stays within a single font.
-        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, false).fontData;
+        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
         unsigned endOfRun;
         for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
-            const SimpleFontData* nextFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos + endOfRun], false, false).fontData;
+            const SimpleFontData* nextFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos + endOfRun], false).fontData;
             if (nextFontData != m_currentFontData)
                 break;
         }
@@ -423,7 +449,7 @@ float TextRunWalker::widthOfFullRun()
 
 void TextRunWalker::setupFontForScriptRun()
 {
-    const FontData* fontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, false).fontData;
+    const FontData* fontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
     const FontPlatformData& platformData = fontData->fontDataForCharacter(' ')->platformData();
     m_item.face = platformData.harfbuzzFace();
     void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
@@ -524,7 +550,7 @@ void TextRunWalker::setGlyphXPositions(bool isRTL)
                 // Whitespace must be laid out in logical order, so when inserting
                 // spaces in RTL (but iterating in LTR order) we must insert spaces
                 // _before_ the next glyph.
-                if (i + 1 >= m_item.num_glyphs || m_item.attributes[i + 1].clusterStart)
+                if (static_cast<unsigned>(i + 1) >= m_item.num_glyphs || m_item.attributes[i + 1].clusterStart)
                     position += m_letterSpacing;
 
                 position += determineWordBreakSpacing(logClustersIndex);
@@ -541,7 +567,7 @@ void TextRunWalker::setGlyphXPositions(bool isRTL)
                 position += truncateFixedPointToInteger(m_item.advances[i]);
         }
     } else {
-        for (int i = 0; i < m_item.num_glyphs; ++i) {
+        for (size_t i = 0; i < m_item.num_glyphs; ++i) {
             m_glyphs16[i] = m_item.glyphs[i];
             double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
             m_xPositions[i] = m_offsetX + position + offsetX;
@@ -556,7 +582,7 @@ void TextRunWalker::setGlyphXPositions(bool isRTL)
             if (m_item.attributes[i].clusterStart)
                 advance += m_letterSpacing;
 
-            while (logClustersIndex < m_item.item.length && logClusters()[logClustersIndex] == i)
+            while (static_cast<unsigned>(logClustersIndex) < m_item.item.length && logClusters()[logClustersIndex] == i)
                 logClustersIndex++;
 
             position += advance;
@@ -652,9 +678,9 @@ void Font::drawComplexText(GraphicsContext* gc, const TextRun& run,
         return;
 
     SkCanvas* canvas = gc->platformContext()->canvas();
-    int textMode = gc->platformContext()->getTextDrawingMode();
-    bool fill = textMode & cTextFill;
-    bool stroke = (textMode & cTextStroke)
+    TextDrawingModeFlags textMode = gc->platformContext()->getTextDrawingMode();
+    bool fill = textMode & TextModeFill;
+    bool stroke = (textMode & TextModeStroke)
                && gc->platformContext()->getStrokeStyle() != NoStroke
                && gc->platformContext()->getStrokeThickness() > 0;
 
@@ -691,6 +717,11 @@ void Font::drawComplexText(GraphicsContext* gc, const TextRun& run,
     }
 }
 
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
+}
+
 float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow* /* glyphOverflow */) const
 {
     TextRunWalker walker(run, 0, this);
@@ -708,7 +739,7 @@ static int glyphIndexForXPositionInScriptRun(const TextRunWalker& walker, int x)
         for (glyphIndex = walker.length() - 1; glyphIndex >= 0; --glyphIndex) {
             // When iterating LTR over RTL text, we must include the whitespace
             // _before_ the glyph, so no + 1 here.
-            if (x < (walker.length() - glyphIndex) * letterSpacing + truncateFixedPointToInteger(advances[glyphIndex]))
+            if (x < (static_cast<int>(walker.length()) - glyphIndex) * letterSpacing + truncateFixedPointToInteger(advances[glyphIndex]))
                 break;
             x -= truncateFixedPointToInteger(advances[glyphIndex]);
         }

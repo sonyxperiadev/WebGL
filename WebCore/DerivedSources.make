@@ -43,6 +43,7 @@ VPATH = \
     $(WebCore)/plugins \
     $(WebCore)/storage \
     $(WebCore)/xml \
+    $(WebCore)/webaudio \
     $(WebCore)/wml \
     $(WebCore)/workers \
     $(WebCore)/svg \
@@ -53,6 +54,26 @@ DOM_CLASSES = \
     AbstractView \
     AbstractWorker \
     Attr \
+    AudioBuffer \
+    AudioBufferSourceNode \
+    AudioChannelSplitter \
+    AudioChannelMerger \
+    AudioContext \
+    AudioDestinationNode \
+    AudioGain \
+    AudioGainNode \
+    AudioListener \
+    AudioNode \
+    AudioPannerNode \
+    AudioParam \
+    AudioProcessingEvent \
+    AudioSourceNode \
+    ConvolverNode \
+    DelayNode \
+    HighPass2FilterNode \
+    JavaScriptAudioNode \
+    LowPass2FilterNode \
+    RealtimeAnalyserNode \
     BarInfo \
     BeforeLoadEvent \
     BeforeProcessEvent \
@@ -192,6 +213,7 @@ DOM_CLASSES = \
     HTMLDataGridColElement \
     HTMLDataGridRowElement \
     HTMLDataListElement \
+    HTMLDetailsElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -288,6 +310,7 @@ DOM_CLASSES = \
     Notation \
     Notification \
     NotificationCenter \
+    OESTextureFloat \
     OverflowEvent \
     PageTransitionEvent \
     Performance \

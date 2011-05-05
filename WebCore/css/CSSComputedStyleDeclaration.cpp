@@ -360,6 +360,13 @@ inline static PassRefPtr<CSSPrimitiveValue> zoomAdjustedNumberValue(double value
     return CSSPrimitiveValue::create(value / style->effectiveZoom(), CSSPrimitiveValue::CSS_NUMBER);
 }
 
+static PassRefPtr<CSSValue> zoomAdjustedPixelValueForLength(const Length& length, const RenderStyle* style)
+{
+    if (length.isFixed())
+        return zoomAdjustedPixelValue(length.value(), style);
+    return CSSPrimitiveValue::create(length);
+}
+
 static PassRefPtr<CSSValue> valueForReflection(const StyleReflection* reflection, const RenderStyle* style)
 {
     if (!reflection)
@@ -1089,7 +1096,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyHeight:
             if (renderer)
                 return zoomAdjustedPixelValue(sizingBox(renderer).height(), style.get());
-            return CSSPrimitiveValue::create(style->height());
+            return zoomAdjustedPixelValueForLength(style->height(), style.get());
         case CSSPropertyWebkitHighlight:
             if (style->highlight() == nullAtom)
                 return CSSPrimitiveValue::createIdentifier(CSSValueNone);
@@ -1253,6 +1260,30 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return renderTextDecorationFlagsToCSSValue(style->textDecorationsInEffect());
         case CSSPropertyWebkitTextFillColor:
             return currentColorOrValidColor(style.get(), style->textFillColor());
+        case CSSPropertyWebkitTextEmphasisColor:
+            return currentColorOrValidColor(style.get(), style->textEmphasisColor());
+        case CSSPropertyWebkitTextEmphasisPosition:
+            return CSSPrimitiveValue::create(style->textEmphasisPosition());
+        case CSSPropertyWebkitTextEmphasisStyle:
+            switch (style->textEmphasisMark()) {
+            case TextEmphasisMarkNone:
+                return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+            case TextEmphasisMarkCustom:
+                return CSSPrimitiveValue::create(style->textEmphasisCustomMark(), CSSPrimitiveValue::CSS_STRING);
+            case TextEmphasisMarkAuto:
+                ASSERT_NOT_REACHED();
+                // Fall through
+            case TextEmphasisMarkDot:
+            case TextEmphasisMarkCircle:
+            case TextEmphasisMarkDoubleCircle:
+            case TextEmphasisMarkTriangle:
+            case TextEmphasisMarkSesame: {
+                RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+                list->append(CSSPrimitiveValue::create(style->textEmphasisFill()));
+                list->append(CSSPrimitiveValue::create(style->textEmphasisMark()));
+                return list.release();
+            }
+            }
         case CSSPropertyTextIndent:
             return CSSPrimitiveValue::create(style->textIndent());
         case CSSPropertyTextShadow:
@@ -1332,7 +1363,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWidth:
             if (renderer)
                 return zoomAdjustedPixelValue(sizingBox(renderer).width(), style.get());
-            return CSSPrimitiveValue::create(style->width());
+            return zoomAdjustedPixelValueForLength(style->width(), style.get());
         case CSSPropertyWordBreak:
             return CSSPrimitiveValue::create(style->wordBreak());
         case CSSPropertyWordSpacing:
@@ -1504,8 +1535,9 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 list->append(zoomAdjustedPixelValue(style->perspectiveOriginY().calcMinValue(box.height()), style.get()));
             }
             else {
-                list->append(CSSPrimitiveValue::create(style->perspectiveOriginX()));
-                list->append(CSSPrimitiveValue::create(style->perspectiveOriginY()));
+                list->append(zoomAdjustedPixelValueForLength(style->perspectiveOriginX(), style.get()));
+                list->append(zoomAdjustedPixelValueForLength(style->perspectiveOriginY(), style.get()));
+                
             }
             return list.release();
         }
@@ -1548,8 +1580,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 if (style->transformOriginZ() != 0)
                     list->append(zoomAdjustedPixelValue(style->transformOriginZ(), style.get()));
             } else {
-                list->append(CSSPrimitiveValue::create(style->transformOriginX()));
-                list->append(CSSPrimitiveValue::create(style->transformOriginY()));
+                list->append(zoomAdjustedPixelValueForLength(style->transformOriginX(), style.get()));
+                list->append(zoomAdjustedPixelValueForLength(style->transformOriginY(), style.get()));
                 if (style->transformOriginZ() != 0)
                     list->append(zoomAdjustedPixelValue(style->transformOriginZ(), style.get()));
             }
@@ -1609,6 +1641,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             break;
 
         /* Unimplemented CSS 3 properties (including CSS3 shorthand properties) */
+        case CSSPropertyWebkitTextEmphasis:
         case CSSPropertyTextLineThrough:
         case CSSPropertyTextLineThroughColor:
         case CSSPropertyTextLineThroughMode:

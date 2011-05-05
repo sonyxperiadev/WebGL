@@ -24,8 +24,11 @@
 #include "BackForwardListImpl.h"
 #include "HistoryItem.h"
 #include "webkitprivate.h"
+#include "webkitwebbackforwardlistprivate.h"
 #include "webkitwebhistoryitem.h"
+#include "webkitwebhistoryitemprivate.h"
 #include "webkitwebview.h"
+#include "webkitwebviewprivate.h"
 #include <glib.h>
 
 /**
@@ -54,8 +57,6 @@ struct _WebKitWebBackForwardListPrivate {
     WebCore::BackForwardListImpl* backForwardList;
     gboolean disposed;
 };
-
-#define WEBKIT_WEB_BACK_FORWARD_LIST_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_BACK_FORWARD_LIST, WebKitWebBackForwardListPrivate))
 
 G_DEFINE_TYPE(WebKitWebBackForwardList, webkit_web_back_forward_list, G_TYPE_OBJECT);
 
@@ -90,7 +91,7 @@ static void webkit_web_back_forward_list_class_init(WebKitWebBackForwardListClas
 
 static void webkit_web_back_forward_list_init(WebKitWebBackForwardList* webBackForwardList)
 {
-    webBackForwardList->priv = WEBKIT_WEB_BACK_FORWARD_LIST_GET_PRIVATE(webBackForwardList);
+    webBackForwardList->priv = G_TYPE_INSTANCE_GET_PRIVATE(webBackForwardList, WEBKIT_TYPE_WEB_BACK_FORWARD_LIST, WebKitWebBackForwardListPrivate);
 }
 
 /**

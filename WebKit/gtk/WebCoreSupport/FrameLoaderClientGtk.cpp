@@ -25,7 +25,6 @@
 #include "config.h"
 #include "FrameLoaderClientGtk.h"
 
-#include "AXObjectCache.h"
 #include "ArchiveResource.h"
 #include "CachedFrame.h"
 #include "Color.h"
@@ -35,8 +34,8 @@
 #include "FormState.h"
 #include "FrameLoader.h"
 #include "FrameNetworkingContextGtk.h"
-#include "FrameView.h"
 #include "FrameTree.h"
+#include "FrameView.h"
 #include "GOwnPtr.h"
 #include "GRefPtr.h"
 #include "GtkPluginWidget.h"
@@ -46,6 +45,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
+#include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
 #include "Language.h"
 #include "MIMETypeRegistry.h"
@@ -53,28 +53,36 @@
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PluginDatabase.h"
+#include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
-#include "ProgressTracker.h"
-#include "JSDOMBinding.h"
 #include "ScriptController.h"
 #include "webkiterror.h"
 #include "webkitnetworkrequest.h"
+#include "webkitnetworkrequestprivate.h"
 #include "webkitnetworkresponse.h"
+#include "webkitnetworkresponseprivate.h"
 #include "webkitprivate.h"
+#include "webkitviewportattributes.h"
+#include "webkitviewportattributesprivate.h"
 #include "webkitwebframe.h"
+#include "webkitwebframeprivate.h"
 #include "webkitwebnavigationaction.h"
+#include "webkitwebnavigationactionprivate.h"
 #include "webkitwebpolicydecision.h"
+#include "webkitwebpolicydecisionprivate.h"
+#include "webkitwebresource.h"
+#include "webkitwebresourceprivate.h"
 #include "webkitwebview.h"
-#include <wtf/text/CString.h>
-#include <wtf/text/StringConcatenate.h>
-
+#include "webkitwebviewprivate.h"
 #include <JavaScriptCore/APICast.h>
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib/gi18n-lib.h>
 #include <stdio.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 using namespace WebCore;
 
@@ -209,34 +217,6 @@ String FrameLoaderClient::userAgent(const KURL& url)
     return String::fromUTF8(webkit_web_settings_get_user_agent(settings));
 }
 
-static void notifyAccessibilityStatus(WebKitWebFrame* frame, WebKitLoadStatus loadStatus)
-{
-    WebKitWebView* webView = getViewFromFrame(frame);
-    if (!webView || frame != webkit_web_view_get_main_frame(webView))
-        return;
-
-    AtkObject* axObject = gtk_widget_get_accessible(GTK_WIDGET(webView));
-    if (!axObject || !ATK_IS_DOCUMENT(axObject))
-        return;
-
-    switch (loadStatus) {
-    case WEBKIT_LOAD_PROVISIONAL:
-        g_signal_emit_by_name(axObject, "state-change", "busy", true);
-        if (core(frame)->loader()->loadType() == FrameLoadTypeReload)
-            g_signal_emit_by_name(axObject, "reload");
-        break;
-    case WEBKIT_LOAD_FAILED:
-        g_signal_emit_by_name(axObject, "load-stopped");
-        g_signal_emit_by_name(axObject, "state-change", "busy", false);
-        break;
-    case WEBKIT_LOAD_FINISHED:
-        g_signal_emit_by_name(axObject, "load-complete");
-        g_signal_emit_by_name(axObject, "state-change", "busy", false);
-    default:
-        break;
-    }
-}
-
 static void notifyStatus(WebKitWebFrame* frame, WebKitLoadStatus loadStatus)
 {
     frame->priv->loadStatus = loadStatus;
@@ -247,9 +227,6 @@ static void notifyStatus(WebKitWebFrame* frame, WebKitLoadStatus loadStatus)
         webView->priv->loadStatus = loadStatus;
         g_object_notify(G_OBJECT(webView), "load-status");
     }
-
-    if (AXObjectCache::accessibilityEnabled())
-        notifyAccessibilityStatus(frame, loadStatus);
 }
 
 static void loadDone(WebKitWebFrame* frame, bool didSucceed)
@@ -339,12 +316,12 @@ void FrameLoaderClient::dispatchWillSendRequest(WebCore::DocumentLoader* loader,
     if (redirectResponse.isNull())
         static_cast<WebKit::DocumentLoader*>(loader)->increaseLoadCount(identifier);
     else
-        networkResponse = adoptPlatformRef(webkit_network_response_new_with_core_response(redirectResponse));
+        networkResponse = adoptPlatformRef(kitNew(redirectResponse));
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
     GOwnPtr<gchar> identifierString(toString(identifier));
     WebKitWebResource* webResource = webkit_web_view_get_resource(webView, identifierString.get());
-    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(webkit_network_request_new_with_core_request(request)));
+    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
 
     if (!redirectResponse.isNull()) {
         // This is a redirect, so we need to update the WebResource's knowledge
@@ -365,11 +342,19 @@ void FrameLoaderClient::dispatchWillSendRequest(WebCore::DocumentLoader* loader,
     request.updateFromSoupMessage(message);
 }
 
-void FrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const ResourceRequest& request)
+void FrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader* loader, const ResourceRequest& request)
 {
     GOwnPtr<gchar> identifierString(toString(identifier));
-    webkit_web_view_add_resource(getViewFromFrame(m_frame), identifierString.get(),
-                                 WEBKIT_WEB_RESOURCE(g_object_new(WEBKIT_TYPE_WEB_RESOURCE, "uri", request.url().string().utf8().data(), 0)));
+
+    WebKitWebResource* webResource = WEBKIT_WEB_RESOURCE(g_object_new(WEBKIT_TYPE_WEB_RESOURCE, "uri", request.url().string().utf8().data(), 0));
+
+    if (loader == loader->frameLoader()->provisionalDocumentLoader()
+        && loader->frameLoader()->isLoadingMainFrame()) {
+        webkit_web_view_add_main_resource(getViewFromFrame(m_frame), identifierString.get(), webResource);
+        return;
+    }
+
+    webkit_web_view_add_resource(getViewFromFrame(m_frame), identifierString.get(), webResource);
 }
 
 void FrameLoaderClient::postProgressStartedNotification()
@@ -393,7 +378,7 @@ void FrameLoaderClient::postProgressEstimateChangedNotification()
 void FrameLoaderClient::postProgressFinishedNotification()
 {
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    WebKitWebViewPrivate* privateData = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
+    WebKitWebViewPrivate* privateData = webView->priv;
 
     // We can get a stopLoad() from dispose when the object is being
     // destroyed, don't emit the signal in that case.
@@ -430,7 +415,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     }
 
     WebKitWebView* page = getViewFromFrame(m_frame);
-    WebKitNetworkRequest* request = webkit_network_request_new_with_core_request(resourceRequest);
+    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(kitNew(resourceRequest)));
 
     WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
     if (m_policyDecision)
@@ -438,9 +423,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     m_policyDecision = policyDecision;
 
     gboolean isHandled = false;
-    g_signal_emit_by_name(page, "mime-type-policy-decision-requested", m_frame, request, mimeType.utf8().data(), policyDecision, &isHandled);
-
-    g_object_unref(request);
+    g_signal_emit_by_name(page, "mime-type-policy-decision-requested", m_frame, request.get(), mimeType.utf8().data(), policyDecision, &isHandled);
 
     if (isHandled)
         return;
@@ -512,14 +495,11 @@ void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFuncti
     m_policyDecision = policyDecision;
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
-    WebKitWebNavigationAction* navigationAction = getNavigationAction(action, frameName.utf8().data());
+    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(webkit_network_request_new(resourceRequest.url().string().utf8().data())));
+    PlatformRefPtr<WebKitWebNavigationAction> navigationAction(adoptPlatformRef(getNavigationAction(action, frameName.utf8().data())));
     gboolean isHandled = false;
 
-    g_signal_emit_by_name(webView, "new-window-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
-
-    g_object_unref(navigationAction);
-    g_object_unref(request);
+    g_signal_emit_by_name(webView, "new-window-policy-decision-requested", m_frame, request.get(), navigationAction.get(), policyDecision, &isHandled);
 
     // FIXME: I think Qt version marshals this to another thread so when we
     // have multi-threaded download, we might need to do the same
@@ -539,7 +519,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     }
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    WebKitNetworkRequest* request = webkit_network_request_new_with_core_request(resourceRequest);
+    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(kitNew(resourceRequest)));
     WebKitNavigationResponse response;
     /*
      * We still support the deprecated navigation-requested signal, if the
@@ -548,11 +528,10 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
      * navigation-policy-decision-requested must be emitted after
      * navigation-requested as the policy decision can be async.
      */
-    g_signal_emit_by_name(webView, "navigation-requested", m_frame, request, &response);
+    g_signal_emit_by_name(webView, "navigation-requested", m_frame, request.get(), &response);
 
     if (response == WEBKIT_NAVIGATION_RESPONSE_IGNORE) {
         (core(m_frame)->loader()->policyChecker()->*policyFunction)(PolicyIgnore);
-        g_object_unref(request);
         return;
     }
 
@@ -561,12 +540,9 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         g_object_unref(m_policyDecision);
     m_policyDecision = policyDecision;
 
-    WebKitWebNavigationAction* navigationAction = getNavigationAction(action, NULL);
+    PlatformRefPtr<WebKitWebNavigationAction> navigationAction(adoptPlatformRef(getNavigationAction(action, 0)));
     gboolean isHandled = false;
-    g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
-
-    g_object_unref(navigationAction);
-    g_object_unref(request);
+    g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request.get(), navigationAction.get(), policyDecision, &isHandled);
 
     // FIXME Implement default behavior when we can query the backend what protocols it supports
     if (!isHandled)
@@ -722,6 +698,10 @@ void FrameLoaderClient::documentElementAvailable()
 
 void FrameLoaderClient::didPerformFirstNavigation() const
 {
+    WebKitCacheModel cacheModel = webkit_get_cache_model();
+    // If user agents do not determine the cache model, we use WEBKIT_CACHE_MODEL_WEB_BROWSER by default.
+    if (cacheModel == WEBKIT_CACHE_MODEL_DEFAULT)
+        webkit_set_cache_model(WEBKIT_CACHE_MODEL_WEB_BROWSER);
 }
 
 void FrameLoaderClient::registerForIconNotification(bool shouldRegister)
@@ -1057,21 +1037,21 @@ void FrameLoaderClient::finishedLoading(WebCore::DocumentLoader* documentLoader)
 
 void FrameLoaderClient::provisionalLoadStarted()
 {
-    WebKitWebView* webView = getViewFromFrame(m_frame);
-
-    if (m_frame == webkit_web_view_get_main_frame(webView))
-        webkit_web_view_clear_resources(webView);
+    notImplemented();
 }
 
 void FrameLoaderClient::didFinishLoad() {
     notImplemented();
 }
 
-void FrameLoaderClient::prepareForDataSourceReplacement() { notImplemented(); }
+void FrameLoaderClient::prepareForDataSourceReplacement() 
+{
+    notImplemented();
+}
 
 void FrameLoaderClient::setTitle(const String& title, const KURL& url)
 {
-    WebKitWebFramePrivate* frameData = WEBKIT_WEB_FRAME_GET_PRIVATE(m_frame);
+    WebKitWebFramePrivate* frameData = m_frame->priv;
     g_free(frameData->title);
     frameData->title = g_strdup(title.utf8().data());
 }
@@ -1188,11 +1168,10 @@ void FrameLoaderClient::dispatchDidFailLoad(const ResourceError& error)
 
 void FrameLoaderClient::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse& response)
 {
-    WebKitNetworkRequest* networkRequest = webkit_network_request_new_with_core_request(request);
+    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
     WebKitWebView* view = getViewFromFrame(m_frame);
 
-    webkit_web_view_request_download(view, networkRequest, response, handle);
-    g_object_unref(networkRequest);
+    webkit_web_view_request_download(view, networkRequest.get(), response, handle);
 }
 
 ResourceError FrameLoaderClient::cancelledError(const ResourceRequest& request)
@@ -1257,7 +1236,7 @@ Frame* FrameLoaderClient::dispatchCreatePage(const NavigationAction&)
     if (!newWebView)
         return 0;
 
-    WebKitWebViewPrivate* privateData = WEBKIT_WEB_VIEW_GET_PRIVATE(newWebView);
+    WebKitWebViewPrivate* privateData = newWebView->priv;
     return core(privateData->mainFrame);
 }
 
@@ -1277,11 +1256,10 @@ void FrameLoaderClient::setMainDocumentError(WebCore::DocumentLoader*, const Res
 
 void FrameLoaderClient::startDownload(const ResourceRequest& request)
 {
-    WebKitNetworkRequest* networkRequest = webkit_network_request_new_with_core_request(request);
+    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
     WebKitWebView* view = getViewFromFrame(m_frame);
 
-    webkit_web_view_request_download(view, networkRequest);
-    g_object_unref(networkRequest);
+    webkit_web_view_request_download(view, networkRequest.get());
 }
 
 void FrameLoaderClient::updateGlobalHistory()
@@ -1307,8 +1285,16 @@ void FrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFrame)
 static void postCommitFrameViewSetup(WebKitWebFrame *frame, FrameView *view, bool resetValues)
 {
     WebKitWebView* containingWindow = getViewFromFrame(frame);
-    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
+    webkit_web_view_clear_resources(containingWindow);
+
+    WebKitWebViewPrivate* priv = containingWindow->priv;
     view->setGtkAdjustments(priv->horizontalAdjustment.get(), priv->verticalAdjustment.get(), resetValues);
+
+    // Invalidate the viewport attributes - they will only be valid
+    // again if the page we're beginning to load now has an
+    // appropriate viewport meta tag.
+    containingWindow->priv->viewportAttributes->priv->isValid = FALSE;
+    g_object_notify(G_OBJECT(containingWindow->priv->viewportAttributes.get()), "valid");
 
     if (priv->currentMenu) {
         PlatformRefPtr<GtkMenu> menu(priv->currentMenu);

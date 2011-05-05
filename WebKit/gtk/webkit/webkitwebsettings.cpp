@@ -26,16 +26,15 @@
 #include "config.h"
 #include "webkitwebsettings.h"
 
+#include "FileSystem.h"
+#include "Language.h"
+#include "PluginDatabase.h"
 #include "webkitenumtypes.h"
 #include "webkitprivate.h"
 #include "webkitversion.h"
-
-#include "FileSystem.h"
-#include "PluginDatabase.h"
-#include "Language.h"
+#include "webkitwebsettingsprivate.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
-
 #include <glib/gi18n-lib.h>
 #if OS(UNIX)
 #include <sys/utsname.h>
@@ -110,6 +109,7 @@ struct _WebKitWebSettingsPrivate {
     gboolean auto_resize_window;
     gboolean enable_java_applet;
     gboolean enable_hyperlink_auditing;
+    gboolean enable_fullscreen;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -161,7 +161,8 @@ enum {
     PROP_ENABLE_PAGE_CACHE,
     PROP_AUTO_RESIZE_WINDOW,
     PROP_ENABLE_JAVA_APPLET,
-    PROP_ENABLE_HYPERLINK_AUDITING
+    PROP_ENABLE_HYPERLINK_AUDITING,
+    PROP_ENABLE_FULLSCREEN
 };
 
 // Create a default user agent string
@@ -902,12 +903,21 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          FALSE,
                                                          flags));
 
+    /* Undocumented for now */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_FULLSCREEN,
+                                    g_param_spec_boolean("enable-fullscreen",
+                                                         _("Enable Fullscreen"),
+                                                         _("Whether the Mozilla style API should be enabled."),
+                                                         FALSE,
+                                                         flags));
+
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
 
 static void webkit_web_settings_init(WebKitWebSettings* web_settings)
 {
-    web_settings->priv = WEBKIT_WEB_SETTINGS_GET_PRIVATE(web_settings);
+    web_settings->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_settings, WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate);
 }
 
 static EnchantBroker* get_enchant_broker()
@@ -948,6 +958,13 @@ static void webkit_web_settings_finalize(GObject* object)
     g_free(priv->user_agent);
 
     G_OBJECT_CLASS(webkit_web_settings_parent_class)->finalize(object);
+}
+
+static void getAvailableDictionariesCallback(const char* const languageTag, const char* const, const char* const, const char* const, void* data)
+{
+    Vector<CString>* dicts = static_cast<Vector<CString>*>(data);
+
+    dicts->append(languageTag);
 }
 
 static void webkit_web_settings_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
@@ -1064,6 +1081,14 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
             if (enchant_broker_dict_exists(broker, language)) {
                 dict = enchant_broker_request_dict(broker, language);
                 spellDictionaries = g_slist_append(spellDictionaries, dict);
+            } else {
+                // No dictionaries selected, we get one from the list
+                Vector<CString> allDictionaries;
+                enchant_broker_list_dicts(broker, getAvailableDictionariesCallback, &allDictionaries);
+                if (!allDictionaries.isEmpty()) {
+                    dict = enchant_broker_request_dict(broker, allDictionaries[0].data());
+                    spellDictionaries = g_slist_append(spellDictionaries, dict);
+                }
             }
         }
         g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
@@ -1127,6 +1152,9 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
         break;
     case PROP_ENABLE_HYPERLINK_AUDITING:
         priv->enable_hyperlink_auditing = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_FULLSCREEN:
+        priv->enable_fullscreen = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1275,6 +1303,9 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_HYPERLINK_AUDITING:
         g_value_set_boolean(value, priv->enable_hyperlink_auditing);
         break;
+    case PROP_ENABLE_FULLSCREEN:
+        g_value_set_boolean(value, priv->enable_fullscreen);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -1350,6 +1381,7 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "auto-resize-window", priv->auto_resize_window,
                  "enable-java-applet", priv->enable_java_applet,
                  "enable-hyperlink-auditing", priv->enable_hyperlink_auditing,
+                 "enable-fullscreen", priv->enable_fullscreen,
                  NULL));
 
     return copy;

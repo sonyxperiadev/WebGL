@@ -65,7 +65,6 @@ typedef HWND PlatformWidget;
 #endif
 
 #if PLATFORM(GTK)
-typedef struct _GdkDrawable GdkDrawable;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkContainer GtkContainer;
 typedef GtkWidget* PlatformWidget;
@@ -115,6 +114,8 @@ class GraphicsContext;
 class PlatformMouseEvent;
 class ScrollView;
 class WidgetPrivate;
+
+enum WidgetNotification { WillPaintFlattened, DidPaintFlattened };
 
 // The Widget class serves as a base class for three kinds of objects:
 // (1) Scrollable areas (ScrollView)
@@ -193,6 +194,8 @@ public:
     ScrollView* root() const;
 
     virtual void handleEvent(Event*) { }
+
+    virtual void notifyWidget(WidgetNotification) { }
 
     // It is important for cross-platform code to realize that Mac has flipped coordinates.  Therefore any code
     // that tries to convert the location of a rect using the point-based convertFromContainingWindow will end

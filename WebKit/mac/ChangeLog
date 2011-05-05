@@ -1,3 +1,540 @@
+2010-12-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Cache snapshots of plug-ins before painting, to avoid script running during painting
+        https://bugs.webkit.org/show_bug.cgi?id=51493
+
+        When FrameView is asked to do a flattening paint (e.g. when Safari snapshots,
+        or when printing), plug-ins which otherwise use the CA rendering model
+        are sent a paint event. Some plug-ins may run script while handling this event,
+        or out of process plug-ins may process queued requests at this time. Running
+        script while inside layout or painting can have bad consequences, because it
+        can result in arbitrary changes to the render tree.
+        
+        This patch avoids sending plug-ins paint events inside of painting. Instead,
+        we ask the plug-ins to cache a snapshot before we paint, and then the software
+        paint simply draws that snapshot.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView drawRect:]): If we have a cached snapshot,
+        draw it. Also only send the snapshot message to the plugin proxy if we
+        know we're snapshotting, since even if creating the snapshot image failed,
+        we still don't want to call to the plug-in.
+
+        * Plugins/WebBaseNetscapePluginView.h: Add a retained NSImage member for the snapshot.
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView cacheSnapshot]): Create an image and draw the snapshot into it.
+        (-[WebBaseNetscapePluginView clearCachedSnapshot]): Clear the snapshot.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView drawRect:]): If we have a cached snapshot, use it.
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (NetscapePluginWidget::notifyWidget): Implement notifyWidget() and use it
+        to cache and clear the snapshots.
+
+2010-12-21  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Darin Adler.
+
+        -[WebBasePluginPackage isNativeLibraryData:] integer underflows on zero-sized data
+        https://bugs.webkit.org/show_bug.cgi?id=51431
+        <rdar://problem/8791757>
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isNativeLibraryData:]): Change an arithmetic expression so
+        it doesn't underflow.
+
+2010-12-16  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Cameron Zwarich.
+
+        REGRESSION(r74172): 125 java tests fail on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=51214
+
+        The regression was caused by an incorrectly adding sizeof(struct fat_header)
+        to a pointer for uint32_t as supposed to uint8_t.
+
+        Fixed the bug by explicitly casting it to uint8_t* before the addition.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isNativeLibraryData:]):
+
+2010-12-15  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Clang -Wcast-align gives an error in WebBasePluginPackage.mm
+        https://bugs.webkit.org/show_bug.cgi?id=51144
+
+        Fix an alignment issue. OSSwapInt32 takes data that is 32-bit aligned on ARM, but
+        we were calling it on a byte array 32 bits at a time. While this is okay in practice,
+        since TCMalloc won't give us a non-32-bit aligned block array of bytes and Vector's
+        inline storage is at the beginning of the Vector, it is still better to fix this
+        and silence the warning.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (swapIntsInHeader):
+        (-[WebBasePluginPackage isNativeLibraryData:]):
+
+2010-12-14  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <http://webkit.org/b/51064> Reproducible crash inside WebCore::MediaPlayerPrivateQTKit::createQTMovie when loading <video>
+
+        * History/WebHistoryItem.mm:
+        (-[WebHistoryItem description]): Test whether the string is empty rather than incorrectly
+        always including the target in the output.
+
+2010-12-13  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50953
+        DNS Prefetch should be an opt-in feature
+
+        * WebView/WebPreferences.mm: (+[WebPreferences initialize]): Changed default to false.
+
+2010-12-13  Mike Thole  <mthole@apple.com>
+
+        Rubber-stamped by John Sullivan.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50956
+        WebAuthenticationPanel.nib appears to have a cut-off sentence
+        
+        Replace the sentence fragment in the sheet layout with "<-- do not localize -->" style text.
+        The contents of this text field are updated dynamically before the sheet is displayed.
+
+        * Panels/English.lproj/WebAuthenticationPanel.nib/designable.nib:
+        * Panels/English.lproj/WebAuthenticationPanel.nib/keyedobjects.nib:
+
+2010-12-13  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50758
+        <rdar://problem/8722094> 
+        Defer loading print stylesheets
+        
+        Expose SPI for DRT for making resources load serially. This is useful for testing resource load order.
+
+        * WebView/WebView.mm:
+        (+[WebView _setLoadResourcesSerially:forHost:]):
+        * WebView/WebViewPrivate.h:
+
+2010-12-09  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Adopt new CG API for canvas
+        https://bugs.webkit.org/show_bug.cgi?id=50591
+
+        * WebCoreSupport/WebSystemInterface.mm:
+
+2010-10-28  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ojan Vafai.
+
+        spellcheck does not check pasted text
+        https://bugs.webkit.org/show_bug.cgi?id=40092
+
+        Added asynchronous spell checking API to WebEditorClient using
+        -[NSSpellChecker requestCheckingOfString].
+        Note that WebEditorSpellCheckResponder is a small class to receive
+        requested spell-checking result. Note that this feature is
+        disabled at default.
+        
+        Also added [WebPreferences setAsynchronousSpellCheckingEnabled:] to 
+        enable the feature from LayoutTestController.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (-[WebEditorSpellCheckResponder initWithSender:WebCore::sequence:results:]):
+        (-[WebEditorSpellCheckResponder perform]):
+        (toCoreSpellingResult):
+        (-[WebEditorSpellCheckResponder WTF::WebCore::]):
+        (WebEditorClient::requestCheckingOfString):
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences setAsynchronousSpellCheckingEnabled:]):
+        (-[WebPreferences asynchronousSpellCheckingEnabled]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-12-09  Anders Carlsson  <andersca@apple.com>
+
+        Fix a bug uncovered by clang++.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _documentFragmentFromPasteboard:forType:inContext:subresources:]):
+
+2010-12-09  Anders Carlsson  <andersca@apple.com>
+
+        Clang++ build fixes.
+
+        Silence a couple of warnings.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:forceUserGesture:]):
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:withGlobalObject:inScriptWorld:]):
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController filterKeyDown:]):
+
+2010-12-09  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48545, Home/End, PgUp, PgDown should respect
+        writing-mode.  This first part of the patch just patches Mac WebKit 1 views.
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _isVerticalDocument]):
+        (-[WebFrameView _isFlippedDocument]):
+        (-[WebFrameView _scrollToEndOfDocument]):
+        (-[WebFrameView _pageInBlockProgressionDirection:]):
+        (-[WebFrameView scrollPageUp:]):
+        (-[WebFrameView scrollPageDown:]):
+
+2010-12-08  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Enable pre-HTML5 parser quirks for Apple Mail.app
+        https://bugs.webkit.org/show_bug.cgi?id=50727
+
+        * WebView/WebView.mm:
+        (-[WebView _needsPreHTML5ParserQuirks]): Return true if the embedding
+        application is Mail.app.
+
+2010-12-08  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        REGRESSION: r73429-r73490: Some Contextual menu items non-functional, such as Open Link in New Tab
+        https://bugs.webkit.org/show_bug.cgi?id=50683
+        
+        If our context menu item already has an action, don't overwrite the action with the context menu
+        forwarder.
+
+        * WebView/WebHTMLView.mm:
+        (setMenuItemTarget):
+
+2010-12-08  Anders Carlsson  <andersca@apple.com>
+
+        Remove an unused variable.
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView setScrollOrigin:updatePosition:]):
+
+2010-12-07  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Layering Violation in ContextMenu - member variable of type HitTestResult
+        https://bugs.webkit.org/show_bug.cgi?id=50586
+        
+        Update users of ContextMenu and ContextMenuController to match where the new functions 
+        are located.
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::getCustomMenuFromDefaultItems):
+        (WebContextMenuClient::contextMenuItemSelected):
+        * WebView/WebHTMLView.mm:
+        (-[WebMenuTarget validateMenuItem:]):
+
+2010-12-07  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Part of Layering Violation in ContextMenu
+        https://bugs.webkit.org/show_bug.cgi?id=50586
+        
+        Move WebMenuTarget from ContextMenuMac to here, because having it in ContextMenuMac
+        was a layering violation. Also, make sure we set the menu item targets for all menu
+        items before showing them, because the ContextMenu constructor doesn't do that anymore.
+
+        * WebView/WebHTMLView.mm:
+        (+[WebMenuTarget sharedMenuTarget]): Moved from ContextMenuMac.mm.
+        (-[WebMenuTarget WebCore::]): Ditto.
+        (-[WebMenuTarget setMenuController:WebCore::]): Ditto.
+        (-[WebMenuTarget forwardContextMenuAction:]): Ditto.
+        (-[WebMenuTarget validateMenuItem:]): Ditto.
+
+        (setMenuItemTarget): Sets the target of the NSMenuItem to the shared WebMenuTarget.
+        (setMenuTargets): Recursively iterates over all NSMenuItems in an NSMenu (including
+            submenus), and calls setMenuItemTarget on them.
+        (-[WebHTMLView menuForEvent:]): Call setMenuTarget on all the menu items before adding
+            them to the menu.
+
+2010-12-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pass security origin to make local file decision correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48603
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]): Pass security origin.
+
+2010-12-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r73392.
+        http://trac.webkit.org/changeset/73392
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        This commit caused crashes on the GTK+ bots
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _canProvideDocumentSource]):
+
+2010-12-07  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        Let HTMLObjectElement be a form associated element
+        https://bugs.webkit.org/show_bug.cgi?id=48821
+
+        Modified to use FormAssociatedElement instead of HTMLFormControlElement.
+
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation elementWithName:inForm:]): Modified to use
+        FormAssociatedElement instead of HTMLFormControlElement.
+        (-[WebHTMLRepresentation controlsInForm:]): Ditto.
+
+2010-12-06  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _canProvideDocumentSource]):
+
+2010-12-06  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Share code between Mac (CA) and Windows (CACF) GraphicsLayer implementations
+        https://bugs.webkit.org/show_bug.cgi?id=49388
+
+        Got rid of GraphicsLayer::nativeLayer() call, replacing it with 
+        GraphicsLayer::platformLayer().
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::attachRootGraphicsLayer):
+
+2010-12-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKit part of <rdar://problem/8145955> Add text search API for counting/marking/highlighting matches in a range
+        https://bugs.webkit.org/show_bug.cgi?id=50530
+
+        * WebView/WebDocumentInternal.h: Added a DOMRange parameter to -countMatchesForText:options:limit:markMatches:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView countMatchesForText:inDOMRange:options:limit:markMatches:]): Added DOMRange parameter,
+        which is passed through to WebCore.
+        * WebView/WebPDFView.mm:
+        (isFrameInRange): Added this helper function.
+        (-[WebPDFView countMatchesForText:inDOMRange:options:limit:markMatches:]): Added DOMRange parameter and
+        a check if the frame is in the range.
+        * WebView/WebView.mm:
+        (-[WebView countMatchesForText:options:highlight:limit:markMatches:]): Now calls the inDOMRange: version.
+        (-[WebView countMatchesForText:inDOMRange:options:highlight:limit:markMatches:]): Added DOMRange
+        parameter, which is passed to document views' -countMatchesForText:inDOMRange:options:limit:markMatches:.
+        * WebView/WebViewPrivate.h:
+
+2010-12-03  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Enable <a ping> for Mac/Windows/WebKit2 builds
+        <rdar://problem/8504473>
+        https://bugs.webkit.org/show_bug.cgi?id=50488
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Enable "HyperlinkAuditing" by default.
+
+2010-12-03  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Need to move all code that applies correction into correction panel callback.
+        https://bugs.webkit.org/show_bug.cgi?id=50426
+        <rdar://problem/8720832>
+
+        * WebCoreSupport/WebEditorClient.h: Adopted new signature of dismissCorrectionPanel.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::~WebEditorClient): Adopted new signature of dismissCorrectionPanel.
+        (WebEditorClient::showCorrectionPanel): Added more user dictionary learning code.
+        (WebEditorClient::dismissCorrectionPanel): Adopted new signature of dismissCorrectionPanel.
+
+2010-12-02  Simon Fraser  <simon.fraser@apple.com>
+
+        Revert r73217 and r73227 because of continued bustage.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::attachRootGraphicsLayer):
+
+2010-12-02  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Share code between Mac (CA) and Windows (CACF) GraphicsLayer implementations
+        https://bugs.webkit.org/show_bug.cgi?id=49388
+
+        Got rid of GraphicsLayer::nativeLayer() call, replacing it with 
+        GraphicsLayer::platformLayer().
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::attachRootGraphicsLayer):
+
+2010-12-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        <rdar://problem/8708730> Objects reported as being leaked due to lack of autorelease pool
+
+        * Misc/WebNSFileManagerExtras.m:
+        (setMetaData): Create an autorelease pool for the duration of the thread body.
+
+2010-12-02  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Move requestGeolocationPermissionForFrame to GeolocationClient
+        https://bugs.webkit.org/show_bug.cgi?id=50061
+
+        This change facilitates client-based geolocation implementation by
+        bringing together permission control into the geolocation client
+        interface.
+
+        Move method ChromeClient::requestGeolocationPermissionForFrame to
+        GeolocationClient::requestPermission, and supporting class
+        WebGeolocationPolicyListener. The moved code is unchanged except
+        that requestPermission now takes only one argument (Geolocation*)
+        and the Frame parameter is retrieved from the Geolocation object.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        * WebCoreSupport/WebGeolocationClient.h:
+        (WebGeolocationClient::cancelPermissionRequest):
+        * WebCoreSupport/WebGeolocationClient.mm:
+        (WebGeolocationClient::requestPermission):
+        (-[WebGeolocationPolicyListener initWithGeolocation:]):
+        (-[WebGeolocationPolicyListener allow]):
+        (-[WebGeolocationPolicyListener deny]):
+
+2010-12-02  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Eric Carlson.
+
+        Style Fixes in WebPluginController
+        https://bugs.webkit.org/show_bug.cgi?id=50397
+
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController startAllPlugins]):
+        (-[WebPluginController stopAllPlugins]):
+
+2010-12-02  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Adam Roben.
+        
+        Slightly speculative fix for:
+
+        <rdar://problem/8712674>
+        <https://bugs.webkit.org/show_bug.cgi?id=50393>
+        setStringValue: sometimes called with nil in [WebAuthenticationPanel setUpForChallenge]        
+
+        * Panels/WebAuthenticationPanel.m:
+        (-[WebAuthenticationPanel setUpForChallenge:]):
+        If the realm is nil, use @"" instead.
+
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        This patch is for supporting multiple correction suggestion panel on Mac OS X.
+        The behavior and implementation is similar to that of reversion candiate panel.
+
+        * WebCoreSupport/WebEditorClient.h: Adopted new signatures defined in base class.
+
+        * WebCoreSupport/WebEditorClient.mm:  Adopted new signatures defined in base class.
+          Added code to handle new multiple suggestion canidate panel type.
+        (WebEditorClient::showCorrectionPanel):
+        (WebEditorClient::getGuessesForWord):
+
+2010-12-01  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46645
+        
+        Part 1 of making scrolling work with vertical text. This patch generalizes the scrollOriginX concept
+        recently added for horizontal RTL documents and applies it to writing modes as well.  Now the
+        scrollOrigin is a point, since you can start off locked to the bottom or locked to the right.
+        
+        This patch also fixes numerous bugs with the scrollOrigin code using native Mac NSScrollViews and
+        makes them behave the same as the cross-platform code (allowing for cross-platform results to be
+        landed).
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView adjustForScrollOriginChange]):
+        (-[WebDynamicScrollBarsView updateScrollers]):
+        (-[WebDynamicScrollBarsView reflectScrolledClipView:]):
+        (-[WebDynamicScrollBarsView setScrollOrigin:updatePosition:]):
+        (-[WebDynamicScrollBarsView scrollOrigin]):
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _scrollToBeginningOfDocument]):
+        (-[WebFrameView _scrollToEndOfDocument]):
+
+2010-11-29  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit Mac part of <rdar://problem/8650085> adding word-prefix search options to the text search API.
+        https://bugs.webkit.org/show_bug.cgi?id=50038
+        Based on a patch from Darin Adler.
+
+        * WebView/WebDocumentInternal.h: Removed -markAllMatchesForText:caseSensitive:limit: and
+        replaced -countMatchesForText:caseSensitive:limit:markMatches: with a WebFindOptions-based
+        method. Declared a WebDocumentOptionsSearching protocol with a new -findString:options:
+        method. Made WebHTMLView conform to the new protocol.
+        * WebView/WebHTMLView.mm:
+        (coreOptions): Added. Converts WebFindOptions to WebCore FindOptions.
+        (-[WebHTMLView searchFor:direction:caseSensitive:wrap:startInSelection:]): Changed to use
+        -findString:options:.
+        (-[WebHTMLView countMatchesForText:options:limit:markMatches:]): Changed to use WebFindOptions.
+        (-[WebHTMLView findString:options:]): Added. Calls through to WebCore::Editor::findString().
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView countMatchesForText:options:limit:markMatches:]): Changed to use WebFindOptions.
+        * WebView/WebView.mm:
+        (-[WebView markAllMatchesForText:caseSensitive:highlight:limit:]): Now calls through to
+        -countMatchesForText:options:highlight:limit:markMatches.
+        (-[WebView countMatchesForText:caseSensitive:highlight:limit:markMatches:]): Ditto.
+        (-[WebView searchFor:direction:caseSensitive:wrap:startInSelection:]): Now calls through to
+        -findString:options:.
+        (incrementFrame): Changed to use WebFindOptions.
+        (findString): Added this helper method that performs the search using the best supported
+        method for the document view.
+        (-[WebView findString:options:]): Changed -searchFor::::: into this.
+        (-[WebView canMarkAllTextMatches]):
+        (-[WebView countMatchesForText:options:highlight:limit:markMatches:]): Updated to use
+        WebFindOptions.
+        (-[WebView unmarkAllTextMatches]): Updated for change to incrementFrame.
+        (-[WebView rectsForTextMatches]): Ditto.
+        * WebView/WebViewPrivate.h: Added WebFindOptions, -findString:options:, and WebFindOptions version
+        of countMatchesForText:.
+
 2010-11-29  Jeremy Moskovich  <jeremy@chromium.org>
 
         Reviewed by David Hyatt.
@@ -1898,6 +2435,32 @@
         * WebView/WebView.mm:
         (-[WebView setEditable:]):
         Changed call sites to use editor().
+
+2010-09-08  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ojan Vafai.
+
+        spellcheck does not check pasted text
+        https://bugs.webkit.org/show_bug.cgi?id=40092
+
+        Implemented async spell-check APIs on WebEditorClient.
+        The implementations are using [NSSpellChecker requestCheckingOfString]
+        which is available only on Mac OS 10.6 or later.
+        
+        Note that [NSSpellChecker requestCheckingOfString] could invoke
+        the callback block on on of their worker thread, so we need to
+        return the result to the main thread where WebCore is running.
+        For that purpose, we made WebEditorSpellCheckResponder class.
+        
+        Test: editing/spelling/spellcheck-pasted-text-001.html
+        
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::isAsynchronousSpellCheckingEnabled): Added.
+        (-[WebEditorSpellCheckResponder initWithSender:WebCore::sequence:results:]): Added.
+        (-[WebEditorSpellCheckResponder perform]): Added.
+        (WebEditorClient::requestCheckingOfString): Added.
+        * WebView/WebFramePrivate.h:
 
 2010-09-08  MORITA Hajime  <morrita@google.com>
 

@@ -34,7 +34,6 @@
 
 #include "AudioBus.h"
 #include "AudioFileReader.h"
-#include "AudioResources.h"
 #include "Biquad.h"
 #include "FFTFrame.h"
 #include "HRTFPanner.h"
@@ -108,9 +107,10 @@ bool HRTFElevation::calculateKernelsForAzimuthElevation(int azimuth, int elevati
         return false;
     
     size_t responseLength = impulseResponse->length();
+    size_t expectedLength = static_cast<size_t>(256 * (sampleRate / 44100.0));
 
     // Check number of channels and length.  For now these are fixed and known.
-    bool isBusGood = responseLength == 512 && impulseResponse->numberOfChannels() == 2;
+    bool isBusGood = responseLength == expectedLength && impulseResponse->numberOfChannels() == 2;
     ASSERT(isBusGood);
     if (!isBusGood)
         return false;

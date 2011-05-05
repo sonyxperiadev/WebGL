@@ -139,6 +139,8 @@ namespace WebCore {
 
         void print(Frame*);
 
+        // FIXME: Remove once all ports are using client-based geolocation. https://bugs.webkit.org/show_bug.cgi?id=40373
+        // For client-based geolocation, these two methods have moved to GeolocationClient. https://bugs.webkit.org/show_bug.cgi?id=50061
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
 
@@ -146,6 +148,8 @@ namespace WebCore {
         void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
         void dispatchViewportDataDidChange(const ViewportArguments&) const;
+
+        bool requiresFullscreenForVideoPlayback();
 
 #if PLATFORM(MAC)
         void focusNSView(NSView*);

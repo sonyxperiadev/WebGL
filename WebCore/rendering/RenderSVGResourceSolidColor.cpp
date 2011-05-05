@@ -60,7 +60,7 @@ bool RenderSVGResourceSolidColor::applyResource(RenderObject* object, RenderStyl
         context->setFillRule(svgStyle ? svgStyle->fillRule() : RULE_NONZERO);
 
         if (resourceMode & ApplyToTextMode)
-            context->setTextDrawingMode(cTextFill);
+            context->setTextDrawingMode(TextModeFill);
     } else if (resourceMode & ApplyToStrokeMode) {
         context->setAlpha(svgStyle ? svgStyle->strokeOpacity() : 1.0f);
         context->setStrokeColor(m_color, colorSpace);
@@ -69,23 +69,24 @@ bool RenderSVGResourceSolidColor::applyResource(RenderObject* object, RenderStyl
             SVGRenderSupport::applyStrokeStyleToContext(context, style, object);
 
         if (resourceMode & ApplyToTextMode)
-            context->setTextDrawingMode(cTextStroke);
+            context->setTextDrawingMode(TextModeStroke);
     }
 
     return true;
 }
 
-void RenderSVGResourceSolidColor::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode)
+void RenderSVGResourceSolidColor::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode, const Path* path)
 {
     ASSERT(context);
     ASSERT(resourceMode != ApplyToDefaultMode);
 
-    if (!(resourceMode & ApplyToTextMode)) {
+    if (path && !(resourceMode & ApplyToTextMode)) {
         if (resourceMode & ApplyToFillMode)
-            context->fillPath();
+            context->fillPath(*path);
         else if (resourceMode & ApplyToStrokeMode)
-            context->strokePath();
+            context->strokePath(*path);
     }
+<<<<<<< HEAD
 
 #if PLATFORM(SKIA) && !PLATFORM(ANDROID)
     // FIXME: Move this into the GraphicsContext
@@ -97,6 +98,8 @@ void RenderSVGResourceSolidColor::postApplyResource(RenderObject*, GraphicsConte
     context->platformContext()->setFillShader(0);
     context->platformContext()->setStrokeShader(0);
 #endif
+=======
+>>>>>>> webkit.org at r74534 (trunk)
 }
 
 }

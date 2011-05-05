@@ -291,19 +291,19 @@ Color correctedTextColor(Color textColor, Color backgroundColor)
 
 void updateGraphicsContext(GraphicsContext* context, const Color& fillColor, const Color& strokeColor, float strokeThickness, ColorSpace colorSpace)
 {
-    int mode = context->textDrawingMode();
+    TextDrawingModeFlags mode = context->textDrawingMode();
     if (strokeThickness > 0) {
-        int newMode = mode | cTextStroke;
+        TextDrawingModeFlags newMode = mode | TextModeStroke;
         if (mode != newMode) {
             context->setTextDrawingMode(newMode);
             mode = newMode;
         }
     }
     
-    if (mode & cTextFill && (fillColor != context->fillColor() || colorSpace != context->fillColorSpace()))
+    if (mode & TextModeFill && (fillColor != context->fillColor() || colorSpace != context->fillColorSpace()))
         context->setFillColor(fillColor, colorSpace);
 
-    if (mode & cTextStroke) {
+    if (mode & TextModeStroke) {
         if (strokeColor != context->strokeColor())
             context->setStrokeColor(strokeColor, colorSpace);
         if (strokeThickness != context->strokeThickness())
@@ -359,7 +359,7 @@ FloatSize InlineTextBox::applyShadowToGraphicsContext(GraphicsContext* context, 
     return extraOffset;
 }
 
-static void paintTextWithShadows(GraphicsContext* context, const Font& font, const TextRun& textRun, int startOffset, int endOffset, int truncationPoint, const IntPoint& textOrigin,
+static void paintTextWithShadows(GraphicsContext* context, const Font& font, const TextRun& textRun, const AtomicString& emphasisMark, int emphasisMarkOffset, int startOffset, int endOffset, int truncationPoint, const IntPoint& textOrigin,
                                  const IntRect& boxRect, const ShadowData* shadow, bool stroked, bool horizontal)
 {
     Color fillColor = context->fillColor();
@@ -375,13 +375,23 @@ static void paintTextWithShadows(GraphicsContext* context, const Font& font, con
         else if (!opaque)
             context->setFillColor(fillColor, fillColorSpace);
 
-        if (startOffset <= endOffset)
-            context->drawText(font, textRun, textOrigin + extraOffset, startOffset, endOffset);
-        else {
-            if (endOffset > 0)
-                context->drawText(font, textRun, textOrigin + extraOffset,  0, endOffset);
-            if (startOffset < truncationPoint)
-                context->drawText(font, textRun, textOrigin + extraOffset, startOffset, truncationPoint);
+        if (startOffset <= endOffset) {
+            if (emphasisMark.isEmpty())
+                context->drawText(font, textRun, textOrigin + extraOffset, startOffset, endOffset);
+            else
+                context->drawEmphasisMarks(font, textRun, emphasisMark, textOrigin + extraOffset + IntSize(0, emphasisMarkOffset), startOffset, endOffset);
+        } else {
+            if (endOffset > 0) {
+                if (emphasisMark.isEmpty())
+                    context->drawText(font, textRun, textOrigin + extraOffset,  0, endOffset);
+                else
+                    context->drawEmphasisMarks(font, textRun, emphasisMark, textOrigin + extraOffset + IntSize(0, emphasisMarkOffset),  0, endOffset);
+            } if (startOffset < truncationPoint) {
+                if (emphasisMark.isEmpty())
+                    context->drawText(font, textRun, textOrigin + extraOffset, startOffset, truncationPoint);
+                else
+                    context->drawEmphasisMarks(font, textRun, emphasisMark, textOrigin + extraOffset + IntSize(0, emphasisMarkOffset),  startOffset, truncationPoint);
+            }
         }
 
         if (!shadow)
@@ -495,12 +505,14 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
     // 2. Now paint the foreground, including text and decorations like underline/overline (in quirks mode only).
     Color textFillColor;
     Color textStrokeColor;
+    Color emphasisMarkColor;
     float textStrokeWidth = styleToUse->textStrokeWidth();
     const ShadowData* textShadow = paintInfo.forceBlackText ? 0 : styleToUse->textShadow();
 
     if (paintInfo.forceBlackText) {
         textFillColor = Color::black;
         textStrokeColor = Color::black;
+        emphasisMarkColor = Color::black;
     } else {
         textFillColor = styleToUse->visitedDependentColor(CSSPropertyWebkitTextFillColor);
         
@@ -513,6 +525,12 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         // Make the text stroke color legible against a white background
         if (styleToUse->forceBackgroundsToWhite())
             textStrokeColor = correctedTextColor(textStrokeColor, Color::white);
+
+        emphasisMarkColor = styleToUse->visitedDependentColor(CSSPropertyWebkitTextEmphasisColor);
+        
+        // Make the text stroke color legible against a white background
+        if (styleToUse->forceBackgroundsToWhite())
+            emphasisMarkColor = correctedTextColor(emphasisMarkColor, Color::white);
     }
 
     bool paintSelectedTextOnly = (paintInfo.phase == PaintPhaseSelection);
@@ -520,6 +538,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
 
     Color selectionFillColor = textFillColor;
     Color selectionStrokeColor = textStrokeColor;
+    Color selectionEmphasisMarkColor = emphasisMarkColor;
     float selectionStrokeWidth = textStrokeWidth;
     const ShadowData* selectionShadow = textShadow;
     if (haveSelection) {
@@ -529,6 +548,13 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
             if (!paintSelectedTextOnly)
                 paintSelectedTextSeparately = true;
             selectionFillColor = foreground;
+        }
+
+        Color emphasisMarkForeground = paintInfo.forceBlackText ? Color::black : renderer()->selectionEmphasisMarkColor();
+        if (emphasisMarkForeground.isValid() && emphasisMarkForeground != selectionEmphasisMarkColor) {
+            if (!paintSelectedTextOnly)
+                paintSelectedTextSeparately = true;
+            selectionEmphasisMarkColor = emphasisMarkForeground;
         }
 
         if (RenderStyle* pseudoStyle = renderer()->getCachedPseudoStyle(SELECTION)) {
@@ -578,6 +604,15 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         length = m_truncation;
     }
 
+    int emphasisMarkOffset = 0;
+    const AtomicString& emphasisMark = styleToUse->textEmphasisMarkString();
+    if (!emphasisMark.isEmpty()) {
+        if (styleToUse->textEmphasisPosition() == TextEmphasisPositionOver)
+            emphasisMarkOffset = -font.ascent() - font.emphasisMarkDescent(emphasisMark);
+        else
+            emphasisMarkOffset = font.descent() + font.emphasisMarkAscent(emphasisMark);
+    }
+
     if (!paintSelectedTextOnly) {
         // For stroked painting, we have to change the text drawing mode.  It's probably dangerous to leave that mutated as a side
         // effect, so only when we know we're stroking, do a save/restore.
@@ -587,9 +622,18 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         updateGraphicsContext(context, textFillColor, textStrokeColor, textStrokeWidth, styleToUse->colorSpace());
         if (!paintSelectedTextSeparately || ePos <= sPos) {
             // FIXME: Truncate right-to-left text correctly.
-            paintTextWithShadows(context, font, textRun, 0, length, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
+            paintTextWithShadows(context, font, textRun, nullAtom, 0, 0, length, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
         } else
-            paintTextWithShadows(context, font, textRun, ePos, sPos, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
+            paintTextWithShadows(context, font, textRun, nullAtom, 0, ePos, sPos, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
+
+        if (!emphasisMark.isEmpty()) {
+            updateGraphicsContext(context, emphasisMarkColor, textStrokeColor, textStrokeWidth, styleToUse->colorSpace());
+            if (!paintSelectedTextSeparately || ePos <= sPos) {
+                // FIXME: Truncate right-to-left text correctly.
+                paintTextWithShadows(context, font, textRun, emphasisMark, emphasisMarkOffset, 0, length, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
+            } else
+                paintTextWithShadows(context, font, textRun, emphasisMark, emphasisMarkOffset, ePos, sPos, length, textOrigin, boxRect, textShadow, textStrokeWidth > 0, isHorizontal());
+        }
 
         if (textStrokeWidth > 0)
             context->restore();
@@ -601,8 +645,11 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
             context->save();
 
         updateGraphicsContext(context, selectionFillColor, selectionStrokeColor, selectionStrokeWidth, styleToUse->colorSpace());
-        paintTextWithShadows(context, font, textRun, sPos, ePos, length, textOrigin, boxRect, selectionShadow, selectionStrokeWidth > 0, isHorizontal());
-
+        paintTextWithShadows(context, font, textRun, nullAtom, 0, sPos, ePos, length, textOrigin, boxRect, selectionShadow, selectionStrokeWidth > 0, isHorizontal());
+        if (!emphasisMark.isEmpty()) {
+            updateGraphicsContext(context, selectionEmphasisMarkColor, textStrokeColor, textStrokeWidth, styleToUse->colorSpace());
+            paintTextWithShadows(context, font, textRun, emphasisMark, emphasisMarkOffset, sPos, ePos, length, textOrigin, boxRect, selectionShadow, selectionStrokeWidth > 0, isHorizontal());
+        }
         if (selectionStrokeWidth > 0)
             context->restore();
     }
@@ -1124,16 +1171,27 @@ unsigned InlineTextBox::caretMaxRenderedOffset() const
 
 int InlineTextBox::textPos() const
 {
+    // When computing the width of a text run, RenderBlock::computeInlineDirectionPositionsForLine() doesn't include the actual offset
+    // from the containing block edge in its measurement. textPos() should be consistent so the text are rendered in the same width.
     if (logicalLeft() == 0)
         return 0;
-    RenderBlock* blockElement = renderer()->containingBlock();
-    return logicalLeft() - blockElement->borderStart() - blockElement->paddingStart();
+    return logicalLeft() - root()->logicalLeft();
 }
 
 int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) const
 {
     if (isLineBreak())
         return 0;
+
+    int leftOffset = isLeftToRightDirection() ? 0 : m_len;
+    int rightOffset = isLeftToRightDirection() ? m_len : 0;
+    if (renderer()->containingBlock()->style()->isLeftToRightDirection() != isLeftToRightDirection())
+        swap(leftOffset, rightOffset);
+
+    if (lineOffset - logicalLeft() > logicalWidth())
+        return rightOffset;
+    if (lineOffset - logicalLeft() < 0)
+        return leftOffset;
 
     RenderText* text = toRenderText(renderer());
     RenderStyle* style = text->style(m_firstLine);
@@ -1145,8 +1203,12 @@ int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) 
     return f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
 #else
     return f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
+<<<<<<< HEAD
                                 lineOffset - logicalLeft(), includePartialGlyphs);
 #endif
+=======
+        lineOffset - logicalLeft(), includePartialGlyphs);
+>>>>>>> webkit.org at r74534 (trunk)
 }
 
 int InlineTextBox::positionForOffset(int offset) const

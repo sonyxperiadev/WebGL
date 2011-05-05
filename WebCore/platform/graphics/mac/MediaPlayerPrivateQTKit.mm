@@ -255,7 +255,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
 #endif
                        nil];
 
-#if defined(BUILDING_ON_SNOW_LEOPARD)
+#if !defined(BUILDING_ON_LEOPARD)
     CFDictionaryRef proxySettings = CFNetworkCopySystemProxySettings();
     CFArrayRef proxiesForURL = CFNetworkCopyProxiesForURL((CFURLRef)cocoaURL, proxySettings);
     BOOL willUseProxy = YES;
@@ -623,7 +623,7 @@ void MediaPlayerPrivateQTKit::resumeLoad()
 {
     m_delayingLoad = false;
 
-    if (m_movieURL)
+    if (!m_movieURL.isNull())
         loadInternal(m_movieURL);
 }
 

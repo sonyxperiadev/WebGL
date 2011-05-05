@@ -443,7 +443,7 @@ QMenu *QWebPagePrivate::createContextMenu(const WebCore::ContextMenu *webcoreMen
                 QAction *a = q->action(action);
                 if (a) {
                     ContextMenuItem it(item);
-                    webcoreMenu->checkOrEnableIfNeeded(it);
+                    page->contextMenuController()->checkOrEnableIfNeeded(it);
                     PlatformMenuItemDescription desc = it.releasePlatformDescription();
                     a->setEnabled(desc.enabled);
                     a->setChecked(desc.checked);
@@ -759,10 +759,10 @@ void QWebPagePrivate::mouseReleaseEvent(T *ev)
     ev->setAccepted(accepted);
 
     handleClipboard(ev, ev->button());
-    handleSoftwareInputPanel(ev->button());
+    handleSoftwareInputPanel(ev->button(), QPointF(ev->pos()).toPoint());
 }
 
-void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
+void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button, const QPoint& pos)
 {
     Frame* frame = page->focusController()->focusedFrame();
     if (!frame)
@@ -774,8 +774,11 @@ void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
         QStyle::RequestSoftwareInputPanel behavior = QStyle::RequestSoftwareInputPanel(
             client->ownerWidget()->style()->styleHint(QStyle::SH_RequestSoftwareInputPanel));
         if (!clickCausedFocus || behavior == QStyle::RSIP_OnMouseClick) {
-            QEvent event(QEvent::RequestSoftwareInputPanel);
-            QApplication::sendEvent(client->ownerWidget(), &event);
+            HitTestResult result = frame->eventHandler()->hitTestResultAtPoint(frame->view()->windowToContents(pos), false);
+            if (result.isContentEditable()) {
+                QEvent event(QEvent::RequestSoftwareInputPanel);
+                QApplication::sendEvent(client->ownerWidget(), &event);
+            }
         }
     }
 
@@ -2008,7 +2011,7 @@ void QWebPage::setView(QWidget* view)
 
     if (d->client) {
         if (d->client->isQWidgetClient())
-            static_cast<PageClientQWidget*>(d->client)->view = view;
+            static_cast<PageClientQWidget*>(d->client.get())->view = view;
         return;
     }
 
@@ -2244,8 +2247,8 @@ bool QWebPage::supportsContentType(const QString& mimeType) const
 
 static WebCore::FrameLoadRequest frameLoadRequest(const QUrl &url, WebCore::Frame *frame)
 {
-    WebCore::ResourceRequest rr(url, frame->loader()->outgoingReferrer());
-    return WebCore::FrameLoadRequest(rr);
+    return WebCore::FrameLoadRequest(frame->document()->securityOrigin(),
+        WebCore::ResourceRequest(url, frame->loader()->outgoingReferrer()));
 }
 
 static void openNewWindow(const QUrl& url, WebCore::Frame* frame)
@@ -3209,12 +3212,13 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
         d->hitTestResult = QWebHitTestResult();
     else
         d->hitTestResult = QWebHitTestResult(new QWebHitTestResultPrivate(result));
-    WebCore::ContextMenu menu(result);
-    menu.populate();
+
+    d->page->contextMenuController()->setHitTestResult(result);
+    d->page->contextMenuController()->populate();
     
 #if ENABLE(INSPECTOR)
     if (d->page->inspectorController()->enabled())
-        menu.addInspectElementItem();
+        d->page->contextMenuController()->addInspectElementItem();
 #endif
 
     QBitArray visitedWebActions(QWebPage::WebActionCount);
@@ -3223,7 +3227,7 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
     delete d->currentContextMenu;
 
     // Then we let createContextMenu() enable the actions that are put into the menu
-    d->currentContextMenu = d->createContextMenu(&menu, menu.platformDescription(), &visitedWebActions);
+    d->currentContextMenu = d->createContextMenu(d->page->contextMenuController()->contextMenu(), d->page->contextMenuController()->contextMenu()->platformDescription(), &visitedWebActions);
 #endif // QT_NO_CONTEXTMENU
 
 #ifndef QT_NO_ACTION
@@ -4119,6 +4123,13 @@ quint64 QWebPage::bytesReceived() const
     to the database \a databaseName and the quota allocated to that web site is exceeded.
 
     \sa QWebDatabase
+*/
+/*!
+    \fn void QWebPage::applicationCacheQuotaExceeded(QWebSecurityOrigin* origin, quint64 defaultOriginQuota);
+
+    This signal is emitted whenever the web site is asking to store data to the application cache
+    database databaseName and the quota allocated to that web site is exceeded.
+
 */
 
 /*!

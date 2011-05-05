@@ -46,6 +46,9 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGStyledElement, HTMLNames::classAttr, ClassName, className)
+
 using namespace SVGNames;
 
 void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, int>* propertyNameToIdMap, const QualifiedName& attrName)
@@ -77,8 +80,8 @@ String SVGStyledElement::title() const
     // Walk up the tree, to find out whether we're inside a <use> shadow tree, to find the right title.
     Node* parent = const_cast<SVGStyledElement*>(this);
     while (parent) {
-        if (!parent->isShadowNode()) {
-            parent = parent->parentNode();
+        if (!parent->isShadowRoot()) {
+            parent = parent->parentNodeGuaranteedHostFree();
             continue;
         }
         

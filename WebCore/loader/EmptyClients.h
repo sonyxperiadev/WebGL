@@ -488,19 +488,18 @@ public:
     virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
 #endif
 #if SUPPORT_AUTOCORRECTION_PANEL
-    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, Editor*) { }
-    virtual void dismissCorrectionPanel(CorrectionWasRejectedOrNot) { }
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, const Vector<String>&, Editor*) { }
+    virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) { }
     virtual bool isShowingCorrectionPanel() { return false; }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }
     virtual void showSpellingUI(bool) { }
     virtual bool spellingUIIsShowing() { return false; }
-    virtual void getGuessesForWord(const String&, Vector<String>&) { }
+    virtual void getGuessesForWord(const String&, const String&, Vector<String>&) { }
     virtual void willSetInputMethodState() { }
     virtual void setInputMethodState(bool) { }
-
-
+    virtual void requestCheckingOfString(SpellChecker*, int, const String&) { }
 };
 
 #if ENABLE(CONTEXT_MENUS)
@@ -509,7 +508,11 @@ public:
     virtual ~EmptyContextMenuClient() {  }
     virtual void contextMenuDestroyed() { }
 
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+    virtual PassOwnPtr<ContextMenu> customizeMenu(PassOwnPtr<ContextMenu>) { return 0; }
+#else
     virtual PlatformMenuDescription getCustomMenuFromDefaultItems(ContextMenu*) { return 0; }
+#endif
     virtual void contextMenuItemSelected(ContextMenuItem*, const ContextMenu*) { }
 
     virtual void downloadURL(const KURL&) { }

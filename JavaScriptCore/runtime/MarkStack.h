@@ -28,6 +28,7 @@
 
 #include "JSValue.h"
 #include <wtf/Noncopyable.h>
+#include <wtf/OSAllocator.h>
 
 namespace JSC {
 
@@ -40,8 +41,9 @@ namespace JSC {
     public:
         MarkStack(void* jsArrayVPtr)
             : m_jsArrayVPtr(jsArrayVPtr)
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
             , m_isCheckingForDefaultMarkViolation(false)
+            , m_isDraining(false)
 #endif
         {
         }
@@ -85,8 +87,8 @@ namespace JSC {
             MarkSetProperties m_properties;
         };
 
-        static void* allocateStack(size_t size);
-        static void releaseStack(void* addr, size_t size);
+        static void* allocateStack(size_t size) { return OSAllocator::reserveAndCommit(size); }
+        static void releaseStack(void* addr, size_t size) { OSAllocator::decommitAndRelease(addr, size); }
 
         static void initializePagesize();
         static size_t pageSize()
@@ -177,9 +179,10 @@ namespace JSC {
         MarkStackArray<JSCell*> m_values;
         static size_t s_pageSize;
 
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
     public:
         bool m_isCheckingForDefaultMarkViolation;
+        bool m_isDraining;
 #endif
     };
 }

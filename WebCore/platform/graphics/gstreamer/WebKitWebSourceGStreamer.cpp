@@ -110,6 +110,7 @@ static void webKitWebSrcFinalize(GObject* object);
 static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue* value, GParamSpec* pspec);
 static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* pspec);
 static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStateChange transition);
+static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query);
 
 static void webKitWebSrcNeedDataCb(GstAppSrc* appsrc, guint length, gpointer userData);
 static void webKitWebSrcEnoughDataCb(GstAppSrc* appsrc, gpointer userData);
@@ -221,6 +222,7 @@ static void webkit_web_src_init(WebKitWebSrc* src,
                                                              padTemplate);
 
     gst_element_add_pad(GST_ELEMENT(src), priv->srcpad);
+    gst_pad_set_query_function(priv->srcpad, webKitWebSrcQuery);
 
     priv->appsrc = GST_APP_SRC(gst_element_factory_make("appsrc", 0));
     if (!priv->appsrc) {
@@ -476,6 +478,36 @@ static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStat
     return ret;
 }
 
+static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
+{
+    WebKitWebSrc* src = WEBKIT_WEB_SRC(gst_pad_get_parent(pad));
+    gboolean result = FALSE;
+
+    switch (GST_QUERY_TYPE(query)) {
+    case GST_QUERY_DURATION:
+    {
+        GstFormat format;
+
+        gst_query_parse_duration(query, &format, NULL);
+
+        GST_DEBUG_OBJECT(src, "duration query in format %s", gst_format_get_name(format));
+        if ((format == GST_FORMAT_BYTES) && (src->priv->size > 0)) {
+            gst_query_set_duration(query, format, src->priv->size);
+            result = TRUE;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (!result)
+        result = gst_pad_query_default(pad, query);
+
+    gst_object_unref(src);
+    return result;
+}
+
 // uri handler interface
 
 static GstURIType webKitWebSrcUriGetType(void)
@@ -541,13 +573,7 @@ static gboolean webKitWebSrcNeedDataMainCb(WebKitWebSrc* src)
 {
     WebKitWebSrcPrivate* priv = src->priv;
 
-#if USE(NETWORK_SOUP)
-    ResourceHandleInternal* d = priv->resourceHandle->getInternal();
-    if (d->m_msg)
-        soup_session_unpause_message(ResourceHandle::defaultSession(), d->m_msg);
-#endif
-    // Ports not using libsoup need to call the unpause/schedule API of their
-    // underlying network implementation here.
+    priv->resourceHandle->setDefersLoading(false);
 
     GST_OBJECT_LOCK(src);
     priv->paused = FALSE;
@@ -577,12 +603,7 @@ static gboolean webKitWebSrcEnoughDataMainCb(WebKitWebSrc* src)
 {
     WebKitWebSrcPrivate* priv = src->priv;
 
-#if USE(NETWORK_SOUP)
-    ResourceHandleInternal* d = priv->resourceHandle->getInternal();
-    soup_session_pause_message(ResourceHandle::defaultSession(), d->m_msg);
-#endif
-    // Ports not using libsoup need to call the pause/unschedule API of their
-    // underlying network implementation here.
+    priv->resourceHandle->setDefersLoading(true);
 
     GST_OBJECT_LOCK(src);
     priv->paused = TRUE;

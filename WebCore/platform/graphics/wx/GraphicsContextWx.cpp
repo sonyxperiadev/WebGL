@@ -91,7 +91,6 @@ public:
 
 #if USE(WXGC)
     wxGCDC* context;
-    wxGraphicsPath currentPath;
 #else
     wxWindowDC* context;
 #endif
@@ -113,11 +112,11 @@ GraphicsContextPlatformPrivate::~GraphicsContextPlatformPrivate()
 }
 
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate)
-{    
+void GraphicsContext::platformInit(PlatformGraphicsContext* context)
+{
+    m_data = new GraphicsContextPlatformPrivate;
     setPaintingDisabled(!context);
+
     if (context) {
         // Make sure the context starts in sync with our state.
         setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
@@ -125,17 +124,13 @@ GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
     }
 #if USE(WXGC)
     m_data->context = (wxGCDC*)context;
-    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
-    if (gc)
-        m_data->currentPath = gc->CreatePath();
 #else
     m_data->context = (wxWindowDC*)context;
 #endif
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -337,7 +332,7 @@ void GraphicsContext::clipOut(const IntRect&)
     notImplemented();
 }
 
-void GraphicsContext::clipPath(WindRule)
+void GraphicsContext::clipPath(const Path&, WindRule)
 {
     notImplemented();
 }
@@ -447,7 +442,7 @@ void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
     notImplemented();
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (m_data->context)
     {
@@ -457,23 +452,6 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         m_data->context->SetLogicalFunction(getWxCompositingOperation(op, false));
 #endif
     }
-}
-
-void GraphicsContext::beginPath()
-{
-#if USE(WXGC)
-    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
-    if (gc)
-        m_data->currentPath = gc->CreatePath();
-#endif
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-#if USE(WXGC)
-    if (path.platformPath())
-        m_data->currentPath.AddPath(*path.platformPath());
-#endif
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& color, ColorSpace colorSpace)
@@ -533,28 +511,22 @@ InterpolationQuality GraphicsContext::imageInterpolationQuality() const
     return InterpolationDefault;
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& path)
 {
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
     if (gc)
-        gc->FillPath(m_data->currentPath);
+        gc->FillPath(path.platformPath());
 #endif
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& path)
 {
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
     if (gc)
-        gc->StrokePath(m_data->currentPath);
+        gc->StrokePath(path.platformPath());
 #endif
-}
-
-void GraphicsContext::drawPath()
-{
-    fillPath();
-    strokePath();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)

@@ -87,7 +87,7 @@ public:
 
     virtual void checkLoaded();
 
-    Document* document();
+    Document* document() { return m_document; }
 
     const String& charset() const { return m_charset; }
 
@@ -112,6 +112,7 @@ private:
     virtual bool isCSSStyleSheet() const { return true; }
     virtual String type() const { return "text/css"; }
 
+    Document* m_document;
     OwnPtr<CSSNamespace> m_namespaces;
     String m_charset;
     bool m_loadCompleted : 1;

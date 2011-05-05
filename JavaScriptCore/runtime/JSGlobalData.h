@@ -46,6 +46,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSpecific.h>
+#include <wtf/WTFThreadData.h>
 #if ENABLE(REGEXP_TRACING)
 #include <wtf/ListHashSet.h>
 #endif
@@ -169,6 +170,7 @@ namespace JSC {
         
 #if ENABLE(ASSEMBLER)
         ExecutableAllocator executableAllocator;
+        ExecutableAllocator regexAllocator;
 #endif
 
 #if !ENABLE(JIT)
@@ -178,6 +180,14 @@ namespace JSC {
 #else
         bool canUseJIT() { return m_canUseJIT; }
 #endif
+
+        const StackBounds& stack()
+        {
+            return (globalDataType == Default)
+                ? m_stack
+                : wtfThreadData().stack();
+        }
+
         Lexer* lexer;
         Parser* parser;
         Interpreter* interpreter;
@@ -238,6 +248,7 @@ namespace JSC {
         void startSampling();
         void stopSampling();
         void dumpSampleData(ExecState* exec);
+        void recompileAllJSFunctions();
         RegExpCache* regExpCache() { return m_regExpCache; }
 #if ENABLE(REGEXP_TRACING)
         void addRegExpToTrace(PassRefPtr<RegExp> regExp);
@@ -250,6 +261,7 @@ namespace JSC {
 #if ENABLE(JIT) && ENABLE(INTERPRETER)
         bool m_canUseJIT;
 #endif
+        StackBounds m_stack;
     };
 
 } // namespace JSC

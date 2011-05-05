@@ -1,3 +1,471 @@
+2010-12-20  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Improve the readability of FrameLoaderClientQt::createPlugin()
+        https://bugs.webkit.org/show_bug.cgi?id=51330
+
+        Redefine the scopes to improve readability. Objects are now created in
+        the scope they are used in.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-12-17  Ariya Hidayat  <ariya@sencha.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] GraphicsContext should respect QWebView render hints
+        https://bugs.webkit.org/show_bug.cgi?id=51208
+
+        Adjust the test since SmoothPixmapTransform is set by default.
+
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::renderHints):
+
+2010-12-05  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Fix caret browsing navigation mode
+        https://bugs.webkit.org/show_bug.cgi?id=50536
+
+        Caret browsing can consume editing commands even when the start
+        of current selection is not a editable content. r69582 missed this
+        case because caret browsing feature testing is very poor today.
+
+        This commit reintroduces part of the removed code in r69582 but
+        guarded by a isCaretBrowsingEnabled() check. No regression found.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-12-17  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QWebPage sends out a RequestSoftwareInputPanel event 
+        incorrectly in particular case
+        https://bugs.webkit.org/show_bug.cgi?id=50419
+
+        Add HitTestResult check before firing RequestSoftwareInputPanel event.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::mouseReleaseEvent):
+        (QWebPagePrivate::handleSoftwareInputPanel):
+        * Api/qwebpage_p.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (clickOnPage):
+        (tst_QWebPage::inputMethods):
+
+2010-12-17  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, rolling out r74229.
+        http://trac.webkit.org/changeset/74229
+        https://bugs.webkit.org/show_bug.cgi?id=50536
+
+        Broken on Snow Leopard and possibly other platforms
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-12-05  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Fix caret browsing navigation mode
+        https://bugs.webkit.org/show_bug.cgi?id=50536
+
+        Caret browsing can consume editing commands even when the start
+        of current selection is not a editable content. r69582 missed this
+        case because caret browsing feature testing is very poor today.
+
+        This commit reintroduces part of the removed code in r69582 but
+        guarded by a isCaretBrowsingEnabled() check. No regression found.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-12-16  Ariya Hidayat  <ariya@sencha.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] GraphicsContext should respect QWebView render hints
+        https://bugs.webkit.org/show_bug.cgi?id=51208
+
+        Add some checks to ensure that GraphicsContext (via QWebFrame)
+        does not clobber the render hints.
+
+        * Api/qwebview.cpp:
+        (QWebViewPrivate::QWebViewPrivate):
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-12-15  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Fix tst_QWebPage::geolocationRequestJS()
+        https://bugs.webkit.org/show_bug.cgi?id=46814
+
+        Change the test case according to the changes introduced by
+        r72603 and enable the test case.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::geolocationRequestJS):
+
+2010-12-14  Viatcheslav Ostapenko  <ostapenko.viatcheslav@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Flash plugins should be windowless on QGraphicsWebView on Symbian
+        Remove #idef SYMBIAN introduced by r69396.
+        https://bugs.webkit.org/show_bug.cgi?id=50487
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-10-28  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ojan Vafai.
+
+        spellcheck does not check pasted text
+        https://bugs.webkit.org/show_bug.cgi?id=40092
+
+        Added a stub implememntation.
+
+        * WebCoreSupport/EditorClientQt.h:
+        (WebCore::EditorClientQt::requestCheckingOfString):
+
+2010-12-11  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Memory leaks for QWebPageClient
+        https://bugs.webkit.org/show_bug.cgi?id=50267
+
+        Use OwnPtr to solve this memory leak issue.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::overlay):
+        (QGraphicsWebViewPrivate::QWebViewPrivate::pageClient):
+        (QGraphicsWebViewPrivate::syncLayers):
+        (QGraphicsWebViewPrivate::updateResizesToContentsForPage):
+        (QGraphicsWebViewPrivate::_q_scaleChanged):
+        (QGraphicsWebViewPrivate::detachCurrentPage):
+        * Api/qwebpage_p.h:
+        * Api/qwebview.cpp:
+        (QWebViewPrivate::detachCurrentPage):
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::platformPageClient):
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::setInputMethodState):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-12-11  Jan Erik Hanssen  <jhanssen@sencha.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] QWebFrame does not support QNetworkRequest::CacheLoadControl
+        https://bugs.webkit.org/show_bug.cgi?id=35671
+
+        Make QWebFrame respect the QNetworkRequest::CacheLoadControl attribute
+        set on the request, if any.
+
+        * Api/qwebframe.cpp:
+        (cacheLoadControlToCachePolicy):
+        (QWebFrame::load):
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-10-11  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Mock DeviceOrientation client for DRT
+        https://bugs.webkit.org/show_bug.cgi?id=47490
+
+        * WebCoreSupport/DeviceOrientationClientMockQt.cpp: Added.
+        (WebCore::DeviceOrientationClientMockQt::client):
+        (WebCore::DeviceOrientationClientMockQt::DeviceOrientationClientMockQt):
+        (WebCore::DeviceOrientationClientMockQt::~DeviceOrientationClientMockQt):
+        (WebCore::DeviceOrientationClientMockQt::setController):
+        (WebCore::DeviceOrientationClientMockQt::startUpdating):
+        (WebCore::DeviceOrientationClientMockQt::stopUpdating):
+        (WebCore::DeviceOrientationClientMockQt::lastOrientation):
+        (WebCore::DeviceOrientationClientMockQt::deviceOrientationControllerDestroyed):
+        (WebCore::DeviceOrientationClientMockQt::setOrientation):
+        * WebCoreSupport/DeviceOrientationClientMockQt.h: Added.
+        * WebCoreSupport/DeviceOrientationClientQt.cpp:
+        * WebCoreSupport/DeviceOrientationProviderQt.cpp:
+        (WebCore::DeviceOrientationProviderQt::DeviceOrientationProviderQt):
+        (WebCore::DeviceOrientationProviderQt::~DeviceOrientationProviderQt):
+        (WebCore::DeviceOrientationProviderQt::changeDeviceOrientation):
+        * WebCoreSupport/DeviceOrientationProviderQt.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::activeMockDeviceOrientationClient):
+        (DumpRenderTreeSupportQt::removeMockDeviceOrientation):
+        (DumpRenderTreeSupportQt::setMockDeviceOrientation):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-12-10  Krithigassree Sambamurthy  <krithigassree.sambamurthy@nokia.com>
+
+        Reviewed by Joseph Pecoraro.
+
+        Bug 43455 - [Qt]: Implement Application Cache Quotas
+        https://bugs.webkit.org/show_bug.cgi?id=43455
+
+        Added new signal to report ApplicationCache Database
+        quota.
+
+        * Api/qwebpage.cpp:
+        * Api/qwebpage.h:
+
+        Added new functions to accomodate new appcache layout
+        test origin-quota.html.
+
+        * Api/qwebsecurityorigin.cpp:
+        (QWebSecurityOrigin::setApplicationCacheQuota):
+        * Api/qwebsecurityorigin.h:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::reachedApplicationCacheOriginQuota):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::clearAllApplicationCaches):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-12-10  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Support a QNetworkAccessManager affined to a different thread.
+        https://bugs.webkit.org/show_bug.cgi?id=50080
+
+        This patch introduce thread safe proxy classes for QNetworkAccessManager
+        and QNetworkReply.
+        If run in the same thread, these objects will forward the calls with
+        Qt::DirectConnection bindings, while in the other case they will use
+        Qt::QueuedConnection to carry requests accross threads.
+
+        This patch basically:
+        - Makes sure that all access goes through these objects
+        - Reorders signal connections to make sure we are connected when the
+          signal comes
+        - Makes sure that no QObject in the WebCore thread is a child of the
+          reply which might be in a different thread.
+        - Forward the data directly in QByteArrays in signals instead of collecting
+          the data when the signal is handled.
+
+        New test: tst_QWebPage::networkAccessManagerOnDifferentThread
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::download):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (QtNAMThread::QtNAMThread):
+        (QtNAMThread::~QtNAMThread):
+        (QtNAMThread::networkAccessManager):
+        (QtNAMThread::run):
+        (tst_QWebPage::networkAccessManagerOnDifferentThread):
+
+2010-12-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r73635.
+        http://trac.webkit.org/changeset/73635
+        https://bugs.webkit.org/show_bug.cgi?id=50778
+
+        'Side-effects on 3 css tests needs closer review' (Requested
+        by mwenge on #webkit).
+
+        * Api/qwebsettings.cpp:
+        (graphics):
+        * Api/qwebsettings.h:
+
+2010-12-09  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Search input field doesn't have cancel button
+
+        Add a cancel button to the search field and make it customizable
+        by the client. For now, use the close dialog button associated
+        with the application's style as the default.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42887
+
+        * Api/qwebsettings.cpp:
+        (graphics):
+        * Api/qwebsettings.h:
+
+2010-12-09  Siddharth Mathur  <siddharth.mathur@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        Use BUILDING_WEBKIT like other ports
+        https://bugs.webkit.org/show_bug.cgi?id=50713
+
+        * Api/qwebkitglobal.h: change BUILD_WEBKIT to BUILDING_WEBKIT
+
+2010-12-08  Qi Zhang  <qi.2.zhang@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Support OrientationChange event
+        https://bugs.webkit.org/show_bug.cgi?id=50685
+
+        Get OrientationChange event from qtmobility then send to webkit.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::orientationChanged):
+        (QWebFrame::QWebFrame):
+        * Api/qwebframe.h:
+        * Api/qwebframe_p.h:
+
+2010-12-07  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Layering Violation in ContextMenu - member variable of type HitTestResult
+        https://bugs.webkit.org/show_bug.cgi?id=50586
+        
+        Update users of ContextMenu and ContextMenuController to match where the new functions 
+        are located.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::createContextMenu):
+        (QWebPage::updatePositionDependentActions):
+
+2010-12-07  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        * Api/qwebpage.cpp:
+        (frameLoadRequest): Added missing parentheses.
+
+2010-12-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pass security origin to make local file decision correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48603
+
+        * Api/qwebpage.cpp:
+        (frameLoadRequest): Pass security origin.
+
+2010-12-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r73392.
+        http://trac.webkit.org/changeset/73392
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        This commit caused crashes on the GTK+ bots
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setUrl):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::finishedLoading):
+
+2010-12-06  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setUrl):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::finishedLoading):
+
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::getGuessesForWord):
+        * WebCoreSupport/EditorClientQt.h:
+
+2010-11-30  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Implement layoutTestController.findString
+        https://bugs.webkit.org/show_bug.cgi?id=50236
+
+        Add support for the new advanced findString().
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::findString):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-11-30  Ojan Vafai  <ojan@chromium.org>
+
+        Revert r72876. It caused a ~30% perf regression in chromium's bloat-http test
+        https://bugs.webkit.org/show_bug.cgi?id=50288
+
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+        https://bugs.webkit.org/show_bug.cgi?id=50182
+        A display-isolated URL can only be displayed (e.g., put in an iframe,
+        hyperlinked to) by documents from that scheme. In a sense, this is a
+        generalization of some of the protections we give file URLs, but
+        instead of lumping them all together into one "local" bucket, this
+        patch creates a separate bucket for each scheme.
+        For a while, I tried using a separate bucket for each origin. That
+        would have played nicely with what Blob URLs are trying to do, but some
+        "chrome" URL pages rely on being able to display other chrome URL
+        pages, even in different origins. For example, the New Tab Page shows
+        thumbnails from the "thumbnail" host.
+        This patch also removes a bunch of unused code. I've also propagated
+        the "deprecated" status of deprecatedCanDisplay to
+        deprecatedShouldTreatURLAsLocal because that method has no other
+        callers and is really asking for uppercase/lowercase bugs. I dream of
+        someday removing these functions.
+        2010-11-29 Adam Barth <abarth@webkit.org (:abarth) (r)>
+        Reviewed by Darin Adler.
+        Introduce the notion of a "display-isolated" URL scheme for use by Chrome-internal URLs
+         https://bugs.webkit.org/show_bug.cgi?id=50182
+        This patch adds a Chromium API for registering schemes as
+        display-isolated. In a subsequent patch, I'll change the "chrome"
+        scheme in Chrome to be display isolated instead of local. That will
+        prevent file URLs from linking to chrome URLs.
+
+        * Api/qwebsecurityorigin.cpp:
+        (QWebSecurityOrigin::localSchemes):
+
+2010-11-29  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Provide more fine grained control to ports over when to turn on accelerated
+        compositing.
+        https://bugs.webkit.org/show_bug.cgi?id=49998
+
+        As part of this change, the old hasAcceleratedCompositing method on the ChromeClient
+        has now been replaced by allowedCompositingTriggers which returns a bitfield of
+        all the features which can trigger the compositor.
+
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::allowedCompositingTriggers):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2010-11-30  Thiago Macieira  <thiago.macieira@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] QWebFrame::load(QNetworkRequest) should respect the CustomVerbAttribute
+
+        For CustomOperation requests, pass the CustomVerbAttribute on to
+        the WebCore::ResourceRequest.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::load):
+
 2010-11-25  Norbert Leser  <norbert.leser@nokia.com>
 
         Reviewed by Laszlo Gombos.

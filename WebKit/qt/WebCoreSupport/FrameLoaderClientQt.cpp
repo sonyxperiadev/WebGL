@@ -59,6 +59,7 @@
 #include "HTMLFormElement.h"
 #include "HTMLPlugInElement.h"
 #include "HTTPParsers.h"
+#include "QtNAMThreadSafeProxy.h"
 #include "NotImplemented.h"
 #include "QNetworkReplyHandler.h"
 #include "ResourceHandleInternal.h"
@@ -85,6 +86,7 @@
 #include <QNetworkReply>
 #include <QStringList>
 #include "qwebhistory_p.h"
+#include <wtf/OwnPtr.h>
 
 static QMap<unsigned long, QString> dumpAssignedUrls;
 
@@ -975,13 +977,13 @@ void FrameLoaderClientQt::download(WebCore::ResourceHandle* handle, const WebCor
         return;
 
     QNetworkReplyHandler* handler = handle->getInternal()->m_job;
-    QNetworkReply* reply = handler->release();
-    if (reply) {
+    QtNetworkReplyThreadSafeProxy* replyProxy = handler->release();
+    if (replyProxy) {
         QWebPage *page = m_webFrame->page();
         if (page->forwardUnsupportedContent())
-            emit page->unsupportedContent(reply);
+            emit page->unsupportedContent(replyProxy->reply());
         else
-            reply->abort();
+            replyProxy->abort();
     }
 }
 
@@ -1464,10 +1466,8 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
     QString urlStr(url.string());
     QUrl qurl = urlStr;
 
-    QObject* object = 0;
-
     if (mimeType == "application/x-qt-plugin" || mimeType == "application/x-qt-styled-widget") {
-        object = m_webFrame->page()->createPlugin(classid, qurl, params, values);
+        QObject* object = m_webFrame->page()->createPlugin(classid, qurl, params, values);
 #ifndef QT_NO_STYLE_STYLESHEET
         QWidget* widget = qobject_cast<QWidget*>(object);
         if (widget && mimeType == "application/x-qt-styled-widget") {
@@ -1488,7 +1488,6 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
             widget->setStyleSheet(styleSheet);
         }
 #endif // QT_NO_STYLE_STYLESHEET
-    }
 
         if (!object) {
             QWebPluginFactory* factory = m_webFrame->page()->pluginFactory();
@@ -1497,8 +1496,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
         }
 
         if (object) {
-            QWidget* widget = qobject_cast<QWidget*>(object);
-            if (widget) {
+            if (QWidget* widget = qobject_cast<QWidget*>(object)) {
                 QWidget* parentWidget = 0;
                 if (m_webFrame->page()->d->client)
                     parentWidget = qobject_cast<QWidget*>(m_webFrame->page()->d->client->pluginParent());
@@ -1512,8 +1510,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 return w;
             }
 
-            QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
-            if (graphicsWidget) {
+            if (QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object)) {
                 QGraphicsObject* parentWidget = 0;
                 if (m_webFrame->page()->d->client)
                     parentWidget = qobject_cast<QGraphicsObject*>(m_webFrame->page()->d->client->pluginParent());
@@ -1528,14 +1525,14 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
 
             // FIXME: make things work for widgetless plugins as well
             delete object;
+        }
     }
 #if ENABLE(NETSCAPE_PLUGIN_API)
     else { // NPAPI Plugins
         Vector<String> params = paramNames;
         Vector<String> values = paramValues;
-#if !OS(SYMBIAN)
         if (mimeType == "application/x-shockwave-flash") {
-            QWebPageClient* client = m_webFrame->page()->d->client;
+            QWebPageClient* client = m_webFrame->page()->d->client.get();
             const bool isQWebView = client && qobject_cast<QWidget*>(client->pluginParent());
 #if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
             size_t wmodeIndex = params.find("wmode");
@@ -1559,7 +1556,6 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
             }
 #endif
         }
-#endif
 
         RefPtr<PluginView> pluginView = PluginView::create(m_frame, pluginSize, element, url,
             params, values, mimeType, loadManually);

@@ -74,7 +74,6 @@
 #include "ScrollbarTheme.h"
 #include "SmartReplace.h"
 #include "Widget.h"
-#include "loader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <wtf/text/CString.h>
@@ -166,7 +165,7 @@ Pasteboard::~Pasteboard()
 }
 
 
-ContextMenu::ContextMenu(const HitTestResult& result) : m_hitTestResult(result)
+ContextMenu::ContextMenu()
 {
     ASSERT_NOT_REACHED();
     notImplemented();

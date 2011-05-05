@@ -72,7 +72,6 @@ public:
     virtual bool isImage() const;
     virtual bool isNativeImage() const;
     virtual bool isPasswordField() const;
-    virtual bool isTextControl() const;
     virtual bool isNativeTextControl() const;
     virtual bool isWebArea() const;
     virtual bool isFileUploadButton() const;
@@ -127,7 +126,6 @@ public:
     virtual int layoutCount() const;
     virtual double estimatedLoadingProgress() const;
     
-    virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const;
     virtual AccessibilityObject* focusedUIElement() const;
     virtual AccessibilityObject* firstChild() const;
     virtual AccessibilityObject* lastChild() const;
@@ -150,7 +148,10 @@ public:
     void updateAccessibilityRole();
     
     virtual AXObjectCache* axObjectCache() const;
-    
+
+    // Should be called on the root accessibility object to kick off a hit test.
+    virtual AccessibilityObject* accessibilityHitTest(const IntPoint&) const;
+
     virtual Element* actionElement() const;
     Element* mouseButtonListener() const;
     FrameView* frameViewIfRenderView() const;
@@ -300,6 +301,7 @@ private:
     
     String accessibilityDescriptionForElements(Vector<Element*> &elements) const;
     void elementsFromAttribute(Vector<Element*>& elements, const QualifiedName& name) const;
+    String ariaAccessibilityDescription() const;
     
     virtual ESpeak speakProperty() const;
     

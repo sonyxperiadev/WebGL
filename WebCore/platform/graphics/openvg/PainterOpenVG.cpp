@@ -123,7 +123,7 @@ struct PlatformPainterState {
     DashArray strokeDashArray;
     float strokeDashOffset;
 
-    int textDrawingMode;
+    TextDrawingModeFlags textDrawingMode;
     bool antialiasingEnabled;
 
     PlatformPainterState()
@@ -141,7 +141,7 @@ struct PlatformPainterState {
         , strokeLineJoin(MiterJoin)
         , strokeMiterLimit(4.0)
         , strokeDashOffset(0.0)
-        , textDrawingMode(cTextFill)
+        , textDrawingMode(TextModeFill)
         , antialiasingEnabled(true)
     {
     }
@@ -399,14 +399,12 @@ struct PlatformPainterState {
 PainterOpenVG::PainterOpenVG()
     : m_state(0)
     , m_surface(0)
-    , m_currentPath(0)
 {
 }
 
 PainterOpenVG::PainterOpenVG(SurfaceOpenVG* surface)
     : m_state(0)
     , m_surface(0)
-    , m_currentPath(0)
 {
     ASSERT(surface);
     begin(surface);
@@ -415,7 +413,6 @@ PainterOpenVG::PainterOpenVG(SurfaceOpenVG* surface)
 PainterOpenVG::~PainterOpenVG()
 {
     end();
-    delete m_currentPath;
 }
 
 void PainterOpenVG::begin(SurfaceOpenVG* surface)
@@ -656,13 +653,13 @@ void PainterOpenVG::setFillColor(const Color& color)
     setVGSolidColor(VG_FILL_PATH, color);
 }
 
-int PainterOpenVG::textDrawingMode() const
+TextDrawingModeFlags PainterOpenVG::textDrawingMode() const
 {
     ASSERT(m_state);
     return m_state->textDrawingMode;
 }
 
-void PainterOpenVG::setTextDrawingMode(int mode)
+void PainterOpenVG::setTextDrawingMode(TextDrawingModeFlags mode)
 {
     ASSERT(m_state);
     m_state->textDrawingMode = mode;
@@ -717,26 +714,7 @@ void PainterOpenVG::translate(float dx, float dy)
     setTransformation(transformation);
 }
 
-void PainterOpenVG::beginPath()
-{
-    delete m_currentPath;
-    m_currentPath = new Path();
-}
-
-void PainterOpenVG::addPath(const Path& path)
-{
-    m_currentPath->platformPath()->makeCompatibleContextCurrent();
-
-    vgAppendPath(m_currentPath->platformPath()->vgPath(), path.platformPath()->vgPath());
-    ASSERT_VG_NO_ERROR();
-}
-
-Path* PainterOpenVG::currentPath() const
-{
-    return m_currentPath;
-}
-
-void PainterOpenVG::drawPath(VGbitfield specifiedPaintModes, WindRule fillRule)
+void PainterOpenVG::drawPath(const Path& path, VGbitfield specifiedPaintModes, WindRule fillRule)
 {
     ASSERT(m_state);
 
@@ -754,7 +732,7 @@ void PainterOpenVG::drawPath(VGbitfield specifiedPaintModes, WindRule fillRule)
     m_surface->makeCurrent();
 
     vgSeti(VG_FILL_RULE, toVGFillRule(fillRule));
-    vgDrawPath(m_currentPath->platformPath()->vgPath(), paintModes);
+    vgDrawPath(path.platformPath()->vgPath(), paintModes);
     ASSERT_VG_NO_ERROR();
 }
 
@@ -1136,11 +1114,11 @@ void PainterOpenVG::drawText(VGFont vgFont, Vector<VGuint>& characters, VGfloat*
 
     VGbitfield paintModes = 0;
 
-    if (m_state->textDrawingMode & cTextClip)
+    if (m_state->textDrawingMode & TextModeClip)
         return; // unsupported for every port except CG at the time of writing
-    if (m_state->textDrawingMode & cTextFill && !m_state->fillDisabled())
+    if (m_state->textDrawingMode & TextModeFill && !m_state->fillDisabled())
         paintModes |= VG_FILL_PATH;
-    if (m_state->textDrawingMode & cTextStroke && !m_state->strokeDisabled())
+    if (m_state->textDrawingMode & TextModeStroke && !m_state->strokeDisabled())
         paintModes |= VG_STROKE_PATH;
 
     m_surface->makeCurrent();

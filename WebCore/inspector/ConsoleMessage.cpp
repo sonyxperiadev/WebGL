@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "Console.h"
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
 #include "InspectorFrontend.h"
@@ -40,40 +41,45 @@
 #include "ScriptArguments.h"
 #include "ScriptCallStack.h"
 #include "ScriptValue.h"
-#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, unsigned li, const String& u, unsigned g)
+ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, unsigned li, const String& u)
     : m_source(s)
     , m_type(t)
     , m_level(l)
     , m_message(m)
     , m_line(li)
     , m_url(u)
-    , m_groupLevel(g)
     , m_repeatCount(1)
+    , m_requestId(0)
 {
 }
 
-ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, PassOwnPtr<ScriptArguments> arguments, PassOwnPtr<ScriptCallStack> callStack, unsigned g)
+ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
     : m_source(s)
     , m_type(t)
     , m_level(l)
     , m_message(m)
     , m_arguments(arguments)
     , m_callStack(callStack)
-    , m_groupLevel(g)
+    , m_line(0)
+    , m_url()
     , m_repeatCount(1)
+    , m_requestId(0)
 {
-    const ScriptCallFrame& lastCaller = m_callStack->at(0);
-    m_line = lastCaller.lineNumber();
-    m_url = lastCaller.sourceURL();
+}
 
-
-    bool storeTrace = (t == TraceMessageType || t == UncaughtExceptionMessageType || t == AssertMessageType);
-    if (!storeTrace)
-        m_callStack.clear();
+ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, const String& responseUrl, unsigned long identifier)
+    : m_source(s)
+    , m_type(t)
+    , m_level(l)
+    , m_message(m)
+    , m_line(0)
+    , m_url(responseUrl)
+    , m_repeatCount(1)
+    , m_requestId(identifier)
+{
 }
 
 void ConsoleMessage::addToFrontend(InspectorFrontend* frontend, InjectedScriptHost* injectedScriptHost)
@@ -84,9 +90,10 @@ void ConsoleMessage::addToFrontend(InspectorFrontend* frontend, InjectedScriptHo
     jsonObj->setNumber("level", static_cast<int>(m_level));
     jsonObj->setNumber("line", static_cast<int>(m_line));
     jsonObj->setString("url", m_url);
-    jsonObj->setNumber("groupLevel", static_cast<int>(m_groupLevel));
     jsonObj->setNumber("repeatCount", static_cast<int>(m_repeatCount));
     jsonObj->setString("message", m_message);
+    if (m_type == NetworkErrorMessageType) 
+        jsonObj->setNumber("requestId", m_requestId);
     if (m_arguments && m_arguments->argumentCount()) {
         InjectedScript injectedScript = injectedScriptHost->injectedScriptFor(m_arguments->globalState());
         if (!injectedScript.hasNoValue()) {
@@ -132,7 +139,7 @@ bool ConsoleMessage::isEqual(ConsoleMessage* msg) const
         && msg->m_message == m_message
         && msg->m_line == m_line
         && msg->m_url == m_url
-        && msg->m_groupLevel == m_groupLevel;
+        && msg->m_requestId == m_requestId;
 }
 
 } // namespace WebCore

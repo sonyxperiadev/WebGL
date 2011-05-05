@@ -185,6 +185,13 @@ void RenderFlexibleBox::computePreferredLogicalWidths()
         m_maxPreferredLogicalWidth = max(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
     }
 
+    if (hasOverflowClip() && style()->overflowY() == OSCROLL) {
+        layer()->setHasVerticalScrollbar(true);
+        int scrollbarWidth = verticalScrollbarWidth();
+        m_maxPreferredLogicalWidth += scrollbarWidth;
+        m_minPreferredLogicalWidth += scrollbarWidth;
+    }
+
     if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
         m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
         m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
@@ -195,13 +202,9 @@ void RenderFlexibleBox::computePreferredLogicalWidths()
         m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = borderAndPaddingWidth();
-    
-    if (hasOverflowClip() && style()->overflowY() == OSCROLL)
-        toAdd += verticalScrollbarWidth();
-
-    m_minPreferredLogicalWidth += toAdd;
-    m_maxPreferredLogicalWidth += toAdd;
+    int borderAndPadding = borderAndPaddingLogicalWidth();
+    m_minPreferredLogicalWidth += borderAndPadding;
+    m_maxPreferredLogicalWidth += borderAndPadding;
 
     setPreferredLogicalWidthsDirty(false);
 }
@@ -251,6 +254,7 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren, int /*pageHeight FIXM
     else
         layoutVerticalBox(relayoutChildren);
 
+    int oldClientAfterEdge = clientLogicalBottom();
     computeLogicalHeight();
 
     if (previousHeight != height())
@@ -276,18 +280,14 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren, int /*pageHeight FIXM
         setMaxMarginAfterValues(0, 0);
     }
     
-    // Add in the overflow from children.
-    FlexBoxIterator iterator(this);
-    for (RenderBox* child = iterator.first(); child; child = iterator.next())
-        addOverflowFromChild(child);
-
-    // Add visual overflow from box-shadow and reflections.
-    addShadowOverflow();
+    computeOverflow(oldClientAfterEdge);
 
     statePusher.pop();
 
-    if (view()->layoutState()->m_pageHeight)
-        setPageY(view()->layoutState()->pageY(y()));
+    updateLayerTransform();
+
+    if (view()->layoutState()->pageLogicalHeight())
+        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(y()));
 
     // Update our scrollbars if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.

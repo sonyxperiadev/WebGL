@@ -1971,6 +1971,15 @@ void HTMLMediaElement::mediaPlayerRenderingModeChanged(MediaPlayer*)
 }
 #endif
 
+void HTMLMediaElement::mediaPlayerEngineUpdated(MediaPlayer*)
+{
+    beginProcessingMediaPlayerCallback();
+    LOG(Media, "HTMLMediaElement::mediaPlayerEngineUpdated");
+    if (renderer())
+        renderer()->updateFromElement();
+    endProcessingMediaPlayerCallback();
+}
+
 PassRefPtr<TimeRanges> HTMLMediaElement::buffered() const
 {
     if (!m_player)
@@ -2026,13 +2035,13 @@ bool HTMLMediaElement::endedPlayback() const
     // readyState attribute is HAVE_METADATA or greater, 
     if (m_readyState < HAVE_METADATA)
         return false;
-    
-    // and the current playback position is the end of the media resource and the direction 
+
+    // and the current playback position is the end of the media resource and the direction
     // of playback is forwards and the media element does not have a loop attribute specified,
     float now = currentTime();
     if (m_playbackRate > 0)
-        return now >= dur && !loop();
-    
+        return dur > 0 && now >= dur && !loop();
+
     // or the current playback position is the earliest possible position and the direction 
     // of playback is backwards
     if (m_playbackRate < 0)
@@ -2110,6 +2119,9 @@ void HTMLMediaElement::updatePlayState()
         invalidateCachedTime();
 
         if (playerPaused) {
+            if (document() && document()->page() && document()->page()->chrome()->requiresFullscreenForVideoPlayback() && !m_isFullscreen)
+                enterFullscreen();
+
             // Set rate before calling play in case the rate was set before the media engine was setup.
             // The media engine should just stash the rate since it isn't already playing.
             m_player->setRate(m_playbackRate);
@@ -2425,6 +2437,8 @@ void HTMLMediaElement::exitFullscreen()
     ASSERT(m_isFullscreen);
     m_isFullscreen = false;
     if (document() && document()->page()) {
+        if (document()->page()->chrome()->requiresFullscreenForVideoPlayback())
+            pauseInternal();
         document()->page()->chrome()->client()->exitFullscreenForNode(this);
         scheduleEvent(eventNames().webkitendfullscreenEvent);
     }

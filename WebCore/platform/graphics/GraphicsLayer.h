@@ -49,23 +49,19 @@
 @class WebLayer;
 @class CALayer;
 typedef CALayer PlatformLayer;
-typedef CALayer* NativeLayer;
 #else
 typedef void* PlatformLayer;
-typedef void* NativeLayer;
 #endif
 #elif PLATFORM(WIN)
 namespace WebCore {
 class WKCACFLayer;
 typedef WKCACFLayer PlatformLayer;
-typedef void* NativeLayer;
 }
 #elif PLATFORM(QT)
 #if USE(TEXTURE_MAPPER)
 namespace WebCore {
 class TextureMapperPlatformLayer;
 typedef TextureMapperPlatformLayer PlatformLayer;
-typedef TextureMapperPlatformLayer* NativeLayer;
 };
 #else
 QT_BEGIN_NAMESPACE
@@ -73,14 +69,12 @@ class QGraphicsObject;
 QT_END_NAMESPACE
 namespace WebCore {
 typedef QGraphicsObject PlatformLayer;
-typedef QGraphicsObject* NativeLayer;
 }
 #endif
 #elif PLATFORM(CHROMIUM)
 namespace WebCore {
 class LayerChromium;
 typedef LayerChromium PlatformLayer;
-typedef void* NativeLayer;
 }
 #elif PLATFORM(ANDROID)
 namespace WebCore {
@@ -90,7 +84,6 @@ typedef void* NativeLayer;
 }
 #else
 typedef void* PlatformLayer;
-typedef void* NativeLayer;
 #endif
 
 enum LayerTreeAsTextBehaviorFlags {
@@ -206,9 +199,6 @@ public:
     const String& name() const { return m_name; }
     virtual void setName(const String& name) { m_name = name; }
 
-    // For hosting this GraphicsLayer in a native layer hierarchy.
-    virtual NativeLayer nativeLayer() const { return 0; }
-
     GraphicsLayer* parent() const { return m_parent; };
     void setParent(GraphicsLayer* layer) { m_parent = layer; } // Internal use only.
     
@@ -274,6 +264,9 @@ public:
     bool drawsContent() const { return m_drawsContent; }
     virtual void setDrawsContent(bool b) { m_drawsContent = b; }
 
+    bool acceleratesDrawing() const { return m_acceleratesDrawing; }
+    virtual void setAcceleratesDrawing(bool b) { m_acceleratesDrawing = b; }
+
     // The color used to paint the layer backgrounds
     const Color& backgroundColor() const { return m_backgroundColor; }
     virtual void setBackgroundColor(const Color&);
@@ -329,6 +322,7 @@ public:
     // Callback from the underlying graphics system when the layer has been displayed
     virtual void didDisplay(PlatformLayer*) { }
     
+    // For hosting this GraphicsLayer in a native layer hierarchy.
     virtual PlatformLayer* platformLayer() const { return 0; }
     
     void dumpLayer(TextStream&, int indent = 0, LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
@@ -409,6 +403,7 @@ protected:
     bool m_usingTiledLayer : 1;
     bool m_masksToBounds : 1;
     bool m_drawsContent : 1;
+    bool m_acceleratesDrawing : 1;
 
     GraphicsLayerPaintingPhase m_paintingPhase;
     CompositingCoordinatesOrientation m_contentsOrientation; // affects orientation of layer contents

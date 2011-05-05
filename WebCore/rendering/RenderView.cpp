@@ -53,8 +53,8 @@ RenderView::RenderView(Node* node, FrameView* view)
     , m_selectionStartPos(-1)
     , m_selectionEndPos(-1)
     , m_maximalOutlineSize(0)
-    , m_pageHeight(0)
-    , m_pageHeightChanged(false)
+    , m_pageLogicalHeight(0)
+    , m_pageLogicalHeightChanged(false)
     , m_layoutState(0)
     , m_layoutStateDisableCount(0)
 {
@@ -113,7 +113,7 @@ bool RenderView::isChildAllowed(RenderObject* child, RenderStyle*) const
 void RenderView::layout()
 {
     if (!document()->paginated())
-        setPageHeight(0);
+        setPageLogicalHeight(0);
 
     if (printing())
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = width();
@@ -132,18 +132,13 @@ void RenderView::layout()
     LayoutState state;
     // FIXME: May be better to push a clip and avoid issuing offscreen repaints.
     state.m_clipped = false;
-    state.m_pageHeight = m_pageHeight;
-    state.m_pageHeightChanged = m_pageHeightChanged;
-    m_pageHeightChanged = false;
+    state.m_pageLogicalHeight = m_pageLogicalHeight;
+    state.m_pageLogicalHeightChanged = m_pageLogicalHeightChanged;
+    m_pageLogicalHeightChanged = false;
     m_layoutState = &state;
 
     if (needsLayout())
         RenderBlock::layout();
-
-    // Reset overflow and then replace it with docWidth and docHeight.
-    m_overflow.clear();
-    int leftOverflow = docLeft();
-    addLayoutOverflow(IntRect(leftOverflow, 0, docWidth(leftOverflow), docHeight()));
 
     ASSERT(layoutDelta() == IntSize());
     ASSERT(m_layoutStateDisableCount == 0);
@@ -237,10 +232,10 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, int, int)
     else {
         Color baseColor = frameView()->baseBackgroundColor();
         if (baseColor.alpha() > 0) {
-            paintInfo.context->save();
+            CompositeOperator previousOperator = paintInfo.context->compositeOperation();
             paintInfo.context->setCompositeOperation(CompositeCopy);
             paintInfo.context->fillRect(paintInfo.rect, baseColor, style()->colorSpace());
-            paintInfo.context->restore();
+            paintInfo.context->setCompositeOperation(previousOperator);
         } else
             paintInfo.context->clearRect(paintInfo.rect);
     }
@@ -582,15 +577,10 @@ bool RenderView::printing() const
     return document()->printing();
 }
 
-void RenderView::updateWidgetPositions()
+size_t RenderView::getRetainedWidgets(Vector<RenderWidget*>& renderWidgets)
 {
-    // updateWidgetPosition() can possibly cause layout to be re-entered (via plug-ins running
-    // scripts in response to NPP_SetWindow, for example), so we need to keep the Widgets
-    // alive during enumeration.    
-
     size_t size = m_widgets.size();
 
-    Vector<RenderWidget*> renderWidgets;
     renderWidgets.reserveCapacity(size);
 
     RenderWidgetSet::const_iterator end = m_widgets.end();
@@ -599,14 +589,33 @@ void RenderView::updateWidgetPositions()
         (*it)->ref();
     }
     
+    return size;
+}
+
+void RenderView::releaseWidgets(Vector<RenderWidget*>& renderWidgets)
+{
+    size_t size = renderWidgets.size();
+
+    for (size_t i = 0; i < size; ++i)
+        renderWidgets[i]->deref(renderArena());
+}
+
+void RenderView::updateWidgetPositions()
+{
+    // updateWidgetPosition() can possibly cause layout to be re-entered (via plug-ins running
+    // scripts in response to NPP_SetWindow, for example), so we need to keep the Widgets
+    // alive during enumeration.    
+
+    Vector<RenderWidget*> renderWidgets;
+    size_t size = getRetainedWidgets(renderWidgets);
+    
     for (size_t i = 0; i < size; ++i)
         renderWidgets[i]->updateWidgetPosition();
 
     for (size_t i = 0; i < size; ++i)
         renderWidgets[i]->widgetPositionsUpdated();
 
-    for (size_t i = 0; i < size; ++i)
-        renderWidgets[i]->deref(renderArena());
+    releaseWidgets(renderWidgets);
 }
 
 void RenderView::addWidget(RenderWidget* o)
@@ -619,6 +628,17 @@ void RenderView::removeWidget(RenderWidget* o)
     m_widgets.remove(o);
 }
 
+void RenderView::notifyWidgets(WidgetNotification notification)
+{
+    Vector<RenderWidget*> renderWidgets;
+    size_t size = getRetainedWidgets(renderWidgets);
+
+    for (size_t i = 0; i < size; ++i)
+        renderWidgets[i]->notifyWidget(notification);
+
+    releaseWidgets(renderWidgets);
+}
+
 IntRect RenderView::viewRect() const
 {
     if (printing())
@@ -628,40 +648,40 @@ IntRect RenderView::viewRect() const
     return IntRect();
 }
 
-int RenderView::docHeight() const
+int RenderView::docTop() const
 {
-    int h = lowestPosition();
+    IntRect overflowRect(0, topLayoutOverflow(), 0, bottomLayoutOverflow() - topLayoutOverflow());
+    flipForWritingMode(overflowRect);
+    if (hasTransform())
+        overflowRect = layer()->currentTransform().mapRect(overflowRect);
+    return overflowRect.y();
+}
 
-    // FIXME: This doesn't do any margin collapsing.
-    // Instead of this dh computation we should keep the result
-    // when we call RenderBlock::layout.
-    int dh = 0;
-    for (RenderBox* c = firstChildBox(); c; c = c->nextSiblingBox())
-        dh += c->height() + c->marginTop() + c->marginBottom();
-
-    if (dh > h)
-        h = dh;
-
-    return h;
+int RenderView::docBottom() const
+{
+    IntRect overflowRect(layoutOverflowRect());
+    flipForWritingMode(overflowRect);
+    if (hasTransform())
+        overflowRect = layer()->currentTransform().mapRect(overflowRect);
+    return overflowRect.bottom();
 }
 
 int RenderView::docLeft() const
 {
-    // Clip out left overflow in LTR page.
-    return style()->isLeftToRightDirection() ? 0 : std::min(0, leftmostPosition());
+    IntRect overflowRect(layoutOverflowRect());
+    flipForWritingMode(overflowRect);
+    if (hasTransform())
+        overflowRect = layer()->currentTransform().mapRect(overflowRect);
+    return overflowRect.x();
 }
 
-int RenderView::docWidth(int leftOverflow) const
+int RenderView::docRight() const
 {
-    int w = style()->isLeftToRightDirection() ? rightmostPosition() : width() - leftOverflow;
-
-    for (RenderBox* c = firstChildBox(); c; c = c->nextSiblingBox()) {
-        int dw = c->width() + c->marginLeft() + c->marginRight();
-        if (dw > w)
-            w = dw;
-    }
-
-    return w;
+    IntRect overflowRect(layoutOverflowRect());
+    flipForWritingMode(overflowRect);
+    if (hasTransform())
+        overflowRect = layer()->currentTransform().mapRect(overflowRect);
+    return overflowRect.right();
 }
 
 int RenderView::viewHeight() const

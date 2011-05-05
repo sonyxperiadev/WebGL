@@ -35,7 +35,6 @@
 #include "XMLDocumentParserScope.h"
 #include "XSLImportRule.h"
 #include "XSLTProcessor.h"
-#include "loader.h"
 #include <wtf/text/CString.h>
 
 #include <libxml/uri.h>
@@ -57,6 +56,7 @@ namespace WebCore {
 
 XSLStyleSheet::XSLStyleSheet(XSLImportRule* parentRule, const String& originalURL, const KURL& finalURL)
     : StyleSheet(parentRule, originalURL, finalURL)
+    , m_ownerDocument(0)
     , m_embedded(false)
     , m_processed(false) // Child sheets get marked as processed when the libxslt engine has finally seen them.
     , m_stylesheetDoc(0)
@@ -67,6 +67,7 @@ XSLStyleSheet::XSLStyleSheet(XSLImportRule* parentRule, const String& originalUR
 
 XSLStyleSheet::XSLStyleSheet(Node* parentNode, const String& originalURL, const KURL& finalURL,  bool embedded)
     : StyleSheet(parentNode, originalURL, finalURL)
+    , m_ownerDocument(parentNode->document())
     , m_embedded(embedded)
     , m_processed(true) // The root sheet starts off processed.
     , m_stylesheetDoc(0)
@@ -128,10 +129,9 @@ void XSLStyleSheet::clearDocuments()
 
 CachedResourceLoader* XSLStyleSheet::cachedResourceLoader()
 {
-    Document* document = ownerDocument();
-    if (!document)
+    if (!m_ownerDocument)
         return 0;
-    return document->cachedResourceLoader();
+    return m_ownerDocument->cachedResourceLoader();
 }
 
 bool XSLStyleSheet::parseString(const String& string, bool)
@@ -257,16 +257,8 @@ xsltStylesheetPtr XSLStyleSheet::compileStyleSheet()
 void XSLStyleSheet::setParentStyleSheet(XSLStyleSheet* parent)
 {
     m_parentStyleSheet = parent;
-}
-
-Document* XSLStyleSheet::ownerDocument()
-{
-    for (XSLStyleSheet* styleSheet = this; styleSheet; styleSheet = styleSheet->parentStyleSheet()) {
-        Node* node = styleSheet->ownerNode();
-        if (node)
-            return node->document();
-    }
-    return 0;
+    if (parent)
+        m_ownerDocument = parent->ownerDocument();
 }
 
 xmlDocPtr XSLStyleSheet::locateStylesheetSubResource(xmlDocPtr parentDoc, const xmlChar* uri)

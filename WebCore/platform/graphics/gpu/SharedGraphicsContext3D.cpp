@@ -68,11 +68,18 @@ PassRefPtr<SharedGraphicsContext3D> SharedGraphicsContext3D::create(HostWindow* 
 
 SharedGraphicsContext3D::SharedGraphicsContext3D(PassRefPtr<GraphicsContext3D> context, PassOwnPtr<SolidFillShader> solidFillShader, PassOwnPtr<TexShader> texShader)
     : m_context(context)
+    , m_bgraSupported(false)
     , m_quadVertices(0)
     , m_solidFillShader(solidFillShader)
     , m_texShader(texShader)
 {
     allContexts()->add(this);
+    Extensions3D* extensions = m_context->getExtensions();
+    m_bgraSupported = extensions->supports("GL_EXT_texture_format_BGRA8888") && extensions->supports("GL_EXT_read_format_bgra");
+    if (m_bgraSupported) {
+        extensions->ensureEnabled("GL_EXT_texture_format_BGRA8888");
+        extensions->ensureEnabled("GL_EXT_read_format_bgra");
+    }
 }
 
 SharedGraphicsContext3D::~SharedGraphicsContext3D()
@@ -165,6 +172,10 @@ void SharedGraphicsContext3D::texParameteri(unsigned target, unsigned pname, int
 
 int SharedGraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels)
 {
+    if (!pixels) {
+        m_context->texImage2DResourceSafe(target, level, internalformat, width, height, border, format, type);
+        return 0;
+    }
     return m_context->texImage2D(target, level, internalformat, width, height, border, format, type, pixels);
 }
 
@@ -180,8 +191,7 @@ void SharedGraphicsContext3D::readPixels(long x, long y, unsigned long width, un
 
 bool SharedGraphicsContext3D::supportsBGRA()
 {
-    return m_context->getExtensions()->supports("GL_EXT_texture_format_BGRA8888")
-        && m_context->getExtensions()->supports("GL_EXT_read_format_bgra");
+    return m_bgraSupported;
 }
 
 Texture* SharedGraphicsContext3D::createTexture(NativeImagePtr ptr, Texture::Format format, int width, int height)

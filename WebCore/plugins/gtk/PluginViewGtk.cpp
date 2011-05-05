@@ -62,7 +62,9 @@
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 
+#ifdef GTK_API_VERSION_2
 #include <gdkconfig.h>
+#endif
 #include <gtk/gtk.h>
 
 #if defined(XP_UNIX)
@@ -492,15 +494,6 @@ void PluginView::setNPWindowIfNeeded()
         m_npWindow.clipRect.top = max(0, m_clipRect.y());
         m_npWindow.clipRect.right = m_clipRect.x() + m_clipRect.width();
         m_npWindow.clipRect.bottom = m_clipRect.y() + m_clipRect.height();
-
-        GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
-        gtk_widget_size_allocate(platformPluginWidget(), &allocation);
-#if defined(XP_UNIX)
-        if (!m_needsXEmbed) {
-            gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
-            gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
-        }
-#endif
     } else {
         m_npWindow.x = 0;
         m_npWindow.y = 0;
@@ -519,6 +512,17 @@ void PluginView::setNPWindowIfNeeded()
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
     PluginView::setCurrentPluginView(0);
+
+    if (m_isWindowed) {
+        GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
+        gtk_widget_size_allocate(platformPluginWidget(), &allocation);
+#if defined(XP_UNIX)
+        if (!m_needsXEmbed) {
+            gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
+            gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
+        }
+#endif
+    }
 }
 
 void PluginView::setParentVisible(bool visible)

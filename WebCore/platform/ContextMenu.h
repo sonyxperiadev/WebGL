@@ -29,7 +29,6 @@
 #include <wtf/Noncopyable.h>
 
 #include "ContextMenuItem.h"
-#include "HitTestResult.h"
 #include "PlatformMenuDescription.h"
 #include "PlatformString.h"
 #if PLATFORM(MAC)
@@ -41,41 +40,60 @@
 namespace WebCore {
 
     class ContextMenuController;
-#if PLATFORM(EFL)
-    class ContextMenuClientEfl;
-#endif
 
     class ContextMenu : public Noncopyable
     {
     public:
-        ContextMenu(const HitTestResult&);
-        ContextMenu(const HitTestResult&, const PlatformMenuDescription);
-        ~ContextMenu();
+        ContextMenu();
 
-        void populate();
-        void addInspectElementItem();
-        void checkOrEnableIfNeeded(ContextMenuItem&) const;
+        ContextMenuItem* itemWithAction(unsigned);
+
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+#if PLATFORM(WIN)
+        typedef HMENU NativeMenu;
+#elif PLATFORM(EFL)
+        typedef void* NativeMenu;
+#endif
+        explicit ContextMenu(NativeMenu);
+
+        NativeMenu nativeMenu() const;
+
+        static NativeMenu createNativeMenuFromItems(const Vector<ContextMenuItem>&);
+        static void getContextMenuItems(NativeMenu, Vector<ContextMenuItem>&);
+
+        // FIXME: When more platforms switch over, this should return const ContextMenuItem*'s.
+        ContextMenuItem* itemAtIndex(unsigned index) { return &m_items[index]; }
+
+        void setItems(const Vector<ContextMenuItem>& items) { m_items = items; }
+        const Vector<ContextMenuItem>& items() const { return m_items; }
+
+        void appendItem(const ContextMenuItem& item) { m_items.append(item); } 
+#else
+        ContextMenu(const PlatformMenuDescription);
+        ~ContextMenu();
 
         void insertItem(unsigned position, ContextMenuItem&);
         void appendItem(ContextMenuItem&);
-        
-        ContextMenuItem* itemWithAction(unsigned);
+
         ContextMenuItem* itemAtIndex(unsigned, const PlatformMenuDescription);
 
         unsigned itemCount() const;
-
-        HitTestResult hitTestResult() const { return m_hitTestResult; }
-        ContextMenuController* controller() const;
 
         PlatformMenuDescription platformDescription() const;
         void setPlatformDescription(PlatformMenuDescription);
 
         PlatformMenuDescription releasePlatformDescription();
+
 #if PLATFORM(WX)
         static ContextMenuItem* itemWithId(int);
 #endif
+
+#endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
+
     private:
-        HitTestResult m_hitTestResult;
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+        Vector<ContextMenuItem> m_items;
+#else
 #if PLATFORM(MAC)
         // Keep this in sync with the PlatformMenuDescription typedef
         RetainPtr<NSMutableArray> m_platformDescription;
@@ -83,19 +101,20 @@ namespace WebCore {
         QList<ContextMenuItem> m_items;
 #elif PLATFORM(CHROMIUM)
         Vector<ContextMenuItem> m_items;
-#elif PLATFORM(EFL)
-        ContextMenuClientEfl* m_contextMenuClient;
-        PlatformMenuDescription m_platformDescription;
 #else
         PlatformMenuDescription m_platformDescription;
 #if OS(WINCE)
         unsigned m_itemCount;
 #endif
 #endif
+
+#endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
     };
 
+#if !USE(CROSS_PLATFORM_CONTEXT_MENUS)
 Vector<ContextMenuItem> contextMenuItemVector(PlatformMenuDescription);
 PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>&);
+#endif
 
 }
 

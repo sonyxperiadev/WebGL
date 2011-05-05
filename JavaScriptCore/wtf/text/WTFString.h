@@ -276,6 +276,13 @@ public:
     // to ever prefer copy() over plain old assignment.
     String threadsafeCopy() const;
 
+    // Prevent Strings from being implicitly convertable to bool as it will be ambiguous on any platform that
+    // allows implicit conversion to another pointer type (e.g., Mac allows implicit conversion to NSString*).
+    typedef struct ImplicitConversionFromWTFStringToBoolDisallowedA* (String::*UnspecifiedBoolTypeA);
+    typedef struct ImplicitConversionFromWTFStringToBoolDisallowedB* (String::*UnspecifiedBoolTypeB);
+    operator UnspecifiedBoolTypeA() const;
+    operator UnspecifiedBoolTypeB() const;
+
 #if PLATFORM(CF)
     String(CFStringRef);
     CFStringRef createCFString() const;
@@ -309,6 +316,8 @@ public:
     String(const AECHAR*);
 #endif
 
+    // String::fromUTF8 will return a null string if
+    // the input data contains invalid UTF-8 sequences.
     static String fromUTF8(const char*, size_t);
     static String fromUTF8(const char*);
 

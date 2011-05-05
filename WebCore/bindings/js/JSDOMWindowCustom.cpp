@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -46,27 +46,8 @@
 #include "JSMessagePort.h"
 #include "JSMessagePortCustom.h"
 #include "JSOptionConstructor.h"
-
-#if ENABLE(SHARED_WORKERS)
-#include "JSSharedWorker.h"
-#endif
-
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
-#include "JSArrayBuffer.h"
-#include "JSDataView.h"
-#include "JSInt8Array.h"
-#include "JSUint8Array.h"
-#include "JSInt32Array.h"
-#include "JSUint32Array.h"
-#include "JSInt16Array.h"
-#include "JSUint16Array.h"
-#include "JSFloat32Array.h"
-#endif
 #include "JSWebKitCSSMatrix.h"
 #include "JSWebKitPoint.h"
-#if ENABLE(WEB_SOCKETS)
-#include "JSWebSocket.h"
-#endif
 #include "JSWorker.h"
 #include "JSXMLHttpRequest.h"
 #include "JSXSLTProcessor.h"
@@ -88,6 +69,30 @@
 #include <runtime/JSObject.h>
 #include <runtime/PrototypeFunction.h>
 #include <wtf/text/AtomicString.h>
+
+#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#include "JSArrayBuffer.h"
+#include "JSDataView.h"
+#include "JSFloat32Array.h"
+#include "JSInt16Array.h"
+#include "JSInt32Array.h"
+#include "JSInt8Array.h"
+#include "JSUint16Array.h"
+#include "JSUint32Array.h"
+#include "JSUint8Array.h"
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+#include "JSSharedWorker.h"
+#endif
+
+#if ENABLE(WEB_AUDIO)
+#include "JSAudioContext.h"
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+#include "JSWebSocket.h"
+#endif
 
 using namespace JSC;
 
@@ -485,36 +490,28 @@ JSValue JSDOMWindow::location(ExecState* exec) const
 
 void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
 {
-    Frame* lexicalFrame = toLexicalFrame(exec);
-    if (!lexicalFrame)
-        return;
+    DOMWindow* activeWindow = asJSDOMWindow(exec->lexicalGlobalObject())->impl();
+    DOMWindow* firstWindow = asJSDOMWindow(exec->dynamicGlobalObject())->impl();
 
 #if ENABLE(DASHBOARD_SUPPORT)
     // To avoid breaking old widgets, make "var location =" in a top-level frame create
     // a property named "location" instead of performing a navigation (<rdar://problem/5688039>).
-    if (Settings* settings = lexicalFrame->settings()) {
-        if (settings->usesDashboardBackwardCompatibilityMode() && !lexicalFrame->tree()->parent()) {
-            if (allowsAccessFrom(exec))
-                putDirect(Identifier(exec, "location"), value);
-            return;
+    if (Frame* activeFrame = activeWindow->frame()) {
+        if (Settings* settings = activeFrame->settings()) {
+            if (settings->usesDashboardBackwardCompatibilityMode() && !activeFrame->tree()->parent()) {
+                if (allowsAccessFrom(exec))
+                    putDirect(Identifier(exec, "location"), value);
+                return;
+            }
         }
     }
 #endif
 
-    Frame* frame = impl()->frame();
-    ASSERT(frame);
-
-    KURL url = completeURL(exec, ustringToString(value.toString(exec)));
-    if (url.isNull())
+    UString locationString = value.toString(exec);
+    if (exec->hadException())
         return;
 
-    if (!shouldAllowNavigation(exec, frame))
-        return;
-
-    if (!protocolIsJavaScript(url) || allowsAccessFrom(exec)) {
-        // We want a new history item if this JS was called via a user gesture
-        frame->navigationScheduler()->scheduleLocationChange(url, lexicalFrame->loader()->outgoingReferrer(), !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
-    }
+    impl()->setLocation(ustringToString(locationString), activeWindow, firstWindow);
 }
 
 JSValue JSDOMWindow::crypto(ExecState*) const
@@ -648,6 +645,13 @@ JSValue JSDOMWindow::sharedWorker(ExecState* exec) const
 }
 #endif
 
+#if ENABLE(WEB_AUDIO)
+JSValue JSDOMWindow::webkitAudioContext(ExecState* exec) const
+{
+    return getDOMConstructor<JSAudioContextConstructor>(exec, this);
+}
+#endif
+
 #if ENABLE(WEB_SOCKETS)
 JSValue JSDOMWindow::webSocket(ExecState* exec) const
 {
@@ -663,225 +667,89 @@ JSValue JSDOMWindow::webSocket(ExecState* exec) const
 
 // Custom functions
 
-// Helper for window.open() and window.showModalDialog()
-static Frame* createWindow(ExecState* exec, Frame* lexicalFrame, Frame* dynamicFrame,
-                           Frame* openerFrame, const String& url, const String& frameName, 
-                           const WindowFeatures& windowFeatures, JSValue dialogArgs)
-{
-    ASSERT(lexicalFrame);
-    ASSERT(dynamicFrame);
-
-    ResourceRequest request;
-
-    // For whatever reason, Firefox uses the dynamicGlobalObject to determine
-    // the outgoingReferrer.  We replicate that behavior here.
-    String referrer = dynamicFrame->loader()->outgoingReferrer();
-    request.setHTTPReferrer(referrer);
-    FrameLoader::addHTTPOriginIfNeeded(request, dynamicFrame->loader()->outgoingOrigin());
-    FrameLoadRequest frameRequest(request, frameName);
-
-    // FIXME: It's much better for client API if a new window starts with a URL, here where we
-    // know what URL we are going to open. Unfortunately, this code passes the empty string
-    // for the URL, but there's a reason for that. Before loading we have to set up the opener,
-    // openedByDOM, and dialogArguments values. Also, to decide whether to use the URL we currently
-    // do an allowsAccessFrom call using the window we create, which can't be done before creating it.
-    // We'd have to resolve all those issues to pass the URL instead of "".
-
-    bool created;
-    // We pass the opener frame for the lookupFrame in case the active frame is different from
-    // the opener frame, and the name references a frame relative to the opener frame.
-    Frame* newFrame = createWindow(lexicalFrame, openerFrame, frameRequest, windowFeatures, created);
-    if (!newFrame)
-        return 0;
-
-    newFrame->loader()->setOpener(openerFrame);
-    newFrame->page()->setOpenedByDOM();
-
-    // FIXME: If a window is created from an isolated world, what are the consequences of this? 'dialogArguments' only appears back in the normal world?
-    JSDOMWindow* newWindow = toJSDOMWindow(newFrame, normalWorld(exec->globalData()));
-
-    if (dialogArgs)
-        newWindow->putDirect(Identifier(exec, "dialogArguments"), dialogArgs);
-
-    if (!protocolIsJavaScript(url) || newWindow->allowsAccessFrom(exec)) {
-        KURL completedURL = url.isEmpty() ? KURL(ParsedURLString, "") : completeURL(exec, url);
-        if (created)
-            newFrame->loader()->changeLocation(completedURL, referrer, false, false);
-        else if (!url.isEmpty())
-            newFrame->navigationScheduler()->scheduleLocationChange(completedURL.string(), referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
-    }
-
-    return newFrame;
-}
-
-static bool domWindowAllowPopUp(Frame* activeFrame)
-{
-    ASSERT(activeFrame);
-    if (ScriptController::processingUserGesture())
-        return true;
-    return DOMWindow::allowPopUp(activeFrame);
-}
-
 JSValue JSDOMWindow::open(ExecState* exec)
 {
+    DOMWindow* activeWindow = asJSDOMWindow(exec->lexicalGlobalObject())->impl();
+    DOMWindow* firstWindow = asJSDOMWindow(exec->dynamicGlobalObject())->impl();
+
     String urlString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
+    if (exec->hadException())
+        return jsUndefined();
     AtomicString frameName = exec->argument(1).isUndefinedOrNull() ? "_blank" : ustringToAtomicString(exec->argument(1).toString(exec));
-    WindowFeatures windowFeatures(valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2)));
-
-    Frame* frame = impl()->frame();
-    if (!frame)
+    if (exec->hadException())
         return jsUndefined();
-    Frame* lexicalFrame = toLexicalFrame(exec);
-    if (!lexicalFrame)
-        return jsUndefined();
-    Frame* dynamicFrame = toDynamicFrame(exec);
-    if (!dynamicFrame)
+    String windowFeaturesString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
+    if (exec->hadException())
         return jsUndefined();
 
-    Page* page = frame->page();
-
-    // Because FrameTree::find() returns true for empty strings, we must check for empty framenames.
-    // Otherwise, illegitimate window.open() calls with no name will pass right through the popup blocker.
-    if (!domWindowAllowPopUp(dynamicFrame) && (frameName.isEmpty() || !frame->tree()->find(frameName)))
+    RefPtr<DOMWindow> openedWindow = impl()->open(urlString, frameName, windowFeaturesString, activeWindow, firstWindow);
+    if (!openedWindow)
         return jsUndefined();
+    return toJS(exec, openedWindow.get());
+}
 
-    // Get the target frame for the special cases of _top and _parent.  In those
-    // cases, we can schedule a location change right now and return early.
-    bool topOrParent = false;
-    if (frameName == "_top") {
-        frame = frame->tree()->top();
-        topOrParent = true;
-    } else if (frameName == "_parent") {
-        if (Frame* parent = frame->tree()->parent())
-            frame = parent;
-        topOrParent = true;
-    }
-    if (topOrParent) {
-        String completedURL;
-        if (!urlString.isEmpty())
-            completedURL = completeURL(exec, urlString).string();
-
-        if (!shouldAllowNavigation(exec, frame))
-            return jsUndefined();
-
-        const JSDOMWindow* targetedWindow = toJSDOMWindow(frame, currentWorld(exec));
-        if (!completedURL.isEmpty() && (!protocolIsJavaScript(completedURL) || (targetedWindow && targetedWindow->allowsAccessFrom(exec)))) {
-            // For whatever reason, Firefox uses the dynamicGlobalObject to
-            // determine the outgoingReferrer.  We replicate that behavior
-            // here.
-            String referrer = dynamicFrame->loader()->outgoingReferrer();
-
-            frame->navigationScheduler()->scheduleLocationChange(completedURL, referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
-        }
-        return toJS(exec, frame->domWindow());
+class DialogHandler {
+public:
+    explicit DialogHandler(ExecState* exec)
+        : m_exec(exec)
+        , m_globalObject(0)
+    {
     }
 
-    // In the case of a named frame or a new window, we'll use the createWindow() helper
-    FloatRect windowRect(windowFeatures.xSet ? windowFeatures.x : 0, windowFeatures.ySet ? windowFeatures.y : 0,
-                         windowFeatures.widthSet ? windowFeatures.width : 0, windowFeatures.heightSet ? windowFeatures.height : 0);
-    DOMWindow::adjustWindowRect(screenAvailableRect(page ? page->mainFrame()->view() : 0), windowRect, windowRect);
+    void dialogCreated(DOMWindow*);
+    JSValue returnValue() const;
 
-    windowFeatures.x = windowRect.x();
-    windowFeatures.y = windowRect.y();
-    windowFeatures.height = windowRect.height();
-    windowFeatures.width = windowRect.width();
+private:
+    ExecState* m_exec;
+    JSDOMWindow* m_globalObject;
+};
 
-    frame = createWindow(exec, lexicalFrame, dynamicFrame, frame, urlString, frameName, windowFeatures, JSValue());
+inline void DialogHandler::dialogCreated(DOMWindow* dialog)
+{
+    m_globalObject = toJSDOMWindow(dialog->frame(), normalWorld(m_exec->globalData()));
+    if (JSValue dialogArguments = m_exec->argument(1))
+        m_globalObject->putDirect(Identifier(m_exec, "dialogArguments"), dialogArguments);
+}
 
-    if (!frame)
+inline JSValue DialogHandler::returnValue() const
+{
+    if (!m_globalObject)
         return jsUndefined();
+    Identifier identifier(m_exec, "returnValue");
+    PropertySlot slot;
+    if (!m_globalObject->JSGlobalObject::getOwnPropertySlot(m_exec, identifier, slot))
+        return jsUndefined();
+    return slot.getValue(m_exec, identifier);
+}
 
-    return toJS(exec, frame->domWindow());
+static void setUpDialog(DOMWindow* dialog, void* context)
+{
+    static_cast<DialogHandler*>(context)->dialogCreated(dialog);
 }
 
 JSValue JSDOMWindow::showModalDialog(ExecState* exec)
 {
-    String url = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
-    JSValue dialogArgs = exec->argument(1);
-    String featureArgs = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
+    DOMWindow* activeWindow = asJSDOMWindow(exec->lexicalGlobalObject())->impl();
+    DOMWindow* firstWindow = asJSDOMWindow(exec->dynamicGlobalObject())->impl();
 
-    Frame* frame = impl()->frame();
-    if (!frame)
+    String urlString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
+    if (exec->hadException())
         return jsUndefined();
-    Frame* lexicalFrame = toLexicalFrame(exec);
-    if (!lexicalFrame)
-        return jsUndefined();
-    Frame* dynamicFrame = toDynamicFrame(exec);
-    if (!dynamicFrame)
+    String dialogFeaturesString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
+    if (exec->hadException())
         return jsUndefined();
 
-    if (!DOMWindow::canShowModalDialogNow(frame) || !domWindowAllowPopUp(dynamicFrame))
-        return jsUndefined();
+    DialogHandler handler(exec);
 
-    HashMap<String, String> features;
-    DOMWindow::parseModalDialogFeatures(featureArgs, features);
+    impl()->showModalDialog(urlString, dialogFeaturesString, activeWindow, firstWindow, setUpDialog, &handler);
 
-    const bool trusted = false;
-
-    // The following features from Microsoft's documentation are not implemented:
-    // - default font settings
-    // - width, height, left, and top specified in units other than "px"
-    // - edge (sunken or raised, default is raised)
-    // - dialogHide: trusted && boolFeature(features, "dialoghide"), makes dialog hide when you print
-    // - help: boolFeature(features, "help", true), makes help icon appear in dialog (what does it do on Windows?)
-    // - unadorned: trusted && boolFeature(features, "unadorned");
-
-    FloatRect screenRect = screenAvailableRect(frame->view());
-
-    WindowFeatures wargs;
-    wargs.width = WindowFeatures::floatFeature(features, "dialogwidth", 100, screenRect.width(), 620); // default here came from frame size of dialog in MacIE
-    wargs.widthSet = true;
-    wargs.height = WindowFeatures::floatFeature(features, "dialogheight", 100, screenRect.height(), 450); // default here came from frame size of dialog in MacIE
-    wargs.heightSet = true;
-
-    wargs.x = WindowFeatures::floatFeature(features, "dialogleft", screenRect.x(), screenRect.right() - wargs.width, -1);
-    wargs.xSet = wargs.x > 0;
-    wargs.y = WindowFeatures::floatFeature(features, "dialogtop", screenRect.y(), screenRect.bottom() - wargs.height, -1);
-    wargs.ySet = wargs.y > 0;
-
-    if (WindowFeatures::boolFeature(features, "center", true)) {
-        if (!wargs.xSet) {
-            wargs.x = screenRect.x() + (screenRect.width() - wargs.width) / 2;
-            wargs.xSet = true;
-        }
-        if (!wargs.ySet) {
-            wargs.y = screenRect.y() + (screenRect.height() - wargs.height) / 2;
-            wargs.ySet = true;
-        }
-    }
-
-    wargs.dialog = true;
-    wargs.resizable = WindowFeatures::boolFeature(features, "resizable");
-    wargs.scrollbarsVisible = WindowFeatures::boolFeature(features, "scroll", true);
-    wargs.statusBarVisible = WindowFeatures::boolFeature(features, "status", !trusted);
-    wargs.menuBarVisible = false;
-    wargs.toolBarVisible = false;
-    wargs.locationBarVisible = false;
-    wargs.fullscreen = false;
-
-    Frame* dialogFrame = createWindow(exec, lexicalFrame, dynamicFrame, frame, url, "", wargs, dialogArgs);
-    if (!dialogFrame)
-        return jsUndefined();
-
-    JSDOMWindow* dialogWindow = toJSDOMWindow(dialogFrame, currentWorld(exec));
-    dialogFrame->page()->chrome()->runModal();
-
-    Identifier returnValue(exec, "returnValue");
-    if (dialogWindow->allowsAccessFromNoErrorMessage(exec)) {
-        PropertySlot slot;
-        // This is safe, we have already performed the origin security check and we are
-        // not interested in any of the DOM properties of the window.
-        if (dialogWindow->JSGlobalObject::getOwnPropertySlot(exec, returnValue, slot))
-            return slot.getValue(exec, returnValue);
-    }
-    return jsUndefined();
+    return handler.returnValue();
 }
 
 JSValue JSDOMWindow::postMessage(ExecState* exec)
 {
-    DOMWindow* window = impl();
+    DOMWindow* activeWindow = asJSDOMWindow(exec->lexicalGlobalObject())->impl();
 
-    DOMWindow* source = asJSDOMWindow(exec->lexicalGlobalObject())->impl();
     PassRefPtr<SerializedScriptValue> message = SerializedScriptValue::create(exec, exec->argument(0));
 
     if (exec->hadException())
@@ -898,7 +766,7 @@ JSValue JSDOMWindow::postMessage(ExecState* exec)
         return jsUndefined();
 
     ExceptionCode ec = 0;
-    window->postMessage(message, &messagePorts, targetOrigin, source, ec);
+    impl()->postMessage(message, &messagePorts, targetOrigin, activeWindow, ec);
     setDOMException(exec, ec);
 
     return jsUndefined();

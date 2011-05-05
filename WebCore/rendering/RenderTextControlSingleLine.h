@@ -59,6 +59,10 @@ public:
     // Decoration width outside of the text field.
     int decorationWidthRight() const;
 
+#if ENABLE(INPUT_SPEECH)
+    void speechAttributeChanged();
+#endif
+
 private:
     int preferredDecorationWidthRight() const;
     virtual bool hasControlClip() const;
@@ -83,6 +87,7 @@ private:
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
     virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
+    virtual bool logicalScroll(ScrollLogicalDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
 
     int textBlockWidth() const;
     virtual float getAvgCharWidth(AtomicString family);
@@ -145,6 +150,7 @@ private:
 
     virtual int textBlockInsetLeft() const;
     virtual int textBlockInsetRight() const;
+    virtual int textBlockInsetTop() const;
 
     bool m_searchPopupIsVisible;
     bool m_shouldDrawCapsLockIndicator;

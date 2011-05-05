@@ -90,7 +90,6 @@
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
 #include "XMLNames.h"
-#include "loader.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
@@ -762,7 +761,7 @@ inline void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* paren
     m_parentNode = e ? e->parentNode() : 0;
 
 #if ENABLE(SVG)
-    if (!m_parentNode && e && e->isSVGElement() && e->isShadowNode())
+    if (!m_parentNode && e && e->isSVGElement() && e->isShadowRoot())
         m_parentNode = e->shadowParentNode();
 #endif
 
@@ -1893,7 +1892,7 @@ CSSStyleSelector::SelectorMatch CSSStyleSelector::SelectorChecker::checkSelector
 #if ENABLE(SVG)
     // Spec: CSS2 selectors cannot be applied to the (conceptually) cloned DOM tree
     // because its contents are not part of the formal document structure.
-    if (e->isSVGElement() && e->isShadowNode())
+    if (e->isSVGElement() && e->isShadowRoot())
         return SelectorFailsCompletely;
 #endif
 
@@ -3034,6 +3033,7 @@ inline bool isValidVisitedLinkProperty(int id)
         case CSSPropertyColor:
         case CSSPropertyOutlineColor:
         case CSSPropertyWebkitColumnRuleColor:
+        case CSSPropertyWebkitTextEmphasisColor:
         case CSSPropertyWebkitTextFillColor:
         case CSSPropertyWebkitTextStrokeColor:
         // Also allow shorthands so that inherit/initial still work.
@@ -3511,6 +3511,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyOutlineColor:
     case CSSPropertyWebkitColumnRuleColor:
     case CSSPropertyWebkitTextStrokeColor:
+    case CSSPropertyWebkitTextEmphasisColor:
     case CSSPropertyWebkitTextFillColor: {
         Color col;
         if (isInherit) {
@@ -3523,6 +3524,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             HANDLE_INHERIT_COND_WITH_BACKUP(CSSPropertyOutlineColor, outlineColor, color, OutlineColor)
             HANDLE_INHERIT_COND_WITH_BACKUP(CSSPropertyWebkitColumnRuleColor, columnRuleColor, color, ColumnRuleColor)
             HANDLE_INHERIT_COND_WITH_BACKUP(CSSPropertyWebkitTextStrokeColor, textStrokeColor, color, TextStrokeColor)
+            HANDLE_INHERIT_COND_WITH_BACKUP(CSSPropertyWebkitTextEmphasisColor, textEmphasisColor, color, TextEmphasisColor)
             HANDLE_INHERIT_COND_WITH_BACKUP(CSSPropertyWebkitTextFillColor, textFillColor, color, TextFillColor)
             return;
         }
@@ -3565,6 +3567,9 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             break;
         case CSSPropertyWebkitTextStrokeColor:
             m_style->setTextStrokeColor(col);
+            break;
+        case CSSPropertyWebkitTextEmphasisColor:
+            m_style->setTextEmphasisColor(col);
             break;
         case CSSPropertyWebkitTextFillColor:
             m_style->setTextFillColor(col);
@@ -5522,6 +5527,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyWebkitFontSizeDelta:
     case CSSPropertyWebkitTextDecorationsInEffect:
     case CSSPropertyWebkitTextStroke:
+    case CSSPropertyWebkitTextEmphasis:
         return;
 #if ENABLE(WCSS)
     case CSSPropertyWapInputFormat:
@@ -5556,6 +5562,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
         return;
 
+<<<<<<< HEAD
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
         if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
@@ -5699,6 +5706,57 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
+=======
+    case CSSPropertyWebkitTextEmphasisPosition:
+        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textEmphasisPosition, TextEmphasisPosition)
+        return;
+
+    case CSSPropertyWebkitTextEmphasisStyle:
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisFill, TextEmphasisFill)
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisMark, TextEmphasisMark)
+        HANDLE_INHERIT_AND_INITIAL(textEmphasisCustomMark, TextEmphasisCustomMark)
+        if (isInherit || isInitial)
+            return;
+
+        if (value->isValueList()) {
+            CSSValueList* list = static_cast<CSSValueList*>(value);
+            ASSERT(list->length() == 2);
+            if (list->length() != 2)
+                return;
+            for (unsigned i = 0; i < 2; ++i) {
+                ASSERT(list->itemWithoutBoundsCheck(i)->isPrimitiveValue());
+                CSSPrimitiveValue* value = static_cast<CSSPrimitiveValue*>(list->itemWithoutBoundsCheck(i));
+                if (value->getIdent() == CSSValueFilled || value->getIdent() == CSSValueOpen)
+                    m_style->setTextEmphasisFill(*value);
+                else
+                    m_style->setTextEmphasisMark(*value);
+            }
+            m_style->setTextEmphasisCustomMark(nullAtom);
+            return;
+        }
+
+        if (!primitiveValue)
+            return;
+
+        if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_STRING) {
+            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
+            m_style->setTextEmphasisMark(TextEmphasisMarkCustom);
+            m_style->setTextEmphasisCustomMark(primitiveValue->getStringValue());
+            return;
+        }
+
+        m_style->setTextEmphasisCustomMark(nullAtom);
+
+        if (primitiveValue->getIdent() == CSSValueFilled || primitiveValue->getIdent() == CSSValueOpen) {
+            m_style->setTextEmphasisFill(*primitiveValue);
+            m_style->setTextEmphasisMark(TextEmphasisMarkAuto);
+        } else {
+            m_style->setTextEmphasisFill(TextEmphasisFillFilled);
+            m_style->setTextEmphasisMark(*primitiveValue);
+        }
+
+        return;
+>>>>>>> webkit.org at r74534 (trunk)
 
 #if ENABLE(SVG)
     default:
@@ -6909,8 +6967,8 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
                 double b = static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(1))->getDoubleValue();
                 double c = static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(2))->getDoubleValue();
                 double d = static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(3))->getDoubleValue();
-                double e = static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(4))->getDoubleValue();
-                double f = static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(5))->getDoubleValue();
+                double e = zoomFactor * static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(4))->getDoubleValue();
+                double f = zoomFactor * static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(5))->getDoubleValue();
                 operations.operations().append(MatrixTransformOperation::create(a, b, c, d, e, f));
                 break;
             }
@@ -6929,8 +6987,8 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
                                    static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(9))->getDoubleValue(),
                                    static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(10))->getDoubleValue(),
                                    static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(11))->getDoubleValue(),
-                                   static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(12))->getDoubleValue(),
-                                   static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(13))->getDoubleValue(),
+                                   zoomFactor * static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(12))->getDoubleValue(),
+                                   zoomFactor * static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(13))->getDoubleValue(),
                                    static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(14))->getDoubleValue(),
                                    static_cast<CSSPrimitiveValue*>(transformValue->itemWithoutBoundsCheck(15))->getDoubleValue());
                 operations.operations().append(Matrix3DTransformOperation::create(matrix));
@@ -7019,10 +7077,12 @@ void CSSStyleSelector::loadPendingImages()
             }
             
             case CSSPropertyWebkitBoxReflect: {
-                const NinePieceImage& maskImage = m_style->boxReflect()->mask();
-                if (maskImage.image() && maskImage.image()->isPendingImage()) {
-                    CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskImage.image())->cssImageValue();
-                    m_style->boxReflect()->setMask(NinePieceImage(imageValue->cachedImage(cachedResourceLoader), maskImage.slices(), maskImage.horizontalRule(), maskImage.verticalRule()));
+                if (StyleReflection* reflection = m_style->boxReflect()) {
+                    const NinePieceImage& maskImage = reflection->mask();
+                    if (maskImage.image() && maskImage.image()->isPendingImage()) {
+                        CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskImage.image())->cssImageValue();
+                        reflection->setMask(NinePieceImage(imageValue->cachedImage(cachedResourceLoader), maskImage.slices(), maskImage.horizontalRule(), maskImage.verticalRule()));
+                    }
                 }
                 break;
             }

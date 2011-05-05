@@ -93,7 +93,7 @@ Frame* BindingDOMWindow<Binding>::createWindow(State<Binding>* state,
     String referrer = enteredFrame->loader()->outgoingReferrer();
     request.setHTTPReferrer(referrer);
     FrameLoader::addHTTPOriginIfNeeded(request, enteredFrame->loader()->outgoingOrigin());
-    FrameLoadRequest frameRequest(request, frameName);
+    FrameLoadRequest frameRequest(callingFrame->document()->securityOrigin(), request, frameName);
 
     // FIXME: It's much better for client API if a new window starts with a URL,
     // here where we know what URL we are going to open. Unfortunately, this
@@ -117,12 +117,14 @@ Frame* BindingDOMWindow<Binding>::createWindow(State<Binding>* state,
     Binding::DOMWindow::storeDialogArgs(state, newFrame, dialogArgs);
 
     if (!protocolIsJavaScript(url) || BindingSecurity<Binding>::canAccessFrame(state, newFrame, true)) {
-        KURL completedUrl =
-            url.isEmpty() ? KURL(ParsedURLString, "") : completeURL(state, url);
-        if (created)
-            newFrame->loader()->changeLocation(completedUrl, referrer, false, false);
-        else if (!url.isEmpty())
-            newFrame->navigationScheduler()->scheduleLocationChange(completedUrl.string(), referrer, false, false);
+        KURL completedUrl = url.isEmpty() ? KURL(ParsedURLString, "") : completeURL(state, url);
+        if (created) {
+            newFrame->loader()->changeLocation(callingFrame->document()->securityOrigin(),
+                completedUrl, referrer, false, false);
+        } else if (!url.isEmpty()) {
+            newFrame->navigationScheduler()->scheduleLocationChange(callingFrame->document()->securityOrigin(),
+                completedUrl.string(), referrer, false, false);
+        }
     }
 
     return newFrame;
@@ -140,11 +142,11 @@ WebCore::DOMWindow* BindingDOMWindow<Binding>::open(State<Binding>* state,
     if (!BindingSecurity<Binding>::canAccessFrame(state, frame, true))
         return 0;
 
-    Frame* firstFrame = state->getFirstFrame();
+    Frame* firstFrame = state->firstFrame();
     if (!firstFrame)
         return 0;
 
-    Frame* activeFrame = state->getActiveFrame();
+    Frame* activeFrame = state->activeFrame();
     // We may not have a calling context if we are invoked by a plugin
     // via NPAPI.
     if (!activeFrame)
@@ -189,7 +191,8 @@ WebCore::DOMWindow* BindingDOMWindow<Binding>::open(State<Binding>* state,
             // the outgoingReferrer.  We replicate that behavior here.
             String referrer = firstFrame->loader()->outgoingReferrer();
 
-            frame->navigationScheduler()->scheduleLocationChange(completedUrl, referrer, false, false);
+            frame->navigationScheduler()->scheduleLocationChange(activeFrame->document()->securityOrigin(),
+                completedUrl, referrer, false, false);
         }
         return frame->domWindow();
     }

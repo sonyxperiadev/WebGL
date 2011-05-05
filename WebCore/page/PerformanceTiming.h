@@ -61,13 +61,14 @@ public:
     unsigned long long domainLookupEnd() const;
     unsigned long long connectStart() const;
     unsigned long long connectEnd() const;
+    unsigned long long sslHandshakeStart() const;
     unsigned long long requestStart() const;
     unsigned long long responseStart() const;
     unsigned long long responseEnd() const;
     unsigned long long domLoading() const;
     unsigned long long domInteractive() const;
-    unsigned long long domContentLoadedStart() const;
-    unsigned long long domContentLoadedEnd() const;
+    unsigned long long domContentLoadedEventStart() const;
+    unsigned long long domContentLoadedEventEnd() const;
     unsigned long long domComplete() const;
     unsigned long long loadEventStart() const;
     unsigned long long loadEventEnd() const;

@@ -30,6 +30,7 @@
 #include "config.h"
 #include "ChromeClientQt.h"
 
+#include "ApplicationCacheStorage.h"
 #include "DatabaseTracker.h"
 #include "FileChooser.h"
 #include "Frame.h"
@@ -73,6 +74,7 @@
 #include <qeventloop.h>
 #include <qtextdocument.h>
 #include <qtooltip.h>
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
@@ -452,7 +454,7 @@ IntPoint ChromeClientQt::screenToWindow(const IntPoint& point) const
 
 PlatformPageClient ChromeClientQt::platformPageClient() const
 {
-    return m_webPage->d->client;
+    return m_webPage->d->client.get();
 }
 
 void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) const
@@ -518,9 +520,18 @@ void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
     notImplemented();
 }
 
-void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin* origin)
 {
-    notImplemented();
+    int64_t quota;
+    quint64 defaultOriginQuota = WebCore::cacheStorage().defaultOriginQuota();
+
+    QWebSecurityOriginPrivate* priv = new QWebSecurityOriginPrivate(origin);
+    QWebSecurityOrigin* securityOrigin = new QWebSecurityOrigin(priv);
+
+    if (!WebCore::cacheStorage().quotaForOrigin(origin, quota))
+       WebCore::cacheStorage().storeUpdatedQuotaForOrigin(origin, defaultOriginQuota);
+
+    emit m_webPage->applicationCacheQuotaExceeded(securityOrigin, defaultOriginQuota);
 }
 #endif
 

@@ -33,7 +33,6 @@
 #include "Document.h"
 #include "EventListener.h"
 #include "EventTarget.h"
-#include "InspectorCSSStore.h"
 #include "InspectorValues.h"
 #include "NodeList.h"
 #include "Timer.h"
@@ -88,9 +87,9 @@ namespace WebCore {
             virtual void didRemoveDOMNode(Node*) = 0;
         };
 
-        static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, InspectorFrontend* frontend)
+        static PassRefPtr<InspectorDOMAgent> create(InspectorFrontend* frontend)
         {
-            return adoptRef(new InspectorDOMAgent(cssStore, frontend));
+            return adoptRef(new InspectorDOMAgent(frontend));
         }
 
         static const InspectorDOMAgent* cast(const EventListener* listener)
@@ -100,7 +99,7 @@ namespace WebCore {
                 : 0;
         }
 
-        InspectorDOMAgent(InspectorCSSStore* cssStore, InspectorFrontend* frontend);
+        InspectorDOMAgent(InspectorFrontend* frontend);
         ~InspectorDOMAgent();
 
         void reset();
@@ -120,23 +119,9 @@ namespace WebCore {
         void addInspectedNode(long nodeId);
         void performSearch(const String& whitespaceTrimmedQuery, bool runSynchronously);
         void searchCanceled();
-        bool shouldBreakOnNodeInsertion(Node* node, Node* parent, PassRefPtr<InspectorValue>* details);
-        bool shouldBreakOnNodeRemoval(Node* node, PassRefPtr<InspectorValue>* details);
-        bool shouldBreakOnAttributeModification(Element* element, PassRefPtr<InspectorValue>* details);
-
-        // Methods called from the frontend for CSS styles inspection.
-        void getStyles(long nodeId, bool authorOnly, RefPtr<InspectorValue>* styles);
-        void getAllStyles(RefPtr<InspectorArray>* styles);
-        void getInlineStyle(long nodeId, RefPtr<InspectorValue>* styles);
-        void getComputedStyle(long nodeId, RefPtr<InspectorValue>* styles);
-        void getStyleSheet(long styleSheetId, RefPtr<InspectorObject>* styleSheetObject);
-        void getStyleSourceData(long styleId, RefPtr<InspectorObject>* dataObject);
-        void applyStyleText(long styleId, const String& styleText, const String& propertyName, bool* success, RefPtr<InspectorValue>* styleObject);
-        void setStyleText(long styleId, const String& cssText, bool* success);
-        void setStyleProperty(long styleId, const String& name, const String& value, bool* success);
-        void toggleStyleEnabled(long styleId, const String& propertyName, bool disabled, RefPtr<InspectorValue>* styleObject);
-        void setRuleSelector(long ruleId, const String& selector, long selectedNodeId, RefPtr<InspectorValue>* ruleObject, bool* selectorAffectsNode);
-        void addRule(const String& selector, long selectedNodeId, RefPtr<InspectorValue>* ruleObject, bool* selectorAffectsNode);
+        bool shouldBreakOnNodeInsertion(Node* node, Node* parent, PassRefPtr<InspectorObject> details);
+        bool shouldBreakOnNodeRemoval(Node* node, PassRefPtr<InspectorObject> details);
+        bool shouldBreakOnAttributeModification(Element* element, PassRefPtr<InspectorObject> details);
 
         // Methods called from the InspectorController.
         void setDocument(Document* document);
@@ -158,8 +143,8 @@ namespace WebCore {
 
         String documentURLString(Document* document) const;
 
-        String setDOMBreakpoint(long nodeId, long type);
-        void removeDOMBreakpoint(const String& breakpointId);
+        void setDOMBreakpoint(long nodeId, long type);
+        void removeDOMBreakpoint(long nodeId, long type);
 
     private:
         void startListening(Document* document);
@@ -176,13 +161,7 @@ namespace WebCore {
 
         bool hasBreakpoint(Node* node, long type);
         void updateSubtreeBreakpoints(Node* root, uint32_t rootMask, bool value);
-        void removeBreakpointsForNode(Node* node);
-        PassRefPtr<InspectorValue> descriptionForDOMEvent(Node* target, long breakpointType, bool insertion);
-        String createBreakpointId(long nodeId, long type);
-
-        PassRefPtr<InspectorObject> buildObjectForAttributeStyles(Element* element);
-        PassRefPtr<InspectorArray> buildArrayForCSSRules(Document* ownerDocument, CSSRuleList*);
-        PassRefPtr<InspectorArray> buildArrayForPseudoElements(Element* element, bool authorOnly);
+        void descriptionForDOMEvent(Node* target, long breakpointType, bool insertion, PassRefPtr<InspectorObject> description);
 
         PassRefPtr<InspectorObject> buildObjectForNode(Node* node, int depth, NodeToIdMap* nodesMap);
         PassRefPtr<InspectorArray> buildArrayForElementAttributes(Element* element);
@@ -199,25 +178,15 @@ namespace WebCore {
         bool isWhitespace(Node* node);
 
         Document* mainFrameDocument() const;
-        InspectorCSSStore* cssStore() { return m_cssStore; }
 
         void onMatchJobsTimer(Timer<InspectorDOMAgent>*);
         void reportNodesAsSearchResults(ListHashSet<Node*>& resultCollector);
 
-        PassRefPtr<InspectorObject> buildObjectForStyle(CSSStyleDeclaration*, bool bind);
-        void populateObjectWithStyleProperties(CSSStyleDeclaration*, InspectorObject* result);
-        PassRefPtr<InspectorObject> buildObjectForRule(Document* ownerDocument, CSSStyleRule*);
-        PassRefPtr<InspectorObject> buildObjectForStyleSheet(Document* ownerDocument, CSSStyleSheet*);
-        Vector<String> longhandProperties(CSSStyleDeclaration*, const String& shorthandProperty);
-        String shorthandValue(CSSStyleDeclaration*, const String& shorthandProperty);
-        String shorthandPriority(CSSStyleDeclaration*, const String& shorthandProperty);
-        bool ruleAffectsNode(CSSStyleRule*, Node*);
         Node* nodeForPath(const String& path);
         PassRefPtr<InspectorArray> toArray(const Vector<String>& data);
 
         void discardBindings();
 
-        InspectorCSSStore* m_cssStore;
         InspectorFrontend* m_frontend;
         DOMListener* m_domListener;
         NodeToIdMap m_documentNodeToIdMap;
@@ -233,8 +202,6 @@ namespace WebCore {
         HashSet<RefPtr<Node> > m_searchResults;
         Vector<long> m_inspectedNodes;
         HashMap<Node*, uint32_t> m_breakpoints;
-        typedef pair<long, long> Breakpoint;
-        HashMap<String, Breakpoint> m_idToBreakpoint;
     };
 
 #endif

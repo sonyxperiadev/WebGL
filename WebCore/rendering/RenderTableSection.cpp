@@ -100,9 +100,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         if (!last)
             last = lastChild();
         if (last && last->isAnonymous()) {
-            if (beforeChild == last)
-                beforeChild = last->firstChild();
-            last->addChild(child, beforeChild);
+            last->addChild(child);
             return;
         }
 
@@ -581,6 +579,7 @@ int RenderTableSection::layoutRows(int toAdd)
             rowRenderer->setLocation(0, m_rowPos[r]);
             rowRenderer->setLogicalWidth(logicalWidth());
             rowRenderer->setLogicalHeight(m_rowPos[r + 1] - m_rowPos[r] - vspacing);
+            rowRenderer->updateLayerTransform();
         }
 
         for (int c = 0; c < nEffCols; c++) {
@@ -702,13 +701,13 @@ int RenderTableSection::layoutRows(int toAdd)
             if (intrinsicPaddingBefore != oldIntrinsicPaddingBefore || intrinsicPaddingAfter != oldIntrinsicPaddingAfter)
                 cell->setNeedsLayout(true, false);
 
-            if (!cell->needsLayout() && view()->layoutState()->m_pageHeight && view()->layoutState()->pageY(cell->y()) != cell->pageY())
+            if (!cell->needsLayout() && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->y()) != cell->pageLogicalOffset())
                 cell->setChildNeedsLayout(true, false);
 
             cell->layoutIfNeeded();
 
             // FIXME: Make pagination work with vertical tables.
-            if (style()->isHorizontalWritingMode() && view()->layoutState()->m_pageHeight && cell->height() != rHeight)
+            if (style()->isHorizontalWritingMode() && view()->layoutState()->pageLogicalHeight() && cell->height() != rHeight)
                 cell->setHeight(rHeight); // FIXME: Pagination might have made us change size.  For now just shrink or grow the cell to fit without doing a relayout.
 
             IntSize childOffset(cell->x() - oldCellRect.x(), cell->y() - oldCellRect.y());
@@ -742,84 +741,12 @@ int RenderTableSection::layoutRows(int toAdd)
             if (r < totalRows - 1 && cell == primaryCellAt(r + 1, c))
                 continue;
             addOverflowFromChild(cell);
-            m_hasOverflowingCell |= cell->hasVisibleOverflow();
+            m_hasOverflowingCell |= cell->hasVisualOverflow();
         }
     }
 
     statePusher.pop();
     return height();
-}
-
-int RenderTableSection::topmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
-{
-    int top = RenderBox::topmostPosition(includeOverflowInterior, includeSelf, applyTransform);
-    if (!includeOverflowInterior && hasOverflowClip())
-        return top;
-
-    for (RenderObject* row = firstChild(); row; row = row->nextSibling()) {
-        for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
-            if (curr->isTableCell()) {
-                RenderTableCell* cell = toRenderTableCell(curr);
-                top = min(top, cell->transformedFrameRect().y() + cell->topmostPosition(false));
-            }
-        }
-    }
-    
-    return top;
-}
-
-int RenderTableSection::lowestPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
-{
-    int bottom = RenderBox::lowestPosition(includeOverflowInterior, includeSelf, applyTransform);
-    if (!includeOverflowInterior && hasOverflowClip())
-        return bottom;
-
-    for (RenderObject* row = firstChild(); row; row = row->nextSibling()) {
-        for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
-            if (curr->isTableCell()) {
-                RenderTableCell* cell = toRenderTableCell(curr);
-                bottom = max(bottom, cell->transformedFrameRect().y() + cell->lowestPosition(false));
-            }
-        }
-    }
-    
-    return bottom;
-}
-
-int RenderTableSection::rightmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
-{
-    int right = RenderBox::rightmostPosition(includeOverflowInterior, includeSelf, applyTransform);
-    if (!includeOverflowInterior && hasOverflowClip())
-        return right;
-
-    for (RenderObject* row = firstChild(); row; row = row->nextSibling()) {
-        for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
-            if (curr->isTableCell()) {
-                RenderTableCell* cell = toRenderTableCell(curr);
-                right = max(right, cell->transformedFrameRect().x() + cell->rightmostPosition(false));
-            }
-        }
-    }
-    
-    return right;
-}
-
-int RenderTableSection::leftmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform applyTransform) const
-{
-    int left = RenderBox::leftmostPosition(includeOverflowInterior, includeSelf, applyTransform);
-    if (!includeOverflowInterior && hasOverflowClip())
-        return left;
-    
-    for (RenderObject* row = firstChild(); row; row = row->nextSibling()) {
-        for (RenderObject* curr = row->firstChild(); curr; curr = curr->nextSibling()) {
-            if (curr->isTableCell()) {
-                RenderTableCell* cell = toRenderTableCell(curr);
-                left = min(left, cell->transformedFrameRect().x() + cell->leftmostPosition(false));
-            }
-        }
-    }
-    
-    return left;
 }
 
 int RenderTableSection::calcOuterBorderBefore() const
@@ -1112,10 +1039,6 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
     unsigned totalCols = table()->columns().size();
 
     PaintPhase paintPhase = paintInfo.phase;
-    int x = paintInfo.rect.x();
-    int y = paintInfo.rect.y();
-    int w = paintInfo.rect.width();
-    int h = paintInfo.rect.height();
 
 #ifdef ANDROID_LAYOUT
     unsigned int startrow = 0;
@@ -1137,45 +1060,53 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
     int os = 2 * maximalOutlineSize(paintPhase);
     unsigned startrow = 0;
     unsigned endrow = totalRows;
-    
+
+    IntRect localRepaintRect = paintInfo.rect;
+    localRepaintRect.move(-tx, -ty);
+    if (style()->isFlippedBlocksWritingMode()) {
+        if (style()->isHorizontalWritingMode())
+            localRepaintRect.setY(height() - localRepaintRect.bottom());
+        else
+            localRepaintRect.setX(width() - localRepaintRect.right());
+    }
+
     // If some cell overflows, just paint all of them.
     if (!m_hasOverflowingCell) {
-        int relativeY = y - ty;
-        int top = relativeY - os;
+        int before = (style()->isHorizontalWritingMode() ? localRepaintRect.y() : localRepaintRect.x()) - os;
         // binary search to find a row
-        startrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), top) - m_rowPos.begin();
+        startrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), before) - m_rowPos.begin();
 
         // The binary search above gives us the first row with
         // a y position >= the top of the paint rect. Thus, the previous
         // may need to be repainted as well.
-        if (startrow == m_rowPos.size() || (startrow > 0 && (m_rowPos[startrow] >  top)))
+        if (startrow == m_rowPos.size() || (startrow > 0 && (m_rowPos[startrow] >  before)))
           --startrow;
 
-        int bottom = relativeY + h + os;
-        endrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), bottom) - m_rowPos.begin();
+        int after = (style()->isHorizontalWritingMode() ? localRepaintRect.bottom() : localRepaintRect.right()) + os;
+        endrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), after) - m_rowPos.begin();
         if (endrow == m_rowPos.size())
           --endrow;
 
-        if (!endrow && ty + m_rowPos[0] - table()->outerBorderTop() <= y + h + os)
+        if (!endrow && m_rowPos[0] - table()->outerBorderBefore() <= after)
             ++endrow;
     }
+
     unsigned startcol = 0;
     unsigned endcol = totalCols;
     // FIXME: Implement RTL.
     if (!m_hasOverflowingCell && style()->isLeftToRightDirection()) {
-        int relativeX = x - tx;
-        int left = relativeX - os;
+        int start = (style()->isHorizontalWritingMode() ? localRepaintRect.x() : localRepaintRect.y()) - os;
         Vector<int>& columnPos = table()->columnPositions();
-        startcol = std::lower_bound(columnPos.begin(), columnPos.end(), left) - columnPos.begin();
-        if ((startcol == columnPos.size()) || (startcol > 0 && (columnPos[startcol] > left)))
+        startcol = std::lower_bound(columnPos.begin(), columnPos.end(), start) - columnPos.begin();
+        if ((startcol == columnPos.size()) || (startcol > 0 && (columnPos[startcol] > start)))
             --startcol;
 
-        int right = relativeX + w + os;
-        endcol = std::lower_bound(columnPos.begin(), columnPos.end(), right) - columnPos.begin();
+        int end = (style()->isHorizontalWritingMode() ? localRepaintRect.right() : localRepaintRect.bottom()) + os;
+        endcol = std::lower_bound(columnPos.begin(), columnPos.end(), end) - columnPos.begin();
         if (endcol == columnPos.size())
             --endcol;
 
-        if (!endcol && tx + table()->columnPositions()[0] - table()->outerBorderLeft() <= y + w + os)
+        if (!endcol && columnPos[0] - table()->outerBorderStart() <= end)
             ++endcol;
     }
 

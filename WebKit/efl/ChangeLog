@@ -1,3 +1,155 @@
+2010-12-22  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Sets default user agent
+        https://bugs.webkit.org/show_bug.cgi?id=47903
+
+        If applcation(e.g EWebLauncher) doesn't set user agent, WebKit EFL doesn't
+        set user agent. However, we need to set user agent by default. Because, some
+        web sites send different pages according to user agent.
+
+        * ewk/ewk_private.h:
+        * ewk/ewk_settings.cpp:
+        (_ewk_settings_webkit_platform):
+        (_ewk_settings_webkit_os_version):
+        (ewk_settings_default_user_agent_get):
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+
+2010-12-16  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed build fix.
+
+        Disable ContextMenu support for now while support for
+        CROSS_PLATFORM_MENUS is written.
+
+        * CMakeListsEfl.txt:
+        * WebCoreSupport/ContextMenuClientEfl.cpp: Removed.
+        * WebCoreSupport/ContextMenuClientEfl.h: Removed.
+        * ewk/ewk_contextmenu.cpp:
+        (ewk_context_menu_item_append):
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+
+2010-12-13  Alex Bredariol Grilo  <abgrilo@profusion.mobi>
+
+        Reviewed by Andreas Kling.
+
+        Remove adjacent tiles rendering queue.
+        https://bugs.webkit.org/show_bug.cgi?id=50023
+
+        In the current implementation of the tiled backing store, one extra row
+        and column of tiles are needed to render the entire viewport. These
+        extra row/col proved to be expensive when being rendered, and were
+        postponed to a queue that would render them after rendering the other
+        tiles of the viewport first. This approach complicated unnecessarily
+        the logics with no gain for keeping the extra row and column. This
+        change removes this rendering queue, for later removing the extra row
+        and column of tiles.
+
+        * ewk/ewk_tiled_backing_store.c:
+        (_ewk_tiled_backing_store_pre_render_request_add):
+        (_ewk_tiled_backing_store_pre_render_request_flush):
+        (_ewk_tiled_backing_store_pre_render_request_clear):
+        (_ewk_tiled_backing_store_pre_render_request_process_single):
+        (_ewk_tiled_backing_store_item_fill):
+        (_ewk_tiled_backing_store_item_add):
+        (_ewk_tiled_backing_store_item_del):
+        (_ewk_tiled_backing_store_recalc_renderers):
+        (ewk_tiled_backing_store_pre_render_region):
+        (ewk_tiled_backing_store_pre_render_relative_radius):
+        (ewk_tiled_backing_store_pre_render_cancel):
+
+2010-12-13  Alex Bredariol Grilo  <abgrilo@profusion.mobi>
+
+        Reviewed by Andreas Kling.
+
+        Remove one row/column of renderers.
+        https://bugs.webkit.org/show_bug.cgi?id=50456
+
+        This changes the algorithm in a way that it will require one less column
+        and row of renderers to fill the viewport. The direct result of this is
+        that now less tiles need to be rendered at once when displaying the
+        viewport.
+
+        * ewk/ewk_tiled_backing_store.c:
+        (_ewk_tiled_backing_store_smart_add):
+        (_ewk_tiled_backing_store_recalc_renderers):
+        (_ewk_tiled_backing_store_view_wrap_up):
+        (_ewk_tiled_backing_store_view_wrap_down):
+        (_ewk_tiled_backing_store_view_wrap_left):
+        (_ewk_tiled_backing_store_view_wrap_right):
+        (_ewk_tiled_backing_store_smart_calculate_offset_force):
+        (_ewk_tiled_backing_store_smart_calculate_offset):
+        (_ewk_tiled_backing_store_smart_calculate):
+        (_ewk_tiled_backing_store_zoom_set_internal):
+        (ewk_tiled_backing_store_zoom_weak_set):
+        (ewk_tiled_backing_store_fix_offsets):
+        (ewk_tiled_backing_store_flush):
+
+2010-10-28  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ojan Vafai.
+
+        spellcheck does not check pasted text
+        https://bugs.webkit.org/show_bug.cgi?id=40092
+
+        Added a stub implememntation.
+        
+        * WebCoreSupport/EditorClientEfl.h:
+        (WebCore::EditorClientEfl::requestCheckingOfString):
+
+2010-12-09  Alex Bredariol Grilo  <abgrilo@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add missing function in WebKit-EFL API
+
+        Add ewk_tiled_backing_store_zoom_weak_smooth_scale_set function in
+        WebKit-EFL API. This function was already implemented but missing in
+        header file.
+
+        * ewk/ewk_tiled_backing_store.h:
+
+2010-12-09  Alex Bredariol Grilo  <abgrilo@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Fix scroll operation in WebKit-EFL
+        https://bugs.webkit.org/show_bug.cgi?id=50752
+
+        Add the _ewk_view_scroll_add call in WebKit-EFL scroll function. This
+        call was wrongly removed in previous commit and performs the scroll
+        operation on the page.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_scroll):
+
+2010-12-03  Alex Bredariol Grilo  <abgrilo@profusion.mobi>
+
+        Reviewed by Andreas Kling.
+
+        Update usage of Eina_Iterator due to EFL changes.
+        https://bugs.webkit.org/show_bug.cgi?id=50457
+
+        * ewk/ewk_tiled_model.c:
+        (ewk_tile_updates_process):
+
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::getGuessesForWord):
+        * WebCoreSupport/EditorClientEfl.h:
+
 2010-11-22  Alex Grilo  <abgrilo@profusion.mobi>
 
         Reviewed by Kenneth Rohde Christiansen.

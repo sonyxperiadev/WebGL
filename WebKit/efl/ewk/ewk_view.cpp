@@ -25,7 +25,6 @@
 #include "BackForwardListImpl.h"
 #include "Chrome.h"
 #include "ChromeClientEfl.h"
-#include "ContextMenuClientEfl.h"
 #include "ContextMenuController.h"
 #include "DocumentLoader.h"
 #include "DragClientEfl.h"
@@ -548,7 +547,6 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
 
     WebCore::Page::PageClients pageClients;
     pageClients.chromeClient = static_cast<WebCore::ChromeClient*>(new WebCore::ChromeClientEfl(sd->self));
-    pageClients.contextMenuClient = static_cast<WebCore::ContextMenuClient*>(new WebCore::ContextMenuClientEfl(sd->self));
     pageClients.editorClient = static_cast<WebCore::EditorClient*>(new WebCore::EditorClientEfl(sd->self));
     pageClients.dragClient = static_cast<WebCore::DragClient*>(new WebCore::DragClientEfl);
     pageClients.inspectorClient = static_cast<WebCore::InspectorClient*>(new WebCore::InspectorClientEfl);
@@ -623,6 +621,8 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->settings.offline_app_cache = true; // XXX no function to read setting; this keeps the original setting
     priv->settings.page_cache = priv->page_settings->usesPageCache();
     priv->settings.encoding_detector = priv->page_settings->usesEncodingDetector();
+
+    priv->settings.user_agent = ewk_settings_default_user_agent_get();
 
     // Since there's no scale separated from zooming in webkit-efl, this functionality of
     // viewport meta tag is implemented using zoom. When scale zoom is supported by webkit-efl,
@@ -4074,6 +4074,8 @@ void ewk_view_scroll(Evas_Object* o, Evas_Coord dx, Evas_Coord dy, Evas_Coord sx
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
     EINA_SAFETY_ON_TRUE_RETURN(!dx && !dy);
+
+    _ewk_view_scroll_add(priv, dx, dy, sx, sy, sw, sh, main_frame);
 
     _ewk_view_smart_changed(sd);
 }

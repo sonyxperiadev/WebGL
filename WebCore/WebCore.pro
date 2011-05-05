@@ -125,12 +125,20 @@ CONFIG(release):!CONFIG(standalone_package) {
     unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
 }
 
-DEFINES += BUILD_WEBKIT
+DEFINES += BUILDING_WEBKIT
 
 # Remove whole program optimizations due to miscompilations
 win32-msvc2005|win32-msvc2008|wince*:{
     QMAKE_CFLAGS_RELEASE -= -GL
     QMAKE_CXXFLAGS_RELEASE -= -GL
+
+    # Disable incremental linking for windows 32bit OS debug build as WebKit is so big
+    # that linker failes to link incrementally in debug mode.
+    ARCH = $$(PROCESSOR_ARCHITECTURE)
+    WOW64ARCH = $$(PROCESSOR_ARCHITEW6432)
+    equals(ARCH, x86):{
+        isEmpty(WOW64ARCH): QMAKE_LFLAGS_DEBUG += /INCREMENTAL:NO
+    }
 }
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
@@ -227,6 +235,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/html \
     $$PWD/html/canvas \
     $$PWD/html/parser \
+    $$PWD/html/shadow \
     $$PWD/inspector \
     $$PWD/loader \
     $$PWD/loader/appcache \
@@ -239,6 +248,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/page/animation \
     $$PWD/platform \
     $$PWD/platform/animation \
+    $$PWD/platform/audio \
     $$PWD/platform/graphics \
     $$PWD/platform/graphics/filters \
     $$PWD/platform/graphics/transforms \
@@ -258,6 +268,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/svg/graphics \
     $$PWD/svg/graphics/filters \
     $$PWD/svg/properties \
+    $$PWD/webaudio \
     $$PWD/websockets \
     $$PWD/wml \
     $$PWD/workers \
@@ -323,9 +334,6 @@ SOURCES += \
     bindings/generic/ActiveDOMCallback.cpp
 
 v8 {
-    SOURCES += \
-        bindings/generic/RuntimeEnabledFeatures.cpp
-
     include($$PWD/../JavaScriptCore/pcre/pcre.pri)
     include($$PWD/../JavaScriptCore/wtf/wtf.pri)
 
@@ -340,7 +348,18 @@ v8 {
 
 
     SOURCES += \
+        bindings/v8/custom/V8ArrayBufferCustom.cpp \
         bindings/v8/custom/V8CustomXPathNSResolver.cpp \
+        bindings/v8/custom/V8DataViewCustom.cpp \
+        bindings/v8/custom/V8DeviceMotionEventCustom.cpp \
+        bindings/v8/custom/V8DeviceOrientationEventCustom.cpp \
+        bindings/v8/custom/V8Float32ArrayCustom.cpp \
+        bindings/v8/custom/V8Int8ArrayCustom.cpp \
+        bindings/v8/custom/V8Int16ArrayCustom.cpp \
+        bindings/v8/custom/V8Int32ArrayCustom.cpp \
+        bindings/v8/custom/V8Uint8ArrayCustom.cpp \
+        bindings/v8/custom/V8Uint16ArrayCustom.cpp \
+        bindings/v8/custom/V8Uint32ArrayCustom.cpp \
         \
         bindings/v8/ChildThreadDOMData.cpp \
         bindings/v8/DateExtension.cpp \
@@ -350,7 +369,6 @@ v8 {
         bindings/v8/NPV8Object.cpp \
         bindings/v8/ScheduledAction.cpp \
         bindings/v8/ScopedDOMDataStore.cpp \
-#        bindings/v8/ScriptArray.cpp \
         bindings/v8/ScriptCachedFrameData.cpp \
         bindings/v8/ScriptCallStackFactory.cpp \
         bindings/ScriptControllerBase.cpp \
@@ -400,6 +418,7 @@ v8 {
         bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
         bindings/v8/custom/V8ClipboardCustom.cpp \
         bindings/v8/custom/V8CoordinatesCustom.cpp \
+        bindings/v8/custom/V8ImageDataCustom.cpp \
         bindings/v8/custom/V8InjectedScriptHostCustom.cpp \
         bindings/v8/custom/V8InspectorFrontendHostCustom.cpp \
         bindings/v8/custom/V8CustomEventListener.cpp \
@@ -413,7 +432,6 @@ v8 {
         bindings/v8/custom/V8DOMFormDataCustom.cpp \
         bindings/v8/custom/V8DOMWindowCustom.cpp \
         bindings/v8/custom/V8DataGridColumnListCustom.cpp \
-#        bindings/v8/custom/V8DatabaseCustom.cpp \
         bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
         bindings/v8/custom/V8DocumentCustom.cpp \
         bindings/v8/custom/V8DocumentLocationCustom.cpp \
@@ -437,7 +455,6 @@ v8 {
         bindings/v8/custom/V8HTMLFormElementCustom.cpp \
         bindings/v8/custom/V8HTMLFrameElementCustom.cpp \
         bindings/v8/custom/V8HTMLFrameSetElementCustom.cpp \
-#        bindings/v8/custom/V8HTMLIFrameElementCustom.cpp \
         bindings/v8/custom/V8HTMLImageElementConstructor.cpp \
         bindings/v8/custom/V8HTMLInputElementCustom.cpp \
         bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
@@ -477,7 +494,6 @@ v8 {
         \
         bindings/v8/custom/V8NotificationCenterCustom.cpp \
         bindings/v8/custom/V8ConsoleCustom.cpp \
-#        bindings/v8/custom/V8DatabaseSyncCustom.cpp \
         bindings/v8/custom/V8SQLTransactionSyncCustom.cpp \
         bindings/v8/V8WorkerContextErrorHandler.cpp
 } else {
@@ -726,6 +742,7 @@ SOURCES += \
     dom/EventContext.cpp \
     dom/EventNames.cpp \
     dom/EventTarget.cpp \
+    dom/EventQueue.cpp \
     dom/ExceptionBase.cpp \
     dom/ExceptionCode.cpp \
     dom/InputElement.cpp \
@@ -759,6 +776,7 @@ SOURCES += \
     dom/Range.cpp \
     dom/RawDataDocumentParser.h \
     dom/RegisteredEventListener.cpp \
+    dom/ScopedEventQueue.cpp \
     dom/ScriptableDocumentParser.cpp \
     dom/ScriptElement.cpp \
     dom/ScriptExecutionContext.cpp \
@@ -827,6 +845,7 @@ SOURCES += \
     editing/SelectionController.cpp \
     editing/SetNodeAttributeCommand.cpp \
     editing/SmartReplaceICU.cpp \
+    editing/SpellChecker.cpp \
     editing/SplitElementCommand.cpp \
     editing/SplitTextNodeCommand.cpp \
     editing/SplitTextNodeContainingElementCommand.cpp \
@@ -879,6 +898,7 @@ SOURCES += \
     html/EmailInputType.cpp \
     html/FTPDirectoryDocument.cpp \
     html/FileInputType.cpp \
+    html/FormAssociatedElement.cpp \
     html/FormDataList.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
@@ -899,6 +919,7 @@ SOURCES += \
     html/HTMLDataGridRowElement.cpp \
     html/HTMLDataListElement.cpp \
     html/HTMLDirectoryElement.cpp \
+    html/HTMLDetailsElement.cpp \
     html/HTMLDivElement.cpp \
     html/HTMLDocument.cpp \
     html/HTMLElement.cpp \
@@ -1003,6 +1024,7 @@ SOURCES += \
     html/parser/HTMLEntityParser.cpp \
     html/parser/HTMLEntitySearch.cpp \
     html/parser/HTMLFormattingElementList.cpp \
+    html/parser/HTMLMetaCharsetParser.cpp \
     html/parser/HTMLParserIdioms.cpp \
     html/parser/HTMLParserScheduler.cpp \
     html/parser/HTMLPreloadScanner.cpp \
@@ -1012,13 +1034,13 @@ SOURCES += \
     html/parser/HTMLViewSourceParser.cpp \
     html/parser/TextDocumentParser.cpp \
     html/parser/TextViewSourceParser.cpp \
+    html/shadow/SliderThumbElement.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
     inspector/InspectorApplicationCacheAgent.cpp \
     inspector/InspectorBackend.cpp \
     inspector/InspectorCSSAgent.cpp \
-    inspector/InspectorCSSStore.cpp \
     inspector/InspectorClient.cpp \
     inspector/InspectorController.cpp \
     inspector/InspectorDatabaseResource.cpp \
@@ -1050,6 +1072,7 @@ SOURCES += \
     loader/cache/CachedImage.cpp \
     loader/cache/CachedResourceClientWalker.cpp \
     loader/cache/CachedResourceHandle.cpp \
+    loader/cache/CachedResourceRequest.cpp \
     loader/cache/CachedResource.cpp \
     loader/cache/CachedScript.cpp \
     loader/cache/CachedXSLStyleSheet.cpp \
@@ -1067,7 +1090,6 @@ SOURCES += \
     loader/FTPDirectoryParser.cpp \
     loader/icon/IconLoader.cpp \
     loader/ImageLoader.cpp \
-    loader/loader.cpp \
     loader/MainResourceLoader.cpp \
     loader/NavigationAction.cpp \
     loader/NetscapePlugInStreamLoader.cpp \
@@ -1077,7 +1099,6 @@ SOURCES += \
     loader/PolicyChecker.cpp \
     loader/ProgressTracker.cpp \
     loader/NavigationScheduler.cpp \
-    loader/Request.cpp \
     loader/ResourceLoader.cpp \
     loader/ResourceLoadNotifier.cpp \
     loader/ResourceLoadScheduler.cpp \
@@ -1147,7 +1168,6 @@ SOURCES += \
     platform/text/BidiContext.cpp \
     platform/text/Hyphenation.cpp \
     platform/ContentType.cpp \
-    platform/ContextMenu.cpp \
     platform/CrossThreadCopier.cpp \
     platform/DeprecatedPtrListImpl.cpp \
     platform/DragData.cpp \
@@ -1235,6 +1255,7 @@ SOURCES += \
     platform/text/SegmentedString.cpp \
     platform/SharedBuffer.cpp \
     platform/text/String.cpp \
+    platform/text/TextBoundaries.cpp \
     platform/text/TextCodec.cpp \
     platform/text/TextCodecLatin1.cpp \
     platform/text/TextCodecUserDefined.cpp \
@@ -1278,6 +1299,8 @@ SOURCES += \
     rendering/RenderButton.cpp \
     rendering/RenderCounter.cpp \
     rendering/RenderDataGrid.cpp \
+    rendering/RenderDetails.cpp \
+    rendering/RenderDetailsMarker.cpp \
     rendering/RenderEmbeddedObject.cpp \
     rendering/RenderFieldset.cpp \
     rendering/RenderFileUploadControl.cpp \
@@ -1316,6 +1339,7 @@ SOURCES += \
     rendering/RenderScrollbarPart.cpp \
     rendering/RenderScrollbarTheme.cpp \
     rendering/RenderSlider.cpp \
+    rendering/RenderSummary.cpp \
     rendering/RenderTable.cpp \
     rendering/RenderTableCell.cpp \
     rendering/RenderTableCol.cpp \
@@ -1412,10 +1436,8 @@ v8 {
         bindings/v8/npruntime_priv.h \
         bindings/v8/NPV8Object.h \
         bindings/v8/OwnHandle.h \
-        bindings/generic/RuntimeEnabledFeatures.h \
         bindings/v8/ScheduledAction.h \
         bindings/v8/ScopedDOMDataStore.h \
-#        bindings/v8/ScriptArray.h \
         bindings/v8/ScriptCachedFrameData.h \
         bindings/v8/ScriptController.h \
         bindings/v8/ScriptEventListener.h \
@@ -1716,6 +1738,7 @@ HEADERS += \
     editing/EditingBehavior.h \
     editing/EditingBoundary.h \
     editing/Editor.h \
+    editing/FindOptions.h \
     editing/FormatBlockCommand.h \
     editing/htmlediting.h \
     editing/HTMLInterchange.h \
@@ -1787,6 +1810,7 @@ HEADERS += \
     html/DOMFormData.h \
     html/DOMSettableTokenList.h \
     html/DOMTokenList.h \
+    html/FormAssociatedElement.h \
     html/FormDataList.h \
     html/FTPDirectoryDocument.h \
     html/HTMLAllCollection.h \
@@ -1807,6 +1831,7 @@ HEADERS += \
     html/HTMLDataGridElement.h \
     html/HTMLDataGridRowElement.h \
     html/HTMLDirectoryElement.h \
+    html/HTMLDetailsElement.h \
     html/HTMLDivElement.h \
     html/HTMLDListElement.h \
     html/HTMLDocument.h \
@@ -1940,6 +1965,7 @@ HEADERS += \
     loader/cache/CachedResourceClientWalker.h \
     loader/cache/CachedResource.h \
     loader/cache/CachedResourceHandle.h \
+    loader/cache/CachedResourceRequest.h \
     loader/cache/CachedScript.h \
     loader/cache/CachedXSLStyleSheet.h \
     loader/cache/MemoryCache.h \
@@ -1957,14 +1983,13 @@ HEADERS += \
     loader/icon/IconRecord.h \
     loader/icon/PageURLRecord.h \
     loader/ImageLoader.h \
-    loader/loader.h \
     loader/MainResourceLoader.h \
     loader/NavigationAction.h \
     loader/NetscapePlugInStreamLoader.h \
     loader/PlaceholderDocument.h \
     loader/ProgressTracker.h \
-    loader/Request.h \
     loader/ResourceLoader.h \
+    loader/ResourceLoadPriority.h \
     loader/SubresourceLoader.h \
     loader/TextResourceDecoder.h \
     loader/ThreadableLoader.h \
@@ -2148,6 +2173,7 @@ HEADERS += \
     platform/network/NetworkStateNotifier.h \
     platform/network/ProtectionSpace.h \
     platform/network/ProxyServer.h \
+    platform/network/qt/QtNAMThreadSafeProxy.h \
     platform/network/qt/QNetworkReplyHandler.h \
     platform/network/ResourceErrorBase.h \
     platform/network/ResourceHandle.h \
@@ -2181,6 +2207,7 @@ HEADERS += \
     platform/text/qt/TextCodecQt.h \
     platform/text/RegularExpression.h \
     platform/text/SegmentedString.h \
+    platform/text/TextBoundaries.h \
     platform/text/TextCodec.h \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
@@ -2231,6 +2258,8 @@ HEADERS += \
     rendering/RenderButton.h \
     rendering/RenderCounter.h \
     rendering/RenderDataGrid.h \
+    rendering/RenderDetails.h \
+    rendering/RenderDetailsMarker.h \
     rendering/RenderEmbeddedObject.h \
     rendering/RenderFieldset.h \
     rendering/RenderFileUploadControl.h \
@@ -2272,6 +2301,7 @@ HEADERS += \
     rendering/RenderScrollbarPart.h \
     rendering/RenderScrollbarTheme.h \
     rendering/RenderSlider.h \
+    rendering/RenderSummary.h \
     rendering/RenderSVGBlock.h \
     rendering/RenderSVGContainer.h \
     rendering/RenderSVGGradientStop.h \
@@ -2510,6 +2540,7 @@ HEADERS += \
     svg/SVGPolylineElement.h \
     svg/SVGPreserveAspectRatio.h \
     svg/SVGRadialGradientElement.h \
+    svg/SVGRect.h \
     svg/SVGRectElement.h \
     svg/SVGScriptElement.h \
     svg/SVGSetElement.h \
@@ -2668,6 +2699,7 @@ SOURCES += \
     platform/network/qt/ResourceHandleQt.cpp \
     platform/network/qt/ResourceRequestQt.cpp \
     platform/network/qt/DnsPrefetchHelper.cpp \
+    platform/network/qt/QtNAMThreadSafeProxy.cpp \
     platform/network/qt/ProxyServerQt.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
@@ -2755,30 +2787,36 @@ maemo5 {
     SOURCES += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
 }
 
-
+contains(DEFINES, ENABLE_SMOOTH_SCROLLING=1) {
     win32-*|wince* {
         HEADERS += platform/ScrollAnimatorWin.h
-        SOURCES += platform/ScrollAnimatorWin.cpp \
-                   platform/win/SystemTimeWin.cpp \
-                   platform/graphics/win/TransformationMatrixWin.cpp
+        SOURCES += platform/ScrollAnimatorWin.cpp
     }
+}
 
-    mac {
-        SOURCES += \
-            platform/text/cf/StringCF.cpp \
-            platform/text/cf/StringImplCF.cpp
-        LIBS_PRIVATE += -framework Carbon -framework AppKit
-    }
+win32-*|wince* {
+    SOURCES += \
+        platform/win/SystemTimeWin.cpp \
+        platform/graphics/win/TransformationMatrixWin.cpp
+}
 
-    win32-* {
-        LIBS += -lgdi32
-        LIBS += -lole32
-        LIBS += -luser32
-    }
-    wince* {
-        LIBS += -lmmtimer
-        LIBS += -lole32
-    }
+mac {
+    SOURCES += \
+        platform/text/cf/StringCF.cpp \
+        platform/text/cf/StringImplCF.cpp
+    LIBS_PRIVATE += -framework Carbon -framework AppKit
+}
+
+win32-* {
+    LIBS += -lgdi32
+    LIBS += -lole32
+    LIBS += -luser32
+}
+
+wince* {
+    LIBS += -lmmtimer
+    LIBS += -lole32
+}
 
 contains (CONFIG, text_breaking_with_icu) {
     SOURCES += platform/text/TextBreakIteratorICU.cpp
@@ -3184,7 +3222,6 @@ contains(DEFINES, ENABLE_VIDEO=1) {
 
     contains(DEFINES, USE_GSTREAMER=1) {
         HEADERS += \
-            platform/graphics/gstreamer/DataSourceGStreamer.h \
             platform/graphics/gstreamer/GOwnPtrGStreamer.h \
             platform/graphics/gstreamer/GStreamerGWorld.h \
             platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h \
@@ -3194,7 +3231,6 @@ contains(DEFINES, ENABLE_VIDEO=1) {
             platform/graphics/gstreamer/PlatformVideoWindowPrivate.h \
             platform/graphics/gstreamer/ImageGStreamer.h
         SOURCES += \
-            platform/graphics/gstreamer/DataSourceGStreamer.cpp \
             platform/graphics/gstreamer/GOwnPtrGStreamer.cpp \
             platform/graphics/gstreamer/GStreamerGWorld.cpp \
             platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp \
@@ -3256,7 +3292,7 @@ contains(DEFINES, ENABLE_XPATH=1) {
         xml/XPathVariableReference.cpp
 }
 
-unix:!mac:CONFIG += link_pkgconfig
+unix:!mac:!symbian:CONFIG += link_pkgconfig
 
 contains(DEFINES, ENABLE_XSLT=1) {
     tobe|!tobe: QT += xmlpatterns
@@ -3400,12 +3436,14 @@ contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
         ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
         ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
         ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
         ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h \
         bindings/generic/RuntimeEnabledFeatures.h
     SOURCES += \
         ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
         ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
         ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
         ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp \
         bindings/generic/RuntimeEnabledFeatures.cpp
 
@@ -3692,81 +3730,94 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
     }
 }
 
-contains(DEFINES, ENABLE_3D_CANVAS=1) {
-tobe|!tobe: QT += opengl
+contains(DEFINES, ENABLE_BLOB=1) | contains(DEFINES, ENABLE_3D_CANVAS=1) {
     !v8 {
         HEADERS += \
             bindings/js/JSArrayBufferViewHelper.h
     }
 
-HEADERS += \
-        html/canvas/CanvasContextAttributes.h \
-        html/canvas/WebGLObject.h \
-        html/canvas/WebGLActiveInfo.h \
+    HEADERS += \
         html/canvas/ArrayBuffer.h \
         html/canvas/ArrayBufferView.h \
         html/canvas/DataView.h \
-        html/canvas/WebGLBuffer.h \
         html/canvas/Int8Array.h \
-        html/canvas/WebGLContextAttributes.h \
         html/canvas/Float32Array.h \
+        html/canvas/Int32Array.h \
+        html/canvas/Int16Array.h \
+        html/canvas/Uint8Array.h \
+        html/canvas/Uint32Array.h \
+        html/canvas/Uint16Array.h
+
+    !v8 {
+        SOURCES += \
+            bindings/js/JSArrayBufferCustom.cpp \
+            bindings/js/JSDataViewCustom.cpp \
+            bindings/js/JSInt8ArrayCustom.cpp \
+            bindings/js/JSFloat32ArrayCustom.cpp \
+            bindings/js/JSInt32ArrayCustom.cpp \
+            bindings/js/JSInt16ArrayCustom.cpp \
+            bindings/js/JSUint8ArrayCustom.cpp \
+            bindings/js/JSUint32ArrayCustom.cpp \
+            bindings/js/JSUint16ArrayCustom.cpp
+    }
+    SOURCES += \
+        html/canvas/ArrayBuffer.cpp \
+        html/canvas/ArrayBufferView.cpp \
+        html/canvas/DataView.cpp \
+        html/canvas/Int8Array.cpp \
+        html/canvas/Float32Array.cpp \
+        html/canvas/Int32Array.cpp \
+        html/canvas/Int16Array.cpp \
+        html/canvas/Uint8Array.cpp \
+        html/canvas/Uint32Array.cpp \
+        html/canvas/Uint16Array.cpp
+    }
+
+contains(DEFINES, ENABLE_3D_CANVAS=1) {
+    tobe|!tobe: QT += opengl
+
+    HEADERS += \
+        html/canvas/CanvasContextAttributes.h \
+        html/canvas/WebGLObject.h \
+        html/canvas/WebGLActiveInfo.h \
+        html/canvas/WebGLBuffer.h \
+        html/canvas/WebGLContextAttributes.h \
+        html/canvas/WebGLExtension.h \
         html/canvas/WebGLFramebuffer.h \
         html/canvas/WebGLGetInfo.h \
-        html/canvas/Int32Array.h \
         html/canvas/WebGLProgram.h \
         html/canvas/WebGLRenderbuffer.h \
         html/canvas/WebGLRenderingContext.h \
         html/canvas/WebGLShader.h \
-        html/canvas/Int16Array.h \
+        html/canvas/OESTextureFloat.h \
         html/canvas/WebGLTexture.h \
         html/canvas/WebGLUniformLocation.h \
-        html/canvas/Uint8Array.h \
-        html/canvas/Uint32Array.h \
-        html/canvas/Uint16Array.h \
         platform/graphics/Extensions3D.h \
         platform/graphics/GraphicsContext3D.h \
         platform/graphics/qt/Extensions3DQt.h
 
     !v8 {
         SOURCES += \
-                bindings/js/JSArrayBufferCustom.cpp \
-                bindings/js/JSDataViewCustom.cpp \
-                bindings/js/JSInt8ArrayCustom.cpp \
-                bindings/js/JSFloat32ArrayCustom.cpp \
-                bindings/js/JSInt32ArrayCustom.cpp \
-                bindings/js/JSWebGLRenderingContextCustom.cpp \
-                bindings/js/JSInt16ArrayCustom.cpp \
-                bindings/js/JSUint8ArrayCustom.cpp \
-                bindings/js/JSUint32ArrayCustom.cpp \
-                bindings/js/JSUint16ArrayCustom.cpp
+            bindings/js/JSWebGLRenderingContextCustom.cpp
     }
-SOURCES += \
+    SOURCES += \
         html/canvas/CanvasContextAttributes.cpp \
         html/canvas/WebGLObject.cpp \
-        html/canvas/ArrayBuffer.cpp \
-        html/canvas/ArrayBufferView.cpp \
-        html/canvas/DataView.cpp \
         html/canvas/WebGLBuffer.cpp \
-        html/canvas/Int8Array.cpp \
         html/canvas/WebGLContextAttributes.cpp \
-        html/canvas/Float32Array.cpp \
+        html/canvas/WebGLExtension.cpp \
         html/canvas/WebGLFramebuffer.cpp \
         html/canvas/WebGLGetInfo.cpp \
-        html/canvas/Int32Array.cpp \
         html/canvas/WebGLProgram.cpp \
         html/canvas/WebGLRenderbuffer.cpp \
         html/canvas/WebGLRenderingContext.cpp \
         html/canvas/WebGLShader.cpp \
-        html/canvas/Int16Array.cpp \
+        html/canvas/OESTextureFloat.cpp \
         html/canvas/WebGLTexture.cpp \
         html/canvas/WebGLUniformLocation.cpp \
-        html/canvas/Uint8Array.cpp \
-        html/canvas/Uint32Array.cpp \
-        html/canvas/Uint16Array.cpp \
         platform/graphics/GraphicsContext3D.cpp \
         platform/graphics/qt/Extensions3DQt.cpp \
         platform/graphics/qt/GraphicsContext3DQt.cpp
-
 }
 
 contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {

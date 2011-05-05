@@ -65,13 +65,10 @@ namespace JSC {
 
 COMPILE_ASSERT(LastUntaggedToken < 64, LessThan64UntaggedTokens);
 
-// This matches v8
-static const ptrdiff_t kMaxParserStackUsage = 128 * sizeof(void*) * 1024;
-
 class JSParser {
 public:
     JSParser(Lexer*, JSGlobalData*, FunctionParameters*, bool isStrictContext, bool isFunction, SourceProvider*);
-    bool parseProgram(JSGlobalObject*);
+    bool parseProgram();
 private:
     struct AllowInOverride {
         AllowInOverride(JSParser* parser)
@@ -174,7 +171,7 @@ private:
     template <class TreeBuilder> ALWAYS_INLINE TreeArguments parseArguments(TreeBuilder&);
     template <bool strict, class TreeBuilder> ALWAYS_INLINE TreeProperty parseProperty(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeFunctionBody parseFunctionBody(TreeBuilder&);
-    template <class TreeBuilder> ALWAYS_INLINE TreeFormalParameterList parseFormalParameters(TreeBuilder&, bool& usesArguments);
+    template <class TreeBuilder> ALWAYS_INLINE TreeFormalParameterList parseFormalParameters(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseVarDeclarationList(TreeBuilder&, int& declarations, const Identifier*& lastIdent, TreeExpression& lastInitializer, int& identStart, int& initStart, int& initEnd);
     template <class TreeBuilder> ALWAYS_INLINE TreeConstDeclList parseConstDeclarationList(TreeBuilder& context);
     enum FunctionRequirements { FunctionNoRequirements, FunctionNeedsName };
@@ -193,9 +190,7 @@ private:
 
     bool canRecurse()
     {
-        char sample = 0;
-        ASSERT(m_endAddress);
-        return &sample > m_endAddress;
+        return m_stack.recursionCheck();
     }
     
     int lastTokenEnd() const
@@ -205,7 +200,7 @@ private:
 
     ParserArena m_arena;
     Lexer* m_lexer;
-    char* m_endAddress;
+    StackBounds m_stack;
     bool m_error;
     JSGlobalData* m_globalData;
     JSToken m_token;
@@ -240,6 +235,7 @@ private:
     struct Scope {
         Scope(JSGlobalData* globalData, bool isFunction, bool strictMode)
             : m_globalData(globalData)
+            , m_shadowsArguments(false)
             , m_usesEval(false)
             , m_needsFullActivation(false)
             , m_allowsNewDecls(true)
@@ -300,22 +296,17 @@ private:
             ASSERT(m_strictMode);
             m_writtenVariables.add(ident->impl());
         }
-        
-        bool deleteProperty(const Identifier* ident)
-        {
-            if (m_declaredVariables.contains(ident->impl()))
-                return false;
-            m_deletedVariables.add(ident->impl());
-            return true;
-        }
-        
+
         void preventNewDecls() { m_allowsNewDecls = false; }
         bool allowsNewDecls() const { return m_allowsNewDecls; }
 
         bool declareParameter(const Identifier* ident)
         {
-            bool isValidStrictMode = m_declaredVariables.add(ident->ustring().impl()).second && m_globalData->propertyNames->eval != *ident && m_globalData->propertyNames->arguments != *ident;
+            bool isArguments = m_globalData->propertyNames->arguments == *ident;
+            bool isValidStrictMode = m_declaredVariables.add(ident->ustring().impl()).second && m_globalData->propertyNames->eval != *ident && !isArguments;
             m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
+            if (isArguments)
+                m_shadowsArguments = true;
             return isValidStrictMode;
         }
         
@@ -347,16 +338,7 @@ private:
                     m_writtenVariables.add(*ptr);
                 }
             }
-            if (nestedScope->m_deletedVariables.size()) {
-                IdentifierSet::iterator end = nestedScope->m_deletedVariables.end();
-                for (IdentifierSet::iterator ptr = nestedScope->m_deletedVariables.begin(); ptr != end; ++ptr) {
-                    if (nestedScope->m_declaredVariables.contains(*ptr))
-                        return false;
-                    if (m_declaredVariables.contains(*ptr))
-                        return false;
-                    m_deletedVariables.add(*ptr);
-                }
-            }
+
             return true;
         }
 
@@ -367,17 +349,6 @@ private:
                 if (!m_declaredVariables.contains(*ptr))
                     writtenVariables.add(*ptr);
             }
-        }
-
-        bool getDeletedVariables(IdentifierSet& deletedVariables)
-        {
-            IdentifierSet::iterator end = m_deletedVariables.end();
-            for (IdentifierSet::iterator ptr = m_deletedVariables.begin(); ptr != end; ++ptr) {
-                if (m_declaredVariables.contains(*ptr))
-                    return false;
-            }
-            deletedVariables.swap(m_deletedVariables);
-            return true;
         }
 
         void getCapturedVariables(IdentifierSet& capturedVariables)
@@ -395,9 +366,11 @@ private:
         void setStrictMode() { m_strictMode = true; }
         bool strictMode() const { return m_strictMode; }
         bool isValidStrictMode() const { return m_isValidStrictMode; }
+        bool shadowsArguments() const { return m_shadowsArguments; }
 
     private:
         JSGlobalData* m_globalData;
+        bool m_shadowsArguments : 1;
         bool m_usesEval : 1;
         bool m_needsFullActivation : 1;
         bool m_allowsNewDecls : 1;
@@ -412,7 +385,6 @@ private:
         IdentifierSet m_usedVariables;
         IdentifierSet m_closedVariables;
         IdentifierSet m_writtenVariables;
-        IdentifierSet m_deletedVariables;
     };
     
     typedef Vector<Scope, 10> ScopeStack;
@@ -473,25 +445,18 @@ private:
             m_scopeStack.last().declareWrite(ident);
     }
 
-    bool deleteProperty(const Identifier* ident)
-    {
-        if (!m_syntaxAlreadyValidated)
-            return m_scopeStack.last().deleteProperty(ident);
-        return true;
-    }
-    
     ScopeStack m_scopeStack;
 };
 
-int jsParse(JSGlobalObject* lexicalGlobalObject, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode parserMode, const SourceCode* source)
+int jsParse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode parserMode, const SourceCode* source)
 {
-    JSParser parser(lexicalGlobalObject->globalData().lexer, &lexicalGlobalObject->globalData(), parameters, strictness == JSParseStrict, parserMode == JSParseFunctionCode, source->provider());
-    return parser.parseProgram(lexicalGlobalObject);
+    JSParser parser(globalData->lexer, globalData, parameters, strictness == JSParseStrict, parserMode == JSParseFunctionCode, source->provider());
+    return parser.parseProgram();
 }
 
 JSParser::JSParser(Lexer* lexer, JSGlobalData* globalData, FunctionParameters* parameters, bool inStrictContext, bool isFunction, SourceProvider* provider)
     : m_lexer(lexer)
-    , m_endAddress(0)
+    , m_stack(globalData->stack())
     , m_error(false)
     , m_globalData(globalData)
     , m_allowsIn(true)
@@ -505,7 +470,6 @@ JSParser::JSParser(Lexer* lexer, JSGlobalData* globalData, FunctionParameters* p
     , m_nonTrivialExpressionCount(0)
     , m_lastIdentifier(0)
 {
-    m_endAddress = wtfThreadData().approximatedStackStart() - kMaxParserStackUsage;
     ScopeRef scope = pushScope();
     if (isFunction)
         scope->setIsFunction();
@@ -519,7 +483,7 @@ JSParser::JSParser(Lexer* lexer, JSGlobalData* globalData, FunctionParameters* p
     m_lexer->setLastLineNumber(tokenLine());
 }
 
-bool JSParser::parseProgram(JSGlobalObject* lexicalGlobalObject)
+bool JSParser::parseProgram()
 {
     ASTBuilder context(m_globalData, m_lexer);
     if (m_lexer->isReparsing())
@@ -528,20 +492,15 @@ bool JSParser::parseProgram(JSGlobalObject* lexicalGlobalObject)
     SourceElements* sourceElements = parseSourceElements<CheckForStrictMode>(context);
     if (!sourceElements || !consume(EOFTOK))
         return true;
-    if (!m_syntaxAlreadyValidated) {
-        IdentifierSet deletedVariables;
-        if (!scope->getDeletedVariables(deletedVariables))
-            return true;
-        IdentifierSet::const_iterator end = deletedVariables.end();
-        SymbolTable& globalEnvRecord = lexicalGlobalObject->symbolTable();
-        for (IdentifierSet::const_iterator ptr = deletedVariables.begin(); ptr != end; ++ptr) {
-            if (!globalEnvRecord.get(*ptr).isNull())
-                return true;
-        }
-    }
     IdentifierSet capturedVariables;
     scope->getCapturedVariables(capturedVariables);
-    m_globalData->parser->didFinishParsing(sourceElements, context.varDeclarations(), context.funcDeclarations(), context.features() | (scope->strictMode() ? StrictModeFeature : 0),
+    CodeFeatures features = context.features();
+    if (scope->strictMode())
+        features |= StrictModeFeature;
+    if (scope->shadowsArguments())
+        features |= ShadowsArgumentsFeature;
+
+    m_globalData->parser->didFinishParsing(sourceElements, context.varDeclarations(), context.funcDeclarations(), features,
                                            m_lastLine, context.numConstants(), capturedVariables);
     return false;
 }
@@ -1128,10 +1087,9 @@ template <class TreeBuilder> TreeStatement JSParser::parseStatement(TreeBuilder&
     }
 }
 
-template <class TreeBuilder> TreeFormalParameterList JSParser::parseFormalParameters(TreeBuilder& context, bool& usesArguments)
+template <class TreeBuilder> TreeFormalParameterList JSParser::parseFormalParameters(TreeBuilder& context)
 {
     matchOrFail(IDENT);
-    usesArguments = m_globalData->propertyNames->arguments == *m_token.m_data.ident;
     failIfFalseIfStrict(declareParameter(m_token.m_data.ident));
     TreeFormalParameterList list = context.createFormalParameterList(*m_token.m_data.ident);
     TreeFormalParameterList tail = list;
@@ -1140,10 +1098,8 @@ template <class TreeBuilder> TreeFormalParameterList JSParser::parseFormalParame
         next();
         matchOrFail(IDENT);
         const Identifier* ident = m_token.m_data.ident;
-        usesArguments |= m_globalData->propertyNames->arguments == *m_token.m_data.ident;
         failIfFalseIfStrict(declareParameter(ident));
         next();
-        usesArguments = usesArguments || m_globalData->propertyNames->arguments == *ident;
         tail = context.createFormalParameterList(tail, *ident);
     }
     return list;
@@ -1172,9 +1128,8 @@ template <JSParser::FunctionRequirements requirements, bool nameIsInContainingSc
     } else if (requirements == FunctionNeedsName)
         return false;
     consumeOrFail(OPENPAREN);
-    bool usesArguments = false;
     if (!match(CLOSEPAREN)) {
-        parameters = parseFormalParameters(context, usesArguments);
+        parameters = parseFormalParameters(context);
         failIfFalse(parameters);
     }
     consumeOrFail(CLOSEPAREN);
@@ -1186,8 +1141,6 @@ template <JSParser::FunctionRequirements requirements, bool nameIsInContainingSc
 
     body = parseFunctionBody(context);
     failIfFalse(body);
-    if (usesArguments)
-        context.setUsesArguments(body);
     if (functionScope->strictMode() && name) {
         failIfTrue(m_globalData->propertyNames->arguments == *name);
         failIfTrue(m_globalData->propertyNames->eval == *name);
@@ -1404,7 +1357,7 @@ end:
     if (hadAssignment)
         m_nonLHSCount++;
 
-    if (!ASTBuilder::CreatesAST)
+    if (!TreeBuilder::CreatesAST)
         return lhs;
 
     while (assignmentStack)
@@ -1938,8 +1891,7 @@ template <class TreeBuilder> TreeExpression JSParser::parseUnaryExpression(TreeB
             expr = context.createVoid(expr);
             break;
         case DELETETOKEN:
-            if (strictMode() && context.isResolve(expr))
-                failIfFalse(deleteProperty(m_lastIdentifier));
+            failIfTrueIfStrict(context.isResolve(expr));
             expr = context.makeDeleteNode(expr, context.unaryTokenStackLastStart(tokenStackDepth), end, end);
             break;
         default:

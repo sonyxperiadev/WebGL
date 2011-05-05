@@ -374,7 +374,10 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
     
     if (m_maskLayer) {
-        m_maskLayer->setSize(m_graphicsLayer->size());
+        if (m_maskLayer->size() != m_graphicsLayer->size()) {
+            m_maskLayer->setSize(m_graphicsLayer->size());
+            m_maskLayer->setNeedsDisplay();
+        }
         m_maskLayer->setPosition(FloatPoint());
     }
     
@@ -767,7 +770,8 @@ bool RenderLayerBacking::containsPaintedContent() const
     if (renderer()->isVideo() && toRenderVideo(renderer())->shouldDisplayVideo())
         return hasBoxDecorationsOrBackground(renderer());
 #endif
-#if ENABLE(3D_CANVAS) || ENABLE(ACCELERATED_2D_CANVAS)
+#if PLATFORM(MAC) && PLATFORM(CA) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#elif ENABLE(3D_CANVAS) || ENABLE(ACCELERATED_2D_CANVAS)
     if (isAcceleratedCanvas(renderer()))
         return hasBoxDecorationsOrBackground(renderer());
 #endif
@@ -793,15 +797,22 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
     return false;
 }
 
-void RenderLayerBacking::rendererContentChanged()
+void RenderLayerBacking::contentChanged(RenderLayer::ContentChangeType changeType)
 {
-    if (isDirectlyCompositedImage()) {
+    if ((changeType == RenderLayer::ImageChanged) && isDirectlyCompositedImage()) {
         updateImageContents();
         return;
     }
+    
+    if ((changeType == RenderLayer::MaskImageChanged) && m_maskLayer) {
+        // The composited layer bounds relies on box->maskClipRect(), which changes
+        // when the mask image becomes available.
+        bool isUpdateRoot = true;
+        updateAfterLayout(CompositingChildren, isUpdateRoot);
+    }
 
 #if ENABLE(3D_CANVAS) || ENABLE(ACCELERATED_2D_CANVAS)
-    if (isAcceleratedCanvas(renderer())) {
+    if ((changeType == RenderLayer::CanvasChanged) && isAcceleratedCanvas(renderer())) {
         m_graphicsLayer->setContentsNeedsDisplay();
         return;
     }
@@ -900,7 +911,7 @@ FloatPoint RenderLayerBacking::contentsToGraphicsLayerCoordinates(const Graphics
 bool RenderLayerBacking::paintingGoesToWindow() const
 {
     if (m_owningLayer->isRootLayer())
-        return compositor()->rootLayerAttachment() != RenderLayerCompositor::RootLayerAttachedViaEnclosingIframe;
+        return !m_owningLayer->hasTransform() && (compositor()->rootLayerAttachment() != RenderLayerCompositor::RootLayerAttachedViaEnclosingIframe);
     
     return false;
 }
@@ -1150,20 +1161,20 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
             opacityVector.insert(new FloatAnimationValue(key, keyframeStyle->opacity(), tf));
     }
 
-    bool didAnimateTransform = !hasTransform;
-    bool didAnimateOpacity = !hasOpacity;
+    bool didAnimateTransform = false;
+    bool didAnimateOpacity = false;
     
-    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), anim, keyframes.animationName(), timeOffset))
+    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), anim, keyframes.animationName(), timeOffset)) {
         didAnimateTransform = true;
+        compositor()->didStartAcceleratedAnimation(CSSPropertyWebkitTransform);
+    }
 
-    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, IntSize(), anim, keyframes.animationName(), timeOffset))
+    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, IntSize(), anim, keyframes.animationName(), timeOffset)) {
         didAnimateOpacity = true;
-    
-    bool runningAcceleratedAnimation = didAnimateTransform && didAnimateOpacity;
-    if (runningAcceleratedAnimation)
-        compositor()->didStartAcceleratedAnimation();
+        compositor()->didStartAcceleratedAnimation(CSSPropertyOpacity);
+    }
 
-    return runningAcceleratedAnimation;
+    return didAnimateTransform || didAnimateOpacity;
 }
 
 void RenderLayerBacking::animationPaused(double timeOffset, const String& animationName)
@@ -1178,7 +1189,8 @@ void RenderLayerBacking::animationFinished(const String& animationName)
 
 bool RenderLayerBacking::startTransition(double timeOffset, int property, const RenderStyle* fromStyle, const RenderStyle* toStyle)
 {
-    bool didAnimate = false;
+    bool didAnimateOpacity = false;
+    bool didAnimateTransform = false;
     ASSERT(property != cAnimateAll);
 
     if (property == (int)CSSPropertyOpacity) {
@@ -1191,7 +1203,7 @@ bool RenderLayerBacking::startTransition(double timeOffset, int property, const 
             if (m_graphicsLayer->addAnimation(opacityVector, IntSize(), opacityAnim, GraphicsLayer::animationNameForTransition(AnimatedPropertyOpacity), timeOffset)) {
                 // To ensure that the correct opacity is visible when the animation ends, also set the final opacity.
                 updateLayerOpacity(toStyle);
-                didAnimate = true;
+                didAnimateOpacity = true;
             }
         }
     }
@@ -1205,15 +1217,18 @@ bool RenderLayerBacking::startTransition(double timeOffset, int property, const 
             if (m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), transformAnim, GraphicsLayer::animationNameForTransition(AnimatedPropertyWebkitTransform), timeOffset)) {
                 // To ensure that the correct transform is visible when the animation ends, also set the final opacity.
                 updateLayerTransform(toStyle);
-                didAnimate = true;
+                didAnimateTransform = true;
             }
         }
     }
 
-    if (didAnimate)
-        compositor()->didStartAcceleratedAnimation();
+    if (didAnimateOpacity)
+        compositor()->didStartAcceleratedAnimation(CSSPropertyOpacity);
+
+    if (didAnimateTransform)
+        compositor()->didStartAcceleratedAnimation(CSSPropertyWebkitTransform);
     
-    return didAnimate;
+    return didAnimateOpacity || didAnimateTransform;
 }
 
 void RenderLayerBacking::transitionPaused(double timeOffset, int property)

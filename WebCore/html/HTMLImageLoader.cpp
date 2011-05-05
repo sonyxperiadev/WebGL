@@ -29,6 +29,7 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParserIdioms.h"
+#include "Settings.h"
 
 #if USE(JSC)
 #include "JSDOMWindowBase.h"
@@ -55,6 +56,12 @@ void HTMLImageLoader::dispatchLoadEvent()
 
 String HTMLImageLoader::sourceURI(const AtomicString& attr) const
 {
+#if ENABLE(DASHBOARD_SUPPORT)
+    Settings* settings = element()->document()->settings();
+    if (settings && settings->usesDashboardBackwardCompatibilityMode() && attr.length() > 7 && attr.startsWith("url(\"") && attr.endsWith("\")"))
+        return attr.string().substring(5, attr.length() - 7);
+#endif
+
     return stripLeadingAndTrailingHTMLSpaces(attr);
 }
 

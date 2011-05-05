@@ -200,8 +200,11 @@ void VideoLayerChromium::cleanupResources()
     }
 }
 
-void VideoLayerChromium::updateContents()
+void VideoLayerChromium::updateContentsIfDirty()
 {
+    if (!m_contentsDirty)
+        return;
+
     RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_owner->client());
     if (!backing || backing->paintingGoesToWindow())
         return;
@@ -297,7 +300,7 @@ bool VideoLayerChromium::allocateTexturesIfNeeded(GraphicsContext3D* context, Vi
 void VideoLayerChromium::allocateTexture(GraphicsContext3D* context, unsigned textureId, const IntSize& dimensions, unsigned textureFormat)
 {
     GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, textureId));
-    GLC(context, context->texImage2D(GraphicsContext3D::TEXTURE_2D, 0, textureFormat, dimensions.width(), dimensions.height(), 0, textureFormat, GraphicsContext3D::UNSIGNED_BYTE, 0));
+    GLC(context, context->texImage2DResourceSafe(GraphicsContext3D::TEXTURE_2D, 0, textureFormat, dimensions.width(), dimensions.height(), 0, textureFormat, GraphicsContext3D::UNSIGNED_BYTE));
 }
 
 void VideoLayerChromium::updateTexture(GraphicsContext3D* context, unsigned textureId, const IntSize& dimensions, unsigned format, const void* data)

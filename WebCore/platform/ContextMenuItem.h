@@ -40,8 +40,9 @@
 class NSMenuItem;
 #endif
 #elif PLATFORM(WIN)
-typedef struct tagMENUITEMINFOW* LPMENUITEMINFO;
+typedef struct tagMENUITEMINFOW MENUITEMINFO;
 #elif PLATFORM(GTK)
+#include <GRefPtr.h>
 typedef struct _GtkMenuItem GtkMenuItem;
 #elif PLATFORM(QT)
 #include <QAction>
@@ -166,8 +167,6 @@ namespace WebCore {
 
 #if PLATFORM(MAC)
     typedef NSMenuItem* PlatformMenuItemDescription;
-#elif PLATFORM(WIN)
-    typedef LPMENUITEMINFO PlatformMenuItemDescription;
 #elif PLATFORM(QT)
     struct PlatformMenuItemDescription {
         PlatformMenuItemDescription()
@@ -185,6 +184,7 @@ namespace WebCore {
         bool enabled;
     };
 #elif PLATFORM(GTK)
+<<<<<<< HEAD
     struct PlatformMenuItemDescription {
         PlatformMenuItemDescription()
             : type(ActionType)
@@ -203,6 +203,9 @@ namespace WebCore {
     };
 #elif defined ANDROID
     typedef void* PlatformMenuItemDescription;
+=======
+    typedef GtkMenuItem* PlatformMenuItemDescription;
+>>>>>>> webkit.org at r74534 (trunk)
 #elif PLATFORM(WX)
     struct PlatformMenuItemDescription {
         PlatformMenuItemDescription()
@@ -234,53 +237,22 @@ namespace WebCore {
         bool checked;
         bool enabled;
     };
-#elif PLATFORM(EFL)
-    struct PlatformMenuItemDescription {
-        PlatformMenuItemDescription()
-            : type(ActionType)
-            , action(ContextMenuItemTagNoAction)
-            , title("")
-            , subMenu(0)
-            , checked(false)
-            , enabled(true) { }
-        ContextMenuItemType type;
-        ContextMenuAction action;
-        String title;
-        ContextMenu* subMenu;
-        bool checked;
-        bool enabled;
-    };
 #else
     typedef void* PlatformMenuItemDescription;
 #endif
 
     class ContextMenuItem : public FastAllocBase {
     public:
-        ContextMenuItem(PlatformMenuItemDescription);
-        ContextMenuItem(ContextMenu* subMenu = 0);
-        ContextMenuItem(ContextMenuItemType type, ContextMenuAction action, const String& title, ContextMenu* subMenu = 0);
-
+        ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu* subMenu = 0);
         ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, bool enabled, bool checked);
-        ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, Vector<ContextMenuItem>& submenuItems);
-#if PLATFORM(GTK)
-        ContextMenuItem(GtkMenuItem*);
-#endif
+
         ~ContextMenuItem();
 
-        PlatformMenuItemDescription releasePlatformDescription();
-
-        ContextMenuItemType type() const;
         void setType(ContextMenuItemType);
+        ContextMenuItemType type() const;
 
-        ContextMenuAction action() const;
         void setAction(ContextMenuAction);
-
-        String title() const;
-        void setTitle(const String&);
-
-        PlatformMenuDescription platformSubMenu() const;
-        void setSubMenu(ContextMenu*);
-        void setSubMenu(Vector<ContextMenuItem>&);
+        ContextMenuAction action() const;
 
         void setChecked(bool = true);
         bool checked() const;
@@ -288,17 +260,57 @@ namespace WebCore {
         void setEnabled(bool = true);
         bool enabled() const;
 
-        // FIXME: Do we need a keyboard accelerator here?
-#if PLATFORM(GTK)
-        static GtkMenuItem* createNativeMenuItem(const PlatformMenuItemDescription&);
-#endif
+        void setSubMenu(ContextMenu*);
 
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+#if PLATFORM(WIN)
+        typedef MENUITEMINFO NativeItem;
+#elif PLATFORM(EFL)
+        typedef void* NativeItem;
+#endif
+        ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, const Vector<ContextMenuItem>& subMenuItems);
+        explicit ContextMenuItem(const NativeItem&);
+
+        // On Windows, the title (dwTypeData of the MENUITEMINFO) is not set in this function. Callers can set the title themselves,
+        // and handle the lifetime of the title, if they need it.
+        NativeItem nativeMenuItem() const;
+
+        void setTitle(const String& title) { m_title = title; }
+        const String& title() const { return m_title; }
+
+        const Vector<ContextMenuItem>& subMenuItems() const { return m_subMenuItems; }
+#else
+    public:
+        ContextMenuItem(PlatformMenuItemDescription);
+        ContextMenuItem(ContextMenu* subMenu = 0);
+        ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, Vector<ContextMenuItem>& submenuItems);
+
+        PlatformMenuItemDescription releasePlatformDescription();
+
+        String title() const;
+        void setTitle(const String&);
+
+        PlatformMenuDescription platformSubMenu() const;
+        void setSubMenu(Vector<ContextMenuItem>&);
+
+#endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
     private:
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+        String m_title;
+        bool m_enabled;
+        bool m_checked;
+        ContextMenuAction m_action;
+        ContextMenuItemType m_type;
+        Vector<ContextMenuItem> m_subMenuItems;
+#else
 #if PLATFORM(MAC)
         RetainPtr<NSMenuItem> m_platformDescription;
+#elif PLATFORM(GTK)
+        PlatformRefPtr<GtkMenuItem> m_platformDescription;
 #else
         PlatformMenuItemDescription m_platformDescription;
 #endif
+#endif // USE(CROSS_PLATFORM_CONTEXT_MENUS)
     };
 
 }

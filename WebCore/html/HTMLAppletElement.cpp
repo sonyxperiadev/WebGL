@@ -30,6 +30,7 @@
 #include "RenderApplet.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include "Widget.h"
 
 namespace WebCore {
 
@@ -101,7 +102,7 @@ void HTMLAppletElement::removedFromDocument()
 
 bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
 {
-    if (getAttribute(codeAttr).isNull())
+    if (!fastHasAttribute(codeAttr))
         return false;
 
     return HTMLPlugInElement::rendererIsNeeded(style);
@@ -137,6 +138,17 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
     }
 
     return RenderObject::createObject(this, style);
+}
+
+void HTMLAppletElement::defaultEventHandler(Event* event)
+{
+    RenderObject* r = renderer();
+    if (!r || !r->isWidget())
+        return;
+    Widget* widget = toRenderWidget(r)->widget();
+    if (!widget)
+        return;
+    widget->handleEvent(event);
 }
 
 RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const

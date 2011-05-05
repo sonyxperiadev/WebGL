@@ -222,12 +222,6 @@ public:
                 // jpeglib cannot convert these to rgb, but it can convert ycck
                 // to cmyk.
                 m_info.out_color_space = JCS_CMYK;
-
-                // Same as with grayscale images, we convert CMYK images to RGBA
-                // ones. When we keep the color profiles of these CMYK images,
-                // CoreGraphics will convert their colors again. So, we discard
-                // their color profiles to prevent color corruption.
-                m_decoder->setIgnoreGammaAndColorProfile(true);
                 break;
             default:
                 return m_decoder->setFailed();
@@ -404,8 +398,9 @@ void term_source(j_decompress_ptr jd)
     src->decoder->decoder()->jpegComplete();
 }
 
-JPEGImageDecoder::JPEGImageDecoder(bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
-    : ImageDecoder(premultiplyAlpha, ignoreGammaAndColorProfile)
+JPEGImageDecoder::JPEGImageDecoder(ImageSource::AlphaOption alphaOption,
+                                   ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
 {
 }
 

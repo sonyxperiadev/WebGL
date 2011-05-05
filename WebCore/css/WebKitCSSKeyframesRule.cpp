@@ -24,13 +24,12 @@
  */
 
 #include "config.h"
-#include "WebKitCSSKeyframesRule.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSParser.h"
+#include "WebKitCSSKeyframesRule.h"
+#include "WebKitCSSKeyframeRule.h"
 #include "CSSRuleList.h"
 #include "StyleSheet.h"
-#include "WebKitCSSKeyframeRule.h"
 
 namespace WebCore {
 
@@ -46,13 +45,8 @@ WebKitCSSKeyframesRule::~WebKitCSSKeyframesRule()
     if (length == 0)
         return;
         
-    for (int i = 0; i < length; i++) {
-        if (m_lstCSSRules->item(i)->isKeyframeRule()) {
-            if (CSSMutableStyleDeclaration* style = static_cast<WebKitCSSKeyframeRule*>(m_lstCSSRules->item(i))->style())
-                style->setParent(0);
-        }
+    for (int i = 0; i < length; i++)
         m_lstCSSRules->item(i)->setParent(0);
-    }
 }
 
 String WebKitCSSKeyframesRule::name() const

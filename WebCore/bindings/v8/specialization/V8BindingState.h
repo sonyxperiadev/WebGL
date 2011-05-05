@@ -49,14 +49,11 @@ public:
     // Reports an error message (without delay) if the security check fails.
     static void immediatelyReportUnsafeAccessTo(Frame*);
 
-    // The DOMWindow corresponding to the 'calling context' of execution.
-    DOMWindow* getActiveWindow();
+    DOMWindow* activeWindow();
+    DOMWindow* firstWindow();
 
-    // The frame corresponding to the 'calling context' of execution.
-    Frame* getActiveFrame();
-
-    // The first frame in which execution entered user script.
-    Frame* getFirstFrame();
+    Frame* activeFrame();
+    Frame* firstFrame();
 
     bool processingUserGesture();
 

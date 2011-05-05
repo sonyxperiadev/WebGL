@@ -45,8 +45,6 @@
 
 namespace WebCore {
 
-typedef Vector<RefPtr<Node> > NodeVector;
-
 using namespace std;
 
 #ifndef NDEBUG
@@ -598,6 +596,8 @@ bool Range::intersectsNode(Node* refNode, ExceptionCode& ec)
 
 PassRefPtr<DocumentFragment> Range::processContents(ActionType action, ExceptionCode& ec)
 {
+    typedef Vector<RefPtr<Node> > NodeVector;
+
     RefPtr<DocumentFragment> fragment;
     if (action == EXTRACT_CONTENTS || action == CLONE_CONTENTS)
         fragment = DocumentFragment::create(m_ownerDocument.get());
@@ -668,7 +668,7 @@ PassRefPtr<DocumentFragment> Range::processContents(ActionType action, Exception
                 else if (action == CLONE_CONTENTS)
                     fragment->appendChild(n->cloneNode(true), ec);
                 else
-                    m_start.container()->removeChild(n.get(), ec);
+                    toContainerNode(m_start.container())->removeChild(n.get(), ec);
             }
         }
         return fragment.release();
@@ -1188,7 +1188,7 @@ void Range::checkNodeBA(Node* n, ExceptionCode& ec) const
         case Node::PROCESSING_INSTRUCTION_NODE:
         case Node::TEXT_NODE:
         case Node::XPATH_NAMESPACE_NODE:
-            if (root->isShadowNode())
+            if (root->isShadowRoot())
                 break;
             ec = RangeException::INVALID_NODE_TYPE_ERR;
             return;
@@ -1921,9 +1921,9 @@ PassRefPtr<ClientRect> Range::getBoundingClientRect() const
     if (quads.isEmpty())
         return ClientRect::create();
 
-    IntRect result;
+    FloatRect result;
     for (size_t i = 0; i < quads.size(); ++i)
-        result.unite(quads[i].enclosingBoundingBox());
+        result.unite(quads[i].boundingBox());
 
     return ClientRect::create(result);
 }

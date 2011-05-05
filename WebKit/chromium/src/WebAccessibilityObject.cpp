@@ -44,6 +44,7 @@
 #include "WebPoint.h"
 #include "WebRect.h"
 #include "WebString.h"
+#include "WebURL.h"
 
 using namespace WebCore;
 
@@ -379,7 +380,7 @@ WebAccessibilityObject WebAccessibilityObject::hitTest(const WebPoint& point) co
 
     m_private->updateBackingStore();
     IntPoint contentsPoint = m_private->documentFrameView()->windowToContents(point);
-    RefPtr<AccessibilityObject> hit = m_private->doAccessibilityHitTest(contentsPoint);
+    RefPtr<AccessibilityObject> hit = m_private->accessibilityHitTest(contentsPoint);
 
     if (hit.get())
         return WebAccessibilityObject(hit);
@@ -461,6 +462,14 @@ WebString WebAccessibilityObject::title() const
     return m_private->title();
 }
 
+WebURL WebAccessibilityObject::url() const
+{
+    if (!m_private)
+        return WebURL();
+    
+    m_private->updateBackingStore();
+    return m_private->url();
+}
 
 WebNode WebAccessibilityObject::node() const
 {

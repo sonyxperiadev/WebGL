@@ -402,7 +402,10 @@ StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedCon
             rareInheritedData->textSecurity != other->rareInheritedData->textSecurity ||
             rareInheritedData->hyphens != other->rareInheritedData->hyphens ||
             rareInheritedData->hyphenationString != other->rareInheritedData->hyphenationString ||
-            rareInheritedData->hyphenationLocale != other->rareInheritedData->hyphenationLocale)
+            rareInheritedData->hyphenationLocale != other->rareInheritedData->hyphenationLocale ||
+            rareInheritedData->textEmphasisMark != other->rareInheritedData->textEmphasisMark ||
+            rareInheritedData->textEmphasisPosition != other->rareInheritedData->textEmphasisPosition ||
+            rareInheritedData->textEmphasisCustomMark != other->rareInheritedData->textEmphasisCustomMark)
             return StyleDifferenceLayout;
 
         if (!rareInheritedData->shadowDataEquivalent(*other->rareInheritedData.get()))
@@ -553,7 +556,9 @@ StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedCon
         rareNonInheritedData->userDrag != other->rareNonInheritedData->userDrag ||
         rareNonInheritedData->m_borderFit != other->rareNonInheritedData->m_borderFit ||
         rareInheritedData->textFillColor != other->rareInheritedData->textFillColor ||
-        rareInheritedData->textStrokeColor != other->rareInheritedData->textStrokeColor)
+        rareInheritedData->textStrokeColor != other->rareInheritedData->textStrokeColor ||
+        rareInheritedData->textEmphasisColor != other->rareInheritedData->textEmphasisColor ||
+        rareInheritedData->textEmphasisFill != other->rareInheritedData->textEmphasisFill)
         return StyleDifferenceRepaint;
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -842,6 +847,47 @@ const AtomicString& RenderStyle::hyphenString() const
     return hyphenMinusString;
 }
 
+const AtomicString& RenderStyle::textEmphasisMarkString() const
+{
+    switch (textEmphasisMark()) {
+    case TextEmphasisMarkNone:
+        return nullAtom;
+    case TextEmphasisMarkCustom:
+        return textEmphasisCustomMark();
+    case TextEmphasisMarkDot: {
+        DEFINE_STATIC_LOCAL(AtomicString, filledDotString, (&bullet, 1));
+        DEFINE_STATIC_LOCAL(AtomicString, openDotString, (&whiteBullet, 1));
+        return textEmphasisFill() == TextEmphasisFillFilled ? filledDotString : openDotString;
+    }
+    case TextEmphasisMarkCircle: {
+        DEFINE_STATIC_LOCAL(AtomicString, filledCircleString, (&blackCircle, 1));
+        DEFINE_STATIC_LOCAL(AtomicString, openCircleString, (&whiteCircle, 1));
+        return textEmphasisFill() == TextEmphasisFillFilled ? filledCircleString : openCircleString;
+    }
+    case TextEmphasisMarkDoubleCircle: {
+        DEFINE_STATIC_LOCAL(AtomicString, filledDoubleCircleString, (&fisheye, 1));
+        DEFINE_STATIC_LOCAL(AtomicString, openDoubleCircleString, (&bullseye, 1));
+        return textEmphasisFill() == TextEmphasisFillFilled ? filledDoubleCircleString : openDoubleCircleString;
+    }
+    case TextEmphasisMarkTriangle: {
+        DEFINE_STATIC_LOCAL(AtomicString, filledTriangleString, (&blackUpPointingTriangle, 1));
+        DEFINE_STATIC_LOCAL(AtomicString, openTriangleString, (&whiteUpPointingTriangle, 1));
+        return textEmphasisFill() == TextEmphasisFillFilled ? filledTriangleString : openTriangleString;
+    }
+    case TextEmphasisMarkSesame: {
+        DEFINE_STATIC_LOCAL(AtomicString, filledSesameString, (&sesameDot, 1));
+        DEFINE_STATIC_LOCAL(AtomicString, openSesameString, (&whiteSesameDot, 1));
+        return textEmphasisFill() == TextEmphasisFillFilled ? filledSesameString : openSesameString;
+    }
+    case TextEmphasisMarkAuto:
+        ASSERT_NOT_REACHED();
+        return nullAtom;
+    }
+
+    ASSERT_NOT_REACHED();
+    return nullAtom;
+}
+
 #if ENABLE(DASHBOARD_SUPPORT)
 const Vector<StyleDashboardRegion>& RenderStyle::initialDashboardRegions()
 {
@@ -1066,6 +1112,9 @@ const Color RenderStyle::colorIncludingFallback(int colorProperty, EBorderStyle 
         break;
     case CSSPropertyWebkitColumnRuleColor:
         result = columnRuleColor();
+        break;
+    case CSSPropertyWebkitTextEmphasisColor:
+        result = textEmphasisColor();
         break;
     case CSSPropertyWebkitTextFillColor:
         result = textFillColor();
@@ -1406,6 +1455,18 @@ Length RenderStyle::paddingEnd() const
     if (isHorizontalWritingMode())
         return isLeftToRightDirection() ? paddingRight() : paddingLeft();
     return isLeftToRightDirection() ? paddingBottom() : paddingTop();
+}
+
+TextEmphasisMark RenderStyle::textEmphasisMark() const
+{
+    TextEmphasisMark mark = static_cast<TextEmphasisMark>(rareInheritedData->textEmphasisMark);
+    if (mark != TextEmphasisMarkAuto)
+        return mark;
+
+    if (isHorizontalWritingMode())
+        return TextEmphasisMarkDot;
+
+    return TextEmphasisMarkSesame;
 }
 
 } // namespace WebCore

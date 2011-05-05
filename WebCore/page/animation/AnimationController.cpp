@@ -53,9 +53,9 @@ AnimationControllerPrivate::AnimationControllerPrivate(Frame* frame)
     , m_beginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet)
     , m_styleAvailableWaiters(0)
     , m_lastStyleAvailableWaiter(0)
-    , m_responseWaiters(0)
-    , m_lastResponseWaiter(0)
-    , m_waitingForResponse(false)
+    , m_startTimeResponseWaiters(0)
+    , m_lastStartTimeResponseWaiter(0)
+    , m_waitingForStartTimeResponse(false)
 {
 }
 
@@ -145,15 +145,15 @@ void AnimationControllerPrivate::fireEventsAndUpdateStyle()
     bool updateStyle = !m_eventsToDispatch.isEmpty() || !m_nodeChangesToDispatch.isEmpty();
     
     // fire all the events
-    Vector<EventToDispatch> eventsToDispatch = m_eventsToDispatch;
-    m_eventsToDispatch.clear();
-    Vector<EventToDispatch>::const_iterator eventsToDispatchEnd = eventsToDispatch.end();
-    for (Vector<EventToDispatch>::const_iterator it = eventsToDispatch.begin(); it != eventsToDispatchEnd; ++it) {
+    Vector<EventToDispatch>::const_iterator eventsToDispatchEnd = m_eventsToDispatch.end();
+    for (Vector<EventToDispatch>::const_iterator it = m_eventsToDispatch.begin(); it != eventsToDispatchEnd; ++it) {
         if (it->eventType == eventNames().webkitTransitionEndEvent)
             it->element->dispatchEvent(WebKitTransitionEvent::create(it->eventType, it->name, it->elapsedTime));
         else
             it->element->dispatchEvent(WebKitAnimationEvent::create(it->eventType, it->name, it->elapsedTime));
     }
+    
+    m_eventsToDispatch.clear();
     
     // call setChanged on all the elements
     Vector<RefPtr<Node> >::const_iterator nodeChangesToDispatchEnd = m_nodeChangesToDispatch.end();
@@ -323,13 +323,13 @@ double AnimationControllerPrivate::beginAnimationUpdateTime()
 void AnimationControllerPrivate::endAnimationUpdate()
 {
     styleAvailable();
-    if (!m_waitingForResponse)
+    if (!m_waitingForStartTimeResponse)
         startTimeResponse(beginAnimationUpdateTime());
 }
 
 void AnimationControllerPrivate::receivedStartTimeResponse(double time)
 {
-    m_waitingForResponse = false;
+    m_waitingForStartTimeResponse = false;
     startTimeResponse(time);
 }
 
@@ -432,48 +432,51 @@ void AnimationControllerPrivate::addToStartTimeResponseWaitList(AnimationBase* a
     ASSERT(!animation->next());
     
     if (willGetResponse)
-        m_waitingForResponse = true;
+        m_waitingForStartTimeResponse = true;
     
-    if (m_responseWaiters)
-        m_lastResponseWaiter->setNext(animation);
+    if (m_startTimeResponseWaiters)
+        m_lastStartTimeResponseWaiter->setNext(animation);
     else
-        m_responseWaiters = animation;
+        m_startTimeResponseWaiters = animation;
         
-    m_lastResponseWaiter = animation;
+    m_lastStartTimeResponseWaiter = animation;
     animation->setNext(0);
 }
 
 void AnimationControllerPrivate::removeFromStartTimeResponseWaitList(AnimationBase* animationToRemove)
 {
     AnimationBase* prevAnimation = 0;
-    for (AnimationBase* animation = m_responseWaiters; animation; animation = animation->next()) {
+    for (AnimationBase* animation = m_startTimeResponseWaiters; animation; animation = animation->next()) {
         if (animation == animationToRemove) {
             if (prevAnimation)
                 prevAnimation->setNext(animation->next());
             else
-                m_responseWaiters = animation->next();
+                m_startTimeResponseWaiters = animation->next();
             
-            if (m_lastResponseWaiter == animation)
-                m_lastResponseWaiter = prevAnimation;
+            if (m_lastStartTimeResponseWaiter == animation)
+                m_lastStartTimeResponseWaiter = prevAnimation;
                 
             animationToRemove->setNext(0);
         }
         prevAnimation = animation;
     }
+    
+    if (!m_startTimeResponseWaiters)
+        m_waitingForStartTimeResponse = false;
 }
 
 void AnimationControllerPrivate::startTimeResponse(double time)
 {
     // Go through list of waiters and send them on their way
-    for (AnimationBase* animation = m_responseWaiters; animation; ) {
+    for (AnimationBase* animation = m_startTimeResponseWaiters; animation; ) {
         AnimationBase* nextAnimation = animation->next();
         animation->setNext(0);
         animation->onAnimationStartResponse(time);
         animation = nextAnimation;
     }
     
-    m_responseWaiters = 0;
-    m_lastResponseWaiter = 0;
+    m_startTimeResponseWaiters = 0;
+    m_lastStartTimeResponseWaiter = 0;
 }
 
 AnimationController::AnimationController(Frame* frame)

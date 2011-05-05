@@ -34,6 +34,10 @@
 
 namespace WebCore {
 
+// Animated property definitions
+DEFINE_ANIMATED_ENUMERATION(SVGClipPathElement, SVGNames::clipPathUnitsAttr, ClipPathUnits, clipPathUnits)
+DEFINE_ANIMATED_BOOLEAN(SVGClipPathElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
 inline SVGClipPathElement::SVGClipPathElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_clipPathUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
@@ -71,11 +75,11 @@ void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
     if (!object)
         return;
 
-    if (attrName == SVGNames::clipPathUnitsAttr ||
-        SVGTests::isKnownAttribute(attrName) || 
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGStyledTransformableElement::isKnownAttribute(attrName))
+    if (attrName == SVGNames::clipPathUnitsAttr
+        || SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
+        || SVGStyledTransformableElement::isKnownAttribute(attrName))
         object->setNeedsLayout(true);
 }
 

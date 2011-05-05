@@ -21,7 +21,6 @@
 #include "GraphicsContext.h"
 
 #include "AffineTransform.h"
-#include "GraphicsContextPrivate.h"
 #include "KURL.h"
 #include "NotImplemented.h"
 #include "PainterOpenVG.h"
@@ -49,16 +48,14 @@ public:
     }
 };
 
-GraphicsContext::GraphicsContext(SurfaceOpenVG* surface)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(surface ? new GraphicsContextPlatformPrivate(surface) : 0)
+void GraphicsContext::platformInit(SurfaceOpenVG* surface)
 {
+    m_data = surface ? new GraphicsContextPlatformPrivate(surface) : 0;
     setPaintingDisabled(!surface);
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -139,28 +136,20 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* poin
     UNUSED_PARAM(shouldAntialias); // FIXME
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& path)
 {
     if (paintingDisabled())
         return;
 
-    m_data->drawPath(VG_FILL_PATH, m_common->state.fillRule);
+    m_data->drawPath(path, VG_FILL_PATH, m_state.fillRule);
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& path)
 {
     if (paintingDisabled())
         return;
 
-    m_data->drawPath(VG_STROKE_PATH, m_common->state.fillRule);
-}
-
-void GraphicsContext::drawPath()
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->drawPath(VG_FILL_PATH | VG_STROKE_PATH, m_common->state.fillRule);
+    m_data->drawPath(path, VG_STROKE_PATH, m_state.fillRule);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
@@ -197,22 +186,6 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     UNUSED_PARAM(colorSpace); // FIXME
 }
 
-void GraphicsContext::beginPath()
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->beginPath();
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->addPath(path);
-}
-
 void GraphicsContext::clip(const FloatRect& rect)
 {
     if (paintingDisabled())
@@ -221,12 +194,12 @@ void GraphicsContext::clip(const FloatRect& rect)
     m_data->intersectClipRect(rect);
 }
 
-void GraphicsContext::clipPath(WindRule clipRule)
+void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
 {
     if (paintingDisabled())
         return;
 
-    m_data->clipPath(*(m_data->currentPath()), PainterOpenVG::IntersectClip, clipRule);
+    m_data->clipPath(path, PainterOpenVG::IntersectClip, clipRule);
 }
 
 void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
@@ -391,7 +364,7 @@ void GraphicsContext::setAlpha(float opacity)
     m_data->setOpacity(opacity);
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
@@ -404,7 +377,7 @@ void GraphicsContext::clip(const Path& path)
     if (paintingDisabled())
         return;
 
-    m_data->clipPath(path, PainterOpenVG::IntersectClip, m_common->state.fillRule);
+    m_data->clipPath(path, PainterOpenVG::IntersectClip, m_state.fillRule);
 }
 
 void GraphicsContext::canvasClip(const Path& path)
@@ -417,7 +390,7 @@ void GraphicsContext::clipOut(const Path& path)
     if (paintingDisabled())
         return;
 
-    m_data->clipPath(path, PainterOpenVG::SubtractClip, m_common->state.fillRule);
+    m_data->clipPath(path, PainterOpenVG::SubtractClip, m_state.fillRule);
 }
 
 void GraphicsContext::scale(const FloatSize& scaleFactors)
@@ -451,7 +424,7 @@ void GraphicsContext::clipOut(const IntRect& rect)
 
     Path path;
     path.addRect(rect);
-    m_data->clipPath(path, PainterOpenVG::SubtractClip, m_common->state.fillRule);
+    m_data->clipPath(path, PainterOpenVG::SubtractClip, m_state.fillRule);
 }
 
 void GraphicsContext::clipToImageBuffer(const FloatRect& rect, const ImageBuffer* imageBuffer)
@@ -474,7 +447,7 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     path.addEllipse(FloatRect(rect.x() + thickness, rect.y() + thickness,
         rect.width() - (thickness * 2), rect.height() - (thickness * 2)));
 
-    m_data->clipPath(path, PainterOpenVG::IntersectClip, m_common->state.fillRule);
+    m_data->clipPath(path, PainterOpenVG::IntersectClip, m_state.fillRule);
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& transformation)

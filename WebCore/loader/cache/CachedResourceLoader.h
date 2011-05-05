@@ -28,7 +28,9 @@
 
 #include "CachedResource.h"
 #include "CachedResourceHandle.h"
+#include "CachedResourceRequest.h"
 #include "CachePolicy.h"
+#include "ResourceLoadPriority.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -56,7 +58,7 @@ public:
     ~CachedResourceLoader();
 
     CachedImage* requestImage(const String& url);
-    CachedCSSStyleSheet* requestCSSStyleSheet(const String& url, const String& charset);
+    CachedCSSStyleSheet* requestCSSStyleSheet(const String& url, const String& charset, ResourceLoadPriority priority = ResourceLoadPriorityUnresolved);
     CachedCSSStyleSheet* requestUserCSSStyleSheet(const String& url, const String& charset);
     CachedScript* requestScript(const String& url, const String& charset);
     CachedFont* requestFont(const String& url);
@@ -71,7 +73,8 @@ public:
     // Logs an access denied message to the console for the specified URL.
     void printAccessDeniedMessage(const KURL& url) const;
 
-    CachedResource* cachedResource(const String& url) const { return m_documentResources.get(url).get(); }
+    CachedResource* cachedResource(const String& url) const;
+    CachedResource* cachedResource(const KURL& url) const;
     
     typedef HashMap<String, CachedResourceHandle<CachedResource> > DocumentResourceMap;
     const DocumentResourceMap& allCachedResources() const { return m_documentResources; }
@@ -92,8 +95,10 @@ public:
 
     void removeCachedResource(CachedResource*) const;
 
-    void setLoadInProgress(bool);
-    bool loadInProgress() const { return m_loadInProgress; }
+    void load(CachedResource*, bool incremental = false, SecurityCheckPolicy = DoSecurityCheck, bool sendResourceLoadCallbacks = true);
+    void loadFinishing() { m_loadFinishing = true; }
+    void loadDone(CachedResourceRequest*);
+    void cancelRequests();
     
     void setAllowStaleResources(bool allowStaleResources) { m_allowStaleResources = allowStaleResources; }
 
@@ -108,7 +113,7 @@ public:
     void printPreloadStats();
     
 private:
-    CachedResource* requestResource(CachedResource::Type, const String& url, const String& charset, bool isPreload = false);
+    CachedResource* requestResource(CachedResource::Type, const String& url, const String& charset, ResourceLoadPriority priority = ResourceLoadPriorityUnresolved, bool isPreload = false);
     void requestPreload(CachedResource::Type, const String& url, const String& charset);
 
     void checkForReload(const KURL&);
@@ -119,6 +124,9 @@ private:
     HashSet<String> m_reloadedURLs;
     mutable DocumentResourceMap m_documentResources;
     Document* m_document;
+
+    typedef HashSet<RefPtr<CachedResourceRequest> > RequestSet;
+    RequestSet m_requests;
     
     int m_requestCount;
     
@@ -135,7 +143,7 @@ private:
     bool m_blockNetworkImage : 1;
 #endif
     bool m_autoLoadImages : 1;
-    bool m_loadInProgress : 1;
+    bool m_loadFinishing : 1;
     bool m_allowStaleResources : 1;
 };
 

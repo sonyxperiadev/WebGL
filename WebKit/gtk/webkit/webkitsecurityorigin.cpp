@@ -18,15 +18,14 @@
  */
 
 #include "config.h"
-#include "webkitwebdatabase.h"
+#include "webkitsecurityorigin.h"
 
-#include "webkitprivate.h"
-
-#include "PlatformString.h"
 #include "DatabaseTracker.h"
-#include <wtf/text/CString.h>
-
+#include "PlatformString.h"
+#include "webkitprivate.h"
+#include "webkitsecurityoriginprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitsecurityorigin
@@ -213,7 +212,7 @@ static void webkit_security_origin_class_init(WebKitSecurityOriginClass* klass)
 
 static void webkit_security_origin_init(WebKitSecurityOrigin* securityOrigin)
 {
-    WebKitSecurityOriginPrivate* priv = WEBKIT_SECURITY_ORIGIN_GET_PRIVATE(securityOrigin);
+    WebKitSecurityOriginPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(securityOrigin, WEBKIT_TYPE_SECURITY_ORIGIN, WebKitSecurityOriginPrivate);
     priv->webDatabases = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_object_unref);
     securityOrigin->priv = priv;
 }
@@ -379,30 +378,6 @@ GList* webkit_security_origin_get_all_web_databases(WebKitSecurityOrigin* securi
     return databases;
 }
 
-WebKitSecurityOrigin* WebKit::kit(WebCore::SecurityOrigin* coreOrigin)
-{
-    ASSERT(coreOrigin);
-
-    GHashTable* table = webkit_security_origins();
-    WebKitSecurityOrigin* origin = (WebKitSecurityOrigin*) g_hash_table_lookup(table, coreOrigin);
-
-    if (!origin) {
-        origin = WEBKIT_SECURITY_ORIGIN(g_object_new(WEBKIT_TYPE_SECURITY_ORIGIN, NULL));
-        origin->priv->coreOrigin = coreOrigin;
-        g_hash_table_insert(table, coreOrigin, origin);
-    }
-
-    return origin;
-}
-
-
-WebCore::SecurityOrigin* WebKit::core(WebKitSecurityOrigin* securityOrigin)
-{
-    ASSERT(securityOrigin);
-
-    return securityOrigin->priv->coreOrigin.get();
-}
-
 WebKitWebDatabase* webkit_security_origin_get_web_database(WebKitSecurityOrigin* securityOrigin, const gchar* databaseName)
 {
     g_return_val_if_fail(WEBKIT_IS_SECURITY_ORIGIN(securityOrigin), NULL);
@@ -422,3 +397,29 @@ WebKitWebDatabase* webkit_security_origin_get_web_database(WebKitSecurityOrigin*
     return database;
 }
 
+namespace WebKit {
+
+WebCore::SecurityOrigin* core(WebKitSecurityOrigin* securityOrigin)
+{
+    ASSERT(securityOrigin);
+
+    return securityOrigin->priv->coreOrigin.get();
+}
+
+WebKitSecurityOrigin* kit(WebCore::SecurityOrigin* coreOrigin)
+{
+    ASSERT(coreOrigin);
+
+    GHashTable* table = webkit_security_origins();
+    WebKitSecurityOrigin* origin = (WebKitSecurityOrigin*) g_hash_table_lookup(table, coreOrigin);
+
+    if (!origin) {
+        origin = WEBKIT_SECURITY_ORIGIN(g_object_new(WEBKIT_TYPE_SECURITY_ORIGIN, NULL));
+        origin->priv->coreOrigin = coreOrigin;
+        g_hash_table_insert(table, coreOrigin, origin);
+    }
+
+    return origin;
+}
+
+}

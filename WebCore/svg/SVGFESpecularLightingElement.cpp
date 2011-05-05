@@ -25,12 +25,21 @@
 #include "SVGFESpecularLightingElement.h"
 
 #include "Attribute.h"
+#include "RenderStyle.h"
 #include "SVGColor.h"
 #include "SVGFELightElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFESpecularLightingElement, SVGNames::inAttr, In1, in1)
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::specularConstantAttr, SpecularConstant, specularConstant)
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::specularExponentAttr, SpecularExponent, specularExponent)
+DEFINE_ANIMATED_NUMBER(SVGFESpecularLightingElement, SVGNames::surfaceScaleAttr, SurfaceScale, surfaceScale)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), KernelUnitLengthX, kernelUnitLengthX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), KernelUnitLengthY, kernelUnitLengthY)
 
 inline SVGFESpecularLightingElement::SVGFESpecularLightingElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -108,11 +117,11 @@ void SVGFESpecularLightingElement::synchronizeProperty(const QualifiedName& attr
 
 PassRefPtr<LightSource> SVGFESpecularLightingElement::findLights() const
 {
-    for (Node* n = firstChild(); n; n = n->nextSibling()) {
-        if (n->hasTagName(SVGNames::feDistantLightTag) ||
-            n->hasTagName(SVGNames::fePointLightTag) ||
-            n->hasTagName(SVGNames::feSpotLightTag)) {
-            SVGFELightElement* lightNode = static_cast<SVGFELightElement*>(n); 
+    for (Node* node = firstChild(); node; node = node->nextSibling()) {
+        if (node->hasTagName(SVGNames::feDistantLightTag)
+            || node->hasTagName(SVGNames::fePointLightTag)
+            || node->hasTagName(SVGNames::feSpotLightTag)) {
+            SVGFELightElement* lightNode = static_cast<SVGFELightElement*>(node); 
             return lightNode->lightSource();
         }
     }

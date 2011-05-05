@@ -18,6 +18,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/html"
     "${WEBCORE_DIR}/html/canvas"
     "${WEBCORE_DIR}/html/parser"
+    "${WEBCORE_DIR}/html/shadow"
     "${WEBCORE_DIR}/inspector"
     "${WEBCORE_DIR}/loader"
     "${WEBCORE_DIR}/loader/appcache"
@@ -30,6 +31,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/page/animation"
     "${WEBCORE_DIR}/platform"
     "${WEBCORE_DIR}/platform/animation"
+    "${WEBCORE_DIR}/platform/audio"
     "${WEBCORE_DIR}/platform/graphics"
     "${WEBCORE_DIR}/platform/graphics/filters"
     "${WEBCORE_DIR}/platform/graphics/transforms"
@@ -55,6 +57,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/svg/graphics"
     "${WEBCORE_DIR}/svg/graphics/filters"
     "${WEBCORE_DIR}/svg/properties"
+    "${WEBCORE_DIR}/webaudio"
     "${WEBCORE_DIR}/websockets"
     "${WEBCORE_DIR}/wml"
     "${WEBCORE_DIR}/workers"
@@ -93,23 +96,9 @@ SET(WebCore_IDL_INCLUDES
     plugins
     storage
     svg
+    webaudio
     workers
     xml
-)
-
-SET(WebCore_IDL_PURE_FILES
-    svg/ElementTimeControl.idl
-    svg/SVGExternalResourcesRequired.idl
-    svg/SVGFilterPrimitiveStandardAttributes.idl
-    svg/SVGFitToViewBox.idl
-    svg/SVGLangSpace.idl
-    svg/SVGLocatable.idl
-    svg/SVGStylable.idl
-    svg/SVGTests.idl
-    svg/SVGTransformable.idl
-    svg/SVGURIReference.idl
-    svg/SVGViewSpec.idl
-    svg/SVGZoomAndPan.idl
 )
 
 SET(WebCore_IDL_FILES
@@ -225,6 +214,7 @@ SET(WebCore_IDL_FILES
     html/HTMLDataGridElement.idl
     html/HTMLDataGridRowElement.idl
     html/HTMLDataListElement.idl
+    html/HTMLDetailsElement.idl
     html/HTMLDirectoryElement.idl
     html/HTMLDivElement.idl
     html/HTMLDListElement.idl
@@ -298,10 +288,20 @@ SET(WebCore_IDL_FILES
     html/canvas/Int16Array.idl
     html/canvas/Int32Array.idl
     html/canvas/Int8Array.idl
+    html/canvas/OESTextureFloat.idl
     html/canvas/Uint16Array.idl
     html/canvas/Uint32Array.idl
     html/canvas/Uint8Array.idl
+    html/canvas/WebGLActiveInfo.idl
+    html/canvas/WebGLBuffer.idl
+    html/canvas/WebGLContextAttributes.idl
+    html/canvas/WebGLFramebuffer.idl
+    html/canvas/WebGLProgram.idl
+    html/canvas/WebGLRenderbuffer.idl
     html/canvas/WebGLRenderingContext.idl
+    html/canvas/WebGLShader.idl
+    html/canvas/WebGLTexture.idl
+    html/canvas/WebGLUniformLocation.idl
 
     inspector/InjectedScriptHost.idl
     inspector/InspectorFrontendHost.idl
@@ -373,6 +373,27 @@ SET(WebCore_IDL_FILES
     storage/SQLTransactionSyncCallback.idl
     storage/Storage.idl
     storage/StorageEvent.idl
+
+    webaudio/AudioBuffer.idl
+    webaudio/AudioBufferSourceNode.idl
+    webaudio/AudioChannelSplitter.idl
+    webaudio/AudioChannelMerger.idl
+    webaudio/AudioContext.idl
+    webaudio/AudioDestinationNode.idl
+    webaudio/AudioGain.idl
+    webaudio/AudioGainNode.idl
+    webaudio/AudioListener.idl
+    webaudio/AudioNode.idl
+    webaudio/AudioPannerNode.idl
+    webaudio/AudioParam.idl
+    webaudio/AudioProcessingEvent.idl
+    webaudio/AudioSourceNode.idl
+    webaudio/ConvolverNode.idl
+    webaudio/DelayNode.idl
+    webaudio/HighPass2FilterNode.idl
+    webaudio/JavaScriptAudioNode.idl
+    webaudio/LowPass2FilterNode.idl
+    webaudio/RealtimeAnalyserNode.idl
 
     websockets/WebSocket.idl
 
@@ -539,13 +560,6 @@ IF (ENABLE_SVG)
 ENDIF()
 
 SET(WebCore_SOURCES
-    ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp
-    ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp
-    ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp
-    ${DERIVED_SOURCES_DIR}/ColorData.cpp
-    ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
-    ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
-    ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp
     ${DERIVED_SOURCES_DIR}/JSWebSocket.cpp
 
     accessibility/AXObjectCache.cpp
@@ -838,6 +852,7 @@ SET(WebCore_SOURCES
     dom/EventContext.cpp
     dom/EventNames.cpp
     dom/EventTarget.cpp
+    dom/EventQueue.cpp
     dom/ExceptionBase.cpp
     dom/ExceptionCode.cpp
     dom/InputElement.cpp
@@ -869,6 +884,7 @@ SET(WebCore_SOURCES
     dom/QualifiedName.cpp
     dom/Range.cpp
     dom/RegisteredEventListener.cpp
+    dom/ScopedEventQueue.cpp
     dom/ScriptableDocumentParser.cpp
     dom/ScriptElement.cpp
     dom/ScriptExecutionContext.cpp
@@ -937,6 +953,7 @@ SET(WebCore_SOURCES
     editing/SelectionController.cpp
     editing/SetNodeAttributeCommand.cpp
     editing/SmartReplace.cpp
+    editing/SpellChecker.cpp
     editing/SplitElementCommand.cpp
     editing/SplitTextNodeCommand.cpp
     editing/SplitTextNodeContainingElementCommand.cpp
@@ -988,6 +1005,7 @@ SET(WebCore_SOURCES
     html/EmailInputType.cpp
     html/FTPDirectoryDocument.cpp
     html/FileInputType.cpp
+    html/FormAssociatedElement.cpp
     html/FormDataList.cpp
     html/HTMLAllCollection.cpp
     html/HTMLAnchorElement.cpp
@@ -1007,6 +1025,7 @@ SET(WebCore_SOURCES
     html/HTMLDataGridElement.cpp
     html/HTMLDataGridRowElement.cpp
     html/HTMLDataListElement.cpp
+    html/HTMLDetailsElement.cpp
     html/HTMLDirectoryElement.cpp
     html/HTMLDivElement.cpp
     html/HTMLDocument.cpp
@@ -1116,6 +1135,7 @@ SET(WebCore_SOURCES
     html/parser/HTMLParserIdioms.cpp
     html/parser/HTMLParserScheduler.cpp
     html/parser/HTMLFormattingElementList.cpp
+    html/parser/HTMLMetaCharsetParser.cpp
     html/parser/HTMLPreloadScanner.cpp
     html/parser/HTMLScriptRunner.cpp
     html/parser/HTMLTokenizer.cpp
@@ -1124,13 +1144,14 @@ SET(WebCore_SOURCES
     html/parser/TextDocumentParser.cpp
     html/parser/TextViewSourceParser.cpp
 
+    html/shadow/SliderThumbElement.cpp
+
     inspector/ConsoleMessage.cpp
     inspector/InjectedScript.cpp
     inspector/InjectedScriptHost.cpp
     inspector/InspectorApplicationCacheAgent.cpp
     inspector/InspectorBackend.cpp
     inspector/InspectorCSSAgent.cpp
-    inspector/InspectorCSSStore.cpp
     inspector/InspectorClient.cpp
     inspector/InspectorController.cpp
     inspector/InspectorDOMAgent.cpp
@@ -1175,7 +1196,6 @@ SET(WebCore_SOURCES
     loader/PolicyChecker.cpp
     loader/ProgressTracker.cpp
     loader/NavigationScheduler.cpp
-    loader/Request.cpp
     loader/ResourceLoadNotifier.cpp
     loader/ResourceLoadScheduler.cpp
     loader/ResourceLoader.cpp
@@ -1185,7 +1205,6 @@ SET(WebCore_SOURCES
     loader/TextResourceDecoder.cpp
     loader/ThreadableLoader.cpp
     loader/WorkerThreadableLoader.cpp
-    loader/loader.cpp
 
     loader/appcache/ApplicationCache.cpp
     loader/appcache/ApplicationCacheGroup.cpp
@@ -1206,6 +1225,7 @@ SET(WebCore_SOURCES
     loader/cache/CachedResourceClientWalker.cpp
     loader/cache/CachedResourceHandle.cpp
     loader/cache/CachedResourceLoader.cpp
+    loader/cache/CachedResourceRequest.cpp
     loader/cache/CachedScript.cpp
     loader/cache/CachedXSLStyleSheet.cpp
     loader/cache/MemoryCache.cpp
@@ -1266,7 +1286,6 @@ SET(WebCore_SOURCES
 
     platform/Arena.cpp
     platform/ContentType.cpp
-    platform/ContextMenu.cpp
     platform/CrossThreadCopier.cpp
     platform/DeprecatedPtrListImpl.cpp
     platform/DragData.cpp
@@ -1440,6 +1459,8 @@ SET(WebCore_SOURCES
     rendering/RenderButton.cpp
     rendering/RenderCounter.cpp
     rendering/RenderDataGrid.cpp
+    rendering/RenderDetails.cpp
+    rendering/RenderDetailsMarker.cpp
     rendering/RenderEmbeddedObject.cpp
     rendering/RenderFieldset.cpp
     rendering/RenderFileUploadControl.cpp
@@ -1476,6 +1497,7 @@ SET(WebCore_SOURCES
     rendering/RenderScrollbarPart.cpp
     rendering/RenderScrollbarTheme.cpp
     rendering/RenderSlider.cpp
+    rendering/RenderSummary.cpp
     rendering/RenderTable.cpp
     rendering/RenderTableCell.cpp
     rendering/RenderTableCol.cpp
@@ -1617,6 +1639,25 @@ SET(WebCore_SOURCES
     xml/XSLTProcessor.cpp
     xml/XSLTProcessorLibxslt.cpp
     xml/XSLTUnicodeSort.cpp
+)
+
+SET(WebCore_CSS_PROPERTY_NAMES
+    ${WEBCORE_DIR}/css/CSSPropertyNames.in
+)
+
+SET(WebCore_CSS_VALUE_KEYWORDS
+    ${WEBCORE_DIR}/css/CSSValueKeywords.in
+)
+
+SET(WebCore_USER_AGENT_STYLE_SHEETS
+    ${WEBCORE_DIR}/css/html.css
+    ${WEBCORE_DIR}/css/mathml.css
+    ${WEBCORE_DIR}/css/mediaControls.css
+    ${WEBCORE_DIR}/css/mediaControlsGtk.css
+    ${WEBCORE_DIR}/css/quirks.css
+    ${WEBCORE_DIR}/css/svg.css
+    ${WEBCORE_DIR}/css/view-source.css
+    ${WEBCORE_DIR}/css/wml.css
 )
 
 IF (ENABLE_BLOB)
@@ -1929,6 +1970,14 @@ IF (ENABLE_SVG)
         svg/graphics/filters/SVGFilterBuilder.cpp
         svg/properties/SVGPathSegListPropertyTearOff.cpp
     )
+
+    LIST(APPEND WebCore_CSS_PROPERTY_NAMES
+        ${WEBCORE_DIR}/css/SVGCSSPropertyNames.in
+    )
+
+    LIST(APPEND WebCore_CSS_VALUE_KEYWORDS
+        ${WEBCORE_DIR}/css/SVGCSSValueKeywords.in
+    )
 ENDIF()
 
 IF (ENABLE_VIDEO)
@@ -1994,35 +2043,117 @@ IF (ENABLE_PROGRESS_TAG)
     )
 ENDIF ()
 
+
+
+# Modules that the bindings generator scripts may use
+SET(SCRIPTS_BINDINGS
+    ${WEBCORE_DIR}/bindings/scripts/CodeGenerator.pm
+    ${WEBCORE_DIR}/bindings/scripts/IDLParser.pm
+    ${WEBCORE_DIR}/bindings/scripts/IDLStructure.pm
+    ${WEBCORE_DIR}/bindings/scripts/InFilesParser.pm
+)
+
 SET(IDL_INCLUDES "")
 FOREACH (_include ${WebCore_IDL_INCLUDES})
     LIST(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
-ENDFOREACH()
+ENDFOREACH ()
 
+SET(FEATURE_DEFINES_JAVASCRIPT "LANGUAGE_JAVASCRIPT=1")
+FOREACH (_feature ${FEATURE_DEFINES})
+    SET(FEATURE_DEFINES_JAVASCRIPT "${FEATURE_DEFINES_JAVASCRIPT} ${_feature}")
+ENDFOREACH ()
+
+
+# Create JavaScript C++ code given an IDL input
 FOREACH (_file ${WebCore_IDL_FILES})
-    GENERATE_JS_FROM_IDL(${_file})
+    GET_FILENAME_COMPONENT (_name ${_file} NAME_WE)
+    ADD_CUSTOM_COMMAND(
+        OUTPUT  ${DERIVED_SOURCES_DIR}/JS${_name}.cpp ${DERIVED_SOURCES_DIR}/JS${_name}.h
+        MAIN_DEPENDENCY ${_file}
+        DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${_file}
+        COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator JS ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_DIR}" ${WEBCORE_DIR}/${_file}
+        VERBATIM)
+    LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/JS${_name}.cpp)
 ENDFOREACH ()
 
-FOREACH (_file ${WebCore_IDL_PURE_FILES})
-    GENERATE_JS_FROM_IDL_PURE(${_file})
-ENDFOREACH ()
+ 
+# All Web Inspector generated files are created with this one call to CodeGeneratorInspector.pm
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.h ${DERIVED_SOURCES_DIR}/InspectorFrontend.cpp ${DERIVED_SOURCES_DIR}/InspectorFrontend.h
+    MAIN_DEPENDENCY inspector/Inspector.idl
+    DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} inspector/Inspector.idl
+    COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts -I${WEBCORE_DIR}/inspector ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator Inspector ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_DIR}" ${WEBCORE_DIR}/inspector/Inspector.idl
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp ${DERIVED_SOURCES_DIR}/InspectorFrontend.cpp)
 
-GENERATE_INSPECTOR_FROM_IDL(inspector/Inspector.idl)
-
-LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
-
-
-GENERATE_ENTITIES(${WEBCORE_DIR}/html/parser/HTMLEntityNames.in ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/html/parser/create-html-entity-table)
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/ColorData.cpp)
+
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/html/DocTypeStrings)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp)
 
 
-GENERATE_TOKENIZER()
-GENERATE_USER_AGENT_STYLES()
+# Generate HTML entity table
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/html/parser/HTMLEntityNames.in
+    DEPENDS ${WEBCORE_DIR}/html/parser/create-html-entity-table
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/html/parser/create-html-entity-table -o ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/html/parser/HTMLEntityNames.in
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp)
+
+
+# Generate tokenizer
+FILE(TO_NATIVE_PATH ${PERL_EXECUTABLE} PERL_EXECUTABLE_NATIVE_PATH)
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/tokenizer.cpp
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/maketokenizer
+    DEPENDS ${WEBCORE_DIR}/css/tokenizer.flex
+    COMMAND ${FLEX_EXECUTABLE} -t ${WEBCORE_DIR}/css/tokenizer.flex | ${PERL_EXECUTABLE_NATIVE_PATH} ${WEBCORE_DIR}/css/maketokenizer > ${DERIVED_SOURCES_DIR}/tokenizer.cpp
+    VERBATIM)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
+
+
+# Generate CSS property names
+ADD_CUSTOM_COMMAND (
+    OUTPUT ${DERIVED_SOURCES_DIR}/CSSPropertyNames.in ${DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/makeprop.pl
+    DEPENDS ${WebCore_CSS_PROPERTY_NAMES}
+    WORKING_DIRECTORY ${DERIVED_SOURCES_DIR}
+    COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_PROPERTY_NAMES} > ${DERIVED_SOURCES_DIR}/CSSPropertyNames.in
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makeprop.pl
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
+
+
+# Generate CSS value keywords
+ADD_CUSTOM_COMMAND (
+    OUTPUT ${DERIVED_SOURCES_DIR}/CSSValueKeywords.in ${DERIVED_SOURCES_DIR}/CSSValueKeywords.h ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp ${DERIVED_SOURCES_DIR}/CSSValueKeywords.gperf
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/makevalues.pl
+    DEPENDS ${WebCore_CSS_VALUE_KEYWORDS}
+    WORKING_DIRECTORY ${DERIVED_SOURCES_DIR}
+    COMMAND ${PERL_EXECUTABLE} -ne "print lc" ${WebCore_CSS_VALUE_KEYWORDS} > ${DERIVED_SOURCES_DIR}/CSSValueKeywords.in
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/makevalues.pl
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
+
+
+# Generate user agent styles
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp ${DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/make-css-file-arrays.pl
+    DEPENDS ${WebCore_USER_AGENT_STYLE_SHEETS}
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/css/make-css-file-arrays.pl ${DERIVED_SOURCES_DIR}/UserAgentStyleSheets.h ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp ${WebCore_USER_AGENT_STYLE_SHEETS}
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 
 GENERATE_GRAMMAR(cssyy ${WEBCORE_DIR}/css/CSSGrammar.y ${DERIVED_SOURCES_DIR}/CSSGrammar.h ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp)
@@ -2033,17 +2164,8 @@ GENERATE_GRAMMAR(xpathyy ${WEBCORE_DIR}/xml/XPathGrammar.y ${DERIVED_SOURCES_DIR
 LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp)
 
 
-GENERATE_CSS_PROPERTY_NAMES()
-GENERATE_CSS_VALUE_KEYWORDS()
 
-
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/HashTools.h DocTypeStrings.cpp CSSValueKeywords.cpp CSSPropertyNames.cpp ColorData.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 
 GENERATE_DOM_NAMES(HTML ${WEBCORE_DIR}/html/HTMLAttributeNames.in ${WEBCORE_DIR}/html/HTMLTagNames.in "${HTML_FEATURES}")

@@ -29,9 +29,12 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "webkitdownload.h"
+#include "webkitdownloadprivate.h"
 #include "webkitenumtypes.h"
 #include "webkitmarshal.h"
+#include "webkitnetworkrequestprivate.h"
 #include "webkitnetworkresponse.h"
+#include "webkitnetworkresponseprivate.h"
 #include "webkitprivate.h"
 #include <wtf/text/CString.h>
 
@@ -68,8 +71,6 @@ class DownloadClient : public Noncopyable, public ResourceHandleClient {
     private:
         WebKitDownload* m_download;
 };
-
-#define WEBKIT_DOWNLOAD_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_DOWNLOAD, WebKitDownloadPrivate))
 
 struct _WebKitDownloadPrivate {
     gchar* destinationURI;
@@ -387,7 +388,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
 
 static void webkit_download_init(WebKitDownload* download)
 {
-    WebKitDownloadPrivate* priv = WEBKIT_DOWNLOAD_GET_PRIVATE(download);
+    WebKitDownloadPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(download, WEBKIT_TYPE_DOWNLOAD, WebKitDownloadPrivate);
     download->priv = priv;
 
     priv->downloadClient = new DownloadClient(download);
@@ -593,7 +594,7 @@ WebKitNetworkResponse* webkit_download_get_network_response(WebKitDownload* down
 static void webkit_download_set_response(WebKitDownload* download, const ResourceResponse& response)
 {
     WebKitDownloadPrivate* priv = download->priv;
-    priv->networkResponse = webkit_network_response_new_with_core_response(response);
+    priv->networkResponse = kitNew(response);
 
     if (!response.isNull() && !response.suggestedFilename().isEmpty())
         webkit_download_set_suggested_filename(download, response.suggestedFilename().utf8().data());

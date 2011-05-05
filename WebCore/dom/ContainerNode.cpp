@@ -379,10 +379,14 @@ static void willRemoveChildren(ContainerNode* container)
     container->document()->nodeChildrenWillBeRemoved(container);
     container->document()->incDOMTreeVersion();
 
-    // FIXME: Adding new children from event handlers can cause an infinite loop here.
-    for (RefPtr<Node> child = container->firstChild(); child; child = child->nextSibling()) {
+    NodeVector children;
+    for (Node* n = container->firstChild(); n; n = n->nextSibling())
+        children.append(n);
+
+    for (NodeVector::const_iterator it = children.begin(); it != children.end(); it++) {
+        Node* child = it->get();
         // fire removed from document mutation events.
-        dispatchChildRemovalEvents(child.get());
+        dispatchChildRemovalEvents(child);
         child->willRemove();
     }
 }
@@ -1027,12 +1031,12 @@ static void dispatchChildInsertionEvents(Node* child)
     RefPtr<Document> document = child->document();
 
     if (c->parentNode() && document->hasListenerType(Document::DOMNODEINSERTED_LISTENER))
-        c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeInsertedEvent, true, c->parentNode()));
+        c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeInsertedEvent, true, c->parentNode()));
 
     // dispatch the DOMNodeInsertedIntoDocument event to all descendants
     if (c->inDocument() && document->hasListenerType(Document::DOMNODEINSERTEDINTODOCUMENT_LISTENER)) {
         for (; c; c = c->traverseNextNode(child))
-            c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeInsertedIntoDocumentEvent, false));
+            c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeInsertedIntoDocumentEvent, false));
     }
 }
 
@@ -1049,12 +1053,12 @@ static void dispatchChildRemovalEvents(Node* child)
 
     // dispatch pre-removal mutation events
     if (c->parentNode() && document->hasListenerType(Document::DOMNODEREMOVED_LISTENER))
-        c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeRemovedEvent, true, c->parentNode()));
+        c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeRemovedEvent, true, c->parentNode()));
 
     // dispatch the DOMNodeRemovedFromDocument event to all descendants
     if (c->inDocument() && document->hasListenerType(Document::DOMNODEREMOVEDFROMDOCUMENT_LISTENER)) {
         for (; c; c = c->traverseNextNode(child))
-            c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeRemovedFromDocumentEvent, false));
+            c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeRemovedFromDocumentEvent, false));
     }
 }
 

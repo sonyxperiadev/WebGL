@@ -16,9 +16,11 @@ SOURCES += \
     wtf/qt/MainThreadQt.cpp \
     wtf/qt/StringQt.cpp \
     wtf/qt/ThreadingQt.cpp \
-    wtf/PageAllocation.cpp \
+    wtf/PageAllocationAligned.cpp \
+    wtf/PageBlock.cpp \
     wtf/RandomNumber.cpp \
     wtf/RefCountedLeakCounter.cpp \
+    wtf/StackBounds.cpp \
     wtf/ThreadingNone.cpp \
     wtf/Threading.cpp \
     wtf/TypeTraits.cpp \
@@ -43,3 +45,6 @@ contains(DEFINES, USE_GSTREAMER=1) {
     SOURCES += wtf/TCSystemAlloc.cpp
 }
 
+unix:!symbian: SOURCES += wtf/OSAllocatorPosix.cpp
+symbian: SOURCES += wtf/OSAllocatorSymbian.cpp
+win*|wince*: SOURCES += wtf/OSAllocatorWin.cpp

@@ -201,6 +201,21 @@ void QWEBKIT_EXPORT qtwebkit_webframe_scrollRecursively(QWebFrame* qFrame, int d
     } while (qFrame);
 }
 
+static inline ResourceRequestCachePolicy cacheLoadControlToCachePolicy(uint cacheLoadControl)
+{
+    switch (cacheLoadControl) {
+    case QNetworkRequest::AlwaysNetwork:
+        return WebCore::ReloadIgnoringCacheData;
+    case QNetworkRequest::PreferCache:
+        return WebCore::ReturnCacheDataElseLoad;
+    case QNetworkRequest::AlwaysCache:
+        return WebCore::ReturnCacheDataDontLoad;
+    default:
+        break;
+    }
+    return WebCore::UseProtocolCachePolicy;
+}
+
 QWebFrameData::QWebFrameData(WebCore::Page* parentPage, WebCore::Frame* parentFrame,
                              WebCore::HTMLFrameOwnerElement* ownerFrameElement,
                              const WTF::String& frameName)
@@ -409,6 +424,34 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
     }
 }
 
+void QWebFrame::orientationChanged()
+{
+#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+    int orientation;
+    WebCore::Frame* frame = QWebFramePrivate::core(this);
+
+    switch (d->m_orientation.reading()->orientation()) {
+    case QtMobility::QOrientationReading::TopUp:
+        orientation = 0;
+        break;
+    case QtMobility::QOrientationReading::TopDown:
+        orientation = 180;
+        break;
+    case QtMobility::QOrientationReading::LeftUp:
+        orientation = -90;
+        break;
+    case QtMobility::QOrientationReading::RightUp:
+        orientation = 90;
+        break;
+    case QtMobility::QOrientationReading::FaceUp:
+    case QtMobility::QOrientationReading::FaceDown:
+        // WebCore unable to handle it
+    default:
+        return;
+    }
+    frame->sendOrientationChangeEvent(orientation);
+#endif
+}
 /*!
     \class QWebFrame
     \since 4.4
@@ -483,6 +526,10 @@ QWebFrame::QWebFrame(QWebPage *parent, QWebFrameData *frameData)
         WebCore::ResourceRequest request(frameData->url, frameData->referrer);
         d->frame->loader()->load(request, frameData->name, false);
     }
+#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(orientationChanged()));
+    d->m_orientation.start();
+#endif
 }
 
 QWebFrame::QWebFrame(QWebFrame *parent, QWebFrameData *frameData)
@@ -491,6 +538,10 @@ QWebFrame::QWebFrame(QWebFrame *parent, QWebFrameData *frameData)
 {
     d->page = parent->d->page;
     d->init(this, frameData);
+#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(orientationChanged()));
+    d->m_orientation.start();
+#endif
 }
 
 QWebFrame::~QWebFrame()
@@ -837,9 +888,22 @@ void QWebFrame::load(const QNetworkRequest &req,
         case QNetworkAccessManager::DeleteOperation:
             request.setHTTPMethod("DELETE");
             break;
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
+        case QNetworkAccessManager::CustomOperation:
+            request.setHTTPMethod(req.attribute(QNetworkRequest::CustomVerbAttribute).toByteArray().constData());
+            break;
+#endif
         case QNetworkAccessManager::UnknownOperation:
             // eh?
             break;
+    }
+
+    QVariant cacheLoad = req.attribute(QNetworkRequest::CacheLoadControlAttribute);
+    if (cacheLoad.isValid()) {
+        bool ok;
+        uint cacheLoadValue = cacheLoad.toUInt(&ok);
+        if (ok)
+            request.setCachePolicy(cacheLoadControlToCachePolicy(cacheLoadValue));
     }
 
     QList<QByteArray> httpHeaders = req.rawHeaderList();

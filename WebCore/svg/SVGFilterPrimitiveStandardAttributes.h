@@ -25,10 +25,8 @@
 #include "FilterEffect.h"
 #include "RenderSVGResource.h"
 #include "SVGAnimatedLength.h"
-#include "SVGAnimatedPropertyMacros.h"
 #include "SVGFilterBuilder.h"
 #include "SVGFilterElement.h"
-#include "SVGNames.h"
 #include "SVGStyledElement.h"
 
 #include <wtf/PassRefPtr.h>
@@ -62,11 +60,12 @@ private:
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGFilterPrimitiveStandardAttributes, SVGNames::xAttr, SVGLength, X, x)
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGFilterPrimitiveStandardAttributes, SVGNames::yAttr, SVGLength, Y, y)
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGFilterPrimitiveStandardAttributes, SVGNames::widthAttr, SVGLength, Width, width)
-    DECLARE_ANIMATED_PROPERTY_NEW(SVGFilterPrimitiveStandardAttributes, SVGNames::heightAttr, SVGLength, Height, height)
-    DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGFilterPrimitiveStandardAttributes, SVGNames::resultAttr, String, Result, result)
+    // Animated property declarations
+    DECLARE_ANIMATED_LENGTH(X, x)
+    DECLARE_ANIMATED_LENGTH(Y, y)
+    DECLARE_ANIMATED_LENGTH(Width, width)
+    DECLARE_ANIMATED_LENGTH(Height, height)
+    DECLARE_ANIMATED_STRING(Result, result)
 };
 
 } // namespace WebCore

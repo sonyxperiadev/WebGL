@@ -43,7 +43,6 @@
 #include "PingLoader.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include "loader.h"
 #include <wtf/text/StringConcatenate.h>
 
 #define PRELOAD_DEBUG 0
@@ -58,7 +57,7 @@ CachedResourceLoader::CachedResourceLoader(Document* document)
     , m_blockNetworkImage(false)
 #endif
     , m_autoLoadImages(true)
-    , m_loadInProgress(false)
+    , m_loadFinishing(false)
     , m_allowStaleResources(false)
 {
     m_cache->addCachedResourceLoader(this);
@@ -66,9 +65,7 @@ CachedResourceLoader::CachedResourceLoader(Document* document)
 
 CachedResourceLoader::~CachedResourceLoader()
 {
-    if (m_requestCount)
-        m_cache->loader()->cancelRequests(this);
-
+    cancelRequests();
     clearPreloads();
     DocumentResourceMap::iterator end = m_documentResources.end();
     for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it)
@@ -77,6 +74,18 @@ CachedResourceLoader::~CachedResourceLoader()
 
     // Make sure no requests still point to this CachedResourceLoader
     ASSERT(m_requestCount == 0);
+}
+
+CachedResource* CachedResourceLoader::cachedResource(const String& resourceURL) const 
+{
+    KURL url = m_document->completeURL(resourceURL);
+    return cachedResource(url); 
+}
+
+CachedResource* CachedResourceLoader::cachedResource(const KURL& resourceURL) const
+{
+    KURL url = MemoryCache::removeFragmentIdentifierIfNeeded(resourceURL);
+    return m_documentResources.get(url).get(); 
 }
 
 Frame* CachedResourceLoader::frame() const
@@ -95,7 +104,7 @@ void CachedResourceLoader::checkForReload(const KURL& fullURL)
     if (m_reloadedURLs.contains(fullURL.string()))
         return;
     
-    CachedResource* existing = cache()->resourceForURL(fullURL.string());
+    CachedResource* existing = cache()->resourceForURL(fullURL);
     if (!existing || existing->isPreloaded())
         return;
 
@@ -145,7 +154,7 @@ CachedImage* CachedResourceLoader::requestImage(const String& url)
         }
 #endif
         resource->setLoading(true);
-        cache()->loader()->load(this, resource, true);
+        load(resource, true);
     }
     return resource;
 }
@@ -155,14 +164,14 @@ CachedFont* CachedResourceLoader::requestFont(const String& url)
     return static_cast<CachedFont*>(requestResource(CachedResource::FontResource, url, String()));
 }
 
-CachedCSSStyleSheet* CachedResourceLoader::requestCSSStyleSheet(const String& url, const String& charset)
+CachedCSSStyleSheet* CachedResourceLoader::requestCSSStyleSheet(const String& url, const String& charset, ResourceLoadPriority priority)
 {
-    return static_cast<CachedCSSStyleSheet*>(requestResource(CachedResource::CSSStyleSheet, url, charset));
+    return static_cast<CachedCSSStyleSheet*>(requestResource(CachedResource::CSSStyleSheet, url, charset, priority));
 }
 
 CachedCSSStyleSheet* CachedResourceLoader::requestUserCSSStyleSheet(const String& url, const String& charset)
 {
-    return cache()->requestUserCSSStyleSheet(this, url, charset);
+    return cache()->requestUserCSSStyleSheet(this, KURL(KURL(), url), charset);
 }
 
 CachedScript* CachedResourceLoader::requestScript(const String& url, const String& charset)
@@ -253,9 +262,12 @@ bool CachedResourceLoader::canRequest(CachedResource::Type type, const KURL& url
     return true;
 }
 
-CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type, const String& url, const String& charset, bool isPreload)
+CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type, const String& url, const String& charset, ResourceLoadPriority priority, bool isPreload)
 {
     KURL fullURL = m_document->completeURL(url);
+    
+    // If only the fragment identifiers differ, it is the same resource.
+    fullURL = MemoryCache::removeFragmentIdentifierIfNeeded(fullURL);
 
     if (!fullURL.isValid() || !canRequest(type, fullURL))
         return 0;
@@ -272,7 +284,7 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
     checkForReload(fullURL);
 
     bool allowForHistoryOnlyResources = cachePolicy() == CachePolicyHistoryBuffer;
-    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload, allowForHistoryOnlyResources);
+    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, priority, isPreload, allowForHistoryOnlyResources);
     if (resource) {
         // Check final URL of resource to catch redirects.
         // See <https://bugs.webkit.org/show_bug.cgi?id=21963>.
@@ -326,7 +338,7 @@ void CachedResourceLoader::setAutoLoadImages(bool enable)
 #endif
 
             if (image->stillNeedsLoad())
-                cache()->loader()->load(this, image, true);
+                load(image, true);
         }
     }
 }
@@ -381,11 +393,36 @@ void CachedResourceLoader::removeCachedResource(CachedResource* resource) const
     m_documentResources.remove(resource->url());
 }
 
-void CachedResourceLoader::setLoadInProgress(bool load)
+void CachedResourceLoader::load(CachedResource* resource, bool incremental, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks)
 {
-    m_loadInProgress = load;
-    if (!load && frame())
+    incrementRequestCount(resource);
+
+    RefPtr<CachedResourceRequest> request = CachedResourceRequest::load(this, resource, incremental, securityCheck, sendResourceLoadCallbacks);
+    if (request)
+        m_requests.add(request);
+}
+
+void CachedResourceLoader::loadDone(CachedResourceRequest* request)
+{
+    m_loadFinishing = false;
+    RefPtr<CachedResourceRequest> protect(request);
+    if (request)
+        m_requests.remove(request);
+    if (frame())
         frame()->loader()->loadDone();
+    checkForPendingPreloads();
+}
+
+void CachedResourceLoader::cancelRequests()
+{
+    clearPendingPreloads();
+    Vector<CachedResourceRequest*, 256> requestsToCancel;
+    RequestSet::iterator end = m_requests.end();
+    for (RequestSet::iterator i = m_requests.begin(); i != end; ++i)
+        requestsToCancel.append((*i).get());
+
+    for (unsigned i = 0; i < requestsToCancel.size(); ++i)
+        requestsToCancel[i]->didFail(true);
 }
 
 void CachedResourceLoader::checkCacheObjectStatus(CachedResource* resource)
@@ -417,7 +454,7 @@ void CachedResourceLoader::decrementRequestCount(const CachedResource* res)
 
 int CachedResourceLoader::requestCount()
 {
-    if (loadInProgress())
+    if (m_loadFinishing)
          return m_requestCount + 1;
     return m_requestCount;
 }
@@ -455,7 +492,7 @@ void CachedResourceLoader::requestPreload(CachedResource::Type type, const Strin
     if (type == CachedResource::Script || type == CachedResource::CSSStyleSheet)
         encoding = charset.isEmpty() ? m_document->frame()->loader()->writer()->encoding() : charset;
 
-    CachedResource* resource = requestResource(type, url, encoding, true);
+    CachedResource* resource = requestResource(type, url, encoding, ResourceLoadPriorityUnresolved, true);
     if (!resource || (m_preloads && m_preloads->contains(resource)))
         return;
     resource->increasePreloadCount();

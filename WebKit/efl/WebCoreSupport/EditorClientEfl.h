@@ -110,9 +110,10 @@ public:
     virtual void updateSpellingUIWithMisspelledWord(const String&);
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
-    virtual void getGuessesForWord(const String&, WTF::Vector<String>& guesses);
+    virtual void getGuessesForWord(const String& word, const String& context, WTF::Vector<String>& guesses);
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
+    virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&) {}
 
 private:
     Evas_Object *m_view;

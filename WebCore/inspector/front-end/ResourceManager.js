@@ -30,39 +30,17 @@
 
 WebInspector.ResourceManager = function()
 {
-    this._registerNotifyHandlers(
-        "identifierForInitialRequest",
-        "willSendRequest",
-        "markResourceAsCached",
-        "didReceiveResponse",
-        "didReceiveContentLength",
-        "didFinishLoading",
-        "didFailLoading",
-        "didLoadResourceFromMemoryCache",
-        "setInitialContent",
-        "didCommitLoadForFrame",
-        "frameDetachedFromParent",
-        "didCreateWebSocket",
-        "willSendWebSocketHandshakeRequest",
-        "didReceiveWebSocketHandshakeResponse",
-        "didCloseWebSocket");
-
     this._resourcesById = {};
     this._resourcesByURL = {};
     this._resourceTreeModel = new WebInspector.ResourceTreeModel();
     InspectorBackend.cachedResources(this._processCachedResources.bind(this));
+    InspectorBackend.registerDomainDispatcher("Resources", this);
 }
 
 WebInspector.ResourceManager.prototype = {
-    _registerNotifyHandlers: function()
+    identifierForInitialRequest: function(identifier, url, loader, callStack)
     {
-        for (var i = 0; i < arguments.length; ++i)
-            WebInspector[arguments[i]] = this[arguments[i]].bind(this);
-    },
-
-    identifierForInitialRequest: function(identifier, url, loader)
-    {
-        var resource = this._createResource(identifier, url, loader);
+        var resource = this._createResource(identifier, url, loader, callStack);
 
         // It is important to bind resource url early (before scripts compile).
         this._bindResourceURL(resource);
@@ -71,12 +49,13 @@ WebInspector.ResourceManager.prototype = {
         WebInspector.panels.audits.resourceStarted(resource);
     },
 
-    _createResource: function(identifier, url, loader)
+    _createResource: function(identifier, url, loader, stackTrace)
     {
         var resource = new WebInspector.Resource(identifier, url);
         resource.loader = loader;
         if (loader)
             resource.documentURL = loader.url;
+        resource.stackTrace = stackTrace;
 
         this._resourcesById[identifier] = resource;
         return resource;
@@ -119,7 +98,7 @@ WebInspector.ResourceManager.prototype = {
         var originalResource = this._resourcesById[identifier];
         originalResource.identifier = null;
 
-        var newResource = this._createResource(identifier, redirectURL, originalResource.loader);
+        var newResource = this._createResource(identifier, redirectURL, originalResource.loader, originalResource.stackTrace);
         newResource.redirects = originalResource.redirects || [];
         delete originalResource.redirects;
         newResource.redirects.push(originalResource);
@@ -268,7 +247,6 @@ WebInspector.ResourceManager.prototype = {
             if (mainResource) {
                 WebInspector.mainResource = mainResource;
                 mainResource.isMainResource = true;
-                WebInspector.panels.network.refreshResource(mainResource); 
             }
         }
     },
@@ -428,6 +406,89 @@ WebInspector.ResourceManager.prototype = {
         }
 
         delete this._resourcesByURL[resource.url];
+    },
+
+    updateDOMStorage: function(storageId)
+    {
+        WebInspector.panels.resources.updateDOMStorage(storageId);
+    },
+
+    updateApplicationCacheStatus: function(status)
+    {
+        WebInspector.panels.resources.updateApplicationCacheStatus(status);
+    },
+
+    didGetFileSystemPath: function(root, type, origin)
+    {
+        WebInspector.panels.resources.updateFileSystemPath(root, type, origin);
+    },
+
+    didGetFileSystemError: function(type, origin)
+    {
+        WebInspector.panels.resources.updateFileSystemError(type, origin);
+    },
+
+    didGetFileSystemDisabled: function()
+    {
+        WebInspector.panels.resources.setFileSystemDisabled();
+    },
+
+    updateNetworkState: function(isNowOnline)
+    {
+        WebInspector.panels.resources.updateNetworkState(isNowOnline);
+    },
+
+    addDOMStorage: function(payload)
+    {
+        if (!WebInspector.panels.resources)
+            return;
+        var domStorage = new WebInspector.DOMStorage(
+            payload.id,
+            payload.host,
+            payload.isLocalStorage);
+        WebInspector.panels.resources.addDOMStorage(domStorage);
+    },
+
+    selectDOMStorage: function(o)
+    {
+        WebInspector.showPanel("resources");
+        WebInspector.panels.resources.selectDOMStorage(o);
+    },
+
+    addDatabase: function(payload)
+    {
+        if (!WebInspector.panels.resources)
+            return;
+        var database = new WebInspector.Database(
+            payload.id,
+            payload.domain,
+            payload.name,
+            payload.version);
+        WebInspector.panels.resources.addDatabase(database);
+    },
+
+    selectDatabase: function(o)
+    {
+        WebInspector.showPanel("resources");
+        WebInspector.panels.resources.selectDatabase(o);
+    },
+
+    sqlTransactionSucceeded: function(transactionId, columnNames, values)
+    {
+        var callback = WebInspector.Database.successCallbacks[transactionId];
+        if (!callback)
+            return;
+        delete WebInspector.Database.successCallbacks[transactionId];
+        callback(columnNames, values);
+    },
+
+    sqlTransactionFailed: function(transactionId, errorObj)
+    {
+        var callback = WebInspector.Database.errorCallbacks[transactionId];
+        if (!callback)
+            return;
+        delete WebInspector.Database.errorCallbacks[transactionId];
+        callback(errorObj);
     }
 }
 

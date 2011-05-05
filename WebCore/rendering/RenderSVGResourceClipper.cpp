@@ -38,6 +38,7 @@
 #include "SVGClipPathElement.h"
 #include "SVGElement.h"
 #include "SVGImageBufferTools.h"
+#include "SVGNames.h"
 #include "SVGRenderSupport.h"
 #include "SVGResources.h"
 #include "SVGStyledElement.h"
@@ -151,9 +152,7 @@ bool RenderSVGResourceClipper::pathOnlyClipping(GraphicsContext* context, const 
     // The SVG specification wants us to clip everything, if clip-path doesn't have a child.
     if (clipPath.isEmpty())
         clipPath.addRect(FloatRect());
-    context->beginPath();
-    context->addPath(clipPath);
-    context->clipPath(clipRule);
+    context->clipPath(clipPath, clipRule);
     return true;
 }
 

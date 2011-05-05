@@ -98,6 +98,8 @@ WebInspector.TimelinePanel = function()
     this._calculator._showShortEvents = this.toggleFilterButton.toggled;
     this._markTimelineRecords = [];
     this._expandOffset = 15;
+
+    InspectorBackend.registerDomainDispatcher("Timeline", this);
 }
 
 // Define row height, should be in sync with styles for timeline graphs.
@@ -283,12 +285,12 @@ WebInspector.TimelinePanel.prototype = {
         this._scheduleRefresh(true);
     },
 
-    timelineWasStarted: function()
+    timelineProfilerWasStarted: function()
     {
         this.toggleTimelineButton.toggled = true;
     },
 
-    timelineWasStopped: function()
+    timelineProfilerWasStopped: function()
     {
         this.toggleTimelineButton.toggled = false;
     },
@@ -961,7 +963,7 @@ WebInspector.TimelinePanel.FormattedRecord.prototype = {
                     contentHelper._appendLinkRow(WebInspector.UIString("Script"), this.data.url, this.data.lineNumber);
                 break;
             case recordTypes.Paint:
-                contentHelper._appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("%d × %d", this.data.x, this.data.y));
+                contentHelper._appendTextRow(WebInspector.UIString("Location"), WebInspector.UIString("(%d, %d)", this.data.x, this.data.y));
                 contentHelper._appendTextRow(WebInspector.UIString("Dimensions"), WebInspector.UIString("%d × %d", this.data.width, this.data.height));
             case recordTypes.RecalculateStyles: // We don't want to see default details.
                 break;

@@ -165,13 +165,13 @@ bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* 
 
     if (resourceMode & ApplyToTextMode) {
         if (resourceMode & ApplyToFillMode) {
-            context->setTextDrawingMode(cTextFill);
+            context->setTextDrawingMode(TextModeFill);
 
 #if PLATFORM(CG)
             context->applyFillPattern();
 #endif
         } else if (resourceMode & ApplyToStrokeMode) {
-            context->setTextDrawingMode(cTextStroke);
+            context->setTextDrawingMode(TextModeStroke);
 
 #if PLATFORM(CG)
             context->applyStrokePattern();
@@ -182,16 +182,16 @@ bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* 
     return true;
 }
 
-void RenderSVGResourcePattern::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode)
+void RenderSVGResourcePattern::postApplyResource(RenderObject*, GraphicsContext*& context, unsigned short resourceMode, const Path* path)
 {
     ASSERT(context);
     ASSERT(resourceMode != ApplyToDefaultMode);
 
-    if (!(resourceMode & ApplyToTextMode)) {
+    if (path && !(resourceMode & ApplyToTextMode)) {
         if (resourceMode & ApplyToFillMode)
-            context->fillPath();
+            context->fillPath(*path);
         else if (resourceMode & ApplyToStrokeMode)
-            context->strokePath();
+            context->strokePath(*path);
     }
 
     context->restore();

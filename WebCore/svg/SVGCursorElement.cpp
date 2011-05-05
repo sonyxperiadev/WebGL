@@ -25,10 +25,15 @@
 
 #include "Attr.h"
 #include "Document.h"
-#include "SVGLength.h"
 #include "SVGNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGCursorElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGCursorElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_STRING(SVGCursorElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGCursorElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 inline SVGCursorElement::SVGCursorElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
@@ -88,10 +93,11 @@ void SVGCursorElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGElement::svgAttributeChanged(attrName);
 
-    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
-        SVGTests::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGURIReference::isKnownAttribute(attrName)) {
+    if (attrName == SVGNames::xAttr
+        || attrName == SVGNames::yAttr
+        || SVGTests::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
+        || SVGURIReference::isKnownAttribute(attrName)) {
         HashSet<SVGElement*>::const_iterator it = m_clients.begin();
         HashSet<SVGElement*>::const_iterator end = m_clients.end();
 

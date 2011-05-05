@@ -472,6 +472,10 @@ public:
     // like GL_FLOAT, GL_INT, etc.
     int sizeInBytes(int type);
 
+    // Helper to texImage2D with pixel==0 case: pixels are initialized to 0.
+    // Return true if no GL error is synthesized.
+    bool texImage2DResourceSafe(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type);
+
     bool isGLES2Compliant() const;
 
     //----------------------------------------------------------------------
@@ -536,9 +540,11 @@ public:
         SourceFormatRGBA8 = 0,
         SourceFormatRGBA16Little,
         SourceFormatRGBA16Big,
+        SourceFormatRGBA32F,
         SourceFormatRGB8,
         SourceFormatRGB16Little,
         SourceFormatRGB16Big,
+        SourceFormatRGB32F,
         SourceFormatBGR8,
         SourceFormatBGRA8,
         SourceFormatBGRA16Little,
@@ -553,15 +559,18 @@ public:
         SourceFormatR8,
         SourceFormatR16Little,
         SourceFormatR16Big,
+        SourceFormatR32F,
         SourceFormatRA8,
         SourceFormatRA16Little,
         SourceFormatRA16Big,
+        SourceFormatRA32F,
         SourceFormatAR8,
         SourceFormatAR16Little,
         SourceFormatAR16Big,
         SourceFormatA8,
         SourceFormatA16Little,
         SourceFormatA16Big,
+        SourceFormatA32F,
         SourceFormatNumFormats
     };
 

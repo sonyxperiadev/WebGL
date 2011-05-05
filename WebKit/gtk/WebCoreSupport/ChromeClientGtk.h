@@ -110,6 +110,8 @@ namespace WebKit {
 
         virtual void setToolTip(const WTF::String&, WebCore::TextDirection);
 
+        virtual void dispatchViewportDataDidChange(const WebCore::ViewportArguments& arguments) const;
+
         virtual void print(WebCore::Frame*);
 #if ENABLE(DATABASE)
         virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String&);
@@ -141,6 +143,12 @@ namespace WebKit {
         virtual bool supportsFullscreenForNode(const WebCore::Node*);
         virtual void enterFullscreenForNode(WebCore::Node*);
         virtual void exitFullscreenForNode(WebCore::Node*);
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+        virtual bool supportsFullScreenForElement(const WebCore::Element*);
+        virtual void enterFullScreenForElement(WebCore::Element*);
+        virtual void exitFullScreenForElement(WebCore::Element*);
 #endif
 
     private:

@@ -24,13 +24,20 @@
 
 #include "Attr.h"
 #include "FEDiffuseLighting.h"
+#include "RenderStyle.h"
 #include "SVGColor.h"
 #include "SVGFELightElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGRenderStyle.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFEDiffuseLightingElement, SVGNames::inAttr, In1, in1)
+DEFINE_ANIMATED_NUMBER(SVGFEDiffuseLightingElement, SVGNames::diffuseConstantAttr, DiffuseConstant, diffuseConstant)
+DEFINE_ANIMATED_NUMBER(SVGFEDiffuseLightingElement, SVGNames::surfaceScaleAttr, SurfaceScale, surfaceScale)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEDiffuseLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthXIdentifier(), KernelUnitLengthX, kernelUnitLengthX)
+DEFINE_ANIMATED_NUMBER_MULTIPLE_WRAPPERS(SVGFEDiffuseLightingElement, SVGNames::kernelUnitLengthAttr, kernelUnitLengthYIdentifier(), KernelUnitLengthY, kernelUnitLengthY)
 
 inline SVGFEDiffuseLightingElement::SVGFEDiffuseLightingElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -130,11 +137,11 @@ PassRefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* fi
 
 PassRefPtr<LightSource> SVGFEDiffuseLightingElement::findLights() const
 {
-    for (Node* n = firstChild(); n; n = n->nextSibling()) {
-        if (n->hasTagName(SVGNames::feDistantLightTag) ||
-            n->hasTagName(SVGNames::fePointLightTag) ||
-            n->hasTagName(SVGNames::feSpotLightTag)) {
-            SVGFELightElement* lightNode = static_cast<SVGFELightElement*>(n); 
+    for (Node* node = firstChild(); node; node = node->nextSibling()) {
+        if (node->hasTagName(SVGNames::feDistantLightTag)
+            || node->hasTagName(SVGNames::fePointLightTag)
+            || node->hasTagName(SVGNames::feSpotLightTag)) {
+            SVGFELightElement* lightNode = static_cast<SVGFELightElement*>(node); 
             return lightNode->lightSource();
         }
     }

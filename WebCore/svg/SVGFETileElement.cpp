@@ -23,10 +23,14 @@
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "SVGFETileElement.h"
 
-#include "Attr.h"
+#include "Attribute.h"
+#include "SVGNames.h"
 #include "SVGRenderStyle.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFETileElement, SVGNames::inAttr, In1, in1)
 
 inline SVGFETileElement::SVGFETileElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)

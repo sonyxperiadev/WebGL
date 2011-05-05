@@ -23,43 +23,44 @@
 
 #if ENABLE(SVG)
 #include "Gradient.h"
-#include "SVGAnimatedPropertyMacros.h"
+#include "SVGAnimatedBoolean.h"
+#include "SVGAnimatedEnumeration.h"
 #include "SVGAnimatedTransformList.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGStyledElement.h"
-#include "SVGTransformList.h"
 #include "SVGURIReference.h"
 
 namespace WebCore {
 
-    class SVGGradientElement : public SVGStyledElement,
-                               public SVGURIReference,
-                               public SVGExternalResourcesRequired {
-    public:
-        Vector<Gradient::ColorStop> buildStops();
+class SVGGradientElement : public SVGStyledElement,
+                           public SVGURIReference,
+                           public SVGExternalResourcesRequired {
+public:
+    Vector<Gradient::ColorStop> buildStops();
  
-    protected:
-        SVGGradientElement(const QualifiedName&, Document*);
+protected:
+    SVGGradientElement(const QualifiedName&, Document*);
 
-        virtual void parseMappedAttribute(Attribute*);
-        virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void synchronizeProperty(const QualifiedName&);
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void svgAttributeChanged(const QualifiedName&);
+    virtual void synchronizeProperty(const QualifiedName&);
 
-    private:
-        virtual bool needsPendingResourceHandling() const { return false; }
+private:
+    virtual bool needsPendingResourceHandling() const { return false; }
 
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::spreadMethodAttr, int, SpreadMethod, spreadMethod)
-        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::gradientUnitsAttr, int, GradientUnits, gradientUnits)
-        DECLARE_ANIMATED_TRANSFORM_LIST_PROPERTY_NEW(SVGGradientElement, SVGNames::gradientTransformAttr, SVGTransformList, GradientTransform, gradientTransform)
+    // Animated property declarations
+    DECLARE_ANIMATED_ENUMERATION(SpreadMethod, spreadMethod)
+    DECLARE_ANIMATED_ENUMERATION(GradientUnits, gradientUnits)
+    DECLARE_ANIMATED_TRANSFORM_LIST(GradientTransform, gradientTransform)
 
-        // SVGURIReference
-        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, XLinkNames::hrefAttr, String, Href, href)
+    // SVGURIReference
+    DECLARE_ANIMATED_STRING(Href, href)
 
-        // SVGExternalResourcesRequired
-        DECLARE_ANIMATED_STATIC_PROPERTY_NEW(SVGGradientElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
-    };
+    // SVGExternalResourcesRequired
+    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+};
 
 } // namespace WebCore
 

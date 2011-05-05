@@ -1004,22 +1004,71 @@ bool EventHandler::scrollOverflow(ScrollDirection direction, ScrollGranularity g
     return false;
 }
 
+bool EventHandler::logicalScrollOverflow(ScrollLogicalDirection direction, ScrollGranularity granularity, Node* startingNode)
+{
+    Node* node = startingNode;
+
+    if (!node)
+        node = m_frame->document()->focusedNode();
+
+    if (!node)
+        node = m_mousePressNode.get();
+    
+    if (node) {
+        RenderObject* r = node->renderer();
+        if (r && !r->isListBox() && r->enclosingBox()->logicalScroll(direction, granularity)) {
+            setFrameWasScrolledByUser();
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool EventHandler::scrollRecursively(ScrollDirection direction, ScrollGranularity granularity, Node* startingNode)
 {
     // The layout needs to be up to date to determine if we can scroll. We may be
     // here because of an onLoad event, in which case the final layout hasn't been performed yet.
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
-    bool handled = scrollOverflow(direction, granularity, startingNode);
-    if (!handled) {
-        Frame* frame = m_frame;
-        do {
-            FrameView* view = frame->view();
-            handled = view ? view->scroll(direction, granularity) : false;
-            frame = frame->tree()->parent();
-        } while (!handled && frame);
-     }
+    if (scrollOverflow(direction, granularity, startingNode))
+        return true;    
+    Frame* frame = m_frame;
+    FrameView* view = frame->view();
+    if (view && view->scroll(direction, granularity))
+        return true;
+    frame = frame->tree()->parent();
+    if (!frame)
+        return false;
+    return frame->eventHandler()->scrollRecursively(direction, granularity, m_frame->document()->ownerElement());
+}
 
-    return handled;
+bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, ScrollGranularity granularity, Node* startingNode)
+{
+    // The layout needs to be up to date to determine if we can scroll. We may be
+    // here because of an onLoad event, in which case the final layout hasn't been performed yet.
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
+    if (logicalScrollOverflow(direction, granularity, startingNode))
+        return true;    
+    Frame* frame = m_frame;
+    FrameView* view = frame->view();
+    
+    bool scrolled = false;
+#if PLATFORM(MAC)
+    // Mac also resets the scroll position in the inline direction.
+    if (granularity == ScrollByDocument && view && view->logicalScroll(ScrollInlineDirectionBackward, ScrollByDocument))
+        scrolled = true;
+#endif
+    if (view && view->logicalScroll(direction, granularity))
+        scrolled = true;
+    
+    if (scrolled)
+        return true;
+    
+    frame = frame->tree()->parent();
+    if (!frame)
+        return false;
+
+    return frame->eventHandler()->logicalScrollRecursively(direction, granularity, m_frame->document()->ownerElement());
 }
 
 IntPoint EventHandler::currentMousePosition() const
@@ -1348,7 +1397,7 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
         // If a mouse event handler changes the input element type to one that has a widget associated,
         // we'd like to EventHandler::handleMousePressEvent to pass the event to the widget and thus the
         // event target node can't still be the shadow node.
-        if (mev.targetNode()->isShadowNode() && mev.targetNode()->shadowParentNode()->hasTagName(inputTag)) {
+        if (mev.targetNode()->isShadowRoot() && mev.targetNode()->shadowParentNode()->hasTagName(inputTag)) {
             HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
             mev = m_frame->document()->prepareMouseEvent(request, documentPoint, mouseEvent);
         }
@@ -1876,20 +1925,16 @@ bool EventHandler::dispatchMouseEvent(const AtomicString& eventType, Node* targe
         // is expected by some sites that rely on onChange handlers running
         // from form fields before the button click is processed.
         Node* node = m_nodeUnderMouse.get();
-        RenderObject* renderer = node ? node->renderer() : 0;
 
-        // Walk up the render tree to search for a node to focus.
-        // Walking up the DOM tree wouldn't work for shadow trees, like those behind the engine-based text fields.
-        // FIXME: Rework to use shadowParent. No need to traverse with the render tree.
-        while (renderer) {
-            node = renderer->node();
-            if (node && node->isMouseFocusable()) {
-                // To fix <rdar://problem/4895428> Can't drag selected ToDo, we don't focus a 
-                // node on mouse down if it's selected and inside a focused node. It will be 
+        // Walk up the DOM tree to search for a node to focus.
+        while (node) {
+            if (node->isMouseFocusable()) {
+                // To fix <rdar://problem/4895428> Can't drag selected ToDo, we don't focus a
+                // node on mouse down if it's selected and inside a focused node. It will be
                 // focused if the user does a mouseup over it, however, because the mouseup
                 // will set a selection inside it, which will call setFocuseNodeIfNeeded.
                 ExceptionCode ec = 0;
-                Node* n = node->isShadowNode() ? node->shadowParentNode() : node;
+                Node* n = node->isShadowRoot() ? node->shadowParentNode() : node;
                 if (m_frame->selection()->isRange()
                     && m_frame->selection()->toNormalizedRange()->compareNode(n, ec) == Range::NODE_INSIDE
                     && n->isDescendantOf(m_frame->document()->focusedNode()))
@@ -1897,8 +1942,7 @@ bool EventHandler::dispatchMouseEvent(const AtomicString& eventType, Node* targe
                     
                 break;
             }
-            
-            renderer = renderer->parent();
+            node = node->parentOrHostNode();
         }
 
         // If focus shift is blocked, we eat the event.  Note we should never clear swallowEvent
@@ -2702,8 +2746,8 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent*)
 
 void EventHandler::defaultSpaceEventHandler(KeyboardEvent* event)
 {
-    ScrollDirection direction = event->shiftKey() ? ScrollUp : ScrollDown;
-    if (scrollOverflow(direction, ScrollByPage)) {
+    ScrollLogicalDirection direction = event->shiftKey() ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward;
+    if (logicalScrollOverflow(direction, ScrollByPage)) {
         event->setDefaultHandled();
         return;
     }
@@ -2712,7 +2756,7 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent* event)
     if (!view)
         return;
 
-    if (view->scroll(direction, ScrollByPage))
+    if (view->logicalScroll(direction, ScrollByPage))
         event->setDefaultHandled();
 }
 

@@ -216,7 +216,6 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/ProfileNode.h \
 	JavaScriptCore/profiler/Profiler.cpp \
 	JavaScriptCore/profiler/Profiler.h \
-	JavaScriptCore/runtime/AlignedMemoryAllocator.h \
 	JavaScriptCore/runtime/ArgList.cpp \
 	JavaScriptCore/runtime/ArgList.h \
 	JavaScriptCore/runtime/Arguments.cpp \
@@ -470,14 +469,18 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Noncopyable.h \
 	JavaScriptCore/wtf/NotFound.h \
 	JavaScriptCore/wtf/NullPtr.h \
+	JavaScriptCore/wtf/OSAllocator.h \
 	JavaScriptCore/wtf/OwnArrayPtr.h \
 	JavaScriptCore/wtf/OwnFastMallocPtr.h \
 	JavaScriptCore/wtf/OwnArrayPtrCommon.h \
 	JavaScriptCore/wtf/OwnPtrCommon.h \
 	JavaScriptCore/wtf/OwnPtr.h \
-	JavaScriptCore/wtf/PageAllocation.cpp \
 	JavaScriptCore/wtf/PageAllocation.h \
+	JavaScriptCore/wtf/PageAllocationAligned.cpp \
+	JavaScriptCore/wtf/PageAllocationAligned.h \
 	JavaScriptCore/wtf/PageReservation.h \
+	JavaScriptCore/wtf/PageBlock.cpp \
+	JavaScriptCore/wtf/PageBlock.h \
 	JavaScriptCore/wtf/PassOwnArrayPtr.h \
 	JavaScriptCore/wtf/PassOwnPtr.h \
 	JavaScriptCore/wtf/PassRefPtr.h \
@@ -494,6 +497,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/RefPtrHashMap.h \
 	JavaScriptCore/wtf/RetainPtr.h \
 	JavaScriptCore/wtf/SegmentedVector.h \
+    JavaScriptCore/wtf/StackBounds.cpp \
+    JavaScriptCore/wtf/StackBounds.h \
 	JavaScriptCore/wtf/StaticConstructors.h \
 	JavaScriptCore/wtf/StdLibExtras.h \
 	JavaScriptCore/wtf/StringExtras.h \
@@ -554,11 +559,13 @@ javascriptcore_sources += \
 
 if TARGET_WIN32
 javascriptcore_sources += \
-	JavaScriptCore/runtime/MarkStackWin.cpp
+	JavaScriptCore/runtime/MarkStackWin.cpp \
+	JavaScriptCore/wtf/OSAllocatorWin.cpp
 else
 javascriptcore_sources += \
 	JavaScriptCore/jit/ExecutableAllocatorFixedVMPool.cpp \
-	JavaScriptCore/runtime/MarkStackPosix.cpp
+	JavaScriptCore/runtime/MarkStackPosix.cpp \
+	JavaScriptCore/wtf/OSAllocatorPosix.cpp
 endif
 
 # ----

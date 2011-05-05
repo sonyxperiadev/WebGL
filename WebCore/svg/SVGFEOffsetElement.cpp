@@ -23,9 +23,15 @@
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "SVGFEOffsetElement.h"
 
-#include "Attr.h"
+#include "Attribute.h"
+#include "SVGNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFEOffsetElement, SVGNames::inAttr, In1, in1)
+DEFINE_ANIMATED_NUMBER(SVGFEOffsetElement, SVGNames::dxAttr, Dx, dx)
+DEFINE_ANIMATED_NUMBER(SVGFEOffsetElement, SVGNames::dyAttr, Dy, dy)
 
 inline SVGFEOffsetElement::SVGFEOffsetElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)

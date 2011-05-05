@@ -48,7 +48,8 @@ RootInlineBox::RootInlineBox(RenderBlock* block)
     , m_paginationStrut(0)
     , m_blockLogicalHeight(0)
     , m_baselineType(AlphabeticBaseline)
-    , m_containsRuby(false)
+    , m_hasAnnotationsBefore(false)
+    , m_hasAnnotationsAfter(false)
 {
     setIsHorizontal(block->style()->isHorizontalWritingMode());
 }
@@ -150,8 +151,7 @@ void RootInlineBox::addHighlightOverflow()
     // Highlight acts as a selection inflation.
     FloatRect rootRect(0, selectionTop(), logicalWidth(), selectionHeight());
     IntRect inflatedRect = enclosingIntRect(page->chrome()->client()->customHighlightRect(renderer()->node(), renderer()->style()->highlight(), rootRect));
-    setInlineDirectionOverflowPositions(leftLayoutOverflow(), rightLayoutOverflow(), min(leftVisualOverflow(), inflatedRect.x()), max(rightVisualOverflow(), inflatedRect.right()));
-    setBlockDirectionOverflowPositions(topLayoutOverflow(), bottomLayoutOverflow(), min(topVisualOverflow(), inflatedRect.y()), max(bottomVisualOverflow(), inflatedRect.bottom()));
+    setOverflowFromLogicalRects(inflatedRect, inflatedRect);
 }
 
 void RootInlineBox::paintCustomHighlight(PaintInfo& paintInfo, int tx, int ty, const AtomicString& highlightType)
@@ -249,20 +249,20 @@ int RootInlineBox::alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAn
     int lineTopIncludingMargins = heightOfBlock;
     int lineBottomIncludingMargins = heightOfBlock;
     bool setLineTop = false;
-    bool containsRuby = false;
+    bool hasAnnotationsBefore = false;
+    bool hasAnnotationsAfter = false;
     placeBoxesInBlockDirection(heightOfBlock, maxHeight, maxAscent, noQuirksMode, lineTop, lineBottom, setLineTop,
-                               lineTopIncludingMargins, lineBottomIncludingMargins, containsRuby, m_baselineType);
-    computeBlockDirectionOverflow(lineTop, lineBottom, noQuirksMode, textBoxDataMap);
+                               lineTopIncludingMargins, lineBottomIncludingMargins, hasAnnotationsBefore, hasAnnotationsAfter, m_baselineType);
+    m_hasAnnotationsBefore = hasAnnotationsBefore;
+    m_hasAnnotationsAfter = hasAnnotationsAfter;
     setLineTopBottomPositions(lineTop, lineBottom);
 
-    m_containsRuby = containsRuby;
-    
-    int rubyAdjustment = blockDirectionRubyAdjustment();
-    if (rubyAdjustment) {
+    int annotationsAdjustment = beforeAnnotationsAdjustment();
+    if (annotationsAdjustment) {
         // FIXME: Need to handle pagination here. We might have to move to the next page/column as a result of the
         // ruby expansion.
-        adjustBlockDirectionPosition(rubyAdjustment);
-        heightOfBlock += rubyAdjustment;
+        adjustBlockDirectionPosition(annotationsAdjustment);
+        heightOfBlock += annotationsAdjustment;
     }
 
     // Detect integer overflow.
@@ -272,19 +272,35 @@ int RootInlineBox::alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAn
     return heightOfBlock + maxHeight;
 }
 
-int RootInlineBox::blockDirectionRubyAdjustment() const
+int RootInlineBox::beforeAnnotationsAdjustment() const
 {
+    int result = 0;
+
     if (!renderer()->style()->isFlippedLinesWritingMode()) {
-        if (!containsRuby())
-            return 0;
-        int highestAllowedPosition = prevRootBox() ? min(prevRootBox()->lineBottom(), lineTop()) : block()->borderBefore();
-        return computeBlockDirectionRubyAdjustment(highestAllowedPosition);
-    } else if (prevRootBox() && prevRootBox()->containsRuby()) {
-        // We have to compute the Ruby expansion for the previous line to see how much we should move.
-        int lowestAllowedPosition = max(prevRootBox()->lineBottom(), lineTop());
-        return prevRootBox()->computeBlockDirectionRubyAdjustment(lowestAllowedPosition);
+        // Annotations under the previous line may push us down.
+        if (prevRootBox() && prevRootBox()->hasAnnotationsAfter())
+            result = prevRootBox()->computeUnderAnnotationAdjustment(lineTop());
+
+        if (!hasAnnotationsBefore())
+            return result;
+
+        // Annotations over this line may push us further down.
+        int highestAllowedPosition = prevRootBox() ? min(prevRootBox()->lineBottom(), lineTop()) + result : block()->borderBefore();
+        result =  computeOverAnnotationAdjustment(highestAllowedPosition);
+    } else {
+        // Annotations under this line may push us up.
+        if (hasAnnotationsBefore())
+            result = computeUnderAnnotationAdjustment(prevRootBox() ? prevRootBox()->lineBottom() : block()->borderBefore());
+
+        if (!prevRootBox() || !prevRootBox()->hasAnnotationsAfter())
+            return result;
+
+        // We have to compute the expansion for annotations over the previous line to see how much we should move.
+        int lowestAllowedPosition = max(prevRootBox()->lineBottom(), lineTop()) - result;
+        result = prevRootBox()->computeOverAnnotationAdjustment(lowestAllowedPosition);
     }
-    return 0;
+
+    return result;
 }
 
 GapRects RootInlineBox::lineSelectionGap(RenderBlock* rootBlock, const IntPoint& rootBlockPhysicalPosition, const IntSize& offsetFromRootBlock, 
@@ -389,6 +405,10 @@ InlineBox* RootInlineBox::lastSelectedBox()
 int RootInlineBox::selectionTop() const
 {
     int selectionTop = m_lineTop;
+
+    if (m_hasAnnotationsBefore)
+        selectionTop -= !renderer()->style()->isFlippedLinesWritingMode() ? computeOverAnnotationAdjustment(m_lineTop) : computeUnderAnnotationAdjustment(m_lineTop);
+
     if (renderer()->style()->isFlippedLinesWritingMode())
         return selectionTop;
 
@@ -411,6 +431,10 @@ int RootInlineBox::selectionTop() const
 int RootInlineBox::selectionBottom() const
 {
     int selectionBottom = m_lineBottom;
+
+    if (m_hasAnnotationsAfter)
+        selectionBottom += !renderer()->style()->isFlippedLinesWritingMode() ? computeUnderAnnotationAdjustment(m_lineBottom) : computeOverAnnotationAdjustment(m_lineBottom);
+
     if (!renderer()->style()->isFlippedLinesWritingMode() || !nextRootBox())
         return selectionBottom;
 
@@ -507,6 +531,27 @@ void RootInlineBox::extractLineBoxFromRenderObject()
 void RootInlineBox::attachLineBoxToRenderObject()
 {
     block()->lineBoxes()->attachLineBox(this);
+}
+
+IntRect RootInlineBox::paddedLayoutOverflowRect(int endPadding) const
+{
+    IntRect lineLayoutOverflow = layoutOverflowRect();
+    if (!endPadding)
+        return lineLayoutOverflow;
+    
+    if (isHorizontal()) {
+        if (isLeftToRightDirection())
+            lineLayoutOverflow.shiftRightEdgeTo(max(lineLayoutOverflow.right(), logicalRight() + endPadding));
+        else
+            lineLayoutOverflow.shiftLeftEdgeTo(min(lineLayoutOverflow.x(), logicalLeft() - endPadding));
+    } else {
+        if (isLeftToRightDirection())
+            lineLayoutOverflow.shiftBottomEdgeTo(max(lineLayoutOverflow.bottom(), logicalRight() + endPadding));
+        else
+            lineLayoutOverflow.shiftTopEdgeTo(min(lineLayoutOverflow.y(), logicalRight() - endPadding));
+    }
+    
+    return lineLayoutOverflow;
 }
 
 } // namespace WebCore

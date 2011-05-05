@@ -707,26 +707,17 @@ void printErrorMessageForFrame(Frame* frame, const String& message)
 {
     if (!frame)
         return;
-    if (message.isEmpty())
-        return;
-
-    Settings* settings = frame->settings();
-    if (!settings)
-        return;
-    if (settings->privateBrowsingEnabled())
-        return;
-
-    frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String()); // FIXME: provide a real line number and source URL.
+    frame->domWindow()->printErrorMessage(message);
 }
 
 Frame* toLexicalFrame(ExecState* exec)
 {
-    return JSBindingState(exec).getActiveFrame();
+    return JSBindingState(exec).activeFrame();
 }
 
 Frame* toDynamicFrame(ExecState* exec)
 {
-    return JSBindingState(exec).getFirstFrame();
+    return JSBindingState(exec).firstFrame();
 }
 
 bool processingUserGesture()

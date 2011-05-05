@@ -133,8 +133,8 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
     Color fillColor = graphicsContext->fillColor();
 
     bool drawIntoBitmap = false;
-    int drawingMode = graphicsContext->textDrawingMode();
-    if (drawingMode == cTextFill) {
+    TextDrawingModeFlags drawingMode = graphicsContext->textDrawingMode();
+    if (drawingMode == TextModeFill) {
         if (!fillColor.alpha())
             return;
 
@@ -143,7 +143,9 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
             FloatSize offset;
             float blur;
             Color color;
-            graphicsContext->getShadow(offset, blur, color);
+            ColorSpace shadowColorSpace;
+
+            graphicsContext->getShadow(offset, blur, color, shadowColorSpace);
             drawIntoBitmap = offset.width() || offset.height() || blur;
         }
     }
@@ -205,7 +207,7 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
         ModifyWorldTransform(hdc, &xform, MWT_LEFTMULTIPLY);
     }
 
-    if (drawingMode == cTextFill) {
+    if (drawingMode == TextModeFill) {
         XFORM xform;
         xform.eM11 = 1.0;
         xform.eM12 = 0;
@@ -247,7 +249,7 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
             CGContextSaveGState(cgContext);
             CGContextConcatCTM(cgContext, initialGlyphTransform);
 
-            if (drawingMode & cTextFill) {
+            if (drawingMode & TextModeFill) {
                 CGContextAddPath(cgContext, glyphPath.get());
                 CGContextFillPath(cgContext);
                 if (font->syntheticBoldOffset()) {
@@ -257,7 +259,7 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
                     CGContextTranslateCTM(cgContext, -font->syntheticBoldOffset(), 0);
                 }
             }
-            if (drawingMode & cTextStroke) {
+            if (drawingMode & TextModeStroke) {
                 CGContextAddPath(cgContext, glyphPath.get());
                 CGContextStrokePath(cgContext);
                 if (font->syntheticBoldOffset()) {
@@ -352,16 +354,20 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* fo
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
-    graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor);
+    ColorSpace shadowColorSpace;
+    graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
 
-    bool hasSimpleShadow = graphicsContext->textDrawingMode() == cTextFill && shadowColor.isValid() && !shadowBlur;
+    bool hasSimpleShadow = graphicsContext->textDrawingMode() == TextModeFill && shadowColor.isValid() && !shadowBlur && (!graphicsContext->shadowsIgnoreTransforms() || graphicsContext->getCTM().isIdentityOrTranslationOrFlipped());
     if (hasSimpleShadow) {
         // Paint simple shadows ourselves instead of relying on CG shadows, to avoid losing subpixel antialiasing.
         graphicsContext->clearShadow();
         Color fillColor = graphicsContext->fillColor();
         Color shadowFillColor(shadowColor.red(), shadowColor.green(), shadowColor.blue(), shadowColor.alpha() * fillColor.alpha() / 255);
         graphicsContext->setFillColor(shadowFillColor, ColorSpaceDeviceRGB);
-        CGContextSetTextPosition(cgContext, point.x() + translation.width() + shadowOffset.width(), point.y() + translation.height() + shadowOffset.height());
+        float shadowTextX = point.x() + translation.width() + shadowOffset.width();
+        // If shadows are ignoring transforms, then we haven't applied the Y coordinate flip yet, so down is negative.
+        float shadowTextY = point.y() + translation.height() + shadowOffset.height() * (graphicsContext->shadowsIgnoreTransforms() ? -1 : 1);
+        CGContextSetTextPosition(cgContext, shadowTextX, shadowTextY);
         CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
         if (font->syntheticBoldOffset()) {
             CGContextSetTextPosition(cgContext, point.x() + translation.width() + shadowOffset.width() + font->syntheticBoldOffset(), point.y() + translation.height() + shadowOffset.height());

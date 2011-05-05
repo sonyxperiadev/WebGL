@@ -63,11 +63,11 @@ void sharedBufferRelease(void* info)
 }
 #endif
 
-ImageSource::ImageSource(bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
+ImageSource::ImageSource(ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
     : m_decoder(0)
     // FIXME: m_premultiplyAlpha is ignored in cg at the moment.
-    , m_premultiplyAlpha(premultiplyAlpha)
-    , m_ignoreGammaAndColorProfile(ignoreGammaAndColorProfile)
+    , m_alphaOption(alphaOption)
+    , m_gammaAndColorProfileOption(gammaAndColorProfileOption)
 {
 }
 
@@ -308,9 +308,10 @@ float ImageSource::frameDurationAtIndex(size_t index)
     }
 
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
-    // We follow WinIE's behavior and use a duration of 100 ms for any frames that specify
-    // a duration of <= 50 ms. See <http://bugs.webkit.org/show_bug.cgi?id=14413> or Radar 4051389 for more.
-    if (duration < 0.051f)
+    // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
+    // a duration of <= 10 ms. See <rdar://problem/7689300> and <http://webkit.org/b/36082>
+    // for more information.
+    if (duration < 0.011f)
         return 0.100f;
     return duration;
 }

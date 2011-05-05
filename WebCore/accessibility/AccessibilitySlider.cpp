@@ -98,6 +98,17 @@ const AtomicString& AccessibilitySlider::getAttribute(const QualifiedName& attri
 {
     return element()->getAttribute(attribute);
 }
+    
+AccessibilityObject* AccessibilitySlider::elementAccessibilityHitTest(const IntPoint& point) const
+{
+    if (m_children.size()) {
+        ASSERT(m_children.size() == 1);
+        if (m_children[0]->elementRect().contains(point))
+            return m_children[0].get();
+    }
+    
+    return axObjectCache()->getOrCreate(m_renderer);
+}
 
 bool AccessibilitySlider::accessibilityIsIgnored() const
 {
@@ -117,12 +128,12 @@ float AccessibilitySlider::valueForRange() const
 
 float AccessibilitySlider::maxValueForRange() const
 {
-    return getAttribute(maxAttr).toFloat();
+    return static_cast<float>(element()->maximum());
 }
 
 float AccessibilitySlider::minValueForRange() const
 {
-    return getAttribute(minAttr).toFloat();
+    return static_cast<float>(element()->minimum());
 }
 
 void AccessibilitySlider::setValue(const String& value)

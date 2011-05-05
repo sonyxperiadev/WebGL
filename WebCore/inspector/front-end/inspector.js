@@ -192,7 +192,7 @@ var WebInspector = {
         {
             pane.addBreakpointItem(new WebInspector.BreakpointItem(event.data));
         }
-        WebInspector.breakpointManager.addEventListener("breakpoint-added", breakpointAdded);
+        WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.BreakpointAdded, breakpointAdded);
         return pane;
     },
 
@@ -203,7 +203,7 @@ var WebInspector = {
         {
             pane.addBreakpointItem(new WebInspector.BreakpointItem(event.data));
         }
-        WebInspector.breakpointManager.addEventListener("dom-breakpoint-added", breakpointAdded);
+        WebInspector.breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.DOMBreakpointAdded, breakpointAdded);
         return pane;
     },
 
@@ -214,7 +214,7 @@ var WebInspector = {
         {
             pane.addBreakpointItem(new WebInspector.BreakpointItem(event.data));
         }
-        WebInspector.breakpointManager.addEventListener("xhr-breakpoint-added", breakpointAdded);
+        WebInspector.breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.XHRBreakpointAdded, breakpointAdded);
         return pane;
     },
 
@@ -478,7 +478,7 @@ WebInspector.loaded = function()
 {
     if ("page" in WebInspector.queryParamsObject) {
         WebInspector.socket = new WebSocket("ws://" + window.location.host + "/devtools/page/" + WebInspector.queryParamsObject.page);
-        WebInspector.socket.onmessage = function(message) { WebInspector_syncDispatch(message.data); }
+        WebInspector.socket.onmessage = function(message) { InspectorBackend.dispatch(message.data); }
         WebInspector.socket.onerror = function(error) { console.error(error); }
         WebInspector.socket.onopen = function() {
             InspectorFrontendHost.sendMessageToBackend = WebInspector.socket.send.bind(WebInspector.socket);
@@ -520,6 +520,8 @@ WebInspector.doLoadedDone = function()
     this.resourceManager = new WebInspector.ResourceManager();
     this.domAgent = new WebInspector.DOMAgent();
 
+    InspectorBackend.registerDomainDispatcher("Inspector", this);
+
     this.resourceCategories = {
         documents: new WebInspector.ResourceCategory("documents", WebInspector.UIString("Documents"), "rgb(47,102,236)"),
         stylesheets: new WebInspector.ResourceCategory("stylesheets", WebInspector.UIString("Stylesheets"), "rgb(157,231,119)"),
@@ -531,8 +533,10 @@ WebInspector.doLoadedDone = function()
         other: new WebInspector.ResourceCategory("other", WebInspector.UIString("Other"), "rgb(186,186,186)")
     };
 
-    this.breakpointManager = new WebInspector.BreakpointManager();
     this.cssModel = new WebInspector.CSSStyleModel();
+    this.debuggerModel = new WebInspector.DebuggerModel();
+
+    this.breakpointManager = new WebInspector.BreakpointManager();
 
     this.panels = {};
     this._createPanels();
@@ -609,8 +613,13 @@ WebInspector.doLoadedDone = function()
 
     InspectorBackend.setConsoleMessagesEnabled(true);
 
+    function propertyNamesCallback(names)
+    {
+        WebInspector.cssNameCompletions = new WebInspector.CSSCompletions(names);
+    }
+
     // As a DOMAgent method, this needs to happen after the frontend has loaded and the agent is available.
-    InspectorBackend.getSupportedCSSProperties(WebInspector.CSSCompletions._load);
+    InspectorBackend.getSupportedCSSProperties(propertyNamesCallback);
 }
 
 WebInspector.addPanelToolbarIcon = function(toolbarElement, panel, previousToolbarItem)
@@ -648,56 +657,16 @@ WebInspector.dispatch = function(message) {
     // This is important to LayoutTests.
     function delayDispatch()
     {
-        WebInspector_syncDispatch(message);
+        InspectorBackend.dispatch(message);
         WebInspector.pendingDispatches--;
     }
     WebInspector.pendingDispatches++;
     setTimeout(delayDispatch, 0);
 }
 
-// This function is purposely put into the global scope for easy access.
-WebInspector_syncDispatch = function(message)
-{
-    if (window.dumpInspectorProtocolMessages)
-        console.log("backend: " + ((typeof message === "string") ? message : JSON.stringify(message)));
-
-    var messageObject = (typeof message === "string") ? JSON.parse(message) : message;
-
-    var arguments = [];
-    if (messageObject.data)
-        for (var key in messageObject.data)
-            arguments.push(messageObject.data[key]);
-
-    if ("seq" in messageObject) { // just a response for some request
-        if (messageObject.success)
-            WebInspector.processResponse(messageObject.seq, arguments);
-        else {
-            WebInspector.removeResponseCallbackEntry(messageObject.seq)
-            WebInspector.reportProtocolError(messageObject);
-        }
-        return;
-    }
-
-    if (messageObject.type === "event") {
-        if (!(messageObject.event in WebInspector)) {
-            console.error("Protocol Error: Attempted to dispatch an unimplemented WebInspector method '%s'", messageObject.event);
-            return;
-        }
-        WebInspector[messageObject.event].apply(WebInspector, arguments);
-    }
-}
-
 WebInspector.dispatchMessageFromBackend = function(messageObject)
 {
     WebInspector.dispatch(messageObject);
-}
-
-WebInspector.reportProtocolError = function(messageObject)
-{
-    console.error("Protocol Error: InspectorBackend request with seq = %d failed.", messageObject.seq);
-    for (var i = 0; i < messageObject.errors.length; ++i)
-        console.error("    " + messageObject.errors[i]);
-    WebInspector.removeResponseCallbackEntry(messageObject.seq);
 }
 
 WebInspector.windowResize = function(event)
@@ -1205,21 +1174,9 @@ WebInspector.showPanel = function(panel)
     this.currentPanel = this.panels[panel];
 }
 
-WebInspector.selectDatabase = function(o)
-{
-    WebInspector.showPanel("resources");
-    WebInspector.panels.resources.selectDatabase(o);
-}
-
 WebInspector.consoleMessagesCleared = function()
 {
     WebInspector.console.clearMessages();
-}
-
-WebInspector.selectDOMStorage = function(o)
-{
-    WebInspector.showPanel("resources");
-    WebInspector.panels.resources.selectDOMStorage(o);
 }
 
 WebInspector.domContentEventFired = function(time)
@@ -1240,59 +1197,6 @@ WebInspector.loadEventFired = function(time)
     this.mainResourceLoadTime = time;
 }
 
-WebInspector.addDatabase = function(payload)
-{
-    if (!this.panels.resources)
-        return;
-    var database = new WebInspector.Database(
-        payload.id,
-        payload.domain,
-        payload.name,
-        payload.version);
-    this.panels.resources.addDatabase(database);
-}
-
-WebInspector.addDOMStorage = function(payload)
-{
-    if (!this.panels.resources)
-        return;
-    var domStorage = new WebInspector.DOMStorage(
-        payload.id,
-        payload.host,
-        payload.isLocalStorage);
-    this.panels.resources.addDOMStorage(domStorage);
-}
-
-WebInspector.updateDOMStorage = function(storageId)
-{
-    this.panels.resources.updateDOMStorage(storageId);
-}
-
-WebInspector.updateApplicationCacheStatus = function(status)
-{
-    this.panels.resources.updateApplicationCacheStatus(status);
-}
-
-WebInspector.didGetFileSystemPath = function(root, type, origin)
-{
-    this.panels.resources.updateFileSystemPath(root, type, origin);
-}
-
-WebInspector.didGetFileSystemError = function(type, origin)
-{
-    this.panels.resources.updateFileSystemError(type, origin);
-}
-
-WebInspector.didGetFileSystemDisabled = function()
-{
-    this.panels.resources.setFileSystemDisabled();
-}
-
-WebInspector.updateNetworkState = function(isNowOnline)
-{
-    this.panels.resources.updateNetworkState(isNowOnline);
-}
-
 WebInspector.searchingForNodeWasEnabled = function()
 {
     this.panels.elements.searchingForNodeWasEnabled();
@@ -1303,62 +1207,9 @@ WebInspector.searchingForNodeWasDisabled = function()
     this.panels.elements.searchingForNodeWasDisabled();
 }
 
-WebInspector.attachDebuggerWhenShown = function()
-{
-    this.panels.scripts.attachDebuggerWhenShown();
-}
-
-WebInspector.debuggerWasEnabled = function()
-{
-    this.panels.scripts.debuggerWasEnabled();
-}
-
-WebInspector.debuggerWasDisabled = function()
-{
-    this.panels.scripts.debuggerWasDisabled();
-}
-
-WebInspector.profilerWasEnabled = function()
-{
-    this.panels.profiles.profilerWasEnabled();
-}
-
-WebInspector.profilerWasDisabled = function()
-{
-    this.panels.profiles.profilerWasDisabled();
-}
-
-WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, startingLine, scriptWorldType)
-{
-    this.panels.scripts.addScript(sourceID, sourceURL, source, startingLine, undefined, undefined, scriptWorldType);
-}
-
-WebInspector.restoredBreakpoint = function(sourceID, sourceURL, line, enabled, condition)
-{
-    this.breakpointManager.restoredBreakpoint(sourceID, sourceURL, line, enabled, condition);
-}
-
-WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLine, errorLine, errorMessage)
-{
-    this.panels.scripts.addScript(null, sourceURL, source, startingLine, errorLine, errorMessage);
-}
-
-WebInspector.pausedScript = function(details)
-{
-    this.panels.scripts.debuggerPaused(details.callFrames);
-    this.breakpointManager.debuggerPaused(details);
-    InspectorFrontendHost.bringToFront();
-}
-
-WebInspector.resumedScript = function()
-{
-    this.breakpointManager.debuggerResumed();
-    this.panels.scripts.debuggerResumed();
-}
-
 WebInspector.reset = function()
 {
-    this.breakpointManager.reset();
+    this.debuggerModel.reset();
 
     for (var panelName in this.panels) {
         var panel = this.panels[panelName];
@@ -1371,14 +1222,6 @@ WebInspector.reset = function()
 
     this.console.clearMessages();
     this.extensionServer.notifyInspectorReset();
-
-    this.breakpointManager.restoreBreakpoints();
-}
-
-WebInspector.resetProfilesPanel = function()
-{
-    if (WebInspector.panels.profiles)
-        WebInspector.panels.profiles.resetProfiles();
 }
 
 WebInspector.bringToFront = function()
@@ -1391,16 +1234,6 @@ WebInspector.inspectedURLChanged = function(url)
     InspectorFrontendHost.inspectedURLChanged(url);
     this.settings.inspectedURLChanged(url);
     this.extensionServer.notifyInspectedURLChanged();
-    if (!this._breakpointsRestored) {
-        this.breakpointManager.restoreBreakpoints();
-        this._breakpointsRestored = true;
-    }
-}
-
-WebInspector.didCommitLoad = function()
-{
-    // Cleanup elements panel early on inspected page refresh.
-    WebInspector.setDocument(null);
 }
 
 WebInspector.updateConsoleMessageExpiredCount = function(count)
@@ -1417,11 +1250,11 @@ WebInspector.addConsoleMessage = function(payload)
         payload.level,
         payload.line,
         payload.url,
-        payload.groupLevel,
         payload.repeatCount,
         payload.message,
         payload.parameters,
-        payload.stackTrace);
+        payload.stackTrace,
+        payload.requestId);
     this.console.addMessage(consoleMessage);
 }
 
@@ -1487,7 +1320,6 @@ WebInspector.log = function(message, messageLevel)
             messageLevel || WebInspector.ConsoleMessage.MessageLevel.Debug,
             -1,
             null,
-            null,
             repeatCount,
             null,
             [message],
@@ -1514,31 +1346,6 @@ WebInspector.log = function(message, messageLevel)
 
     // log the message
     logMessage(message);
-}
-
-WebInspector.addProfileHeader = function(profile)
-{
-    this.panels.profiles.addProfileHeader(profile);
-}
-
-WebInspector.setRecordingProfile = function(isProfiling)
-{
-    this.panels.profiles.getProfileType(WebInspector.CPUProfileType.TypeId).setRecordingProfile(isProfiling);
-    if (this.panels.profiles.hasTemporaryProfile(WebInspector.CPUProfileType.TypeId) !== isProfiling) {
-        if (!this._temporaryRecordingProfile) {
-            this._temporaryRecordingProfile = {
-                typeId: WebInspector.CPUProfileType.TypeId,
-                title: WebInspector.UIString("Recording…"),
-                uid: -1,
-                isTemporary: true
-            };
-        }
-        if (isProfiling)
-            this.panels.profiles.addProfileHeader(this._temporaryRecordingProfile);
-        else
-            this.panels.profiles.removeProfileHeader(this._temporaryRecordingProfile);
-    }
-    this.panels.profiles.updateProfileTypeButtons();
 }
 
 WebInspector.drawLoadingPieChart = function(canvas, percent) {
@@ -1940,13 +1747,23 @@ WebInspector.isEditingAnyField = function()
     return this.__editing;
 }
 
-WebInspector.startEditing = function(element, committedCallback, cancelledCallback, context, multiline)
+// Available config fields (all optional):
+// context: Object - an arbitrary context object to be passed to the commit and cancel handlers
+// commitHandler: Function - handles editing "commit" outcome
+// cancelHandler: Function - handles editing "cancel" outcome
+// customFinishHandler: Function - custom finish handler for the editing session (invoked on keydown)
+// multiline: Boolean - whether the edited element is multiline
+WebInspector.startEditing = function(element, config)
 {
     if (element.__editing)
         return;
     element.__editing = true;
     WebInspector.__editing = true;
 
+    config = config || {};
+    var committedCallback = config.commitHandler;
+    var cancelledCallback = config.cancelHandler;
+    var context = config.context;
     var oldText = getContent(element);
     var moveDirection = "";
 
@@ -2002,20 +1819,36 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
             committedCallback(this, getContent(this), oldText, context, moveDirection);
     }
 
-    function keyDownEventListener(event) {
+    function defaultFinishHandler(event)
+    {
         var isMetaOrCtrl = WebInspector.isMac() ?
             event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey :
             event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
-        if (isEnterKey(event) && (!multiline || isMetaOrCtrl)) {
+        if (isEnterKey(event) && (!config.multiline || isMetaOrCtrl))
+            return "commit";
+        else if (event.keyCode === WebInspector.KeyboardShortcut.Keys.Esc.code)
+            return "cancel";
+        else if (event.keyIdentifier === "U+0009") // Tab key
+            return "move-" + (event.shiftKey ? "backward" : "forward");
+    }
+
+    function keyDownEventListener(event)
+    {
+        var handler = config.customFinishHandler || defaultFinishHandler;
+        var result = handler(event);
+        if (result === "commit") {
             editingCommitted.call(element);
             event.preventDefault();
             event.stopPropagation();
-        } else if (event.keyCode === WebInspector.KeyboardShortcut.Keys.Esc.code) {
+        } else if (result === "cancel") {
             editingCancelled.call(element);
             event.preventDefault();
             event.stopPropagation();
-        } else if (event.keyIdentifier === "U+0009") // Tab key
-            moveDirection = (event.shiftKey ? "backward" : "forward");
+        } else if (result && result.indexOf("move-") === 0) {
+            moveDirection = result.substring(5);
+            if (event.keyIdentifier !== "U+0009")
+                blurEventListener();
+        }
     }
 
     element.addEventListener("blur", blurEventListener, false);

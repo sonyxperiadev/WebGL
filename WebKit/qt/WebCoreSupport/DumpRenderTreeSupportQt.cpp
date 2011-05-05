@@ -23,11 +23,14 @@
 #include "config.h"
 #include "DumpRenderTreeSupportQt.h"
 
+#include "ApplicationCacheStorage.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "ChromeClientQt.h"
 #include "ContextMenu.h"
 #include "ContextMenuClientQt.h"
 #include "ContextMenuController.h"
+#include "DeviceOrientation.h"
+#include "DeviceOrientationClientMockQt.h"
 #include "Editor.h"
 #include "EditorClientQt.h"
 #include "Element.h"
@@ -437,6 +440,32 @@ bool DumpRenderTreeSupportQt::isCommandEnabled(QWebPage* page, const QString& na
     return page->handle()->page->focusController()->focusedOrMainFrame()->editor()->command(name).isEnabled();
 }
 
+bool DumpRenderTreeSupportQt::findString(QWebPage* page, const QString& string, const QStringList& optionArray)
+{
+    // 1. Parse the options from the array
+    WebCore::FindOptions options = 0;
+    const int optionCount = optionArray.size();
+    for (int i = 0; i < optionCount; ++i) {
+        const QString& option = optionArray.at(i);
+        if (option == QLatin1String("CaseInsensitive"))
+            options |= WebCore::CaseInsensitive;
+        else if (option == QLatin1String("AtWordStarts"))
+            options |= WebCore::AtWordStarts;
+        else if (option == QLatin1String("TreatMedialCapitalAsWordStart"))
+            options |= WebCore::TreatMedialCapitalAsWordStart;
+        else if (option == QLatin1String("Backwards"))
+            options |= WebCore::Backwards;
+        else if (option == QLatin1String("WrapAround"))
+            options |= WebCore::WrapAround;
+        else if (option == QLatin1String("StartInSelection"))
+            options |= WebCore::StartInSelection;
+    }
+
+    // 2. find the string
+    WebCore::Frame* frame = page->handle()->page->focusController()->focusedOrMainFrame();
+    return frame && frame->editor()->findString(string, options);
+}
+
 QString DumpRenderTreeSupportQt::markerTextForListItem(const QWebElement& listItem)
 {
     return WebCore::markerTextForListItem(listItem.m_element);
@@ -559,6 +588,14 @@ void DumpRenderTreeSupportQt::setEditingBehavior(QWebPage* page, const QString& 
     corePage->settings()->setEditingBehaviorType(coreEditingBehavior);
 }
 
+void DumpRenderTreeSupportQt::clearAllApplicationCaches()
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    WebCore::cacheStorage().empty();
+    WebCore::cacheStorage().vacuumDatabaseFile();
+#endif
+}
+
 void DumpRenderTreeSupportQt::dumpFrameLoader(bool b)
 {
     FrameLoaderClientQt::dumpFrameLoaderCallbacks = b;
@@ -656,6 +693,28 @@ QString DumpRenderTreeSupportQt::viewportAsText(QWebPage* page, const QSize& ava
             conf.maximumScale);
 
     return res;
+}
+
+void DumpRenderTreeSupportQt::activeMockDeviceOrientationClient(bool b)
+{
+#if ENABLE(DEVICE_ORIENTATION)
+    DeviceOrientationClientMockQt::mockIsActive = b;
+#endif
+}
+
+void DumpRenderTreeSupportQt::removeMockDeviceOrientation()
+{
+#if ENABLE(DEVICE_ORIENTATION)
+    DeviceOrientationClientMockQt* client = DeviceOrientationClientMockQt::client();
+    delete client;
+#endif
+}
+
+void DumpRenderTreeSupportQt::setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma)
+{
+#if ENABLE(DEVICE_ORIENTATION)
+    DeviceOrientationClientMockQt::client()->setOrientation(canProvideAlpha, alpha, canProvideBeta, beta, canProvideGamma, gamma);
+#endif
 }
 
 void DumpRenderTreeSupportQt::setMockGeolocationPosition(double latitude, double longitude, double accuracy)

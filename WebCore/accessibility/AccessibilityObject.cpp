@@ -836,6 +836,25 @@ const String& AccessibilityObject::actionVerb() const
         return noAction;
     }
 }
+
+bool AccessibilityObject::ariaIsMultiline() const
+{
+    return equalIgnoringCase(getAttribute(aria_multilineAttr), "true");
+}
+
+const AtomicString& AccessibilityObject::invalidStatus() const
+{
+    DEFINE_STATIC_LOCAL(const AtomicString, invalidStatusFalse, ("false"));
+    
+    // aria-invalid can return false (default), grammer, spelling, or true.
+    const AtomicString& ariaInvalid = getAttribute(aria_invalidAttr);
+    
+    // If empty or not present, it should return false.
+    if (ariaInvalid.isEmpty())
+        return invalidStatusFalse;
+    
+    return ariaInvalid;
+}
  
 const AtomicString& AccessibilityObject::getAttribute(const QualifiedName& attribute) const
 {
@@ -847,7 +866,7 @@ const AtomicString& AccessibilityObject::getAttribute(const QualifiedName& attri
         return nullAtom;
     
     Element* element = static_cast<Element*>(elementNode);
-    return element->getAttribute(attribute);
+    return element->fastGetAttribute(attribute);
 }
     
 // Lacking concrete evidence of orientation, horizontal means width > height. vertical is height > width;
@@ -904,7 +923,7 @@ static ARIARoleMap* createARIARoleMap()
         { "marquee", ApplicationMarqueeRole },
         { "math", DocumentMathRole },
         { "menu", MenuRole },
-        { "menubar", GroupRole },
+        { "menubar", MenuBarRole },
         // "menuitem" isn't here because it may map to different roles depending on the parent element's role
         { "menuitemcheckbox", MenuItemRole },
         { "menuitemradio", MenuItemRole },

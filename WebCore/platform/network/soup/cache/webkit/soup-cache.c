@@ -147,6 +147,8 @@ get_cacheability (WebKitSoupCache *cache, SoupMessage *msg)
 			soup_header_free_param_list (hash);
 			return WEBKIT_SOUP_CACHE_UNCACHEABLE;
 		}
+
+		soup_header_free_param_list (hash);
 	}
 
 	switch (msg->status_code) {
@@ -284,14 +286,12 @@ webkit_soup_cache_entry_set_freshness (WebKitSoupCacheEntry *entry, SoupMessage 
 {
 	const char *cache_control;
 	const char *expires, *date, *last_modified;
-	GHashTable *hash;
-
-	hash = NULL;
 
 	cache_control = soup_message_headers_get (entry->headers, "Cache-Control");
 	if (cache_control) {
 		const char *max_age, *s_maxage;
 		gint64 freshness_lifetime = 0;
+		GHashTable *hash;
 		WebKitSoupCachePrivate *priv = WEBKIT_SOUP_CACHE_GET_PRIVATE (cache);
 
 		hash = soup_header_parse_param_list (cache_control);
@@ -323,10 +323,9 @@ webkit_soup_cache_entry_set_freshness (WebKitSoupCacheEntry *entry, SoupMessage 
 			soup_header_free_param_list (hash);
 			return;
 		}
-	}
 
-	if (hash != NULL)
 		soup_header_free_param_list (hash);
+	}
 
 	/* If the 'Expires' response header is present, use its value
 	 * minus the value of the 'Date' response header
@@ -998,6 +997,7 @@ webkit_soup_cache_send_response (WebKitSoupCache *cache, SoupMessage *msg)
 
 	key = soup_message_get_cache_key (msg);
 	entry = g_hash_table_lookup (cache->priv->cache, key);
+	g_free (key);
 	g_return_val_if_fail (entry, NULL);
 
 	/* If we are told to send a response from cache any validation
@@ -1084,11 +1084,12 @@ webkit_soup_cache_init (WebKitSoupCache *cache)
 }
 
 static void
-remove_cache_item (gpointer key,
-		   gpointer value,
-		   WebKitSoupCache *cache)
+remove_cache_item (gpointer data,
+		   gpointer user_data)
 {
-	WebKitSoupCacheEntry *entry = g_hash_table_lookup (cache->priv->cache, (const gchar *)key);
+	WebKitSoupCache *cache = (WebKitSoupCache *) user_data;
+	WebKitSoupCacheEntry *entry = (WebKitSoupCacheEntry *) data;
+
 	if (webkit_soup_cache_entry_remove (cache, entry))
 		webkit_soup_cache_entry_free (entry, FALSE);
 }
@@ -1097,10 +1098,15 @@ static void
 webkit_soup_cache_finalize (GObject *object)
 {
 	WebKitSoupCachePrivate *priv;
+	GList *entries;
 
 	priv = WEBKIT_SOUP_CACHE (object)->priv;
 
-	g_hash_table_foreach (priv->cache, (GHFunc)remove_cache_item, object);
+	// Cannot use g_hash_table_foreach as callbacks must not modify the hash table
+	entries = g_hash_table_get_values (priv->cache);
+	g_list_foreach (entries, remove_cache_item, object);
+	g_list_free (entries);
+
 	g_hash_table_destroy (priv->cache);
 	g_free (priv->cache_dir);
 
@@ -1257,7 +1263,6 @@ webkit_soup_cache_has_response (WebKitSoupCache *cache, SoupMessage *msg)
 	char *key;
 	WebKitSoupCacheEntry *entry;
 	const char *cache_control;
-	GHashTable *hash;
 	gpointer value;
 	gboolean must_revalidate;
 	int max_age, max_stale, min_fresh;
@@ -1265,6 +1270,7 @@ webkit_soup_cache_has_response (WebKitSoupCache *cache, SoupMessage *msg)
 
 	key = soup_message_get_cache_key (msg);
 	entry = g_hash_table_lookup (cache->priv->cache, key);
+	g_free (key);
 
 	/* 1. The presented Request-URI and that of stored response
 	 * match
@@ -1321,10 +1327,10 @@ webkit_soup_cache_has_response (WebKitSoupCache *cache, SoupMessage *msg)
 
 	cache_control = soup_message_headers_get (msg->request_headers, "Cache-Control");
 	if (cache_control) {
-		hash = soup_header_parse_param_list (cache_control);
+		GHashTable *hash = soup_header_parse_param_list (cache_control);
 
 		if (g_hash_table_lookup_extended (hash, "no-store", NULL, NULL)) {
-			g_hash_table_destroy (hash);
+			soup_header_free_param_list (hash);
 			return WEBKIT_SOUP_CACHE_RESPONSE_STALE;
 		}
 
@@ -1348,7 +1354,7 @@ webkit_soup_cache_has_response (WebKitSoupCache *cache, SoupMessage *msg)
 		if (value)
 			min_fresh = (int)MIN (g_ascii_strtoll (value, NULL, 10), G_MAXINT32);
 
-		g_hash_table_destroy (hash);
+		soup_header_free_param_list (hash);
 
 		if (max_age != -1) {
 			guint current_age = webkit_soup_cache_entry_get_current_age (entry);
@@ -1449,11 +1455,12 @@ webkit_soup_cache_flush (WebKitSoupCache *cache)
 }
 
 static void
-clear_cache_item (gpointer key,
-		  gpointer value,
-		  WebKitSoupCache *cache)
+clear_cache_item (gpointer data,
+		  gpointer user_data)
 {
-	WebKitSoupCacheEntry *entry = g_hash_table_lookup (cache->priv->cache, (const gchar *)key);
+	WebKitSoupCache *cache = (WebKitSoupCache *) user_data;
+	WebKitSoupCacheEntry *entry = (WebKitSoupCacheEntry *) data;
+
 	if (webkit_soup_cache_entry_remove (cache, entry))
 		webkit_soup_cache_entry_free (entry, TRUE);
 }
@@ -1469,13 +1476,17 @@ void
 webkit_soup_cache_clear (WebKitSoupCache *cache)
 {
 	GHashTable *hash;
+	GList *entries;
 
 	g_return_if_fail (WEBKIT_IS_SOUP_CACHE (cache));
 
 	hash = cache->priv->cache;
 	g_return_if_fail (hash);
 
-	g_hash_table_foreach (hash, (GHFunc)clear_cache_item, cache);
+	// Cannot use g_hash_table_foreach as callbacks must not modify the hash table
+	entries = g_hash_table_get_values (hash);
+	g_list_foreach (entries, clear_cache_item, cache);
+	g_list_free (entries);
 }
 
 SoupMessage *
@@ -1604,12 +1615,13 @@ webkit_soup_cache_load (WebKitSoupCache *cache)
 	filename = g_build_filename (priv->cache_dir, WEBKIT_SOUP_CACHE_FILE, NULL);
 	if (!g_file_get_contents (filename, &contents, &length, NULL)) {
 		g_free (filename);
+		g_free (contents);
 		return;
 	}
 	g_free (filename);
 
 	variant_format = g_variant_type_new (WEBKIT_SOUP_CACHE_ENTRIES_FORMAT);
-	cache_variant = g_variant_new_from_data (variant_format, (const gchar *)contents, length, FALSE, NULL, NULL);
+	cache_variant = g_variant_new_from_data (variant_format, (const gchar *)contents, length, FALSE, g_free, contents);
 	g_variant_type_free (variant_format);
 
 	g_variant_get (cache_variant, WEBKIT_SOUP_CACHE_ENTRIES_FORMAT, &entries_iter);

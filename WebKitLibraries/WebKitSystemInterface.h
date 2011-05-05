@@ -143,7 +143,7 @@ CGAffineTransform WKGetUserToBaseCTM(CGContextRef);
 void WKGetGlyphsForCharacters(CGFontRef, const UniChar[], CGGlyph[], size_t);
 #else
 typedef void *WKGlyphVectorRef;
-OSStatus WKConvertCharToGlyphs(void *styleGroup, const UniChar *characters, unsigned numCharacters, WKGlyphVectorRef glyphs);
+OSStatus WKConvertCharToGlyphs(void *styleGroup, const UniChar* characters, unsigned numCharacters, WKGlyphVectorRef glyphs);
 OSStatus WKGetATSStyleGroup(ATSUStyle fontStyle, void **styleGroup);
 void WKReleaseStyleGroup(void *group);
 OSStatus WKInitializeGlyphVector(int count, WKGlyphVectorRef glyphs);
@@ -157,6 +157,9 @@ size_t WKGetGlyphVectorRecordSize(WKGlyphVectorRef glyphVector);
 CTLineRef WKCreateCTLineWithUniCharProvider(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*);
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
 CTTypesetterRef WKCreateCTTypesetterWithUniCharProviderAndOptions(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*, CFDictionaryRef options);
+
+CGContextRef WKIOSurfaceContextCreate(IOSurfaceRef, unsigned width, unsigned height, CGColorSpaceRef);
+CGImageRef WKIOSurfaceContextCreateImage(CGContextRef context);
 #endif
 
 #ifndef __LP64__
@@ -303,13 +306,11 @@ void WKWindowBounceAnimationSetAnimationProgress(WKWindowBounceAnimationContextR
 
 #if defined(__x86_64__)
 #import <mach/mig.h>
-
 CFRunLoopSourceRef WKCreateMIGServerSource(mig_subsystem_t subsystem, mach_port_t serverPort);
+#endif // defined(__x86_64__)
 
 NSUInteger WKGetInputPanelWindowStyle(void);
- 
 UInt8 WKGetNSEventKeyChar(NSEvent *);
-#endif // defined(__x86_64__)
 #endif // !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 
 @class CAPropertyAnimation;
@@ -330,10 +331,42 @@ void WKWindowSetScaledFrame(NSWindow *window, NSRect scaleFrame, NSRect nonScale
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 void WKSyncSurfaceToView(NSView *view);
+
+void WKEnableSettingCursorWhenInBackground(void);
+
+CFDictionaryRef WKNSURLRequestCreateSerializableRepresentation(NSURLRequest *request, CFTypeRef tokenNull);
+NSURLRequest *WKNSURLRequestFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull);
+
+CFDictionaryRef WKNSURLResponseCreateSerializableRepresentation(NSURLResponse *response, CFTypeRef tokenNull);
+NSURLResponse *WKNSURLResponseFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull);
+
+#ifndef __LP64__
+ScriptCode WKGetScriptCodeFromCurrentKeyboardInputSource(void);
+#endif
+
 #endif
 
 #if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
 CFIndex WKGetHyphenationLocationBeforeIndex(CFStringRef string, CFIndex index);
+#endif
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+typedef enum {
+    WKSandboxExtensionTypeReadOnly,
+    WKSandboxExtensionTypeWriteOnly,    
+    WKSandboxExtensionTypeReadWrite,
+} WKSandboxExtensionType;
+typedef struct __WKSandboxExtension *WKSandboxExtensionRef;
+
+WKSandboxExtensionRef WKSandboxExtensionCreate(const char* path, WKSandboxExtensionType type);
+void WKSandboxExtensionDestroy(WKSandboxExtensionRef sandboxExtension);
+
+bool WKSandboxExtensionConsume(WKSandboxExtensionRef sandboxExtension);
+bool WKSandboxExtensionInvalidate(WKSandboxExtensionRef sandboxExtension);
+
+const char* WKSandboxExtensionGetSerializedFormat(WKSandboxExtensionRef sandboxExtension, size_t* length);
+WKSandboxExtensionRef WKSandboxExtensionCreateFromSerializedFormat(const char* serializationFormat, size_t length);
+
 #endif
 
 #ifdef __cplusplus

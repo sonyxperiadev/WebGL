@@ -137,9 +137,11 @@ public:
         return poolAllocate(n);
     }
     
-    void returnLastBytes(size_t count)
+    void tryShrink(void* allocation, size_t oldSize, size_t newSize)
     {
-        m_freePtr -= count;
+        if (static_cast<char*>(allocation) + oldSize != m_freePtr)
+            return;
+        m_freePtr = static_cast<char*>(allocation) + roundUpAllocationSize(newSize, sizeof(void*));
     }
 
     ~ExecutablePool()
@@ -182,7 +184,9 @@ public:
     }
 
     bool isValid() const;
-    
+
+    static bool underMemoryPressure();
+
     PassRefPtr<ExecutablePool> poolForSize(size_t n)
     {
         // Try to fit in the existing small allocator
@@ -253,8 +257,7 @@ public:
 #elif CPU(ARM_THUMB2) && OS(IOS)
     static void cacheFlush(void* code, size_t size)
     {
-        sys_dcache_flush(code, size);
-        sys_icache_invalidate(code, size);
+        sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
     }
 #elif CPU(ARM_THUMB2) && OS(LINUX)
     static void cacheFlush(void* code, size_t size)

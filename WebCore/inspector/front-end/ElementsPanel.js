@@ -88,6 +88,7 @@ WebInspector.ElementsPanel = function()
     this.sidebarPanes.styles.addEventListener("style edited", this._stylesPaneEdited, this);
     this.sidebarPanes.styles.addEventListener("style property toggled", this._stylesPaneEdited, this);
     this.sidebarPanes.metrics.addEventListener("metrics edited", this._metricsPaneEdited, this);
+    WebInspector.cssModel.addEventListener("stylesheet changed", this._styleSheetChanged, this);
 
     this.sidebarElement = document.createElement("div");
     this.sidebarElement.id = "elements-sidebar";
@@ -169,9 +170,6 @@ WebInspector.ElementsPanel.prototype = {
         this.recentlyModifiedNodes = [];
 
         delete this.currentQuery;
-
-        if (Preferences.nativeInstrumentationEnabled)
-            this.sidebarPanes.domBreakpoints.reset();
     },
 
     setDocument: function(inspectedRootDocument)
@@ -447,14 +445,22 @@ WebInspector.ElementsPanel.prototype = {
 
     _stylesPaneEdited: function()
     {
+        // Once styles are edited, the Metrics pane should be updated.
         this.sidebarPanes.metrics.needsUpdate = true;
         this.updateMetrics();
     },
 
     _metricsPaneEdited: function()
     {
+        // Once metrics are edited, the Styles pane should be updated.
         this.sidebarPanes.styles.needsUpdate = true;
         this.updateStyles(true);
+    },
+
+    _styleSheetChanged: function()
+    {
+        this._metricsPaneEdited();
+        this._stylesPaneEdited();
     },
 
     _mouseMovedInCrumbs: function(event)

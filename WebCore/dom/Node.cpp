@@ -75,6 +75,7 @@
 #include "ProgressEvent.h"
 #include "RegisteredEventListener.h"
 #include "RenderBox.h"
+#include "ScopedEventQueue.h"
 #include "ScriptController.h"
 #include "SelectorNodeList.h"
 #include "StaticNodeList.h"
@@ -102,6 +103,7 @@
 
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
+#include "SVGNames.h"
 #include "SVGUseElement.h"
 #endif
 
@@ -484,7 +486,22 @@ NodeRareData* Node::createRareData()
 {
     return new NodeRareData;
 }
-    
+
+Element* Node::shadowHost() const
+{
+    return toElement(shadowParentNode());
+}
+
+void Node::setShadowHost(Element* host)
+{
+    if (host)
+        setFlag(IsShadowRootFlag);
+    else
+        clearFlag(IsShadowRootFlag);
+
+    setParent(host);
+}
+
 short Node::tabIndex() const
 {
     return hasRareData() ? rareData()->tabIndex() : 0;
@@ -670,12 +687,12 @@ void Node::deprecatedParserAddChild(PassRefPtr<Node>)
 
 bool Node::isContentEditable() const
 {
-    return parent() && parent()->isContentEditable();
+    return parentOrHostNode() && parentOrHostNode()->isContentEditable();
 }
 
 bool Node::isContentRichlyEditable() const
 {
-    return parent() && parent()->isContentRichlyEditable();
+    return parentOrHostNode() && parentOrHostNode()->isContentRichlyEditable();
 }
 
 bool Node::shouldUseInputMethod() const
@@ -1271,7 +1288,7 @@ RenderObject * Node::nextRenderer()
 {
     // Avoid an O(n^2) problem with this function by not checking for nextRenderer() when the parent element hasn't even 
     // been attached yet.
-    if (parent() && !parent()->attached())
+    if (parentOrHostNode() && !parentOrHostNode()->attached())
         return 0;
 
     for (Node *n = nextSibling(); n; n = n->nextSibling()) {
@@ -1398,7 +1415,7 @@ void Node::setRenderStyle(PassRefPtr<RenderStyle> s)
 
 RenderStyle* Node::virtualComputedStyle(PseudoId pseudoElementSpecifier)
 {
-    return parent() ? parent()->computedStyle(pseudoElementSpecifier) : 0;
+    return parentOrHostNode() ? parentOrHostNode()->computedStyle(pseudoElementSpecifier) : 0;
 }
 
 int Node::maxCharacterOffset() const
@@ -1421,7 +1438,7 @@ bool Node::canStartSelection() const
         if (style->userDrag() == DRAG_ELEMENT && style->userSelect() == SELECT_NONE)
             return false;
     }
-    return parent() ? parent()->canStartSelection() : true;
+    return parentOrHostNode() ? parentOrHostNode()->canStartSelection() : true;
 }
 
 Node* Node::shadowAncestorNode()
@@ -1445,9 +1462,9 @@ Node* Node::shadowTreeRootNode()
 {
     Node* root = this;
     while (root) {
-        if (root->isShadowNode())
+        if (root->isShadowRoot())
             return root;
-        root = root->parentNode();
+        root = root->parentNodeGuaranteedHostFree();
     }
     return 0;
 }
@@ -1455,7 +1472,7 @@ Node* Node::shadowTreeRootNode()
 bool Node::isInShadowTree()
 {
     for (Node* n = this; n; n = n->parentNode())
-        if (n->isShadowNode())
+        if (n->isShadowRoot())
             return true;
     return false;
 }
@@ -2579,7 +2596,7 @@ static inline EventTarget* eventTargetRespectingSVGTargetRules(Node* referenceNo
     // Spec: The event handling for the non-exposed tree works as if the referenced element had been textually included
     // as a deeply cloned child of the 'use' element, except that events are dispatched to the SVGElementInstance objects
     for (Node* n = referenceNode; n; n = n->parentNode()) {
-        if (!n->isShadowNode() || !n->isSVGElement())
+        if (!n->isShadowRoot() || !n->isSVGElement())
             continue;
 
         ContainerNode* shadowTreeParentElement = n->shadowParentNode();
@@ -2602,21 +2619,21 @@ void Node::getEventAncestors(Vector<EventContext>& ancestors, EventTarget* origi
     Node* ancestor = this;
     bool shouldSkipNextAncestor = false;
     while (true) {
-        if (ancestor->isShadowNode()) {
+        if (ancestor->isShadowRoot()) {
             if (behavior == StayInsideShadowDOM)
                 return;
             ancestor = ancestor->shadowParentNode();
             if (!shouldSkipNextAncestor)
                 target = ancestor;
         } else
-            ancestor = ancestor->parentNode();
+            ancestor = ancestor->parentNodeGuaranteedHostFree();
 
         if (!ancestor)
             return;
 
 #if ENABLE(SVG)
         // Skip SVGShadowTreeRootElement.
-        shouldSkipNextAncestor = ancestor->isSVGElement() && ancestor->isShadowNode();
+        shouldSkipNextAncestor = ancestor->isSVGElement() && ancestor->isShadowRoot();
         if (shouldSkipNextAncestor)
             continue;
 #endif
@@ -2637,25 +2654,17 @@ bool Node::dispatchEvent(PassRefPtr<Event> prpEvent)
     return dispatchGenericEvent(event.release());
 }
 
+void Node::dispatchScopedEvent(PassRefPtr<Event> event)
+{
+    // We need to set the target here because it can go away by the time we actually fire the event.
+    event->setTarget(eventTargetRespectingSVGTargetRules(this));
+
+    ScopedEventQueue::instance()->enqueueEvent(event);
+}
+
 static const EventContext* topEventContext(const Vector<EventContext>& ancestors)
 {
     return ancestors.isEmpty() ? 0 : &ancestors.last();
-}
-
-static EventDispatchBehavior determineDispatchBehavior(Event* event)
-{
-    // Per XBL 2.0 spec, mutation events should never cross shadow DOM boundary:
-    // http://dev.w3.org/2006/xbl2/#event-flow-and-targeting-across-shadow-s
-    if (event->isMutationEvent())
-        return StayInsideShadowDOM;
-
-    // WebKit never allowed selectstart event to cross the the shadow DOM boundary.
-    // Changing this breaks existing sites.
-    // See https://bugs.webkit.org/show_bug.cgi?id=52195 for details.
-    if (event->type() == eventNames().selectstartEvent)
-        return StayInsideShadowDOM;
-
-    return RetargetEvent;
 }
 
 bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
@@ -2672,7 +2681,7 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
     RefPtr<Node> thisNode(this);
     RefPtr<EventTarget> originalTarget = event->target();
     Vector<EventContext> ancestors;
-    getEventAncestors(ancestors, originalTarget.get(), determineDispatchBehavior(event.get()));
+    getEventAncestors(ancestors, originalTarget.get(), event->isMutationEvent() ? StayInsideShadowDOM : RetargetEvent);
 
     WindowEventContext windowContext(event.get(), this, topEventContext(ancestors));
 
@@ -2767,7 +2776,7 @@ void Node::dispatchSubtreeModifiedEvent()
     if (!document()->hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER))
         return;
 
-    dispatchEvent(MutationEvent::create(eventNames().DOMSubtreeModifiedEvent, true));
+    dispatchScopedEvent(MutationEvent::create(eventNames().DOMSubtreeModifiedEvent, true));
 }
 
 void Node::dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr<Event> underlyingEvent)
@@ -2777,10 +2786,10 @@ void Node::dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr
            eventType == eventNames().DOMFocusInEvent || eventType == eventNames().DOMFocusOutEvent || eventType == eventNames().DOMActivateEvent);
     
     bool cancelable = eventType == eventNames().DOMActivateEvent;
-    
+
     RefPtr<UIEvent> event = UIEvent::create(eventType, true, cancelable, document()->defaultView(), detail);
     event->setUnderlyingEvent(underlyingEvent);
-    dispatchEvent(event.release());
+    dispatchScopedEvent(event.release());
 }
 
 bool Node::dispatchKeyEvent(const PlatformKeyboardEvent& key)
@@ -3037,7 +3046,7 @@ void Node::defaultEventHandler(Event* event)
         // This is needed for <option> and <optgroup> elements so that <select>s get a wheel scroll.
         Node* startNode = this;
         while (startNode && !startNode->renderer())
-            startNode = startNode->parent();
+            startNode = startNode->parentOrHostNode();
         
         if (startNode && startNode->renderer())
             if (Frame* frame = document()->frame())

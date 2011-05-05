@@ -1,3 +1,136 @@
+2010-12-21  Sam Weinig  <weinig@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Add serialization for CFURLRequestRef and CFURLResponseRef.
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+
+2010-12-14  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add WKGetScriptCodeFromCurrentKeyboardInputSource function.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-12-10  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add CACFContextGetLastCommitTime to WebKitSystemInterface for Windows.
+        Also got rid of WebKitSystemInterface_debug.lib as recommended by
+        Adam Roben. No OpenSource builds use it since r72327.
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib: Removed.
+
+2010-12-09  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Cannot use NSKeyedArchiver in WK2 for ResourceResponses
+        https://bugs.webkit.org/show_bug.cgi?id=50792
+        <rdar://problem/8741799>
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-12-03  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Dispatch keyboard events in the Carbon event model
+        https://bugs.webkit.org/show_bug.cgi?id=50503
+
+        Make WKGetNSEventKeyChar available in 32-bit.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-12-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Plug-ins should be able to update the mouse cursor
+        https://bugs.webkit.org/show_bug.cgi?id=50399
+
+        Add WKEnableSettingCursorWhenInBackground.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2010-12-01  Adam Roben  <aroben@apple.com>
+
+        Don't let harmless errorlevels from the "set" utility leak into
+        project-specific build scripts
+
+        When using set to unset an environment variable that didn't previously
+        exist, set raises the errorlevel to 1. This was leaking into
+        project-specific scripts, causing them to think the build has failed.
+        We now clear the errorlevel after we finish setting environment
+        variables.
+
+        Fixes <http://webkit.org/b/50350> Windows builds mysteriously fail in
+        some configurations
+
+        Reviewed by Steve Falkenburg.
+
+        * win/tools/vsprops/common.vsprops: Call "cmd /c" after setting
+        environment variables to get rid of any errorlevel that "set" set.
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        vcproj changes can't be applied cleanly by the Windows EWS bot
+        https://bugs.webkit.org/show_bug.cgi?id=50328
+
+        * win/tools/vsprops/WinCairo.vsprops: Added property svn:eol-style.
+        * win/tools/vsprops/cURL.vsprops: Added property svn:eol-style.
+        * win/tools/vsprops/debug_wincairo.vsprops: Added property svn:eol-style.
+
+2010-11-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix (part 2).
+        Define Visual Studio internal variables used in pre-build/pre-link/post-build commands in environment for separated cmd files.
+
+        * win/tools/vsprops/common.vsprops:
+
+2010-11-19  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add a mechanism for Windows pre-build/pre-link/post-build events to be separated into individual cmd files
+        https://bugs.webkit.org/show_bug.cgi?id=49858
+        
+        We're migrating our prebuild/prelink/postbuild steps out of vcproj and vsprops files:
+        - To simplify editing (editing vsprops build steps is confusing).
+        - For more readable diffs.
+        
+        To add a prebuild/prelink/postbuild step for a vcproj,
+        Add a new file named {ProjectName}PreBuild|PreLink|PostBuild.cmd to the project directory.
+        For example, a WTF prebuild script would be named WTFPreBuild.cmd and would be located
+        in the directory JavaScriptCore/JavaScriptCore.vcproj/WTF (alongside WTF.vcproj).
+
+        * win/tools/vsprops/common.vsprops:
+        * win/tools/vsprops/release.vsprops:
+
+2010-11-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig and Simon Fraser.
+
+        WebKitSystemInterface.h piece of r72438.
+
+        * WebKitSystemInterface.h:
+
 2010-11-22  Adam Roben  <aroben@apple.com>
 
         Use paths relative to $WebKitVSPropsRedirectionDir to access shared .vsprops files

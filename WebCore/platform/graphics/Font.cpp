@@ -156,6 +156,26 @@ void Font::drawText(GraphicsContext* context, const TextRun& run, const FloatPoi
     return drawComplexText(context, run, point, from, to);
 }
 
+void Font::drawEmphasisMarks(GraphicsContext* context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
+{
+    if (m_fontList && m_fontList->loadingCustomFonts())
+        return;
+
+    if (to < 0)
+        to = run.length();
+
+#if ENABLE(SVG_FONTS)
+    // FIXME: Implement for SVG fonts.
+    if (primaryFont()->isSVGFont())
+        return;
+#endif
+
+    if (codePath(run) != Complex)
+        drawEmphasisMarksForSimpleText(context, run, mark, point, from, to);
+    else
+        drawEmphasisMarksForComplexText(context, run, mark, point, from, to);
+}
+
 float Font::floatWidth(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
 #if ENABLE(SVG_FONTS)
@@ -354,38 +374,14 @@ bool Font::isCJKIdeograph(UChar32 c)
     if (c >= 0x2F00 && c <= 0x2FDF)
         return true;
     
-    // Ideographic Description Characters.
-    if (c >= 0x2FF0 && c <= 0x2FFF)
-        return true;
-    
-    // CJK Symbols and Punctuation.
-    if (c >= 0x3000 && c <= 0x303F)
-        return true;
-    
     // CJK Strokes.
     if (c >= 0x31C0 && c <= 0x31EF)
-        return true;
-    
-    // Enclosed CJK Letters and Months.
-    if (c >= 0x3200 && c <= 0x32FF)
-        return true;
-    
-    // CJK Compatibility.
-    if (c >= 0x3300 && c <= 0x33FF)
         return true;
     
     // CJK Compatibility Ideographs.
     if (c >= 0xF900 && c <= 0xFAFF)
         return true;
     
-    // CJK Compatibility Forms.
-    if (c >= 0xFE30 && c <= 0xFE4F)
-        return true;
-
-    // Emoji.
-    if (c >= 0x1F200 && c <= 0x1F6F)
-        return true;
-
     // CJK Unified Ideographs Extension B.
     if (c >= 0x20000 && c <= 0x2A6DF)
         return true;
@@ -403,6 +399,77 @@ bool Font::isCJKIdeograph(UChar32 c)
         return true;
 
     return false;
+}
+
+bool Font::isCJKIdeographOrSymbol(UChar32 c)
+{
+    // 0x2C7 Caron, Mandarin Chinese 3rd Tone
+    // 0x2CA Modifier Letter Acute Accent, Mandarin Chinese 2nd Tone
+    // 0x2CB Modifier Letter Grave Access, Mandarin Chinese 4th Tone 
+    // 0x2D9 Dot Above, Mandarin Chinese 5th Tone 
+    if ((c == 0x2C7) || (c == 0x2CA) || (c == 0x2CB) || (c == 0x2D9))
+        return true;
+
+    // Ideographic Description Characters.
+    if (c >= 0x2FF0 && c <= 0x2FFF)
+        return true;
+    
+    // CJK Symbols and Punctuation.
+    if (c >= 0x3000 && c <= 0x303F)
+        return true;
+   
+    // Hiragana 
+    if (c >= 0x3040 && c <= 0x309F)
+        return true;
+
+    // Katakana 
+    if (c >= 0x30A0 && c <= 0x30FF)
+        return true;
+
+    // Bopomofo
+    if (c >= 0x3100 && c <= 0x312F)
+        return true;
+    
+    // Bopomofo Extended
+    if (c >= 0x31A0 && c <= 0x31BF)
+        return true;
+ 
+    // Enclosed CJK Letters and Months.
+    if (c >= 0x3200 && c <= 0x32FF)
+        return true;
+    
+    // CJK Compatibility.
+    if (c >= 0x3300 && c <= 0x33FF)
+        return true;
+    
+    // CJK Compatibility Forms.
+    if (c >= 0xFE30 && c <= 0xFE4F)
+        return true;
+
+    // Halfwidth and Fullwidth Forms
+    // Usually only used in CJK
+    if (c >= 0xFF00 && c <= 0xFFEF)
+        return true;
+
+    // Emoji.
+    if (c >= 0x1F200 && c <= 0x1F6F)
+        return true;
+
+    return isCJKIdeograph(c);
+}
+
+bool Font::canReceiveTextEmphasis(UChar32 c)
+{
+    CharCategory category = Unicode::category(c);
+    if (category & (Separator_Space | Separator_Line | Separator_Paragraph | Other_NotAssigned | Other_Control | Other_Format))
+        return false;
+
+    // Additional word-separator characters listed in CSS Text Level 3 Editor's Draft 3 November 2010.
+    if (c == ethiopicWordspace || c == aegeanWordSeparatorLine || c == aegeanWordSeparatorDot
+        || c == ugariticWordDivider || c == tibetanMarkIntersyllabicTsheg || c == tibetanMarkDelimiterTshegBstar)
+        return false;
+
+    return true;
 }
 
 }

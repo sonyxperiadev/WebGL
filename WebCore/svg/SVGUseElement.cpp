@@ -37,8 +37,7 @@
 #include "SVGElementInstance.h"
 #include "SVGElementInstanceList.h"
 #include "SVGGElement.h"
-#include "SVGLength.h"
-#include "SVGPreserveAspectRatio.h"
+#include "SVGNames.h"
 #include "SVGSMILElement.h"
 #include "SVGSVGElement.h"
 #include "SVGShadowTreeElements.h"
@@ -56,6 +55,14 @@
 // #define DUMP_SHADOW_TREE
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGUseElement, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_STRING(SVGUseElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGUseElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 inline SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
@@ -130,7 +137,7 @@ void SVGUseElement::insertedIntoDocument()
 void SVGUseElement::removedFromDocument()
 {
     SVGStyledTransformableElement::removedFromDocument();
-    detachInstance();
+    m_targetElementInstance = 0;
 }
 
 void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -486,17 +493,18 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // The will be expanded soon anyway - see expandUseElementsInShadowTree().
     ContainerNode* parent = parentNode();
     while (parent) {
-        if (parent->isShadowNode())
+        if (parent->isShadowRoot())
             return;
 
-        parent = parent->parentNode();
+        parent = parent->parentNodeGuaranteedHostFree();
     }
- 
+
     SVGElement* target = 0;
     if (targetElement && targetElement->isSVGElement())
         target = static_cast<SVGElement*>(targetElement);
 
-    detachInstance();
+    if (m_targetElementInstance)
+        m_targetElementInstance = 0;
 
     // Do not allow self-referencing.
     // 'target' may be null, if it's a non SVG namespaced element.
@@ -522,7 +530,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // SVG specification does not say a word about <use> & cycles. My view on this is: just ignore it!
     // Non-appearing <use> content is easier to debug, then half-appearing content.
     if (foundProblem) {
-        detachInstance();
+        m_targetElementInstance = 0;
         return;
     }
 
@@ -555,7 +563,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // Do NOT leave an inconsistent instance tree around, instead destruct it.
     if (!m_targetElementInstance->shadowTreeElement()) {
         shadowRoot->removeAllChildren();
-        detachInstance();
+        m_targetElementInstance = 0;
         return;
     }
 
@@ -575,7 +583,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
 #ifdef DUMP_SHADOW_TREE
     ExceptionCode ec = 0;
 
-    PassRefPtr<XMLSerializer> serializer = XMLSerializer::create();
+    RefPtr<XMLSerializer> serializer = XMLSerializer::create();
 
     String markup = serializer->serializeToString(shadowRoot, ec);
     ASSERT(!ec);
@@ -592,14 +600,6 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
 
     // Update relative length information
     updateRelativeLengthsInformation();
-}
-
-void SVGUseElement::detachInstance()
-{
-    if (!m_targetElementInstance)
-        return;
-    m_targetElementInstance->clearUseElement();
-    m_targetElementInstance = 0;
 }
 
 RenderObject* SVGUseElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -624,18 +624,18 @@ void SVGUseElement::attach()
 void SVGUseElement::detach()
 {
     SVGStyledTransformableElement::detach();
-    detachInstance();
+    m_targetElementInstance = 0;
 }
 
-static bool isDirectReference(Node* n)
+static bool isDirectReference(Node* node)
 {
-    return n->hasTagName(SVGNames::pathTag) ||
-           n->hasTagName(SVGNames::rectTag) ||
-           n->hasTagName(SVGNames::circleTag) ||
-           n->hasTagName(SVGNames::ellipseTag) ||
-           n->hasTagName(SVGNames::polygonTag) ||
-           n->hasTagName(SVGNames::polylineTag) ||
-           n->hasTagName(SVGNames::textTag);
+    return node->hasTagName(SVGNames::pathTag)
+           || node->hasTagName(SVGNames::rectTag)
+           || node->hasTagName(SVGNames::circleTag)
+           || node->hasTagName(SVGNames::ellipseTag)
+           || node->hasTagName(SVGNames::polygonTag)
+           || node->hasTagName(SVGNames::polylineTag)
+           || node->hasTagName(SVGNames::textTag);
 }
 
 void SVGUseElement::toClipPath(Path& path) const

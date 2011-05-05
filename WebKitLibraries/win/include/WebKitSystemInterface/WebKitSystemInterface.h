@@ -144,6 +144,8 @@ void wkCACFContextDestroy(WKCACFContext*);
 void wkCACFContextSetLayer(WKCACFContext*, CACFLayerRef);
 void wkCACFContextFlush(WKCACFContext*);
 
+CFTimeInterval wkCACFContextGetLastCommitTime(WKCACFContext*);
+
 void wkCACFContextInitializeD3DDevice(WKCACFContext*, IDirect3DDevice9*);
 void wkCACFContextReleaseD3DResources(WKCACFContext*);
 
@@ -155,6 +157,11 @@ void wkCACFContextAddUpdateRect(WKCACFContext*, const CGRect&);
 WKCACFUpdateRectEnumerator* wkCACFContextCopyUpdateRectEnumerator(WKCACFContext*);
 const CGRect* wkCACFUpdateRectEnumeratorNextRect(WKCACFUpdateRectEnumerator*);
 void wkCACFUpdateRectEnumeratorRelease(WKCACFUpdateRectEnumerator*);
+
+CFDictionaryRef wkCFURLRequestCreateSerializableRepresentation(CFURLRequestRef cfRequest, CFTypeRef tokenNull);
+CFURLRequestRef wkCFURLRequestCreateFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull);
+CFDictionaryRef wkCFURLResponseCreateSerializableRepresentation(CFURLResponseRef cfResponse, CFTypeRef tokenNull);
+CFURLResponseRef wkCFURLResponseCreateFromSerializableRepresentation(CFDictionaryRef representation, CFTypeRef tokenNull);
 
 typedef enum {
     WKMediaUIPartFullscreenButton   = 0,

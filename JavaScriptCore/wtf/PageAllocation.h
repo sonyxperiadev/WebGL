@@ -27,8 +27,11 @@
 #define PageAllocation_h
 
 #include <wtf/Assertions.h>
+#include <wtf/OSAllocator.h>
+#include <wtf/PageBlock.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/VMTags.h>
+#include <algorithm>
 
 #if OS(DARWIN)
 #include <mach/mach_init.h>
@@ -74,287 +77,45 @@ namespace WTF {
     Callers may also optinally provide a flag indicating the usage (for use by
     system memory usage tracking tools, where implemented), and boolean values
     specifying the required protection (defaulting to writable, non-executable).
-
-    Where HAVE(PAGE_ALLOCATE_AT) and HAVE(PAGE_ALLOCATE_ALIGNED) are available
-    memory may also be allocated at a specified address, or with a specified
-    alignment respectively.  PageAllocation::allocateAt take an address to try
-    to allocate at, and a boolean indicating whether this behaviour is strictly
-    required (if this address is unavailable, should memory at another address
-    be allocated instead).  PageAllocation::allocateAligned requires that the
-    size is a power of two that is >= system page size.
 */
-class PageAllocation {
+
+class PageAllocation : private PageBlock {
 public:
-    enum Usage {
-        UnknownUsage = -1,
-        FastMallocPages = VM_TAG_FOR_TCMALLOC_MEMORY,
-        JSGCHeapPages = VM_TAG_FOR_COLLECTOR_MEMORY,
-        JSVMStackPages = VM_TAG_FOR_REGISTERFILE_MEMORY,
-        JSJITCodePages = VM_TAG_FOR_EXECUTABLEALLOCATOR_MEMORY,
-    };
-
     PageAllocation()
-        : m_base(0)
-        , m_size(0)
-#if OS(SYMBIAN)
-        , m_chunk(0)
-#endif
     {
     }
 
-    bool operator!() const { return !m_base; }
-    void* base() const { return m_base; }
-    size_t size() const { return m_size; }
+    using PageBlock::operator bool;
+    using PageBlock::size;
+    using PageBlock::base;
 
-    static PageAllocation allocate(size_t size, Usage usage = UnknownUsage, bool writable = true, bool executable = false)
+    static PageAllocation allocate(size_t size, OSAllocator::Usage usage = OSAllocator::UnknownUsage, bool writable = true, bool executable = false)
     {
         ASSERT(isPageAligned(size));
-        return systemAllocate(size, usage, writable, executable);
+        return PageAllocation(OSAllocator::reserveAndCommit(size, usage, writable, executable), size);
     }
-
-#if HAVE(PAGE_ALLOCATE_AT)
-    static PageAllocation allocateAt(void* address, bool fixed, size_t size, Usage usage = UnknownUsage, bool writable = true, bool executable = false)
-    {
-        ASSERT(isPageAligned(address));
-        ASSERT(isPageAligned(size));
-        return systemAllocateAt(address, fixed, size, usage, writable, executable);
-    }
-#endif
-
-#if HAVE(PAGE_ALLOCATE_ALIGNED)
-    static PageAllocation allocateAligned(size_t size, Usage usage = UnknownUsage)
-    {
-        ASSERT(isPageAligned(size));
-        ASSERT(isPowerOfTwo(size));
-        return systemAllocateAligned(size, usage);
-    }
-#endif
 
     void deallocate()
     {
-        ASSERT(m_base);
-        systemDeallocate(true);
+        // Clear base & size before calling release; if this is *inside* allocation
+        // then we won't be able to clear then after deallocating the memory.
+        PageAllocation tmp;
+        std::swap(tmp, *this);
+
+        ASSERT(tmp);
+        ASSERT(!*this);
+
+        OSAllocator::decommitAndRelease(tmp.base(), tmp.size());
     }
 
-    static size_t pageSize()
-    {
-        if (!s_pageSize)
-            s_pageSize = systemPageSize();
-        ASSERT(isPowerOfTwo(s_pageSize));
-        return s_pageSize;
-    }
-
-#ifndef NDEBUG
-    static bool isPageAligned(void* address) { return !(reinterpret_cast<intptr_t>(address) & (pageSize() - 1)); }
-    static bool isPageAligned(size_t size) { return !(size & (pageSize() - 1)); }
-    static bool isPowerOfTwo(size_t size) { return !(size & (size - 1)); }
-    static int lastError();
-#endif
-
-protected:
-#if OS(SYMBIAN)
-    PageAllocation(void* base, size_t size, RChunk* chunk)
-        : m_base(base)
-        , m_size(size)
-        , m_chunk(chunk)
-    {
-    }
-#else
+private:
     PageAllocation(void* base, size_t size)
-        : m_base(base)
-        , m_size(size)
+        : PageBlock(base, size)
     {
     }
-#endif
-
-    static PageAllocation systemAllocate(size_t, Usage, bool, bool);
-#if HAVE(PAGE_ALLOCATE_AT)
-    static PageAllocation systemAllocateAt(void*, bool, size_t, Usage, bool, bool);
-#endif
-#if HAVE(PAGE_ALLOCATE_ALIGNED)
-    static PageAllocation systemAllocateAligned(size_t, Usage);
-#endif
-    // systemDeallocate takes a parameter indicating whether memory is currently committed
-    // (this should always be true for PageAllocation, false for PageReservation).
-    void systemDeallocate(bool committed);
-    static size_t systemPageSize();
-
-    void* m_base;
-    size_t m_size;
-#if OS(SYMBIAN)
-    RChunk* m_chunk;
-#endif
-
-    static JS_EXPORTDATA size_t s_pageSize;
 };
 
-
-#if HAVE(MMAP)
-
-
-inline PageAllocation PageAllocation::systemAllocate(size_t size, Usage usage, bool writable, bool executable)
-{
-    return systemAllocateAt(0, false, size, usage, writable, executable);
-}
-
-inline PageAllocation PageAllocation::systemAllocateAt(void* address, bool fixed, size_t size, Usage usage, bool writable, bool executable)
-{
-    int protection = PROT_READ;
-    if (writable)
-        protection |= PROT_WRITE;
-    if (executable)
-        protection |= PROT_EXEC;
-
-    int flags = MAP_PRIVATE | MAP_ANON;
-    if (fixed)
-        flags |= MAP_FIXED;
-
-#if OS(DARWIN) && !defined(BUILDING_ON_TIGER)
-    int fd = usage;
-#else
-    int fd = -1;
-#endif
-
-    void* base = mmap(address, size, protection, flags, fd, 0);
-    if (base == MAP_FAILED)
-        base = 0;
-    return PageAllocation(base, size);
-}
-
-inline PageAllocation PageAllocation::systemAllocateAligned(size_t size, Usage usage)
-{
-#if OS(DARWIN)
-    vm_address_t address = 0;
-    int flags = VM_FLAGS_ANYWHERE;
-    if (usage != -1)
-        flags |= usage;
-    vm_map(current_task(), &address, size, (size - 1), flags, MEMORY_OBJECT_NULL, 0, FALSE, PROT_READ | PROT_WRITE, PROT_READ | PROT_WRITE | PROT_EXEC, VM_INHERIT_DEFAULT);
-    return PageAllocation(reinterpret_cast<void*>(address), size);
-#elif HAVE(POSIX_MEMALIGN)
-    void* address;
-    posix_memalign(&address, size, size);
-    return PageAllocation(address, size);
-#else
-    size_t extra = size - pageSize();
-
-    // Check for overflow.
-    if ((size + extra) < size)
-        return PageAllocation(0, size);
-
-#if OS(DARWIN) && !defined(BUILDING_ON_TIGER)
-    int fd = usage;
-#else
-    int fd = -1;
-#endif
-    void* mmapResult = mmap(0, size + extra, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, fd, 0);
-    if (mmapResult == MAP_FAILED)
-        return PageAllocation(0, size);
-    uintptr_t address = reinterpret_cast<uintptr_t>(mmapResult);
-
-    size_t adjust = 0;
-    if ((address & (size - 1)))
-        adjust = size - (address & (size - 1));
-    if (adjust > 0)
-        munmap(reinterpret_cast<char*>(address), adjust);
-    if (adjust < extra)
-        munmap(reinterpret_cast<char*>(address + adjust + size), extra - adjust);
-    address += adjust;
-
-    return PageAllocation(reinterpret_cast<void*>(address), size);
-#endif
-}
-
-inline void PageAllocation::systemDeallocate(bool)
-{
-    int result = munmap(m_base, m_size);
-    ASSERT_UNUSED(result, !result);
-    m_base = 0;
-}
-
-inline size_t PageAllocation::systemPageSize()
-{
-    return getpagesize();
-}
-
-
-#elif HAVE(VIRTUALALLOC)
-
-
-inline PageAllocation PageAllocation::systemAllocate(size_t size, Usage, bool writable, bool executable)
-{
-    DWORD protection = executable ?
-        (writable ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_READ) :
-        (writable ? PAGE_READWRITE : PAGE_READONLY);
-    return PageAllocation(VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, protection), size);
-}
-
-#if HAVE(ALIGNED_MALLOC)
-inline PageAllocation PageAllocation::systemAllocateAligned(size_t size, Usage usage)
-{
-#if COMPILER(MINGW) && !COMPILER(MINGW64)
-    void* address = __mingw_aligned_malloc(size, size);
-#else
-    void* address = _aligned_malloc(size, size);
-#endif
-    memset(address, 0, size);
-    return PageAllocation(address, size);
-}
-#endif
-
-inline void PageAllocation::systemDeallocate(bool committed)
-{
-#if OS(WINCE)
-    if (committed)
-        VirtualFree(m_base, m_size, MEM_DECOMMIT);
-#else
-    UNUSED_PARAM(committed);
-#endif
-    VirtualFree(m_base, 0, MEM_RELEASE); 
-    m_base = 0;
-}
-
-inline size_t PageAllocation::systemPageSize()
-{
-    static size_t size = 0;
-    SYSTEM_INFO system_info;
-    GetSystemInfo(&system_info);
-    size = system_info.dwPageSize;
-    return size;
-}
-
-
-#elif OS(SYMBIAN)
-
-
-inline PageAllocation PageAllocation::systemAllocate(size_t size, Usage usage, bool writable, bool executable)
-{
-    RChunk* rchunk = new RChunk();
-    if (executable)
-        rchunk->CreateLocalCode(size, size);
-    else
-        rchunk->CreateLocal(size, size);
-    return PageAllocation(rchunk->Base(), size, rchunk);
-}
-
-inline void PageAllocation::systemDeallocate(bool)
-{
-    m_chunk->Close();
-    delete m_chunk;
-    m_base = 0;
-}
-
-inline size_t PageAllocation::systemPageSize()
-{
-    static TInt page_size = 0;
-    UserHal::PageSizeInBytes(page_size);
-    return page_size;
-}
-
-
-#endif
-
-
-}
+} // namespace WTF
 
 using WTF::PageAllocation;
 

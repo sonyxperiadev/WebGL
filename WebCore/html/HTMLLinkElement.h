@@ -27,10 +27,12 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "HTMLElement.h"
+#include "Timer.h"
 
 namespace WebCore {
 
 class CachedCSSStyleSheet;
+class CachedResource;
 class KURL;
 
 class HTMLLinkElement : public HTMLElement, public CachedResourceClient {
@@ -81,6 +83,9 @@ public:
 private:
     virtual void parseMappedAttribute(Attribute*);
 
+#if ENABLE(LINK_PREFETCH)
+    void onloadTimerFired(Timer<HTMLLinkElement>*);
+#endif
     void process();
     static void processCallback(Node*);
 
@@ -89,6 +94,9 @@ private:
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
+#if ENABLE(LINK_PREFETCH)
+    virtual void notifyFinished(CachedResource*);
+#endif
     virtual bool sheetLoaded();
 
     bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.m_isAlternate; }
@@ -104,6 +112,10 @@ private:
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
     virtual void finishParsingChildren();
+    
+    enum PendingSheetType { None, NonBlocking, Blocking };
+    void addPendingSheet(PendingSheetType);
+    void removePendingSheet();
 
 #ifdef ANDROID_INSTRUMENT
     // Overridden to resolve the ambiguous
@@ -124,6 +136,10 @@ private:
 
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
+#if ENABLE(LINK_PREFETCH)
+    CachedResourceHandle<CachedResource> m_cachedLinkPrefetch;
+    Timer<HTMLLinkElement> m_onloadTimer;
+#endif
     KURL m_url;
     String m_type;
     String m_media;
@@ -131,6 +147,8 @@ private:
     RelAttribute m_relAttribute;
     bool m_loading;
     bool m_createdByParser;
+    
+    PendingSheetType m_pendingSheetType;
 };
 
 } //namespace

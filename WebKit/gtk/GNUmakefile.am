@@ -27,9 +27,11 @@ libwebkitgtk_@WEBKITGTK_API_MAJOR_VERSION@_@WEBKITGTK_API_MINOR_VERSION@_la_SOUR
 	$(webkitgtk_sources)
 
 libwebkitgtk_@WEBKITGTK_API_MAJOR_VERSION@_@WEBKITGTK_API_MINOR_VERSION@_la_CXXFLAGS = \
+	$(SYMBOL_VISIBILITY_INLINES) \
 	$(global_cxxflags)
 
 libwebkitgtk_@WEBKITGTK_API_MAJOR_VERSION@_@WEBKITGTK_API_MINOR_VERSION@_la_CFLAGS = \
+	$(SYMBOL_VISIBILITY) \
 	$(global_cflags)
 
 # When building WebCore/WebKit, we want WebCore/config.h and NOT JavaScriptCore/config.h,
@@ -117,6 +119,7 @@ webkitgtk_static_h_api += \
 	$(srcdir)/WebKit/gtk/webkit/webkitnetworkresponse.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitsecurityorigin.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitsoupauthdialog.h \
+	$(srcdir)/WebKit/gtk/webkit/webkitviewportattributes.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebbackforwardlist.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebdatabase.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebdatasource.h \
@@ -124,6 +127,8 @@ webkitgtk_static_h_api += \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebhistoryitem.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebinspector.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebnavigationaction.h \
+	$(srcdir)/WebKit/gtk/webkit/webkitwebplugin.h \
+	$(srcdir)/WebKit/gtk/webkit/webkitwebplugindatabase.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebpolicydecision.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebresource.h \
 	$(srcdir)/WebKit/gtk/webkit/webkitwebsettings.h \
@@ -157,12 +162,12 @@ webkitgtk_sources += \
 	WebKit/gtk/WebCoreSupport/DocumentLoaderGtk.h \
 	WebKit/gtk/WebCoreSupport/DragClientGtk.cpp \
 	WebKit/gtk/WebCoreSupport/DragClientGtk.h \
+	WebKit/gtk/WebCoreSupport/DumpRenderTreeSupportGtk.cpp \
+	WebKit/gtk/WebCoreSupport/DumpRenderTreeSupportGtk.h \
 	WebKit/gtk/WebCoreSupport/EditorClientGtk.cpp \
 	WebKit/gtk/WebCoreSupport/EditorClientGtk.h \
 	WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.cpp \
 	WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.h \
-	WebKit/gtk/WebCoreSupport/DumpRenderTreeSupportGtk.cpp \
-	WebKit/gtk/WebCoreSupport/DumpRenderTreeSupportGtk.h \
 	WebKit/gtk/WebCoreSupport/FrameNetworkingContextGtk.h \
 	WebKit/gtk/WebCoreSupport/FullscreenVideoController.cpp \
 	WebKit/gtk/WebCoreSupport/FullscreenVideoController.h \
@@ -172,37 +177,56 @@ webkitgtk_sources += \
 	WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.h \
 	WebKit/gtk/webkit/webkitapplicationcache.cpp \
 	WebKit/gtk/webkit/webkitdownload.cpp \
+	WebKit/gtk/webkit/webkitdownloadprivate.h \
 	WebKit/gtk/webkit/webkiterror.cpp \
+	WebKit/gtk/webkit/webkitgeolocationpolicydecision.cpp \
 	WebKit/gtk/webkit/webkithittestresult.cpp \
+	WebKit/gtk/webkit/webkithittestresultprivate.h \
 	WebKit/gtk/webkit/webkitnetworkrequest.cpp \
+	WebKit/gtk/webkit/webkitnetworkrequestprivate.h \
 	WebKit/gtk/webkit/webkitnetworkresponse.cpp \
+	WebKit/gtk/webkit/webkitnetworkresponseprivate.h \
 	WebKit/gtk/webkit/webkitprivate.cpp \
 	WebKit/gtk/webkit/webkitprivate.h \
+	WebKit/gtk/webkit/webkitsecurityorigin.cpp \
+	WebKit/gtk/webkit/webkitsecurityoriginprivate.h \
 	WebKit/gtk/webkit/webkitsoupauthdialog.c \
 	WebKit/gtk/webkit/webkitversion.cpp \
+	WebKit/gtk/webkit/webkitviewportattributes.cpp \
+	WebKit/gtk/webkit/webkitviewportattributesprivate.h \
 	WebKit/gtk/webkit/webkitwebbackforwardlist.cpp \
+	WebKit/gtk/webkit/webkitwebbackforwardlistprivate.h \
+	WebKit/gtk/webkit/webkitwebdatabase.cpp \
 	WebKit/gtk/webkit/webkitwebdatasource.cpp \
 	WebKit/gtk/webkit/webkitwebframe.cpp \
+	WebKit/gtk/webkit/webkitwebframeprivate.h \
 	WebKit/gtk/webkit/webkitwebhistoryitem.cpp \
+	WebKit/gtk/webkit/webkitwebhistoryitemprivate.h \
 	WebKit/gtk/webkit/webkitwebinspector.cpp \
+	WebKit/gtk/webkit/webkitwebinspectorprivate.h \
 	WebKit/gtk/webkit/webkitwebnavigationaction.cpp \
+	WebKit/gtk/webkit/webkitwebnavigationactionprivate.h \
 	WebKit/gtk/webkit/webkitwebpolicydecision.cpp \
-	WebKit/gtk/webkit/webkitgeolocationpolicydecision.cpp \
+	WebKit/gtk/webkit/webkitwebpolicydecisionprivate.h \
 	WebKit/gtk/webkit/webkitwebresource.cpp \
-	WebKit/gtk/webkit/webkitwebdatabase.cpp \
-	WebKit/gtk/webkit/webkitsecurityorigin.cpp \
+	WebKit/gtk/webkit/webkitwebresourceprivate.h \
+	WebKit/gtk/webkit/webkitwebplugin.cpp \
+	WebKit/gtk/webkit/webkitwebpluginprivate.h \
+	WebKit/gtk/webkit/webkitwebplugindatabase.cpp \
+	WebKit/gtk/webkit/webkitwebplugindatabaseprivate.h \
 	WebKit/gtk/webkit/webkitwebsettings.cpp \
+	WebKit/gtk/webkit/webkitwebsettingsprivate.h \
 	WebKit/gtk/webkit/webkitwebview.cpp \
-	WebKit/gtk/webkit/webkitwebwindowfeatures.cpp \
-	WebKit/gtk/webkit/webkitworkers.cpp
+	WebKit/gtk/webkit/webkitwebviewprivate.h \
+	WebKit/gtk/webkit/webkitwebwindowfeatures.cpp
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = WebKit/gtk/@WEBKITGTK_PC_NAME@-@WEBKITGTK_API_VERSION@.pc
 
 if ENABLE_INTROSPECTION
 
-JSCore-@WEBKITGTK_API_VERSION@.gir: $(builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir
-	$(AM_V_GEN)cp $(builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir $(builddir)/
+JSCore-@WEBKITGTK_API_VERSION@.gir: $(top_builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir
+	$(AM_V_GEN)cp $(top_builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir $(top_builddir)/
 
 JSCORE_GIRSOURCES += JSCore-@WEBKITGTK_API_VERSION@.gir
 WEBKIT_GIRSOURCES += WebKit-@WEBKITGTK_API_VERSION@.gir
@@ -224,12 +248,12 @@ $(WEBKIT_GIRSOURCES): $(G_IR_SCANNER) $(JSCORE_GIRSOURCES) libwebkitgtk-@WEBKITG
 	     --pkg=libsoup-2.4 \
 	     --output=$@ \
 	     --add-include-path=$(WebKit) \
-	     --add-include-path=$(builddir) \
+	     --add-include-path=$(top_builddir) \
 	     -I$(top_srcdir)/WebCore/platform/network/soup/cache \
 	     -I$(WebKit) \
 	     -I$(GENSOURCES) \
 	     -I$(GENSOURCES_WEBKIT) \
-	     -I$(builddir)/WebKit/gtk \
+	     -I$(top_builddir)/WebKit/gtk \
 	     -I$(top_srcdir)/JavaScriptCore/ForwardingHeaders \
 	     -I$(top_srcdir) \
 	     $(GENSOURCES_WEBKIT)/webkitenumtypes.h \
@@ -244,13 +268,13 @@ typelibsdir += $(libdir)/girepository-1.0
 typelibs_DATA += $(JSCORE_GIRSOURCES:.gir=.typelib) $(WEBKIT_GIRSOURCES:.gir=.typelib)
 
 %.typelib: %.gir $(G_IR_COMPILER)
-	$(AM_V_GEN)$(G_IR_COMPILER) --includedir $(WebKit) --includedir $(builddir) $< -o $@
+	$(AM_V_GEN)$(G_IR_COMPILER) --includedir $(WebKit) --includedir $(top_builddir) $< -o $@
 
 CLEANFILES += $(JSCORE_GIRSOURCES) $(WEBKIT_GIRSOURCES) $(typelibs_DATA)
 
 endif
 
-EXTRA_DIST += $(builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir
+EXTRA_DIST += $(top_builddir)/WebKit/gtk/JSCore-@WEBKITGTK_API_VERSION@.gir
 
 WEBKIT_MARSHAL_LIST = $(WebKit)/webkitmarshal.list
 $(GENSOURCES_WEBKIT)/webkitmarshal.cpp: stamp-webkitmarshal.cpp
@@ -386,6 +410,7 @@ TEST_PROGS += \
 	Programs/unittests/testwebsettings \
 	Programs/unittests/testwebresource \
 	Programs/unittests/testwebdatasource \
+	Programs/unittests/testwebplugindatabase \
 	Programs/unittests/testwebview \
 	Programs/unittests/testkeyevents \
 	Programs/unittests/testcopyandpaste
@@ -440,6 +465,11 @@ Programs_unittests_testwebframe_SOURCES = WebKit/gtk/tests/testwebframe.c
 Programs_unittests_testwebframe_CFLAGS = $(webkit_tests_cflags)
 Programs_unittests_testwebframe_LDADD = $(webkit_tests_ldadd)
 Programs_unittests_testwebframe_LDFLAGS = $(webkit_tests_ldflags)
+
+Programs_unittests_testwebplugindatabase_SOURCES = WebKit/gtk/tests/testwebplugindatabase.c
+Programs_unittests_testwebplugindatabase_CFLAGS = -DTEST_PLUGIN_DIR=\"${shell pwd}/${top_builddir}/TestNetscapePlugin/.libs\" $(webkit_tests_cflags)
+Programs_unittests_testwebplugindatabase_LDADD = $(webkit_tests_ldadd)
+Programs_unittests_testwebplugindatabase_LDFLAGS = $(webkit_tests_ldflags)
 
 Programs_unittests_testwebbackforwardlist_SOURCES = WebKit/gtk/tests/testwebbackforwardlist.c
 Programs_unittests_testwebbackforwardlist_CFLAGS = $(webkit_tests_cflags)

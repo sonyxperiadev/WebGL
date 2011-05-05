@@ -1,3 +1,260 @@
+2010-12-22  Dan Bernstein  <mitz@apple.com>
+
+        Changed WebKitTools to Tools.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2010-12-14  Adam Roben  <aroben@apple.com>
+
+        Always record the last-set cursor, even when the UI delegate is
+        setting the cursor for us
+
+        Prior to r63339, the last-set cursor was recorded in Widget::setCursor.
+        r63339 moved that code up to WebChromeClient, but failed to call it
+        when the UI delegate was the one setting the cursor.
+
+        Fixes <http://webkit.org/b/45692> <rdar://problem/8423464> REGRESSION
+        (r63339): Mouse cursor disappears when holding mouse button down on
+        page
+
+        Reviewed by Ada Chan.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::setCursor): After the cursor is set, regardless of
+        whether the UI delegate sets it or we set it, record the cursor that
+        was just set. That way we'll be able to use the cursor later when
+        responding to the WM_SETCURSOR message.
+
+2010-12-13  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50953
+        DNS Prefetch should be an opt-in feature
+
+        * WebPreferences.cpp: (WebPreferences::initializeDefaultSettings): Changed default to NO.
+
+2010-10-28  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ojan Vafai.
+
+        spellcheck does not check pasted text
+        https://bugs.webkit.org/show_bug.cgi?id=40092
+
+        Added a stub implememntation.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::requestCheckingOfString):
+
+2010-12-10  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        AX: refactor AccessibilityRenderObject::doAccessibilityHitTest
+        https://bugs.webkit.org/show_bug.cgi?id=50574
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::accHitTest):
+
+2010-12-09  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Prep for WebKit2: Context menu support on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=50514
+        
+        Update WebKit for the new CROSS_PLATFORM_CONTEXT_MENUS flag, and define customizeMenu
+        instead of getCustomMenuFromDefaultItems.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::customizeMenu): getCustomMenuFromDefaultItems was turned into
+            this function, with refactoring using nativeMenu instead of platformDescription.
+        (WebContextMenuClient::contextMenuItemSelected):  Use nativeMenu instead of platformDescription.
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebView.cpp:
+        (WebView::handleContextMenuEvent): Call nativeMenu instead of platformDescription.
+        (WebView::performContextMenuAction): Only call itemAtIndex with one argument, no need
+            for the second.
+
+2010-12-07  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Layering Violation in ContextMenu - member variable of type HitTestResult
+        https://bugs.webkit.org/show_bug.cgi?id=50586
+        
+        Update users of ContextMenu and ContextMenuController to match where the new functions 
+        are located.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::getCustomMenuFromDefaultItems): Get the HitTestResult and ContextMenu from the 
+            ContextMenuController (from the page).
+        (WebContextMenuClient::contextMenuItemSelected): Get the HitTestResult from the ContextMenuController.
+        * WebView.cpp:
+        (WebView::handleContextMenuEvent): Ditto.
+
+2010-12-07  Jessie Berlin  <jberlin@apple.com>
+
+        Build fix. Unreviewed.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::searchWithGoogle):
+        FrameLoader::urlSelected does not take a SecurityOrigin as a parameter.
+
+2010-12-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pass security origin to make local file decision correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48603
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::searchWithGoogle): Pass security origin.
+
+2010-12-07  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Kent Tamura.
+
+        Let HTMLObjectElement be a form associated element
+        https://bugs.webkit.org/show_bug.cgi?id=48821
+
+        Modified to use FormAssociatedElement instead of HTMLFormControlElement.
+
+        * WebFrame.cpp:
+        (WebFrame::elementWithName): Modified to use FormAssociatedElement
+        instead of HTMLFormControlElement.
+        (WebFrame::controlsInForm): Ditto.
+
+2010-12-05  Adam Roben  <aroben@apple.com>
+
+        Windows production build fix
+
+        Put spaces after trailing backslashes when setting
+        %WebKitVSPropsRedirectionDir%. According to MSDN
+        <http://msdn.microsoft.com/en-us/library/2kzfk8c7(v=VS.80).aspx>:
+
+           A backslash ( \ ) followed by a newline character is interpreted as
+           a space in the command; use a backslash at the end of a line to
+           continue a command onto the next line. NMAKE interprets the
+           backslash literally if any other character, including a space or
+           tab, follows the backslash.
+
+        * WebKit.vcproj/WebKit.make:
+
+2010-12-03  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Enable <a ping> for Mac/Windows/WebKit2 builds
+        <rdar://problem/8504473>
+        https://bugs.webkit.org/show_bug.cgi?id=50488
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Enable "HyperlinkAuditing" by default.
+
+2010-12-03  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        WebContextMenuClient::fixMenuReceivedFromOldSafari is no longer needed on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=50486
+        
+        Remove the static fixMenuReceivedFromOldSafari and isPreInspectElementTagSafari methods 
+        from WebContextMenuClient. There were there for when WebKit had the Inspect Element context menu
+        item, but Safari didn't support it. We don't support that old Safari, so that code can go.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::getCustomMenuFromDefaultItems):
+
+2010-12-02  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Move requestGeolocationPermissionForFrame to GeolocationClient
+        https://bugs.webkit.org/show_bug.cgi?id=50061
+
+        This change facilitates client-based geolocation implementation by
+        bringing together permission control into the geolocation client
+        interface.
+
+        Move method ChromeClient::requestGeolocationPermissionForFrame to
+        GeolocationClient::requestPermission. The moved code is unchanged
+        except that requestPermission now takes only one argument (Geolocation*),
+        the Frame parameter is retrieved from the Geolocation object and we need to
+        call m_webView.get() as it is a COMPtr in GeolocationClient.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebGeolocationClient.cpp:
+        (WebGeolocationClient::requestPermission):
+        * WebCoreSupport/WebGeolocationClient.h:
+        (WebGeolocationClient::cancelPermissionRequest):
+
+2010-12-01  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Support multiple correction candidates panel for misspelled word on Mac OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=50137
+        <rdar://problem/8568059>
+
+        Adopted new function signature defined in base class.
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::getGuessesForWord):
+        * WebCoreSupport/WebEditorClient.h:
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WinCairo build should not use link-time code generation (LTCG)
+        https://bugs.webkit.org/show_bug.cgi?id=50353
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2010-12-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        vcproj changes can't be applied cleanly by the Windows EWS bot
+        https://bugs.webkit.org/show_bug.cgi?id=50328
+
+        * WebKit.vcproj/Interfaces.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/InterfacesCommon.vsprops: Added property svn:eol-style.
+        * WebKit.vcproj/WebKit.sln: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKit.submit.sln: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKit.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKitGUID.vcproj: Modified property svn:eol-style.
+        * WebKit.vcproj/WebKitGUIDCommon.vsprops: Added property svn:eol-style.
+        * WebKit.vcproj/WebKitLibCommon.vsprops: Added property svn:eol-style.
+
+2010-11-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        All projects on Windows should use cmd files for build events
+        https://bugs.webkit.org/show_bug.cgi?id=50213
+
+        * WebKit.vcproj/InterfacesCommon.vsprops:
+        * WebKit.vcproj/InterfacesPostBuild.cmd: Added.
+        * WebKit.vcproj/InterfacesPreBuild.cmd: Added.
+        * WebKit.vcproj/WebKitGUIDCommon.vsprops:
+        * WebKit.vcproj/WebKitGUIDPostBuild.cmd: Added.
+        * WebKit.vcproj/WebKitGUIDPreBuild.cmd: Added.
+        * WebKit.vcproj/WebKitLibCommon.vsprops:
+        * WebKit.vcproj/WebKitLibPostBuild.cmd: Added.
+        * WebKit.vcproj/WebKitLibPreBuild.cmd: Added.
+
+2010-11-29  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build correction.
+
+        * WebKit.vcproj/WebKit.vcproj: Update WebKit project to
+          use WinCairo.vsprops definition for appropriate build targets.
+
 2010-11-22  Adam Roben  <aroben@apple.com>
 
         Use paths relative to $WebKitVSPropsRedirectionDir to access shared .vsprops files

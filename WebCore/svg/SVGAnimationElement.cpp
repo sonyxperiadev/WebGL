@@ -45,13 +45,15 @@
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
 #include "XLinkNames.h"
-#include <math.h>
 #include <wtf/StdLibExtras.h>
 
 using namespace std;
 
 namespace WebCore {
-    
+
+// Animated property definitions
+DEFINE_ANIMATED_BOOLEAN(SVGAnimationElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
 SVGAnimationElement::SVGAnimationElement(const QualifiedName& tagName, Document* document)
     : SVGSMILElement(tagName, document)
     , m_animationValid(false)
@@ -71,7 +73,7 @@ static void parseKeyTimes(const String& parse, Vector<float>& result, bool verif
             goto fail;
         if (verifyOrder) {
             if (!n) {
-                if (time != 0)
+                if (time)
                     goto fail;
             } else if (time < result.last())
                 goto fail;
@@ -461,7 +463,7 @@ void SVGAnimationElement::currentValuesForValuesAnimation(float percent, float& 
     
     unsigned keyTimesCount = m_keyTimes.size();
     ASSERT(!keyTimesCount || valuesCount == keyTimesCount);
-    ASSERT(!keyTimesCount || (keyTimesCount > 1 && m_keyTimes[0] == 0));
+    ASSERT(!keyTimesCount || (keyTimesCount > 1 && !m_keyTimes[0]));
 
     unsigned index = calculateKeyTimesIndex(percent);
     if (calcMode == CalcModeDiscrete) {
@@ -570,7 +572,7 @@ void SVGAnimationElement::updateAnimation(float percent, unsigned repeat, SVGSMI
         String from;
         String to;
         currentValuesForValuesAnimation(percent, effectivePercent, from, to);
-        if (from != m_lastValuesAnimationFrom || to != m_lastValuesAnimationTo ) {
+        if (from != m_lastValuesAnimationFrom || to != m_lastValuesAnimationTo) {
             m_animationValid = calculateFromAndToValues(from, to);
             if (!m_animationValid)
                 return;

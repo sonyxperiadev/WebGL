@@ -89,9 +89,9 @@ WidgetRenderingContext::WidgetRenderingContext(GraphicsContext* graphicsContext,
     // Fallback: We failed to create an RGBA colormap earlier, so we cannot properly paint 
     // to a temporary surface and preserve transparency. To ensure decent widget rendering, just
     // paint directly to the target drawable. This will not render CSS rotational transforms properly.
-    if (!theme->m_themePartsHaveRGBAColormap && graphicsContext->gdkDrawable()) {
+    if (!theme->m_themePartsHaveRGBAColormap && graphicsContext->gdkWindow()) {
         m_paintRect = graphicsContext->getCTM().mapRect(targetRect);
-        m_target = graphicsContext->gdkDrawable();
+        m_target = graphicsContext->gdkWindow();
         return;
     }
 
@@ -131,7 +131,7 @@ WidgetRenderingContext::~WidgetRenderingContext()
 {
     // We do not need to blit back to the target in the fallback case. See above.
     RenderThemeGtk* theme = static_cast<RenderThemeGtk*>(RenderTheme::defaultTheme().get());
-    if (!theme->m_themePartsHaveRGBAColormap && m_graphicsContext->gdkDrawable())
+    if (!theme->m_themePartsHaveRGBAColormap && m_graphicsContext->gdkWindow())
         return;
 
     // Don't paint the results back if there was an error.
@@ -163,6 +163,27 @@ bool WidgetRenderingContext::paintMozillaWidget(GtkThemeWidgetType type, GtkWidg
     m_hadError = moz_gtk_widget_paint(type, m_target, &clipRect, &m_paintRect,
         state, flags, textDirection) != MOZ_GTK_SUCCESS;
     return !m_hadError;
+}
+
+void WidgetRenderingContext::gtkPaintBox(const IntRect& rect, GtkWidget* widget, GtkStateType stateType, GtkShadowType shadowType, const gchar* detail)
+{
+    GdkRectangle paintRect = { m_paintRect.x + rect.x(), m_paintRect.y + rect.y(), rect.width(), rect.height() };
+    gtk_paint_box(gtk_widget_get_style(widget), m_target, stateType, shadowType, &m_paintRect,
+                  widget, detail, paintRect.x, paintRect.y, paintRect.width, paintRect.height);
+}
+
+void WidgetRenderingContext::gtkPaintFocus(const IntRect& rect, GtkWidget* widget, GtkStateType stateType, const gchar* detail)
+{
+    GdkRectangle paintRect = { m_paintRect.x + rect.x(), m_paintRect.y + rect.y(), rect.width(), rect.height() };
+    gtk_paint_focus(gtk_widget_get_style(widget), m_target, stateType, &m_paintRect, widget,
+                    detail, paintRect.x, paintRect.y, paintRect.width, paintRect.height);
+}
+
+void WidgetRenderingContext::gtkPaintSlider(const IntRect& rect, GtkWidget* widget, GtkStateType stateType, GtkShadowType shadowType, const gchar* detail, GtkOrientation orientation)
+{
+    GdkRectangle paintRect = { m_paintRect.x + rect.x(), m_paintRect.y + rect.y(), rect.width(), rect.height() };
+    gtk_paint_slider(gtk_widget_get_style(widget), m_target, stateType, shadowType, &m_paintRect, widget,
+                     detail, paintRect.x, paintRect.y, paintRect.width, paintRect.height, orientation);
 }
 
 }

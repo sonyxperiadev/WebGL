@@ -27,6 +27,7 @@
 #include "FrameLoaderTypes.h"
 #include "PlatformString.h"
 #include "PurgePriority.h"
+#include "ResourceLoadPriority.h"
 #include "ResourceResponse.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -41,10 +42,10 @@ class CachedMetadata;
 class CachedResourceClient;
 class CachedResourceHandleBase;
 class CachedResourceLoader;
+class CachedResourceRequest;
 class Frame;
 class InspectorResource;
 class PurgeableBuffer;
-class Request;
 
 // A resource that is held in the cache. Classes who want to use this object should derive
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
@@ -90,6 +91,8 @@ public:
 
     const String &url() const { return m_url; }
     Type type() const { return static_cast<Type>(m_type); }
+    
+    ResourceLoadPriority loadPriority() const { return m_loadPriority; }
 
     void addClient(CachedResourceClient*);
     void removeClient(CachedResourceClient*);
@@ -150,7 +153,7 @@ public:
     void setInLiveDecodedResourcesList(bool b) { m_inLiveDecodedResourcesList = b; }
     bool inLiveDecodedResourcesList() { return m_inLiveDecodedResourcesList; }
     
-    void setRequest(Request*);
+    void setRequest(CachedResourceRequest*);
 
     SharedBuffer* data() const { ASSERT(!m_purgeableData); return m_data.get(); }
 
@@ -216,7 +219,8 @@ protected:
 
     String m_url;
     String m_accept;
-    Request* m_request;
+    CachedResourceRequest* m_request;
+    ResourceLoadPriority m_loadPriority;
 
     ResourceResponse m_response;
     double m_responseTimestamp;
@@ -233,6 +237,7 @@ private:
     void clearResourceToRevalidate();
     void updateResponseAfterRevalidation(const ResourceResponse& validatingResponse);
     virtual PurgePriority purgePriority() const { return PurgeDefault; }
+    void setLoadPriority(ResourceLoadPriority loadPriority) { m_loadPriority = loadPriority; }
 
     double currentAge() const;
     double freshnessLifetime() const;

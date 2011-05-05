@@ -225,8 +225,9 @@ bool windowsCanHandleDrawTextShadow(GraphicsContext *context)
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
+    ColorSpace shadowColorSpace;
 
-    bool hasShadow = context->getShadow(shadowOffset, shadowBlur, shadowColor);
+    bool hasShadow = context->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
     return (hasShadow && (shadowBlur == 0) && (shadowColor.alpha() == 255) && (context->fillColor().alpha() == 255));
 }
 
@@ -242,7 +243,7 @@ bool windowsCanHandleTextDrawing(GraphicsContext* context)
         return false;
 
     // Check for stroke effects.
-    if (context->platformContext()->getTextDrawingMode() != cTextFill)
+    if (context->platformContext()->getTextDrawingMode() != TextModeFill)
         return false;
 
     // Check for gradients.
@@ -307,7 +308,7 @@ bool paintSkiaText(GraphicsContext* context,
     HGDIOBJ oldFont = SelectObject(dc, hfont);
 
     PlatformContextSkia* platformContext = context->platformContext();
-    int textMode = platformContext->getTextDrawingMode();
+    TextDrawingModeFlags textMode = platformContext->getTextDrawingMode();
 
     // Filling (if necessary). This is the common case.
     SkPaint paint;
@@ -315,7 +316,7 @@ bool paintSkiaText(GraphicsContext* context,
     paint.setFlags(SkPaint::kAntiAlias_Flag);
     bool didFill = false;
 
-    if ((textMode & cTextFill) && SkColorGetA(paint.getColor())) {
+    if ((textMode & TextModeFill) && SkColorGetA(paint.getColor())) {
         if (!skiaDrawText(hfont, dc, platformContext->canvas(), *origin, &paint,
                           &glyphs[0], &advances[0], &offsets[0], numGlyphs))
             return false;
@@ -323,7 +324,7 @@ bool paintSkiaText(GraphicsContext* context,
     }
 
     // Stroking on top (if necessary).
-    if ((textMode & cTextStroke)
+    if ((textMode & TextModeStroke)
         && platformContext->getStrokeStyle() != NoStroke
         && platformContext->getStrokeThickness() > 0) {
 

@@ -142,9 +142,11 @@ void HTMLInputElement::updateCheckedRadioButtons()
         checkedRadioButtons().addButton(this);
 
     if (form()) {
-        const Vector<HTMLFormControlElement*>& controls = form()->associatedElements();
+        const Vector<FormAssociatedElement*>& controls = form()->associatedElements();
         for (unsigned i = 0; i < controls.size(); ++i) {
-            HTMLFormControlElement* control = controls[i];
+            if (!controls[i]->isFormControlElement())
+                continue;
+            HTMLFormControlElement* control = static_cast<HTMLFormControlElement*>(controls[i]);
             if (control->name() != name())
                 continue;
             if (control->type() != type())
@@ -379,6 +381,9 @@ void HTMLInputElement::applyStep(double count, ExceptionCode& ec)
     if (newValue > m_inputType->maximum())
         newValue = m_inputType->maximum();
     setValueAsNumber(newValue, ec);
+    
+    if (AXObjectCache::accessibilityEnabled())
+         document()->axObjectCache()->postNotification(renderer(), AXObjectCache::AXValueChanged, true);
 }
 
 void HTMLInputElement::stepUp(int n, ExceptionCode& ec)
@@ -784,7 +789,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
 #if ENABLE(INPUT_SPEECH)
     else if (attr->name() == webkitspeechAttr) {
       if (renderer())
-          renderer()->updateFromElement();
+          toRenderTextControlSingleLine(renderer())->speechAttributeChanged();
       setNeedsStyleRecalc();
     } else if (attr->name() == onwebkitspeechchangeAttr)
         setAttributeEventListener(eventNames().webkitspeechchangeEvent, createAttributeEventListener(this, attr));
@@ -1303,11 +1308,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     // FIXME: It would be better to refactor this for the different types of input element.
     // Having them all in one giant function makes this hard to read, and almost all the handling is type-specific.
 
-    bool implicitSubmission = false;
-
-    if (isTextField() && evt->type() == eventNames().textInputEvent && evt->isTextEvent() && static_cast<TextEvent*>(evt)->data() == "\n")
-        implicitSubmission = true;
-
     if (evt->isMouseEvent() && evt->type() == eventNames().clickEvent && m_inputType->handleClickEvent(static_cast<MouseEvent*>(evt)))
         return;
 
@@ -1316,8 +1316,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
     // Call the base event handler before any of our own event handling for almost all events in text fields.
     // Makes editing keyboard handling take precedence over the keydown and keypress handling in this function.
-    bool callBaseClassEarly = isTextField() && !implicitSubmission
-        && (evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
+    bool callBaseClassEarly = isTextField() && (evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
     if (callBaseClassEarly) {
         HTMLFormControlElementWithState::defaultEventHandler(evt);
         if (evt->defaultHandled())
@@ -1333,180 +1332,13 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
     // Use key press event here since sending simulated mouse events
     // on key down blocks the proper sending of the key press event.
-    if (evt->type() == eventNames().keypressEvent && evt->isKeyboardEvent()) {
-        bool clickElement = false;
+    if (evt->isKeyboardEvent() && evt->type() == eventNames().keypressEvent && m_inputType->handleKeypressEvent(static_cast<KeyboardEvent*>(evt)))
+        return;
 
-        int charCode = static_cast<KeyboardEvent*>(evt)->charCode();
+    if (evt->isKeyboardEvent() && evt->type() == eventNames().keyupEvent && m_inputType->handleKeyupEvent(static_cast<KeyboardEvent*>(evt)))
+        return;
 
-        if (charCode == '\r') {
-            switch (deprecatedInputType()) {
-            case CHECKBOX:
-            case COLOR:
-            case DATE:
-            case DATETIME:
-            case DATETIMELOCAL:
-            case EMAIL:
-            case HIDDEN:
-            case ISINDEX:
-            case MONTH:
-            case NUMBER:
-            case PASSWORD:
-            case RADIO:
-            case RANGE:
-            case SEARCH:
-            case TELEPHONE:
-            case TEXT:
-            case TIME:
-            case URL:
-            case WEEK:
-                // Simulate mouse click on the default form button for enter for these types of elements.
-                implicitSubmission = true;
-                break;
-            case BUTTON:
-            case FILE:
-            case IMAGE:
-            case RESET:
-            case SUBMIT:
-                // Simulate mouse click for enter for these types of elements.
-                clickElement = true;
-                break;
-            }
-        } else if (charCode == ' ') {
-            switch (deprecatedInputType()) {
-            case BUTTON:
-            case CHECKBOX:
-            case FILE:
-            case IMAGE:
-            case RESET:
-            case SUBMIT:
-            case RADIO:
-                // Prevent scrolling down the page.
-                evt->setDefaultHandled();
-                return;
-            default:
-                break;
-            }
-        }
-
-        if (clickElement) {
-            dispatchSimulatedClick(evt);
-            evt->setDefaultHandled();
-            return;
-        }
-    }
-
-    if (evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent()) {
-        const String& key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
-
-        if (key == "U+0020") {
-            switch (deprecatedInputType()) {
-            case BUTTON:
-            case CHECKBOX:
-            case FILE:
-            case IMAGE:
-            case RESET:
-            case SUBMIT:
-            case RADIO:
-                setActive(true, true);
-                // No setDefaultHandled(), because IE dispatches a keypress in this case
-                // and the caller will only dispatch a keypress if we don't call setDefaultHandled.
-                return;
-            default:
-                break;
-            }
-        }
-
-        if (deprecatedInputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
-            // Left and up mean "previous radio button".
-            // Right and down mean "next radio button".
-            // Tested in WinIE, and even for RTL, left still means previous radio button (and so moves
-            // to the right).  Seems strange, but we'll match it.
-            // However, when using Spatial Navigation, we need to be able to navigate without changing the selection.
-            if (!isSpatialNavigationEnabled(document()->frame())) {
-                bool forward = (key == "Down" || key == "Right");
-
-                // We can only stay within the form's children if the form hasn't been demoted to a leaf because
-                // of malformed HTML.
-                Node* n = this;
-                while ((n = (forward ? n->traverseNextNode() : n->traversePreviousNode()))) {
-                    // Once we encounter a form element, we know we're through.
-                    if (n->hasTagName(formTag))
-                        break;
-
-                    // Look for more radio buttons.
-                    if (n->hasTagName(inputTag)) {
-                        HTMLInputElement* elt = static_cast<HTMLInputElement*>(n);
-                        if (elt->form() != form())
-                            break;
-                        if (n->hasTagName(inputTag)) {
-                            HTMLInputElement* inputElt = static_cast<HTMLInputElement*>(n);
-                            if (inputElt->deprecatedInputType() == RADIO && inputElt->name() == name() && inputElt->isFocusable()) {
-                                inputElt->setChecked(true);
-                                document()->setFocusedNode(inputElt);
-                                inputElt->dispatchSimulatedClick(evt, false, false);
-                                evt->setDefaultHandled();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (evt->type() == eventNames().keyupEvent && evt->isKeyboardEvent()) {
-        bool clickElement = false;
-
-        const String& key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
-
-        if (key == "U+0020") {
-            switch (deprecatedInputType()) {
-            case BUTTON:
-            case CHECKBOX:
-            case FILE:
-            case IMAGE:
-            case RESET:
-            case SUBMIT:
-                // Simulate mouse click for spacebar for these types of elements.
-                // The AppKit already does this for some, but not all, of them.
-                clickElement = true;
-                break;
-            case RADIO:
-                // If an unselected radio is tabbed into (because the entire group has nothing
-                // checked, or because of some explicit .focus() call), then allow space to check it.
-                if (!checked())
-                    clickElement = true;
-                break;
-            case COLOR:
-            case DATE:
-            case DATETIME:
-            case DATETIMELOCAL:
-            case EMAIL:
-            case HIDDEN:
-            case ISINDEX:
-            case MONTH:
-            case NUMBER:
-            case PASSWORD:
-            case RANGE:
-            case SEARCH:
-            case TELEPHONE:
-            case TEXT:
-            case TIME:
-            case URL:
-            case WEEK:
-                break;
-            }
-        }
-
-        if (clickElement) {
-            if (active())
-                dispatchSimulatedClick(evt);
-            evt->setDefaultHandled();
-            return;
-        }        
-    }
-
-    if (implicitSubmission) {
+    if (m_inputType->shouldSubmitImplicitly(evt)) {
         if (isSearchField()) {
             addSearchResult();
             onSearch();
@@ -1625,7 +1457,7 @@ void HTMLInputElement::setDefaultValue(const String &value)
 
 bool HTMLInputElement::defaultChecked() const
 {
-    return !getAttribute(checkedAttr).isNull();
+    return fastHasAttribute(checkedAttr);
 }
 
 void HTMLInputElement::setDefaultName(const AtomicString& name)
@@ -1658,13 +1490,13 @@ void HTMLInputElement::setMaxLength(int maxLength, ExceptionCode& ec)
 
 bool HTMLInputElement::multiple() const
 {
-    return !getAttribute(multipleAttr).isNull();
+    return fastHasAttribute(multipleAttr);
 }
 
 #if ENABLE(DIRECTORY_UPLOAD)
 bool HTMLInputElement::webkitdirectory() const
 {
-    return !getAttribute(webkitdirectoryAttr).isNull();
+    return fastHasAttribute(webkitdirectoryAttr);
 }
 #endif
 
@@ -1877,37 +1709,113 @@ HTMLOptionElement* HTMLInputElement::selectedOption() const
 void HTMLInputElement::stepUpFromRenderer(int n)
 {
     // The differences from stepUp()/stepDown():
-    // If the current value is not a number, the value will be
-    //  - The value should be the minimum value if n > 0
-    //  - The value should be the maximum value if n < 0
+    //
+    // Difference 1: the current value
+    // If the current value is not a number, including empty, the current value is assumed as 0.
+    //   * If 0 is in-range, and matches to step value
+    //     - The value should be the +step if n > 0
+    //     - The value should be the -step if n < 0
+    //     If -step or +step is out of range, new value should be 0.
+    //   * If 0 is smaller than the minimum value
+    //     - The value should be the minimum value for any n
+    //   * If 0 is larger than the maximum value
+    //     - The value should be the maximum value for any n
+    //   * If 0 is in-range, but not matched to step value
+    //     - The value should be the larger matched value nearest to 0 if n > 0
+    //       e.g. <input type=number min=-100 step=3> -> 2
+    //     - The value should be the smaler matched value nearest to 0 if n < 0
+    //       e.g. <input type=number min=-100 step=3> -> -1
+    //   As for date/datetime-local/month/time/week types, the current value is assumed as "the current local date/time".
+    //   As for datetime type, the current value is assumed as "the current date/time in UTC".
     // If the current value is smaller than the minimum value:
     //  - The value should be the minimum value if n > 0
     //  - Nothing should happen if n < 0
     // If the current value is larger than the maximum value:
     //  - The value should be the maximum value if n < 0
     //  - Nothing should happen if n > 0
+    //
+    // Difference 2: clamping steps
+    // If the current value is not matched to step value:
+    // - The value should be the larger matched value nearest to 0 if n > 0
+    //   e.g. <input type=number value=3 min=-100 step=3> -> 5
+    // - The value should be the smaler matched value nearest to 0 if n < 0
+    //   e.g. <input type=number value=3 min=-100 step=3> -> 2
+    //
+    // n is assumed as -n if step < 0.
 
-    ASSERT(hasSpinButton());
-    if (!hasSpinButton())
+    ASSERT(hasSpinButton() || m_inputType->isRangeControl());
+    if (!hasSpinButton() && !m_inputType->isRangeControl())
         return;
     ASSERT(n);
     if (!n)
         return;
 
+    unsigned stepDecimalPlaces, baseDecimalPlaces;
+    double step, base;
+    // The value will be the default value after stepping for <input value=(empty/invalid) step="any" />
+    // FIXME: Not any changes after stepping, even if it is an invalid value, may be better.
+    // (e.g. Stepping-up for <input type="number" value="foo" step="any" /> => "foo")
+    if (equalIgnoringCase(getAttribute(stepAttr), "any"))
+        step = 0;
+    else if (!getAllowedValueStepWithDecimalPlaces(&step, &stepDecimalPlaces))
+        return;
+    base = m_inputType->stepBaseWithDecimalPlaces(&baseDecimalPlaces);
+    baseDecimalPlaces = min(baseDecimalPlaces, 16u);
+
+    int sign;
+    if (step > 0)
+        sign = n;
+    else if (step < 0)
+        sign = -n;
+    else
+        sign = 0;
+
     const double nan = numeric_limits<double>::quiet_NaN();
     String currentStringValue = value();
     double current = m_inputType->parseToDouble(currentStringValue, nan);
-    if (!isfinite(current) || (n > 0 && current < m_inputType->minimum()) || (n < 0 && current > m_inputType->maximum()))
-        setValue(m_inputType->serialize(n > 0 ? m_inputType->minimum() : m_inputType->maximum()));
+    if (!isfinite(current)) {
+        ExceptionCode ec;
+        current = m_inputType->defaultValueForStepUp();
+        setValueAsNumber(current, ec);
+    }
+    if ((sign > 0 && current < m_inputType->minimum()) || (sign < 0 && current > m_inputType->maximum()))
+        setValue(m_inputType->serialize(sign > 0 ? m_inputType->minimum() : m_inputType->maximum()));
     else {
         ExceptionCode ec;
-        stepUp(n, ec);
+        if (stepMismatch(currentStringValue)) {
+            ASSERT(step);
+            double newValue;
+            double scale = pow(10.0, static_cast<double>(max(stepDecimalPlaces, baseDecimalPlaces)));
+
+            if (sign < 0)
+                newValue = round((base + floor((current - base) / step) * step) * scale) / scale;
+            else if (sign > 0)
+                newValue = round((base + ceil((current - base) / step) * step) * scale) / scale;
+            else
+                newValue = current;
+
+            if (newValue < m_inputType->minimum())
+                newValue = m_inputType->minimum();
+            if (newValue > m_inputType->maximum())
+                newValue = m_inputType->maximum();
+
+            setValueAsNumber(newValue, ec);
+            current = newValue;
+            if (n > 1)
+                applyStep(n - 1, ec);
+            else if (n < -1)
+                applyStep(n + 1, ec);
+        } else
+            applyStep(n, ec);
     }
 
     if (currentStringValue != value()) {
         if (renderer() && renderer()->isTextField())
             toRenderTextControl(renderer())->setChangedSinceLastChangeEvent(true);
-        dispatchEvent(Event::create(eventNames().inputEvent, true, false));
+        if (m_inputType->isRangeControl())
+            dispatchFormControlChangeEvent();
+        else
+            dispatchEvent(Event::create(eventNames().inputEvent, true, false));
     }
 }
 

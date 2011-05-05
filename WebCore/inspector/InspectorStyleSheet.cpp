@@ -131,19 +131,6 @@ static PassRefPtr<CSSRuleList> asCSSRuleList(StyleBase* styleBase)
     return 0;
 }
 
-PassRefPtr<InspectorStyle> InspectorStyle::create(const InspectorCSSId& styleId, PassRefPtr<CSSStyleDeclaration> style, InspectorStyleSheet* parentStyleSheet)
-{
-    return adoptRef(new InspectorStyle(styleId, style, parentStyleSheet));
-}
-
-InspectorStyle::InspectorStyle(const InspectorCSSId& styleId, PassRefPtr<CSSStyleDeclaration> style, InspectorStyleSheet* parentStyleSheet)
-    : m_styleId(styleId)
-    , m_style(style)
-    , m_parentStyleSheet(parentStyleSheet)
-{
-    ASSERT(m_style);
-}
-
 PassRefPtr<InspectorObject> InspectorStyle::buildObjectForStyle() const
 {
     RefPtr<InspectorObject> result = InspectorObject::create();
@@ -154,7 +141,7 @@ PassRefPtr<InspectorObject> InspectorStyle::buildObjectForStyle() const
     propertiesObject->setString("width", m_style->getPropertyValue("width"));
     propertiesObject->setString("height", m_style->getPropertyValue("height"));
 
-    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet ? m_parentStyleSheet->ruleSourceDataFor(m_style.get()) : 0;
+    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet ? m_parentStyleSheet->ruleSourceDataFor(m_style) : 0;
     if (sourceData) {
         propertiesObject->setNumber("startOffset", sourceData->styleSourceData->styleBodyRange.start);
         propertiesObject->setNumber("endOffset", sourceData->styleSourceData->styleBodyRange.end);
@@ -191,7 +178,9 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
         p.parseDeclaration(tempMutableStyle.get(), propertyText + " -webkit-boguz-propertee: none", &sourceData);
         Vector<CSSPropertySourceData>& propertyData = sourceData->propertyData;
         unsigned propertyCount = propertyData.size();
-        if (!propertyCount)
+
+        // At least one property + the bogus property added just above should be present.
+        if (propertyCount < 2)
             return false;
 
         // Check for a proper propertyText termination (the parser could at least restore to the PROPERTY_NAME state).
@@ -228,7 +217,7 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
         }
     } else {
         // Insert at index.
-        RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style.get());
+        RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style);
         if (!sourceData)
             return false;
         String text;
@@ -268,7 +257,7 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
         }
 
         text.insert(textToSet, propertyStart);
-        m_parentStyleSheet->setStyleText(m_style.get(), text);
+        m_parentStyleSheet->setStyleText(m_style, text);
     }
 
     // Recompute subsequent disabled property ranges if acting on a non-disabled property.
@@ -282,7 +271,7 @@ bool InspectorStyle::toggleProperty(unsigned index, bool disable)
     ASSERT(m_parentStyleSheet);
     if (!m_parentStyleSheet->ensureParsedDataReady())
         return false; // Can toggle only source-based properties.
-    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style.get());
+    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style);
     if (!sourceData)
         return false; // No source data for the style.
 
@@ -323,7 +312,7 @@ unsigned InspectorStyle::disabledIndexByOrdinal(unsigned ordinal, bool canUseSub
 bool InspectorStyle::styleText(String* result) const
 {
     // Precondition: m_parentStyleSheet->ensureParsedDataReady() has been called successfully.
-    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style.get());
+    RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style);
     if (!sourceData)
         return false;
 
@@ -392,7 +381,7 @@ bool InspectorStyle::populateAllProperties(Vector<InspectorStyleProperty>* resul
     if (disabledIndex < disabledLength)
         disabledProperty = m_disabledProperties.at(disabledIndex);
 
-    RefPtr<CSSRuleSourceData> sourceData = (m_parentStyleSheet && m_parentStyleSheet->ensureParsedDataReady()) ? m_parentStyleSheet->ruleSourceDataFor(m_style.get()) : 0;
+    RefPtr<CSSRuleSourceData> sourceData = (m_parentStyleSheet && m_parentStyleSheet->ensureParsedDataReady()) ? m_parentStyleSheet->ruleSourceDataFor(m_style) : 0;
     Vector<CSSPropertySourceData>* sourcePropertyData = sourceData ? &(sourceData->styleSourceData->propertyData) : 0;
     if (sourcePropertyData) {
         String styleDeclaration;
@@ -519,7 +508,7 @@ bool InspectorStyle::replacePropertyInStyleText(const InspectorStyleProperty& pr
         return false;
     const SourceRange& range = property.sourceData.range;
     text.replace(range.start, range.end - range.start, newText);
-    success = m_parentStyleSheet->setStyleText(m_style.get(), text);
+    success = m_parentStyleSheet->setStyleText(m_style, text);
     return success;
 }
 
@@ -574,12 +563,7 @@ Vector<String> InspectorStyle::longhandProperties(const String& shorthandPropert
     return properties;
 }
 
-PassRefPtr<InspectorStyleSheet> InspectorStyleSheet::create(const String& id, PassRefPtr<CSSStyleSheet> pageStyleSheet, const String& origin, const String& documentURL)
-{
-    return adoptRef(new InspectorStyleSheet(id, pageStyleSheet, origin, documentURL));
-}
-
-InspectorStyleSheet::InspectorStyleSheet(const String& id, PassRefPtr<CSSStyleSheet> pageStyleSheet, const String& origin, const String& documentURL)
+InspectorStyleSheet::InspectorStyleSheet(const String& id, CSSStyleSheet* pageStyleSheet, const String& origin, const String& documentURL)
     : m_id(id)
     , m_pageStyleSheet(pageStyleSheet)
     , m_origin(origin)
@@ -1108,17 +1092,12 @@ void InspectorStyleSheet::collectFlatRules(PassRefPtr<CSSRuleList> ruleList, Vec
     }
 }
 
-PassRefPtr<InspectorStyleSheetForInlineStyle> InspectorStyleSheetForInlineStyle::create(const String& id, PassRefPtr<Element> element, const String& origin)
-{
-    return adoptRef(new InspectorStyleSheetForInlineStyle(id, element, origin));
-}
-
-InspectorStyleSheetForInlineStyle::InspectorStyleSheetForInlineStyle(const String& id, PassRefPtr<Element> element, const String& origin)
+InspectorStyleSheetForInlineStyle::InspectorStyleSheetForInlineStyle(const String& id, Element* element, const String& origin)
     : InspectorStyleSheet(id, 0, origin, "")
     , m_element(element)
     , m_ruleSourceData(0)
 {
-    ASSERT(m_element);
+    ASSERT(element);
     m_inspectorStyle = InspectorStyle::create(InspectorCSSId(id, 0), inlineStyle(), this);
 }
 
@@ -1175,7 +1154,7 @@ bool InspectorStyleSheetForInlineStyle::getStyleAttributeRanges(RefPtr<CSSStyleS
     if (!m_element->isStyledElement())
         return false;
 
-    String styleText = static_cast<StyledElement*>(m_element.get())->getAttribute(styleAttributeName);
+    String styleText = static_cast<StyledElement*>(m_element)->getAttribute(styleAttributeName);
     if (styleText.isEmpty()) {
         (*result)->styleBodyRange.start = 0;
         (*result)->styleBodyRange.end = 0;

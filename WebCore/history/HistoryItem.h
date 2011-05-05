@@ -88,9 +88,6 @@ public:
     
     PassRefPtr<HistoryItem> copy() const;
     
-    // Resets the HistoryItem to its initial state, as returned by create().
-    void reset();
-    
     const String& originalURLString() const;
     const String& urlString() const;
     const String& title() const;
@@ -144,7 +141,7 @@ public:
 
     void setDocumentSequenceNumber(long long number) { m_documentSequenceNumber = number; }
     long long documentSequenceNumber() const { return m_documentSequenceNumber; }
-
+    
     void setFormInfoFromRequest(const ResourceRequest&);
     void setFormData(PassRefPtr<FormData>);
     void setFormContentType(const String&);
@@ -254,19 +251,11 @@ private:
 
     OwnPtr<Vector<String> > m_redirectURLs;
 
-    // If two HistoryItems have the same item sequence number, then they are
-    // clones of one another.  Traversing history from one such HistoryItem to
-    // another is a no-op.  HistoryItem clones are created for parent and
-    // sibling frames when only a subframe navigates.
     long long m_itemSequenceNumber;
-
-    // If two HistoryItems have the same document sequence number, then they
-    // refer to the same instance of a document.  Traversing history from one
-    // such HistoryItem to another preserves the document.
-    long long m_documentSequenceNumber;
 
     // Support for HTML5 History
     RefPtr<SerializedScriptValue> m_stateObject;
+    long long m_documentSequenceNumber;
     
     // info used to repost form data
     RefPtr<FormData> m_formData;

@@ -357,15 +357,19 @@ public:
         ShadowData defaultShadowData(0, 0, 0, 0, Normal, Color::transparent);
 
         ShadowData* newShadowData = 0;
+        ShadowData* lastShadow = 0;
         
         while (shadowA || shadowB) {
             const ShadowData* srcShadow = shadowA ? shadowA : &defaultShadowData;
             const ShadowData* dstShadow = shadowB ? shadowB : &defaultShadowData;
             
-            if (!newShadowData)
-                newShadowData = blendFunc(anim, srcShadow, dstShadow, progress);
+            ShadowData* blendedShadow = blendFunc(anim, srcShadow, dstShadow, progress);
+            if (!lastShadow)
+                newShadowData = blendedShadow;
             else
-                newShadowData->setNext(blendFunc(anim, srcShadow, dstShadow, progress));
+                lastShadow->setNext(blendedShadow);
+
+            lastShadow = blendedShadow;
 
             shadowA = shadowA ? shadowA->next() : 0;
             shadowB = shadowB ? shadowB->next() : 0;
@@ -574,6 +578,8 @@ public:
             (*it)->blend(anim, dst, a, b, progress);
     }
 
+    const Vector<PropertyWrapperBase*> propertyWrappers() const { return m_propertyWrappers; }
+
 private:
     Vector<PropertyWrapperBase*> m_propertyWrappers;
 };
@@ -731,7 +737,8 @@ static void addShorthandProperties()
         CSSPropertyWebkitMask,      // for mask-position
         CSSPropertyWebkitMaskPosition,
         CSSPropertyBorderTop, CSSPropertyBorderRight, CSSPropertyBorderBottom, CSSPropertyBorderLeft,
-        CSSPropertyBorderColor, 
+        CSSPropertyBorderColor,
+        CSSPropertyBorderRadius,
         CSSPropertyBorderWidth,
         CSSPropertyBorder,
         CSSPropertyBorderSpacing,
@@ -861,6 +868,39 @@ bool AnimationBase::animationOfPropertyIsAccelerated(int prop)
     return wrapper ? wrapper->animationIsAccelerated() : false;
 }
 #endif
+
+static bool gatherEnclosingShorthandProperties(int property, PropertyWrapperBase* wrapper, HashSet<int>& propertySet)
+{
+    if (!wrapper->isShorthandWrapper())
+        return false;
+
+    ShorthandPropertyWrapper* shorthandWrapper = static_cast<ShorthandPropertyWrapper*>(wrapper);
+    
+    bool contained = false;
+    for (size_t i = 0; i < shorthandWrapper->propertyWrappers().size(); ++i) {
+        PropertyWrapperBase* currWrapper = shorthandWrapper->propertyWrappers()[i];
+
+        if (gatherEnclosingShorthandProperties(property, currWrapper, propertySet) || currWrapper->property() == property)
+            contained = true;
+    }
+    
+    if (contained)
+        propertySet.add(wrapper->property());
+
+    return contained;
+}
+
+// Note: this is inefficient. It's only called from pauseTransitionAtTime().
+HashSet<int> AnimationBase::animatableShorthandsAffectingProperty(int property)
+{
+    ensurePropertyMap();
+
+    HashSet<int> foundProperties;
+    for (int i = 0; i < getNumProperties(); ++i)
+        gatherEnclosingShorthandProperties(property, (*gPropertyWrappers)[i], foundProperties);
+
+    return foundProperties;
+}
 
 void AnimationBase::setNeedsStyleRecalc(Node* node)
 {

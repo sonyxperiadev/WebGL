@@ -30,6 +30,7 @@
 #include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitnetworkresponse.h>
 #include <webkit/webkitsoupauthdialog.h>
+#include <webkit/webkitviewportattributes.h>
 #include <webkit/webkitwebdatasource.h>
 #include <webkit/webkitwebframe.h>
 #include <webkit/webkitwebsettings.h>
@@ -38,6 +39,8 @@
 #include <webkit/webkitwebview.h>
 #include <webkit/webkitwebbackforwardlist.h>
 #include <webkit/webkitwebhistoryitem.h>
+#include <webkit/webkitwebplugin.h>
+#include <webkit/webkitwebplugindatabase.h>
 #include <webkit/webkitwebpolicydecision.h>
 #include <webkit/webkitwebnavigationaction.h>
 #include <webkit/webkitwebresource.h>

@@ -22,18 +22,20 @@
 
 #include "ArchiveResource.h"
 #include "DocumentLoaderGtk.h"
-#include "FrameLoaderClientGtk.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClientGtk.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ResourceRequest.h"
-#include "runtime/InitializeThreading.h"
 #include "SharedBuffer.h"
 #include "SubstituteData.h"
-#include "webkitwebresource.h"
+#include "runtime/InitializeThreading.h"
+#include "webkitnetworkrequestprivate.h"
 #include "webkitprivate.h"
+#include "webkitwebframeprivate.h"
+#include "webkitwebresource.h"
+#include "webkitwebviewprivate.h"
 #include "wtf/Assertions.h"
-
 #include <glib.h>
 
 /**
@@ -71,8 +73,6 @@ struct _WebKitWebDataSourcePrivate {
     gchar* textEncoding;
     gchar* unreachableURL;
 };
-
-#define WEBKIT_WEB_DATA_SOURCE_GET_PRIVATE(obj)        (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_DATA_SOURCE, WebKitWebDataSourcePrivate))
 
 G_DEFINE_TYPE(WebKitWebDataSource, webkit_web_data_source, G_TYPE_OBJECT);
 
@@ -133,7 +133,7 @@ static void webkit_web_data_source_class_init(WebKitWebDataSourceClass* klass)
 
 static void webkit_web_data_source_init(WebKitWebDataSource* webDataSource)
 {
-    webDataSource->priv = WEBKIT_WEB_DATA_SOURCE_GET_PRIVATE(webDataSource);
+    webDataSource->priv = G_TYPE_INSTANCE_GET_PRIVATE(webDataSource, WEBKIT_TYPE_WEB_DATA_SOURCE, WebKitWebDataSourcePrivate);
 }
 
 WebKitWebDataSource* webkit_web_data_source_new_with_loader(PassRefPtr<WebKit::DocumentLoader> loader)
@@ -242,7 +242,7 @@ WebKitNetworkRequest* webkit_web_data_source_get_initial_request(WebKitWebDataSo
     if (priv->initialRequest)
         g_object_unref(priv->initialRequest);
 
-    priv->initialRequest = webkit_network_request_new_with_core_request(request);
+    priv->initialRequest = kitNew(request);
     return priv->initialRequest;
 }
 
@@ -275,7 +275,7 @@ WebKitNetworkRequest* webkit_web_data_source_get_request(WebKitWebDataSource* we
      if (priv->networkRequest)
          g_object_unref(priv->networkRequest);
 
-     priv->networkRequest = webkit_network_request_new_with_core_request(request);
+     priv->networkRequest = kitNew(request);
      return priv->networkRequest;
 }
 
@@ -318,7 +318,7 @@ G_CONST_RETURN gchar* webkit_web_data_source_get_encoding(WebKitWebDataSource* w
  */
 gboolean webkit_web_data_source_is_loading(WebKitWebDataSource* webDataSource)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), FALSE);
 
     WebKitWebDataSourcePrivate* priv = webDataSource->priv;
 

@@ -37,7 +37,6 @@
 #include "GLES2Canvas.h"
 #include "Gradient.h"
 #include "GraphicsContextPlatformPrivate.h"
-#include "GraphicsContextPrivate.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
 #include "NativeImageSkia.h"
@@ -219,17 +218,15 @@ void addCornerArc(SkPath* path, const SkRect& rect, const IntSize& size, int sta
 
 // This may be called with a NULL pointer to create a graphics context that has
 // no painting.
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* gc)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(gc))
+void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
 {
+    m_data = new GraphicsContextPlatformPrivate(gc);
     setPaintingDisabled(!gc || !platformContext()->canvas());
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
     delete m_data;
-    this->destroyGraphicsContextPrivate(m_common);
 }
 
 PlatformGraphicsContext* GraphicsContext::platformContext() const
@@ -420,10 +417,14 @@ void GraphicsContext::clipOut(const Path& p)
     platformContext()->canvas()->clipPath(path, SkRegion::kDifference_Op);
 }
 
-void GraphicsContext::clipPath(WindRule clipRule)
+void GraphicsContext::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     if (paintingDisabled())
         return;
+
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToClip);
 
     SkPath path = platformContext()->currentPathInLocalCoordinates();
     if (!isPathSkiaSafe(getCTM(), path))
@@ -723,10 +724,14 @@ void GraphicsContext::drawRect(const IntRect& rect)
     platformContext()->drawRect(r);
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& pathToFill)
 {
     if (paintingDisabled())
         return;
+
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToFill);
 
     SkPath path = platformContext()->currentPathInLocalCoordinates();
     if (!isPathSkiaSafe(getCTM(), path))
@@ -734,7 +739,7 @@ void GraphicsContext::fillPath()
 
     platformContext()->prepareForSoftwareDraw();
 
-    const GraphicsContextState& state = m_common->state;
+    const GraphicsContextState& state = m_state;
     path.setFillType(state.fillRule == RULE_EVENODD ?
         SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
 
@@ -921,7 +926,7 @@ void GraphicsContext::setAlpha(float alpha)
     platformContext()->setAlpha(alpha);
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
@@ -1061,13 +1066,15 @@ void GraphicsContext::setPlatformShadow(const FloatSize& size,
     double height = size.height();
     double blur = blurFloat;
 
-    // TODO(tc): This still does not address the issue that shadows
-    // within canvas elements should ignore transforms.
-    if (m_common->state.shadowsIgnoreTransforms)  {
+    SkBlurDrawLooper::BlurFlags blurFlags = SkBlurDrawLooper::kNone_BlurFlag;
+
+    if (m_state.shadowsIgnoreTransforms)  {
         // Currently only the GraphicsContext associated with the
         // CanvasRenderingContext for HTMLCanvasElement have shadows ignore
         // Transforms. So with this flag set, we know this state is associated
         // with a CanvasRenderingContext.
+        blurFlags = SkBlurDrawLooper::kIgnoreTransform_BlurFlag;
+        
         // CG uses natural orientation for Y axis, but the HTML5 canvas spec
         // does not.
         // So we now flip the height since it was flipped in
@@ -1083,7 +1090,7 @@ void GraphicsContext::setPlatformShadow(const FloatSize& size,
 
     // TODO(tc): Should we have a max value for the blur?  CG clamps at 1000.0
     // for perf reasons.
-    SkDrawLooper* dl = new SkBlurDrawLooper(blur / 2, width, height, c);
+    SkDrawLooper* dl = new SkBlurDrawLooper(blur / 2, width, height, c, blurFlags);
     platformContext()->setDrawLooper(dl);
     dl->unref();
 }
@@ -1128,7 +1135,7 @@ void GraphicsContext::setPlatformStrokePattern(Pattern* pattern)
     platformContext()->setStrokeShader(pattern->platformPattern(getCTM()));
 }
 
-void GraphicsContext::setPlatformTextDrawingMode(int mode)
+void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 {
     if (paintingDisabled())
         return;
@@ -1177,10 +1184,14 @@ void GraphicsContext::strokeArc(const IntRect& r, int startAngle, int angleSpan)
     platformContext()->canvas()->drawPath(path, paint);
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& pathToStroke)
 {
     if (paintingDisabled())
         return;
+
+    // FIXME: Be smarter about this.
+    beginPath();
+    addPath(pathToStroke);
 
     SkPath path = platformContext()->currentPathInLocalCoordinates();
     if (!isPathSkiaSafe(getCTM(), path))

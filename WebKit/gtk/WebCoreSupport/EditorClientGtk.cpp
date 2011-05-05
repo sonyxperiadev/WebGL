@@ -46,6 +46,8 @@
 #include "WindowsKeyboardCodes.h"
 #include "webkitmarshal.h"
 #include "webkitprivate.h"
+#include "webkitwebsettingsprivate.h"
+#include "webkitwebviewprivate.h"
 #include <wtf/text/CString.h>
 
 // Arbitrary depth limit for the undo stack, to keep it from using
@@ -196,7 +198,7 @@ static void deleteFromCursorCallback(GtkWidget* widget, GtkDeleteType deleteType
 static const char* const gtkMoveCommands[][4] = {
     { "MoveBackward",                                   "MoveForward",
       "MoveBackwardAndModifySelection",                 "MoveForwardAndModifySelection"             }, // Forward/backward grapheme
-    { "MoveBackward",                                   "MoveForward",
+    { "MoveLeft",                                       "MoveRight",
       "MoveBackwardAndModifySelection",                 "MoveForwardAndModifySelection"             }, // Left/right grapheme
     { "MoveWordBackward",                               "MoveWordForward",
       "MoveWordBackwardAndModifySelection",             "MoveWordForwardAndModifySelection"         }, // Forward/backward word
@@ -229,13 +231,6 @@ static void moveCursorCallback(GtkWidget* widget, GtkMovementStep step, gint cou
     const char* rawCommand = gtkMoveCommands[step][direction];
     if (!rawCommand)
         return;
-
-    if (isSpatialNavigationEnabled(core(client->webView())->focusController()->focusedOrMainFrame()) && step == 1) {
-        if (direction == 1)
-            rawCommand = "MoveRight";
-        else if (!direction)
-            rawCommand = "MoveLeft";
-    }
 
     for (int i = 0; i < abs(count); i++)
         client->addPendingEditorCommand(rawCommand);
@@ -1008,7 +1003,7 @@ bool EditorClient::spellingUIIsShowing()
     return false;
 }
 
-void EditorClient::getGuessesForWord(const String& word, WTF::Vector<String>& guesses)
+void EditorClient::getGuessesForWord(const String& word, const String& context, WTF::Vector<String>& guesses)
 {
     GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
     guesses.clear();

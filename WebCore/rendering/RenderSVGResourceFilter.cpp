@@ -41,6 +41,7 @@
 #include "SVGFilterElement.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGImageBufferTools.h"
+#include "SVGNames.h"
 #include "SVGStyledElement.h"
 #include "SVGUnitTypes.h"
 #include <wtf/Vector.h>
@@ -254,7 +255,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     return true;
 }
 
-void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode)
+void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode, const Path*)
 {
     ASSERT(object);
     ASSERT(context);
@@ -292,14 +293,14 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
             filterData->filter->setSourceImage(filterData->sourceGraphicBuffer.release());
             lastEffect->apply();
 #if !PLATFORM(CG)
-            ImageBuffer* resultImage = lastEffect->resultImage();
+            ImageBuffer* resultImage = lastEffect->asImageBuffer();
             if (resultImage)
                 resultImage->transformColorSpace(ColorSpaceLinearRGB, ColorSpaceDeviceRGB);
 #endif
             filterData->builded = true;
         }
 
-        ImageBuffer* resultImage = lastEffect->resultImage();
+        ImageBuffer* resultImage = lastEffect->asImageBuffer();
         if (resultImage) {
             context->concatCTM(filterData->shearFreeAbsoluteTransform.inverse());
 

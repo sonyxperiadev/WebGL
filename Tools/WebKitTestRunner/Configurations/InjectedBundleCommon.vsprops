@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="InjectedBundleCommon"
+	>
+	<Tool
+		Name="VCCLCompilerTool"
+		AdditionalIncludeDirectories="&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)\..\InjectedBundle\&quot;;&quot;$(ProjectDir)\..\InjectedBundle\Bindings&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\InjectedBundle\DerivedSources\&quot;"
+		ForcedIncludeFiles="WebKitTestRunnerPrefix.h"
+	/>
+</VisualStudioPropertySheet>

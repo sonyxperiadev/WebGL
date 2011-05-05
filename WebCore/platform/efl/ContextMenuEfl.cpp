@@ -22,60 +22,34 @@
 #include "config.h"
 #include "ContextMenu.h"
 
-#include "ContextMenuClient.h"
-#include "ContextMenuClientEfl.h"
-#include "ContextMenuController.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-ContextMenu::ContextMenu(const HitTestResult& result)
-    : m_hitTestResult(result)
+ContextMenu::ContextMenu(void* menu)
 {
-    m_contextMenuClient = static_cast<ContextMenuClientEfl*>(controller()->client());
-    m_platformDescription = m_contextMenuClient->createPlatformDescription(this);
+    getContextMenuItems(menu, m_items);
 }
 
-ContextMenu::ContextMenu(const HitTestResult& result, const PlatformMenuDescription menu)
-    : m_hitTestResult(result)
-    , m_platformDescription(menu)
+ContextMenu::ContextMenu()
 {
-    m_contextMenuClient = static_cast<ContextMenuClientEfl*>(controller()->client());
+    notImplemented();
 }
 
-ContextMenu::~ContextMenu()
+void ContextMenu::getContextMenuItems(void* menu, Vector<ContextMenuItem>& items)
 {
-    if (m_platformDescription)
-        m_contextMenuClient->freePlatformDescription(m_platformDescription);
+    notImplemented();
 }
 
-void ContextMenu::appendItem(ContextMenuItem& item)
+void* ContextMenu::createNativeMenuFromItems(const Vector<ContextMenuItem>& items)
 {
-    checkOrEnableIfNeeded(item);
-    m_contextMenuClient->appendItem(m_platformDescription, item);
+    notImplemented();
+    return 0;
 }
 
-void ContextMenu::setPlatformDescription(PlatformMenuDescription menu)
+void* ContextMenu::nativeMenu() const
 {
-    ASSERT(!m_platformDescription);
-
-    m_platformDescription = menu;
-    m_contextMenuClient->show(m_platformDescription);
-}
-
-PlatformMenuDescription ContextMenu::platformDescription() const
-{
-    return m_platformDescription;
-}
-
-PlatformMenuDescription ContextMenu::releasePlatformDescription()
-{
-    // Ref count remains the same, just pass it and remove our ref, so it
-    // will not be decremented when this object goes away.
-    PlatformMenuDescription description = m_platformDescription;
-    m_platformDescription = 0;
-
-    return description;
+    return createNativeMenuFromItems(m_items);
 }
 
 }

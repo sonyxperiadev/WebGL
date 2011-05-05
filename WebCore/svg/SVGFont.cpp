@@ -27,14 +27,15 @@
 #include "GraphicsContext.h"
 #include "RenderObject.h"
 #include "RenderSVGResourceSolidColor.h"
-#include "SimpleFontData.h"
 #include "SVGAltGlyphElement.h"
 #include "SVGFontData.h"
-#include "SVGGlyphElement.h"
-#include "SVGGlyphMap.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
+#include "SVGGlyphElement.h"
+#include "SVGGlyphMap.h"
 #include "SVGMissingGlyphElement.h"
+#include "SVGNames.h"
+#include "SimpleFontData.h"
 #include "XMLNames.h"
 
 using namespace WTF::Unicode;
@@ -43,7 +44,7 @@ namespace WebCore {
 
 static inline float convertEmUnitToPixel(float fontSize, float unitsPerEm, float value)
 {
-    if (unitsPerEm == 0.0f)
+    if (!unitsPerEm)
         return 0.0f;
 
     return value * fontSize / unitsPerEm;
@@ -241,7 +242,7 @@ struct SVGTextRunWalker {
     {
         ASSERT(0 <= from && from <= to && to - from <= run.length());
 
-        const String text = Font::normalizeSpaces(String(run.data(from), to - from));
+        const String text = Font::normalizeSpaces(String(run.data(from), run.length()));
         Vector<SVGGlyphIdentifier::ArabicForm> chars(charactersWithArabicForm(text, run.rtl()));
 
         SVGGlyphIdentifier identifier;
@@ -511,7 +512,7 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
         SVGTextRunWalker<SVGTextRunWalkerDrawTextData> runWalker(fontData, fontElement, data, drawTextUsingSVGFontCallback, drawTextMissingGlyphCallback);
         runWalker.walk(run, isVerticalText, language, from, to);
 
-        RenderSVGResourceMode resourceMode = context->textDrawingMode() == cTextStroke ? ApplyToStrokeMode : ApplyToFillMode;
+        RenderSVGResourceMode resourceMode = context->textDrawingMode() == TextModeStroke ? ApplyToStrokeMode : ApplyToFillMode;
 
         unsigned numGlyphs = data.glyphIdentifiers.size();
         unsigned fallbackCharacterIndex = 0;
@@ -534,12 +535,9 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
                     Path glyphPath = identifier.pathData;
                     glyphPath.transform(glyphPathTransform);
 
-                    context->beginPath();
-                    context->addPath(glyphPath);
-
                     RenderStyle* style = run.referencingRenderObject() ? run.referencingRenderObject()->style() : 0;
                     if (activePaintingResource->applyResource(run.referencingRenderObject(), style, context, resourceMode))
-                        activePaintingResource->postApplyResource(run.referencingRenderObject(), context, resourceMode);
+                        activePaintingResource->postApplyResource(run.referencingRenderObject(), context, resourceMode, &glyphPath);
 
                     context->restore();
                 }

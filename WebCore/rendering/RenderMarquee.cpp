@@ -116,7 +116,7 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
     if (isHorizontal()) {
         bool ltr = s->isLeftToRightDirection();
         int clientWidth = box->clientWidth();
-        int contentWidth = ltr ? box->rightmostPosition(true, false) : box->leftmostPosition(true, false);
+        int contentWidth = ltr ? box->rightLayoutOverflow() : box->leftLayoutOverflow();
         if (ltr)
             contentWidth += (box->paddingRight() - box->borderLeft());
         else {
@@ -137,8 +137,7 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
         }
     }
     else {
-        int contentHeight = box->lowestPosition(true, false) - 
-                            box->borderTop() + box->paddingBottom();
+        int contentHeight = box->bottomLayoutOverflow() - box->borderTop() + box->paddingBottom();
         int clientHeight = box->clientHeight();
         if (dir == MUP) {
             if (stopAtContentEdge)
@@ -294,7 +293,7 @@ void RenderMarquee::timerFired(Timer<RenderMarquee>*)
         }
         bool positive = range > 0;
         int clientSize = (isHorizontal() ? m_layer->renderBox()->clientWidth() : m_layer->renderBox()->clientHeight());
-        int increment = max(1, abs(m_layer->renderer()->style()->marqueeIncrement().calcValue(clientSize)));
+        int increment = abs(m_layer->renderer()->style()->marqueeIncrement().calcValue(clientSize));
         int currentPos = (isHorizontal() ? m_layer->scrollXOffset() : m_layer->scrollYOffset());
         newPos =  currentPos + (addIncrement ? increment : -increment);
         if (positive)

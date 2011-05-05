@@ -31,6 +31,7 @@
 #if ENABLE(WEB_AUDIO)
 
 #include "Cone.h"
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -41,21 +42,21 @@ ConeEffect::ConeEffect()
 {
 }
 
-double ConeEffect::gain(Vector3 sourcePosition, Vector3 sourceOrientation, Vector3 listenerPosition)
+double ConeEffect::gain(FloatPoint3D sourcePosition, FloatPoint3D sourceOrientation, FloatPoint3D listenerPosition)
 {
     if (sourceOrientation.isZero() || ((m_innerAngle == 360.0) && (m_outerAngle == 360.0)))
         return 1.0; // no cone specified - unity gain
 
     // Normalized source-listener vector
-    Vector3 sourceToListener = listenerPosition - sourcePosition;
+    FloatPoint3D sourceToListener = listenerPosition - sourcePosition;
     sourceToListener.normalize();
 
-    Vector3 normalizedSourceOrientation = sourceOrientation;
+    FloatPoint3D normalizedSourceOrientation = sourceOrientation;
     normalizedSourceOrientation.normalize();
 
     // Angle between the source orientation vector and the source-listener vector
-    double dotProduct = dot(sourceToListener, normalizedSourceOrientation);
-    double angle = 180.0 * acos(dotProduct) / M_PI;
+    double dotProduct = sourceToListener.dot(normalizedSourceOrientation);
+    double angle = 180.0 * acos(dotProduct) / piDouble;
     double absAngle = fabs(angle);
 
     // Divide by 2.0 here since API is entire angle (not half-angle)

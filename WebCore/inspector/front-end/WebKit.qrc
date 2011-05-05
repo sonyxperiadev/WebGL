@@ -9,9 +9,9 @@
     <file>AuditRules.js</file>
     <file>AuditsPanel.js</file>
     <file>BottomUpProfileDataGridTree.js</file>
+    <file>Breakpoint.js</file>
     <file>BreakpointManager.js</file>
     <file>BreakpointsSidebarPane.js</file>
-    <file>Callback.js</file>
     <file>CallStackSidebarPane.js</file>
     <file>ChangesView.js</file>
     <file>Checkbox.js</file>
@@ -28,6 +28,7 @@
     <file>DatabaseQueryView.js</file>
     <file>DatabaseTableView.js</file>
     <file>DataGrid.js</file>
+    <file>DebuggerModel.js</file>
     <file>DOMAgent.js</file>
     <file>DOMStorage.js</file>
     <file>DOMStorageItemsView.js</file>

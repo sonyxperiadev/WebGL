@@ -41,10 +41,10 @@ namespace WebCore {
 unsigned ImageSource::s_maxPixelsPerDecodedImage = 1024 * 1024;
 #endif
 
-ImageSource::ImageSource(bool premultiplyAlpha, bool ignoreGammaAndColorProfile)
+ImageSource::ImageSource(ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
     : m_decoder(0)
-    , m_premultiplyAlpha(premultiplyAlpha)
-    , m_ignoreGammaAndColorProfile(ignoreGammaAndColorProfile)
+    , m_alphaOption(alphaOption)
+    , m_gammaAndColorProfileOption(gammaAndColorProfileOption)
 {
 }
 
@@ -79,7 +79,7 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
     if (!m_decoder) {
-        m_decoder = static_cast<NativeImageSourcePtr>(ImageDecoder::create(*data, m_premultiplyAlpha, m_ignoreGammaAndColorProfile));
+        m_decoder = static_cast<NativeImageSourcePtr>(ImageDecoder::create(*data, m_alphaOption, m_gammaAndColorProfileOption));
 #if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
         if (m_decoder && s_maxPixelsPerDecodedImage)
             m_decoder->setMaxNumPixels(s_maxPixelsPerDecodedImage);
@@ -153,13 +153,14 @@ float ImageSource::frameDurationAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
 
-    // Many annoying ads specify a 0 duration to make an image flash as quickly
-    // as possible.  We follow WinIE's behavior and use a duration of 100 ms
-    // for any frames that specify a duration of <= 50 ms.  See
-    // <http://bugs.webkit.org/show_bug.cgi?id=14413> or Radar 4051389 for
-    // more.
+    // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
+    // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
+    // a duration of <= 10 ms. See <rdar://problem/7689300> and <http://webkit.org/b/36082>
+    // for more information.
     const float duration = buffer->duration() / 1000.0f;
-    return (duration < 0.051f) ? 0.100f : duration;
+    if (duration < 0.011f)
+        return 0.100f;
+    return duration;
 }
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)

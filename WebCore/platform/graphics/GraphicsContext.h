@@ -30,9 +30,11 @@
 #include "ColorSpace.h"
 #include "DashArray.h"
 #include "FloatRect.h"
+#include "Gradient.h"
 #include "Image.h"
 #include "IntRect.h"
 #include "Path.h"
+#include "Pattern.h"
 #include "TextDirection.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
@@ -97,11 +99,6 @@ typedef struct HDC__ PlatformGraphicsContext;
 typedef void PlatformGraphicsContext;
 #endif
 
-#if PLATFORM(GTK)
-typedef struct _GdkDrawable GdkDrawable;
-typedef struct _GdkEventExpose GdkEventExpose;
-#endif
-
 #if PLATFORM(WIN)
 typedef struct HDC__* HDC;
 #if !PLATFORM(CG)
@@ -130,21 +127,19 @@ namespace WebCore {
     class DrawingBuffer;
     class Font;
     class Generator;
-    class Gradient;
     class GraphicsContextPlatformPrivate;
-    class GraphicsContextPrivate;
     class ImageBuffer;
     class KURL;
-    class Path;
-    class Pattern;
     class SharedGraphicsContext3D;
     class TextRun;
 
-    // These bits can be ORed together for a total of 8 possible text drawing modes.
-    const int cTextInvisible = 0;
-    const int cTextFill = 1;
-    const int cTextStroke = 2;
-    const int cTextClip = 4;
+    enum TextDrawingMode {
+        TextModeInvisible = 0,
+        TextModeFill      = 1 << 0,
+        TextModeStroke    = 1 << 1,
+        TextModeClip      = 1 << 2
+    };
+    typedef unsigned TextDrawingModeFlags;
 
     enum StrokeStyle {
         NoStroke,
@@ -159,6 +154,64 @@ namespace WebCore {
         InterpolationLow,
         InterpolationMedium,
         InterpolationHigh
+    };
+
+    struct GraphicsContextState {
+        GraphicsContextState()
+            : strokeThickness(0)
+            , shadowBlur(0)
+#if PLATFORM(CAIRO)
+            , globalAlpha(1)
+#endif
+            , textDrawingMode(TextModeFill)
+            , strokeColor(Color::black)
+            , fillColor(Color::black)
+            , strokeStyle(SolidStroke)
+            , fillRule(RULE_NONZERO)
+            , strokeColorSpace(ColorSpaceDeviceRGB)
+            , fillColorSpace(ColorSpaceDeviceRGB)
+            , shadowColorSpace(ColorSpaceDeviceRGB)
+            , compositeOperator(CompositeSourceOver)
+            , shouldAntialias(true)
+            , shouldSmoothFonts(true)
+            , paintingDisabled(false)
+            , shadowsIgnoreTransforms(false)
+        {
+        }
+
+        RefPtr<Gradient> strokeGradient;
+        RefPtr<Pattern> strokePattern;
+        
+        RefPtr<Gradient> fillGradient;
+        RefPtr<Pattern> fillPattern;
+
+        FloatSize shadowOffset;
+
+        float strokeThickness;
+        float shadowBlur;
+
+#if PLATFORM(CAIRO)
+        float globalAlpha;
+#endif
+        TextDrawingModeFlags textDrawingMode;
+
+        Color strokeColor;
+        Color fillColor;
+        Color shadowColor;
+
+        StrokeStyle strokeStyle;
+        WindRule fillRule;
+
+        ColorSpace strokeColorSpace;
+        ColorSpace fillColorSpace;
+        ColorSpace shadowColorSpace;
+
+        CompositeOperator compositeOperator;
+
+        bool shouldAntialias : 1;
+        bool shouldSmoothFonts : 1;
+        bool paintingDisabled : 1;
+        bool shadowsIgnoreTransforms : 1;
     };
 
     class GraphicsContext : public Noncopyable {
@@ -202,9 +255,18 @@ namespace WebCore {
         void setShouldAntialias(bool);
         bool shouldAntialias() const;
 
+        void setShouldSmoothFonts(bool);
+        bool shouldSmoothFonts() const;
+
+        const GraphicsContextState& state() const;
+
 #if PLATFORM(CG)
         void applyStrokePattern();
         void applyFillPattern();
+        void drawPath(const Path&);
+        
+        // Allow font smoothing (LCD antialiasing). Not part of the graphics state.
+        void setAllowsFontSmoothing(bool);
 #endif
 
 #if PLATFORM(ANDROID)
@@ -246,9 +308,8 @@ namespace WebCore {
         void drawEllipse(const IntRect&);
         void drawConvexPolygon(size_t numPoints, const FloatPoint*, bool shouldAntialias = false);
 
-        void drawPath();
-        void fillPath();
-        void strokePath();
+        void fillPath(const Path&);
+        void strokePath(const Path&);
 
         // Arc drawing (used by border-radius in CSS) just supports stroking at the moment.
         void strokeArc(const IntRect&, int startAngle, int angleSpan);
@@ -289,14 +350,15 @@ namespace WebCore {
         void addInnerRoundedRectClip(const IntRect&, int thickness);
         void clipOut(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
-        void clipPath(WindRule);
+        void clipPath(const Path&, WindRule);
         void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias = true);
         void clipToImageBuffer(ImageBuffer*, const FloatRect&);
 
-        int textDrawingMode();
-        void setTextDrawingMode(int);
+        TextDrawingModeFlags textDrawingMode() const;
+        void setTextDrawingMode(TextDrawingModeFlags);
 
         void drawText(const Font&, const TextRun&, const IntPoint&, int from = 0, int to = -1);
+        void drawEmphasisMarks(const Font&, const TextRun& , const AtomicString& mark, const IntPoint&, int from = 0, int to = -1);
         void drawBidiText(const Font&, const TextRun&, const FloatPoint&);
         void drawHighlightForText(const Font&, const TextRun&, const IntPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1);
 
@@ -320,7 +382,7 @@ namespace WebCore {
         void endTransparencyLayer();
 
         void setShadow(const FloatSize&, float blur, const Color&, ColorSpace);
-        bool getShadow(FloatSize&, float&, Color&) const;
+        bool getShadow(FloatSize&, float&, Color&, ColorSpace&) const;
         void clearShadow();
 
         void drawFocusRing(const Vector<IntRect>&, int width, int offset, const Color&);
@@ -337,9 +399,12 @@ namespace WebCore {
 #endif
 
         void setCompositeOperation(CompositeOperator);
+        CompositeOperator compositeOperation() const;
 
+#if PLATFORM(SKIA)
         void beginPath();
         void addPath(const Path&);
+#endif
 
         void clip(const Path&);
 
@@ -429,7 +494,6 @@ namespace WebCore {
 
 #if PLATFORM(QT)
         bool inTransparencyLayer() const;
-        PlatformPath* currentPath();
         void pushTransparencyLayerInternal(const QRect &rect, qreal opacity, QPixmap& alphaMask);
         void takeOwnershipOfPlatformContext();
         static QPainter::CompositionMode toQtCompositionMode(CompositeOperator op);
@@ -441,7 +505,7 @@ namespace WebCore {
 
 #if PLATFORM(GTK)
         void setGdkExposeEvent(GdkEventExpose*);
-        GdkDrawable* gdkDrawable() const;
+        GdkWindow* gdkWindow() const;
         GdkEventExpose* gdkExposeEvent() const;
 #endif
 
@@ -454,10 +518,17 @@ namespace WebCore {
         void markDirtyRect(const IntRect&); // Hints that a portion of the backing store is dirty.
 
     private:
+        void platformInit(PlatformGraphicsContext*);
+        void platformDestroy();
+
+#if PLATFORM(WIN) && !OS(WINCE)
+        void platformInit(HDC, bool hasAlpha = false);
+#endif
+
         void savePlatformState();
         void restorePlatformState();
 
-        void setPlatformTextDrawingMode(int);
+        void setPlatformTextDrawingMode(TextDrawingModeFlags);
         void setPlatformFont(const Font& font);
 
         void setPlatformStrokeColor(const Color&, ColorSpace);
@@ -470,18 +541,21 @@ namespace WebCore {
         void setPlatformFillGradient(Gradient*);
         void setPlatformFillPattern(Pattern*);
 
-        void setPlatformShouldAntialias(bool b);
+        void setPlatformShouldAntialias(bool);
+        void setPlatformShouldSmoothFonts(bool);
 
         void setPlatformShadow(const FloatSize&, float blur, const Color&, ColorSpace);
         void clearPlatformShadow();
 
+        void setPlatformCompositeOperation(CompositeOperator);
+
         static void adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2, float strokeWidth, const StrokeStyle&);
 
-        static GraphicsContextPrivate* createGraphicsContextPrivate();
-        static void destroyGraphicsContextPrivate(GraphicsContextPrivate*);
+        GraphicsContextPlatformPrivate* m_data;
 
-        GraphicsContextPrivate* m_common;
-        GraphicsContextPlatformPrivate* m_data; // Deprecated; m_commmon can just be downcasted. To be removed.
+        GraphicsContextState m_state;
+        Vector<GraphicsContextState> m_stack;
+        bool m_updatingControlTints;
     };
 
 } // namespace WebCore

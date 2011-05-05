@@ -268,7 +268,6 @@ public:
     virtual bool isNativeImage() const { return false; }
     virtual bool isImageButton() const { return false; }
     virtual bool isPasswordField() const { return false; }
-    virtual bool isTextControl() const { return false; }
     virtual bool isNativeTextControl() const { return false; }
     virtual bool isWebArea() const { return false; }
     virtual bool isCheckbox() const { return roleValue() == CheckBoxRole; }
@@ -284,6 +283,7 @@ public:
     virtual bool isInputImage() const { return false; }
     virtual bool isProgressIndicator() const { return false; }
     virtual bool isSlider() const { return false; }
+    virtual bool isInputSlider() const { return false; }
     virtual bool isControl() const { return false; }
     virtual bool isList() const { return false; }
     virtual bool isAccessibilityTable() const { return false; }
@@ -298,6 +298,7 @@ public:
     virtual bool isMenuList() const { return false; }
     virtual bool isMenuListPopup() const { return false; }
     virtual bool isMenuListOption() const { return false; }
+    bool isTextControl() const { return roleValue() == TextAreaRole || roleValue() == TextFieldRole; }
     bool isTabList() const { return roleValue() == TabListRole; }
     bool isTabItem() const { return roleValue() == TabRole; }
     bool isRadioGroup() const { return roleValue() == RadioGroupRole; }
@@ -359,7 +360,9 @@ public:
     virtual bool supportsARIAFlowTo() const { return false; }
     virtual void ariaFlowToElements(AccessibilityChildrenVector&) const { }
     virtual bool ariaHasPopup() const { return false; }
-    
+    bool ariaIsMultiline() const;
+    virtual const AtomicString& invalidStatus() const;
+
     // ARIA drag and drop
     virtual bool supportsARIADropping() const { return false; }
     virtual bool supportsARIADragging() const { return false; }
@@ -367,7 +370,11 @@ public:
     virtual void setARIAGrabbed(bool) { }
     virtual void determineARIADropEffects(Vector<String>&) { }
     
-    virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const { return 0; }
+    // Called on the root AX object to return the deepest available element.
+    virtual AccessibilityObject* accessibilityHitTest(const IntPoint&) const { return 0; }
+    // Called on the AX object after the render tree determines which is the right AccessibilityRenderObject.
+    virtual AccessibilityObject* elementAccessibilityHitTest(const IntPoint&) const { return const_cast<AccessibilityObject*>(this); }
+
     virtual AccessibilityObject* focusedUIElement() const { return 0; }
 
     virtual AccessibilityObject* firstChild() const { return 0; }

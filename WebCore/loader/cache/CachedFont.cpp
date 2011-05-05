@@ -31,13 +31,13 @@
 #define STORE_FONT_CUSTOM_PLATFORM_DATA
 #endif
 
-#include "MemoryCache.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
+#include "CachedResourceLoader.h"
 #include "FontPlatformData.h"
+#include "MemoryCache.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
-#include "loader.h"
 #include <wtf/Vector.h>
 
 #ifdef STORE_FONT_CUSTOM_PLATFORM_DATA
@@ -45,11 +45,11 @@
 #endif
 
 #if ENABLE(SVG_FONTS)
-#include "HTMLNames.h"
 #include "NodeList.h"
 #include "SVGElement.h"
 #include "SVGFontElement.h"
 #include "SVGGElement.h"
+#include "SVGNames.h"
 #endif
 
 namespace WebCore {
@@ -98,7 +98,7 @@ void CachedFont::beginLoadIfNeeded(CachedResourceLoader* dl)
 {
     if (!m_loadInitiated) {
         m_loadInitiated = true;
-        cache()->loader()->load(dl, this, false);
+        dl->load(this, false);
     }
 }
 

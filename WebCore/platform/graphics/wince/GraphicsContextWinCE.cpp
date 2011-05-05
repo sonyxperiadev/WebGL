@@ -28,7 +28,6 @@
 #include "GDIExtras.h"
 #include "GlyphBuffer.h"
 #include "Gradient.h"
-#include "GraphicsContextPrivate.h"
 #include "NotImplemented.h"
 #include "Path.h"
 #include "PlatformPathWinCE.h"
@@ -173,7 +172,6 @@ public:
 
     AffineTransform m_transform;
     float m_opacity;
-    Vector<Path> m_paths;
 };
 
 enum AlphaPaintType {
@@ -581,15 +579,13 @@ private:
 };
 
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* dc)
-: m_common(createGraphicsContextPrivate())
-, m_data(new GraphicsContextPlatformPrivate(dc))
+void GraphicsContext::platformInit(PlatformGraphicsContext* dc)
 {
+    m_data = new GraphicsContextPlatformPrivate(dc);
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -1177,19 +1173,9 @@ void GraphicsContext::setAlpha(float alpha)
     m_data->m_opacity = alpha;
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     notImplemented();
-}
-
-void GraphicsContext::beginPath()
-{
-    m_data->m_paths.clear();
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-    m_data->m_paths.append(path);
 }
 
 void GraphicsContext::clip(const Path& path)
@@ -1220,8 +1206,9 @@ void GraphicsContext::fillRoundedRect(const IntRect& fillRect, const IntSize& to
     FloatSize shadowOffset;
     float shadowBlur = 0;
     Color shadowColor;
+    ColorSpace shadowColorSpace;
         
-    getShadow(shadowOffset, shadowBlur, shadowColor);
+    getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
     
     IntRect dstRect = fillRect;
     
@@ -1325,10 +1312,10 @@ Color gradientAverageColor(const Gradient* gradient)
         , (stop.alpha + lastStop.alpha) * 0.5f);
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& path)
 {
-    Color c = m_common->state.fillGradient
-        ? gradientAverageColor(m_common->state.fillGradient.get())
+    Color c = m_state.fillGradient
+        ? gradientAverageColor(m_state.fillGradient.get())
         : fillColor();
 
     if (!c.alpha() || !m_data->m_opacity)
@@ -1341,33 +1328,30 @@ void GraphicsContext::fillPath()
     OwnPtr<HBRUSH> brush = createBrush(c);
 
     if (m_data->m_opacity < 1.0f || m_data->hasAlpha()) {
-        for (Vector<Path>::const_iterator i = m_data->m_paths.begin(); i != m_data->m_paths.end(); ++i) {
-            IntRect trRect = enclosingIntRect(m_data->mapRect(i->boundingRect()));
-            trRect.inflate(1);
-            TransparentLayerDC transparentDC(m_data, trRect);
-            HDC dc = transparentDC.hdc();
-            if (!dc)
-                continue;
+        IntRect trRect = enclosingIntRect(m_data->mapRect(path.boundingRect()));
+        trRect.inflate(1);
+        TransparentLayerDC transparentDC(m_data, trRect);
+        HDC dc = transparentDC.hdc();
+        if (!dc)
+            return;
 
-            AffineTransform tr = m_data->m_transform;
-            tr.translate(transparentDC.toShift().width(), transparentDC.toShift().height());
+        AffineTransform tr = m_data->m_transform;
+        tr.translate(transparentDC.toShift().width(), transparentDC.toShift().height());
 
-            SelectObject(dc, GetStockObject(NULL_PEN));
-            HGDIOBJ oldBrush = SelectObject(dc, brush.get());
-            i->platformPath()->fillPath(dc, &tr);
-            SelectObject(dc, oldBrush);
-        }
+        SelectObject(dc, GetStockObject(NULL_PEN));
+        HGDIOBJ oldBrush = SelectObject(dc, brush.get());
+        path.platformPath()->fillPath(dc, &tr);
+        SelectObject(dc, oldBrush);
     } else {
         SelectObject(m_data->m_dc, GetStockObject(NULL_PEN));
         HGDIOBJ oldBrush = SelectObject(m_data->m_dc, brush.get());
-        for (Vector<Path>::const_iterator i = m_data->m_paths.begin(); i != m_data->m_paths.end(); ++i)
-            i->platformPath()->fillPath(m_data->m_dc, &m_data->m_transform);
+        path.platformPath()->fillPath(m_data->m_dc, &m_data->m_transform);
         SelectObject(m_data->m_dc, oldBrush);
     }
 }
 
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& path)
 {
     if (!m_data->m_opacity)
         return;
@@ -1379,27 +1363,24 @@ void GraphicsContext::strokePath()
     OwnPtr<HPEN> pen = createPen(strokeColor(), strokeThickness(), strokeStyle());
 
     if (m_data->m_opacity < 1.0f || m_data->hasAlpha()) {
-        for (Vector<Path>::const_iterator i = m_data->m_paths.begin(); i != m_data->m_paths.end(); ++i) {
-            IntRect trRect = enclosingIntRect(m_data->mapRect(i->boundingRect()));
-            trRect.inflate(1);
-            TransparentLayerDC transparentDC(m_data, trRect);
-            HDC dc = transparentDC.hdc();
-            if (!dc)
-                continue;
+        IntRect trRect = enclosingIntRect(m_data->mapRect(path.boundingRect()));
+        trRect.inflate(1);
+        TransparentLayerDC transparentDC(m_data, trRect);
+        HDC dc = transparentDC.hdc();
+        if (!dc)
+            return;
 
-            AffineTransform tr = m_data->m_transform;
-            tr.translate(transparentDC.toShift().width(), transparentDC.toShift().height());
+        AffineTransform tr = m_data->m_transform;
+        tr.translate(transparentDC.toShift().width(), transparentDC.toShift().height());
 
-            SelectObject(dc, GetStockObject(NULL_BRUSH));
-            HGDIOBJ oldPen = SelectObject(dc, pen.get());
-            i->platformPath()->strokePath(dc, &tr);
-            SelectObject(dc, oldPen);
-        }
+        SelectObject(dc, GetStockObject(NULL_BRUSH));
+        HGDIOBJ oldPen = SelectObject(dc, pen.get());
+        path.platformPath()->strokePath(dc, &tr);
+        SelectObject(dc, oldPen);
     } else {
         SelectObject(m_data->m_dc, GetStockObject(NULL_BRUSH));
         HGDIOBJ oldPen = SelectObject(m_data->m_dc, pen.get());
-        for (Vector<Path>::const_iterator i = m_data->m_paths.begin(); i != m_data->m_paths.end(); ++i)
-            i->platformPath()->strokePath(m_data->m_dc, &m_data->m_transform);
+        path.platformPath()->strokePath(m_data->m_dc, &m_data->m_transform);
         SelectObject(m_data->m_dc, oldPen);
     }
 }
@@ -1504,8 +1485,8 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 {
     savePlatformState();
 
-    if (m_common->state.fillGradient)
-        fillRect(rect, m_common->state.fillGradient.get());
+    if (m_state.fillGradient)
+        fillRect(rect, m_state.fillGradient.get());
     else
         fillRect(rect, fillColor(), ColorSpaceDeviceRGB);
 
@@ -1643,8 +1624,9 @@ void GraphicsContext::drawText(const SimpleFontData* fontData, const GlyphBuffer
     FloatSize shadowOffset;
     float shadowBlur = 0;
     Color shadowColor;
-    bool hasShadow = textDrawingMode() == cTextFill
-        && getShadow(shadowOffset, shadowBlur, shadowColor)
+    ColorSpace shadowColorSpace;
+    bool hasShadow = textDrawingMode() == TextModeFill
+        && getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace)
         && shadowColor.alpha();
     COLORREF shadowRGBColor;
     FloatPoint trShadowPoint;
@@ -1900,7 +1882,7 @@ void GraphicsContext::setLineDash(const DashArray&, float)
     notImplemented();
 }
 
-void GraphicsContext::clipPath(WindRule)
+void GraphicsContext::clipPath(const Path&, WindRule)
 {
     notImplemented();
 }

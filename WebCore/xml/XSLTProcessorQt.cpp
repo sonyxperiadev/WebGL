@@ -29,7 +29,6 @@
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "TransformSource.h"
-#include "loader.h"
 #include "markup.h"
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
@@ -119,7 +118,7 @@ bool XSLTProcessor::transformToString(Node* sourceNode, String&, String& resultS
     RefPtr<XSLStyleSheet> stylesheet = m_stylesheet;
     if (!stylesheet && m_stylesheetRootNode) {
         Node* node = m_stylesheetRootNode.get();
-        stylesheet = XSLStyleSheet::createForXSLTProcessor(node->parent() ? node->parent() : node,
+        stylesheet = XSLStyleSheet::createForXSLTProcessor(node->parentNode() ? node->parentNode() : node,
             node->document()->url().string(),
             node->document()->url()); // FIXME: Should we use baseURL here?
 
@@ -142,7 +141,7 @@ bool XSLTProcessor::transformToString(Node* sourceNode, String&, String& resultS
 
     XSLTProcessor::ParameterMap::iterator end = m_parameters.end();
     for (XSLTProcessor::ParameterMap::iterator it = m_parameters.begin(); it != end; ++it)
-        query.bindVariable(QString(it->first), QXmlItem(QVariant(it->second)));
+        query.bindVariable(QString(it->first), QXmlItem(QVariant(QString(it->second))));
 
     QString source;
     if (sourceIsDocument && ownerDocument->transformSource())

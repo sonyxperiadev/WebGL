@@ -22,6 +22,7 @@
 
 #if ENABLE(SVG)
 #include "SVGListPropertyTearOff.h"
+#include "SVGTransformList.h"
 
 namespace WebCore {
 
@@ -37,9 +38,12 @@ public:
         return adoptRef(new SVGTransformListPropertyTearOff(animatedProperty, role));
     }
 
-    PassRefPtr<SVGPropertyTearOff<SVGTransform> > createSVGTransformFromMatrix(SVGPropertyTearOff<SVGMatrix>* matrix)
+    PassRefPtr<SVGPropertyTearOff<SVGTransform> > createSVGTransformFromMatrix(SVGPropertyTearOff<SVGMatrix>* matrix, ExceptionCode& ec)
     {
-        ASSERT(matrix);
+        if (!matrix) {
+            ec = TYPE_MISMATCH_ERR;
+            return 0;
+        }
         SVGTransformList& values = m_animatedProperty->values();
         return SVGPropertyTearOff<SVGTransform>::create(values.createSVGTransformFromMatrix(matrix->propertyReference()));
     }

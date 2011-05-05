@@ -28,7 +28,6 @@
 #include "CachePolicy.h"
 #include "CachedResource.h"
 #include "PlatformString.h"
-#include "loader.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -104,14 +103,13 @@ public:
         TypeStatistic fonts;
     };
 
-    // The loader that fetches resources.
-    Loader* loader() { return &m_loader; }
-
     // Request resources from the cache.  A load will be initiated and a cache object created if the object is not
     // found in the cache.
-    CachedResource* requestResource(CachedResourceLoader*, CachedResource::Type, const KURL& url, const String& charset, bool isPreload = false, bool forHistory = false);
+    CachedResource* requestResource(CachedResourceLoader*, CachedResource::Type, const KURL& url, const String& charset, ResourceLoadPriority, bool isPreload = false, bool forHistory = false);
 
-    CachedCSSStyleSheet* requestUserCSSStyleSheet(CachedResourceLoader*, const String& url, const String& charset);
+    CachedCSSStyleSheet* requestUserCSSStyleSheet(CachedResourceLoader*, const KURL& url, const String& charset);
+    
+    static KURL removeFragmentIdentifierIfNeeded(const KURL& originalURL);
     
     void revalidateResource(CachedResource*, CachedResourceLoader*);
     void revalidationSucceeded(CachedResource* revalidatingResource, const ResourceResponse&);
@@ -148,7 +146,7 @@ public:
     void addCachedResourceLoader(CachedResourceLoader*);
     void removeCachedResourceLoader(CachedResourceLoader*);
 
-    CachedResource* resourceForURL(const String&);
+    CachedResource* resourceForURL(const KURL&);
 
     // Calls to put the cached resource into and out of LRU lists.
     void insertInLRUList(CachedResource*);
@@ -196,7 +194,6 @@ private:
 
     // Member variables.
     HashSet<CachedResourceLoader*> m_cachedResourceLoaders;
-    Loader m_loader;
 
     bool m_disabled;  // Whether or not the cache is enabled.
     bool m_pruneEnabled;

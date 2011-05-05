@@ -229,7 +229,6 @@
 			ConfigurationType="4"
 			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;.\WTFCommon.vsprops"
 			CharacterSet="1"
-			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -674,6 +673,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\OSAllocatorWin.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\OwnArrayPtr.h"
 			>
 		</File>
@@ -694,11 +697,23 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\PageAllocation.cpp"
+			RelativePath="..\..\wtf\PageBlock.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\PageBlock.h"
 			>
 		</File>
 		<File
 			RelativePath="..\..\wtf\PageAllocation.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\PageAllocationAligned.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\PageAllocationAligned.h"
 			>
 		</File>
 		<File
@@ -771,6 +786,14 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\SizeLimits.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StackBounds.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StackBounds.h"
 			>
 		</File>
 		<File

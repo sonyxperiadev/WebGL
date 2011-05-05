@@ -60,6 +60,7 @@ public:
 
     virtual bool isTextField() const;
     virtual bool isTextType() const;
+    virtual bool isRangeControl() const;
     virtual const AtomicString& formControlType() const = 0;
 
     // Form value functions
@@ -89,6 +90,7 @@ public:
     virtual bool patternMismatch(const String&) const;
     virtual bool rangeUnderflow(const String&) const;
     virtual bool rangeOverflow(const String&) const;
+    virtual double defaultValueForStepUp() const;
     virtual double minimum() const;
     virtual double maximum() const;
     virtual bool stepMismatch(const String&, double) const;
@@ -110,6 +112,10 @@ public:
     virtual bool handleClickEvent(MouseEvent*);
     virtual bool handleDOMActivateEvent(Event*);
     virtual bool handleKeydownEvent(KeyboardEvent*);
+    virtual bool handleKeypressEvent(KeyboardEvent*);
+    virtual bool handleKeyupEvent(KeyboardEvent*);
+    // A helper for event handlers.
+    virtual bool shouldSubmitImplicitly(Event*);
 
     // Miscellaneous functions
 
@@ -137,6 +143,7 @@ public:
 protected:
     InputType(HTMLInputElement* element) : m_element(element) { }
     HTMLInputElement* element() const { return m_element; }
+    void dispatchSimulatedClickIfActive(KeyboardEvent*) const;
     // We can't make this a static const data member because VC++ doesn't like it.
     static double defaultStepBase() { return 0.0; }
 

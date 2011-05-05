@@ -31,7 +31,7 @@
 {
     'includes': [
         '../../WebCore/WebCore.gypi',
-        '../../WebKitTools/DumpRenderTree/DumpRenderTree.gypi',
+        '../../Tools/DumpRenderTree/DumpRenderTree.gypi',
         'WebKit.gypi',
         'features.gypi',
     ],
@@ -62,7 +62,7 @@
                 ],
             }],
         ],
-        'ahem_path': '../../WebKitTools/DumpRenderTree/qt/fonts/AHEM____.TTF',
+        'ahem_path': '../../Tools/DumpRenderTree/qt/fonts/AHEM____.TTF',
 
         # If debug_devtools is set to 1, JavaScript files for DevTools are
         # stored as is. Otherwise, a concatenated file is stored.
@@ -173,7 +173,12 @@
                 'public/WebFontCache.h',
                 'public/WebFormControlElement.h',
                 'public/WebFormElement.h',
+                'public/WebGeolocationClient.h',
+                'public/WebGeolocationClientMock.h',
+                'public/WebGeolocationController.h',
                 'public/WebGeolocationError.h',
+                'public/WebGeolocationPermissionRequest.h',
+                'public/WebGeolocationPermissionRequestManager.h',
                 'public/WebGeolocationPosition.h',
                 'public/WebGeolocationService.h',
                 'public/WebGeolocationServiceBridge.h',
@@ -339,6 +344,8 @@
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/FrameNetworkingContextImpl.h',
+                'src/GeolocationClientProxy.cpp',
+                'src/GeolocationClientProxy.h',
                 'src/GraphicsContext3DChromium.cpp',
                 'src/GraphicsContext3DInternal.h',
                 'src/gtk/WebFontInfo.cpp',
@@ -444,7 +451,11 @@
                 'src/WebFormElement.cpp',
                 'src/WebFrameImpl.cpp',
                 'src/WebFrameImpl.h',
+                'src/WebGeolocationController.cpp',
+                'src/WebGeolocationClientMock.cpp',
                 'src/WebGeolocationError.cpp',
+                'src/WebGeolocationPermissionRequest.cpp',
+                'src/WebGeolocationPermissionRequestManager.cpp',
                 'src/WebGeolocationPosition.cpp',
                 'src/WebGeolocationServiceBridgeImpl.cpp',
                 'src/WebGeolocationServiceBridgeImpl.h',
@@ -667,11 +678,14 @@
                 ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
                     'sources/': [
                         ['exclude', 'WebGeolocationService.*$'],
-                        ['include', 'WebGeolocationServiceMock.*'],
                     ],
                 }, {
                    'sources/': [
+                        ['exclude', 'GeolocationClientProxy.*'],
+                        ['exclude', 'WebGeolocationClient.*'],
+                        ['exclude', 'WebGeolocationController.*'],
                         ['exclude', 'WebGeolocationError.*'],
+                        ['exclude', 'WebGeolocationPermissionRequest.*'],
                         ['exclude', 'WebGeolocationPosition.*'],
                    ],
                 }]
@@ -853,6 +867,11 @@
                         },
                     },
                 }],
+                ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
+                    'sources/': [
+                        ['exclude', 'WebGeolocationService.*$'],
+                    ],
+                }]
             ],
         },
         {
@@ -868,7 +887,7 @@
                 '<(DEPTH)',
             ],
             'sources': [
-                '../../WebKitTools/DumpRenderTree/chromium/ImageDiff.cpp',
+                '../../Tools/DumpRenderTree/chromium/ImageDiff.cpp',
             ],
         },
         {
@@ -976,15 +995,15 @@
                     ],
                     'mac_bundle_resources': [
                         '<(ahem_path)',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher100.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher200.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher300.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher400.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher500.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher600.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher700.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher800.ttf',
-                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher100.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher200.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher300.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher400.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher500.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher600.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher700.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher800.ttf',
+                        '../../Tools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
                         '<(SHARED_INTERMEDIATE_DIR)/webkit/textAreaResizeCorner.png',
                     ],
                 },{ # OS!="mac"
@@ -1005,7 +1024,7 @@
                         'destination': '<(PRODUCT_DIR)',
                         'files': [
                             '<(ahem_path)',
-                            '../../WebKitTools/DumpRenderTree/chromium/fonts.conf',
+                            '../../Tools/DumpRenderTree/chromium/fonts.conf',
                             '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
                         ]
                     }],
@@ -1034,8 +1053,8 @@
             ],
             'include_dirs': [
                 '<(chromium_src_dir)',
-                '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn',
-                '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders',
+                '../../Tools/DumpRenderTree/TestNetscapePlugIn',
+                '../../Tools/DumpRenderTree/chromium/TestNetscapePlugIn/ForwardingHeaders',
             ],
             'conditions': [
                 ['OS=="mac"', {
@@ -1059,7 +1078,7 @@
                         # we get rid of our forked plugin in the
                         # chromium repo, we can share the same
                         # Info.plist.
-                        'INFOPLIST_FILE': '../../WebKitTools/DumpRenderTree/chromium/TestNetscapePlugIn/Info.plist',
+                        'INFOPLIST_FILE': '../../Tools/DumpRenderTree/chromium/TestNetscapePlugIn/Info.plist',
                     },
                 }],
                 ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
@@ -1073,8 +1092,8 @@
                         'snprintf=_snprintf',
                     ],
                     'sources': [
-                        '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.def',
-                        '../../WebKitTools/DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.rc',
+                        '../../Tools/DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.def',
+                        '../../Tools/DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.rc',
                     ],
                     # The .rc file requires that the name of the dll is npTestNetscapePlugin.dll.
                     # This adds the 'np' to the dll name.
@@ -1115,7 +1134,7 @@
             'targets': [{
                 'target_name': 'LayoutTestHelper',
                 'type': 'executable',
-                'sources': ['../../WebKitTools/DumpRenderTree/chromium/LayoutTestHelperWin.cpp'],
+                'sources': ['../../Tools/DumpRenderTree/chromium/LayoutTestHelperWin.cpp'],
             }],
         }],
         ['OS=="mac"', {
@@ -1123,7 +1142,7 @@
                 {
                     'target_name': 'LayoutTestHelper',
                     'type': 'executable',
-                    'sources': ['../../WebKitTools/DumpRenderTree/chromium/LayoutTestHelper.mm'],
+                    'sources': ['../../Tools/DumpRenderTree/chromium/LayoutTestHelper.mm'],
                     'link_settings': {
                         'libraries': [
                             '$(SDKROOT)/System/Library/Frameworks/AppKit.framework',

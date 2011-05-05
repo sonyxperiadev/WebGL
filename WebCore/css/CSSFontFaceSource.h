@@ -63,8 +63,8 @@ public:
     void pruneTable();
 
 #if ENABLE(SVG_FONTS)
-    SVGFontFaceElement* svgFontFaceElement() const;
-    void setSVGFontFaceElement(PassRefPtr<SVGFontFaceElement>);
+    SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
+    void setSVGFontFaceElement(SVGFontFaceElement* element) { m_svgFontFaceElement = element; }
     bool isSVGFontFaceSource() const;
 #endif
 
@@ -75,7 +75,7 @@ private:
     HashMap<unsigned, SimpleFontData*> m_fontDataTable; // The hash key is composed of size synthetic styles.
 
 #if ENABLE(SVG_FONTS)
-    RefPtr<SVGFontFaceElement> m_svgFontFaceElement;
+    SVGFontFaceElement* m_svgFontFaceElement;
     RefPtr<SVGFontElement> m_externalSVGFontElement;
 #endif
 };

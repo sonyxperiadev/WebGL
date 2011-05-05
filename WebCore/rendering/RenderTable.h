@@ -237,6 +237,8 @@ private:
 
     virtual IntRect overflowClipRect(int tx, int ty);
 
+    virtual void addOverflowFromChildren();
+
     void subtractCaptionRect(IntRect&) const;
 
     void recalcSections() const;

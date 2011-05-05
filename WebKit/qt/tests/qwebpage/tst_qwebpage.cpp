@@ -128,6 +128,7 @@ private slots:
     void findText();
     void supportedContentType();
     void infiniteLoopJS();
+    void networkAccessManagerOnDifferentThread();
     
 private:
     QWebView* m_view;
@@ -249,14 +250,8 @@ void tst_QWebPage::infiniteLoopJS()
 
 void tst_QWebPage::geolocationRequestJS()
 {
-    /*
-      This test is disabled because it can only succeed if ENABLE(GEOLOCATION) is true.
-      The code needs to be updated when the API of requestPermissionFromUser is updated.
-    */
-    QSKIP("Test disabled as long as geolocation is disabled from the build.", SkipSingle);
-
     JSTestPage* newPage = new JSTestPage(m_view);
-    connect(newPage, SIGNAL(requestPermissionFromUser(QWebFrame*, QWebPage::Feature)), 
+    connect(newPage, SIGNAL(featurePermissionRequested(QWebFrame*, QWebPage::Feature)),
             newPage, SLOT(requestPermission(QWebFrame*, QWebPage::Feature)));
 
     newPage->setGeolocationPermission(false);
@@ -1397,6 +1392,14 @@ static bool inputMethodEnabled(QObject* object)
     return false;
 }
 
+static void clickOnPage(QWebPage* page, const QPoint& position)
+{
+    QMouseEvent evpres(QEvent::MouseButtonPress, position, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    page->event(&evpres);
+    QMouseEvent evrel(QEvent::MouseButtonRelease, position, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    page->event(&evrel);
+}
+
 void tst_QWebPage::inputMethods()
 {
     QFETCH(QString, viewType);
@@ -1433,11 +1436,9 @@ void tst_QWebPage::inputMethods()
     EventSpy viewEventSpy(container);
 
     QWebElementCollection inputs = page->mainFrame()->documentElement().findAll("input");
+    QPoint textInputCenter = inputs.at(0).geometry().center();
 
-    QMouseEvent evpres(QEvent::MouseButtonPress, inputs.at(0).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-    page->event(&evpres);
-    QMouseEvent evrel(QEvent::MouseButtonRelease, inputs.at(0).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-    page->event(&evrel);
+    clickOnPage(page, textInputCenter);
 
     // This part of the test checks if the SIP (Software Input Panel) is triggered,
     // which normally happens on mobile platforms, when a user input form receives
@@ -1462,8 +1463,7 @@ void tst_QWebPage::inputMethods()
         QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
     viewEventSpy.clear();
 
-    page->event(&evpres);
-    page->event(&evrel);
+    clickOnPage(page, textInputCenter);
     QVERIFY(viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
 
     //ImMicroFocus
@@ -1565,8 +1565,7 @@ void tst_QWebPage::inputMethods()
     // LEFT to RIGHT selection
     // Deselect the selection by sending MouseButtonPress events
     // This moves the current cursor to the end of the text
-    page->event(&evpres);
-    page->event(&evrel);
+    clickOnPage(page, textInputCenter);
 
     {
         QList<QInputMethodEvent::Attribute> attributes;
@@ -1614,8 +1613,7 @@ void tst_QWebPage::inputMethods()
 
     //RIGHT to LEFT selection
     //Deselect the selection (this moves the current cursor to the end of the text)
-    page->event(&evpres);
-    page->event(&evrel);
+    clickOnPage(page, textInputCenter);
 
     //ImAnchorPosition
     variant = page->inputMethodQuery(Qt::ImAnchorPosition);
@@ -1662,28 +1660,20 @@ void tst_QWebPage::inputMethods()
     //END - Tests for Selection when the Editor is not in Composition mode
 
     //ImhHiddenText
-    QMouseEvent evpresPassword(QEvent::MouseButtonPress, inputs.at(1).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-    page->event(&evpresPassword);
-    QMouseEvent evrelPassword(QEvent::MouseButtonRelease, inputs.at(1).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-    page->event(&evrelPassword);
+    QPoint passwordInputCenter = inputs.at(1).geometry().center();
+    clickOnPage(page, passwordInputCenter);
 
     QVERIFY(inputMethodEnabled(view));
     QVERIFY(inputMethodHints(view) & Qt::ImhHiddenText);
 
-    page->event(&evpres);
-    page->event(&evrel);
+    clickOnPage(page, textInputCenter);
     QVERIFY(!(inputMethodHints(view) & Qt::ImhHiddenText));
 
     page->mainFrame()->setHtml("<html><body><p>nothing to input here");
     viewEventSpy.clear();
 
     QWebElement para = page->mainFrame()->findFirstElement("p");
-    {
-        QMouseEvent evpres(QEvent::MouseButtonPress, para.geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-        page->event(&evpres);
-        QMouseEvent evrel(QEvent::MouseButtonRelease, para.geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
-        page->event(&evrel);
-    }
+    clickOnPage(page, para.geometry().center());
 
     QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
 
@@ -2009,6 +1999,15 @@ void tst_QWebPage::inputMethods()
     anchorPosition =  variant.toInt();
     QCOMPARE(anchorPosition, 12);
 
+    // Check sending RequestSoftwareInputPanel event
+    page->mainFrame()->setHtml("<html><body>" \
+                                            "<input type='text' id='input5' value='QtWebKit inputMethod'/>" \
+                                            "<div id='btnDiv' onclick='i=document.getElementById(&quot;input5&quot;); i.focus();'>abc</div>"\
+                                            "</body></html>");
+    QWebElement inputElement = page->mainFrame()->findFirstElement("div");
+    clickOnPage(page, inputElement.geometry().center());
+
+    QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
     delete container;
 }
 
@@ -2597,6 +2596,46 @@ void tst_QWebPage::supportedContentType()
       
    Q_FOREACH(const QString& mimeType, contentTypes)
       QVERIFY2(m_page->supportsContentType(mimeType), QString("Cannot handle content types '%1'!").arg(mimeType).toLatin1());
+}
+
+class QtNAMThread : public QThread {
+public:
+    QtNAMThread()
+    {
+        m_qnamFuture.reportStarted();
+    }
+    ~QtNAMThread()
+    {
+        quit();
+        wait();
+    }
+
+    QFuture<QNetworkAccessManager*> networkAccessManager()
+    {
+        return m_qnamFuture.future();
+    }
+protected:
+    void run()
+    {
+        QNetworkAccessManager* qnam = new QNetworkAccessManager;
+        m_qnamFuture.reportFinished(&qnam);
+        exec();
+        delete qnam;
+    }
+private:
+    QFutureInterface<QNetworkAccessManager*> m_qnamFuture;
+};
+
+void tst_QWebPage::networkAccessManagerOnDifferentThread()
+{
+    QtNAMThread qnamThread;
+    qnamThread.start();
+    m_page->setNetworkAccessManager(qnamThread.networkAccessManager());
+    QSignalSpy loadSpy(m_page, SIGNAL(loadFinished(bool)));
+    QUrl url = QUrl("qrc:///resources/index.html");
+    m_page->mainFrame()->load(url);
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QCOMPARE(m_page->mainFrame()->childFrames()[0]->url(), QUrl("qrc:///resources/frame_a.html"));
 }
 
 QTEST_MAIN(tst_QWebPage)

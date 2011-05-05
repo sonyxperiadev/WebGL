@@ -24,40 +24,45 @@
 #include "config.h"
 #include "ChromeClientGtk.h"
 
+#include "Chrome.h"
 #include "Console.h"
 #include "DumpRenderTreeSupportGtk.h"
 #include "Element.h"
-#include "FileSystem.h"
 #include "FileChooser.h"
+#include "FileSystem.h"
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
 #include "FrameView.h"
 #include "GtkVersioning.h"
 #include "HTMLNames.h"
-#include "IntRect.h"
 #include "HitTestResult.h"
 #include "Icon.h"
+#include "IntRect.h"
 #include "KURL.h"
 #include "NavigationAction.h"
+#include "NotImplemented.h"
 #include "PlatformString.h"
 #include "PopupMenuClient.h"
 #include "PopupMenuGtk.h"
 #include "SearchPopupMenuGtk.h"
 #include "SecurityOrigin.h"
+#include "WindowFeatures.h"
 #include "webkitgeolocationpolicydecision.h"
-#include "webkitwebview.h"
 #include "webkitnetworkrequest.h"
 #include "webkitprivate.h"
-#include "NotImplemented.h"
-#include "WindowFeatures.h"
-#if ENABLE(DATABASE)
-#include "DatabaseTracker.h"
-#endif
-#include <wtf/text/CString.h>
-
+#include "webkitsecurityoriginprivate.h"
+#include "webkitviewportattributesprivate.h"
+#include "webkitwebframeprivate.h"
+#include "webkitwebview.h"
+#include "webkitwebviewprivate.h"
 #include <glib.h>
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
+#include <wtf/text/CString.h>
+
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
 
 using namespace WebCore;
 
@@ -413,6 +418,7 @@ void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, con
     cairo_region_destroy(invalidRegion);
 #endif
 
+    gdk_window_process_updates(window, TRUE);
 }
 
 // FIXME: this does not take into account the WM decorations
@@ -523,9 +529,12 @@ void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned mo
         m_hoveredLinkURL = KURL();
     }
 
-    Node* node = hit.innerNonSharedNode();
-
-    m_webView->priv->tooltipArea = node ? node->document()->frame()->view()->contentsToWindow(node->getRect()) : IntRect();
+    if (Node* node = hit.innerNonSharedNode()) {
+        Frame* frame = node->document()->frame();
+        FrameView* view = frame ? frame->view() : 0;
+        m_webView->priv->tooltipArea = view ? view->contentsToWindow(node->getRect()) : IntRect();
+    } else
+        m_webView->priv->tooltipArea = IntRect();
 }
 
 void ChromeClient::setToolTip(const String& toolTip, TextDirection)
@@ -613,6 +622,12 @@ void ChromeClient::chooseIconForFiles(const Vector<WTF::String>& filenames, WebC
     chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
+void ChromeClient::dispatchViewportDataDidChange(const ViewportArguments& arguments) const
+{
+    // Recompute the viewport attributes making it valid.
+    webkitViewportAttributesRecompute(webkit_web_view_get_viewport_attributes(m_webView));
+}
+
 void ChromeClient::setCursor(const Cursor&)
 {
     notImplemented();
@@ -665,7 +680,7 @@ void ChromeClient::enterFullscreenForNode(Node* node)
     WebCore::Frame* frame = node->document()->frame();
     WebKitWebFrame* webFrame = kit(frame);
     WebKitWebView* webView = getViewFromFrame(webFrame);
-    webkitWebViewEnterFullscreen(webView, node);
+    webViewEnterFullscreen(webView, node);
 }
 
 void ChromeClient::exitFullscreenForNode(Node* node)
@@ -673,8 +688,28 @@ void ChromeClient::exitFullscreenForNode(Node* node)
     WebCore::Frame* frame = node->document()->frame();
     WebKitWebFrame* webFrame = kit(frame);
     WebKitWebView* webView = getViewFromFrame(webFrame);
-    webkitWebViewExitFullscreen(webView);
+    webViewExitFullscreen(webView);
 }
 #endif
+
+#if ENABLE(FULLSCREEN_API)
+bool ChromeClient::supportsFullScreenForElement(const WebCore::Element* element)
+{
+    return true;
+}
+
+void ChromeClient::enterFullScreenForElement(WebCore::Element* element)
+{
+    element->document()->webkitWillEnterFullScreenForElement(element);
+    element->document()->webkitDidEnterFullScreenForElement(element);
+}
+
+void ChromeClient::exitFullScreenForElement(WebCore::Element* element)
+{
+    element->document()->webkitWillExitFullScreenForElement(element);
+    element->document()->webkitDidExitFullScreenForElement(element);
+}
+#endif
+
 
 }

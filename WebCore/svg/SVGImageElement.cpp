@@ -29,13 +29,20 @@
 #include "RenderImageResource.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGResource.h"
-#include "SVGDocument.h"
-#include "SVGLength.h"
-#include "SVGPreserveAspectRatio.h"
+#include "SVGNames.h"
 #include "SVGSVGElement.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGImageElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
+DEFINE_ANIMATED_STRING(SVGImageElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGImageElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
 inline SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
