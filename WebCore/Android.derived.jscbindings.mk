@@ -229,6 +229,7 @@ GEN := \
     $(intermediates)/html/JSHTMLDataGridColElement.h \
     $(intermediates)/html/JSHTMLDataGridRowElement.h \
     $(intermediates)/html/JSHTMLDataListElement.h \
+    $(intermediates)/html/JSHTMLDetailsElement.h \
     $(intermediates)/html/JSHTMLDListElement.h \
     $(intermediates)/html/JSHTMLDirectoryElement.h \
     $(intermediates)/html/JSHTMLDivElement.h \
@@ -314,10 +315,19 @@ GEN := \
     $(intermediates)/html/canvas/JSInt8Array.h \
     $(intermediates)/html/canvas/JSInt16Array.h \
     $(intermediates)/html/canvas/JSInt32Array.h \
+    $(intermediates)/html/canvas/JSOESTextureFloat.h \
     $(intermediates)/html/canvas/JSUint8Array.h \
     $(intermediates)/html/canvas/JSUint16Array.h \
     $(intermediates)/html/canvas/JSUint32Array.h \
+    $(intermediates)/html/canvas/JSWebGLActiveInfo.h \
+    $(intermediates)/html/canvas/JSWebGLBuffer.h \
+    $(intermediates)/html/canvas/JSWebGLFramebuffer.h \
+    $(intermediates)/html/canvas/JSWebGLProgram.h \
+    $(intermediates)/html/canvas/JSWebGLRenderbuffer.h \
     $(intermediates)/html/canvas/JSWebGLRenderingContext.h \
+    $(intermediates)/html/canvas/JSWebGLShader.h \
+    $(intermediates)/html/canvas/JSWebGLTexture.h \
+    $(intermediates)/html/canvas/JSWebGLUniformLocation.h \
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -668,6 +678,22 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/inspector/%.cpp : $(intermediates)/inspector/%.h
+
+# WebAudio
+# These headers are required even when WebAudio is disabled
+GEN := \
+    $(intermediates)/webaudio/JSAudioContext.h \
+    $(intermediates)/webaudio/JSAudioPannerNode.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/webaudio/JS%.h : $(LOCAL_PATH)/webaudio/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/webaudio/%.cpp : $(intermediates)/webaudio/%.h
 
 # HTML tag and attribute names
 

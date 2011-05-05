@@ -142,6 +142,7 @@ LOCAL_C_INCLUDES := \
 	external/ \
 	external/icu4c/common \
 	external/icu4c/i18n \
+	external/jpeg \
 	external/libxml2/include \
 	external/libxslt \
 	external/hyphenation \
@@ -170,6 +171,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/html \
 	$(LOCAL_PATH)/WebCore/html/canvas \
 	$(LOCAL_PATH)/WebCore/html/parser \
+	$(LOCAL_PATH)/WebCore/html/shadow \
 	$(LOCAL_PATH)/WebCore/inspector \
 	$(LOCAL_PATH)/WebCore/loader \
 	$(LOCAL_PATH)/WebCore/loader/appcache \
@@ -492,4 +494,4 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 include $(BASE_PATH)/WebKit/android/benchmark/Android.mk
 
 # Build the webkit merge tool.
-include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
+include $(BASE_PATH)/Tools/android/webkitmerge/Android.mk

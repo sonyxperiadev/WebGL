@@ -78,7 +78,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
 $(GEN): SCRIPT := $(LOCAL_PATH)/../WebCore/html/parser/create-html-entity-table
-$(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../WebKitTools/Scripts/webkitpy
+$(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../Tools/Scripts/webkitpy
 $(GEN): PRIVATE_CUSTOM_TOOL = $(dir $@)$(notdir $(SCRIPT)) -o $@ $<
 $(GEN): $(LOCAL_PATH)/html/parser/HTMLEntityNames.in
 	@echo "Generating HTMLEntityTable.cpp"

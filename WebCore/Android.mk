@@ -246,6 +246,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/ReplaceSelectionCommand.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
+	editing/SpellChecker.cpp \
 	editing/SplitElementCommand.cpp \
 	editing/SplitTextNodeCommand.cpp \
 	editing/SplitTextNodeContainingElementCommand.cpp \
@@ -314,6 +315,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
+	html/HTMLDetailsElement.cpp \
 	html/HTMLDocument.cpp \
 	html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
@@ -367,9 +369,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/Int16Array.cpp \
 	html/canvas/Int32Array.cpp \
 	html/canvas/Int8Array.cpp \
+	html/canvas/OESTextureFloat.cpp \
 	html/canvas/Uint16Array.cpp \
 	html/canvas/Uint32Array.cpp \
 	html/canvas/Uint8Array.cpp \
+	html/canvas/WebGLExtension.cpp \
 	html/canvas/WebGLObject.cpp \
 	\
 	html/parser/HTMLConstructionSite.cpp \
@@ -391,17 +395,21 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/shadow/SliderThumbElement.cpp \
 	\
+	inspector/ScriptArguments.cpp \
+	inspector/ScriptCallStack.cpp \
+	inspector/ScriptCallFrame.cpp \
+	\
 	loader/cache/CachedCSSStyleSheet.cpp \
 	loader/cache/CachedFont.cpp \
 	loader/cache/CachedImage.cpp \
 	loader/cache/CachedResource.cpp \
 	loader/cache/CachedResourceClientWalker.cpp \
 	loader/cache/CachedResourceHandle.cpp \
+	loader/cache/CachedResourceLoader.cpp \
+	loader/cache/CachedResourceRequest.cpp \
 	loader/cache/CachedScript.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
-	loader/cache/CachedResourceLoader.cpp \
-	loader/cache/CachedResourceRequest.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
 	loader/DocumentWriter.cpp \
@@ -420,7 +428,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/PolicyCallback.cpp \
 	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
-	loader/NavigationScheduler.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoadScheduler.cpp \
 	loader/ResourceLoader.cpp \
@@ -500,6 +507,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/Arena.cpp \
 	platform/ContentType.cpp \
+	platform/ContextMenuItem.cpp \
 	platform/CrossThreadCopier.cpp \
 	platform/Cursor.cpp \
 	platform/DeprecatedPtrListImpl.cpp \
@@ -559,6 +567,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/animation/Animation.cpp \
 	platform/animation/AnimationList.cpp \
+	\
+	platform/audio/mkl/FFTFrameMKL.cpp \
 	\
 	platform/graphics/BitmapImage.cpp \
 	platform/graphics/Color.cpp \
@@ -678,6 +688,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
 	\
+	platform/image-encoders/skia/JPEGImageEncoder.cpp \
+	\
 	platform/mock/DeviceOrientationClientMock.cpp \
 	platform/mock/GeolocationClientMock.cpp \
 	platform/mock/GeolocationServiceMock.cpp \
@@ -778,6 +790,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
 	rendering/RenderCounter.cpp \
+	rendering/RenderDetails.cpp \
+	rendering/RenderDetailsMarker.cpp \
 	rendering/RenderEmbeddedObject.cpp \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
@@ -862,6 +876,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderScrollbarPart.cpp \
 	rendering/RenderScrollbarTheme.cpp \
 	rendering/RenderSlider.cpp \
+	rendering/RenderSummary.cpp \
 	rendering/RenderTable.cpp \
 	rendering/RenderTableCell.cpp \
 	rendering/RenderTableCol.cpp \
@@ -1129,6 +1144,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	webaudio/AudioParam.cpp \
+	\
 	workers/AbstractWorker.cpp \
 	workers/DedicatedWorkerContext.cpp \
 	workers/DedicatedWorkerThread.cpp \

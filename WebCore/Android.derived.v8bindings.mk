@@ -213,6 +213,7 @@ GEN := \
     $(intermediates)/bindings/V8HTMLDataGridElement.h \
     $(intermediates)/bindings/V8HTMLDataGridRowElement.h \
     $(intermediates)/bindings/V8HTMLDataListElement.h \
+    $(intermediates)/bindings/V8HTMLDetailsElement.h \
     $(intermediates)/bindings/V8HTMLDListElement.h \
     $(intermediates)/bindings/V8HTMLDirectoryElement.h \
     $(intermediates)/bindings/V8HTMLDivElement.h \
@@ -299,6 +300,7 @@ GEN := \
     $(intermediates)/bindings/V8Int8Array.h \
     $(intermediates)/bindings/V8Int16Array.h \
     $(intermediates)/bindings/V8Int32Array.h \
+    $(intermediates)/bindings/V8OESTextureFloat.h \
     $(intermediates)/bindings/V8Uint8Array.h \
     $(intermediates)/bindings/V8Uint16Array.h \
     $(intermediates)/bindings/V8Uint32Array.h \
@@ -699,6 +701,22 @@ GEN := \
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/websockets/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
+
+# Web Audio
+# These headers are required by the V8 bindings even when Web Audio is disabled
+GEN := \
+    $(intermediates)/bindings/V8AudioContext.h \
+    $(intermediates)/bindings/V8AudioPannerNode.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include webaudio --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/webaudio/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 

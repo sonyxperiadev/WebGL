@@ -56,6 +56,7 @@ BINDING_C_INCLUDES := \
 	$(base_intermediates)/WebCore/plugins \
 	$(base_intermediates)/WebCore/storage \
 	$(base_intermediates)/WebCore/svg \
+	$(base_intermediates)/WebCore/webaudio \
 	$(base_intermediates)/WebCore/workers \
 	$(base_intermediates)/WebCore/xml
 
@@ -66,6 +67,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/IDBBindingUtilities.cpp \
 	bindings/js/JSArrayBufferCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
+	bindings/js/JSAudioBufferSourceNodeCustom.cpp \
 	bindings/js/JSAudioConstructor.cpp \
 	bindings/js/JSCDATASectionCustom.cpp \
 	bindings/js/JSCSSFontFaceRuleCustom.cpp \
@@ -82,6 +84,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCanvasRenderingContextCustom.cpp \
 	bindings/js/JSClipboardCustom.cpp \
 	bindings/js/JSConsoleCustom.cpp \
+	bindings/js/JSConvolverNodeCustom.cpp \
 	bindings/js/JSCoordinatesCustom.cpp \
 	bindings/js/JSCustomApplicationInstalledCallback.cpp \
 	bindings/js/JSCustomPositionCallback.cpp \
@@ -144,6 +147,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSInt16ArrayCustom.cpp \
 	bindings/js/JSInt32ArrayCustom.cpp \
 	bindings/js/JSInt8ArrayCustom.cpp \
+	bindings/js/JSJavaScriptAudioNodeCustom.cpp \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMainThreadExecState.cpp \

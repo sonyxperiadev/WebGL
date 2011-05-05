@@ -172,11 +172,12 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
+	wtf/OSAllocatorPosix.cpp \
 	wtf/PageAllocationAligned.cpp\
 	wtf/PageBlock.cpp\
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
-    wtf/StackBounds.cpp \
+	wtf/StackBounds.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/ThreadIdentifierDataPthreads.cpp \
 	wtf/Threading.cpp \
