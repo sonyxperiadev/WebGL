@@ -42,6 +42,7 @@
 #include "Node.h"
 #include "NodeList.h"
 #include "HTMLCollection.h"
+#include "FormAssociatedElement.h"
 #include "FormFieldAndroid.h"
 #include "QualifiedName.h"
 #include "StringUtils.h"
@@ -53,7 +54,9 @@
 using webkit_glue::FormData;
 using webkit_glue::FormField;
 using WebCore::Element;
+using WebCore::FormAssociatedElement;
 using WebCore::HTMLCollection;
+using WebCore::HTMLElement;
 using WebCore::HTMLFormControlElement;
 using WebCore::HTMLFormElement;
 using WebCore::HTMLInputElement;
@@ -408,14 +411,17 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
     // |name_map|.
     ScopedVector<FormField> form_fields;
 
-    WTF::Vector<HTMLFormControlElement*> control_elements = element->associatedElements();
+    WTF::Vector<WebCore::FormAssociatedElement*> control_elements = element->associatedElements();
 
     // A vector of bools that indicate whether each field in the form meets the
     // requirements and thus will be in the resulting |form|.
     std::vector<bool> fields_extracted(control_elements.size(), false);
 
     for (size_t i = 0; i < control_elements.size(); ++i) {
-        HTMLFormControlElement* control_element = control_elements[i];
+        if (!control_elements[i]->isFormControlElement())
+            continue;
+
+        HTMLFormControlElement* control_element = static_cast<HTMLFormControlElement*>(control_elements[i]);
         if (!(control_element->hasTagName(inputTag) || control_element->hasTagName(selectTag)))
             continue;
 
@@ -472,7 +478,10 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
         if (!fields_extracted[i])
             continue;
 
-        const HTMLFormControlElement* control_element = control_elements[i];
+        if (!control_elements[i]->isFormControlElement())
+            continue;
+
+        const HTMLFormControlElement* control_element = static_cast<HTMLFormControlElement*>(control_elements[i]);
         if (form_fields[field_idx]->label().empty())
             form_fields[field_idx]->set_label(FormManager::InferLabelForElement(*control_element));
 
@@ -497,9 +506,12 @@ void FormManager::ExtractForms(Frame* frame) {
         HTMLFormElement* html_form_element = static_cast<HTMLFormElement*>(web_forms->item(i));
         form_element->form_element = html_form_element;
 
-        WTF::Vector<HTMLFormControlElement*> control_elements = html_form_element->associatedElements();
+        WTF::Vector<FormAssociatedElement*> control_elements = html_form_element->associatedElements();
         for (size_t j = 0; j < control_elements.size(); ++j) {
-            HTMLFormControlElement* element = control_elements[j];
+            if (!control_elements[j]->isFormControlElement())
+                continue;
+
+            HTMLFormControlElement* element = static_cast<HTMLFormControlElement*>(control_elements[j]);
             form_element->control_elements.push_back(element);
 
             // Save original values of "select-one" inputs so we can restore them

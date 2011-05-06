@@ -1066,11 +1066,11 @@ bool WebFrame::getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& us
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+        const WTF::Vector<WebCore::FormAssociatedElement*>& elements =
             ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
-            WebCore::HTMLFormControlElement* e = elements[i];
+            WebCore::HTMLElement* e = toHTMLElement(elements[i]);
             if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
                 WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
                 if (input->autoComplete() == false)
@@ -1866,11 +1866,11 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
     // class, but just normal Element class.
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+        const WTF::Vector<WebCore::FormAssociatedElement*>& elements =
             ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
-            WebCore::HTMLFormControlElement* e = elements[i];
+            WebCore::HTMLElement* e = toHTMLElement(elements[i]);
             if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
                 if (static_cast<WebCore::HTMLInputElement*>(e)->isPasswordField())
                     found = true;
@@ -1917,11 +1917,11 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+        const WTF::Vector<WebCore::FormAssociatedElement*>& elements =
             ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
-            WebCore::HTMLFormControlElement* e = elements[i];
+            WebCore::HTMLElement* e = toHTMLElement(elements[i]);
             if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
                 WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
                 if (input->autoComplete() == false)
@@ -1956,10 +1956,10 @@ WebFrame::saveFormData(HTMLFormElement* form)
         jmethodID put = env->GetMethodID(mapClass, "put",
                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
         LOG_ASSERT(put, "Could not find put method on HashMap");
-        WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->associatedElements();
+        WTF::Vector<WebCore::FormAssociatedElement*> elements = form->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i < size; i++) {
-            WebCore::HTMLFormControlElement* e = elements[i];
+            WebCore::HTMLElement* e = toHTMLElement(elements[i]);
             if (e->hasTagName(WebCore::HTMLNames::inputTag)) {
                 WebCore::HTMLInputElement* input = static_cast<WebCore::HTMLInputElement*>(e);
                 if (input->isTextField() && !input->isPasswordField()
