@@ -1596,7 +1596,7 @@ static IntRect getAbsoluteBoundingBox(Node* node) {
     IntRect rect;
     RenderObject* render = node->renderer();
     if (render->isRenderInline())
-        rect = toRenderInline(render)->linesVisibleOverflowBoundingBox();
+        rect = toRenderInline(render)->linesVisualOverflowBoundingBox();
     else if (render->isBox())
         rect = toRenderBox(render)->visualOverflowRect();
     else if (render->isText())

@@ -1196,7 +1196,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             clip.mHasClip = hasClip;
             clip.mDirection = direction;
             if (columnInfo != NULL) {
-                const IntRect& oRect = ((RenderBox*)nodeRenderer)->visibleOverflowRect();
+                const IntRect& oRect = ((RenderBox*)nodeRenderer)->visualOverflowRect();
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
