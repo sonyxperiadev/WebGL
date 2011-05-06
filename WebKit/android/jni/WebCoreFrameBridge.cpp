@@ -1377,7 +1377,7 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
     }
 
     LOGV("PostUrl %s", kurl.string().latin1().data());
-    WebCore::FrameLoadRequest frameRequest(request);
+    WebCore::FrameLoadRequest frameRequest(pFrame->document()->securityOrigin(), request);
     pFrame->loader()->loadFrameRequest(frameRequest, false, false, 0, 0, WebCore::SendReferrer);
 }
 
