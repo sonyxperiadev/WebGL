@@ -76,7 +76,7 @@ static SkPaint* setupStroke(SkPaint* paint, GraphicsContext* gc,
 
 static bool setupForText(SkPaint* paint, GraphicsContext* gc,
                          const SimpleFontData* font) {
-    int mode = gc->textDrawingMode() & (cTextFill | cTextStroke);
+    int mode = gc->textDrawingMode() & (TextModeFill | TextModeStroke);
     if (!mode)
         return false;
 
@@ -86,7 +86,7 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     ColorSpace shadowColorSpace;
     bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
     bool hasBothStrokeAndFill =
-        (mode & (cTextStroke | cTextFill)) == (cTextStroke | cTextFill);
+        (mode & (TextModeStroke | TextModeFill)) == (TextModeStroke | TextModeFill);
     if (hasShadow || hasBothStrokeAndFill) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
@@ -102,11 +102,11 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
         bool hasStrokePaint = false;
         SkScalar strokeWidth;
 
-        if ((mode & cTextStroke) && gc->willStroke()) {
+        if ((mode & TextModeStroke) && gc->willStroke()) {
             strokeWidth = setupStroke(looper->addLayer(info), gc, font)->getStrokeWidth();
             hasStrokePaint = true;
         }
-        if ((mode & cTextFill) && gc->willFill()) {
+        if ((mode & TextModeFill) && gc->willFill()) {
             setupFill(looper->addLayer(info), gc, font);
             hasFillPaint = true;
         }
@@ -142,9 +142,9 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
                 updateForFont(p, font);
             }
         }
-    } else if (mode & cTextFill) {
+    } else if (mode & TextModeFill) {
         (void)setupFill(paint, gc, font);
-    } else if (mode & cTextStroke) {
+    } else if (mode & TextModeStroke) {
         (void)setupStroke(paint, gc, font);
     } else {
         return false;
@@ -894,8 +894,8 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
         return;
 
     int mode = gc->textDrawingMode();
-    bool fill = mode & cTextFill;
-    bool stroke = mode & cTextStroke;
+    bool fill = mode & TextModeFill;
+    bool stroke = mode & TextModeStroke;
     if (!fill && !stroke)
         return;
 
