@@ -1050,7 +1050,7 @@ void GraphicsContext::setAlpha(float alpha)
     m_data->getState()->alpha = alpha;
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     m_data->getState()->mode = WebCoreCompositeToSkiaComposite(op);
 }
