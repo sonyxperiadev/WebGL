@@ -27,7 +27,6 @@
 
 #include "AffineTransform.h"
 #include "Gradient.h"
-#include "GraphicsContextPrivate.h"
 #include "NotImplemented.h"
 #include "Path.h"
 #include "Pattern.h"
@@ -502,17 +501,15 @@ GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* gc)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(this, gc))
+void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
 {
+    m_data = new GraphicsContextPlatformPrivate(this, gc);
     setPaintingDisabled(!gc || !gc->mCanvas);
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
     delete m_data;
-    this->destroyGraphicsContextPrivate(m_common);
 }
 
 void GraphicsContext::savePlatformState()
@@ -813,8 +810,8 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     m_data->setupPaintFill(&paint);
 
     extactShader(&paint,
-                 m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get());
+                 m_state.fillPattern.get(),
+                 m_state.fillGradient.get());
 
     GC2CANVAS(this)->drawRect(rect, paint);
 }
@@ -1258,8 +1255,8 @@ void GraphicsContext::fillPath()
     m_data->setupPaintFill(&paint);
 
     extactShader(&paint,
-                 m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get());
+                 m_state.fillPattern.get(),
+                 m_state.fillGradient.get());
 
     GC2CANVAS(this)->drawPath(*path, paint);
 }
@@ -1274,8 +1271,8 @@ void GraphicsContext::strokePath()
     m_data->setupPaintStroke(&paint, 0);
 
     extactShader(&paint,
-                 m_common->state.strokePattern.get(),
-                 m_common->state.strokeGradient.get());
+                 m_state.strokePattern.get(),
+                 m_state.strokeGradient.get());
 
     GC2CANVAS(this)->drawPath(*path, paint);
 }
