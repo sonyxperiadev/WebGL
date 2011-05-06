@@ -132,7 +132,6 @@ private:
     bool m_fullRepaintA;
     bool m_fullRepaintB;
     SkRegion* m_currentDirtyArea;
-    bool m_painting;
 
     // stores the id of the latest picture painted to the tile. If the id is 0
     // then we know that the picture has not yet been painted an there is nothing
