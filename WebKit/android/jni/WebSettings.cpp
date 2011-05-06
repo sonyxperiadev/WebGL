@@ -525,7 +525,7 @@ public:
         if (str) {
             String path = jstringToWtfString(env, str);
             GeolocationPermissions::setDatabasePath(path);
-            GeolocationPositionCache::setDatabasePath(path);
+            GeolocationPositionCache::instance()->setDatabasePath(path);
             // This database is created when the first Geolocation object is
             // instantiated. If the file doesn't exist, we create it and set its
             // permissions. The filename must match that in
