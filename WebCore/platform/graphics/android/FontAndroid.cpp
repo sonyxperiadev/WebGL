@@ -33,6 +33,7 @@
 #include "GraphicsContext.h"
 #include "GlyphBuffer.h"
 #include "IntRect.h"
+#include "NotImplemented.h"
 #include "PlatformGraphicsContext.h"
 #include "SkCanvas.h"
 #include "SkColorFilter.h"
@@ -218,6 +219,11 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         }
         canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
     }
+}
+
+void Font::drawEmphasisMarksForComplexText(WebCore::GraphicsContext*, WebCore::TextRun const&, WTF::AtomicString const&, WebCore::FloatPoint const&, int, int) const
+{
+    notImplemented();
 }
 
 #ifndef SUPPORT_COMPLEX_SCRIPTS
@@ -571,11 +577,11 @@ bool TextRunWalker::nextScriptRun()
         // So we allow that to run first, then do a second pass over the range it
         // found and take the largest subregion that stays within a single font.
         const FontData* glyphData = m_font->glyphDataForCharacter(
-           m_item.string[m_item.item.pos], false, false).fontData;
+           m_item.string[m_item.item.pos], false).fontData;
         unsigned endOfRun;
         for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
             const FontData* nextGlyphData = m_font->glyphDataForCharacter(
-                m_item.string[m_item.item.pos + endOfRun], false, false).fontData;
+                m_item.string[m_item.item.pos + endOfRun], false).fontData;
             if (nextGlyphData != glyphData)
                 break;
         }
@@ -609,7 +615,7 @@ void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
 void TextRunWalker::setupFontForScriptRun()
 {
     const FontData* fontData = m_font->glyphDataForCharacter(
-        m_item.string[m_item.item.pos], false, false).fontData;
+        m_item.string[m_item.item.pos], false).fontData;
     const FontPlatformData& platformData =
         fontData->fontDataForCharacter(' ')->platformData();
     m_item.face = platformData.harfbuzzFace();

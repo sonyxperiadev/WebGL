@@ -74,10 +74,22 @@ void SimpleFontData::platformDestroy()
 
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
-    if (!m_smallCapsFontData) {
-        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_platformData, fontDescription.computedSize() * 0.7f));
-    }
-    return m_smallCapsFontData;
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->smallCaps)
+        m_derivedFontData->smallCaps = new SimpleFontData(FontPlatformData(m_platformData, fontDescription.computedSize() * 0.7f));
+
+    return m_derivedFontData->smallCaps.get();
+}
+
+SimpleFontData* SimpleFontData::emphasisMarkFontData(const FontDescription& fontDescription) const
+{
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->emphasisMark)
+        m_derivedFontData->emphasisMark = new SimpleFontData(FontPlatformData(m_platformData, fontDescription.computedSize() * 0.5f));
+
+    return m_derivedFontData->emphasisMark.get();
 }
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
