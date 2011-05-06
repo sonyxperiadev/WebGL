@@ -140,8 +140,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
     // so that we do not slow down zooming unnecessarily.
     if (m_glWebViewState->currentScale() != scale
         && (m_glWebViewState->scaleRequestState() == GLWebViewState::kNoScaleRequest
-            || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest
-            || m_glWebViewState->futureScale() != scale)) {
+            || m_glWebViewState->futureScale() != scale)
+        || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest) {
 
         // schedule the new request
         m_glWebViewState->scheduleUpdate(currentTime, viewportTileBounds, scale);
