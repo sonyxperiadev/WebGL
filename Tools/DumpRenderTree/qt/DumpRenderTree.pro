@@ -6,9 +6,9 @@ BASEDIR = $$PWD/../
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../..
 
 include(../../../WebKit.pri)
-INCLUDEPATH += ../../..
-INCLUDEPATH += ../../../JavaScriptCore
-INCLUDEPATH += ../../../JavaScriptCore/ForwardingHeaders
+INCLUDEPATH += ../../../Source
+INCLUDEPATH += ../../../Source/JavaScriptCore
+INCLUDEPATH += ../../../Source/JavaScriptCore/ForwardingHeaders
 INCLUDEPATH += $$BASEDIR
 DESTDIR = ../../../bin
 
@@ -29,7 +29,7 @@ HEADERS = $$BASEDIR/WorkQueue.h \
     GCControllerQt.h \
     PlainTextControllerQt.h \
     testplugin.h
-SOURCES = ../../../JavaScriptCore/wtf/Assertions.cpp \
+SOURCES = ../../../Source/JavaScriptCore/wtf/Assertions.cpp \
     $$BASEDIR/WorkQueue.cpp \
     DumpRenderTreeQt.cpp \
     EventSenderQt.cpp \
@@ -50,4 +50,4 @@ wince*: {
     LIBS += $$WCECOMPAT/lib/wcecompat.lib
 }
 
-DEFINES+=USE_SYSTEM_MALLOC
+DEFINES += USE_SYSTEM_MALLOC=1

@@ -43,9 +43,9 @@ my %words;
 # find all files we want to process
 
 my @paths;
-find(\&wanted, "JavaScriptCore");
-find(\&wanted, "JavaScriptGlue");
-find(\&wanted, "WebCore");
+find(\&wanted, "Source/JavaScriptCore");
+find(\&wanted, "Source/JavaScriptGlue");
+find(\&wanted, "Source/WebCore");
 find(\&wanted, "WebKit");
 find(\&wanted, "WebKit2");
 

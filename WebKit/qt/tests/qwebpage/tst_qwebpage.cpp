@@ -21,6 +21,7 @@
 
 #include "../util.h"
 #include "../WebCoreSupport/DumpRenderTreeSupportQt.h"
+#include <QClipboard>
 #include <QDir>
 #include <QGraphicsWidget>
 #include <QLineEdit>
@@ -90,6 +91,7 @@ private slots:
     void destroyPlugin();
     void createViewlessPlugin_data();
     void createViewlessPlugin();
+    void graphicsWidgetPlugin();
     void multiplePageGroupsAndLocalStorage();
     void cursorMovements();
     void textSelection();
@@ -129,6 +131,10 @@ private slots:
     void supportedContentType();
     void infiniteLoopJS();
     void networkAccessManagerOnDifferentThread();
+
+#ifdef Q_OS_MAC
+    void macCopyUnicodeToClipboard();
+#endif
     
 private:
     QWebView* m_view;
@@ -583,6 +589,8 @@ protected:
             result = new QPushButton();
         else if (classid == "lineedit")
             result = new QLineEdit();
+        else if (classid == "graphicswidget")
+            result = new QGraphicsWidget();
         if (result)
             result->setObjectName(classid);
         calls.append(CallInfo(classid, url, paramNames, paramValues, result));
@@ -670,6 +678,54 @@ static void createPlugin(QWebView *view)
         QVERIFY(ci.returnValue != 0);
         QVERIFY(ci.returnValue->inherits("QPushButton"));
     }
+}
+
+void tst_QWebPage::graphicsWidgetPlugin()
+{
+    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    QGraphicsWebView webView;
+
+    QSignalSpy loadSpy(&webView, SIGNAL(loadFinished(bool)));
+
+    PluginPage* newPage = new PluginPage(&webView);
+    webView.setPage(newPage);
+
+    // type has to be application/x-qt-plugin
+    webView.setHtml(QString("<html><body><object type='application/x-foobarbaz' classid='graphicswidget' id='mygraphicswidget'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QCOMPARE(newPage->calls.count(), 0);
+
+    webView.setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='graphicswidget' id='mygraphicswidget'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 2);
+    QCOMPARE(newPage->calls.count(), 1);
+    {
+        PluginPage::CallInfo ci = newPage->calls.takeFirst();
+        QCOMPARE(ci.classid, QString::fromLatin1("graphicswidget"));
+        QCOMPARE(ci.url, QUrl());
+        QCOMPARE(ci.paramNames.count(), 3);
+        QCOMPARE(ci.paramValues.count(), 3);
+        QCOMPARE(ci.paramNames.at(0), QString::fromLatin1("type"));
+        QCOMPARE(ci.paramValues.at(0), QString::fromLatin1("application/x-qt-plugin"));
+        QCOMPARE(ci.paramNames.at(1), QString::fromLatin1("classid"));
+        QCOMPARE(ci.paramValues.at(1), QString::fromLatin1("graphicswidget"));
+        QCOMPARE(ci.paramNames.at(2), QString::fromLatin1("id"));
+        QCOMPARE(ci.paramValues.at(2), QString::fromLatin1("mygraphicswidget"));
+        QVERIFY(ci.returnValue);
+        QVERIFY(ci.returnValue->inherits("QGraphicsWidget"));
+    }
+    // test JS bindings
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("document.getElementById('mygraphicswidget').toString()").toString(),
+             QString::fromLatin1("[object HTMLObjectElement]"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mygraphicswidget.toString()").toString(),
+             QString::fromLatin1("[object HTMLObjectElement]"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("typeof mygraphicswidget.objectName").toString(),
+             QString::fromLatin1("string"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mygraphicswidget.objectName").toString(),
+             QString::fromLatin1("graphicswidget"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("typeof mygraphicswidget.geometryChanged").toString(),
+             QString::fromLatin1("function"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mygraphicswidget.geometryChanged.toString()").toString(),
+             QString::fromLatin1("function geometryChanged() {\n    [native code]\n}"));
 }
 
 void tst_QWebPage::createPluginWithPluginsEnabled()
@@ -879,6 +935,7 @@ void tst_QWebPage::cursorMovements()
         "getSelection().addRange(range);";
     page->mainFrame()->evaluateJavaScript(script);
     QCOMPARE(page->selectedText().trimmed(), QString::fromLatin1("The quick brown fox"));
+    QCOMPARE(page->selectedHtml().trimmed(), QString::fromLatin1("<span class=\"Apple-style-span\" style=\"border-collapse: separate; color: rgb(0, 0, 0); font-family: Times; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-border-horizontal-spacing: 0px; -webkit-border-vertical-spacing: 0px; -webkit-text-decorations-in-effect: none; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium; \"><p id=\"one\">The quick brown fox</p></span>"));
 
     // these actions must exist
     QVERIFY(page->action(QWebPage::MoveToNextChar) != 0);
@@ -1099,6 +1156,9 @@ void tst_QWebPage::textSelection()
     // ..but SelectAll is awalys enabled
     QCOMPARE(page->action(QWebPage::SelectAll)->isEnabled(), true);
 
+    // Verify hasSelection returns false since there is no selection yet...
+    QCOMPARE(page->hasSelection(), false);
+
     // this will select the first paragraph
     QString selectScript = "var range = document.createRange(); " \
         "var node = document.getElementById(\"one\"); " \
@@ -1106,6 +1166,10 @@ void tst_QWebPage::textSelection()
         "getSelection().addRange(range);";
     page->mainFrame()->evaluateJavaScript(selectScript);
     QCOMPARE(page->selectedText().trimmed(), QString::fromLatin1("The quick brown fox"));
+    QCOMPARE(page->selectedHtml().trimmed(), QString::fromLatin1("<span class=\"Apple-style-span\" style=\"border-collapse: separate; color: rgb(0, 0, 0); font-family: Times; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-border-horizontal-spacing: 0px; -webkit-border-vertical-spacing: 0px; -webkit-text-decorations-in-effect: none; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium; \"><p id=\"one\">The quick brown fox</p></span>"));
+
+    // Make sure hasSelection returns true, since there is selected text now...
+    QCOMPARE(page->hasSelection(), true);
 
     // here the actions are enabled after a selection has been created
     QCOMPARE(page->action(QWebPage::SelectNextChar)->isEnabled(), true);
@@ -2318,6 +2382,10 @@ void tst_QWebPage::crashTests_LazyInitializationOfMainFrame()
     }
     {
         QWebPage webPage;
+        webPage.selectedHtml();
+    }
+    {
+        QWebPage webPage;
         webPage.triggerAction(QWebPage::Back, true);
     }
     {
@@ -2512,14 +2580,18 @@ void tst_QWebPage::findText()
     m_view->setHtml(QString("<html><head></head><body><div>foo bar</div></body></html>"));
     m_page->triggerAction(QWebPage::SelectAll);
     QVERIFY(!m_page->selectedText().isEmpty());
+    QVERIFY(!m_page->selectedHtml().isEmpty());
     m_page->findText("");
     QVERIFY(m_page->selectedText().isEmpty());
+    QVERIFY(m_page->selectedHtml().isEmpty());
     QStringList words = (QStringList() << "foo" << "bar");
     foreach (QString subString, words) {
         m_page->findText(subString, QWebPage::FindWrapsAroundDocument);
         QCOMPARE(m_page->selectedText(), subString);
+        QCOMPARE(m_page->selectedHtml(), QString("<span class=\"Apple-style-span\" style=\"border-collapse: separate; color: rgb(0, 0, 0); font-family: Times; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-align: -webkit-auto; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-border-horizontal-spacing: 0px; -webkit-border-vertical-spacing: 0px; -webkit-text-decorations-in-effect: none; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium; \">%1</span>").arg(subString));
         m_page->findText("");
         QVERIFY(m_page->selectedText().isEmpty());
+        QVERIFY(m_page->selectedHtml().isEmpty());
     }
 }
 
@@ -2637,6 +2709,21 @@ void tst_QWebPage::networkAccessManagerOnDifferentThread()
     QTRY_COMPARE(loadSpy.count(), 1);
     QCOMPARE(m_page->mainFrame()->childFrames()[0]->url(), QUrl("qrc:///resources/frame_a.html"));
 }
+
+#ifdef Q_OS_MAC
+void tst_QWebPage::macCopyUnicodeToClipboard()
+{
+    QString unicodeText = QString::fromUtf8("αβγδεζηθικλμπ");
+    m_page->mainFrame()->setHtml(QString("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /></head><body>%1</body></html>").arg(unicodeText));
+    m_page->triggerAction(QWebPage::SelectAll);
+    m_page->triggerAction(QWebPage::Copy);
+
+    QString clipboardData = QString::fromUtf8(QApplication::clipboard()->mimeData()->data(QLatin1String("text/html")));
+
+    QVERIFY(clipboardData.contains(QLatin1String("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />")));
+    QVERIFY(clipboardData.contains(unicodeText));
+}
+#endif
 
 QTEST_MAIN(tst_QWebPage)
 #include "tst_qwebpage.moc"

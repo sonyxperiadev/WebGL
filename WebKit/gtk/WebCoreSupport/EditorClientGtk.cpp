@@ -44,8 +44,8 @@
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitDOMRangePrivate.h"
 #include "WindowsKeyboardCodes.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
-#include "webkitprivate.h"
 #include "webkitwebsettingsprivate.h"
 #include "webkitwebviewprivate.h"
 #include <wtf/text/CString.h>
@@ -270,7 +270,7 @@ void EditorClient::setInputMethodState(bool active)
 bool EditorClient::shouldDeleteRange(Range* range)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-delete-range", kitRange.get(), &accept);
     return accept;
 }
@@ -278,7 +278,7 @@ bool EditorClient::shouldDeleteRange(Range* range)
 bool EditorClient::shouldShowDeleteInterface(HTMLElement* element)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMHTMLElement> kitElement(adoptPlatformRef(kit(element)));
+    GRefPtr<WebKitDOMHTMLElement> kitElement(adoptGRef(kit(element)));
     g_signal_emit_by_name(m_webView, "should-show-delete-interface-for-element", kitElement.get(), &accept);
     return accept;
 }
@@ -310,7 +310,7 @@ bool EditorClient::shouldBeginEditing(WebCore::Range* range)
     clearPendingComposition();
 
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-begin-editing", kitRange.get(), &accept);
     return accept;
 }
@@ -320,7 +320,7 @@ bool EditorClient::shouldEndEditing(WebCore::Range* range)
     clearPendingComposition();
 
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-end-editing", kitRange.get(), &accept);
     return accept;
 }
@@ -342,7 +342,7 @@ static WebKitInsertAction kit(EditorInsertAction action)
 bool EditorClient::shouldInsertText(const String& string, Range* range, EditorInsertAction action)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-insert-text", string.utf8().data(), kitRange.get(), kit(action), &accept);
     return accept;
 }
@@ -362,8 +362,8 @@ static WebKitSelectionAffinity kit(EAffinity affinity)
 bool EditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity affinity, bool stillSelecting)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitFromRange(fromRange ? adoptPlatformRef(kit(fromRange)) : 0);
-    PlatformRefPtr<WebKitDOMRange> kitToRange(toRange ? adoptPlatformRef(kit(toRange)) : 0);
+    GRefPtr<WebKitDOMRange> kitFromRange(fromRange ? adoptGRef(kit(fromRange)) : 0);
+    GRefPtr<WebKitDOMRange> kitToRange(toRange ? adoptGRef(kit(toRange)) : 0);
     g_signal_emit_by_name(m_webView, "should-change-selected-range", kitFromRange.get(), kitToRange.get(),
                           kit(affinity), stillSelecting, &accept);
     return accept;
@@ -372,8 +372,8 @@ bool EditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, E
 bool EditorClient::shouldApplyStyle(WebCore::CSSStyleDeclaration* declaration, WebCore::Range* range)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(declaration));
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
+    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(declaration));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-apply-style", kitDeclaration.get(), kitRange.get(), &accept);
     return accept;
 }
@@ -543,8 +543,8 @@ void EditorClient::redo()
 bool EditorClient::shouldInsertNode(Node* node, Range* range, EditorInsertAction action)
 {
     gboolean accept = TRUE;
-    PlatformRefPtr<WebKitDOMRange> kitRange(adoptPlatformRef(kit(range)));
-    PlatformRefPtr<WebKitDOMNode> kitNode(adoptPlatformRef(kit(node)));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    GRefPtr<WebKitDOMNode> kitNode(adoptGRef(kit(node)));
     g_signal_emit_by_name(m_webView, "should-insert-node", kitNode.get(), kitRange.get(), kit(action), &accept);
     return accept;
 }
@@ -652,24 +652,23 @@ void EditorClient::generateEditorCommands(const KeyboardEvent* event)
     if (event->ctrlKey())
         modifiers |= CtrlKey;
 
-
-    if (event->type() == eventNames().keydownEvent) {
-        int mapKey = modifiers << 16 | event->keyCode();
-        if (mapKey)
-            m_pendingEditorCommands.append(keyDownCommandsMap.get(mapKey));
+    // For keypress events, we want charCode(), but keyCode() does that.
+    int mapKey = modifiers << 16 | event->keyCode();
+    if (!mapKey)
         return;
-    }
-
-    int mapKey = modifiers << 16 | event->charCode();
-    if (mapKey)
-        m_pendingEditorCommands.append(keyPressCommandsMap.get(mapKey));
+    HashMap<int, const char*>* commandMap = event->type() == eventNames().keydownEvent ?
+        &keyDownCommandsMap : &keyPressCommandsMap;
+    if (const char* commandString = commandMap->get(mapKey))
+        m_pendingEditorCommands.append(commandString);
 }
 
 bool EditorClient::executePendingEditorCommands(Frame* frame, bool allowTextInsertion)
 {
     Vector<Editor::Command> commands;
     for (size_t i = 0; i < m_pendingEditorCommands.size(); i++) {
-        Editor::Command command = frame->editor()->command(m_pendingEditorCommands.at(i));
+        const char* commandString = m_pendingEditorCommands.at(i);
+        ASSERT(commandString);
+        Editor::Command command = frame->editor()->command(commandString);
         if (command.isTextInsertion() && !allowTextInsertion)
             return false;
 
@@ -890,7 +889,7 @@ void EditorClient::textDidChangeInTextArea(Element*)
 
 void EditorClient::ignoreWordInSpellDocument(const String& text)
 {
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
+    GSList* dicts = webkitWebViewGetEnchantDicts(m_webView);
 
     for (; dicts; dicts = dicts->next) {
         EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
@@ -901,7 +900,7 @@ void EditorClient::ignoreWordInSpellDocument(const String& text)
 
 void EditorClient::learnWord(const String& text)
 {
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
+    GSList* dicts = webkitWebViewGetEnchantDicts(m_webView);
 
     for (; dicts; dicts = dicts->next) {
         EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
@@ -912,7 +911,7 @@ void EditorClient::learnWord(const String& text)
 
 void EditorClient::checkSpellingOfString(const UChar* text, int length, int* misspellingLocation, int* misspellingLength)
 {
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
+    GSList* dicts = webkitWebViewGetEnchantDicts(m_webView);
     if (!dicts)
         return;
 
@@ -1005,7 +1004,7 @@ bool EditorClient::spellingUIIsShowing()
 
 void EditorClient::getGuessesForWord(const String& word, const String& context, WTF::Vector<String>& guesses)
 {
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
+    GSList* dicts = webkitWebViewGetEnchantDicts(m_webView);
     guesses.clear();
 
     for (; dicts; dicts = dicts->next) {

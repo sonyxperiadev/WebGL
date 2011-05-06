@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; -*-
 #
-# Copyright (C) 2009 Google Inc. All rights reserved.
+# Copyright (C) 2009, 2010 Google Inc. All rights reserved.
 # Copyright (C) 2009 Torch Mobile Inc.
 # Copyright (C) 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2010 Chris Jerdonek (cjerdonek@webkit.org)
@@ -109,6 +109,19 @@ class CppFunctionsTest(unittest.TestCase):
 
     """Supports testing functions that do not need CppStyleTestBase."""
 
+    def test_convert_to_lower_with_underscores(self):
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('ABC'), 'abc')
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('aB'), 'a_b')
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('isAName'), 'is_a_name')
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('AnotherTest'), 'another_test')
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('PassRefPtr<MyClass>'), 'pass_ref_ptr<my_class>')
+        self.assertEquals(cpp_style._convert_to_lower_with_underscores('_ABC'), '_abc')
+
+    def test_create_acronym(self):
+        self.assertEquals(cpp_style._create_acronym('ABC'), 'ABC')
+        self.assertEquals(cpp_style._create_acronym('IsAName'), 'IAN')
+        self.assertEquals(cpp_style._create_acronym('PassRefPtr<MyClass>'), 'PRP<MC>')
+
     def test_is_c_or_objective_c(self):
         clean_lines = cpp_style.CleansedLines([''])
         clean_objc_lines = cpp_style.CleansedLines(['#import "header.h"'])
@@ -119,6 +132,99 @@ class CppFunctionsTest(unittest.TestCase):
         self.assertFalse(cpp_style._FileState(clean_lines, 'h').is_c_or_objective_c())
         self.assertTrue(cpp_style._FileState(clean_objc_lines, 'h').is_c_or_objective_c())
 
+    def test_parameter(self):
+        # Test type.
+        parameter = cpp_style.Parameter('ExceptionCode', 13, 1)
+        self.assertEquals(parameter.type, 'ExceptionCode')
+        self.assertEquals(parameter.name, '')
+        self.assertEquals(parameter.row, 1)
+
+        # Test type and name.
+        parameter = cpp_style.Parameter('PassRefPtr<MyClass> parent', 19, 1)
+        self.assertEquals(parameter.type, 'PassRefPtr<MyClass>')
+        self.assertEquals(parameter.name, 'parent')
+        self.assertEquals(parameter.row, 1)
+
+        # Test type, no name, with default value.
+        parameter = cpp_style.Parameter('MyClass = 0', 7, 0)
+        self.assertEquals(parameter.type, 'MyClass')
+        self.assertEquals(parameter.name, '')
+        self.assertEquals(parameter.row, 0)
+
+        # Test type, name, and default value.
+        parameter = cpp_style.Parameter('MyClass a = 0', 7, 0)
+        self.assertEquals(parameter.type, 'MyClass')
+        self.assertEquals(parameter.name, 'a')
+        self.assertEquals(parameter.row, 0)
+
+    def test_single_line_view(self):
+        start_position = cpp_style.Position(row=1, column=1)
+        end_position = cpp_style.Position(row=3, column=1)
+        single_line_view = cpp_style.SingleLineView(['0', 'abcde', 'fgh', 'i'], start_position, end_position)
+        self.assertEquals(single_line_view.single_line, 'bcde fgh i')
+        self.assertEquals(single_line_view.convert_column_to_row(0), 1)
+        self.assertEquals(single_line_view.convert_column_to_row(4), 1)
+        self.assertEquals(single_line_view.convert_column_to_row(5), 2)
+        self.assertEquals(single_line_view.convert_column_to_row(8), 2)
+        self.assertEquals(single_line_view.convert_column_to_row(9), 3)
+        self.assertEquals(single_line_view.convert_column_to_row(100), 3)
+
+        start_position = cpp_style.Position(row=0, column=3)
+        end_position = cpp_style.Position(row=0, column=4)
+        single_line_view = cpp_style.SingleLineView(['abcdef'], start_position, end_position)
+        self.assertEquals(single_line_view.single_line, 'd')
+
+    def test_create_skeleton_parameters(self):
+        self.assertEquals(cpp_style.create_skeleton_parameters(''), '')
+        self.assertEquals(cpp_style.create_skeleton_parameters(' '), ' ')
+        self.assertEquals(cpp_style.create_skeleton_parameters('long'), 'long,')
+        self.assertEquals(cpp_style.create_skeleton_parameters('const unsigned long int'), '                    int,')
+        self.assertEquals(cpp_style.create_skeleton_parameters('long int*'), '     int ,')
+        self.assertEquals(cpp_style.create_skeleton_parameters('PassRefPtr<Foo> a'), 'PassRefPtr      a,')
+        self.assertEquals(cpp_style.create_skeleton_parameters(
+                'ComplexTemplate<NestedTemplate1<MyClass1, MyClass2>, NestedTemplate1<MyClass1, MyClass2> > param, int second'),
+                          'ComplexTemplate                                                                            param, int second,')
+        self.assertEquals(cpp_style.create_skeleton_parameters('int = 0, Namespace::Type& a'), 'int    ,            Type  a,')
+        # Create skeleton parameters is a bit too aggressive with function variables, but
+        # it allows for parsing other parameters and declarations like this are rare.
+        self.assertEquals(cpp_style.create_skeleton_parameters('void (*fn)(int a, int b), Namespace::Type& a'),
+                          'void                    ,            Type  a,')
+
+        # This doesn't look like functions declarations but the simplifications help to eliminate false positives.
+        self.assertEquals(cpp_style.create_skeleton_parameters('b{d}'), 'b   ,')
+
+    def test_find_parameter_name_index(self):
+        self.assertEquals(cpp_style.find_parameter_name_index(' int a '), 5)
+        self.assertEquals(cpp_style.find_parameter_name_index(' PassRefPtr     '), 16)
+        self.assertEquals(cpp_style.find_parameter_name_index('double'), 6)
+
+    def test_parameter_list(self):
+        elided_lines = ['int blah(PassRefPtr<MyClass> paramName,',
+                        'const Other1Class& foo,',
+                        'const ComplexTemplate<Class1, NestedTemplate<P1, P2> >* const * param = new ComplexTemplate<Class1, NestedTemplate<P1, P2> >(34, 42),',
+                        'int* myCount = 0);']
+        start_position = cpp_style.Position(row=0, column=8)
+        end_position = cpp_style.Position(row=3, column=16)
+
+        expected_parameters = ({'type': 'PassRefPtr<MyClass>', 'name': 'paramName', 'row': 0},
+                               {'type': 'const Other1Class&', 'name': 'foo', 'row': 1},
+                               {'type': 'const ComplexTemplate<Class1, NestedTemplate<P1, P2> >* const *', 'name': 'param', 'row': 2},
+                               {'type': 'int*', 'name': 'myCount', 'row': 3})
+        index = 0
+        for parameter in cpp_style.parameter_list(elided_lines, start_position, end_position):
+            expected_parameter = expected_parameters[index]
+            self.assertEquals(parameter.type, expected_parameter['type'])
+            self.assertEquals(parameter.name, expected_parameter['name'])
+            self.assertEquals(parameter.row, expected_parameter['row'])
+            index += 1
+        self.assertEquals(index, len(expected_parameters))
+
+    def test_check_parameter_against_text(self):
+        error_collector = ErrorCollector(self.assert_)
+        parameter = cpp_style.Parameter('FooF ooF', 4, 1)
+        self.assertFalse(cpp_style._check_parameter_name_against_text(parameter, 'FooF', error_collector))
+        self.assertEquals(error_collector.results(),
+                          'The parameter name "ooF" adds no information, so it should be removed.  [readability/parameter_name] [5]')
 
 class CppStyleTestBase(unittest.TestCase):
     """Provides some useful helper functions for cpp_style tests.
@@ -152,6 +258,7 @@ class CppStyleTestBase(unittest.TestCase):
         basic_error_rules = ('-build/header_guard',
                              '-legal/copyright',
                              '-readability/fn_size',
+                             '-readability/parameter_name',
                              '-whitespace/ending_newline')
         return self.perform_lint(code, filename, basic_error_rules)
 
@@ -159,7 +266,7 @@ class CppStyleTestBase(unittest.TestCase):
     def perform_multi_line_lint(self, code, file_extension):
         basic_error_rules = ('-build/header_guard',
                              '-legal/copyright',
-                             '-multi_line_filter',
+                             '-readability/parameter_name',
                              '-whitespace/ending_newline')
         return self.perform_lint(code, 'test.' + file_extension, basic_error_rules)
 
@@ -250,6 +357,16 @@ class FunctionDetectionTest(CppStyleTestBase):
         self.assertEquals(function_state.body_start_line_number, function_information['body_start_line_number'])
         self.assertEquals(function_state.ending_line_number, function_information['ending_line_number'])
         self.assertEquals(function_state.is_declaration, function_information['is_declaration'])
+        expected_parameters = function_information.get('parameter_list')
+        if expected_parameters:
+            actual_parameters = function_state.parameter_list()
+            self.assertEquals(len(actual_parameters), len(expected_parameters))
+            for index in range(len(expected_parameters)):
+                actual_parameter = actual_parameters[index]
+                expected_parameter = expected_parameters[index]
+                self.assertEquals(actual_parameter.type, expected_parameter['type'])
+                self.assertEquals(actual_parameter.name, expected_parameter['name'])
+                self.assertEquals(actual_parameter.row, expected_parameter['row'])
 
     def test_basic_function_detection(self):
         self.perform_function_detection(
@@ -268,6 +385,37 @@ class FunctionDetectionTest(CppStyleTestBase):
              'ending_line_number': 0,
              'is_declaration': True})
 
+        self.perform_function_detection(
+            ['CheckedInt<T> operator /(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
+            {'name': 'operator /',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True})
+
+        self.perform_function_detection(
+            ['CheckedInt<T> operator -(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
+            {'name': 'operator -',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+            'is_declaration': True})
+
+        self.perform_function_detection(
+            ['CheckedInt<T> operator !=(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
+            {'name': 'operator !=',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True})
+
+        self.perform_function_detection(
+            ['CheckedInt<T> operator +(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
+            {'name': 'operator +',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True})
+
+    def test_ignore_macros(self):
+        self.perform_function_detection(['void aFunctionName(int); \\'], None)
+
     def test_non_functions(self):
         # This case exposed an error because the open brace was in quotes.
         self.perform_function_detection(
@@ -283,6 +431,70 @@ class FunctionDetectionTest(CppStyleTestBase):
 
         # Simple test case with something that is not a function.
         self.perform_function_detection(['class Stuff;'], None)
+
+    def test_parameter_list(self):
+        # A function with no arguments.
+        function_state = self.perform_function_detection(
+            ['void functionName();'],
+            {'name': 'functionName',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True,
+             'parameter_list': ()})
+
+        # A function with one argument.
+        function_state = self.perform_function_detection(
+            ['void functionName(int);'],
+            {'name': 'functionName',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True,
+             'parameter_list':
+                 ({'type': 'int', 'name': '', 'row': 0},)})
+
+        # A function with unsigned and short arguments
+        function_state = self.perform_function_detection(
+            ['void functionName(unsigned a, short b, long c, long long short unsigned int);'],
+            {'name': 'functionName',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True,
+             'parameter_list':
+                 ({'type': 'unsigned', 'name': 'a', 'row': 0},
+                  {'type': 'short', 'name': 'b', 'row': 0},
+                  {'type': 'long', 'name': 'c', 'row': 0},
+                  {'type': 'long long short unsigned int', 'name': '', 'row': 0})})
+
+        # Some parameter type with modifiers and no parameter names.
+        function_state = self.perform_function_detection(
+            ['virtual void determineARIADropEffects(Vector<String>*&, const unsigned long int*&, const MediaPlayer::Preload, Other<Other2, Other3<P1, P2> >, int);'],
+            {'name': 'determineARIADropEffects',
+             'body_start_line_number': 0,
+             'ending_line_number': 0,
+             'is_declaration': True,
+             'parameter_list':
+                 ({'type': 'Vector<String>*&', 'name': '', 'row': 0},
+                  {'type': 'const unsigned long int*&', 'name': '', 'row': 0},
+                  {'type': 'const MediaPlayer::Preload', 'name': '', 'row': 0},
+                  {'type': 'Other<Other2, Other3<P1, P2> >', 'name': '', 'row': 0},
+                  {'type': 'int', 'name': '', 'row': 0})})
+
+        # Try parsing a function with a very complex definition.
+        function_state = self.perform_function_detection(
+            ['AnotherTemplate<Class1, Class2> aFunctionName(PassRefPtr<MyClass> paramName,',
+             'const Other1Class& foo,',
+             'const ComplexTemplate<Class1, NestedTemplate<P1, P2> >* const * param = new ComplexTemplate<Class1, NestedTemplate<P1, P2> >(34, 42),',
+             'int* myCount = 0);'],
+            {'name': 'aFunctionName',
+             'body_start_line_number': 3,
+             'ending_line_number': 3,
+             'is_declaration': True,
+             'parameter_list':
+                 ({'type': 'PassRefPtr<MyClass>', 'name': 'paramName', 'row': 0},
+                  {'type': 'const Other1Class&', 'name': 'foo', 'row': 1},
+                  {'type': 'const ComplexTemplate<Class1, NestedTemplate<P1, P2> >* const *', 'name': 'param', 'row': 2},
+                  {'type': 'int*', 'name': 'myCount', 'row': 3})})
+
 
 class CppStyleTest(CppStyleTestBase):
 
@@ -1223,6 +1435,8 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('((a+b))', '')
         self.assert_lint('foo (foo)', 'Extra space before ( in function call'
                          '  [whitespace/parens] [4]')
+        self.assert_lint('#elif (foo(bar))', '')
+        self.assert_lint('#elif (foo(bar) && foo(baz))', '')
         self.assert_lint('typedef foo (*foo)(foo)', '')
         self.assert_lint('typedef foo (*foo12bar_)(foo)', '')
         self.assert_lint('typedef foo (Foo::*bar)(foo)', '')
@@ -1797,7 +2011,7 @@ class CppStyleTest(CppStyleTestBase):
         # Allow the WTF_ prefix for files in that directory.
         header_guard_filter = FilterConfiguration(('-', '+build/header_guard'))
         error_collector = ErrorCollector(self.assert_, header_guard_filter)
-        self.process_file_data('JavaScriptCore/wtf/TestName.h', 'h',
+        self.process_file_data('Source/JavaScriptCore/wtf/TestName.h', 'h',
                                ['#ifndef WTF_TestName_h', '#define WTF_TestName_h'],
                                error_collector)
         self.assertEquals(0, len(error_collector.result_list()),
@@ -1805,7 +2019,7 @@ class CppStyleTest(CppStyleTestBase):
 
         # Also allow the non WTF_ prefix for files in that directory.
         error_collector = ErrorCollector(self.assert_, header_guard_filter)
-        self.process_file_data('JavaScriptCore/wtf/TestName.h', 'h',
+        self.process_file_data('Source/JavaScriptCore/wtf/TestName.h', 'h',
                                ['#ifndef TestName_h', '#define TestName_h'],
                                error_collector)
         self.assertEquals(0, len(error_collector.result_list()),
@@ -1813,7 +2027,7 @@ class CppStyleTest(CppStyleTestBase):
 
         # Verify that we suggest the WTF prefix version.
         error_collector = ErrorCollector(self.assert_, header_guard_filter)
-        self.process_file_data('JavaScriptCore/wtf/TestName.h', 'h',
+        self.process_file_data('Source/JavaScriptCore/wtf/TestName.h', 'h',
                                ['#ifndef BAD_TestName_h', '#define BAD_TestName_h'],
                                error_collector)
         self.assertEquals(
@@ -2549,14 +2763,12 @@ class CheckForFunctionLengthsTest(CppStyleTestBase):
         error_level = 1
         error_lines = self.trigger_test_lines(error_level) + 1
         trigger_level = self.trigger_test_lines(self.min_confidence)
+        # Since the function name isn't valid, the function detection algorithm
+        # will skip it, so no error is produced.
         self.assert_function_lengths_check(
             ('TEST_F('
              + self.function_body(error_lines)),
-            ('Small and focused functions are preferred: '
-             'TEST_F has %d non-comment lines '
-             '(error triggered by exceeding %d lines).'
-             '  [readability/fn_size] [%d]')
-            % (error_lines, trigger_level, error_level))
+            '')
 
     def test_function_length_check_definition_severity1_with_embedded_no_lints(self):
         error_level = 1
@@ -3648,6 +3860,17 @@ class WebKitStyleTest(CppStyleTestBase):
         self.assert_lint(
             'gchar* result = gdk_pixbuf_save_to_stream(pixbuf, function, data, type, error, NULL);',
             '')
+        self.assert_lint(
+            'gtk_widget_style_get(style, "propertyName", &value, "otherName", &otherValue, NULL);',
+            '')
+        self.assert_lint(
+            'gtk_widget_style_get_property(style, NULL, NULL);',
+            'Use 0 instead of NULL.  [readability/null] [5]',
+            'foo.cpp')
+        self.assert_lint(
+            'gtk_widget_style_get_valist(style, NULL, NULL);',
+            'Use 0 instead of NULL.  [readability/null] [5]',
+            'foo.cpp')
 
         # 2. C++ and C bool values should be written as true and
         #    false. Objective-C BOOL values should be written as YES and NO.
@@ -3867,8 +4090,8 @@ class WebKitStyleTest(CppStyleTestBase):
                           'variable_2' + name_underscore_error_message])
 
         # There is an exception for op code functions but only in the JavaScriptCore directory.
-        self.assert_lint('void this_op_code(int var1, int var2)', '', 'JavaScriptCore/foo.cpp')
-        self.assert_lint('void op_code(int var1, int var2)', '', 'JavaScriptCore/foo.cpp')
+        self.assert_lint('void this_op_code(int var1, int var2)', '', 'Source/JavaScriptCore/foo.cpp')
+        self.assert_lint('void op_code(int var1, int var2)', '', 'Source/JavaScriptCore/foo.cpp')
         self.assert_lint('void this_op_code(int var1, int var2)', 'this_op_code' + name_underscore_error_message)
 
         # GObject requires certain magical names in class declarations.
@@ -3908,6 +4131,55 @@ class WebKitStyleTest(CppStyleTestBase):
         self.assert_lint('OwnPtr<uint32_t> under_score(new uint32_t);',
                          'under_score' + name_underscore_error_message)
 
+    def test_parameter_names(self):
+        # Leave meaningless variable names out of function declarations.
+        meaningless_variable_name_error_message = 'The parameter name "%s" adds no information, so it should be removed.  [readability/parameter_name] [5]'
+
+        parameter_error_rules = ('-',
+                                 '+readability/parameter_name')
+        # No variable name, so no error.
+        self.assertEquals('',
+                          self.perform_lint('void func(int);', 'test.cpp', parameter_error_rules))
+
+        # Verify that copying the name of the set function causes the error (with some odd casing).
+        self.assertEquals(meaningless_variable_name_error_message % 'itemCount',
+                          self.perform_lint('void setItemCount(size_t itemCount);', 'test.cpp', parameter_error_rules))
+        self.assertEquals(meaningless_variable_name_error_message % 'abcCount',
+                          self.perform_lint('void setABCCount(size_t abcCount);', 'test.cpp', parameter_error_rules))
+
+        # Verify that copying a type name will trigger the warning (even if the type is a template parameter).
+        self.assertEquals(meaningless_variable_name_error_message % 'context',
+                          self.perform_lint('void funct(PassRefPtr<ScriptExecutionContext> context);', 'test.cpp', parameter_error_rules))
+
+        # Verify that acronyms as variable names trigger the error (for both set functions and type names).
+        self.assertEquals(meaningless_variable_name_error_message % 'ec',
+                          self.perform_lint('void setExceptionCode(int ec);', 'test.cpp', parameter_error_rules))
+        self.assertEquals(meaningless_variable_name_error_message % 'ec',
+                          self.perform_lint('void funct(ExceptionCode ec);', 'test.cpp', parameter_error_rules))
+
+        # 'object' alone, appended, or as part of an acronym is meaningless.
+        self.assertEquals(meaningless_variable_name_error_message % 'object',
+                          self.perform_lint('void funct(RenderView object);', 'test.cpp', parameter_error_rules))
+        self.assertEquals(meaningless_variable_name_error_message % 'viewObject',
+                          self.perform_lint('void funct(RenderView viewObject);', 'test.cpp', parameter_error_rules))
+        self.assertEquals(meaningless_variable_name_error_message % 'rvo',
+                          self.perform_lint('void funct(RenderView rvo);', 'test.cpp', parameter_error_rules))
+
+        # Check that r, g, b, and a are allowed.
+        self.assertEquals('',
+                          self.perform_lint('void setRGBAValues(int r, int g, int b, int a);', 'test.cpp', parameter_error_rules))
+
+        # Verify that a simple substring match isn't done which would cause false positives.
+        self.assertEquals('',
+                          self.perform_lint('void setNateLateCount(size_t elate);', 'test.cpp', parameter_error_rules))
+        self.assertEquals('',
+                          self.perform_lint('void funct(NateLate elate);', 'test.cpp', parameter_error_rules))
+
+        # Don't have generate warnings for functions (only declarations).
+        self.assertEquals('',
+                          self.perform_lint('void funct(PassRefPtr<ScriptExecutionContext> context)\n'
+                                            '{\n'
+                                            '}\n', 'test.cpp', parameter_error_rules))
 
     def test_comments(self):
         # A comment at the beginning of a line is ok.

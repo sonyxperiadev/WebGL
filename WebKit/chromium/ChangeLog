@@ -1,3 +1,430 @@
+2011-01-07  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Move WebCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=52050
+
+        Update references to WebCore.
+
+        * WebKit.grd:
+        * WebKit.gyp:
+
+2011-01-07  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Scrollbar code cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=52073
+
+        Scrollbar code cleanup:
+        - Fix typo in Linux scrollbar enum name
+
+        * public/linux/WebThemeEngine.h:
+        * src/ChromiumBridge.cpp:
+        (WebCore::WebThemePart):
+        (WebCore::GetWebThemeExtraParams):
+
+2011-01-07  James Robinson  <jamesr@chromium.org>
+
+        Revert "Implement mozilla's animationTime property"
+        https://bugs.webkit.org/show_bug.cgi?id=51952
+
+        This approach isn't quite right.
+
+        * public/WebWidget.h:
+        * src/WebPopupMenuImpl.cpp:
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        * src/WebViewImpl.h:
+
+2011-01-05  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Define GC3D types to match GL types and use them in GraphicsContext3D
+        https://bugs.webkit.org/show_bug.cgi?id=45557
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::bindAttribLocation):
+        (WebCore::GraphicsContext3DInternal::bufferData):
+        (WebCore::GraphicsContext3DInternal::bufferSubData):
+        (WebCore::GraphicsContext3DInternal::getActiveAttrib):
+        (WebCore::GraphicsContext3DInternal::getActiveUniform):
+        (WebCore::GraphicsContext3DInternal::getAttribLocation):
+        (WebCore::GraphicsContext3DInternal::getString):
+        (WebCore::GraphicsContext3DInternal::getUniformLocation):
+        (WebCore::GraphicsContext3DInternal::texImage2D):
+        (WebCore::GraphicsContext3DInternal::texSubImage2D):
+        (WebCore::GraphicsContext3DInternal::uniform1fv):
+        (WebCore::GraphicsContext3DInternal::uniform1iv):
+        (WebCore::GraphicsContext3DInternal::uniform2fv):
+        (WebCore::GraphicsContext3DInternal::uniform2iv):
+        (WebCore::GraphicsContext3DInternal::uniform3fv):
+        (WebCore::GraphicsContext3DInternal::uniform3iv):
+        (WebCore::GraphicsContext3DInternal::uniform4fv):
+        (WebCore::GraphicsContext3DInternal::uniform4iv):
+        (WebCore::GraphicsContext3DInternal::uniformMatrix2fv):
+        (WebCore::GraphicsContext3DInternal::uniformMatrix3fv):
+        (WebCore::GraphicsContext3DInternal::uniformMatrix4fv):
+        * src/GraphicsContext3DInternal.h:
+
+2011-01-06  James Simonsen  <simonjam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Web Timing] Remove vendor prefix
+        https://bugs.webkit.org/show_bug.cgi?id=48922
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::performance): Rename to performance.
+
+2011-01-06  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Implement mozilla's animationTime property
+        https://bugs.webkit.org/show_bug.cgi?id=51952
+
+        WebKit API support for webkitAnimationTime.
+
+        * public/WebWidget.h:
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::clearCurrentAnimationTime):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::clearCurrentAnimationTime):
+        * src/WebViewImpl.h:
+
+2010-12-29  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add a WebAutoFillClient interface that moves some functions from WebViewClient
+        https://bugs.webkit.org/show_bug.cgi?id=51710
+
+        * WebKit.gyp:
+        * public/WebAutoFillClient.h: Added.
+        (WebKit::WebAutoFillClient::didAcceptAutoFillSuggestion):
+        (WebKit::WebAutoFillClient::didSelectAutoFillSuggestion):
+        (WebKit::WebAutoFillClient::didClearAutoFillSelection):
+        (WebKit::WebAutoFillClient::removeAutocompleteSugestion):
+        (WebKit::WebAutoFillClient::didAcceptAutocompleteSuggestion):
+        (WebKit::WebAutoFillClient::textFieldDidBeginEditing):
+        (WebKit::WebAutoFillClient::textFieldDidEndEditing):
+        (WebKit::WebAutoFillClient::textFieldDidChange):
+        (WebKit::WebAutoFillClient::textFieldDidReceiveKeyDown):
+        (WebKit::WebAutoFillClient::~WebAutoFillClient):
+
+2011-01-05  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add WebKitClient::createAudioDevice() for Chromium port of web audio API
+        https://bugs.webkit.org/show_bug.cgi?id=51424
+
+        * WebKit.gyp:
+        * public/WebAudioDevice.h: Added.
+        (WebKit::WebAudioDevice::RenderCallback::~RenderCallback):
+        (WebKit::WebAudioDevice::~WebAudioDevice):
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::createAudioDevice):
+        * src/AudioDestinationChromium.cpp: Added.
+        (WebCore::AudioDestination::create):
+        (WebCore::AudioDestinationChromium::AudioDestinationChromium):
+        (WebCore::AudioDestinationChromium::~AudioDestinationChromium):
+        (WebCore::AudioDestinationChromium::start):
+        (WebCore::AudioDestinationChromium::stop):
+        (WebCore::AudioDestination::hardwareSampleRate):
+        (WebCore::AudioDestinationChromium::render):
+        * src/AudioDestinationChromium.h: Added.
+        (WebCore::AudioDestinationChromium::isPlaying):
+        (WebCore::AudioDestinationChromium::sampleRate):
+
+2011-01-05  David Levin  <levin@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] WEBKIT_API and styling fixes for the chromium api.
+        https://bugs.webkit.org/show_bug.cgi?id=51863
+
+        Removed some incorrect uses of WEBKIT_API.
+        Fixed some abbreviations by making them whole words.
+
+        * public/WebAnimationController.h: Removed WEBKIT_API from virtual functions.
+        * public/WebFormElement.h: Removed WEBKIT_API from inline functions
+        and fixed some abbreviations.
+        (WebKit::WebFormElement::WebFormElement):
+        (WebKit::WebFormElement::operator=):
+        (WebKit::WebFormElement::assign):
+        * public/WebIDBDatabaseError.h: Ditto.
+        (WebKit::WebIDBDatabaseError::WebIDBDatabaseError):
+        (WebKit::WebIDBDatabaseError::operator=):
+        * public/WebInputElement.h: Ditto.
+        (WebKit::WebInputElement::WebInputElement):
+        (WebKit::WebInputElement::operator=):
+        (WebKit::WebInputElement::assign):
+        * public/WebLabelElement.h: Ditto.
+        (WebKit::WebLabelElement::WebLabelElement):
+        (WebKit::WebLabelElement::operator=):
+        (WebKit::WebLabelElement::assign):
+        * public/WebOptionElement.h: Ditto.
+        (WebKit::WebOptionElement::WebOptionElement):
+        (WebKit::WebOptionElement::operator=):
+        (WebKit::WebOptionElement::assign):
+        * public/WebSelectElement.h: Ditto (and minor spacing cleanup).
+        (WebKit::WebSelectElement::WebSelectElement):
+        (WebKit::WebSelectElement::operator=):
+        (WebKit::WebSelectElement::assign):
+
+2011-01-05  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] WebIDBKey clean-up
+        https://bugs.webkit.org/show_bug.cgi?id=51925
+
+        Remove constructors that are no longer used since the
+        Chromium side has been updated.
+
+        * public/WebIDBKey.h:
+
+2011-01-04  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by David Levin.
+
+        Update README file with a description of the WEBKIT_API macro and
+        guidelines for its usage.  Also document the various WEBKIT_USING_*
+        macros.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51880
+
+        * README:
+
+2011-01-04  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] depend on harfbuzz explicitly
+        https://bugs.webkit.org/show_bug.cgi?id=51895
+
+        Update Chromium DEPS to pick up newer Chromium version
+        that simplifies expressing the Harfbuzz dependency.
+
+        * DEPS:
+
+2011-01-04  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Changes:
+        1. Add WebKit::WebWidget::confirmComposition(const WebString& text)
+           This new method corresponds to Editor::confirmComposition(text) and
+           Editor::insertText(text). It'll be used by both DumpRenderTree's
+           TextInputController and chromium browser.
+        2. Fix WebFrameImpl::insertText
+           It should call Editor::confirmComposition(text) rather than
+           Editor::insertText(text) if there is an ongoing composition.
+           It matches the behavior of WebKit Mac port.
+        3. Fix WebFrameImpl::setMarkedText
+           Editor::confirmComposition(text) shouldn't be called in this
+           method, which incorrectly inserts the text.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51693
+
+        * public/WebWidget.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::insertText):
+        (WebKit::WebFrameImpl::setMarkedText):
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::confirmComposition):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::confirmComposition):
+        * src/WebViewImpl.h:
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestWebWidget::confirmComposition):
+
+2011-01-03  Daniel Bates  <dbates@rim.com>
+
+        Attempt to fix the Chromium Linux Release build after changeset 74895 <http://trac.webkit.org/changeset/74895>.
+
+        The portion of the patch in <https://bugs.webkit.org/show_bug.cgi?id=51791> that modified the
+        file src/WebSearchableFormData.cpp was not landed (why?). Although the change log entry
+        associated with this change was landed.
+
+        * src/WebSearchableFormData.cpp:
+        (HTMLNames::IsInDefaultState):
+
+2011-01-02  Dirk Schulze  <krit@webkit.org>
+
+        Reviewed by Simon Fraser.
+
+        Clarify ImageBuffer and ImageData relationship
+        https://bugs.webkit.org/show_bug.cgi?id=51297
+
+        Use ByteArray instead of ImageData.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::doPixelReadbackToCanvas):
+
+2011-01-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move JavaScriptCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=51604
+
+        * WebKit.gyp:
+          - Point to JavaScriptCore in its new location.
+
+2010-12-30  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] Add WebThemeEngineDRTMac so that Chromium DRT scrollbar rendering can match the Mac port's
+        https://bugs.webkit.org/show_bug.cgi?id=51728
+        
+        Roll DEPS to pick up WebThemeEngine changes.
+
+        * DEPS:
+
+2010-12-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r74735.
+        http://trac.webkit.org/changeset/74735
+        https://bugs.webkit.org/show_bug.cgi?id=51715
+
+        assert failures on fast/forms/input-maxlength-ime-
+        completed.html (Requested by mihaip on #webkit).
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::setMarkedText):
+
+2010-12-29  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Fix editing/input/ime-composition-clearpreedit.html test in chromium
+        by removing the line "editor->confirmComposition(text);" from
+        WebFrameImpl::setMarkedText() method, because that line will insert the
+        text into the focused node, which is apparently wrong.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51693
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::setMarkedText):
+
+2010-12-23  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Initialize to 0 for undefined values in CopyTexImage2D
+        https://bugs.webkit.org/show_bug.cgi?id=51421
+
+        * src/GraphicsContext3DChromium.cpp: Implement getInternalFramebufferSize().
+        (WebCore::GraphicsContext3DInternal::getInternalFramebufferSize):
+        * src/GraphicsContext3DInternal.h:
+
+2010-12-23  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r74561.
+        http://trac.webkit.org/changeset/74561
+        https://bugs.webkit.org/show_bug.cgi?id=51565
+
+        "Broke Chromium UI tests on Vista" (Requested by kbr_google on
+        #webkit).
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+
+2010-12-23  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] Add WebThemeEngine for Mac to allow scrollbar rendering to be overridden for the DRT
+        https://bugs.webkit.org/show_bug.cgi?id=51507
+        
+        Adds WebThemeEngine for the Mac (it already has parallel definitions for
+        Windows and Linux) so that scrollbar thumb rendering can be overridden
+        for the DRT (to be consistent with the NSScroller-based rendering
+        used by the Mac port).        
+
+        * public/mac/WebThemeEngine.h: Added.
+        (WebKit::WebThemeEngine::paintScrollbarThumb):
+        * src/AssertMatchingEnums.cpp:
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::paintScrollbarThumb):
+
+2010-12-23  Sam Weinig  <sam@webkit.org>
+
+        Fix build.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::didSaveToPageCache):
+        (WebKit::FrameLoaderClientImpl::didRestoreFromPageCache):
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::WebFrameLoaderClientImpl::didSaveToPageCache):
+        (WebKit::WebFrameLoaderClientImpl::didRestoreFromPageCache):
+        * src/FrameLoaderClientImpl.h:
+
+2010-12-20  Adrienne Walker  <enne@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        [chromium] Tile root layer of the compositor.
+        https://bugs.webkit.org/show_bug.cgi?id=49947
+
+        Refactor root layer logic out of WebViewImpl and into
+        LayerTilerChromium.  The painting is now done through an interface
+        rather than directly in WebViewImpl.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::scrollRootLayerRect):
+        (WebKit::WebViewImpl::invalidateRootLayerRect):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImplTilePaintInterface::WebViewImplTilePaintInterface):
+        (WebKit::WebViewImplTilePaintInterface::paint):
+        (WebKit::WebViewImplScrollbarPaintInterface::WebViewImplScrollbarPaintInterface):
+        (WebKit::WebViewImplScrollbarPaintInterface::paint):
+        (WebKit::WebViewImpl::doComposite):
+        * src/WebViewImpl.h:
+
+2010-12-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Editor.h doesn't need to include SelectionController.h
+        https://bugs.webkit.org/show_bug.cgi?id=51441
+
+        Renamed SelectionController::EDirection to SelectionDirection.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::executeCommand):
+
+2010-12-23  W. James MacLean  <wjmaclean@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [chromium] Add asserts to test for contiguous-pixel Skia bitmaps.
+        https://bugs.webkit.org/show_bug.cgi?id=51186
+
+        Add asserts to detect if assumptions (about contiguous pixels in Skia bitmaps) are violated.
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+
 2010-12-22  Sheriff Bot  <webkit.review.bot@gmail.com>
 
         Unreviewed, rolling out r74503.

@@ -3,9 +3,9 @@ TEMPLATE = lib
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../../..
 
 CONFIG(standalone_package) {
-    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/../../../../WebCore/generated
+    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/../../../../Source/WebCore/generated
 } else {
-    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = ../../../../WebCore/generated
+    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = ../../../../Source/WebCore/generated
 }
 
 GENERATED_SOURCES_DIR = ../../generated
@@ -44,8 +44,8 @@ HEADERS += \
 }
 
 include(../../../../WebKit.pri)
-include(../../../../JavaScriptCore/JavaScriptCore.pri)
-addJavaScriptCoreLib(../../../../JavaScriptCore)
+include(../../../../Source/JavaScriptCore/JavaScriptCore.pri)
+addJavaScriptCoreLib(../../../../Source/JavaScriptCore)
 include(../../../../WebKit2/WebKit2.pri)
 addWebKit2Lib(../../../../WebKit2)
 
@@ -54,8 +54,8 @@ INCLUDEPATH += \
     $$PWD/.. \
     $$PWD/../.. \
     $$PWD/../Bindings \
-    $$PWD/../../../../JavaScriptCore \
-    $$PWD/../../../../JavaScriptCore/wtf \
+    $$PWD/../../../../Source/JavaScriptCore \
+    $$PWD/../../../../Source/JavaScriptCore/wtf \
     $$PWD/../../../../WebKit2 \
     $$PWD/../../../../WebKit2/Shared \
     $$GENERATED_SOURCES_DIR

@@ -1349,6 +1349,14 @@ void FrameLoaderClientImpl::transitionToCommittedForNewPage()
     makeDocumentView();
 }
 
+void FrameLoaderClientImpl::didSaveToPageCache()
+{
+}
+
+void FrameLoaderClientImpl::didRestoreFromPageCache()
+{
+}
+
 void FrameLoaderClientImpl::dispatchDidBecomeFrameset(bool)
 {
 }

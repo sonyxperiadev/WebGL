@@ -235,7 +235,7 @@ WebView* WebViewHost::createView(WebFrame*, const WebWindowFeatures&, const WebS
 {
     if (!layoutTestController()->canOpenWindows())
         return 0;
-    return m_shell->createWebView()->webView();
+    return m_shell->createNewWindow(WebURL())->webView();
 }
 
 WebWidget* WebViewHost::createPopupMenu(WebPopupType)
@@ -410,11 +410,7 @@ bool WebViewHost::handleCurrentKeyboardEvent()
 void WebViewHost::spellCheck(const WebString& text, int& misspelledOffset, int& misspelledLength)
 {
     // Check the spelling of the given text.
-#if OS(MAC_OS_X)
-    // FIXME: rebaseline layout-test results of Windows and Linux so we
-    // can enable this mock spellchecker on them.
     m_spellcheck.spellCheckWord(text, &misspelledOffset, &misspelledLength);
-#endif
 }
 
 WebString WebViewHost::autoCorrectWord(const WebString&)
@@ -1132,10 +1128,6 @@ WebViewHost::~WebViewHost()
         // current page.
         loadURLForFrame(GURL("about:blank"), WebString());
     }
-
-    // Call GC twice to clean up garbage.
-    m_shell->callJSGC();
-    m_shell->callJSGC();
 
     webWidget()->close();
 

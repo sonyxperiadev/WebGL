@@ -21,11 +21,11 @@
 #include "config.h"
 #include "webkitnetworkrequest.h"
 
+#include "GRefPtr.h"
 #include "ResourceRequest.h"
-#include "webkitprivate.h"
-#include <wtf/text/CString.h>
-
+#include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitnetworkrequest
@@ -120,7 +120,7 @@ static void webkit_network_request_class_init(WebKitNetworkRequestClass* request
     objectClass->get_property = webkit_network_request_get_property;
     objectClass->set_property = webkit_network_request_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitNetworkRequest:uri:
@@ -253,7 +253,7 @@ namespace WebKit {
 
 WebKitNetworkRequest* kitNew(const WebCore::ResourceRequest& resourceRequest)
 {
-    PlatformRefPtr<SoupMessage> soupMessage(adoptPlatformRef(resourceRequest.toSoupMessage()));
+    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceRequest.toSoupMessage()));
     if (soupMessage)
         return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "message", soupMessage.get(), NULL));
 

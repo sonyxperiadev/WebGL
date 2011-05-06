@@ -295,6 +295,14 @@ void FrameLoaderClientQt::transitionToCommittedForNewPage()
     m_frame->view()->setActualVisibleContentRect(IntRect(IntPoint::zero(), currentVisibleContentSize));
 }
 
+void FrameLoaderClientQt::didSaveToPageCache()
+{
+}
+
+void FrameLoaderClientQt::didRestoreFromPageCache()
+{
+}
+
 void FrameLoaderClientQt::dispatchDidBecomeFrameset(bool)
 {
 }
@@ -1437,7 +1445,12 @@ public:
             graphicsWidget->hide();
     }
 private:
-    QtPluginGraphicsWidget(QGraphicsWidget* w = 0): Widget(0), graphicsWidget(w) {}
+    QtPluginGraphicsWidget(QGraphicsWidget* w = 0)
+        : Widget(0)
+        , graphicsWidget(w)
+    {
+        setBindingObject(graphicsWidget);
+    }
 
     QGraphicsWidget* graphicsWidget;
 };

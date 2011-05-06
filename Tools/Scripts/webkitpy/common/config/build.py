@@ -41,8 +41,8 @@ def _should_file_trigger_build(target_platform, file):
 
     directories = [
         # Directories that shouldn't trigger builds on any bots.
-        ("PageLoadTests", []),
-        ("WebCore/manual-tests", []),
+        ("PerformanceTests", []),
+        ("Source/WebCore/manual-tests", []),
         ("Examples", []),
         ("Websites", []),
         ("android", []),
@@ -57,10 +57,10 @@ def _should_file_trigger_build(target_platform, file):
         ("wince", []),
 
         # Directories that should trigger builds on only some bots.
-        ("JavaScriptGlue", ["mac"]),
+        ("Source/JavaScriptGlue", ["mac"]),
         ("LayoutTests/platform/mac", ["mac", "win"]),
         ("LayoutTests/platform/mac-snowleopard", ["mac-snowleopard", "win"]),
-        ("WebCore/image-decoders", ["chromium"]),
+        ("Source/WebCore/image-decoders", ["chromium"]),
         ("cairo", ["gtk", "wincairo"]),
         ("cf", ["chromium-mac", "mac", "qt", "win"]),
         ("chromium", ["chromium"]),

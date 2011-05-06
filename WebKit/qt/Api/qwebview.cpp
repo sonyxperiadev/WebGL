@@ -572,17 +572,48 @@ QIcon QWebView::icon() const
 }
 
 /*!
+    \property QWebView::hasSelection
+    \brief whether this page contains selected content or not.
+
+    By default, this property is false.
+
+    \sa selectionChanged()
+*/
+bool QWebView::hasSelection() const
+{
+    if (d->page)
+        return d->page->hasSelection();
+    return false;
+}
+
+/*!
     \property QWebView::selectedText
     \brief the text currently selected
 
     By default, this property contains an empty string.
 
-    \sa findText(), selectionChanged()
+    \sa findText(), selectionChanged(), selectedHtml()
 */
 QString QWebView::selectedText() const
 {
     if (d->page)
         return d->page->selectedText();
+    return QString();
+}
+
+/*!
+    \since 4.8
+    \property QWebView::selectedHtml
+    \brief the HTML currently selected
+
+    By default, this property contains an empty string.
+
+    \sa findText(), selectionChanged(), selectedText()
+*/
+QString QWebView::selectedHtml() const
+{
+    if (d->page)
+        return d->page->selectedHtml();
     return QString();
 }
 

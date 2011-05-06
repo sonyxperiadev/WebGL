@@ -14,11 +14,11 @@ include(../../../WebKit.pri)
     OBJECTS_DIR = obj/release
 }
 
-DEFINES += USE_SYSTEM_MALLOC
+DEFINES += USE_SYSTEM_MALLOC=1
 
 INCLUDEPATH += \
     $$BASEDIR \
-    $$BASEDIR/../../JavaScriptCore \
+    $$BASEDIR/../../Source/JavaScriptCore \
     $$BASEDIR/../../WebKit2 \
     $$BASEDIR/../../WebKit2/Shared \
     $$BASEDIR/../../WebKit2/UIProcess/API/qt \
@@ -67,5 +67,5 @@ linux-* {
     QMAKE_RPATHDIR = $$OUTPUT_DIR/lib $$QMAKE_RPATHDIR
 }
 
-include(../../../JavaScriptCore/JavaScriptCore.pri)
-addJavaScriptCoreLib(../../../JavaScriptCore)
+include(../../../Source/JavaScriptCore/JavaScriptCore.pri)
+addJavaScriptCoreLib(../../../Source/JavaScriptCore)

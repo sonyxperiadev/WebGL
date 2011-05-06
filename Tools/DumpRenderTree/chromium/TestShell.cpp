@@ -86,7 +86,8 @@ TestShell::TestShell(bool testShellMode)
     , m_allowExternalPages(false)
     , m_acceleratedCompositingEnabled(false)
     , m_accelerated2dCanvasEnabled(false)
-    , m_loadCount(1)
+    , m_stressOpt(false)
+    , m_stressDeopt(false)
     , m_dumpWhenFinished(true)
 {
     WebRuntimeFeatures::enableGeolocation(true);
@@ -106,8 +107,13 @@ TestShell::TestShell(bool testShellMode)
     // timed-out DRT process was crashed.
     m_timeout = 30 * 1000;
 
+    createMainWindow();
+}
+
+void TestShell::createMainWindow()
+{
     m_drtDevToolsAgent.set(new DRTDevToolsAgent);
-    m_webViewHost = createWebView();
+    m_webViewHost = createNewWindow(WebURL(), m_drtDevToolsAgent.get());
     m_webView = m_webViewHost->webView();
     m_drtDevToolsAgent->setWebView(m_webView);
 }
@@ -557,15 +563,15 @@ void TestShell::bindJSObjectsToWindow(WebFrame* frame)
     m_textInputController->bindToJavascript(frame, WebString::fromUTF8("textInputController"));
 }
 
-WebViewHost* TestShell::createWebView()
+WebViewHost* TestShell::createNewWindow(const WebKit::WebURL& url)
 {
-    return createNewWindow(WebURL());
+    return createNewWindow(url, 0);
 }
 
-WebViewHost* TestShell::createNewWindow(const WebURL& url)
+WebViewHost* TestShell::createNewWindow(const WebKit::WebURL& url, DRTDevToolsAgent* devToolsAgent)
 {
     WebViewHost* host = new WebViewHost(this);
-    WebView* view = WebView::create(host, m_drtDevToolsAgent.get());
+    WebView* view = WebView::create(host, devToolsAgent);
     host->setWebWidget(view);
     m_prefs.applyTo(view);
     view->initializeMainFrame(host);

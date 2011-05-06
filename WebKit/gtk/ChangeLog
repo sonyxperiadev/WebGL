@@ -1,3 +1,352 @@
+2011-01-07  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Move WebCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=52050
+
+        * GNUmakefile.am:
+
+2011-01-07  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        GTK: AX: atk tests need to be updated after recent changes
+        https://bugs.webkit.org/show_bug.cgi?id=51932
+
+        Fix gtk_widget_get_accessible() in WebKitWebView to keep returning
+        the AtkObject of role ATK_ROLE_DOCUMENT_FRAME.
+
+        With the change to support WK2 accessibility, the root object of
+        the AX hierarchy is different from what GTK expects as the current
+        hirarchy right now includes a new accessible object as the parent
+        of the accessible web area (AXScrollView).
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_accessible): Return the first child of the
+        wrapper associated to the root accessible object in the document,
+        to keep everything in the GTK port working as it used to be.
+
+        Re-enable skipped ATK unit tests now they are passing again.
+
+        * tests/testatk.c:
+        (main): Re-enable skipped tests.
+        * tests/testatkroles.c:
+        (main): Ditto.
+
+2011-01-06  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        GTK: AX: atk tests need to be updated after recent changes
+        https://bugs.webkit.org/show_bug.cgi?id=51932
+
+        Skip ATK unit tests until we can look into what is causing these failures.
+
+        * tests/testatk.c:
+        (main): Skip all tests.
+        * tests/testatkroles.c:
+        (main): Ditto.
+
+2011-01-06  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Include a new header in the static headers list. This is necessary
+        so that "make install" installs the header.
+
+        * GNUmakefile.am: Include webkitglobals.h in the header list.
+
+2011-01-05  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Build fix for GTK+ 3.x. Remove the call to gtk_range_set_update_policy.
+        GTK+ 3.x has removed this method and the default in GTK+ 2.x is continuous,
+        so this call is unnecessary.
+
+        * WebCoreSupport/FullscreenVideoController.cpp:
+        (FullscreenVideoController::createHud): Remove call to gtk_range_set_update_policy().
+
+2011-01-04  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Martin Robinson.
+
+        GTK: AX: DRT needs to use correct root object method.
+        https://bugs.webkit.org/show_bug.cgi?id=51911
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::getRootAccessibleElement):
+        (DumpRenderTreeSupportGtk::getFocusedAccessibleElement):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-01-04  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WK2: Support Accessibility
+        https://bugs.webkit.org/show_bug.cgi?id=51859
+
+        Use rootObject() method to get top of ax tree.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::getFocusedAccessibleElement):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_accessible):
+
+2011-01-03  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Darin Adler.
+
+        Remove the last non-GObject usage of PlatformRefPtr and move the code to GRefPtr
+        https://bugs.webkit.org/show_bug.cgi?id=51846
+
+        Changed all references to PlatformRefPtr in GTK+ code to GRefPtr.
+
+2011-01-03  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Split webkitprivate.{cpp,h} in more manageable chunks
+        https://bugs.webkit.org/show_bug.cgi?id=50698
+
+        Final patch, removing webkitprivate.{cpp,h}, and adding a
+        webkitglobals module to hold non-object-specific functions and
+        definitions that do not make sense on their own.
+
+        * GNUmakefile.am:
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::createWindow):
+        * WebCoreSupport/ContextMenuClientGtk.cpp:
+        * WebCoreSupport/DocumentLoaderGtk.cpp:
+        (WebKit::DocumentLoader::attachToFrame):
+        * WebCoreSupport/DragClientGtk.cpp:
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::ignoreWordInSpellDocument):
+        (WebKit::EditorClient::learnWord):
+        (WebKit::EditorClient::checkSpellingOfString):
+        (WebKit::EditorClient::getGuessesForWord):
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createDocumentLoader):
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        * webkit/webkit.h:
+        * webkit/webkitapplicationcache.cpp:
+        (webkit_application_cache_set_maximum_size):
+        * webkit/webkitdownload.cpp:
+        (webkit_download_class_init):
+        * webkit/webkitgeolocationpolicydecision.cpp:
+        * webkit/webkitglobals.cpp: Added.
+        (webkit_get_default_session):
+        (webkit_set_cache_model):
+        (webkit_get_cache_model):
+        (webkit_get_web_plugin_database):
+        (currentToplevelCallback):
+        (closeIconDatabaseOnExit):
+        (webkitInit):
+        (WebKit::pasteboardHelperInstance):
+        * webkit/webkitglobals.h: Added.
+        * webkit/webkitglobalsprivate.h: Copied from WebKit/gtk/webkit/webkitwebsettingsprivate.h.
+        * webkit/webkithittestresult.cpp:
+        (webkit_hit_test_result_class_init):
+        * webkit/webkitnetworkrequest.cpp:
+        (webkit_network_request_class_init):
+        * webkit/webkitnetworkresponse.cpp:
+        (webkit_network_response_class_init):
+        * webkit/webkitprivate.cpp: Removed.
+        * webkit/webkitprivate.h: Removed.
+        * webkit/webkitsecurityorigin.cpp:
+        * webkit/webkitviewportattributes.cpp:
+        * webkit/webkitwebbackforwardlist.cpp:
+        (webkit_web_back_forward_list_class_init):
+        * webkit/webkitwebdatabase.cpp:
+        * webkit/webkitwebdatasource.cpp:
+        (webkit_web_data_source_class_init):
+        (webkit_web_data_source_new_with_request):
+        (WebKit::kitNew):
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_class_init):
+        * webkit/webkitwebframeprivate.h:
+        * webkit/webkitwebhistoryitem.cpp:
+        (webkit_web_history_item_class_init):
+        * webkit/webkitwebinspector.cpp:
+        * webkit/webkitwebnavigationaction.cpp:
+        * webkit/webkitwebplugin.cpp:
+        (webkit_web_plugin_class_init):
+        * webkit/webkitwebplugindatabase.cpp:
+        (webkit_web_plugin_database_class_init):
+        * webkit/webkitwebpluginprivate.h:
+        * webkit/webkitwebpolicydecision.cpp:
+        * webkit/webkitwebresource.cpp:
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkitWebViewGetEnchantDicts):
+        (WebKit::core):
+        * webkit/webkitwebsettingsprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init):
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+        * webkit/webkitwebview.h:
+        * webkit/webkitwebwindowfeatures.cpp:
+        (webkit_web_window_features_class_init):
+        (WebKit::kitNew):
+
+2011-01-02  Xan Lopez  <xlopez@igalia.com>
+
+        Fix GTK+ build.
+
+        * GNUmakefile.am: tests do actually include JSC.
+
+2011-01-02  Xan Lopez  <xlopez@igalia.com>
+
+        Fix GTK+ build.
+
+        * GNUmakefile.am: remove individual -I$(srcdir)/Source when we'll
+        already get them from javascriptcore_cppflags, and add it for the
+        introspection build (which is not tested in the bots).
+
+2011-01-02  Adam Barth  <abarth@webkit.org>
+
+        Speculative build fix for GTK.  Add Source to the include paths.
+
+        * GNUmakefile.am:
+
+2011-01-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move JavaScriptCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=51604
+
+        * GNUmakefile.am:
+        * docs/GNUmakefile.am:
+          - Point to JavaScriptCore in its new location.
+
+2010-12-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Build fix for GTK+.
+
+        * webkit/webkitwebinspector.cpp: Add missing DumpRenderTreeSupportGtk include.
+
+2010-12-29  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] GSettings warning is concealing real warnings on the build bots
+        https://bugs.webkit.org/show_bug.cgi?id=51691
+
+        Reviewed by Xan Lopez.
+
+        Do not print the GSettings warning message when running in DumpRenderTree.
+
+        * webkit/webkitwebinspector.cpp:
+        (inspectorGSettings): Do not print the GSettings warning if we are running
+        in DumpRenderTree. This should clean up the test results page a great deal.
+
+2010-12-28  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Closing a window during an onload event can trigger serious GLib warnings
+        https://bugs.webkit.org/show_bug.cgi?id=51686
+
+        Don't emit the close-web-view signal immediately during execution of closeWindowSoon.
+        The signal handler may choose to destroy the web view while handling that signal,
+        which may remove the last reference to the web view. FrameLoaderClient depends on the
+        view still existing though. Instead, let the caller finish executing and emit the signal
+        after a 0 length timeout. This matches the behavior on the Windows and Mac ports.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::ChromeClient): Initialize the timer id.
+        (WebKit::emitCloseWebViewSignalLater): Callback for the timer.
+        (WebKit::ChromeClient::closeWindowSoon): Do the actual signal invocation after
+        the caller finishes its tasks.
+        * WebCoreSupport/ChromeClientGtk.h: Add a new member for the timer id. We
+        can use this to prevent emitting the close-web-view signal twice.
+
+2010-12-28  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Eric Seidel.
+
+        [GTK] Clean up usage of NULL in webkitwebframe.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=51685
+
+        Replace occurrences of NULL with 0, in webkitwebframe.cpp. Not all
+        uses of NULL have been changed, as certain GLib functions require
+        an explicit NULL as a sentinel.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_get_data_source_from_core_loader):
+        (webkit_web_frame_class_init):
+        (webkit_web_frame_new):
+        (webkit_web_frame_get_title):
+        (webkit_web_frame_get_uri):
+        (webkit_web_frame_get_web_view):
+        (webkit_web_frame_get_name):
+        (webkit_web_frame_get_parent):
+        (webkit_web_frame_load_string):
+        (webkit_web_frame_load_alternate_string):
+        (webkit_web_frame_find_frame):
+        (webkit_web_frame_get_global_context):
+        (webkit_web_frame_get_data_source):
+        (webkit_web_frame_get_provisional_data_source):
+        (webkit_web_frame_print_full):
+        (webkit_web_frame_get_security_origin):
+        (webkit_web_frame_get_network_response):
+
+2010-12-27  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [GTK] EditorClient::generateEditorCommands queues up "null string" commands
+        https://bugs.webkit.org/show_bug.cgi?id=51569
+
+        Prevent adding "null string" editor commands by first checking whether or not
+        the command string is null in generateEditorCommands before appending it to the
+        list of pending editor command strings.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::generateEditorCommands): Check for the null string (no
+        command for this key combination) before appending a command string to the list of
+        pending editor commands.
+        (WebKit::EditorClient::executePendingEditorCommands): Add an ASSERT which detects
+        null command strings.
+
+2010-12-27  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Remove unneeded includes from our headers.
+
+        * WebCoreSupport/PasteboardHelperGtk.h: ditto.
+        * webkit/webkitprivate.h: ditto.
+        * webkit/webkitsoupauthdialog.h: ditto.
+
+2010-12-21  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Seidel.
+
+        [GTK] minimal build with --database fails
+        https://bugs.webkit.org/show_bug.cgi?id=51394
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init): Use cacheStorage() only if the
+        OFFLINE_WEB_APPLICATIONS feature is enabled.
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::didSaveToPageCache):
+        (WebKit::FrameLoaderClient::didRestoreFromPageCache):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
 2010-12-22  Xan Lopez  <xlopez@igalia.com>
 
         Reviewed by Gustavo Noronha.

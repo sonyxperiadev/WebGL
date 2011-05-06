@@ -222,11 +222,11 @@ class GlobalVariablesTest(unittest.TestCase):
                       "readability/null")
         assertNoCheck("WebKit/efl/ewk/ewk_view.h",
                       "readability/naming")
-        assertNoCheck("WebCore/css/CSSParser.cpp",
+        assertNoCheck("Source/WebCore/css/CSSParser.cpp",
                       "readability/naming")
 
         # Test if Qt exceptions are indeed working
-        assertCheck("JavaScriptCore/qt/api/qscriptengine.cpp",
+        assertCheck("Source/JavaScriptCore/qt/api/qscriptengine.cpp",
                     "readability/braces")
         assertCheck("WebKit/qt/Api/qwebpage.cpp",
                     "readability/braces")
@@ -236,7 +236,10 @@ class GlobalVariablesTest(unittest.TestCase):
                     "readability/braces")
         assertCheck("WebKit/qt/examples/platformplugin/WebPlugin.cpp",
                     "readability/braces")
-        assertNoCheck("JavaScriptCore/qt/api/qscriptengine.cpp",
+        assertNoCheck("Source/JavaScriptCore/qt/api/qscriptengine.cpp",
+                      "readability/naming")
+        assertNoCheck("Source/JavaScriptCore/qt/benchmarks"
+                      "/qscriptengine/tst_qscriptengine.cpp",
                       "readability/naming")
         assertNoCheck("WebKit/qt/Api/qwebpage.cpp",
                       "readability/naming")
@@ -247,7 +250,7 @@ class GlobalVariablesTest(unittest.TestCase):
         assertNoCheck("WebKit/qt/examples/platformplugin/WebPlugin.cpp",
                       "readability/naming")
 
-        assertNoCheck("WebCore/ForwardingHeaders/debugger/Debugger.h",
+        assertNoCheck("Source/WebCore/ForwardingHeaders/debugger/Debugger.h",
                       "build/header_guard")
 
         # Third-party Python code: webkitpy/thirdparty
@@ -296,8 +299,8 @@ class CheckerDispatcherSkipTest(unittest.TestCase):
         paths_to_skip = [
            "gtk2drawing.c",
            "gtkdrawing.h",
-           "WebCore/platform/gtk/gtk2drawing.c",
-           "WebCore/platform/gtk/gtkdrawing.h",
+           "Source/WebCore/platform/gtk/gtk2drawing.c",
+           "Source/WebCore/platform/gtk/gtkdrawing.h",
            "WebKit/gtk/tests/testatk.c",
             ]
 
@@ -485,8 +488,8 @@ class CheckerDispatcherDispatchTest(unittest.TestCase):
            "foo.wm",
            "foo.xhtml",
            "foo.y",
-           os.path.join("WebCore", "ChangeLog"),
-           os.path.join("WebCore", "inspector", "front-end", "inspector.js"),
+           os.path.join("Source", "WebCore", "ChangeLog"),
+           os.path.join("Source", "WebCore", "inspector", "front-end", "inspector.js"),
            os.path.join("Tools", "Scripts", "check-webkit-style"),
         ]
 
@@ -505,7 +508,7 @@ class CheckerDispatcherDispatchTest(unittest.TestCase):
     def test_xml_paths(self):
         """Test paths that should be checked as XML."""
         paths = [
-           "WebCore/WebCore.vcproj/WebCore.vcproj",
+           "Source/WebCore/WebCore.vcproj/WebCore.vcproj",
            "WebKitLibraries/win/tools/vsprops/common.vsprops",
         ]
 

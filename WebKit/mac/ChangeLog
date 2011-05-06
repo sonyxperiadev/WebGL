@@ -1,3 +1,254 @@
+2011-01-07  Jer Noble  <jer.noble@apple.com>
+
+        Yet another Leopard build fix: NSRect and CGRect are not inter-
+        changable in 32-bit.  
+        
+        * WebView/WebFullScreenController.mm:
+        (-[WebFullScreenController exitFullscreen]):
+
+2011-01-07  Jer Noble  <jer.noble@apple.com>
+
+        Fix the Leopard build: Replace CoreAnimation SL-only functions
+        with Leopard equivalents.
+
+        * WebView/WebFullScreenController.mm:
+        (+[CATransaction setDisableActions:]):
+        (+[CATransaction setAnimationDuration:]):
+        (-[WebFullScreenController _animationDuration]):
+        (-[WebFullscreenWindow initWithContentRect:styleMask:backing:defer:]):
+
+2010-12-21  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Implement WebKit Full Screen support.
+        https://bugs.webkit.org/show_bug.cgi?id=49481
+        rdar://problem/8247444
+
+        Support the new fullscreen Chrome client requests.  WebView will pass
+        through these requests to a WebFullscreenController.
+
+        * WebCoreSupport/WebChromeClient.h: Add fullScreenRendererChanged().
+        * WebView/WebView.mm:
+        (-[WebView _supportsFullScreenForElement:WebCore::]): Check to see if the fullscreen pref has been enabled.
+        (-[WebView _enterFullScreenForElement:WebCore::]): Create a WebFullScreenController.
+        (-[WebView _exitFullScreenForElement:WebCore::]): Request that the WebFullScreenController exit fullscreen.
+        (-[WebView _fullScreenRendererChanged:WebCore::]): Notify the WebFullScreenController that its renderer has changed.
+        * WebView/WebViewData.h: Add ivar newFullscreenController.
+
+2010-12-17  Jer Noble  <jer@kokode.apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Implement WebKit Full Screen support.
+        https://bugs.webkit.org/show_bug.cgi?id=49481
+        rdar://problem/8247444
+        
+        This patch implements the FullScreen APIs using the new RenderFullScreen renderer and the new
+        Document client APIs. The RenderFullScreen renderer's CALayer is hosted in a new, fullscreen
+        window, and a custom CAAnimation animates that layer between the initial screen rect of the
+        full screen element, to its final value. WebFullscreenController will swap the WebView out of
+        its original window, and into the fullscreen window. The controller will replace the WebView
+        with a placeholder view, so that if the placeholder moves or resized while the WebView is
+        absent, the WebView will move back to the correct location when exiting fullscreen.
+
+        * WebView/WebFullscreenController.h: Added.
+        * WebView/WebFullscreenController.mm: Added.
+        (-[WebFullscreenController windowDidExitFullscreen:]):  Close the fullscreen window.
+        (-[WebFullscreenController windowDidEnterFullscreen:]): Swap the webView back into the fullscreen window. 
+        (-[WebFullscreenController animationDidStop:finished:]): Call windowDid{Exit|Enter}FullScreen as appropriate.
+        (-[WebFullscreenController applicationDidResignActive:]):
+        (-[WebFullscreenController applicationDidChangeScreenParameters:]): Resize the fullscreen window to match
+            the new screen parameters.
+        (-[WebFullscreenController enterFullscreen:]):  Set up the animation that will take the fullscreen element
+            from its original screen rect into fullscreen.
+        (-[WebFullscreenController exitFullscreen]): Swap the webView back into its original window.
+            Set up the animation that will take the fullscreen element back into its original screen
+            rect.
+        (-[WebFullscreenController _updatePowerAssertions]): Now checks _isAnyMoviePlaying to determine 
+            whether to disable screensaver and sleep.
+        (-[WebFullscreenController _isAnyMoviePlaying]): Walks through the sub-tree starting at the fullscreen element
+            looking for HTMLVideoElements; returns whether any are found to be playing.
+        (-[WebFullscreenController _animationDuration]): Returns the current animation duration, affected by control
+            and shift keys.
+        (-[WebFullscreenWindow canBecomeKeyWindow]): Allow the window to become key.
+        (-[WebFullscreenWindow keyDown:]): Handle the 'Esc' key.
+        (-[WebFullscreenWindow cancelOperation:]): Request to exit fullscreen.
+        (-[WebFullscreenWindow rendererLayer]): Convenience accessor.
+        (-[WebFullscreenWindow setRendererLayer:]): Ditto.
+        (-[WebFullscreenWindow backgroundLayer]): Ditto.
+        (-[WebFullscreenWindow animationView]): Ditto.
+        (MediaEventListener::MediaEventListener): Implements the EventListener protocol.
+        (MediaEventListener::handleEvent): Tells its delegate to _updatePowerAssertions.
+        
+2011-01-07  James Robinson  <jamesr@chromium.org>
+
+        Revert "Implement mozilla's animationTime property"
+        https://bugs.webkit.org/show_bug.cgi?id=51952
+
+        This approach isn't quite right.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView drawRect:]):
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack):
+
+2011-01-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 52035 - Unregistering DOMWrapperWorlds is unsafe
+
+        The method DOMWrapperWorld::unregisterWorld() effectively calls the DOMWrapperWorld's
+        destructor early, in order to release wrappers once we know we no longer intend to use them.
+        Whilst it is okay to have a method to throw away wrappers (assuming we know we're willing to
+        lose any state stored on them) it is not okay to deregister the world from the JSGlobalData.
+        A sequence of events that triggers the bug would look like this:
+
+        (1) Create a DOMWrapperWorld.
+        (2) Register a timer in the world.
+        (3) Call unregisterWorld() on the world.
+        (4) Timer goes off, code is executed in the world, creates a Node not attached to a Document.
+        (5) We attempt to lookup a wrapper map for the world on the JSGlobalData, but because we've
+            called forgetWorld() none exists.
+        (6) Attempt to add a wrapper to a NULL map.
+
+        Fix the problem by not removing the JSGlobalData's wrapper map until the world really goes away.
+
+        * WebView/WebScriptWorld.mm:
+        (-[WebScriptWorld unregisterWorld]):
+
+2011-01-04  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WK2: Support Accessibility
+        https://bugs.webkit.org/show_bug.cgi?id=51859
+
+        Use rootObject() method to get top of AX tree.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        (WebFrameLoaderClient::accessibilityRemoteObject):
+        * WebView/WebFrame.mm:
+        (-[WebFrame setAccessibleName:]):
+        (-[WebFrame accessibilityRoot]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebFramePrivate.h:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView accessibilityAttributeValue:]):
+        (-[WebHTMLView accessibilityFocusedUIElement]):
+        (-[WebHTMLView accessibilityHitTest:]):
+        (-[WebHTMLView _accessibilityParentForSubview:]):
+
+2011-01-04  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/51889> WebFrameLoaderClient::createMediaPlayerProxyPlugin() should use WebCore::PluginInfo.name
+
+        Reviewed by Eric Carlson.
+
+        This originally broke in r61581.  It is inside an
+        ENABLE(PLUGIN_PROXY_FOR_VIDEO) macro, so it didn't break the Mac
+        build then.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm: Call
+        (WebFrameLoaderClient::createMediaPlayerProxyPlugin): Updated to
+        use WebCore::PluginInfo.name instead of
+        -[WebBasePluginPackage name].
+
+2011-01-02  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Simon Fraser.
+
+        <rdar://problem/8812159> Update copyright strings
+
+        * Info.plist:
+
+2010-12-29  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Ada Chan.
+
+        <rdar://problem/8758191> REGRESSION (r72887): Mail crashes when doing searches in a message due to method name conflict
+        https://bugs.webkit.org/show_bug.cgi?id=51717
+
+        Renamed -findString:options: to -_findString:options: in the WebDocumentOptionsSearching
+        protocol to avoid conflict with -[WebHTMLView(MailExtras) findString:options:] which Mail defines.
+
+        * WebView/WebDocumentInternal.h:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView searchFor:direction:caseSensitive:wrap:startInSelection:]):
+        (-[WebHTMLView _findString:options:]):
+        * WebView/WebView.mm:
+        (findString):
+
+2010-12-28  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Sam Weinig.
+
+        Substitute // MARK: for compiler-specific #pragma mark
+        https://bugs.webkit.org/show_bug.cgi?id=51657
+
+        For consistency, we should substitute "// MARK:" for compiler-
+        specific "#pragma mark" in the source files for the Mac port.
+
+        * History/WebHistory.mm:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        * Plugins/WebNetscapePluginView.mm:
+        * WebCoreSupport/WebInspectorClient.mm:
+        * WebCoreSupport/WebSecurityOrigin.mm:
+        * WebView/WebPDFView.mm:
+        * WebView/WebVideoFullscreenController.mm:
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+
+2010-12-23  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit crashes at DebuggerCallFrame::functionName() if m_callFrame is the top global callframe.
+        https://bugs.webkit.org/show_bug.cgi?id=38535
+
+        WebScriptDebugger in WebKit has empty implementations for willExecuteProgram and didExecuteProgram.  As a result,
+        if the top call frame is from a program, WebKitScriptDebugger doesn't record that callframe as the top frame, and
+        WebScriptDebugger's callframe stack is wrong from this point.  That could cause crash if we trying to access the top
+        call frame from this stack when an exception throws because the saved top frame could be invalid.
+
+        To fix that, we need to maintain the call frame stack in willExecuteProgram and didExecuteProgram, as we did in
+        callEvent and returnEvent.
+
+        * WebView/WebScriptDebugger.mm:
+        (WebScriptDebugger::willExecuteProgram):
+        (WebScriptDebugger::didExecuteProgram):
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::didSaveToPageCache):
+        (WebFrameLoaderClient::didRestoreFromPageCache):
+
+2010-12-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Editor.h doesn't need to include SelectionController.h
+        https://bugs.webkit.org/show_bug.cgi?id=51441
+
+        Renamed SelectionController::EDirection to SelectionDirection.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _rangeByAlteringCurrentSelection:SelectionController::direction:granularity:]):
+        Takes SelectionDirection instead of SelectionController::EDirection.
+        * WebView/WebFrameInternal.h:
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController doCompletion]): Calls _rangeByAlteringCurrentSelection:SelectionController.
+
 2010-12-22  Simon Fraser  <simon.fraser@apple.com>
 
         Reviewed by Darin Adler.

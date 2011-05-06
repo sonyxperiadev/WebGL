@@ -35,6 +35,9 @@ import test_expectations
 import cPickle
 
 
+# FIXME: This is backwards.  Each TestFailure subclass should know what
+# test_expectation type it corresponds too.  Then this method just
+# collects them all from the failure list and returns the worst one.
 def determine_result_type(failure_list):
     """Takes a set of test_failures and returns which result type best fits
     the list of failures. "Best fits" means we use the worst type of failure.
@@ -88,6 +91,9 @@ class TestFailure(object):
     def __ne__(self, other):
         return self.__class__.__name__ != other.__class__.__name__
 
+    def __hash__(self):
+        return hash(self.__class__.__name__)
+
     def dumps(self):
         """Returns the string/JSON representation of a TestFailure."""
         return cPickle.dumps(self)
@@ -124,9 +130,6 @@ class FailureWithType(TestFailure):
     Subclasses may commonly choose to override the ResultHtmlOutput, but still
     use the standard OutputLinks.
     """
-
-    def __init__(self):
-        TestFailure.__init__(self)
 
     # Filename suffixes used by ResultHtmlOutput.
     OUT_FILENAMES = ()

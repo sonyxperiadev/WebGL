@@ -864,7 +864,6 @@ static void _ewk_view_smart_calculate(Evas_Object* o)
 static void _ewk_view_smart_show(Evas_Object *o)
 {
     EWK_VIEW_SD_GET(o, sd);
-    EWK_VIEW_PRIV_GET(sd, priv);
 
     if (evas_object_clipees_get(sd->base.clipper))
         evas_object_show(sd->base.clipper);
@@ -874,7 +873,6 @@ static void _ewk_view_smart_show(Evas_Object *o)
 static void _ewk_view_smart_hide(Evas_Object *o)
 {
     EWK_VIEW_SD_GET(o, sd);
-    EWK_VIEW_PRIV_GET(sd, priv);
 
     evas_object_hide(sd->base.clipper);
     evas_object_hide(sd->backing_store);
@@ -1616,6 +1614,8 @@ Eina_Bool ewk_view_select_word(Evas_Object* o)
     return _ewk_view_editor_command(priv, "SelectWord");
 }
 
+#if ENABLE(CONTEXT_MENUS)
+
 /**
  * Forwards a request of new Context Menu to WebCore.
  *
@@ -1655,6 +1655,8 @@ Eina_Bool ewk_view_context_menu_forward_event(Evas_Object* o, const Evas_Event_M
 
     return EINA_TRUE;
 }
+
+#endif
 
 /**
  * Get current load progress estimate from 0.0 to 1.0.

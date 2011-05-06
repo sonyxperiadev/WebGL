@@ -83,6 +83,7 @@
 #import <WebCore/ContextMenuController.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragController.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EditorDeleteAction.h>
@@ -4273,7 +4274,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 - (id)accessibilityAttributeValue:(NSString*)attributeName
 {
     if ([attributeName isEqualToString: NSAccessibilityChildrenAttribute]) {
-        id accTree = [[self _frame] _accessibilityTree];
+        id accTree = [[self _frame] accessibilityRoot];
         if (accTree)
             return [NSArray arrayWithObject:accTree];
         return nil;
@@ -4283,7 +4284,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 
 - (id)accessibilityFocusedUIElement
 {
-    id accTree = [[self _frame] _accessibilityTree];
+    id accTree = [[self _frame] accessibilityRoot];
     if (accTree)
         return [accTree accessibilityFocusedUIElement];
     return self;
@@ -4291,7 +4292,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 
 - (id)accessibilityHitTest:(NSPoint)point
 {
-    id accTree = [[self _frame] _accessibilityTree];
+    id accTree = [[self _frame] accessibilityRoot];
     if (accTree) {
         NSPoint windowCoord = [[self window] convertScreenToBase:point];
         return [accTree accessibilityHitTest:[self convertPoint:windowCoord fromView:nil]];
@@ -4301,7 +4302,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 
 - (id)_accessibilityParentForSubview:(NSView *)subview
 {
-    id accTree = [[self _frame] _accessibilityTree];
+    id accTree = [[self _frame] accessibilityRoot];
     if (!accTree)
         return self;
     id parent = [accTree _accessibilityParentForSubview:subview];
@@ -6281,7 +6282,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
 {
-    return [self findString:string options:(forward ? 0 : WebFindOptionsBackwards) | (caseFlag ? 0 : WebFindOptionsCaseInsensitive) | (startInSelection ? WebFindOptionsStartInSelection : 0)];
+    return [self _findString:string options:(forward ? 0 : WebFindOptionsBackwards) | (caseFlag ? 0 : WebFindOptionsCaseInsensitive) | (startInSelection ? WebFindOptionsStartInSelection : 0)];
 }
 
 @end
@@ -6352,7 +6353,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     return result;
 }
 
-- (BOOL)findString:(NSString *)string options:(WebFindOptions)options
+- (BOOL)_findString:(NSString *)string options:(WebFindOptions)options
 {
     if (![string length])
         return NO;

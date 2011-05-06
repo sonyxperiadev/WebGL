@@ -1,3 +1,128 @@
+2010-12-27  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Set the frame smart object base clipper to non-static.
+        https://bugs.webkit.org/show_bug.cgi?id=51552
+
+        The base clipper of the clipped smart object, which is the parent
+        class of the ewk_frame class is a static clipper. It's normally only
+        used for showing/hiding the object, but in the case of the ewk_frame,
+        it needs to clip the object to its dimension, in order to clip
+        scrollbars of inner frames.
+
+        Setting it to non-static makes the clipper to be automatically moved
+        by the parent class, thus staying on the correct position when the
+        frame is moved.
+
+        This change needed to be done after the adoption of the static clipper
+        on the clipped smart base class.
+
+        * ewk/ewk_frame.cpp:
+        (_ewk_frame_smart_add):
+
+2010-12-24  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add option to enable Touch Events.
+        https://bugs.webkit.org/show_bug.cgi?id=49125
+
+        Implement ewk_frame_feed_touch_event to feed touch events. Because EFL
+        doesn't have touch events, Application should generate and pass it.
+
+        * WebCoreSupport/ChromeClientEfl.h:
+        (WebCore::ChromeClientEfl::needTouchEvents):
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_feed_touch_event):
+        * ewk/ewk_frame.h:
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::didSaveToPageCache):
+        (WebCore::FrameLoaderClientEfl::didRestoreFromPageCache):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-12-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Editor.h doesn't need to include SelectionController.h
+        https://bugs.webkit.org/show_bug.cgi?id=51441
+
+        Renamed SelectionController::EDirection to SelectionDirection.
+
+        * WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::handleEditingKeyboardEvent):
+
+2010-12-23  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Fix ContextMenu removal
+        https://bugs.webkit.org/show_bug.cgi?id=51530
+
+        Fix ContextMenu removal
+
+        In r74207 the support for ContextMenu was removed from EFL while the
+        code is being ported to the new CROSS_PLATFORM_MENUS due to build
+        breakage.  However there were some missing removals in the shutdown
+        logic that introduced a bug, leading to a segmentation fault when
+        ContexController was destroyed.
+
+        The best way to effectively disable the ContextMenu is to conditionally
+        compile the meaningful stuff by surrounding with "#if
+        ENABLE(CONTEXT_MENUS)" and then disabling it in CMake.
+
+        * ewk/ewk_contextmenu.cpp: surround need parts with #if
+        ENABLE(CONTEXT_MENUS).
+        (ewk_context_menu_destroy): ditto.
+        (ewk_context_menu_item_select): ditto.
+        * ewk/ewk_private.h: ditto.
+        * ewk/ewk_view.cpp: ditto.
+
+2010-12-23  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Clean warnings in Tiled Backing Store
+        https://bugs.webkit.org/show_bug.cgi?id=51529
+
+        Tiled backing store in EFL was giving the following warnings that are
+        gone now:
+
+        - Static function defined but not used;
+        - Comparison between signed and unsigned integer expressions;
+
+        * ewk/ewk_tiled_backing_store.c:
+        (_ewk_tiled_backing_store_item_fill):
+        (_ewk_tiled_backing_store_smart_calculate):
+        * ewk/ewk_tiled_matrix.c:
+        (_ewk_tile_matrix_slicer_setup):
+
+2010-12-23  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Unreviewed build warning fix.
+
+        [EFL] Remove warning messages during the webkit efl compiling
+        https://bugs.webkit.org/show_bug.cgi?id=51520
+
+        Remove build warning messages.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_smart_show):
+        (_ewk_view_smart_hide):
+        * ewk/ewk_view.h:
+
 2010-12-22  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
 
         Reviewed by Antonio Gomes.
