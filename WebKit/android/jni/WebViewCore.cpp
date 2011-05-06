@@ -1259,7 +1259,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 // in the html. If it is the HitTestResult, it may have zero
                 // width and height. In this case, use its parent node.
                 if (bounds.width() == 0) {
-                    node = node->parent();
+                    node = node->parentOrHostNode();
                     if (node) {
                         bounds = node->getRect();
                         DBG_NAV_LOGD("found a zero width node and use its parent, whose ob:(x=%d,y=%d,w=%d,h=%d)",
