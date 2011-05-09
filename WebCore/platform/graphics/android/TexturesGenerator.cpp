@@ -51,27 +51,11 @@
 
 namespace WebCore {
 
-void TexturesGenerator::scheduleOperation(QueuedOperation* operation, bool scheduleFirst)
+void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 {
     {
         android::Mutex::Autolock lock(mRequestedOperationsLock);
-        for (unsigned int i = 0; i < mRequestedOperations.size(); i++) {
-            QueuedOperation** s = &mRequestedOperations[i];
-            // A similar operation is already in the queue. The newer operation may
-            // have additional dirty tiles so delete the existing operation and
-            // replace it with the new one.
-            if (*s && *s == operation) {
-                QueuedOperation* oldOperation = *s;
-                *s = operation;
-                delete oldOperation;
-                return;
-            }
-        }
-
-        if (scheduleFirst)
-            mRequestedOperations.prepend(operation);
-        else
-            mRequestedOperations.append(operation);
+        mRequestedOperations.append(operation);
     }
     mRequestedOperationsCond.signal();
 }
@@ -79,6 +63,11 @@ void TexturesGenerator::scheduleOperation(QueuedOperation* operation, bool sched
 void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 {
     removeOperationsForFilter(new PageFilter(page));
+}
+
+void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitForRunning)
+{
+    removeOperationsForFilter(new PagePaintFilter(page), waitForRunning);
 }
 
 void TexturesGenerator::removeOperationsForBaseLayer(BaseLayerAndroid* layer)
@@ -93,6 +82,11 @@ void TexturesGenerator::removeOperationsForTexture(LayerTexture* texture)
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 {
+    removeOperationsForFilter(filter, true);
+}
+
+void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool waitForRunning)
+{
     android::Mutex::Autolock lock(mRequestedOperationsLock);
     for (unsigned int i = 0; i < mRequestedOperations.size();) {
         QueuedOperation* operation = mRequestedOperations[i];
@@ -104,18 +98,22 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
         }
     }
 
-    QueuedOperation* operation = m_currentOperation;
-    if (operation && filter->check(operation))
-        m_waitForCompletion = true;
+    if (waitForRunning) {
+        QueuedOperation* operation = m_currentOperation;
+        if (operation && filter->check(operation))
+            m_waitForCompletion = true;
 
-    delete filter;
+        delete filter;
 
-    // At this point, it means that we are currently executing an operation that
-    // we want to be removed -- we should wait until it is done, so that
-    // when we return our caller can be sure that there is no more operations
-    // in the queue matching the given filter.
-    while (m_waitForCompletion)
-        mRequestedOperationsCond.wait(mRequestedOperationsLock);
+        // At this point, it means that we are currently executing an operation that
+        // we want to be removed -- we should wait until it is done, so that
+        // when we return our caller can be sure that there is no more operations
+        // in the queue matching the given filter.
+        while (m_waitForCompletion)
+            mRequestedOperationsCond.wait(mRequestedOperationsLock);
+    } else {
+        delete filter;
+    }
 }
 
 status_t TexturesGenerator::readyToRun()
@@ -123,6 +121,37 @@ status_t TexturesGenerator::readyToRun()
     TilesManager::instance()->markGeneratorAsReady();
     XLOG("Thread ready to run");
     return NO_ERROR;
+}
+
+// Must be called from within a lock!
+QueuedOperation* TexturesGenerator::popNext()
+{
+    // Priority can change between when it was added and now
+    // Hence why the entire queue is rescanned
+    QueuedOperation* current = mRequestedOperations.last();
+    int currentPriority = current->priority();
+    if (currentPriority < 0) {
+        mRequestedOperations.removeLast();
+        return current;
+    }
+    int currentIndex = mRequestedOperations.size() - 1;
+    // Scan from the back to make removing faster (less items to copy)
+    for (int i = mRequestedOperations.size() - 2; i >= 0; i--) {
+        QueuedOperation *next = mRequestedOperations[i];
+        int nextPriority = next->priority();
+        if (nextPriority < 0) {
+            // Found a very high priority item, go ahead and just handle it now
+            mRequestedOperations.remove(i);
+            return next;
+        }
+        if (nextPriority < currentPriority) {
+            current = next;
+            currentPriority = nextPriority;
+            currentIndex = i;
+        }
+    }
+    mRequestedOperations.remove(currentIndex);
+    return current;
 }
 
 bool TexturesGenerator::threadLoop()
@@ -138,20 +167,14 @@ bool TexturesGenerator::threadLoop()
     m_currentOperation = 0;
     bool stop = false;
     while (!stop) {
-        XLOG("threadLoop evaluating the requests");
         mRequestedOperationsLock.lock();
-        if (mRequestedOperations.size()) {
-            m_currentOperation = mRequestedOperations.first();
-            mRequestedOperations.remove(0);
-            XLOG("threadLoop, popping the first request (%d requests left)",
-                 mRequestedOperations.size());
-        }
+        if (mRequestedOperations.size())
+            m_currentOperation = popNext();
         mRequestedOperationsLock.unlock();
 
         if (m_currentOperation) {
-            XLOG("threadLoop, painting the request");
+            XLOG("threadLoop, painting the request with priority %d", m_currentOperation->priority());
             m_currentOperation->run();
-            XLOG("threadLoop, painting the request - DONE");
         }
 
         mRequestedOperationsLock.lock();
@@ -168,6 +191,7 @@ bool TexturesGenerator::threadLoop()
         mRequestedOperationsLock.unlock();
 
     }
+    XLOG("threadLoop empty");
 
     return true;
 }

@@ -889,7 +889,7 @@ void LayerAndroid::createGLTextures()
              uniqueId(), this, m_dirty, m_reservedTexture,
              m_reservedTexture->rect().width(), m_reservedTexture->rect().height());
         PaintLayerOperation* operation = new PaintLayerOperation(this);
-        TilesManager::instance()->scheduleOperation(operation, !m_drawingTexture);
+        TilesManager::instance()->scheduleOperation(operation);
     } else {
         XLOG("We don't schedule a paint for layer %d (%x), because we already sent a request",
              uniqueId(), this);
