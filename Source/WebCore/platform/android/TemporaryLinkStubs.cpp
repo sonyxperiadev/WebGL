@@ -464,6 +464,11 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
+void AXObjectCache::remove(Widget*)
+{
+    notImplemented();
+}
+
 #if USE(JSC)
 using namespace JSC;
 
