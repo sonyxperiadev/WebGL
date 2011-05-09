@@ -127,10 +127,11 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
-WEBCORE_PATH := $(BASE_PATH)/WebCore
+SOURCE_PATH := $(BASE_PATH)/Source
+WEBCORE_PATH := $(SOURCE_PATH)/WebCore
+JAVASCRIPTCORE_PATH := $(SOURCE_PATH)/JavaScriptCore
 WEBKIT_PATH := $(BASE_PATH)/WebKit
-JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
-WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/WebCore
+WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/Source/WebCore
 
 # Build our list of include paths. We include WebKit/android/icu first so that
 # any files that include <unicode/ucnv.h> will include our ucnv.h first. We
@@ -160,8 +161,11 @@ LOCAL_C_INCLUDES := \
 	frameworks/base/core/jni/android/graphics \
 	frameworks/base/include
 
+# Add Source/ for the include of <JavaScriptCore/config.h> from WebCore/config.h
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-<<<<<<< HEAD
+	$(SOURCE_PATH)
+
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH) \
 	$(WEBCORE_PATH)/accessibility \
 	$(WEBCORE_PATH)/bindings/ \
@@ -224,47 +228,6 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH)/websockets \
 	$(WEBCORE_PATH)/workers \
 	$(WEBCORE_PATH)/xml
-=======
-	$(LOCAL_PATH)/Source/WebCore \
-	$(LOCAL_PATH)/Source/WebCore/accessibility \
-	$(LOCAL_PATH)/Source/WebCore/bindings/generic \
-	$(LOCAL_PATH)/Source/WebCore/css \
-	$(LOCAL_PATH)/Source/WebCore/dom \
-	$(LOCAL_PATH)/Source/WebCore/editing \
-	$(LOCAL_PATH)/Source/WebCore/history \
-	$(LOCAL_PATH)/Source/WebCore/history/android \
-	$(LOCAL_PATH)/Source/WebCore/html \
-	$(LOCAL_PATH)/Source/WebCore/html/canvas \
-	$(LOCAL_PATH)/Source/WebCore/inspector \
-	$(LOCAL_PATH)/Source/WebCore/loader \
-	$(LOCAL_PATH)/Source/WebCore/loader/appcache \
-	$(LOCAL_PATH)/Source/WebCore/loader/icon \
-	$(LOCAL_PATH)/Source/WebCore/notifications \
-	$(LOCAL_PATH)/Source/WebCore/page \
-	$(LOCAL_PATH)/Source/WebCore/page/android \
-	$(LOCAL_PATH)/Source/WebCore/page/animation \
-	$(LOCAL_PATH)/Source/WebCore/platform \
-	$(LOCAL_PATH)/Source/WebCore/platform/android \
-	$(LOCAL_PATH)/Source/WebCore/platform/animation \
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics \
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics/android \
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics/network \
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics/skia \
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics/transforms \
-	$(LOCAL_PATH)/Source/WebCore/platform/image-decoders \
-	$(LOCAL_PATH)/Source/WebCore/platform/mock \
-	$(LOCAL_PATH)/Source/WebCore/platform/network \
-	$(LOCAL_PATH)/Source/WebCore/platform/network/android \
-	$(LOCAL_PATH)/Source/WebCore/platform/sql \
-	$(LOCAL_PATH)/Source/WebCore/platform/text \
-	$(LOCAL_PATH)/Source/WebCore/plugins \
-	$(LOCAL_PATH)/Source/WebCore/plugins/android \
-	$(LOCAL_PATH)/Source/WebCore/rendering \
-	$(LOCAL_PATH)/Source/WebCore/rendering/style \
-	$(LOCAL_PATH)/Source/WebCore/storage \
-	$(LOCAL_PATH)/Source/WebCore/workers \
-	$(LOCAL_PATH)/Source/WebCore/xml
->>>>>>> webkit.org at r75315
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBKIT_PATH)/android \
@@ -274,7 +237,6 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBKIT_PATH)/android/plugins
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-<<<<<<< HEAD
 	$(JAVASCRIPTCORE_PATH) \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)/wtf/unicode \
@@ -285,23 +247,10 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_INTERMEDIATES_PATH)/css \
 	$(WEBCORE_INTERMEDIATES_PATH)/html \
 	$(WEBCORE_INTERMEDIATES_PATH)/platform
-=======
-	$(LOCAL_PATH)/Source/JavaScriptCore \
-	$(LOCAL_PATH)/Source/JavaScriptCore/wtf \
-	$(LOCAL_PATH)/Source/JavaScriptCore/wtf/unicode \
-	$(LOCAL_PATH)/Source/JavaScriptCore/wtf/unicode/icu
-
-LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-	$(base_intermediates)/Source/WebCore/ \
-	$(base_intermediates)/Source/WebCore/css \
-	$(base_intermediates)/Source/WebCore/html \
-	$(base_intermediates)/Source/WebCore/platform
->>>>>>> webkit.org at r75315
 
 # The following includes are needed by the AutoFill feature, or the chrome http
 # stack
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-<<<<<<< HEAD
 	$(WEBKIT_PATH)/chromium \
 	$(WEBKIT_PATH)/chromium/public \
 	external/chromium/chrome/browser \
@@ -312,35 +261,16 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 # Include WTF source file.
-d := JavaScriptCore
-LOCAL_PATH := $(JAVASCRIPTCORE_PATH)
-=======
-	$(LOCAL_PATH)/Source/WebCore/platform/graphics/filters \
-	$(LOCAL_PATH)/Source/WebCore/svg \
-	$(LOCAL_PATH)/Source/WebCore/svg/animation \
-	$(LOCAL_PATH)/Source/WebCore/svg/graphics \
-	$(LOCAL_PATH)/Source/WebCore/svg/graphics/filters \
-	$(base_intermediates)/Source/WebCore/svg
-endif
-
-ifeq ($(JAVASCRIPT_ENGINE),v8)
-# Include WTF source file.
 d := Source/JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
->>>>>>> webkit.org at r75315
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.v8.wtf.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 endif  # JAVASCRIPT_ENGINE == v8
 
 # Include source files for WebCore
-d := WebCore
-<<<<<<< HEAD
-LOCAL_PATH := $(WEBCORE_PATH)
-=======
+d := Source/WebCore
 LOCAL_PATH := $(BASE_PATH)/$d
-JAVASCRIPTCORE_PATH := $(BASE_PATH)/Source/JavaScriptCore
->>>>>>> webkit.org at r75315
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
@@ -364,7 +294,7 @@ endif
 
 # Include source files for android WebKit port
 d := WebKit
-LOCAL_PATH := $(WEBKIT_PATH)
+LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
@@ -507,13 +437,8 @@ LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
 LOCAL_STATIC_LIBRARIES := $(WEBKIT_STATIC_LIBRARIES)
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 # Include source files for JavaScriptCore
-<<<<<<< HEAD
-d := JavaScriptCore
-LOCAL_PATH := $(JAVASCRIPTCORE_PATH)
-=======
 d := Source/JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
->>>>>>> webkit.org at r75315
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 # Cannot use base_intermediates as this is a new module
 intermediates := $(call local-intermediates-dir)

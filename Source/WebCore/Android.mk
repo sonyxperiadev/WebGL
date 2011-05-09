@@ -799,6 +799,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderFrame.cpp \
 	rendering/RenderFrameBase.cpp \
 	rendering/RenderFrameSet.cpp \
+	rendering/RenderFullScreen.cpp \
 	rendering/RenderHTMLCanvas.cpp \
 	rendering/RenderIFrame.cpp \
 	rendering/RenderImage.cpp \

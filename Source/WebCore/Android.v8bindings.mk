@@ -36,14 +36,9 @@ BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bridge/jni/v8 \
 	$(LOCAL_PATH)/bridge/jsc \
 	\
-<<<<<<< HEAD:WebCore/Android.v8bindings.mk
 	$(WEBCORE_INTERMEDIATES_PATH)/bindings \
 	$(WEBCORE_INTERMEDIATES_PATH)/svg \
-	$(base_intermediates)/JavaScriptCore
-=======
-	$(base_intermediates)/Source/WebCore/bindings \
 	$(base_intermediates)/Source/JavaScriptCore
->>>>>>> webkit.org at r75315:Source/WebCore/Android.v8bindings.mk
 
 LOCAL_SRC_FILES += \
 	bindings/ScriptControllerBase.cpp \
@@ -79,6 +74,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/V8DOMWindowShell.cpp \
 	bindings/v8/V8DOMWrapper.cpp \
 	bindings/v8/V8DataGridDataSource.cpp \
+	bindings/v8/V8EventListener.cpp \
 	bindings/v8/V8EventListenerList.cpp \
 	bindings/v8/V8GCController.cpp \
 	bindings/v8/V8GCForContextDispose.cpp \
@@ -109,7 +105,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
 	bindings/v8/custom/V8CustomApplicationInstalledCallback.cpp \
-	bindings/v8/custom/V8CustomEventListener.cpp \
 	bindings/v8/custom/V8CustomPositionCallback.cpp \
 	bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \

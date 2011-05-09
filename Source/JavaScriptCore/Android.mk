@@ -200,17 +200,13 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
-<<<<<<< HEAD:JavaScriptCore/Android.mk
 	wtf/url/src/URLCharacterTypes.cpp \
 	wtf/url/src/URLEscape.cpp \
 	wtf/url/src/URLSegments.cpp \
 	\
-	yarr/RegexCompiler.cpp \
-=======
-	yarr/RegexPattern.cpp \
->>>>>>> webkit.org at r75315:Source/JavaScriptCore/Android.mk
 	yarr/RegexInterpreter.cpp \
-	yarr/RegexJIT.cpp
+	yarr/RegexJIT.cpp \
+	yarr/RegexPattern.cpp
 
 # generated headers
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \

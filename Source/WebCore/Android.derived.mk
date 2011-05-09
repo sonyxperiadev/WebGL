@@ -78,7 +78,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
 $(GEN): SCRIPT := $(LOCAL_PATH)/html/parser/create-html-entity-table
-$(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../Tools/Scripts/webkitpy
+$(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../../Tools/Scripts/webkitpy
 $(GEN): PRIVATE_CUSTOM_TOOL = $(dir $@)$(notdir $(SCRIPT)) -o $@ $<
 $(GEN): $(LOCAL_PATH)/html/parser/HTMLEntityNames.in
 	@echo "Generating HTMLEntityTable.cpp"
@@ -193,7 +193,7 @@ ifeq ($(ENABLE_AUTOFILL),true)
 # WebKit <-> Chromium bindings which include headers from the Chromuim project.
 
 THIRD_PARTY = $(intermediates)/third_party
-CHROMIUM_SRC_DIR := $(LOCAL_PATH)/../../chromium
+CHROMIUM_SRC_DIR := $(LOCAL_PATH)/../../../chromium
 SCRIPT := $(CHROMIUM_SRC_DIR)/android/generateAndroidForwardingHeader.pl
 
 GEN := $(THIRD_PARTY)/expat/files/lib/expat.h

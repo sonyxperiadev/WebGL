@@ -46,7 +46,6 @@ BINDING_C_INCLUDES := \
 	$(JAVASCRIPTCORE_PATH)/wrec \
 	$(JAVASCRIPTCORE_PATH)/ForwardingHeaders \
 	\
-<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	$(WEBCORE_INTERMEDIATES_PATH)/bindings/js \
 	$(WEBCORE_INTERMEDIATES_PATH)/dom \
 	$(WEBCORE_INTERMEDIATES_PATH)/fileapi \
@@ -60,18 +59,6 @@ BINDING_C_INCLUDES := \
 	$(WEBCORE_INTERMEDIATES_PATH)/webaudio \
 	$(WEBCORE_INTERMEDIATES_PATH)/workers \
 	$(WEBCORE_INTERMEDIATES_PATH)/xml
-=======
-	$(base_intermediates)/Source/WebCore/bindings/js \
-	$(base_intermediates)/Source/WebCore/dom \
-	$(base_intermediates)/Source/WebCore/html/canvas \
-	$(base_intermediates)/Source/WebCore/inspector \
-	$(base_intermediates)/Source/WebCore/loader/appcache \
-	$(base_intermediates)/Source/WebCore/page \
-	$(base_intermediates)/Source/WebCore/plugins \
-	$(base_intermediates)/Source/WebCore/storage \
-	$(base_intermediates)/Source/WebCore/workers \
-	$(base_intermediates)/Source/WebCore/xml
->>>>>>> webkit.org at r75315:Source/WebCore/Android.jscbindings.mk
 
 LOCAL_SRC_FILES += \
 	bindings/js/DOMObjectHashTableMap.cpp \
@@ -176,7 +163,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSNodeListCustom.cpp \
 	bindings/js/JSOptionConstructor.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
-	bindings/js/JSPopStateEventCustom.cpp \
 	bindings/js/JSProcessingInstructionCustom.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
@@ -219,8 +205,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/ScriptValue.cpp \
 	bindings/js/SerializedScriptValue.cpp \
 	bindings/js/WorkerScriptController.cpp \
-	\
-	bindings/js/specialization/JSBindingState.cpp \
 	\
 	bindings/ScriptControllerBase.cpp \
 	\
