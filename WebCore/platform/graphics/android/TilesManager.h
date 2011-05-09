@@ -39,8 +39,6 @@
 
 namespace WebCore {
 
-class TileSet;
-
 class TilesManager {
 public:
     static TilesManager* instance();
@@ -57,6 +55,11 @@ public:
         m_pixmapsGenerationThread->removeOperationsForPage(page);
     }
 
+    void removePaintOperationsForPage(TiledPage* page, bool waitForCompletion)
+    {
+        m_pixmapsGenerationThread->removePaintOperationsForPage(page, waitForCompletion);
+    }
+
     void removeOperationsForBaseLayer(BaseLayerAndroid* layer)
     {
         m_pixmapsGenerationThread->removeOperationsForBaseLayer(layer);
@@ -67,9 +70,9 @@ public:
         m_pixmapsGenerationThread->removeOperationsForTexture(texture);
     }
 
-    void scheduleOperation(QueuedOperation* operation, bool scheduleFirst = false)
+    void scheduleOperation(QueuedOperation* operation)
     {
-        m_pixmapsGenerationThread->scheduleOperation(operation, scheduleFirst);
+        m_pixmapsGenerationThread->scheduleOperation(operation);
     }
 
     ShaderProgram* shader() { return &m_shader; }

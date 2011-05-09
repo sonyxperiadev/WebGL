@@ -23,65 +23,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "TileSet.h"
+#ifndef PaintTileSetOperation_h
+#define PaintTileSetOperation_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
-#include "ClassTracker.h"
-#include "TilesManager.h"
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TileSet", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
+#include "QueuedOperation.h"
 
 namespace WebCore {
 
-TileSet::TileSet(TiledPage* tiledPage, int rows, int cols)
-    : m_tiledPage(tiledPage)
-    , m_nbRows(rows)
-    , m_nbCols(cols)
-{
-#ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("TileSet");
-#endif
+class PaintTileOperation : public QueuedOperation {
+ public:
+    PaintTileOperation(BaseTile* tile);
+    virtual ~PaintTileOperation();
+    virtual bool operator==(const QueuedOperation* operation);
+    virtual void run();
+    virtual int priority();
+
+ private:
+    BaseTile* m_tile;
+};
+
 }
 
-TileSet::~TileSet()
-{
-#ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("TileSet");
-#endif
-}
-
-bool TileSet::operator==(const TileSet& set)
-{
-    return m_tiledPage == set.m_tiledPage
-           && m_nbRows == set.m_nbRows
-           && m_nbCols == set.m_nbCols;
-}
-
-
-void TileSet::paint()
-{
-    XLOG("%x, painting %d tiles", this, m_tiles.size());
-    for (unsigned int i = 0; i < m_tiles.size(); i++)
-        m_tiles[i]->paintBitmap();
-    XLOG("%x, end of painting %d tiles", this, m_tiles.size());
-}
-
-} // namespace WebCore
-
-#endif // USE(ACCELERATED_COMPOSITING)
+#endif // PaintTileSetOperation_h

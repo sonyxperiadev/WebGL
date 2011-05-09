@@ -72,6 +72,7 @@ public:
 
     void reserveTexture();
     void setUsedLevel(int);
+    int usedLevel();
     bool isTileReady();
     void draw(float transparency, SkRect& rect, float scale);
 
@@ -89,6 +90,8 @@ public:
     void markAsDirty(const unsigned int pictureCount,
                      const SkRegion& dirtyArea);
     bool isDirty();
+    bool isRepaintPending();
+    void setRepaintPending(bool pending);
     void setUsable(bool usable);
     float scale() const { return m_scale; }
     void setScale(float scale);
@@ -114,6 +117,8 @@ private:
     float m_scale;
     // used to signal that the that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
+    // used to signal that a repaint is pending
+    bool m_repaintPending;
     // used to signal whether or not the draw can use this tile.
     bool m_usable;
     // stores the id of the latest picture from webkit that caused this tile to
@@ -127,7 +132,6 @@ private:
     bool m_fullRepaintA;
     bool m_fullRepaintB;
     SkRegion* m_currentDirtyArea;
-    bool m_painting;
 
     // stores the id of the latest picture painted to the tile. If the id is 0
     // then we know that the picture has not yet been painted an there is nothing

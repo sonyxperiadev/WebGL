@@ -30,7 +30,6 @@
 
 #include "LayerTexture.h"
 #include "QueuedOperation.h"
-#include "TileSet.h"
 #include "TiledPage.h"
 #include <utils/threads.h>
 
@@ -52,11 +51,14 @@ public:
     void removeOperationsForPage(TiledPage* page);
     void removeOperationsForBaseLayer(BaseLayerAndroid* layer);
     void removeOperationsForTexture(LayerTexture* texture);
+    void removePaintOperationsForPage(TiledPage* page, bool waitForRunning);
     void removeOperationsForFilter(OperationFilter* filter);
+    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning);
 
-    void scheduleOperation(QueuedOperation* operation, bool scheduleFirst);
+    void scheduleOperation(QueuedOperation* operation);
 
 private:
+    QueuedOperation* popNext();
     virtual bool threadLoop();
     Vector<QueuedOperation*> mRequestedOperations;
     android::Mutex mRequestedOperationsLock;

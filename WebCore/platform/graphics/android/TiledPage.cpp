@@ -30,7 +30,7 @@
 
 #include "GLUtils.h"
 #include "IntRect.h"
-#include "PaintTileSetOperation.h"
+#include "PaintTileOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -82,7 +82,6 @@ void TiledPage::updateBaseTileSize()
     int baseTileSize = TilesManager::instance()->maxTextureCount() + 1;
     if (baseTileSize > m_baseTileSize)
         m_baseTileSize = baseTileSize;
-    XLOG("Allocate %d tiles", m_baseTileSize);
 }
 
 TiledPage::~TiledPage()
@@ -126,6 +125,7 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
     const int lastDirtyTileX = static_cast<int>(ceilf(inval.right() * invTileContentWidth));
     const int lastDirtyTileY = static_cast<int>(ceilf(inval.bottom() * invTileContentHeight));
 
+    XLOG("Marking X %d-%d and Y %d-%d dirty", firstDirtyTileX, lastDirtyTileX, firstDirtyTileY, lastDirtyTileY);
     // We defer marking the tile as dirty until the next time we need to prepare
     // to draw.
     m_invalRegion.op(firstDirtyTileX, firstDirtyTileY, lastDirtyTileX, lastDirtyTileY, SkRegion::kUnion_Op);
@@ -133,11 +133,9 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
     m_latestPictureInval = pictureCount;
 }
 
-void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set)
+void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds)
 {
     if (y < 0)
-        return;
-    if (!set)
         return;
 
     for (int i = 0; i < tilesInRow; i++) {
@@ -177,10 +175,39 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
             // ensure there is a texture associated with the tile and then check to
             // see if the texture is dirty and in need of repainting
             currentTile->reserveTexture();
-            if (currentTile->isDirty())
-                set->add(currentTile);
+            updateTileUsedLevel(tileBounds, *currentTile);
+            if (currentTile->isDirty() && !currentTile->isRepaintPending()) {
+                PaintTileOperation *operation = new PaintTileOperation(currentTile);
+                TilesManager::instance()->scheduleOperation(operation);
+            } else if (currentTile->isDirty()) {
+                XLOG("Tile %dx%d is dirty, but awaiting repaint", currentTile->x(), currentTile->y());
+            }
         }
     }
+}
+
+void TiledPage::updateTileUsedLevel(const SkIRect& tileBounds, BaseTile& tile)
+{
+    const int lastTileX = tileBounds.fRight - 1;
+    const int lastTileY = tileBounds.fBottom - 1;
+
+    // set the used level of the tile (e.g. distance from the viewport)
+    int dx = 0;
+    int dy = 0;
+
+    if (tileBounds.fLeft > tile.x())
+        dx = tileBounds.fLeft - tile.x();
+    else if (lastTileX < tile.x())
+        dx = tile.x() - lastTileX;
+
+    if (tileBounds.fTop > tile.y())
+        dy = tileBounds.fTop - tile.y();
+    else if (lastTileY < tile.y())
+        dy = tile.y() - lastTileY;
+
+    int d = std::max(dx, dy);
+
+    tile.setUsedLevel(d);
 }
 
 void TiledPage::updateTileState(const SkIRect& tileBounds)
@@ -191,41 +218,19 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
         return;
     }
 
-    const int nbTilesWidth = tileBounds.width() - 1;
-    const int nbTilesHeight = tileBounds.height() - 1;
-
-    const int lastTileX = tileBounds.fRight - 1;
-    const int lastTileY = tileBounds.fBottom - 1;
-
     for (int x = 0; x < m_baseTileSize; x++) {
 
         BaseTile& tile = m_baseTiles[x];
-
-        // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile.x(), tile.y()))
-            tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
 
         // if the tile no longer has a texture then proceed to the next tile
         if (tile.isAvailable())
             continue;
 
-        // set the used level of the tile (e.g. distance from the viewport)
-        int dx = 0;
-        int dy = 0;
+        // if the tile is in the dirty region then we must invalidate it
+        if (m_invalRegion.contains(tile.x(), tile.y()))
+            tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
 
-        if (tileBounds.fLeft > tile.x())
-            dx = tileBounds.fLeft - tile.x();
-        else if (lastTileX < tile.x())
-            dx = tile.x() - lastTileX;
-
-        if (tileBounds.fTop > tile.y())
-            dy = tileBounds.fTop - tile.y();
-        else if (lastTileY < tile.y())
-            dy = tile.y() - lastTileY;
-
-        int d = std::max(dx, dy);
-
-        tile.setUsedLevel(d);
+        updateTileUsedLevel(tileBounds, tile);
     }
 
     // clear the invalidated region as all tiles within that region have now
@@ -234,8 +239,7 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
     m_invalTilesRegion.setEmpty();
 }
 
-void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds,
-                        bool scheduleFirst)
+void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds)
 {
     if (!m_glWebViewState)
         return;
@@ -243,6 +247,7 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     // update the tiles distance from the viewport
     updateTileState(tileBounds);
     m_prepare = true;
+    m_scrollingDown = goingDown;
 
     int firstTileX = tileBounds.fLeft;
     int firstTileY = tileBounds.fTop;
@@ -255,43 +260,29 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     const int baseContentHeight = m_glWebViewState->baseContentHeight();
     const int baseContentWidth = m_glWebViewState->baseContentWidth();
 
-    TileSet* set = new TileSet(this, nbTilesHeight, nbTilesWidth);
-
-    if (!scheduleFirst) {
-        // Expand number of tiles to allow tiles outside of viewport to be prepared for
-        // smoother scrolling.
-        int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
-        int nMaxTilesPerPage = m_baseTileSize / 2;
-        int expandX = TilesManager::instance()->expandedTileBoundsX();
-        int expandY = TilesManager::instance()->expandedTileBoundsY();
-        if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
-            firstTileX -= expandX;
-            lastTileX += expandX;
-            nbTilesWidth += expandX * 2;
-        }
-        if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
-            firstTileY -= expandY;
-            lastTileY += expandY;
-            nbTilesHeight += expandY * 2;
-        }
+    // Expand number of tiles to allow tiles outside of viewport to be prepared for
+    // smoother scrolling.
+    int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
+    int nMaxTilesPerPage = m_baseTileSize / 2;
+    int expandX = TilesManager::instance()->expandedTileBoundsX();
+    int expandY = TilesManager::instance()->expandedTileBoundsY();
+    if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
+        firstTileX -= expandX;
+        lastTileX += expandX;
+        nbTilesWidth += expandX * 2;
     }
-
-    // We chose to prepare tiles depending on the scroll direction. Tiles are
-    // appended to the list and the texture uploader goes through the list front
-    // to back. So we append tiles in reverse order because the last additions
-    // to the are processed first.
-    if (goingDown) {
-        for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, lastTileY - i, set);
-    } else {
-        for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, set);
+    if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
+        firstTileY -= expandY;
+        lastTileY += expandY;
+        nbTilesHeight += expandY * 2;
     }
+    m_expandedTileBounds.fLeft = firstTileX;
+    m_expandedTileBounds.fTop = firstTileY;
+    m_expandedTileBounds.fRight = lastTileX;
+    m_expandedTileBounds.fBottom = lastTileY;
 
-    // The paint operation will take ownership of the tileSet here, so no delete
-    // is necessary.
-    PaintTileSetOperation* operation = new PaintTileSetOperation(set);
-    TilesManager::instance()->scheduleOperation(operation, scheduleFirst);
+    for (int i = 0; i < nbTilesHeight; i++)
+        prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, tileBounds);
 }
 
 bool TiledPage::ready(const SkIRect& tileBounds, float scale)
@@ -330,7 +321,6 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     actualTileBounds.fLeft -= TilesManager::instance()->expandedTileBoundsX();
     actualTileBounds.fRight += TilesManager::instance()->expandedTileBoundsX();
 
-    XLOG("WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
         if (actualTileBounds.contains(tile.x(), tile.y())) {
@@ -344,11 +334,6 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
             tile.draw(transparency, rect, m_scale);
         }
     }
-
-#ifdef DEBUG
-    XLOG("FINISHED WE DRAW %x (%.2f) with transparency %.2f", this, scale(), transparency);
-    TilesManager::instance()->printTextures();
-#endif // DEBUG
 }
 
 unsigned int TiledPage::paintBaseLayerContent(SkCanvas* canvas)
