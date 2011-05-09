@@ -29,7 +29,6 @@
 #include "Base64.h"
 #include "BitmapImage.h"
 #include "ColorSpace.h"
-#include "ImageData.h"
 #include "GraphicsContext.h"
 #include "NotImplemented.h"
 #include "PlatformGraphicsContext.h"
@@ -105,7 +104,7 @@ void ImageBuffer::drawPattern(GraphicsContext* context, const FloatRect& srcRect
     imageCopy->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, op, destRect);
 }
 
-PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
+PassRefPtr<ByteArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
@@ -118,12 +117,11 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
         return 0;
     }
 
-    // ! Can't use PassRefPtr<>, otherwise the second access will cause crash.
-    RefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
-    unsigned char* data = result->data()->data()->data();
+    RefPtr<ByteArray> result = ByteArray::create(rect.width() * rect.height() * 4);
+    unsigned char* data = result->data();
 
-    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
-        memset(data, 0, result->data()->length());
+    if (rect.x() < 0 || rect.y() < 0 || rect.right() > m_size.width() || rect.bottom() > m_size.height())
+        memset(data, 0, result->length());
 
     int originx = rect.x();
     int destx = 0;
@@ -165,10 +163,10 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
         srcRows += srcPixelsPerRow;
         destRows += destBytesPerRow;
     }
-    return result;
+    return result.release();
 }
 
-void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
@@ -207,10 +205,10 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
     ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
 
-    unsigned srcBytesPerRow = 4 * source->width();
+    unsigned srcBytesPerRow = 4 * sourceSize.width();
     unsigned dstPixelsPerRow = dst.rowBytesAsPixels();
 
-    unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
+    unsigned char* srcRows = source->data() + originy * srcBytesPerRow + originx * 4;
     SkPMColor* dstRows = dst.getAddr32(destx, desty);
     for (int y = 0; y < numRows; ++y) {
         for (int x = 0; x < numColumns; x++) {
