@@ -182,7 +182,13 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 
 void RangeInputType::forwardEvent(Event* event)
 {
-    if (element()->renderer() && (event->isMouseEvent() || event->isDragEvent() || event->isWheelEvent()))
+    if (element()->renderer()
+        && (event->isMouseEvent()
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+            || event->isTouchEvent()
+#endif
+            || event->isDragEvent()
+            || event->isWheelEvent()))
         toRenderSlider(element()->renderer())->forwardEvent(event);
 }
 

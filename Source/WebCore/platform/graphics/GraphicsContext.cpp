@@ -621,13 +621,8 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 }
 #endif
 
-<<<<<<< HEAD:WebCore/platform/graphics/GraphicsContext.cpp
 #if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
-void GraphicsContext::setPlatformStrokeStyle(const StrokeStyle&)
-=======
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !PLATFORM(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle)
->>>>>>> webkit.org at r75315:Source/WebCore/platform/graphics/GraphicsContext.cpp
 {
 }
 #endif

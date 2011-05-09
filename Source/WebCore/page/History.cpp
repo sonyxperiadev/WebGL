@@ -85,10 +85,7 @@ void History::go(int distance)
 {
     if (!m_frame)
         return;
-<<<<<<< HEAD:WebCore/page/History.cpp
-=======
 
->>>>>>> webkit.org at r75315:Source/WebCore/page/History.cpp
     m_frame->navigationScheduler()->scheduleHistoryNavigation(distance);
 }
 

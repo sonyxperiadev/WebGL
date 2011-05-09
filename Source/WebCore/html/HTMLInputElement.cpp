@@ -49,18 +49,13 @@
 #include "RenderTheme.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptEventListener.h"
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
-#include "Settings.h"
-#include "StepRange.h"
-#include "TextEvent.h"
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-#include "PlatformBridge.h"
-#endif
-=======
->>>>>>> webkit.org at r75315:Source/WebCore/html/HTMLInputElement.cpp
 #include "WheelEvent.h"
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
+
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+#include "PlatformBridge.h"
+#endif
 
 using namespace std;
 
@@ -431,53 +426,12 @@ void HTMLInputElement::setType(const String& type)
 void HTMLInputElement::updateType()
 {
     const AtomicString& typeString = fastGetAttribute(typeAttr);
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
-    DeprecatedInputType newType = typeString.isEmpty() ? TEXT : typeMap->get(typeString);
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-    if (newType == PASSWORD && document()->focusedNode() == this)
-        PlatformBridge::updateTextfield(document()->view(), this, true, String());
-#endif
-
-    // IMPORTANT: Don't allow the type to be changed to FILE after the first
-    // type change, otherwise a JavaScript programmer would be able to set a text
-    // field's value to something like /etc/passwd and then change it to a file field.
-    if (deprecatedInputType() != newType) {
-        if (newType == FILE && m_haveType)
-            // Set the attribute back to the old value.
-            // Useful in case we were called from inside parseMappedAttribute.
-            setAttribute(typeAttr, type());
-        else {
-            checkedRadioButtons().removeButton(this);
-
-            if (newType == FILE && !m_fileList)
-                m_fileList = FileList::create();
-
-            bool wasAttached = attached();
-            if (wasAttached)
-                detach();
-
-            bool didStoreValue = storesValueSeparateFromAttribute();
-            bool wasPasswordField = deprecatedInputType() == PASSWORD;
-            bool didRespectHeightAndWidth = respectHeightAndWidthAttrs();
-            m_deprecatedTypeNumber = newType;
-            m_inputType = InputType::create(this, typeString);
-            setNeedsWillValidateCheck();
-            bool willStoreValue = storesValueSeparateFromAttribute();
-            bool isPasswordField = deprecatedInputType() == PASSWORD;
-            bool willRespectHeightAndWidth = respectHeightAndWidthAttrs();
-
-            if (didStoreValue && !willStoreValue && !m_data.value().isNull()) {
-                setAttribute(valueAttr, m_data.value());
-                m_data.setValue(String());
-            }
-            if (!didStoreValue && willStoreValue)
-                m_data.setValue(sanitizeValue(getAttribute(valueAttr)));
-            else
-                InputElement::updateValueIfNeeded(m_data, this);
-=======
->>>>>>> webkit.org at r75315:Source/WebCore/html/HTMLInputElement.cpp
 
     OwnPtr<InputType> newType = InputType::create(this, typeString);
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+    if (newType->isPasswordField() && document()->focusedNode() == this)
+        PlatformBridge::updateTextfield(document()->view(), this, true, String());
+#endif
 
     if (m_hasType && !newType->canChangeFromAnotherType()) {
         // Set the attribute back to the old value.
@@ -1087,19 +1041,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             return;
     }
 
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
-    if (deprecatedInputType() == RANGE
-        && renderer()
-        && (evt->isMouseEvent()
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-            || evt->isTouchEvent()
-#endif
-            || evt->isDragEvent()
-            || evt->isWheelEvent()))
-        toRenderSlider(renderer())->forwardEvent(evt);
-=======
     m_inputType->forwardEvent(evt);
->>>>>>> webkit.org at r75315:Source/WebCore/html/HTMLInputElement.cpp
 
     if (!callBaseClassEarly && !evt->defaultHandled())
         HTMLFormControlElementWithState::defaultEventHandler(evt);

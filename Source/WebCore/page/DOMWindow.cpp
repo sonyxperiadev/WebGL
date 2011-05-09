@@ -1634,7 +1634,6 @@ void DOMWindow::revokeObjectURL(const String& blobURLString)
 }
 #endif
 
-<<<<<<< HEAD:WebCore/page/DOMWindow.cpp
 #if ENABLE(DOM_STORAGE) && defined(ANDROID)
 void DOMWindow::clearDOMStorage()
 {
@@ -1648,10 +1647,7 @@ void DOMWindow::clearDOMStorage()
 }
 #endif
 
-void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow)
-=======
 void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow, SetLocationLocking locking)
->>>>>>> webkit.org at r75315:Source/WebCore/page/DOMWindow.cpp
 {
     Frame* activeFrame = activeWindow->frame();
     if (!activeFrame)

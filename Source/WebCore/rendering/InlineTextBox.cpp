@@ -1221,24 +1221,19 @@ int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) 
     RenderText* text = toRenderText(renderer());
     RenderStyle* style = text->style(m_firstLine);
     const Font* f = &style->font();
-<<<<<<< HEAD:WebCore/rendering/InlineTextBox.cpp
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     TextRun textRun = TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
     if (m_disableRoundingHacks)
         textRun.disableRoundingHacks();
-    return f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
+    int offset = f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
 #else
-    return f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
-        lineOffset - logicalLeft(), includePartialGlyphs);
-#endif
-=======
     int offset = f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len,
         textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
         lineOffset - logicalLeft(), includePartialGlyphs);
+#endif
     if (blockIsInOppositeDirection && (!offset || offset == m_len))
         return !offset ? m_len : 0;
     return offset;
->>>>>>> webkit.org at r75315:Source/WebCore/rendering/InlineTextBox.cpp
 }
 
 int InlineTextBox::positionForOffset(int offset) const

@@ -2999,113 +2999,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     // Now iterate the changedTouches list and m_targets within it, sending events to the tagets as required.
     bool defaultPrevented = false;
-<<<<<<< HEAD:WebCore/page/EventHandler.cpp
-    Touch* changedTouch = 0;
-    EventTarget* touchEventTarget = 0;
-
-    if (cancelTouches->length() > 0) {
-        // We dispatch the event to the target of the touch that caused this touch event to be generated, i.e.
-        // we take it from the list that will be used as the changedTouches property of the event.
-        // The choice to use the touch at index 0 guarantees that there is a target (as we checked the length
-        // above). In the case that there are multiple touches in what becomes the changedTouches list, it is
-        // difficult to say how we should prioritise touches and as such, item 0 is an arbitrary choice.
-        changedTouch = cancelTouches->item(0);
-        ASSERT(changedTouch);
-        touchEventTarget = changedTouch->target();
-        ASSERT(touchEventTarget);
-
-        eventName = &eventNames().touchcancelEvent;
-        RefPtr<TouchEvent> cancelEv =
-            TouchEvent::create(TouchList::create().get(), TouchList::create().get(), cancelTouches.get(),
-                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                   event.metaKey());
-        ExceptionCode ec = 0;
-        touchEventTarget->dispatchEvent(cancelEv.get(), ec);
-        defaultPrevented |= cancelEv->defaultPrevented();
-    }
-
-    if (releasedTouches->length() > 0) {
-        Touch* changedTouch = releasedTouches->item(0);
-        ASSERT(changedTouch);
-        touchEventTarget = changedTouch->target();
-        ASSERT(touchEventTarget);
-
-        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
-
-        eventName = &eventNames().touchendEvent;
-        RefPtr<TouchEvent> endEv = 
-            TouchEvent::create(touches.get(), targetTouches.get(), releasedTouches.get(),
-                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                   event.metaKey());
-        ExceptionCode ec = 0;
-        touchEventTarget->dispatchEvent(endEv.get(), ec);
-        defaultPrevented |= endEv->defaultPrevented();
-    }
-    if (pressedTouches->length() > 0) {
-        Touch* changedTouch = pressedTouches->item(0);
-        ASSERT(changedTouch);
-        touchEventTarget = changedTouch->target();
-        ASSERT(touchEventTarget);
-
-        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
-
-#if PLATFORM(ANDROID)
-        if (event.type() == TouchLongPress) {
-            eventName = &eventNames().touchlongpressEvent;
-            RefPtr<TouchEvent> longpressEv =
-                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                       *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                       event.metaKey());
-            ExceptionCode ec = 0;
-            touchEventTarget->dispatchEvent(longpressEv.get(), ec);
-            defaultPrevented |= longpressEv->defaultPrevented();
-        } else if (event.type() == TouchDoubleTap) {
-            eventName = &eventNames().touchdoubletapEvent;
-            RefPtr<TouchEvent> doubleTapEv =
-                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                       *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                       event.metaKey());
-            ExceptionCode ec = 0;
-            touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
-            defaultPrevented |= doubleTapEv->defaultPrevented();
-        } else {
-#endif
-        eventName = &eventNames().touchstartEvent;
-        RefPtr<TouchEvent> startEv =
-            TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                   event.metaKey());
-        ExceptionCode ec = 0;
-        touchEventTarget->dispatchEvent(startEv.get(), ec);
-        defaultPrevented |= startEv->defaultPrevented();
-#if PLATFORM(ANDROID)
-    }
-#endif
-    }
-
-    if (movedTouches->length() > 0) {
-        Touch* changedTouch = movedTouches->item(0);
-        ASSERT(changedTouch);
-        touchEventTarget = changedTouch->target();
-        ASSERT(touchEventTarget);
-
-        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
-
-        eventName = &eventNames().touchmoveEvent;
-        RefPtr<TouchEvent> moveEv = 
-            TouchEvent::create(touches.get(), targetTouches.get(), movedTouches.get(),
-                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
-                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                   event.metaKey());
-        ExceptionCode ec = 0;
-        touchEventTarget->dispatchEvent(moveEv.get(), ec);
-        defaultPrevented |= moveEv->defaultPrevented();
-=======
     RefPtr<TouchList> emptyList = TouchList::create();
     for (unsigned state = 0; state != PlatformTouchPoint::TouchStateEnd; ++state) {
         if (!changedTouches[state].m_touches)
@@ -3114,7 +3007,15 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // When sending a touch cancel event, use empty touches and targetTouches lists.
         bool isTouchCancelEvent = (state == PlatformTouchPoint::TouchCancelled);
         RefPtr<TouchList>& effectiveTouches(isTouchCancelEvent ? emptyList : touches);
+#if PLATFORM(ANDROID)
+        AtomicString stateName(eventNameForTouchPointState(static_cast<PlatformTouchPoint::State>(state)));
+        if (event.type() == TouchLongPress)
+            stateName = eventNames().touchlongpressEvent;
+        else if (event.type() == TouchDoubleTap)
+            stateName = eventNames().touchdoubletapEvent;
+#else
         const AtomicString& stateName(eventNameForTouchPointState(static_cast<PlatformTouchPoint::State>(state)));
+#endif
         const EventTargetSet& targetsForState = changedTouches[state].m_targets;
 
         for (EventTargetSet::const_iterator it = targetsForState.begin(); it != targetsForState.end(); ++it) {
@@ -3130,7 +3031,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             touchEventTarget->dispatchEvent(touchEvent.get(), ec);
             defaultPrevented |= touchEvent->defaultPrevented();
         }
->>>>>>> webkit.org at r75315:Source/WebCore/page/EventHandler.cpp
     }
 
     return defaultPrevented;
