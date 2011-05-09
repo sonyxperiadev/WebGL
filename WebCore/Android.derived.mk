@@ -77,7 +77,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # HTML entity table
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
-$(GEN): SCRIPT := $(LOCAL_PATH)/../WebCore/html/parser/create-html-entity-table
+$(GEN): SCRIPT := $(LOCAL_PATH)/html/parser/create-html-entity-table
 $(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../Tools/Scripts/webkitpy
 $(GEN): PRIVATE_CUSTOM_TOOL = $(dir $@)$(notdir $(SCRIPT)) -o $@ $<
 $(GEN): $(LOCAL_PATH)/html/parser/HTMLEntityNames.in
@@ -229,4 +229,3 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 endif
 
 LOCAL_SRC_FILES += $(LOCAL_GENERATED_SOURCES)
-

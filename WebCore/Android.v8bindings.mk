@@ -36,8 +36,8 @@ BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bridge/jni/v8 \
 	$(LOCAL_PATH)/bridge/jsc \
 	\
-	$(base_intermediates)/WebCore/bindings \
-	$(base_intermediates)/WebCore/svg \
+	$(WEBCORE_INTERMEDIATES_PATH)/bindings \
+	$(WEBCORE_INTERMEDIATES_PATH)/svg \
 	$(base_intermediates)/JavaScriptCore
 
 LOCAL_SRC_FILES += \

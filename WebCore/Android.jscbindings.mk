@@ -46,19 +46,19 @@ BINDING_C_INCLUDES := \
 	$(JAVASCRIPTCORE_PATH)/wrec \
 	$(JAVASCRIPTCORE_PATH)/ForwardingHeaders \
 	\
-	$(base_intermediates)/WebCore/bindings/js \
-	$(base_intermediates)/WebCore/dom \
-	$(base_intermediates)/WebCore/fileapi \
-	$(base_intermediates)/WebCore/html/canvas \
-	$(base_intermediates)/WebCore/inspector \
-	$(base_intermediates)/WebCore/loader/appcache \
-	$(base_intermediates)/WebCore/page \
-	$(base_intermediates)/WebCore/plugins \
-	$(base_intermediates)/WebCore/storage \
-	$(base_intermediates)/WebCore/svg \
-	$(base_intermediates)/WebCore/webaudio \
-	$(base_intermediates)/WebCore/workers \
-	$(base_intermediates)/WebCore/xml
+	$(WEBCORE_INTERMEDIATES_PATH)/bindings/js \
+	$(WEBCORE_INTERMEDIATES_PATH)/dom \
+	$(WEBCORE_INTERMEDIATES_PATH)/fileapi \
+	$(WEBCORE_INTERMEDIATES_PATH)/html/canvas \
+	$(WEBCORE_INTERMEDIATES_PATH)/inspector \
+	$(WEBCORE_INTERMEDIATES_PATH)/loader/appcache \
+	$(WEBCORE_INTERMEDIATES_PATH)/page \
+	$(WEBCORE_INTERMEDIATES_PATH)/plugins \
+	$(WEBCORE_INTERMEDIATES_PATH)/storage \
+	$(WEBCORE_INTERMEDIATES_PATH)/svg \
+	$(WEBCORE_INTERMEDIATES_PATH)/webaudio \
+	$(WEBCORE_INTERMEDIATES_PATH)/workers \
+	$(WEBCORE_INTERMEDIATES_PATH)/xml
 
 LOCAL_SRC_FILES += \
 	bindings/js/DOMObjectHashTableMap.cpp \
