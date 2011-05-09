@@ -27,16 +27,16 @@
 
 #if ENABLE(DATABASE)
 
+#include "ApplicationCacheStorage.h"
+#include "DatabaseTracker.h"
+#include "JNIUtility.h"
 #include "JavaSharedClient.h"
 #include "KURL.h"
 #include "PageGroup.h"
+#include "SecurityOrigin.h"
 #include "WebCoreJni.h"
 
 #include <JNIHelp.h>
-#include <JNIUtility.h>
-#include <WebCore/loader/appcache/ApplicationCacheStorage.h>
-#include <WebCore/page/SecurityOrigin.h>
-#include <WebCore/storage/DatabaseTracker.h>
 
 namespace android {
 
