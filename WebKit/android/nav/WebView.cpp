@@ -326,14 +326,6 @@ void scrollRectOnScreen(const IntRect& rect)
         return;
     SkRect visible;
     calcOurContentVisibleRect(&visible);
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* root = compositeRoot();
-    if (root) {
-        root->updateFixedLayersPositions(visible);
-        root->updatePositions();
-        visible = root->subtractLayers(visible);
-    }
-#endif
     int dx = 0;
     int left = rect.x();
     int right = rect.right();
