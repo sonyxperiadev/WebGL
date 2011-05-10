@@ -25,10 +25,12 @@
 #include "GraphicsLayerClient.h"
 #include "LayerAndroid.h"
 #include "RefPtr.h"
+#include "SkBitmapRef.h"
 #include "Vector.h"
 
 class FloatPoint3D;
 class Image;
+class SkBitmapRef;
 
 namespace WebCore {
 
@@ -142,6 +144,8 @@ private:
 
     bool m_haveContents;
     bool m_haveImage;
+    bool m_newImage;
+    SkBitmapRef* m_imageRef; // only used to remember previously passed images
 
     Vector<FloatRect> m_invalidatedRects;
 
