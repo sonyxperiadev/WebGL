@@ -1,14 +1,11 @@
 # Copyright 2010 Google Inc. All Rights Reserved.
 #Fri Sep 10 11:49:27 BST 2010
 currentVersion=55486
-version=72805
+version=74534
 isNative=true
 name=webkit
 keywords=webkit
 onDevice=true
 homepage=http\://webkit.org/
 # We use a WebKit revision that has been used for a Chromium release.
-# Currently we track the Chromium 9.0.597 release branch:
-# http://trac.webkit.org/browser/branches/chromium/597
-# which is WebKit r72805 + stability cherry picks.
-webkit.chromiumRelease=http\://src.chromium.org/svn/releases/9.0.597.107/DEPS
+webkit.chromiumRelease=http\://src.chromium.org/svn/releases/10.0.621.0/DEPS
