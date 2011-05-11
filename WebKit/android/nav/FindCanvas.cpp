@@ -47,7 +47,7 @@ MatchInfo::MatchInfo() {
 }
 
 MatchInfo::~MatchInfo() {
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
 }
 
 MatchInfo::MatchInfo(const MatchInfo& src) {
@@ -58,7 +58,7 @@ MatchInfo::MatchInfo(const MatchInfo& src) {
 }
 
 void MatchInfo::set(const SkRegion& region, SkPicture* pic, int layerId) {
-    m_picture->safeUnref();
+    SkSafeUnref(m_picture);
     m_layerId = layerId;
     m_location = region;
     m_picture = pic;
@@ -138,7 +138,7 @@ FindCanvas::~FindCanvas() {
     setBounder(NULL);
     /* Just in case getAndClear was not called. */
     delete mMatches;
-    mWorkingPicture->safeUnref();
+    SkSafeUnref(mWorkingPicture);
 }
 
 // Each version of addMatch returns a rectangle for a match.

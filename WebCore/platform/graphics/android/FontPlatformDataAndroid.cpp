@@ -123,7 +123,7 @@ FontPlatformData::~FontPlatformData()
 #endif
 
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeUnref();
+        SkSafeUnref(mTypeface);
     }
 }
 
@@ -133,7 +133,7 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
         src.mTypeface->safeRef();
     }
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeUnref();
+        SkSafeUnref(mTypeface);
     }
 
     mTypeface   = src.mTypeface;

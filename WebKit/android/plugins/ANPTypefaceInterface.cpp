@@ -50,7 +50,7 @@ static void anp_ref(ANPTypeface* tf) {
 }
 
 static void anp_unref(ANPTypeface* tf) {
-    tf->safeUnref();
+    SkSafeUnref(tf);
 }
 
 static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {

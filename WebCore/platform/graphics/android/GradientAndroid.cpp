@@ -38,7 +38,7 @@
 class PlatformGradientRec {
 public:
     PlatformGradientRec() : m_shader(NULL) {}
-    ~PlatformGradientRec() { m_shader->safeUnref(); }
+    ~PlatformGradientRec() { SkSafeUnref(m_shader); }
 
     SkShader*           m_shader;
     SkShader::TileMode  m_tileMode;
@@ -102,7 +102,7 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
         s = new SkColorShader(0);
 
     // zap our previous shader, if present
-    m_gradient->m_shader->safeUnref();
+    SkSafeUnref(m_gradient->m_shader);
     m_gradient->m_shader = s;
     m_gradient->m_tileMode = mode;
     SkMatrix matrix = m_gradientSpaceTransformation;
