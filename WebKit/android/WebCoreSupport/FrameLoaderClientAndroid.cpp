@@ -1120,7 +1120,7 @@ public:
             for (; it != end; ++it) {
                 Widget* widget = (*it)->widget();
                 // PluginWidget is used only with PluginToggleWidget
-                if (widget->isPluginViewBase()) {
+                if (widget && widget->isPluginViewBase()) {
                     PluginToggleWidget* ptw =
                             static_cast<PluginToggleWidget*>(widget);
                     ptw->swapPlugin(*it);
