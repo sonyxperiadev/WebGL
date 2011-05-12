@@ -67,6 +67,8 @@ jobject DeviceMotionClientImpl::getJavaInstance()
 
     ASSERT(m_webViewCore);
     jobject object = m_webViewCore->getDeviceMotionService();
+    if (!object)
+        return 0;
 
     // Get the Java DeviceMotionService class.
     jclass javaServiceClass = env->GetObjectClass(object);
@@ -93,20 +95,24 @@ jobject DeviceMotionClientImpl::getJavaInstance()
 
 void DeviceMotionClientImpl::releaseJavaInstance()
 {
-    ASSERT(m_javaServiceObject);
-    getJNIEnv()->DeleteGlobalRef(m_javaServiceObject);
+    if (m_javaServiceObject)
+        getJNIEnv()->DeleteGlobalRef(m_javaServiceObject);
 }
 
 void DeviceMotionClientImpl::startUpdating()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaServiceClassMethodIDs[ServiceMethodStart]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaServiceClassMethodIDs[ServiceMethodStart]);
 }
 
 void DeviceMotionClientImpl::stopUpdating()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaServiceClassMethodIDs[ServiceMethodStop]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaServiceClassMethodIDs[ServiceMethodStop]);
 }
 
 void DeviceMotionClientImpl::onMotionChange(PassRefPtr<DeviceMotionData> motion)
@@ -117,14 +123,18 @@ void DeviceMotionClientImpl::onMotionChange(PassRefPtr<DeviceMotionData> motion)
 
 void DeviceMotionClientImpl::suspend()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaServiceClassMethodIDs[ServiceMethodSuspend]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaServiceClassMethodIDs[ServiceMethodSuspend]);
 }
 
 void DeviceMotionClientImpl::resume()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaServiceClassMethodIDs[ServiceMethodResume]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaServiceClassMethodIDs[ServiceMethodResume]);
 }
 
 } // namespace android

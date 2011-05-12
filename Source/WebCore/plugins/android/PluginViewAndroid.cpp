@@ -539,6 +539,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
             // Return the top level WebView Java object associated
             // with this instance.
             jobject *retObject = static_cast<jobject*>(value);
+            // TODO: Is it safe for this to be NULL? It looks from the NPNVWindowNPObject case that it is.
             *retObject = android::WebViewCore::getWebViewCore(parent())->getWebViewJavaObject();
             *result = NPERR_NO_ERROR;
             return true;
@@ -564,6 +565,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 
         case kJavaContext_ANPGetValue: {
             jobject* retObject = static_cast<jobject*>(value);
+            // TODO: Is it safe for this to be NULL? It looks from the NPNVWindowNPObject case that it is.
             *retObject = android::WebViewCore::getWebViewCore(parent())->getContext();
             *result = NPERR_NO_ERROR;
             return true;

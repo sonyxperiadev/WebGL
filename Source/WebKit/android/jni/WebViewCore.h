@@ -231,24 +231,28 @@ namespace android {
         bool jsInterrupt();
 
         /**
-         * Tell the Java side that the origin has exceeded its database quota.
+         * Posts a message to the UI thread to inform the Java side that the
+         * origin has exceeded its database quota.
          * @param url The URL of the page that caused the quota overflow
          * @param databaseIdentifier the id of the database that caused the
          *     quota overflow.
          * @param currentQuota The current quota for the origin
          * @param estimatedSize The estimated size of the database
+         * @return Whether the message was successfully sent.
          */
-        void exceededDatabaseQuota(const WTF::String& url,
+        bool exceededDatabaseQuota(const WTF::String& url,
                                    const WTF::String& databaseIdentifier,
                                    const unsigned long long currentQuota,
                                    const unsigned long long estimatedSize);
 
         /**
-         * Tell the Java side that the appcache has exceeded its max size.
+         * Posts a message to the UI thread to inform the Java side that the
+         * appcache has exceeded its max size.
          * @param spaceNeeded is the amount of disk space that would be needed
          * in order for the last appcache operation to succeed.
+         * @return Whether the message was successfully sent.
          */
-        void reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
+        bool reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
 
         /**
          * Set up the PageGroup's idea of which links have been visited,

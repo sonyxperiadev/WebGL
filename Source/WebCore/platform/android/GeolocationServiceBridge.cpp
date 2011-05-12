@@ -87,21 +87,24 @@ GeolocationServiceBridge::~GeolocationServiceBridge()
 
 bool GeolocationServiceBridge::start()
 {
-    ASSERT(m_javaGeolocationServiceObject);
+    if (!m_javaGeolocationServiceObject)
+        return false;
     return getJNIEnv()->CallBooleanMethod(m_javaGeolocationServiceObject,
                                           javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStart]);
 }
 
 void GeolocationServiceBridge::stop()
 {
-    ASSERT(m_javaGeolocationServiceObject);
+    if (!m_javaGeolocationServiceObject)
+        return;
     getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
                                 javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStop]);
 }
 
 void GeolocationServiceBridge::setEnableGps(bool enable)
 {
-    ASSERT(m_javaGeolocationServiceObject);
+    if (!m_javaGeolocationServiceObject)
+        return;
     getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
                                 javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodSetEnableGps],
                                 enable);
@@ -185,10 +188,13 @@ void GeolocationServiceBridge::startJavaImplementation(Frame* frame)
             env->GetMethodID(javaGeolocationServiceClass, "setEnableGps", "(Z)V");
 
     // Create the Java GeolocationService object.
+    jobject context = android::WebViewCore::getWebViewCore(frame->view())->getContext();
+    if (!context)
+        return;
     jlong nativeObject = reinterpret_cast<jlong>(this);
     jobject object = env->NewObject(javaGeolocationServiceClass,
                                     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodInit],
-                                    android::WebViewCore::getWebViewCore(frame->view())->getContext(),
+                                    context,
                                     nativeObject);
 
     m_javaGeolocationServiceObject = getJNIEnv()->NewGlobalRef(object);
@@ -232,7 +238,8 @@ void GeolocationServiceBridge::startJavaImplementation(Frame* frame)
 void GeolocationServiceBridge::stopJavaImplementation()
 {
     // Called by GeolocationServiceAndroid on WebKit thread.
-    ASSERT(m_javaGeolocationServiceObject);
+    if (!m_javaGeolocationServiceObject)
+        return;
     getJNIEnv()->DeleteGlobalRef(m_javaGeolocationServiceObject);
 }
 

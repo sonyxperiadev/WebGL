@@ -359,11 +359,13 @@ void scrollRectOnScreen(const IntRect& rect)
 void calcOurContentVisibleRect(SkRect* r)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
     jclass rectClass = env->FindClass("android/graphics/RectF");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(FFFF)V");
     jobject jRect = env->NewObject(rectClass, init, 0, 0, 0, 0);
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_calcOurContentVisibleRectF, jRect);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_calcOurContentVisibleRectF, jRect);
     r->fLeft = env->GetFloatField(jRect, m_javaGlue.m_rectFLeft);
     r->fTop = env->GetFloatField(jRect, m_javaGlue.m_rectFTop);
     r->fRight = r->fLeft + env->CallFloatMethod(jRect, m_javaGlue.m_rectFWidth);
@@ -726,9 +728,11 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
             // The focus has changed.  We may need to update things.
             LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
             JNIEnv* env = JSC::Bindings::getJNIEnv();
-            env->CallVoidMethod(m_javaGlue.object(env).get(),
-                    m_javaGlue.m_domChangedFocus);
-            checkException(env);
+            AutoJObject javaObject = m_javaGlue.object(env);
+            if (javaObject.get()) {
+                env->CallVoidMethod(javaObject.get(), m_javaGlue.m_domChangedFocus);
+                checkException(env);
+            }
         }
     }
     if (oldCursorNode && (!m_frameCacheUI || !m_frameCacheUI->currentCursor()))
@@ -740,7 +744,10 @@ int getScaledMaxXScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxXScroll);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return 0;
+    int result = env->CallIntMethod(javaObject.get(), m_javaGlue.m_getScaledMaxXScroll);
     checkException(env);
     return result;
 }
@@ -749,7 +756,10 @@ int getScaledMaxYScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxYScroll);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return 0;
+    int result = env->CallIntMethod(javaObject.get(), m_javaGlue.m_getScaledMaxYScroll);
     checkException(env);
     return result;
 }
@@ -759,7 +769,10 @@ IntRect getVisibleRect()
     IntRect rect;
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject jRect = env->CallObjectMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getVisibleRect);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return rect;
+    jobject jRect = env->CallObjectMethod(javaObject.get(), m_javaGlue.m_getVisibleRect);
     checkException(env);
     rect.setX(env->GetIntField(jRect, m_javaGlue.m_rectLeft));
     checkException(env);
@@ -1083,9 +1096,11 @@ int getBlockLeftEdge(int x, int y, float scale)
 void overrideUrlLoading(const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
     jstring jName = wtfStringToJstring(env, url);
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_overrideLoading, jName);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_overrideLoading, jName);
     env->DeleteLocalRef(jName);
 }
 
@@ -1205,8 +1220,10 @@ void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p", framePtr, nodePtr);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_sendMoveFocus, (jint) framePtr, (jint) nodePtr);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveFocus, (jint) framePtr, (jint) nodePtr);
     checkException(env);
 }
 
@@ -1214,8 +1231,10 @@ void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int 
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMoveMouse,
-        (jint) framePtr, (jint) nodePtr, x, y);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveMouse, reinterpret_cast<jint>(framePtr), reinterpret_cast<jint>(nodePtr), x, y);
     checkException(env);
 }
 
@@ -1223,21 +1242,24 @@ void sendMoveMouseIfLatest(bool clearTextEntry, bool stopPaintingCaret)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry, stopPaintingCaret);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry, stopPaintingCaret);
     checkException(env);
 }
 
-void sendMotionUp(
-    WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
+void sendMotionUp(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
-    m_viewImpl->m_touchGeneration = ++m_generation;
-    DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d",
-        m_generation, framePtr, nodePtr, x, y);
+    DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d", m_generation, framePtr, nodePtr, x, y);
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
+
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp,
-        m_generation, (jint) framePtr, (jint) nodePtr, x, y);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    m_viewImpl->m_touchGeneration = ++m_generation;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMotionUp, m_generation, (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
 }
 
@@ -1285,8 +1307,10 @@ bool scrollBy(int dx, int dy)
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    bool result = env->CallBooleanMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_scrollBy, dx, dy, true);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return false;
+    bool result = env->CallBooleanMethod(javaObject.get(), m_javaGlue.m_scrollBy, dx, dy, true);
     checkException(env);
     return result;
 }
@@ -1322,29 +1346,40 @@ bool hasFocusNode()
 void rebuildWebTextView()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_rebuildWebTextView);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_rebuildWebTextView);
     checkException(env);
 }
 
 void viewInvalidate()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidate);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_viewInvalidate);
     checkException(env);
 }
 
 void viewInvalidateRect(int l, int t, int r, int b)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidateRect, l, r, t, b);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_viewInvalidateRect, l, r, t, b);
     checkException(env);
 }
 
 void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_postInvalidateDelayed,
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_postInvalidateDelayed,
         delay, bounds.x(), bounds.y(), bounds.maxX(), bounds.maxY());
     checkException(env);
 }
@@ -1352,8 +1387,10 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 bool inFullScreenMode()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jboolean result = env->CallBooleanMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_inFullScreenMode);
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return false;
+    jboolean result = env->CallBooleanMethod(javaObject.get(), m_javaGlue.m_inFullScreenMode);
     checkException(env);
     return result;
 }

@@ -378,14 +378,18 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     if (tracker.usageForDatabase(name, origin) == 0)
         estimatedSize = tracker.detailsForNameAndOrigin(name, origin).expectedUsage();
 
-    android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota, estimatedSize);
-
-    // We've sent notification to the browser so now wait for it to come back.
-    m_quotaThreadLock.lock();
-    while (!m_isNewQuotaSet) {
-        m_quotaThreadCondition.wait(m_quotaThreadLock);
+    if (android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota, estimatedSize)) {
+        // We've sent notification to the browser so now wait for it to come back.
+        m_quotaThreadLock.lock();
+        while (!m_isNewQuotaSet) {
+            m_quotaThreadCondition.wait(m_quotaThreadLock);
+        }
+        m_quotaThreadLock.unlock();
+    } else {
+        // We failed to send the message to the UI thread to request a new quota,
+        // so just use the current quota as a default.
+        m_newQuota = currentQuota;
     }
-    m_quotaThreadLock.unlock();
 
     if (m_newQuota < currentQuota)
         m_newQuota = currentQuota;
@@ -445,7 +449,11 @@ void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
     Page* page = m_webFrame->page();
     Frame* mainFrame = page->mainFrame();
     FrameView* view = mainFrame->view();
-    android::WebViewCore::getWebViewCore(view)->reachedMaxAppCacheSize(spaceNeeded);
+
+    // If we fail to send the message to the UI thread to request a new quota,
+    // there's nothing to do.
+    if (!android::WebViewCore::getWebViewCore(view)->reachedMaxAppCacheSize(spaceNeeded))
+        return;
 
     // We've sent notification to the browser so now wait for it to come back.
     m_quotaThreadLock.lock();

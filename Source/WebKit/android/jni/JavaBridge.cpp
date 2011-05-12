@@ -185,6 +185,8 @@ JavaBridge::setSharedTimer(long long timemillis)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mSetSharedTimer, timemillis);
 }
 
@@ -193,6 +195,8 @@ JavaBridge::stopSharedTimer()
 {    
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mStopSharedTimer);
 }
 
@@ -200,11 +204,14 @@ void
 JavaBridge::setCookies(WebCore::KURL const& url, WTF::String const& value)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return;
+
     const WTF::String& urlStr = url.string();
     jstring jUrlStr = wtfStringToJstring(env, urlStr);
     jstring jValueStr = wtfStringToJstring(env, value);
 
-    AutoJObject obj = javaObject(env);
     env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jValueStr);
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jValueStr);
@@ -214,10 +221,12 @@ WTF::String
 JavaBridge::cookies(WebCore::KURL const& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return String();
+
     const WTF::String& urlStr = url.string();
     jstring jUrlStr = wtfStringToJstring(env, urlStr);
-
-    AutoJObject obj = javaObject(env);
     jstring string = (jstring)(env->CallObjectMethod(obj.get(), mCookies, jUrlStr));
     
     WTF::String ret = jstringToWtfString(env, string);
@@ -231,6 +240,8 @@ JavaBridge::cookiesEnabled()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return false;
     jboolean ret = env->CallBooleanMethod(obj.get(), mCookiesEnabled);
     return (ret != 0);
 }
@@ -241,6 +252,8 @@ JavaBridge::getPluginDirectories()
     WTF::Vector<WTF::String> directories;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return directories;
     jobjectArray array = (jobjectArray)
             env->CallObjectMethod(obj.get(), mGetPluginDirectories);
     int count = env->GetArrayLength(array);
@@ -259,6 +272,8 @@ JavaBridge::getPluginSharedDataDirectory()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return String();
     jstring ret = (jstring)env->CallObjectMethod(obj.get(), mGetPluginSharedDataDirectory);
     WTF::String path = jstringToWtfString(env, ret);
     checkException(env);
@@ -281,6 +296,8 @@ void JavaBridge::signalServiceFuncPtrQueue()
     // environment is setup.
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mSignalFuncPtrQueue);
 }
 
@@ -288,6 +305,8 @@ WTF::Vector<WTF::String>JavaBridge::getSupportedKeyStrengthList() {
     WTF::Vector<WTF::String> list;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return list;
     jobjectArray array = (jobjectArray) env->CallObjectMethod(obj.get(),
             mGetKeyStrengthList);
     int count = env->GetArrayLength(array);
@@ -304,10 +323,12 @@ WTF::Vector<WTF::String>JavaBridge::getSupportedKeyStrengthList() {
 WTF::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
         const WTF::String& challenge, const WebCore::KURL& url) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return String();
     jstring jChallenge = wtfStringToJstring(env, challenge);
     const WTF::String& urlStr = url.string();
     jstring jUrl = wtfStringToJstring(env, urlStr);
-    AutoJObject obj = javaObject(env);
     jstring key = (jstring) env->CallObjectMethod(obj.get(),
             mGetSignedPublicKey, index, jChallenge, jUrl);
     WTF::String ret = jstringToWtfString(env, key);
@@ -319,8 +340,10 @@ WTF::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
 
 WTF::String JavaBridge::resolveFilePathForContentUri(const WTF::String& uri) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jstring jUri = wtfStringToJstring(env, uri);
     AutoJObject obj = javaObject(env);
+    if (!obj.get())
+        return String();
+    jstring jUri = wtfStringToJstring(env, uri);
     jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFilePathForContentUri, jUri));
     WTF::String ret = jstringToWtfString(env, path);
     env->DeleteLocalRef(jUri);

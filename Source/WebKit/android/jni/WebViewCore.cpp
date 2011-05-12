@@ -303,6 +303,13 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
     AutoJObject object(JNIEnv* env) {
+        // We hold a weak reference to the Java WebViewCore to avoid memeory
+        // leaks due to circular references when WebView.destroy() is not
+        // called manually. The WebView and hence the WebViewCore could become
+        // weakly reachable at any time, after which the GC could null our weak
+        // reference, so we have to check the return value of this method at
+        // every use. Note that our weak reference will be nulled before the
+        // WebViewCore is finalized.
         return getRealObject(env, m_obj);
     }
 };
@@ -724,12 +731,13 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
     if (m_findIsUp) {
-        LOG_ASSERT(m_javaGlue->m_obj,
-                "A Java widget was not associated with this view bridge!");
+        LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->CallVoidMethod(m_javaGlue->object(env).get(),
-                m_javaGlue->m_sendFindAgain);
-        checkException(env);
+        AutoJObject javaObject = m_javaGlue->object(env);
+        if (javaObject.get()) {
+            env->CallVoidMethod(javaObject.get(), m_javaGlue->m_sendFindAgain);
+            checkException(env);
+        }
     }
 }
 
@@ -947,7 +955,10 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 //    LOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollTo,
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_scrollTo,
             x, y, animate, false);
     checkException(env);
 }
@@ -956,7 +967,10 @@ void WebViewCore::sendNotifyProgressFinished()
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendNotifyProgressFinished);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_sendNotifyProgressFinished);
     checkException(env);
 }
 
@@ -964,7 +978,10 @@ void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(),
                         m_javaGlue->m_sendViewInvalidate,
                         rect.x(), rect.y(), rect.maxX(), rect.maxY());
     checkException(env);
@@ -973,14 +990,20 @@ void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
 void WebViewCore::contentDraw()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_contentDraw);
     checkException(env);
 }
 
 void WebViewCore::layersDraw()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_layersDraw);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_layersDraw);
     checkException(env);
 }
 
@@ -1027,6 +1050,11 @@ void WebViewCore::didFirstLayout()
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+
     const WebCore::KURL& url = m_mainFrame->document()->url();
     if (url.isEmpty())
         return;
@@ -1034,8 +1062,7 @@ void WebViewCore::didFirstLayout()
 
     WebCore::FrameLoadType loadType = m_mainFrame->loader()->loadType();
 
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout,
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_didFirstLayout,
             loadType == WebCore::FrameLoadTypeStandard
             // When redirect with locked history, we would like to reset the
             // scale factor. This is important for www.yahoo.com as it is
@@ -1055,7 +1082,10 @@ void WebViewCore::updateViewport()
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateViewport);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateViewport);
     checkException(env);
 }
 
@@ -1065,7 +1095,10 @@ void WebViewCore::restoreScale(float scale, float textWrapScale)
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScale, scale, textWrapScale);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_restoreScale, scale, textWrapScale);
     checkException(env);
 }
 
@@ -1075,11 +1108,15 @@ void WebViewCore::needTouchEvents(bool need)
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 #if ENABLE(TOUCH_EVENTS)
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+
     if (m_forwardingTouchEvents == need)
         return;
 
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_needTouchEvents, need);
     checkException(env);
 
     m_forwardingTouchEvents = need;
@@ -1093,7 +1130,10 @@ void WebViewCore::requestKeyboardWithSelection(const WebCore::Node* node,
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_requestKeyboardWithSelection,
             reinterpret_cast<int>(node), selStart, selEnd, m_textGeneration);
     checkException(env);
@@ -1105,8 +1145,10 @@ void WebViewCore::requestKeyboard(bool showKeyboard)
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_requestKeyboard, showKeyboard);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_requestKeyboard, showKeyboard);
     checkException(env);
 }
 
@@ -2738,8 +2780,10 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
 void WebViewCore::selectAt(int x, int y)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_selectAt,
-        x, y);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_selectAt, x, y);
     checkException(env);
 }
 
@@ -2888,19 +2932,24 @@ static jobjectArray makeLabelArray(JNIEnv* env, const uint16_t** labels, size_t 
     return array;
 }
 
-void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
+void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+
     if (!chooser)
         return;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WTF::String acceptType = chooser->acceptTypes();
     jstring jAcceptType = wtfStringToJstring(env, acceptType, true);
     jstring jName = (jstring) env->CallObjectMethod(
-            m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
+            javaObject.get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
     env->DeleteLocalRef(jAcceptType);
 
-    const UChar* string = static_cast<const UChar*>(env->GetStringChars(jName, NULL));
+    const UChar* string = static_cast<const UChar*>(env->GetStringChars(jName, 0));
 
     if (!string)
         return;
@@ -2915,14 +2964,18 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
 void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, size_t count, const int enabled[], size_t enabledCount,
         bool multiple, const int selected[], size_t selectedCountOrSelection)
 {
+    LOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+
     // If m_popupReply is not null, then we already have a list showing.
     if (m_popupReply != 0)
         return;
 
-    LOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
-
     // Create an array of java Strings for the drop down.
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobjectArray labelArray = makeLabelArray(env, labels, count);
 
     // Create an array determining whether each item is enabled.
@@ -2947,13 +3000,13 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
         }
         env->ReleaseIntArrayElements(selectedArray, selArray, 0);
 
-        env->CallVoidMethod(m_javaGlue->object(env).get(),
+        env->CallVoidMethod(javaObject.get(),
                 m_javaGlue->m_requestListBox, labelArray, enabledArray,
                 selectedArray);
         env->DeleteLocalRef(selectedArray);
     } else {
         // Pass up the single selection.
-        env->CallVoidMethod(m_javaGlue->object(env).get(),
+        env->CallVoidMethod(javaObject.get(),
                 m_javaGlue->m_requestSingleListBox, labelArray, enabledArray,
                 selectedCountOrSelection);
     }
@@ -3267,8 +3320,10 @@ void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
         m_shouldPaintCaret = true;
     else if (m_blurringNodePointer) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->CallVoidMethod(m_javaGlue->object(env).get(),
-                m_javaGlue->m_formDidBlur, m_blurringNodePointer);
+        AutoJObject javaObject = m_javaGlue->object(env);
+        if (!javaObject.get())
+            return;
+        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_formDidBlur, m_blurringNodePointer);
         checkException(env);
         m_blurringNodePointer = 0;
     }
@@ -3276,9 +3331,12 @@ void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     jstring jMessageStr = wtfStringToJstring(env, message);
     jstring jSourceIDStr = wtfStringToJstring(env, sourceID);
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber,
             jSourceIDStr, msgLevel);
     env->DeleteLocalRef(jMessageStr);
@@ -3289,52 +3347,68 @@ void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int l
 void WebViewCore::jsAlert(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     jstring jInputStr = wtfStringToJstring(env, text);
     jstring jUrlStr = wtfStringToJstring(env, url);
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
 }
 
-void WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
+bool WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
 {
 #if ENABLE(DATABASE)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
     jstring jDatabaseIdentifierStr = wtfStringToJstring(env, databaseIdentifier);
     jstring jUrlStr = wtfStringToJstring(env, url);
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_exceededDatabaseQuota, jUrlStr,
             jDatabaseIdentifierStr, currentQuota, estimatedSize);
     env->DeleteLocalRef(jDatabaseIdentifierStr);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
+    return true;
 #endif
 }
 
-void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
+bool WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
     checkException(env);
+    return true;
 #endif
 }
 
 void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
 {
-    m_groupForVisitedLinks = group;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_populateVisitedLinks);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    m_groupForVisitedLinks = group;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_populateVisitedLinks);
     checkException(env);
 }
 
 void WebViewCore::geolocationPermissionsShowPrompt(const WTF::String& origin)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     jstring originString = wtfStringToJstring(env, origin);
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    env->CallVoidMethod(javaObject.get(),
                         m_javaGlue->m_geolocationPermissionsShowPrompt,
                         originString);
     env->DeleteLocalRef(originString);
@@ -3344,16 +3418,20 @@ void WebViewCore::geolocationPermissionsShowPrompt(const WTF::String& origin)
 void WebViewCore::geolocationPermissionsHidePrompt()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-                        m_javaGlue->m_geolocationPermissionsHidePrompt);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_geolocationPermissionsHidePrompt);
     checkException(env);
 }
 
 jobject WebViewCore::getDeviceMotionService()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject object = env->CallObjectMethod(m_javaGlue->object(env).get(),
-                                           m_javaGlue->m_getDeviceMotionService);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
+    jobject object = env->CallObjectMethod(javaObject.get(), m_javaGlue->m_getDeviceMotionService);
     checkException(env);
     return object;
 }
@@ -3361,8 +3439,10 @@ jobject WebViewCore::getDeviceMotionService()
 jobject WebViewCore::getDeviceOrientationService()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject object = env->CallObjectMethod(m_javaGlue->object(env).get(),
-                                           m_javaGlue->m_getDeviceOrientationService);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
+    jobject object = env->CallObjectMethod(javaObject.get(), m_javaGlue->m_getDeviceOrientationService);
     checkException(env);
     return object;
 }
@@ -3370,9 +3450,12 @@ jobject WebViewCore::getDeviceOrientationService()
 bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
     jstring jInputStr = wtfStringToJstring(env, text);
     jstring jUrlStr = wtfStringToJstring(env, url);
-    jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsConfirm, jUrlStr, jInputStr);
+    jboolean result = env->CallBooleanMethod(javaObject.get(), m_javaGlue->m_jsConfirm, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
@@ -3382,10 +3465,13 @@ bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, const WTF::String& defaultValue, WTF::String& result)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
     jstring jUrlStr = wtfStringToJstring(env, url);
     jstring jInputStr = wtfStringToJstring(env, text);
     jstring jDefaultStr = wtfStringToJstring(env, defaultValue);
-    jstring returnVal = static_cast<jstring>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr));
+    jstring returnVal = static_cast<jstring>(env->CallObjectMethod(javaObject.get(), m_javaGlue->m_jsPrompt, jUrlStr, jInputStr, jDefaultStr));
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jDefaultStr);
@@ -3403,9 +3489,12 @@ bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, cons
 bool WebViewCore::jsUnload(const WTF::String& url, const WTF::String& message)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
     jstring jInputStr = wtfStringToJstring(env, message);
     jstring jUrlStr = wtfStringToJstring(env, url);
-    jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
+    jboolean result = env->CallBooleanMethod(javaObject.get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
@@ -3415,7 +3504,10 @@ bool WebViewCore::jsUnload(const WTF::String& url, const WTF::String& message)
 bool WebViewCore::jsInterrupt()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsInterrupt);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
+    jboolean result = env->CallBooleanMethod(javaObject.get(), m_javaGlue->m_jsInterrupt);
     checkException(env);
     return result;
 }
@@ -3430,10 +3522,18 @@ jobject
 WebViewCore::getWebViewJavaObject()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    return env->GetObjectField(m_javaGlue->object(env).get(), gWebViewCoreFields.m_webView);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
+    return env->GetObjectField(javaObject.get(), gWebViewCoreFields.m_webView);
 }
 
-void WebViewCore::updateTextSelection() {
+void WebViewCore::updateTextSelection()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     WebCore::Node* focusNode = currentFocus();
     if (!focusNode)
         return;
@@ -3441,8 +3541,7 @@ void WebViewCore::updateTextSelection() {
     if (!renderer || (!renderer->isTextArea() && !renderer->isTextField()))
         return;
     RenderTextControl* rtc = static_cast<RenderTextControl*>(renderer);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
             rtc->selectionStart(), rtc->selectionEnd(), m_textGeneration);
     checkException(env);
@@ -3451,17 +3550,20 @@ void WebViewCore::updateTextSelection() {
 void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
         const WTF::String& text)
 {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     if (m_blockTextfieldUpdates)
         return;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (changeToPassword) {
-        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateTextfield,
+        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateTextfield,
                 (int) ptr, true, 0, m_textGeneration);
         checkException(env);
         return;
     }
     jstring string = wtfStringToJstring(env, text);
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateTextfield,
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateTextfield,
             (int) ptr, false, string, m_textGeneration);
     env->DeleteLocalRef(string);
     checkException(env);
@@ -3470,8 +3572,10 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
 void WebViewCore::clearTextEntry()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-        m_javaGlue->m_clearTextEntry);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_clearTextEntry);
 }
 
 void WebViewCore::setBackgroundColor(SkColor c)
@@ -3493,10 +3597,13 @@ void WebViewCore::setBackgroundColor(SkColor c)
 jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* className)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
 
     jstring libString = wtfStringToJstring(env, libName);
     jstring classString = env->NewStringUTF(className);
-    jobject pluginClass = env->CallObjectMethod(m_javaGlue->object(env).get(),
+    jobject pluginClass = env->CallObjectMethod(javaObject.get(),
                                            m_javaGlue->m_getPluginClass,
                                            libString, classString);
     checkException(env);
@@ -3505,36 +3612,41 @@ jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* class
     env->DeleteLocalRef(libString);
     env->DeleteLocalRef(classString);
 
-    if (pluginClass != NULL) {
+    if (pluginClass != 0) {
         return static_cast<jclass>(pluginClass);
     } else {
-        return NULL;
+        return 0;
     }
 }
 
 void WebViewCore::showFullScreenPlugin(jobject childView, NPP npp)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
 
-    env->CallVoidMethod(obj.get(),
-                        m_javaGlue->m_showFullScreenPlugin, childView, (int)npp);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_showFullScreenPlugin, childView, reinterpret_cast<int>(npp));
     checkException(env);
 }
 
 void WebViewCore::hideFullScreenPlugin()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-                        m_javaGlue->m_hideFullScreenPlugin);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_hideFullScreenPlugin);
     checkException(env);
 }
 
 jobject WebViewCore::createSurface(jobject view)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
-                                           m_javaGlue->m_createSurface, view);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
+    jobject result = env->CallObjectMethod(javaObject.get(), m_javaGlue->m_createSurface, view);
     checkException(env);
     return result;
 }
@@ -3542,7 +3654,10 @@ jobject WebViewCore::createSurface(jobject view)
 jobject WebViewCore::addSurface(jobject view, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
+    jobject result = env->CallObjectMethod(javaObject.get(),
                                            m_javaGlue->m_addSurface,
                                            view, x, y, width, height);
     checkException(env);
@@ -3552,7 +3667,10 @@ jobject WebViewCore::addSurface(jobject view, int x, int y, int width, int heigh
 void WebViewCore::updateSurface(jobject childView, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(),
                         m_javaGlue->m_updateSurface, childView,
                         x, y, width, height);
     checkException(env);
@@ -3561,16 +3679,21 @@ void WebViewCore::updateSurface(jobject childView, int x, int y, int width, int 
 void WebViewCore::destroySurface(jobject childView)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_destroySurface, childView);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_destroySurface, childView);
     checkException(env);
 }
 
 jobject WebViewCore::getContext()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return 0;
 
-    jobject result = env->CallObjectMethod(obj.get(), m_javaGlue->m_getContext);
+    jobject result = env->CallObjectMethod(javaObject.get(), m_javaGlue->m_getContext);
     checkException(env);
     return result;
 }
@@ -3578,7 +3701,10 @@ jobject WebViewCore::getContext()
 void WebViewCore::keepScreenOn(bool screenOn) {
     if ((screenOn && m_screenOnCounter == 0) || (!screenOn && m_screenOnCounter == 1)) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_keepScreenOn, screenOn);
+        AutoJObject javaObject = m_javaGlue->object(env);
+        if (!javaObject.get())
+            return;
+        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_keepScreenOn, screenOn);
         checkException(env);
     }
 
@@ -3609,7 +3735,10 @@ void WebViewCore::showRect(int left, int top, int width, int height,
         float xPercentInView, float yPercentInDoc, float yPercentInView)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_showRect,
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_showRect,
             left, top, width, height, contentWidth, contentHeight,
             xPercentInDoc, xPercentInView, yPercentInDoc, yPercentInView);
     checkException(env);
@@ -3618,24 +3747,30 @@ void WebViewCore::showRect(int left, int top, int width, int height,
 void WebViewCore::centerFitRect(int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_centerFitRect, x, y, width, height);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_centerFitRect, x, y, width, height);
     checkException(env);
 }
-
 
 void WebViewCore::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setScrollbarModes,
-            horizontalMode, verticalMode);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_setScrollbarModes, horizontalMode, verticalMode);
     checkException(env);
 }
 
 void WebViewCore::notifyWebAppCanBeInstalled()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setInstallableWebApp);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_setInstallableWebApp);
     checkException(env);
 }
 
@@ -3643,9 +3778,11 @@ void WebViewCore::notifyWebAppCanBeInstalled()
 void WebViewCore::enterFullscreenForVideoLayer(int layerId, const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     jstring jUrlStr = wtfStringToJstring(env, url);
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-                        m_javaGlue->m_enterFullscreenForVideoLayer, layerId, jUrlStr);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_enterFullscreenForVideoLayer, layerId, jUrlStr);
     checkException(env);
 }
 #endif
@@ -3654,8 +3791,11 @@ void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previe
 {
 #if ENABLE(WEB_AUTOFILL)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
     jstring preview = env->NewString(previewSummary.data(), previewSummary.length());
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId, preview);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId, preview);
     env->DeleteLocalRef(preview);
 #endif
 }
@@ -3663,8 +3803,10 @@ void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previe
 bool WebViewCore::drawIsPaused() const
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    return env->GetBooleanField(m_javaGlue->object(env).get(),
-        gWebViewCoreFields.m_drawIsPaused);
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
+    return env->GetBooleanField(javaObject.get(), gWebViewCoreFields.m_drawIsPaused);
 }
 
 #if USE(CHROME_NETWORK_STACK)

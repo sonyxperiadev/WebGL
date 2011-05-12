@@ -345,11 +345,12 @@ public:
         FrameView* frameView = m_player->frameView();
         if (!frameView)
             return;
-        WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
-        ASSERT(webViewCore);
+        AutoJObject javaObject = WebViewCore::getWebViewCore(frameView)->getJavaObject();
+        if (!javaObject.get())
+            return;
 
         // Get the HTML5VideoViewProxy instance
-        obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get(), this);
+        obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, javaObject.get(), this);
         m_glue->m_javaProxy = env->NewGlobalRef(obj);
         // Send the poster
         jstring jUrl = 0;
@@ -361,8 +362,7 @@ public:
             env->DeleteLocalRef(jUrl);
 
         // Clean up.
-        if (obj)
-            env->DeleteLocalRef(obj);
+        env->DeleteLocalRef(obj);
         env->DeleteLocalRef(clazz);
         checkException(env);
     }

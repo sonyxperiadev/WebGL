@@ -67,6 +67,8 @@ jobject DeviceOrientationClientImpl::getJavaInstance()
 
     ASSERT(m_webViewCore);
     jobject object = m_webViewCore->getDeviceOrientationService();
+    if (!object)
+        return 0;
 
     // Get the Java DeviceOrientationService class.
     jclass javaDeviceOrientationServiceClass = env->GetObjectClass(object);
@@ -93,20 +95,24 @@ jobject DeviceOrientationClientImpl::getJavaInstance()
 
 void DeviceOrientationClientImpl::releaseJavaInstance()
 {
-    ASSERT(m_javaDeviceOrientationServiceObject);
-    getJNIEnv()->DeleteGlobalRef(m_javaDeviceOrientationServiceObject);
+    if (m_javaDeviceOrientationServiceObject)
+        getJNIEnv()->DeleteGlobalRef(m_javaDeviceOrientationServiceObject);
 }
 
 void DeviceOrientationClientImpl::startUpdating()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodStart]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodStart]);
 }
 
 void DeviceOrientationClientImpl::stopUpdating()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodStop]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodStop]);
 }
 
 void DeviceOrientationClientImpl::onOrientationChange(PassRefPtr<DeviceOrientation> orientation)
@@ -117,14 +123,18 @@ void DeviceOrientationClientImpl::onOrientationChange(PassRefPtr<DeviceOrientati
 
 void DeviceOrientationClientImpl::suspend()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodSuspend]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodSuspend]);
 }
 
 void DeviceOrientationClientImpl::resume()
 {
-    getJNIEnv()->CallVoidMethod(getJavaInstance(),
-        javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodResume]);
+    jobject javaInstance = getJavaInstance();
+    if (!javaInstance)
+        return;
+    getJNIEnv()->CallVoidMethod(javaInstance, javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodResume]);
 }
 
 } // namespace android

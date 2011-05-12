@@ -422,10 +422,14 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     LOGV("::WebCore:: startLoadingResource(%p, %s)",
             loader, request.url().string().latin1().data());
 
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return 0;
+
     WTF::String method = request.httpMethod();
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
-    JNIEnv* env = getJNIEnv();
     WTF::String urlStr = request.url().string();
     int colon = urlStr.find(':');
     bool allLower = true;
@@ -475,7 +479,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
     jobject jLoadListener =
-        env->CallObjectMethod(mJavaFrame->frame(env).get(), mJavaFrame->mStartLoadingResource,
+        env->CallObjectMethod(javaFrame.get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
                 jPostDataStr, formdata ? formdata->identifier(): 0,
                 cacheMode, mainResource, isUserGesture,
@@ -488,7 +492,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     env->DeleteLocalRef(jUsernameString);
     env->DeleteLocalRef(jPasswordString);
     if (checkException(env))
-        return NULL;
+        return 0;
 
     PassRefPtr<WebCore::ResourceLoaderAndroid> h;
     if (jLoadListener)
@@ -506,8 +510,12 @@ WebFrame::shouldInterceptRequest(const WTF::String& url)
     LOGV("::WebCore:: shouldInterceptRequest(%s)", url.latin1().data());
 
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return 0;
+
     jstring urlStr = wtfStringToJstring(env, url);
-    jobject response = env->CallObjectMethod(mJavaFrame->frame(env).get(), mJavaFrame->mShouldInterceptRequest, urlStr);
+    jobject response = env->CallObjectMethod(javaFrame.get(), mJavaFrame->mShouldInterceptRequest, urlStr);
     env->DeleteLocalRef(urlStr);
     if (response == 0)
         return 0;
@@ -523,11 +531,13 @@ WebFrame::reportError(int errorCode, const WTF::String& description,
 #endif
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
     jstring descStr = wtfStringToJstring(env, description);
     jstring failUrl = wtfStringToJstring(env, failingUrl);
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mReportError,
-            errorCode, descStr, failUrl);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportError, errorCode, descStr, failUrl);
     env->DeleteLocalRef(descStr);
     env->DeleteLocalRef(failUrl);
 }
@@ -538,6 +548,11 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     // activeDocumentLoader() can return null.
     DocumentLoader* documentLoader = frame->loader()->activeDocumentLoader();
     if (documentLoader == NULL)
@@ -556,7 +571,6 @@ WebFrame::loadStarted(WebCore::Frame* frame)
              !isMainFrame))
         return;
 
-    JNIEnv* env = getJNIEnv();
     const WTF::String& urlString = url.string();
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
@@ -569,8 +583,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     }
     jstring urlStr = wtfStringToJstring(env, urlString);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadStarted, urlStr, favicon,
-            (int)loadType, isMainFrame);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mLoadStarted, urlStr, favicon, static_cast<int>(loadType), isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
     if (favicon)
@@ -594,10 +607,13 @@ WebFrame::transitionToCommitted(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mTransitionToCommitted,
-            (int)loadType, isMainFrame);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mTransitionToCommitted, static_cast<int>(loadType), isMainFrame);
     checkException(env);
 }
 
@@ -608,6 +624,9 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
     // activeDocumentLoader() can return null.
     WebCore::FrameLoader* loader = frame->loader();
@@ -624,8 +643,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     WebCore::FrameLoadType loadType = loader->loadType();
     const WTF::String& urlString = url.string();
     jstring urlStr = wtfStringToJstring(env, urlString);
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadFinished, urlStr,
-            (int)loadType, isMainFrame);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mLoadFinished, urlStr, static_cast<int>(loadType), isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
 }
@@ -673,9 +691,13 @@ WebFrame::setTitle(const WTF::String& title)
     LOGV("setTitle(%s)", title.ascii().data());
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     jstring jTitleStr = wtfStringToJstring(env, title);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetTitle, jTitleStr);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSetTitle, jTitleStr);
     checkException(env);
     env->DeleteLocalRef(jTitleStr);
 }
@@ -688,8 +710,11 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
 #endif
     LOGV("::WebCore:: windowObjectCleared");
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mWindowObjectCleared, (int)frame);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mWindowObjectCleared, (int)frame);
     checkException(env);
 }
 
@@ -700,8 +725,12 @@ WebFrame::setProgress(float newProgress)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    int progress = (int) (100 * newProgress);
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetProgress, progress);
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
+    int progress = static_cast<int>(100 * newProgress);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSetProgress, progress);
     checkException(env);
 }
 
@@ -719,11 +748,15 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 #endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     jobject bitmap = webcoreImageToJavaBitmap(env, icon);
     if (!bitmap)
         return;
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDidReceiveIcon, bitmap);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveIcon, bitmap);
     env->DeleteLocalRef(bitmap);
     checkException(env);
 }
@@ -735,10 +768,13 @@ WebFrame::didReceiveTouchIconURL(const WTF::String& url, bool precomposed)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     jstring jUrlStr = wtfStringToJstring(env, url);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
 }
@@ -749,11 +785,15 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    const WTF::String& urlStr = url.string();
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
+    const WTF::String& urlStr = url.string();
     jstring jUrlStr = wtfStringToJstring(env, urlStr);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);
 }
@@ -764,6 +804,11 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return true;
+
     // always handle "POST" in place
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
@@ -778,12 +823,11 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     // Empty urls should not be sent to java
     if (url.isEmpty())
         return true;
-    JNIEnv* env = getJNIEnv();
     jstring jUrlStr = wtfStringToJstring(env, url);
 
     // check to see whether browser app wants to hijack url loading.
     // if browser app handles the url, we will return false to bail out WebCore loading
-    jboolean ret = env->CallBooleanMethod(mJavaFrame->frame(env).get(), mJavaFrame->mHandleUrl, jUrlStr);
+    jboolean ret = env->CallBooleanMethod(javaFrame.get(), mJavaFrame->mHandleUrl, jUrlStr);
     checkException(env);
     env->DeleteLocalRef(jUrlStr);
     return (ret == 0);
@@ -793,8 +837,10 @@ bool
 WebFrame::shouldSaveFormData()
 {
     JNIEnv* env = getJNIEnv();
-    jboolean ret = env->CallBooleanMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mShouldSaveFormData);
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return false;
+    jboolean ret = env->CallBooleanMethod(javaFrame.get(), mJavaFrame->mShouldSaveFormData);
     checkException(env);
     return ret;
 }
@@ -806,13 +852,13 @@ WebFrame::createWindow(bool dialog, bool userGesture)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    jobject obj = env->CallObjectMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mCreateWindow, dialog, userGesture);
-    if (obj) {
-        WebCore::Frame* frame = GET_NATIVE_FRAME(env, obj);
-        return frame;
-    }
-    return NULL;
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return 0;
+    jobject obj = env->CallObjectMethod(javaFrame.get(), mJavaFrame->mCreateWindow, dialog, userGesture);
+    if (!obj)
+        return 0;
+    return GET_NATIVE_FRAME(env, obj);
 }
 
 void
@@ -822,7 +868,10 @@ WebFrame::requestFocus() const
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestFocus);
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mRequestFocus);
     checkException(env);
 }
 
@@ -834,8 +883,13 @@ WebFrame::closeWindow(WebViewCore* webViewCore)
 #endif
     assert(webViewCore);
     JNIEnv* env = getJNIEnv();
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mCloseWindow,
-            webViewCore->getJavaObject().get());
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+    AutoJObject javaObject = webViewCore->getJavaObject();
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mCloseWindow, javaObject.get());
 }
 
 struct PolicyFunctionWrapper {
@@ -849,17 +903,22 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
     PolicyFunctionWrapper* p = new PolicyFunctionWrapper;
     p->func = func;
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
 }
 
 WTF::String
 WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
 {
     JNIEnv* env = getJNIEnv();
-    jstring ret = (jstring) env->CallObjectMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mGetRawResFilename, (int)id);
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return String();
+    jstring ret = (jstring) env->CallObjectMethod(javaFrame.get(), mJavaFrame->mGetRawResFilename, static_cast<int>(id));
 
     return jstringToWtfString(env, ret);
 }
@@ -868,7 +927,10 @@ float
 WebFrame::density() const
 {
     JNIEnv* env = getJNIEnv();
-    jfloat dpi = env->CallFloatMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDensity);
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return 0.0;
+    jfloat dpi = env->CallFloatMethod(javaFrame.get(), mJavaFrame->mDensity);
     checkException(env);
     return dpi;
 }
@@ -881,12 +943,14 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
     int jHandle = reinterpret_cast<int>(client);
     jstring jHost = stdStringToJstring(env, host, true);
     jstring jRealm = stdStringToJstring(env, realm, true);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
     env->DeleteLocalRef(jHost);
     env->DeleteLocalRef(jRealm);
     checkException(env);
@@ -900,6 +964,9 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
     int jHandle = reinterpret_cast<int>(client);
 
     int len = cert.length();
@@ -907,8 +974,7 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
     jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
     cert.copy(reinterpret_cast<char*>(bytes), len);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert);
     env->DeleteLocalRef(jCert);
     checkException(env);
 }
@@ -921,13 +987,15 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
     jstring jUrl = stdStringToJstring(env, url, true);
     jstring jUserAgent = stdStringToJstring(env, userAgent, true);
     jstring jContentDisposition = stdStringToJstring(env, contentDisposition, true);
     jstring jMimetype = stdStringToJstring(env, mimetype, true);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, contentLength);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, contentLength);
 
     env->DeleteLocalRef(jUrl);
     env->DeleteLocalRef(jUserAgent);
@@ -942,13 +1010,15 @@ WebFrame::didReceiveData(const char* data, int size) {
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
     jbyteArray jData = env->NewByteArray(size);
     jbyte* bytes = env->GetByteArrayElements(jData, NULL);
     memcpy(reinterpret_cast<char*>(bytes), data, size);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mDidReceiveData, jData, size);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveData, jData, size);
     env->DeleteLocalRef(jData);
     checkException(env);
 }
@@ -959,8 +1029,11 @@ WebFrame::didFinishLoading() {
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDidFinishLoading);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidFinishLoading);
     checkException(env);
 }
 
@@ -973,13 +1046,16 @@ void WebFrame::setCertificate(const std::string& cert)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
 
     int len = cert.length();
     jbyteArray jCert = env->NewByteArray(len);
     jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
     cert.copy(reinterpret_cast<char*>(bytes), len);
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetCertificate, jCert);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSetCertificate, jCert);
 
     env->DeleteLocalRef(jCert);
     checkException(env);
@@ -991,6 +1067,11 @@ void WebFrame::autoLogin(const std::string& loginHeader)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimerCoutner::JavaCallbackTimeCounter);
 #endif
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     WTF::String header(loginHeader.c_str(), loginHeader.length());
     WTF::Vector<WTF::String> split;
     header.split('&', split);
@@ -1022,17 +1103,20 @@ void WebFrame::autoLogin(const std::string& loginHeader)
         if (realm.isEmpty() || args.isEmpty())
             return;
 
-        JNIEnv* env = getJNIEnv();
         jstring jRealm = wtfStringToJstring(env, realm, true);
         jstring jAccount = wtfStringToJstring(env, account);
         jstring jArgs = wtfStringToJstring(env, args, true);
-        env->CallVoidMethod(mJavaFrame->frame(env).get(),
-                mJavaFrame->mAutoLogin, jRealm, jAccount, jArgs);
+        env->CallVoidMethod(javaFrame.get(), mJavaFrame->mAutoLogin, jRealm, jAccount, jArgs);
     }
 }
 
 void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request)
 {
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     if (request.httpMethod() != "POST")
         return;
 
@@ -1041,14 +1125,11 @@ void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceR
     if (!getUsernamePasswordFromDom(frame, username, password))
         return;
 
-    JNIEnv* env = getJNIEnv();
     jstring jUsername = wtfStringToJstring(env, username);
     jstring jPassword = wtfStringToJstring(env, password);
     jbyteArray jPostData = getPostData(request);
-    if (jPostData) {
-        env->CallVoidMethod(mJavaFrame->frame(env).get(),
-                mJavaFrame->mMaybeSavePassword, jPostData, jUsername, jPassword);
-    }
+    if (jPostData)
+        env->CallVoidMethod(javaFrame.get(), mJavaFrame->mMaybeSavePassword, jPostData, jUsername, jPassword);
 
     env->DeleteLocalRef(jPostData);
     env->DeleteLocalRef(jUsername);
@@ -1087,12 +1168,14 @@ bool WebFrame::getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& us
 
 jbyteArray WebFrame::getPostData(const WebCore::ResourceRequest& request)
 {
-    jbyteArray jPostDataStr = NULL;
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return 0;
+
+    jbyteArray jPostDataStr = 0;
     WebCore::FormData* formdata = request.httpBody();
     if (formdata) {
-        JNIEnv* env = getJNIEnv();
-        AutoJObject obj = mJavaFrame->frame(env);
-
         // We can use the formdata->flatten() but it will result in two
         // memcpys, first through loading up the vector with the form data
         // then another to copy it out of the vector and into the java byte
@@ -1112,8 +1195,7 @@ jbyteArray WebFrame::getPostData(const WebCore::ResourceRequest& request)
                 size += e.m_data.size();
             } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
                 fileinfos[i] = new FileInfo(env, e.m_filename);
-                int delta = env->CallIntMethod(obj.get(),
-                    mJavaFrame->mGetFileSize, fileinfos[i]->getUri());
+                int delta = env->CallIntMethod(javaFrame.get(), mJavaFrame->mGetFileSize, fileinfos[i]->getUri());
                 checkException(env);
                 fileinfos[i]->setSize(delta);
                 size += delta;
@@ -1135,11 +1217,10 @@ jbyteArray WebFrame::getPostData(const WebCore::ResourceRequest& request)
                         int delta = e.m_data.size();
                         memcpy(bytes + offset, e.m_data.data(), delta);
                         offset += delta;
-                    } else if (e.m_type
-                            == WebCore::FormDataElement::encodedFile) {
-                        int delta = env->CallIntMethod(obj.get(),
-                            mJavaFrame->mGetFile, fileinfos[i]->getUri(),
-                            jPostDataStr, offset, fileinfos[i]->getSize());
+                    } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
+                        int delta = env->CallIntMethod(javaFrame.get(),
+                                mJavaFrame->mGetFile, fileinfos[i]->getUri(),
+                                jPostDataStr, offset, fileinfos[i]->getSize());
                         checkException(env);
                         offset += delta;
                     }
@@ -1942,6 +2023,11 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
 void
 WebFrame::saveFormData(HTMLFormElement* form)
 {
+    JNIEnv* env = getJNIEnv();
+    AutoJObject javaFrame = mJavaFrame->frame(env);
+    if (!javaFrame.get())
+        return;
+
     if (form->autoComplete()) {
         JNIEnv* env = getJNIEnv();
         jclass mapClass = env->FindClass("java/util/HashMap");
@@ -1975,7 +2061,7 @@ WebFrame::saveFormData(HTMLFormElement* form)
                 }
             }
         }
-        env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSaveFormData, hashMap);
+        env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSaveFormData, hashMap);
         env->DeleteLocalRef(hashMap);
         env->DeleteLocalRef(mapClass);
     }
