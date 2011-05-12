@@ -247,13 +247,6 @@ public:
         SkCanvas::drawPath(path, paint);
     }
 
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
-                              const SkMatrix& matrix, const SkPaint& paint) {
-        mBounder.setType(CommonCheck::kDrawBitmap_Type);
-        mBounder.setIsOpaque(bitmap.isOpaque());
-        SkCanvas::commonDrawBitmap(bitmap, matrix, paint);
-    }
-
     virtual void drawSprite(const SkBitmap& bitmap, int left, int top,
                             const SkPaint* paint = NULL) {
         mBounder.setType(CommonCheck::kDrawSprite_Type);
