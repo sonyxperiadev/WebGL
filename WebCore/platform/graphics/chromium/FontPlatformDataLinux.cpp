@@ -71,7 +71,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
     , m_fakeItalic(src.m_fakeItalic)
     , m_harfbuzzFace(src.m_harfbuzzFace)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
 }
 
 FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold, bool fakeItalic)
@@ -80,7 +80,7 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
     , m_fakeBold(fakeBold)
     , m_fakeItalic(fakeItalic)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
@@ -90,7 +90,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     , m_fakeItalic(src.m_fakeItalic)
     , m_harfbuzzFace(src.m_harfbuzzFace)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
 }
 
 FontPlatformData::~FontPlatformData()

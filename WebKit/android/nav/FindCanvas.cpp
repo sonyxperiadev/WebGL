@@ -54,7 +54,7 @@ MatchInfo::MatchInfo(const MatchInfo& src) {
     m_layerId = src.m_layerId;
     m_location = src.m_location;
     m_picture = src.m_picture;
-    m_picture->safeRef();
+    SkSafeRef(m_picture);
 }
 
 void MatchInfo::set(const SkRegion& region, SkPicture* pic, int layerId) {

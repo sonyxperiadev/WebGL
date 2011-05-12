@@ -73,7 +73,7 @@ FontPlatformData::FontPlatformData()
 FontPlatformData::FontPlatformData(const FontPlatformData& src)
 {
     if (hashTableDeletedFontValue() != src.mTypeface) {
-        src.mTypeface->safeRef();
+        SkSafeRef(src.mTypeface);
     }
 
     mTypeface   = src.mTypeface;
@@ -90,7 +90,7 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
     : mTypeface(tf), mTextSize(textSize), mFakeBold(fakeBold), mFakeItalic(fakeItalic)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeRef();
+        SkSafeRef(mTypeface);
     }
     
     inc_count();
@@ -101,7 +101,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     : mTypeface(src.mTypeface), mTextSize(textSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
-        mTypeface->safeRef();
+        SkSafeRef(mTypeface);
     }
 
     inc_count();
@@ -130,7 +130,7 @@ FontPlatformData::~FontPlatformData()
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 {
     if (hashTableDeletedFontValue() != src.mTypeface) {
-        src.mTypeface->safeRef();
+        SkSafeRef(src.mTypeface);
     }
     if (hashTableDeletedFontValue() != mTypeface) {
         SkSafeUnref(mTypeface);
