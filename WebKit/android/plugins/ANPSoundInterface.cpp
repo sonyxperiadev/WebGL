@@ -30,7 +30,7 @@
 #include "SkTypes.h"
 #include "media/AudioTrack.h"
 
-#include <hardware/audio.h>
+#include <system/audio.h>
 
 struct ANPAudioTrack {
     void*                mUser;
