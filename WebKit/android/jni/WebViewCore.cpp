@@ -621,7 +621,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         DBG_SET_LOGD("{%d,%d,w=%d,h=%d}", inval.fLeft,
             inval.fTop, inval.width(), inval.height());
         content->add(m_addInval, picture, 0, false);
-        picture->safeUnref();
+        SkSafeUnref(picture);
     }
     // Remove any pictures already in the set that are obscured by the new one,
     // and check to see if any already split pieces need to be redrawn.

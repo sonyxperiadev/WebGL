@@ -1268,8 +1268,8 @@ SelectText::SelectText()
     paint.setShader(dropGradient);
     canvas->drawRect(endDropRect, paint);
     m_endControl.endRecording();
-    fillGradient->safeUnref();
-    dropGradient->safeUnref();
+    SkSafeUnref(fillGradient);
+    SkSafeUnref(dropGradient);
     m_picture = 0;
 }
 

@@ -95,7 +95,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
 
 FontPlatformData::~FontPlatformData()
 {
-    m_typeface->safeUnref();
+    SkSafeUnref(m_typeface);
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)

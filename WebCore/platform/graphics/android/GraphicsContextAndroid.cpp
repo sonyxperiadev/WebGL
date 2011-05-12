@@ -121,7 +121,7 @@ public:
         
         ~State() {
             delete mPath;
-            mPathEffect->safeUnref();
+            SkSafeUnref(mPathEffect);
         }
         
         void setShadow(int radius, int dx, int dy, SkColor c) {
@@ -986,7 +986,7 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     for (unsigned int i = 0; i < count; i++)
         intervals[i] = SkFloatToScalar(dashes[i % dashLength]);
     SkPathEffect **effectPtr = &m_data->mState->mPathEffect;
-    (*effectPtr)->safeUnref();
+    SkSafeUnref((*effectPtr));
     *effectPtr = new SkDashPathEffect(intervals, count, SkFloatToScalar(dashOffset));
 
     delete[] intervals;

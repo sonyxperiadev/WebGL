@@ -120,7 +120,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
 LayerAndroid::~LayerAndroid()
 {
     removeChildren();
-    m_recordingPicture->safeUnref();
+    SkSafeUnref(m_recordingPicture);
     m_animations.clear();
     gDebugLayerAndroidInstances--;
 }
@@ -375,11 +375,11 @@ bool LayerAndroid::prepareContext(bool force)
             || (m_recordingPicture
                 && ((m_recordingPicture->width() != (int) getSize().width())
                    || (m_recordingPicture->height() != (int) getSize().height())))) {
-            m_recordingPicture->safeUnref();
+            SkSafeUnref(m_recordingPicture);
             m_recordingPicture = new SkPicture();
         }
     } else if (m_recordingPicture) {
-        m_recordingPicture->safeUnref();
+        SkSafeUnref(m_recordingPicture);
         m_recordingPicture = 0;
     }
 

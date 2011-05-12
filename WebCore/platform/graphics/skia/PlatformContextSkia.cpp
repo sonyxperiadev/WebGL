@@ -157,10 +157,10 @@ PlatformContextSkia::State::State(const State& other)
 
 PlatformContextSkia::State::~State()
 {
-    m_looper->safeUnref();
-    m_dash->safeUnref();
-    m_fillShader->safeUnref();
-    m_strokeShader->safeUnref();
+    SkSafeUnref(m_looper);
+    SkSafeUnref(m_dash);
+    SkSafeUnref(m_fill);
+    SkSafeUnref(m_stro);
 }
 
 SkColor PlatformContextSkia::State::applyAlpha(SkColor c) const
@@ -319,7 +319,7 @@ void PlatformContextSkia::drawRect(SkRect rect)
         canvas()->drawRect(rightBorder, paint);
         setFillColor(oldFillColor);
         setFillShader(oldFillShader);
-        oldFillShader->safeUnref();
+        SkSafeUnref(oldFillShader);
     }
 }
 
@@ -477,7 +477,7 @@ void PlatformContextSkia::setStrokeThickness(float thickness)
 void PlatformContextSkia::setStrokeShader(SkShader* strokeShader)
 {
     if (strokeShader != m_state->m_strokeShader) {
-        m_state->m_strokeShader->safeUnref();
+        SkSafeUnref(m_state->m_strokeShader);
         m_state->m_strokeShader = strokeShader;
         m_state->m_strokeShader->safeRef();
     }
@@ -545,7 +545,7 @@ void PlatformContextSkia::setFillRule(SkPath::FillType fr)
 void PlatformContextSkia::setFillShader(SkShader* fillShader)
 {
     if (fillShader != m_state->m_fillShader) {
-        m_state->m_fillShader->safeUnref();
+        SkSafeUnref(m_state->m_fillShader);
         m_state->m_fillShader = fillShader;
         m_state->m_fillShader->safeRef();
     }
@@ -554,7 +554,7 @@ void PlatformContextSkia::setFillShader(SkShader* fillShader)
 void PlatformContextSkia::setDashPathEffect(SkDashPathEffect* dash)
 {
     if (dash != m_state->m_dash) {
-        m_state->m_dash->safeUnref();
+        SkSafeUnref(m_state->m_dash);
         m_state->m_dash = dash;
     }
 }

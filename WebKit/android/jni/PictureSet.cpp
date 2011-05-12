@@ -150,7 +150,7 @@ bool PictureSet::build()
             }
         }
         if (tossPicture) {
-            working->mPicture->safeUnref();
+            SkSafeUnref(working->mPicture);
             working->mPicture = NULL; // mark to redraw
         }
         if (working->mPicture == NULL) // may have been set to null elsewhere
@@ -211,7 +211,7 @@ void PictureSet::clear()
     Pictures* last = mPictures.end();
     for (Pictures* working = mPictures.begin(); working != last; working++) {
         working->mArea.setEmpty();
-        working->mPicture->safeUnref();
+        SkSafeUnref(working->mPicture);
     }
     mPictures.clear();
     mWidth = mHeight = 0;
@@ -474,7 +474,7 @@ bool PictureSet::reuseSubdivided(const SkRegion& inval)
         if ((working->mSplit == false || invalBounds != working->mUnsplit) &&
                 inval.contains(working->mArea) == false)
             continue;
-        working->mPicture->safeUnref();
+        SkSafeUnref(working->mPicture);
         working->mPicture = NULL;
     }
     return true;
@@ -524,7 +524,7 @@ void PictureSet::setDrawTimes(const PictureSet& src)
 
 void PictureSet::setPicture(size_t i, SkPicture* p)
 {
-    mPictures[i].mPicture->safeUnref();
+    SkSafeUnref(mPictures[i].mPicture);
     mPictures[i].mPicture = p;
     mPictures[i].mEmpty = emptyPicture(p);
 }
