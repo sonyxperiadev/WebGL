@@ -68,7 +68,7 @@ PictureSet::~PictureSet()
 void PictureSet::add(const Pictures* temp)
 {
     Pictures pictureAndBounds = *temp;
-    pictureAndBounds.mPicture->safeRef();
+    SkSafeRef(pictureAndBounds.mPicture);
     pictureAndBounds.mWroteElapsed = false;
     mPictures.append(pictureAndBounds);
 }
@@ -80,7 +80,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         area.getBounds().fLeft, area.getBounds().fTop,
         area.getBounds().fRight, area.getBounds().fBottom, picture,
         elapsed, split);
-    picture->safeRef();
+    SkSafeRef(picture);
     /* if nothing is drawn beneath part of the new picture, mark it as a base */
     SkRegion diff = SkRegion(area);
     Pictures* last = mPictures.end();

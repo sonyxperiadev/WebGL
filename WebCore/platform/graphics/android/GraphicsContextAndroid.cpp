@@ -116,7 +116,7 @@ public:
         State(const State& other) {
             memcpy(this, &other, sizeof(State));
             mPath = deepCopyPtr<SkPath>(other.mPath);
-            mPathEffect->safeRef();
+            SkSafeRef(mPathEffect);
         }
         
         ~State() {

@@ -149,10 +149,10 @@ PlatformContextSkia::State::State(const State& other)
 #endif
 {
     // Up the ref count of these. saveRef does nothing if 'this' is NULL.
-    m_looper->safeRef();
-    m_dash->safeRef();
-    m_fillShader->safeRef();
-    m_strokeShader->safeRef();
+    SkSafeRef(m_looper);
+    SkSafeRef(m_dash);
+    SkSafeRef(m_fillShader);
+    SkSafeRef(m_strokeShader);
 }
 
 PlatformContextSkia::State::~State()
@@ -305,7 +305,7 @@ void PlatformContextSkia::drawRect(SkRect rect)
 
         // setFillColor() will set the shader to NULL, so save a ref to it now. 
         SkShader* oldFillShader = m_state->m_fillShader;
-        oldFillShader->safeRef();
+        SkSafeRef(oldFillShader);
         setFillColor(m_state->m_strokeColor);
         paint.reset();
         setupPaintForFilling(&paint);
@@ -479,7 +479,7 @@ void PlatformContextSkia::setStrokeShader(SkShader* strokeShader)
     if (strokeShader != m_state->m_strokeShader) {
         SkSafeUnref(m_state->m_strokeShader);
         m_state->m_strokeShader = strokeShader;
-        m_state->m_strokeShader->safeRef();
+        SkSafeRef(m_state->m_strokeShader);
     }
 }
 
@@ -547,7 +547,7 @@ void PlatformContextSkia::setFillShader(SkShader* fillShader)
     if (fillShader != m_state->m_fillShader) {
         SkSafeUnref(m_state->m_fillShader);
         m_state->m_fillShader = fillShader;
-        m_state->m_fillShader->safeRef();
+        SkSafeRef(m_state->m_fillShader);
     }
 }
 

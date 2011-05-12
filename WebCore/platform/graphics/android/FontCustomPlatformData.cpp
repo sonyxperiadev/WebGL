@@ -35,7 +35,7 @@ namespace WebCore {
 
 FontCustomPlatformData::FontCustomPlatformData(SkTypeface* face)
 {
-    face->safeRef();
+    SkSafeRef(face);
     m_typeface = face;
 }
 
