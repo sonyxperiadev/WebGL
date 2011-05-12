@@ -491,7 +491,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_scrollOffsetY = 0;
     m_screenWidth = 0;
     m_screenHeight = 0;
-    m_groupForVisitedLinks = NULL;
+    m_groupForVisitedLinks = 0;
     m_currentNodeDomNavigationAxis = 0;
 }
 
@@ -1976,7 +1976,7 @@ PluginWidgetAndroid* WebViewCore::getPluginWidget(NPP npp)
             return (*iter);
         }
     }
-    return NULL;
+    return 0;
 }
 
 static PluginView* nodeIsPlugin(Node* node) {
@@ -2042,7 +2042,7 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
 {
     DBG_NAV_LOGD("frame=%p x=%d y=%d scrollOffset=(%d,%d)", frame,
         x, y, m_scrollOffsetX, m_scrollOffsetY);
-    if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
+    if (!frame || !CacheBuilder::validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
@@ -3172,8 +3172,7 @@ static bool shouldSuppressKeyboard(const WebCore::Node* node) {
 // in which case, 'fake' is set to true
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake)
 {
-    bool valid = framePtr == NULL
-            || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
+    bool valid = !framePtr || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle
@@ -3258,7 +3257,7 @@ void WebViewCore::popupReply(const int* array, int count)
     if (m_popupReply) {
         m_popupReply->replyIntArray(array, count);
         Release(m_popupReply);
-        m_popupReply = NULL;
+        m_popupReply = 0;
     }
 }
 
@@ -3433,7 +3432,7 @@ bool WebViewCore::jsInterrupt()
 AutoJObject
 WebViewCore::getJavaObject()
 {
-    return getRealObject(JSC::Bindings::getJNIEnv(), m_javaGlue->m_obj);
+    return m_javaGlue->object(JSC::Bindings::getJNIEnv());
 }
 
 jobject
@@ -4331,7 +4330,7 @@ static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
     jsize len = env->GetArrayLength(array);
     for (jsize i = 0; i < len; i++) {
         jstring item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
-        const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, NULL));
+        const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, 0));
         jsize len = env->GetStringLength(item);
         viewImpl->addVisitedLink(str, len);
         env->ReleaseStringChars(item, str);
@@ -4368,10 +4367,10 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     if (!viewImpl)
-        return NULL;
+        return 0;
     Vector<IntRect> rects = viewImpl->getTouchHighlightRects(x, y, slop);
     if (rects.isEmpty())
-        return NULL;
+        return 0;
 
     jclass arrayClass = env->FindClass("java/util/ArrayList");
     LOG_ASSERT(arrayClass, "Could not find java/util/ArrayList");
@@ -4587,7 +4586,7 @@ int registerWebViewCore(JNIEnv* env)
 
     gWebViewCoreStaticMethods.m_isSupportedMediaMimeType =
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");
-    LOG_FATAL_IF(gWebViewCoreStaticMethods.m_isSupportedMediaMimeType == NULL,
+    LOG_FATAL_IF(!gWebViewCoreStaticMethods.m_isSupportedMediaMimeType,
         "Could not find static method isSupportedMediaMimeType from WebViewCore");
 
     env->DeleteLocalRef(widget);

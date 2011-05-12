@@ -294,9 +294,6 @@ namespace android {
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
 
-        // Create a set of pictures to represent the drawn DOM, driven by
-        // the invalidated region and the time required to draw (used to draw)
-        void recordPictureSet(PictureSet* master);
         void moveFocus(WebCore::Frame* frame, WebCore::Node* node);
         void moveMouse(WebCore::Frame* frame, int x, int y);
         void moveMouseIfLatest(int moveGeneration,
@@ -509,8 +506,6 @@ namespace android {
         // return a list of rects matching the touch point (x, y) with the slop
         Vector<IntRect> getTouchHighlightRects(int x, int y, int slop);
 
-        // other public functions
-    public:
         // Open a file chooser for selecting a file to upload
         void openFileChooser(PassRefPtr<WebCore::FileChooser> );
 
@@ -553,6 +548,28 @@ namespace android {
                 bool multiple, const int selected[], size_t selectedCountOrSelection);
         bool shouldPaintCaret() { return m_shouldPaintCaret; }
         void setShouldPaintCaret(bool should) { m_shouldPaintCaret = should; }
+        bool isPaused() const { return m_isPaused; }
+        void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
+        bool drawIsPaused() const;
+        // The actual content (without title bar) size in doc coordinate
+        int  screenWidth() const { return m_screenWidth; }
+        int  screenHeight() const { return m_screenHeight; }
+#if USE(CHROME_NETWORK_STACK)
+        void setWebRequestContextUserAgent();
+        void setWebRequestContextCacheMode(int mode);
+        WebRequestContext* webRequestContext();
+#endif
+        // Attempts to scroll the layer to the x,y coordinates of rect. The
+        // layer is the id of the LayerAndroid.
+        void scrollRenderLayer(int layer, const SkRect& rect);
+        // call only from webkit thread (like add/remove), return true if inst
+        // is still alive
+        static bool isInstance(WebViewCore*);
+        // if there exists at least one WebViewCore instance then we return the
+        // application context, otherwise NULL is returned.
+        static jobject getApplicationContext();
+        // Check whether a media mimeType is supported in Android media framework.
+        static bool isSupportedMediaMimeType(const WTF::String& mimeType);
 
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
@@ -575,22 +592,6 @@ namespace android {
         // field safely from our respective threads
         static Mutex gButtonMutex;
         WTF::Vector<Container> m_buttons;
-        bool isPaused() const { return m_isPaused; }
-        void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
-        bool drawIsPaused() const;
-        // The actual content (without title bar) size in doc coordinate
-        int  screenWidth() const { return m_screenWidth; }
-        int  screenHeight() const { return m_screenHeight; }
-#if USE(CHROME_NETWORK_STACK)
-        void setWebRequestContextUserAgent();
-        void setWebRequestContextCacheMode(int mode);
-        WebRequestContext* webRequestContext();
-#endif
-
-        // Attempts to scroll the layer to the x,y coordinates of rect. The
-        // layer is the id of the LayerAndroid.
-        void scrollRenderLayer(int layer, const SkRect& rect);
-
         // end of shared members
 
         // internal functions
@@ -602,6 +603,9 @@ namespace android {
         // Then check the old buttons to see if any are no longer needed.
         void updateButtonList(WTF::Vector<Container>* buttons);
         void reset(bool fromConstructor);
+        // Create a set of pictures to represent the drawn DOM, driven by
+        // the invalidated region and the time required to draw (used to draw)
+        void recordPictureSet(PictureSet* master);
 
         friend class ListBoxReply;
         struct JavaGlue;
@@ -699,22 +703,10 @@ namespace android {
         scoped_refptr<WebRequestContext> m_webRequestContext;
 #endif
 
-    private:
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);
         // called from destructor, to remove this from a global list
         static void removeInstance(WebViewCore*);
-    public:
-        // call only from webkit thread (like add/remove), return true if inst
-        // is still alive
-        static bool isInstance(WebViewCore*);
-
-        // if there exists at least on WebViewCore instance then we return the
-        // application context, otherwise NULL is returned.
-        static jobject getApplicationContext();
-
-        // Check whether a media mimeType is supported in Android media framework.
-        static bool isSupportedMediaMimeType(const WTF::String& mimeType);
     };
 
 }   // namespace android
