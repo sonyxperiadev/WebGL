@@ -33,6 +33,10 @@ class OpacityDrawFilter : public SkDrawFilter {
         paint->setAlpha(m_opacity);
         return true;
     }
+    virtual void filter(SkPaint* paint, Type)
+    {
+        paint->setAlpha(m_opacity);
+    }
     virtual void restore(SkCanvas* canvas, SkPaint* paint, Type)
     {
         paint->setAlpha(m_previousOpacity);
