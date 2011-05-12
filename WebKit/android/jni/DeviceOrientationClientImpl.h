@@ -42,6 +42,7 @@ class WebViewCore;
 class DeviceOrientationClientImpl : public DeviceOrientationClient {
 public:
     DeviceOrientationClientImpl(WebViewCore*);
+    virtual ~DeviceOrientationClientImpl();
 
     void onOrientationChange(PassRefPtr<DeviceOrientation>);
     void suspend();
@@ -54,9 +55,7 @@ public:
     virtual void setController(DeviceOrientationController* controller) { m_controller = controller; }
     virtual void deviceOrientationControllerDestroyed() { }
 
-protected:
-    virtual ~DeviceOrientationClientImpl();
-
+private:
     jobject getJavaInstance();
     void releaseJavaInstance();
 

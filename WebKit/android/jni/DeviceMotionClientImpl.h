@@ -42,6 +42,7 @@ class WebViewCore;
 class DeviceMotionClientImpl : public DeviceMotionClient {
 public:
     DeviceMotionClientImpl(WebViewCore*);
+    virtual ~DeviceMotionClientImpl();
 
     void onMotionChange(PassRefPtr<DeviceMotionData>);
     void suspend();
@@ -54,9 +55,7 @@ public:
     virtual void setController(DeviceMotionController* controller) { m_controller = controller; }
     virtual void deviceMotionControllerDestroyed() { }
 
-protected:
-    virtual ~DeviceMotionClientImpl();
-
+private:
     jobject getJavaInstance();
     void releaseJavaInstance();
 
