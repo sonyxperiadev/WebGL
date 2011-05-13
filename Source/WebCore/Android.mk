@@ -303,11 +303,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/DOMFormData.cpp \
 	html/DOMSettableTokenList.cpp \
 	html/DOMTokenList.cpp \
-<<<<<<< HEAD
-	html/DateComponents.cpp \
-=======
 	html/DOMURL.cpp \
->>>>>>> WebKit.org @ r75993
+	html/DateComponents.cpp \
 	html/DateInputType.cpp \
 	html/DateTimeInputType.cpp \
 	html/DateTimeLocalInputType.cpp \
@@ -830,38 +827,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-<<<<<<< HEAD
-	rendering/RenderSVGBlock.cpp \
-	rendering/RenderSVGContainer.cpp \
-	rendering/RenderSVGGradientStop.cpp \
-	rendering/RenderSVGHiddenContainer.cpp \
-	rendering/RenderSVGImage.cpp \
-	rendering/RenderSVGModelObject.cpp \
-	rendering/RenderSVGResource.cpp \
-	rendering/RenderSVGResourceClipper.cpp \
-	rendering/RenderSVGResourceContainer.cpp \
-	rendering/RenderSVGResourceFilter.cpp \
-	rendering/RenderSVGResourceFilterPrimitive.cpp \
-	rendering/RenderSVGResourceGradient.cpp \
-	rendering/RenderSVGResourceLinearGradient.cpp \
-	rendering/RenderSVGResourceMarker.cpp \
-	rendering/RenderSVGResourceMasker.cpp \
-	rendering/RenderSVGResourcePattern.cpp \
-	rendering/RenderSVGResourceRadialGradient.cpp \
-	rendering/RenderSVGResourceSolidColor.cpp \
-	rendering/RenderSVGRoot.cpp \
-	rendering/RenderSVGShadowTreeRootContainer.cpp \
-	rendering/RenderSVGTransformableContainer.cpp \
-	rendering/RenderSVGViewportContainer.cpp \
-	\
-=======
 	rendering/svg/RenderSVGBlock.cpp \
 	rendering/svg/RenderSVGContainer.cpp \
 	rendering/svg/RenderSVGForeignObject.cpp \
 	rendering/svg/RenderSVGGradientStop.cpp \
 	rendering/svg/RenderSVGHiddenContainer.cpp \
 	rendering/svg/RenderSVGImage.cpp \
->>>>>>> WebKit.org @ r75993
 	rendering/svg/RenderSVGInline.cpp \
 	rendering/svg/RenderSVGInlineText.cpp \
 	rendering/svg/RenderSVGModelObject.cpp \
@@ -895,7 +866,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/svg/SVGResourcesCache.cpp \
 	rendering/svg/SVGResourcesCycleSolver.cpp \
 	rendering/svg/SVGRootInlineBox.cpp \
-	rendering/svg/SVGShadowTreeElements.cpp
+	rendering/svg/SVGShadowTreeElements.cpp \
 	rendering/svg/SVGTextChunk.cpp \
 	rendering/svg/SVGTextChunkBuilder.cpp \
 	rendering/svg/SVGTextLayoutAttributes.cpp \

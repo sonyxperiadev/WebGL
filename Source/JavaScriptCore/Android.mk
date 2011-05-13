@@ -202,20 +202,14 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
-<<<<<<< HEAD
 	wtf/url/src/URLCharacterTypes.cpp \
 	wtf/url/src/URLEscape.cpp \
 	wtf/url/src/URLSegments.cpp \
 	\
-	yarr/RegexInterpreter.cpp \
-	yarr/RegexJIT.cpp \
-	yarr/RegexPattern.cpp
-=======
 	yarr/YarrPattern.cpp \
 	yarr/YarrInterpreter.cpp \
 	yarr/YarrJIT.cpp \
-    yarr/YarrSyntaxChecker.cpp
->>>>>>> WebKit.org @ r75993
+	yarr/YarrSyntaxChecker.cpp
 
 # generated headers
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
