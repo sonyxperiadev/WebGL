@@ -63,6 +63,7 @@ my $isQt;
 my $isSymbian;
 my %qtFeatureDefaults;
 my $isGtk;
+my $isWinCE;
 my $isWx;
 my $isEfl;
 my @wxArgs;
@@ -85,8 +86,8 @@ sub determineSourceDir
     $sourceDir =~ s|/+$||; # Remove trailing '/' as we would die later
 
     # walks up path checking each directory to see if it is the main WebKit project dir, 
-    # defined by containing JavaScriptCore, WebCore, and WebKit
-    until ((-d "$sourceDir/JavaScriptCore" && -d "$sourceDir/WebCore" && -d "$sourceDir/WebKit") || (-d "$sourceDir/Internal" && -d "$sourceDir/OpenSource"))
+    # defined by containing Sources, WebCore, and WebKit
+    until ((-d "$sourceDir/Source" && -d "$sourceDir/Source/WebCore" && -d "$sourceDir/WebKit") || (-d "$sourceDir/Internal" && -d "$sourceDir/OpenSource"))
     {
         if ($sourceDir !~ s|/[^/]+$||) {
             die "Could not find top level webkit directory above source directory using FindBin.\n";
@@ -272,6 +273,7 @@ sub argumentsForConfiguration()
     push(@args, '--symbian') if isSymbian();
     push(@args, '--gtk') if isGtk();
     push(@args, '--efl') if isEfl();
+    push(@args, '--wince') if isWinCE();
     push(@args, '--wx') if isWx();
     push(@args, '--chromium') if isChromium();
     push(@args, '--inspector-frontend') if isInspectorFrontend();
@@ -286,19 +288,26 @@ sub determineConfigurationForVisualStudio
     $configurationForVisualStudio = $configuration;
 }
 
+sub usesPerConfigurationBuildDirectory
+{
+    # [Gtk][Efl] We don't have Release/Debug configurations in straight
+    # autotool builds (non build-webkit). In this case and if
+    # WEBKITOUTPUTDIR exist, use that as our configuration dir. This will
+    # allows us to run run-webkit-tests without using build-webkit.
+    #
+    # Symbian builds do not have Release/Debug configurations either.
+    return ($ENV{"WEBKITOUTPUTDIR"} && (isGtk() || isEfl())) || isSymbian() || isAppleWinWebKit();
+}
+
 sub determineConfigurationProductDir
 {
     return if defined $configurationProductDir;
     determineBaseProductDir();
     determineConfiguration();
     if (isAppleWinWebKit() && !isWx()) {
-        $configurationProductDir = File::Spec->catdir($baseProductDir, "bin");
+        $configurationProductDir = File::Spec->catdir($baseProductDir, configurationForVisualStudio(), "bin");
     } else {
-        # [Gtk][Efl] We don't have Release/Debug configurations in straight
-        # autotool builds (non build-webkit). In this case and if
-        # WEBKITOUTPUTDIR exist, use that as our configuration dir. This will
-        # allows us to run run-webkit-tests without using build-webkit.
-        if ($ENV{"WEBKITOUTPUTDIR"} && (isGtk() || isEfl())) {
+        if (usesPerConfigurationBuildDirectory()) {
             $configurationProductDir = "$baseProductDir";
         } else {
             $configurationProductDir = "$baseProductDir/$configuration";
@@ -347,7 +356,7 @@ sub productDir
 sub jscProductDir
 {
     my $productDir = productDir();
-    $productDir .= "/JavaScriptCore" if isQt();
+    $productDir .= "/Source/JavaScriptCore" if isQt();
     $productDir .= "/$configuration" if (isQt() && isWindows());
     $productDir .= "/Programs" if (isGtk() || isEfl());
 
@@ -593,7 +602,7 @@ sub builtDylibPathForName
         return "$configurationProductDir/libwxwebkit.dylib";
     }
     if (isGtk()) {
-        my $libraryDir = "$configurationProductDir/$libraryName/../.libs/";
+        my $libraryDir = "$configurationProductDir/.libs/";
         if (-e $libraryDir . "libwebkitgtk-3.0.so") {
             return $libraryDir . "libwebkitgtk-3.0.so";
         }
@@ -601,6 +610,9 @@ sub builtDylibPathForName
     }
     if (isEfl()) {
         return "$configurationProductDir/$libraryName/../.libs/libewebkit.so";
+    }
+    if (isWinCE()) {
+        return "$configurationProductDir/$libraryName";
     }
     if (isAppleMacWebKit()) {
         return "$configurationProductDir/$libraryName.framework/Versions/A/$libraryName";
@@ -670,7 +682,7 @@ sub determineQtFeatureDefaults()
     return if %qtFeatureDefaults;
     die "ERROR: qmake missing but required to build WebKit.\n" if not commandExists("qmake");
     my $originalCwd = getcwd();
-    chdir File::Spec->catfile(sourceDir(), "WebCore");
+    chdir File::Spec->catfile(sourceDir(), "Source", "WebCore");
     my $defaults = `qmake CONFIG+=compute_defaults 2>&1`;
     chdir $originalCwd;
 
@@ -753,6 +765,18 @@ sub determineIsGtk()
 {
     return if defined($isGtk);
     $isGtk = checkForArgumentAndRemoveFromARGV("--gtk");
+}
+
+sub isWinCE()
+{
+    determineIsWinCE();
+    return $isWinCE;
+}
+
+sub determineIsWinCE()
+{
+    return if defined($isWinCE);
+    $isWinCE = checkForArgumentAndRemoveFromARGV("--wince");
 }
 
 sub isWx()
@@ -869,7 +893,7 @@ sub isLinux()
 
 sub isAppleWebKit()
 {
-    return !(isQt() or isGtk() or isWx() or isChromium() or isEfl());
+    return !(isQt() or isGtk() or isWx() or isChromium() or isEfl() or isWinCE());
 }
 
 sub isAppleMacWebKit()
@@ -956,7 +980,7 @@ sub relativeScriptsDir()
 sub launcherPath()
 {
     my $relativeScriptsPath = relativeScriptsDir();
-    if (isGtk() || isQt() || isWx() || isEfl()) {
+    if (isGtk() || isQt() || isWx() || isEfl() || isWinCE()) {
         return "$relativeScriptsPath/run-launcher";
     } elsif (isAppleWebKit()) {
         return "$relativeScriptsPath/run-safari";
@@ -975,6 +999,8 @@ sub launcherName()
         return "Safari";
     } elsif (isEfl()) {
         return "EWebLauncher";
+    } elsif (isWinCE()) {
+        return "WinCELauncher";
     }
 }
 
@@ -1151,7 +1177,7 @@ sub dieIfWindowsPlatformSDKNotInstalled
 sub copyInspectorFrontendFiles
 {
     my $productDir = productDir();
-    my $sourceInspectorPath = sourceDir() . "/WebCore/inspector/front-end/";
+    my $sourceInspectorPath = sourceDir() . "/Source/WebCore/inspector/front-end/";
     my $inspectorResourcesDirPath = $ENV{"WEBKITINSPECTORRESOURCESDIR"};
 
     if (!defined($inspectorResourcesDirPath)) {
@@ -1337,7 +1363,7 @@ sub autogenArgumentsHaveChanged($@)
 
 sub buildAutotoolsProject($@)
 {
-    my ($clean, @buildParams) = @_;
+    my ($project, $clean, @buildParams) = @_;
 
     my $make = 'make';
     my $dir = productDir();
@@ -1361,6 +1387,11 @@ sub buildAutotoolsProject($@)
     # if make arguments haven't already been specified.
     if ($makeArgs eq "") {
         $makeArgs = "-j" . numberOfCPUs();
+    }
+
+    # WebKit is the default target, so we don't need to specify anything.
+    if ($project eq "JavaScriptCore") {
+        $makeArgs .= " jsc";
     }
 
     $prefix = $ENV{"WebKitInstallationPrefix"} if !defined($prefix);
@@ -1427,10 +1458,19 @@ sub buildCMakeProject($@)
     my $dir = File::Spec->canonpath(baseProductDir());
     my $config = configuration();
     my $result;
+    my $cmakeBuildArgs = "";
     my $makeArgs = "";
     my @buildArgs;
-    
-    $makeArgs .= " -j" . numberOfCPUs() if ($makeArgs !~ m/-j\s*\d+/);
+
+    if ($port =~ m/wince/i) {
+        if ($config =~ m/debug/i) {
+            $cmakeBuildArgs .= " --config Debug";
+        } elsif ($config =~ m/release/i) {
+            $cmakeBuildArgs .= " --config Release";
+        }
+    } else {
+        $makeArgs .= " -j" . numberOfCPUs() if ($makeArgs !~ m/-j\s*\d+/);
+    }
 
     if ($clean) {
         print "Cleaning the build directory '$dir'\n";
@@ -1439,7 +1479,7 @@ sub buildCMakeProject($@)
         $result = 0;
     } else {
         my $cmakebin = "cmake";
-        my $make = "make";
+        my $cmakeBuildCommand = $cmakebin . " --build .";
 
         push @buildArgs, "-DPORT=$port";
 
@@ -1472,8 +1512,10 @@ sub buildCMakeProject($@)
             die "Failed while running $cmakebin to generate makefiles!\n";
         }
 
-        print "Calling '$make $makeArgs' in " . $dir . "\n\n";
-        $result = system "$make $makeArgs";
+        $cmakeBuildArgs .= " -- " . $makeArgs;
+
+        print "Calling '$cmakeBuildCommand $cmakeBuildArgs' in " . $dir . "\n\n";
+        $result = system "$cmakeBuildCommand $cmakeBuildArgs";
         if ($result ne 0) {
             die "Failed to build $port port\n";
         }
@@ -1488,6 +1530,12 @@ sub buildCMakeEflProject($@)
 {
     my ($clean, @buildArgs) = @_;
     return buildCMakeProject("Efl", $clean, @buildArgs);
+}
+
+sub buildCMakeWinCEProject($@)
+{
+    my ($sdk, $clean, @buildArgs) = @_;
+    return buildCMakeProject("WinCE -DCMAKE_WINCE_SDK=\"" . $sdk . "\"", $clean, @buildArgs);
 }
 
 sub buildQMakeProject($@)
@@ -1521,14 +1569,13 @@ sub buildQMakeProject($@)
     my $config = configuration();
     push @buildArgs, "INSTALL_HEADERS=" . $installHeaders if defined($installHeaders);
     push @buildArgs, "INSTALL_LIBS=" . $installLibs if defined($installLibs);
-    my $dir = File::Spec->canonpath(baseProductDir());
-    $dir = File::Spec->catfile($dir, $config) unless isSymbian();
+    my $dir = File::Spec->canonpath(productDir());
     File::Path::mkpath($dir);
     chdir $dir or die "Failed to cd into " . $dir . "\n";
 
     print "Generating derived sources\n\n";
 
-    push @buildArgs, "OUTPUT_DIR=" . baseProductDir() . "/$config";
+    push @buildArgs, "OUTPUT_DIR=" . $dir;
 
     my @dsQmakeArgs = @buildArgs;
     push @dsQmakeArgs, "-r";
@@ -1543,7 +1590,7 @@ sub buildQMakeProject($@)
     my $dsMakefile = "Makefile.DerivedSources";
 
     # Iterate over different source directories manually to workaround a problem with qmake+extraTargets+s60
-    my @subdirs = ("JavaScriptCore", "WebCore", "WebKit/qt/Api");
+    my @subdirs = ("Source/JavaScriptCore", "Source/WebCore", "WebKit/qt/Api");
     if (grep { $_ eq "CONFIG+=webkit2"} @buildArgs) {
         push @subdirs, "WebKit2";
         push @subdirs, "Tools/WebKitTestRunner";
@@ -1622,15 +1669,15 @@ sub buildQMakeQtProject($$@)
     return buildQMakeProject($clean, @buildArgs);
 }
 
-sub buildGtkProject($$@)
+sub buildGtkProject
 {
     my ($project, $clean, @buildArgs) = @_;
 
-    if ($project ne "WebKit") {
-        die "The Gtk port builds JavaScriptCore, WebCore and WebKit in one shot! Only call it for 'WebKit'.\n";
+    if ($project ne "WebKit" and $project ne "JavaScriptCore") {
+        die "Unsupported project: $project. Supported projects: WebKit, JavaScriptCore\n";
     }
 
-    return buildAutotoolsProject($clean, @buildArgs);
+    return buildAutotoolsProject($project, $clean, @buildArgs);
 }
 
 sub buildChromiumMakefile($$)

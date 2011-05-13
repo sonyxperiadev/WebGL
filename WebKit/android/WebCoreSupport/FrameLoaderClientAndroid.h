@@ -224,6 +224,9 @@ namespace android {
 
         void dispatchDidChangeIcons();
         void dispatchWillSendSubmitEvent(HTMLFormElement*);
+
+        virtual void didSaveToPageCache() { }
+        virtual void didRestoreFromPageCache() { }
     private:
         CacheBuilder        m_cacheBuilder;
         Frame*              m_frame;

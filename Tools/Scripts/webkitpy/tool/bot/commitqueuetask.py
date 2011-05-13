@@ -149,11 +149,11 @@ class CommitQueueTask(object):
         "Able to pass tests without patch",
         "Unable to pass tests without patch (tree is red?)")
 
-    def _failing_tests_from_last_run(self):
+    def _failing_results_from_last_run(self):
         results = self._delegate.layout_test_results()
         if not results:
-            return None
-        return results.failing_tests()
+            return []  # Makes callers slighty cleaner to not have to deal with None
+        return results.failing_test_results()
 
     def _land(self):
         # Unclear if this should pass --quiet or not.  If --parent-command always does the reporting, then it should.
@@ -168,8 +168,8 @@ class CommitQueueTask(object):
         "Landed patch",
         "Unable to land patch")
 
-    def _report_flaky_tests(self, flaky_tests):
-        self._delegate.report_flaky_tests(self._patch, flaky_tests)
+    def _report_flaky_tests(self, flaky_test_results):
+        self._delegate.report_flaky_tests(self._patch, flaky_test_results)
 
     def _test_patch(self):
         if self._patch.is_rollout():
@@ -177,12 +177,14 @@ class CommitQueueTask(object):
         if self._test():
             return True
 
-        first_failing_tests = self._failing_tests_from_last_run()
+        first_failing_results = self._failing_results_from_last_run()
+        first_failing_tests = [result.filename for result in first_failing_results]
         if self._test():
-            self._report_flaky_tests(first_failing_tests)
+            self._report_flaky_tests(first_failing_results)
             return True
 
-        second_failing_tests = self._failing_tests_from_last_run()
+        second_failing_results = self._failing_results_from_last_run()
+        second_failing_tests = [result.filename for result in second_failing_results]
         if first_failing_tests != second_failing_tests:
             # We could report flaky tests here, but since run-webkit-tests
             # is run with --exit-after-N-failures=1, we would need to
@@ -192,8 +194,13 @@ class CommitQueueTask(object):
             return False
 
         if self._build_and_test_without_patch():
-            raise self._script_error  # The error from the previous ._test() run is real, report it.
+            return self.report_failure()  # The error from the previous ._test() run is real, report it.
         return False  # Tree must be red, just retry later.
+
+    def report_failure(self):
+        if not self._validate():
+            return False
+        raise self._script_error
 
     def run(self):
         if not self._validate():
@@ -203,11 +210,11 @@ class CommitQueueTask(object):
         if not self._update():
             return False
         if not self._apply():
-            raise self._script_error
+            return self.report_failure()
         if not self._build():
             if not self._build_without_patch():
                 return False
-            raise self._script_error
+            return self.report_failure()
         if not self._test_patch():
             return False
         # Make sure the patch is still valid before landing (e.g., make sure
@@ -216,5 +223,5 @@ class CommitQueueTask(object):
             return False
         # FIXME: We should understand why the land failure occured and retry if possible.
         if not self._land():
-            raise self._script_error
+            return self.report_failure()
         return True

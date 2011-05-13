@@ -58,14 +58,17 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ScriptController.h"
+#include "Settings.h"
 #include "webkiterror.h"
+#include "webkitglobals.h"
+#include "webkitglobalsprivate.h"
 #include "webkitnetworkrequest.h"
 #include "webkitnetworkrequestprivate.h"
 #include "webkitnetworkresponse.h"
 #include "webkitnetworkresponseprivate.h"
-#include "webkitprivate.h"
 #include "webkitviewportattributes.h"
 #include "webkitviewportattributesprivate.h"
+#include "webkitwebdatasourceprivate.h"
 #include "webkitwebframe.h"
 #include "webkitwebframeprivate.h"
 #include "webkitwebnavigationaction.h"
@@ -74,6 +77,7 @@
 #include "webkitwebpolicydecisionprivate.h"
 #include "webkitwebresource.h"
 #include "webkitwebresourceprivate.h"
+#include "webkitwebsettingsprivate.h"
 #include "webkitwebview.h"
 #include "webkitwebviewprivate.h"
 #include <JavaScriptCore/APICast.h>
@@ -240,9 +244,8 @@ WTF::PassRefPtr<WebCore::DocumentLoader> FrameLoaderClient::createDocumentLoader
 {
     RefPtr<WebKit::DocumentLoader> loader = WebKit::DocumentLoader::create(request, substituteData);
 
-    WebKitWebDataSource* webDataSource = webkit_web_data_source_new_with_loader(loader.get());
-    loader->setDataSource(webDataSource);
-    g_object_unref(webDataSource);
+    GRefPtr<WebKitWebDataSource> webDataSource(adoptGRef(kitNew(loader.get())));
+    loader->setDataSource(webDataSource.get());
 
     return loader.release();
 }
@@ -309,19 +312,19 @@ static char* toString(unsigned long identifier)
 
 void FrameLoaderClient::dispatchWillSendRequest(WebCore::DocumentLoader* loader, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
-    PlatformRefPtr<WebKitNetworkResponse> networkResponse(0);
+    GRefPtr<WebKitNetworkResponse> networkResponse(0);
 
     // We are adding one more resource to the load, or maybe we are
     // just redirecting a load.
     if (redirectResponse.isNull())
         static_cast<WebKit::DocumentLoader*>(loader)->increaseLoadCount(identifier);
     else
-        networkResponse = adoptPlatformRef(kitNew(redirectResponse));
+        networkResponse = adoptGRef(kitNew(redirectResponse));
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
     GOwnPtr<gchar> identifierString(toString(identifier));
     WebKitWebResource* webResource = webkit_web_view_get_resource(webView, identifierString.get());
-    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
+    GRefPtr<WebKitNetworkRequest> networkRequest(adoptGRef(kitNew(request)));
 
     if (!redirectResponse.isNull()) {
         // This is a redirect, so we need to update the WebResource's knowledge
@@ -415,7 +418,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     }
 
     WebKitWebView* page = getViewFromFrame(m_frame);
-    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(kitNew(resourceRequest)));
+    GRefPtr<WebKitNetworkRequest> request(adoptGRef(kitNew(resourceRequest)));
 
     WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
     if (m_policyDecision)
@@ -428,7 +431,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     if (isHandled)
         return;
 
-    PlatformRefPtr<WebKitNetworkResponse> networkResponse(adoptPlatformRef(webkit_web_frame_get_network_response(m_frame)));
+    GRefPtr<WebKitNetworkResponse> networkResponse(adoptGRef(webkit_web_frame_get_network_response(m_frame)));
     if (networkResponse) {
         ResourceResponse response = core(networkResponse.get());
         if (response.isAttachment()) {
@@ -495,8 +498,8 @@ void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFuncti
     m_policyDecision = policyDecision;
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(webkit_network_request_new(resourceRequest.url().string().utf8().data())));
-    PlatformRefPtr<WebKitWebNavigationAction> navigationAction(adoptPlatformRef(getNavigationAction(action, frameName.utf8().data())));
+    GRefPtr<WebKitNetworkRequest> request(adoptGRef(webkit_network_request_new(resourceRequest.url().string().utf8().data())));
+    GRefPtr<WebKitWebNavigationAction> navigationAction(adoptGRef(getNavigationAction(action, frameName.utf8().data())));
     gboolean isHandled = false;
 
     g_signal_emit_by_name(webView, "new-window-policy-decision-requested", m_frame, request.get(), navigationAction.get(), policyDecision, &isHandled);
@@ -519,7 +522,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     }
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    PlatformRefPtr<WebKitNetworkRequest> request(adoptPlatformRef(kitNew(resourceRequest)));
+    GRefPtr<WebKitNetworkRequest> request(adoptGRef(kitNew(resourceRequest)));
     WebKitNavigationResponse response;
     /*
      * We still support the deprecated navigation-requested signal, if the
@@ -540,7 +543,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         g_object_unref(m_policyDecision);
     m_policyDecision = policyDecision;
 
-    PlatformRefPtr<WebKitWebNavigationAction> navigationAction(adoptPlatformRef(getNavigationAction(action, 0)));
+    GRefPtr<WebKitWebNavigationAction> navigationAction(adoptGRef(getNavigationAction(action, 0)));
     gboolean isHandled = false;
     g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request.get(), navigationAction.get(), policyDecision, &isHandled);
 
@@ -556,7 +559,7 @@ PassRefPtr<Widget> FrameLoaderClient::createPlugin(const IntSize& pluginSize, HT
     CString mimeTypeString = mimeType.utf8();
 
     ASSERT(paramNames.size() == paramValues.size());
-    PlatformRefPtr<GHashTable> hash = adoptPlatformRef(g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free));
+    GRefPtr<GHashTable> hash = adoptGRef(g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free));
     for (unsigned i = 0; i < paramNames.size(); ++i) {
         g_hash_table_insert(hash.get(),
                             g_strdup(paramNames[i].utf8().data()),
@@ -1168,7 +1171,7 @@ void FrameLoaderClient::dispatchDidFailLoad(const ResourceError& error)
 
 void FrameLoaderClient::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse& response)
 {
-    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
+    GRefPtr<WebKitNetworkRequest> networkRequest(adoptGRef(kitNew(request)));
     WebKitWebView* view = getViewFromFrame(m_frame);
 
     webkit_web_view_request_download(view, networkRequest.get(), response, handle);
@@ -1256,7 +1259,7 @@ void FrameLoaderClient::setMainDocumentError(WebCore::DocumentLoader*, const Res
 
 void FrameLoaderClient::startDownload(const ResourceRequest& request)
 {
-    PlatformRefPtr<WebKitNetworkRequest> networkRequest(adoptPlatformRef(kitNew(request)));
+    GRefPtr<WebKitNetworkRequest> networkRequest(adoptGRef(kitNew(request)));
     WebKitWebView* view = getViewFromFrame(m_frame);
 
     webkit_web_view_request_download(view, networkRequest.get());
@@ -1297,7 +1300,7 @@ static void postCommitFrameViewSetup(WebKitWebFrame *frame, FrameView *view, boo
     g_object_notify(G_OBJECT(containingWindow->priv->viewportAttributes.get()), "valid");
 
     if (priv->currentMenu) {
-        PlatformRefPtr<GtkMenu> menu(priv->currentMenu);
+        GRefPtr<GtkMenu> menu(priv->currentMenu);
         priv->currentMenu.clear();
         gtk_menu_popdown(menu.get());
     }
@@ -1339,6 +1342,14 @@ void FrameLoaderClient::transitionToCommittedForNewPage()
         return;
 
     postCommitFrameViewSetup(m_frame, frame->view(), true);
+}
+
+void FrameLoaderClient::didSaveToPageCache()
+{
+}
+
+void FrameLoaderClient::didRestoreFromPageCache()
+{
 }
 
 void FrameLoaderClient::dispatchDidBecomeFrameset(bool)

@@ -43,6 +43,7 @@ use POSIX;
 
 sub formatBuildTime($);
 sub writeCongrats();
+sub checkForJavaSDK();
 
 my $originalWorkingDirectory = getcwd();
 chdirWebKit();
@@ -85,8 +86,10 @@ my (
     $linkPrefetchSupport,
     $mathmlSupport,
     $meterTagSupport,
+    $netscapePluginSupport,
     $notificationsSupport,
     $offlineWebApplicationSupport,
+    $orientationEventsSupport,
     $progressTagSupport,
     $sharedWorkersSupport,
     $svgSupport,
@@ -98,6 +101,7 @@ my (
     $svgUseSupport,
     $systemMallocSupport,
     $tiledBackingStoreSupport,
+    $touchEventsSupport,
     $videoSupport,
     $wcssSupport,
     $webAudioSupport,
@@ -193,11 +197,17 @@ my @features = (
     { option => "meter-tag", desc => "Meter Tag support",
       define => "ENABLE_METER_TAG", default => !isGtk() && !isAppleWinWebKit(), value => \$meterTagSupport },
 
+    { option => "netscape-plugin", desc => "Netscape Plugin support",
+      define => "ENABLE_NETSCAPE_PLUGIN_API", default => !isWinCE(), value => \$netscapePluginSupport },
+
     { option => "notifications", desc => "Toggle Desktop Notifications Support",
       define => "ENABLE_NOTIFICATIONS", default => 0, value => \$notificationsSupport },
 
     { option => "offline-web-applications", desc => "Toggle Offline Web Application Support",
       define => "ENABLE_OFFLINE_WEB_APPLICATIONS", default => 1, value => \$offlineWebApplicationSupport },
+
+    { option => "orientation-events", desc => "Toggle Orientation Events support",
+      define => "ENABLE_ORIENTATION_EVENTS", default => 0, value => \$orientationEventsSupport },
 
     { option => "progress-tag", desc => "Progress Tag support",
       define => "ENABLE_PROGRESS_TAG", default => 1, value => \$progressTagSupport },
@@ -231,6 +241,9 @@ my @features = (
 
     { option => "tiled-backing-store", desc => "Toggle Tiled Backing Store support",
       define => "ENABLE_TILED_BACKING_STORE", default => isQt(), value => \$tiledBackingStoreSupport },
+
+    { option => "touch-events", desc => "Toggle Touch Events support",
+      define => "ENABLE_TOUCH_EVENTS", default => isQt(), value => \$touchEventsSupport },
 
     { option => "video", desc => "Toggle Video support",
       define => "ENABLE_VIDEO", default => (isAppleWebKit() || isGtk()), value => \$videoSupport },
@@ -299,11 +312,14 @@ Usage: $programName [options] [options to pass to build system]
   --help                            Show this help message
   --clean                           Cleanup the build directory
   --debug                           Compile in debug mode
-  --wincairo                        Build using Cairo (rather than CoreGraphics) on Windows
+
   --chromium                        Build the Chromium port on Mac/Win/Linux
+  --efl                             Build the EFL port
   --gtk                             Build the GTK+ port
   --qt                              Build the Qt port
-  --efl                             Build the EFL port
+  --wincairo                        Build using Cairo (rather than CoreGraphics) on Windows
+  --wince                           Build the WinCE port
+
   --inspector-frontend              Copy changes to the inspector front-end files to the build directory
 
   --install-headers=<path>          Set installation path for the headers (Qt only)
@@ -349,7 +365,7 @@ setConfiguration();
 my $productDir = productDir();
 
 # Remove 0 byte sized files from productDir after slave lost for Qt buildbots.
-File::Find::find(\&unlinkZeroFiles, $productDir) if (isQt() && -e $productDir);
+File::Find::find(\&unlinkZeroFiles, $productDir) if (isQt() && !isSymbian() && -e $productDir);
 
 sub unlinkZeroFiles ()
 {
@@ -361,7 +377,7 @@ sub unlinkZeroFiles ()
 }
 
 # Check that all the project directories are there.
-my @projects = ("JavaScriptCore", "WebCore", "WebKit");
+my @projects = ("Source/JavaScriptCore", "Source/WebCore", "WebKit");
 
 my @otherDirs = ("WebKitLibraries");
 for my $dir (@projects, @otherDirs) {
@@ -382,6 +398,7 @@ if (isGtk()) {
     push @options, "--prefix=" . $prefixPath if defined($prefixPath);
     push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
 } elsif (isAppleMacWebKit()) {
+    checkForJavaSDK();
     push @options, XcodeOptions();
 
     sub option($$$)
@@ -399,10 +416,10 @@ if (isGtk()) {
     }
 
     # Apple builds JavaScriptGlue, and only on the Mac.
-    splice @projects, 1, 0, "JavaScriptGlue";
+    splice @projects, 1, 0, "Source/JavaScriptGlue";
 
     # ANGLE must come before WebCore
-    splice @projects, 0, 0, "ANGLE";
+    splice @projects, 0, 0, "Source/ThirdParty/ANGLE";
 
     # WebKit2 is only supported in SnowLeopard and later at present.
     push @projects, ("WebKit2", "Tools/MiniBrowser") if osXVersion()->{"minor"} >= 6 and !$noWebKit2;
@@ -504,6 +521,21 @@ if (isEfl()) {
     exit exitStatus($result) if exitStatus($result);
 }
 
+if (isWinCE()) {
+    @options = ();
+    @projects = ();
+    foreach (@features) {
+        my $featureName = $_->{define};
+        if ($featureName) {
+            my $featureEnabled = ${$_->{value}} ? "ON" : "OFF";
+            push @options, "-D$featureName=$featureEnabled";
+        }
+    }
+    push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
+    my $result = buildCMakeWinCEProject("STANDARDSDK_500 (ARMV4I)", $clean, @options);
+    exit exitStatus($result) if exitStatus($result);
+}
+
 # Build, and abort if the build fails.
 for my $dir (@projects) {
     chdir $dir or die;
@@ -511,21 +543,22 @@ for my $dir (@projects) {
 
     # For Gtk and Qt the WebKit project builds all others
     if ((isGtk() || isQt()) && $dir ne "WebKit") {
-        chdir ".." or die;
+        chdirWebKit();
         next;
     }
 
+    my $project = basename($dir);
     if (isGtk()) {
-        $result = buildGtkProject($dir, $clean,  @options);
+        $result = buildGtkProject($project, $clean,  @options);
     } elsif (isQt()) {
+        #FIXME: $dir should probably be $project.
         $result = buildQMakeQtProject($dir, $clean, @options);
     } elsif (isAppleMacWebKit()) {
-        $dir = "MiniBrowser" if $dir eq "Tools/MiniBrowser";
         my @local_options = @options;
-        push @local_options, XcodeCoverageSupportOptions() if $coverageSupport && $dir ne "ANGLE";
-        $result = buildXCodeProject($dir, $clean, @local_options, @ARGV);
+        push @local_options, XcodeCoverageSupportOptions() if $coverageSupport && $project ne "ANGLE";
+        $result = buildXCodeProject($project, $clean, @local_options, @ARGV);
     } elsif (isAppleWinWebKit()) {
-        if ($dir eq "WebKit") {
+        if ($project eq "WebKit") {
             $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
         }
     }
@@ -556,6 +589,21 @@ exit if $clean;
 writeCongrats();
 
 exit 0;
+
+sub checkForJavaSDK()
+{
+    my $jniHeader = "/System/Library/Frameworks/JavaVM.framework/Headers/jni.h";
+    if (-e $jniHeader) {
+        return;
+    }
+    print "\nCan't find required $jniHeader, build will fail.\n\n";
+    print "After installing \"Java for Mac OS X 10.6 Update 3\", the Java Developer Package is required to build WebKit.\n";
+    print "Please install the package from http://connect.apple.com (found under Dowloads > Java).\n\n";
+    print "For more information, see:\n";
+    print "https://lists.webkit.org/pipermail/webkit-dev/2010-October/014867.html\n";
+    print "https://webkit.org/building/tools.html\n\n";
+    exit 1;
+}
 
 sub formatBuildTime($)
 {

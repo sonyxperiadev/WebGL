@@ -175,6 +175,9 @@ private:
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void didSaveToPageCache();
+    virtual void didRestoreFromPageCache();
+
     virtual void dispatchDidBecomeFrameset(bool);
 
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
@@ -224,6 +227,10 @@ private:
     virtual jobject javaApplet(NSView*);
 #endif
 
+#if PLATFORM(MAC)
+    virtual RemoteAXObjectRef accessibilityRemoteObject() { return 0; }
+#endif
+    
     void setOriginalURLForDownload(WebDownload *, const WebCore::ResourceRequest&) const;
 
     RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction);

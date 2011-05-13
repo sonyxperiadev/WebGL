@@ -418,6 +418,7 @@ static QWebPage::WebAction webActionForContextMenuAction(WebCore::ContextMenuAct
         case WebCore::ContextMenuItemTagBold: return QWebPage::ToggleBold;
         case WebCore::ContextMenuItemTagItalic: return QWebPage::ToggleItalic;
         case WebCore::ContextMenuItemTagUnderline: return QWebPage::ToggleUnderline;
+        case WebCore::ContextMenuItemTagSelectAll: return QWebPage::SelectAll;
 #if ENABLE(INSPECTOR)
         case WebCore::ContextMenuItemTagInspectElement: return QWebPage::InspectElement;
 #endif
@@ -1095,10 +1096,15 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
         setSelectionRange(node, start, start + ev->replacementLength());
         // Commit regardless of whether commitString is empty, to get rid of selection.
         editor->confirmComposition(ev->commitString());
-    } else if (!ev->commitString().isEmpty())
-        editor->confirmComposition(ev->commitString());
-    else if (!hasSelection && !ev->preeditString().isEmpty())
+    } else if (!ev->commitString().isEmpty()) {
+        if (editor->hasComposition())
+            editor->confirmComposition(ev->commitString());
+        else
+            editor->insertText(ev->commitString(), 0);
+    } else if (!hasSelection && !ev->preeditString().isEmpty())
         editor->setComposition(ev->preeditString(), underlines, 0, 0);
+    else if (ev->preeditString().isEmpty() && editor->hasComposition())
+        editor->confirmComposition(String());
 
     ev->accept();
 }
@@ -2624,12 +2630,27 @@ bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &
 }
 
 /*!
+    \property QWebPage::hasSelection
+    \brief whether this page contains selected content or not.
+
+    \sa selectionChanged()
+*/
+bool QWebPage::hasSelection() const
+{
+    d->createMainFrame();
+    WebCore::Frame* frame = d->page->focusController()->focusedOrMainFrame();
+    if (frame)
+        return (frame->selection()->selection().selectionType() != VisibleSelection::NoSelection);
+    return false;
+}
+
+/*!
     \property QWebPage::selectedText
     \brief the text currently selected
 
     By default, this property contains an empty string.
 
-    \sa selectionChanged()
+    \sa selectionChanged(), selectedHtml()
 */
 QString QWebPage::selectedText() const
 {
@@ -2638,6 +2659,21 @@ QString QWebPage::selectedText() const
     if (frame->selection()->selection().selectionType() == VisibleSelection::NoSelection)
         return QString();
     return frame->editor()->selectedText();
+}
+
+/*!
+    \since 4.8
+    \property QWebPage::selectedHtml
+    \brief the HTML currently selected
+
+    By default, this property contains an empty string.
+
+    \sa selectionChanged(), selectedText()
+*/
+QString QWebPage::selectedHtml() const
+{
+    d->createMainFrame();
+    return d->page->focusController()->focusedOrMainFrame()->editor()->selectedRange()->toHTML();
 }
 
 #ifndef QT_NO_ACTION
@@ -2717,6 +2753,9 @@ QAction *QWebPage::action(WebAction action) const
         case Paste:
             text = contextMenuItemTagPaste();
             break;
+        case SelectAll:
+            text = contextMenuItemTagSelectAll();
+            break;
 #ifndef QT_NO_UNDOSTACK
         case Undo: {
             QAction *a = undoStack()->createUndoAction(d->q);
@@ -2764,9 +2803,6 @@ QAction *QWebPage::action(WebAction action) const
             break;
         case MoveToEndOfDocument:
             text = tr("Move the cursor to the end of the document");
-            break;
-        case SelectAll:
-            text = tr("Select all");
             break;
         case SelectNextChar:
             text = tr("Select to the next character");

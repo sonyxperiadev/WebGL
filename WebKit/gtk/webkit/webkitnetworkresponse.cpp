@@ -24,9 +24,9 @@
 
 #include "GRefPtr.h"
 #include "ResourceResponse.h"
-#include "webkitprivate.h"
-
+#include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitnetworkresponse
@@ -120,7 +120,7 @@ static void webkit_network_response_class_init(WebKitNetworkResponseClass* respo
     objectClass->get_property = webkit_network_response_get_property;
     objectClass->set_property = webkit_network_response_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitNetworkResponse:uri:
@@ -263,7 +263,7 @@ WebCore::ResourceResponse core(WebKitNetworkResponse* response)
 
 WebKitNetworkResponse* kitNew(const WebCore::ResourceResponse& resourceResponse)
 {
-    PlatformRefPtr<SoupMessage> soupMessage(adoptPlatformRef(resourceResponse.toSoupMessage()));
+    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceResponse.toSoupMessage()));
     if (soupMessage)
         return WEBKIT_NETWORK_RESPONSE(g_object_new(WEBKIT_TYPE_NETWORK_RESPONSE, "message", soupMessage.get(), NULL));
 

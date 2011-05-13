@@ -483,14 +483,6 @@ on_focus_in(void *data, Evas *e, Evas_Object *obj, void *event_info)
 }
 
 static void
-on_resized(void *data, Evas *e, Evas_Object *obj, void *event_info)
-{
-    Evas_Coord w, h;
-    evas_object_geometry_get(obj, NULL, NULL, &w, &h);
-    ewk_view_fixed_layout_size_set(obj, w, h);
-}
-
-static void
 on_key_down(void *data, Evas *e, Evas_Object *obj, void *event_info)
 {
     Evas_Event_Key_Down *ev = (Evas_Event_Key_Down*) event_info;
@@ -698,13 +690,14 @@ browserCreate(const char *url, const char *theme, const char *userAgent, Eina_Re
     evas_object_layer_set(app->bg, EVAS_LAYER_MIN);
     evas_object_show(app->bg);
 
-    if (backingStore && !strcasecmp(backingStore, "single")) {
-        app->browser = ewk_view_single_add(app->evas);
-        info("backing store: single\n");
-    } else {
+    if (backingStore && !strcasecmp(backingStore, "tiled")) {
         app->browser = ewk_view_tiled_add(app->evas);
         info("backing store: tiled\n");
+    } else {
+        app->browser = ewk_view_single_add(app->evas);
+        info("backing store: single\n");
     }
+
     ewk_view_theme_set(app->browser, theme);
     if (userAgent)
         ewk_view_setting_user_agent_set(app->browser, userAgent);
@@ -730,7 +723,6 @@ browserCreate(const char *url, const char *theme, const char *userAgent, Eina_Re
 
 /*     ewk_callback_resize_requested_add(app->browser, on_resize_requested, app->ee); */
 
-    evas_object_event_callback_add(app->browser, EVAS_CALLBACK_RESIZE, on_resized, app);
     evas_object_event_callback_add(app->browser, EVAS_CALLBACK_KEY_DOWN, on_key_down, app);
     evas_object_event_callback_add(app->browser, EVAS_CALLBACK_MOUSE_DOWN, on_mouse_down, app);
     evas_object_event_callback_add(app->browser, EVAS_CALLBACK_FOCUS_IN, on_focus_in, app);
@@ -830,7 +822,6 @@ main(int argc, char *argv[])
 
     unsigned char quitOption = 0;
     unsigned char isFullscreen = 0;
-    unsigned char sudoWorkaround = 0;
     int args;
 
     Ecore_Getopt_Value values[] = {
@@ -841,7 +832,6 @@ main(int argc, char *argv[])
         ECORE_GETOPT_VALUE_PTR_CAST(geometry),
         ECORE_GETOPT_VALUE_STR(theme),
         ECORE_GETOPT_VALUE_STR(userAgent),
-        ECORE_GETOPT_VALUE_BOOL(sudoWorkaround),
         ECORE_GETOPT_VALUE_INT(verbose),
         ECORE_GETOPT_VALUE_BOOL(quitOption),
         ECORE_GETOPT_VALUE_BOOL(quitOption),
@@ -871,9 +861,6 @@ main(int argc, char *argv[])
         url = argv[args];
     else
         url = (char*) default_url;
-
-    if (sudoWorkaround)
-        strcat(getenv("HOME"), "blah");
 
     themePath = findThemePath(theme);
     if (!themePath)

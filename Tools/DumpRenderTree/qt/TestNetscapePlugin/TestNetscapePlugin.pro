@@ -18,11 +18,11 @@ mac {
     debug_and_release:TARGET = $$qtLibraryTarget($$TARGET)
 }
 
-INCLUDEPATH += ../../../../JavaScriptCore \
+INCLUDEPATH += ../../../../Source/JavaScriptCore \
                ../../unix/TestNetscapePlugin/ForwardingHeaders \
                ../../unix/TestNetscapePlugin/ForwardingHeaders/WebKit \
-               ../../../../WebCore \
-               ../../../../WebCore/bridge \
+               ../../../../Source/WebCore \
+               ../../../../Source/WebCore/bridge \
                ../../TestNetscapePlugIn
 
 SOURCES = PluginObject.cpp \
@@ -43,4 +43,8 @@ mac {
     LIBS += -framework Carbon -framework Cocoa -framework QuartzCore
 } else {
     SOURCES += ../../unix/TestNetscapePlugin/TestNetscapePlugin.cpp
+}
+
+!win32:!embedded:!mac:!symbian {
+    LIBS += -lX11
 }

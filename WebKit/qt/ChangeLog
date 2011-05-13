@@ -1,3 +1,271 @@
+2011-01-07  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Move WebCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=52050
+
+        Update documentation to reference new location of WebCore.
+
+        * docs/qtwebkit.qdoc:
+
+2011-01-07  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        [Qt] Add selectedHtml function to QWebView
+        https://bugs.webkit.org/show_bug.cgi?id=35028
+
+        Add QWebView::selectedHtml() and QWebPage::selectedHtml()
+        which return the current selection range's HTML representation.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::selectedHtml):
+        * Api/qwebpage.h:
+        * Api/qwebview.cpp:
+        (QWebView::selectedText):
+        (QWebView::selectedHtml):
+        * Api/qwebview.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::cursorMovements):
+        (tst_QWebPage::textSelection):
+        (tst_QWebPage::crashTests_LazyInitializationOfMainFrame):
+        (tst_QWebPage::findText):
+
+2011-01-06  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Introduce QDRTNode for passing WebCore::Node across JS bridge
+
+        This allows LayoutTestController to pass WebCore::Node back to
+        layout tests.
+
+        Also amend nodesFromRect-links-and-text.html and
+        nodesFromRect-inner-documents.html so that they do not produce
+        platform-specific results.
+
+        Unskip:
+        fast/dom/nodesFromRect-links-and-text.html
+        fast/dom/nodesFromRect-inner-documents.html
+
+        https://bugs.webkit.org/show_bug.cgi?id=48957
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (QDRTNode::QDRTNode):
+        (QDRTNode::~QDRTNode):
+        (DumpRenderTreeSupportQt::nodesFromRect):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2011-01-04  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Simon Hausmann.
+        Acked by Aaron Kennedy <aaron.kennedy@nokia.com>
+
+        [Qt] QML WebView does not transfer focus to underlying QGraphicsWebView
+
+        QML WebView creates QGraphicsWebView as it's child. The WebView is not
+        setup as a focus proxy of the QGraphicsWebView. Thus, even though the
+        WebView gets focus, the QGraphicsWebView does not get focus.
+        In QML, focus proxies or "focus scopes" are created using FocusScope.
+        This change makes WebView a FocusScope and sets the focus on the
+        QGraphicsWebView. 
+
+        https://bugs.webkit.org/show_bug.cgi?id=51094
+
+        * declarative/qdeclarativewebview.cpp:
+        (QDeclarativeWebView::init):
+
+2011-01-05  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Sync qwebkitplatformplugin.h in the plugin example
+        https://bugs.webkit.org/show_bug.cgi?id=51882
+
+        Make examples/platformplugin/qwebkitplatformplugin.h exactly the same
+        as the one in the Api folder.
+
+        * examples/platformplugin/qwebkitplatformplugin.h:
+
+2011-01-04  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Fix test LayoutTests/fast/events/ime-composition-events-001.html.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51693
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent): Calls editor->insertText() to
+        insert the commit string when no composition text is available.
+
+2011-01-03  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Adam Barth.
+
+        [Qt] Add SelectAll option to the context menu for the editor
+        https://bugs.webkit.org/show_bug.cgi?id=50049
+
+        Enable SelectAll for the Qt context menu.
+
+        * Api/qwebpage.cpp:
+        (webActionForContextMenuAction):
+        (QWebPage::action):
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::contextMenuItemTagSelectAll):
+        * WebCoreSupport/WebPlatformStrategies.h:
+
+2011-01-03  Antonio Gomes  <agomes@rim.com>
+
+        Unreviewed crash fix.
+
+        Follow up of r74891: potential crash fix (bogus assertion).
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::editorCommandForKeyDownEvent):
+
+2011-01-03  Noam Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] document.getElementById(...) doesn't return the right object in combination with QGraphicsWidget
+        https://bugs.webkit.org/show_bug.cgi?id=51464
+
+        Added a way to bind any QObject created as a plugin to JavaScript, 
+        by adding a custom membe to WebCore::Widget. 
+        Added a test to make sure plugins created as QGraphicsWidget are 
+        accessible through JavaScript.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (PluginPage::createPlugin):
+        (tst_QWebPage::graphicsWidgetPlugin):
+
+2011-01-02  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Refactor EditorClientQt::handleKeyboardEvent
+        https://bugs.webkit.org/show_bug.cgi?id=51306
+
+        EditorClientQt::handleKeyboardEvent relies on QWebPagePrivate::editorActionForKeyEvent()
+        to handle all editor commands that have a QAction associted with it.
+        In practice, that covers most of editor commands (as one can see in editorCommandWebActions,
+        in qwebpage.cpp). However, there are some key down events that are associated to no QAction
+        or need special handling when features like spatial navigation or
+        caret browsing are enabled. Currently, these cases are being handled with confusing
+        and nested if/else switch's statements in EditorClientQt::handleKeyboardEvent(),
+        and the code is hardly readable.
+
+        This patch introduces a mapping hash for those cases, simplifying much
+        the code. Basically, nested switches statements mixed with if/else's were
+        refactored, and early returns were added right after an event gets consumed
+        by the Editor.
+
+        Since it is a refactor only patch, there is no funcionality change at
+        all, and then no new tests are being added.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::interpretKeyEvent):
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2011-01-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move JavaScriptCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=51604
+
+        * WebKit_pch.h:
+        * docs/qtwebkit.qdocconf:
+          - Point to JavaScriptCore in its new location.
+
+2010-12-29  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix compilation with Qt in namespace
+        https://bugs.webkit.org/show_bug.cgi?id=51701
+
+        * Api/qwebkitplatformplugin.h:
+        * WebCoreSupport/InspectorServerQt.h:
+        * tests/hybridPixmap/widget.h:
+
+2010-12-23  Jan Erik Hanssen  <jhanssen@sencha.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        [Qt] Composition text is not removed from the editor when composition is cancelled
+        https://bugs.webkit.org/show_bug.cgi?id=29391
+
+        Ensure that the composition text is cleared when an empty QInputMethodEvent
+        is received and the editor is in composition mode.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+
+2010-12-23  Jan Erik Hanssen  <jhanssen@sencha.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] copy and paste greek symbols to Word, TextEdit results in ?'s being shown
+        https://bugs.webkit.org/show_bug.cgi?id=35635
+
+        Test that QClipboard contains the charset information and unicode data
+        after copying unicode text.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::macCopyUnicodeToClipboard):
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::didSaveToPageCache):
+        (WebCore::FrameLoaderClientQt::didRestoreFromPageCache):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-12-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Editor.h doesn't need to include SelectionController.h
+        https://bugs.webkit.org/show_bug.cgi?id=51441
+
+        Renamed SelectionController::EDirection to SelectionDirection.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-12-23  Dawit Alemayehu  <adawit@kde.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Add a 'hasSelection' function to QWebView and QWebPage.
+        https://bugs.webkit.org/show_bug.cgi?id=48722
+
+        This is a convenience API that optimizes the case where checking for
+        the presence of selected content and accessing the selected content
+        are two separate actions in the client. See comment #12 in the above
+        bug report link for details.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::hasSelection):
+        * Api/qwebpage.h:
+        * Api/qwebview.cpp:
+        (QWebView::hasSelection):
+        * Api/qwebview.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::textSelection):
+
 2010-12-20  Benjamin Poulain  <benjamin.poulain@nokia.com>
 
         Reviewed by Andreas Kling.

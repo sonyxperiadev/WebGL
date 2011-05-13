@@ -72,6 +72,8 @@ class QWEBKIT_EXPORT QWebPage : public QObject {
 
     Q_PROPERTY(bool modified READ isModified)
     Q_PROPERTY(QString selectedText READ selectedText)
+    Q_PROPERTY(QString selectedHtml READ selectedHtml)
+    Q_PROPERTY(bool hasSelection READ hasSelection)
     Q_PROPERTY(QSize viewportSize READ viewportSize WRITE setViewportSize)
     Q_PROPERTY(QSize preferredContentsSize READ preferredContentsSize WRITE setPreferredContentsSize)
     Q_PROPERTY(bool forwardUnsupportedContent READ forwardUnsupportedContent WRITE setForwardUnsupportedContent)
@@ -268,7 +270,9 @@ public:
     quint64 totalBytes() const;
     quint64 bytesReceived() const;
 
+    bool hasSelection() const;
     QString selectedText() const;
+    QString selectedHtml() const;
 
 #ifndef QT_NO_ACTION
     QAction *action(WebAction action) const;

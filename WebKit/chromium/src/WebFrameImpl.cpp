@@ -82,6 +82,7 @@
 #include "DocumentFragment.h" // Only needed for ReplaceSelectionCommand.h :(
 #include "DocumentLoader.h"
 #include "DocumentMarker.h"
+#include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "EventHandler.h"
 #include "FormState.h"
@@ -712,7 +713,7 @@ WebPerformance WebFrameImpl::performance() const
     if (!m_frame || !m_frame->domWindow())
         return WebPerformance();
 
-    return WebPerformance(m_frame->domWindow()->webkitPerformance());
+    return WebPerformance(m_frame->domWindow()->performance());
 }
 
 WebSecurityOrigin WebFrameImpl::securityOrigin() const
@@ -1073,15 +1074,18 @@ void WebFrameImpl::replaceSelection(const WebString& text)
 
 void WebFrameImpl::insertText(const WebString& text)
 {
-    frame()->editor()->insertText(text, 0);
+    Editor* editor = frame()->editor();
+
+    if (editor->hasComposition())
+        editor->confirmComposition(text);
+    else
+        editor->insertText(text, 0);
 }
 
 void WebFrameImpl::setMarkedText(
     const WebString& text, unsigned location, unsigned length)
 {
     Editor* editor = frame()->editor();
-
-    editor->confirmComposition(text);
 
     Vector<CompositionUnderline> decorations;
     editor->setComposition(text, decorations, location, length);
@@ -1150,11 +1154,11 @@ bool WebFrameImpl::executeCommand(const WebString& name)
     // support.
     if (command == "DeleteToEndOfParagraph") {
         Editor* editor = frame()->editor();
-        if (!editor->deleteWithDirection(SelectionController::DirectionForward,
+        if (!editor->deleteWithDirection(DirectionForward,
                                          ParagraphBoundary,
                                          true,
                                          false)) {
-            editor->deleteWithDirection(SelectionController::DirectionForward,
+            editor->deleteWithDirection(DirectionForward,
                                         CharacterGranularity,
                                         true,
                                         false);

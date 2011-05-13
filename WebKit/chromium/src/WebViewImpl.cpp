@@ -69,7 +69,6 @@
 #include "HTMLNames.h"
 #include "Image.h"
 #include "ImageBuffer.h"
-#include "ImageData.h"
 #include "InspectorController.h"
 #include "KeyboardCodes.h"
 #include "KeyboardEvent.h"
@@ -120,6 +119,7 @@
 #include "WebString.h"
 #include "WebVector.h"
 #include "WebViewClient.h"
+#include <wtf/ByteArray.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(CG)
@@ -1020,10 +1020,10 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
     IntRect invertRect(rect.x(), bitmapHeight - rect.bottom(), rect.width(), rect.height());
 
     OwnPtr<ImageBuffer> imageBuffer(ImageBuffer::create(rect.size()));
-    RefPtr<ImageData> imageData(ImageData::create(rect.width(), rect.height()));
-    if (imageBuffer.get() && imageData.get()) {
-        m_layerRenderer->getFramebufferPixels(imageData->data()->data()->data(), invertRect);
-        imageBuffer->putPremultipliedImageData(imageData.get(), IntRect(IntPoint(), rect.size()), IntPoint());
+    RefPtr<ByteArray> pixelArray(ByteArray::create(rect.width() * rect.height() * 4));
+    if (imageBuffer.get() && pixelArray.get()) {
+        m_layerRenderer->getFramebufferPixels(pixelArray->data(), invertRect);
+        imageBuffer->putPremultipliedImageData(pixelArray.get(), rect.size(), IntRect(IntPoint(), rect.size()), IntPoint());
         gc.save();
         gc.translate(FloatSize(0.0f, bitmapHeight));
         gc.scale(FloatSize(1.0f, -1.0f));
@@ -1303,11 +1303,16 @@ bool WebViewImpl::setComposition(
 
 bool WebViewImpl::confirmComposition()
 {
+    return confirmComposition(WebString());
+}
+
+bool WebViewImpl::confirmComposition(const WebString& text)
+{
     Frame* focused = focusedWebCoreFrame();
     if (!focused || !m_imeAcceptEvents)
         return false;
     Editor* editor = focused->editor();
-    if (!editor || !editor->hasComposition())
+    if (!editor || (!editor->hasComposition() && !text.length()))
         return false;
 
     // We should verify the parent node of this IME composition node are
@@ -1321,7 +1326,14 @@ bool WebViewImpl::confirmComposition()
             return false;
     }
 
-    editor->confirmComposition();
+    if (editor->hasComposition()) {
+        if (text.length())
+            editor->confirmComposition(String(text));
+        else
+            editor->confirmComposition();
+    } else
+        editor->insertText(String(text), 0);
+
     return true;
 }
 
@@ -2268,70 +2280,6 @@ void WebViewImpl::setRootLayerNeedsDisplay()
 
 void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect& clipRect)
 {
-    ASSERT(m_layerRenderer);
-    // Compute the damage rect in viewport space.
-    WebFrameImpl* webframe = mainFrameImpl();
-    if (!webframe)
-        return;
-    FrameView* view = webframe->frameView();
-    if (!view)
-        return;
-
-    IntRect contentRect = view->visibleContentRect(false);
-    IntRect screenRect = view->contentsToWindow(contentRect);
-
-    // We support fast scrolling in one direction at a time.
-    if (scrollDelta.width() && scrollDelta.height()) {
-        invalidateRootLayerRect(WebRect(screenRect));
-        return;
-    }
-
-    // Compute the region we will expose by scrolling. We use the
-    // content rect for invalidation.  Using this space for damage
-    // rects allows us to intermix invalidates with scrolls.
-    IntRect damagedContentsRect;
-    if (scrollDelta.width()) {
-        int dx = scrollDelta.width();
-        damagedContentsRect.setY(screenRect.y());
-        damagedContentsRect.setHeight(screenRect.height());
-        if (dx > 0) {
-            damagedContentsRect.setX(screenRect.x());
-            damagedContentsRect.setWidth(dx);
-        } else {
-            damagedContentsRect.setX(screenRect.right() + dx);
-            damagedContentsRect.setWidth(-dx);
-        }
-    } else {
-        int dy = scrollDelta.height();
-        damagedContentsRect.setX(screenRect.x());
-        damagedContentsRect.setWidth(screenRect.width());
-        if (dy > 0) {
-            damagedContentsRect.setY(screenRect.y());
-            damagedContentsRect.setHeight(dy);
-        } else {
-            damagedContentsRect.setY(screenRect.bottom() + dy);
-            damagedContentsRect.setHeight(-dy);
-        }
-    }
-
-    // Move the previous damage
-    m_rootLayerScrollDamage.move(scrollDelta.width(), scrollDelta.height());
-    // Union with the new damage rect.
-    m_rootLayerScrollDamage.unite(damagedContentsRect);
-
-    // Scroll any existing damage that intersects with clip rect
-    if (clipRect.intersects(m_rootLayerDirtyRect)) {
-        // Find the inner damage
-        IntRect innerDamage(clipRect);
-        innerDamage.intersect(m_rootLayerDirtyRect);
-
-        // Move the damage
-        innerDamage.move(scrollDelta.width(), scrollDelta.height());
-
-        // Merge it back into the damaged rect
-        m_rootLayerDirtyRect.unite(innerDamage);
-    }
-
     setRootLayerNeedsDisplay();
 }
 
@@ -2342,9 +2290,12 @@ void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
     if (!page())
         return;
 
-    // FIXME: add a smarter damage aggregation logic and/or unify with
-    // LayerChromium's damage logic
-    m_rootLayerDirtyRect.unite(rect);
+    FrameView* view = page()->mainFrame()->view();
+    IntRect contentRect = view->visibleContentRect(false);
+    IntRect visibleRect = view->visibleContentRect(true);
+
+    IntRect dirtyRect = view->windowToContents(rect);
+    m_layerRenderer->invalidateRootLayerRect(dirtyRect, visibleRect, contentRect);
     setRootLayerNeedsDisplay();
 }
 
@@ -2361,89 +2312,77 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         if (m_layerRenderer)
             m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
         m_client->didActivateAcceleratedCompositing(false);
-        return;
-    }
-
-    if (m_layerRenderer) {
+    } else if (m_layerRenderer) {
         m_isAcceleratedCompositingActive = true;
         m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
                                                                 std::max(1, m_size.height)));
 
         m_client->didActivateAcceleratedCompositing(true);
-        return;
-    }
-
-    RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
-    if (!context) {
-        context = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
-        if (context)
-            context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
-    }
-    m_layerRenderer = LayerRendererChromium::create(context.release());
-    if (m_layerRenderer) {
-        m_client->didActivateAcceleratedCompositing(true);
-        m_isAcceleratedCompositingActive = true;
-        m_compositorCreationFailed = false;
     } else {
-        m_isAcceleratedCompositingActive = false;
-        m_client->didActivateAcceleratedCompositing(false);
-        m_compositorCreationFailed = true;
+        RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
+        if (!context) {
+            context = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+            if (context)
+                context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+        }
+        m_layerRenderer = LayerRendererChromium::create(context.release());
+        if (m_layerRenderer) {
+            m_client->didActivateAcceleratedCompositing(true);
+            m_isAcceleratedCompositingActive = true;
+            m_compositorCreationFailed = false;
+        } else {
+            m_isAcceleratedCompositingActive = false;
+            m_client->didActivateAcceleratedCompositing(false);
+            m_compositorCreationFailed = true;
+        }
     }
+    if (page())
+        page()->mainFrame()->view()->setClipsRepaints(!m_isAcceleratedCompositingActive);
 }
 
-void WebViewImpl::updateRootLayerContents(const IntRect& rect)
-{
-    if (!isAcceleratedCompositingActive())
-        return;
-
-    WebFrameImpl* webframe = mainFrameImpl();
-    if (!webframe)
-        return;
-    FrameView* view = webframe->frameView();
-    if (!view)
-        return;
-
-    LayerChromium* rootLayer = m_layerRenderer->rootLayer();
-    if (rootLayer) {
-        IntRect visibleRect = view->visibleContentRect(true);
-
-        m_layerRenderer->setRootLayerCanvasSize(IntSize(rect.width(), rect.height()));
-        GraphicsContext* rootLayerContext = m_layerRenderer->rootLayerGraphicsContext();
-
-#if PLATFORM(SKIA)
-        PlatformContextSkia* skiaContext = rootLayerContext->platformContext();
-        skia::PlatformCanvas* platformCanvas = skiaContext->canvas();
-
-        platformCanvas->save();
-
-        // Bring the canvas into the coordinate system of the paint rect.
-        platformCanvas->translate(static_cast<SkScalar>(-rect.x()), static_cast<SkScalar>(-rect.y()));
-
-        rootLayerContext->save();
-
-        webframe->paintWithContext(*rootLayerContext, rect);
-        rootLayerContext->restore();
-
-        platformCanvas->restore();
-#elif PLATFORM(CG)
-        CGContextRef cgContext = rootLayerContext->platformContext();
-
-        CGContextSaveGState(cgContext);
-
-        // Bring the CoreGraphics context into the coordinate system of the paint rect.
-        CGContextTranslateCTM(cgContext, -rect.x(), -rect.y());
-
-        rootLayerContext->save();
-
-        webframe->paintWithContext(*rootLayerContext, rect);
-        rootLayerContext->restore();
-
-        CGContextRestoreGState(cgContext);
-#else
-#error Must port to your platform
-#endif
+class WebViewImplTilePaintInterface : public TilePaintInterface {
+public:
+    explicit WebViewImplTilePaintInterface(WebViewImpl* webViewImpl)
+        : m_webViewImpl(webViewImpl)
+    {
     }
-}
+
+    virtual void paint(GraphicsContext& context, const IntRect& contentRect)
+    {
+        Page* page = m_webViewImpl->page();
+        if (!page)
+            return;
+        FrameView* view = page->mainFrame()->view();
+        view->paintContents(&context, contentRect);
+    }
+
+private:
+    WebViewImpl* m_webViewImpl;
+};
+
+
+class WebViewImplScrollbarPaintInterface : public TilePaintInterface {
+public:
+    explicit WebViewImplScrollbarPaintInterface(WebViewImpl* webViewImpl)
+        : m_webViewImpl(webViewImpl)
+    {
+    }
+
+    virtual void paint(GraphicsContext& context, const IntRect& contentRect)
+    {
+        Page* page = m_webViewImpl->page();
+        if (!page)
+            return;
+        FrameView* view = page->mainFrame()->view();
+
+        context.translate(view->scrollX(), view->scrollY());
+        IntRect windowRect = view->contentsToWindow(contentRect);
+        view->paintScrollbars(&context, windowRect);
+    }
+
+private:
+    WebViewImpl* m_webViewImpl;
+};
 
 void WebViewImpl::doComposite()
 {
@@ -2455,32 +2394,12 @@ void WebViewImpl::doComposite()
     // The visibleRect includes scrollbars whereas the contentRect doesn't.
     IntRect visibleRect = view->visibleContentRect(true);
     IntRect contentRect = view->visibleContentRect(false);
-    IntRect viewPort = IntRect(0, 0, m_size.width, m_size.height);
+    IntPoint scroll(view->scrollX(), view->scrollY());
 
-    // Give the compositor a chance to setup/resize the root texture handle and perform scrolling.
-    m_layerRenderer->prepareToDrawLayers(visibleRect, contentRect, IntPoint(view->scrollX(), view->scrollY()));
+    WebViewImplTilePaintInterface tilePaint(this);
 
-    // Draw the contents of the root layer.
-    Vector<IntRect> damageRects;
-    damageRects.append(m_rootLayerScrollDamage);
-    damageRects.append(m_rootLayerDirtyRect);
-    for (size_t i = 0; i < damageRects.size(); ++i) {
-        IntRect damagedRect = damageRects[i];
-
-        // Intersect this rectangle with the viewPort.
-        damagedRect.intersect(viewPort);
-
-        // Now render it.
-        if (damagedRect.width() && damagedRect.height()) {
-            updateRootLayerContents(damagedRect);
-            m_layerRenderer->updateRootLayerTextureRect(damagedRect);
-        }
-    }
-    m_rootLayerDirtyRect = IntRect();
-    m_rootLayerScrollDamage = IntRect();
-
-    // Draw the actual layers...
-    m_layerRenderer->drawLayers(visibleRect, contentRect);
+    WebViewImplScrollbarPaintInterface scrollbarPaint(this);
+    m_layerRenderer->drawLayers(visibleRect, contentRect, scroll, tilePaint, scrollbarPaint);
 }
 
 void WebViewImpl::reallocateRenderer()

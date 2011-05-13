@@ -127,10 +127,11 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
-WEBCORE_PATH := $(BASE_PATH)/WebCore
+SOURCE_PATH := $(BASE_PATH)/Source
+WEBCORE_PATH := $(SOURCE_PATH)/WebCore
+JAVASCRIPTCORE_PATH := $(SOURCE_PATH)/JavaScriptCore
 WEBKIT_PATH := $(BASE_PATH)/WebKit
-JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
-WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/WebCore
+WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/Source/WebCore
 
 # Build our list of include paths. We include WebKit/android/icu first so that
 # any files that include <unicode/ucnv.h> will include our ucnv.h first. We
@@ -159,6 +160,10 @@ LOCAL_C_INCLUDES := \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
 	frameworks/base/include
+
+# Add Source/ for the include of <JavaScriptCore/config.h> from WebCore/config.h
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	$(SOURCE_PATH)
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH) \
@@ -256,16 +261,16 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 # Include WTF source file.
-d := JavaScriptCore
-LOCAL_PATH := $(JAVASCRIPTCORE_PATH)
+d := Source/JavaScriptCore
+LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.v8.wtf.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 endif  # JAVASCRIPT_ENGINE == v8
 
 # Include source files for WebCore
-d := WebCore
-LOCAL_PATH := $(WEBCORE_PATH)
+d := Source/WebCore
+LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
@@ -289,7 +294,7 @@ endif
 
 # Include source files for android WebKit port
 d := WebKit
-LOCAL_PATH := $(WEBKIT_PATH)
+LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
@@ -432,8 +437,8 @@ LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
 LOCAL_STATIC_LIBRARIES := $(WEBKIT_STATIC_LIBRARIES)
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 # Include source files for JavaScriptCore
-d := JavaScriptCore
-LOCAL_PATH := $(JAVASCRIPTCORE_PATH)
+d := Source/JavaScriptCore
+LOCAL_PATH := $(BASE_PATH)/$d
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 # Cannot use base_intermediates as this is a new module
 intermediates := $(call local-intermediates-dir)

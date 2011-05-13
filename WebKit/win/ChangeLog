@@ -1,3 +1,142 @@
+2011-01-07  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Move WebCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=52050
+
+        * WebKit.vcproj/WebKit.sln:
+
+2011-01-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 52035 - Unregistering DOMWrapperWorlds is unsafe
+
+        The method DOMWrapperWorld::unregisterWorld() effectively calls the DOMWrapperWorld's
+        destructor early, in order to release wrappers once we know we no longer intend to use them.
+        Whilst it is okay to have a method to throw away wrappers (assuming we know we're willing to
+        lose any state stored on them) it is not okay to deregister the world from the JSGlobalData.
+        A sequence of events that triggers the bug would look like this:
+
+        (1) Create a DOMWrapperWorld.
+        (2) Register a timer in the world.
+        (3) Call unregisterWorld() on the world.
+        (4) Timer goes off, code is executed in the world, creates a Node not attached to a Document.
+        (5) We attempt to lookup a wrapper map for the world on the JSGlobalData, but because we've
+            called forgetWorld() none exists.
+        (6) Attempt to add a wrapper to a NULL map.
+
+        Fix the problem by not removing the JSGlobalData's wrapper map until the world really goes away.
+
+        * WebScriptWorld.cpp:
+        (WebScriptWorld::unregisterWorld):
+
+2011-01-07  Chris Marrin  <cmarrin@apple.com>
+
+        Rubber-stamped by Simon Fraser.
+
+        Share code between Mac (CA) and Windows (CACF) GraphicsLayer implementations
+        https://bugs.webkit.org/show_bug.cgi?id=49388
+
+        Change client API for the fullscreen video controller. It now uses a 
+        PlatformCALayerClient so it can use a PlaformCALayer directly. Also
+        updated how to connect the layer tree to the view to reflect the updated
+        hardware compositing logic.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::LayerClient::LayerClient):
+        (FullscreenVideoController::LayerClient::platformCALayerRespondsToLayoutChanges):
+        (FullscreenVideoController::LayerClient::platformCALayerAnimationStarted):
+        (FullscreenVideoController::LayerClient::platformCALayerContentsOrientation):
+        (FullscreenVideoController::LayerClient::platformCALayerPaintContents):
+        (FullscreenVideoController::LayerClient::platformCALayerShowDebugBorders):
+        (FullscreenVideoController::LayerClient::platformCALayerShowRepaintCounter):
+        (FullscreenVideoController::LayerClient::platformCALayerIncrementRepaintCount):
+        (FullscreenVideoController::LayerClient::platformCALayerContentsOpaque):
+        (FullscreenVideoController::LayerClient::platformCALayerDrawsContent):
+        (FullscreenVideoController::LayerClient::platformCALayerLayerDidDisplay):
+        (FullscreenVideoController::LayerClient::platformCALayerLayoutSublayersOfLayer):
+        (FullscreenVideoController::FullscreenVideoController):
+        (FullscreenVideoController::~FullscreenVideoController):
+        (FullscreenVideoController::enterFullscreen):
+        * FullscreenVideoController.h:
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::attachRootGraphicsLayer):
+        (WebChromeClient::scheduleCompositingLayerSync):
+        * WebView.cpp:
+        (WebView::setRootChildLayer):
+        (WebView::animationsStarted):
+        (WebView::syncCompositingState):
+        * WebView.h:
+        (WebView::setRootLayerNeedsDisplay):
+
+2011-01-05  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Debug and Release builds on Windows clobber each other
+        https://bugs.webkit.org/show_bug.cgi?id=49185
+
+        Changes the structure of WebKitBuild build products directory so we
+        completely separate each build configuration into independent directories.
+        
+        Although we previously had per-configuration directories for obj, this change adds
+        per-configuration directories for bin, lib, obj, and include. Each configuration's
+        build products are stored within a directory inside of WebKitBuild.
+        
+        Most use of $(WebKitOutputDir) in the build files has been replaced by $(ConfigurationBuildDir),
+        defined in common.vsprops to be $(WebKitOutputDir)\$(ConfigurationName).
+
+        * WebKit.vcproj/InterfacesCommon.vsprops:
+        * WebKit.vcproj/InterfacesPostBuild.cmd:
+        * WebKit.vcproj/InterfacesPreBuild.cmd:
+        * WebKit.vcproj/WebKit.make:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+        * WebKit.vcproj/WebKitGUIDCommon.vsprops:
+        * WebKit.vcproj/WebKitGUIDPostBuild.cmd:
+        * WebKit.vcproj/WebKitGUIDPreBuild.cmd:
+        * WebKit.vcproj/WebKitLibCommon.vsprops:
+        * WebKit.vcproj/WebKitLibPostBuild.cmd:
+        * WebKit.vcproj/WebKitLibPreBuild.cmd:
+
+2011-01-04  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WK2: Support Accessibility
+        https://bugs.webkit.org/show_bug.cgi?id=51859
+
+        Use rootObject() method to get the top of the AX tree.
+
+        * AccessibleDocument.cpp:
+        (AccessibleDocument::AccessibleDocument):
+
+2011-01-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move JavaScriptCore to Source
+        https://bugs.webkit.org/show_bug.cgi?id=51604
+
+        * WebKit.vcproj/WebKit.sln:
+          - Point to JavaScriptCore in its new location.
+
+2010-12-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        WebKit2 needs to mirror the frame tree in the UIProcess
+        https://bugs.webkit.org/show_bug.cgi?id=51546
+
+        - Add client functions to notify that a frame has been added or
+          removed from the page cache.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didSaveToPageCache):
+        (WebFrameLoaderClient::didRestoreFromPageCache):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
 2010-12-22  Dan Bernstein  <mitz@apple.com>
 
         Changed WebKitTools to Tools.

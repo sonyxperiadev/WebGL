@@ -131,10 +131,10 @@ _PATH_RULES_SPECIFIER = [
       # values.
       "WebKit/efl/ewk/",
       # There is no clean way to avoid "yy_*" names used by flex.
-      "WebCore/css/CSSParser.cpp",
+      "Source/WebCore/css/CSSParser.cpp",
       # Qt code uses '_' in some places (such as private slots
       # and on test xxx_data methos on tests)
-      "JavaScriptCore/qt/api/",
+      "Source/JavaScriptCore/qt/",
       "WebKit/qt/Api/",
       "WebKit/qt/tests/",
       "WebKit/qt/declarative/",
@@ -143,7 +143,7 @@ _PATH_RULES_SPECIFIER = [
     ([# The GTK+ APIs use GTK+ naming style, which includes
       # lower-cased, underscore-separated values.
       # Also, GTK+ allows the use of NULL.
-      "WebCore/bindings/scripts/test/GObject",
+      "Source/WebCore/bindings/scripts/test/GObject",
       "WebKit/gtk/webkit/",
       "Tools/DumpRenderTree/gtk/"],
      ["-readability/naming",
@@ -154,8 +154,12 @@ _PATH_RULES_SPECIFIER = [
      ["-build/header_guard"]),
     ([# assembler has lots of opcodes that use underscores, so
       # we don't check for underscores in that directory.
-      "/JavaScriptCore/assembler/"],
+      "/Source/JavaScriptCore/assembler/"],
      ["-readability/naming"]),
+    ([# JITStubs has an usual syntax which causes false alarms for a few checks.
+      "JavaScriptCore/jit/JITStubs.cpp"],
+     ["-readability/parameter_name",
+      "-whitespace/parens"]),
 
     # WebKit2 rules:
     # WebKit2 doesn't use config.h, and certain directories have other
@@ -165,11 +169,13 @@ _PATH_RULES_SPECIFIER = [
      ["-build/include_order",
       "-readability/naming"]),
     ([# The WebKit2 C API has names with underscores and whitespace-aligned
-      # struct members.
+      # struct members. Also, we allow unnecessary parameter names in
+      # WebKit2 APIs because we're matching CF's header style.
       "WebKit2/UIProcess/API/C/",
       "WebKit2/WebProcess/InjectedBundle/API/c/"],
      ["-build/include_order",
       "-readability/naming",
+      "-readability/parameter_name",
       "-whitespace/declaration"]),
     ([# Nothing in WebKit2 uses config.h.
       "WebKit2/"],
@@ -241,7 +247,7 @@ _SKIPPED_FILES_WITH_WARNING = [
     # Soup API that is still being cooked, will be removed from WebKit
     # in a few months when it is merged into soup proper. The style
     # follows the libsoup style completely.
-    "WebCore/platform/network/soup/cache/",
+    "Source/WebCore/platform/network/soup/cache/",
     ]
 
 

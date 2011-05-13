@@ -23,6 +23,9 @@
 #ifndef webkitwebframeprivate_h
 #define webkitwebframeprivate_h
 
+#include "Frame.h"
+#include "webkitwebframe.h"
+
 namespace WebKit {
 
 WebKitWebView* getViewFromFrame(WebKitWebFrame*);

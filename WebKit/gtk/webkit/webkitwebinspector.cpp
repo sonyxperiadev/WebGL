@@ -22,6 +22,7 @@
 #include "config.h"
 #include "webkitwebinspector.h"
 
+#include "DumpRenderTreeSupportGtk.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "HitTestRequest.h"
@@ -32,8 +33,8 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "webkit/WebKitDOMNodePrivate.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
-#include "webkitprivate.h"
 #include "webkitwebinspectorprivate.h"
 #include <glib/gi18n-lib.h>
 
@@ -596,23 +597,23 @@ static bool isSchemaAvailable(const char* schemaID)
 GSettings* inspectorGSettings()
 {
     static GSettings* settings = 0;
-
     if (settings)
         return settings;
 
+    // Unfortunately GSettings will abort the process execution if the schema is not
+    // installed, which is the case for when running tests, or even the introspection dump
+    // at build time, so check if we have the schema before trying to initialize it.
     const gchar* schemaID = "org.webkitgtk-"WEBKITGTK_API_VERSION_STRING".inspector";
-
-    // Unfortunately GSettings will abort the process execution if the
-    // schema is not installed, which is the case for when running
-    // tests, or even the introspection dump at build time, so check
-    // if we have the schema before trying to initialize it.
     if (!isSchemaAvailable(schemaID)) {
-        g_warning("GSettings schema not found - settings will not be used or saved.");
+
+        // This warning is very common on the build bots, which hides valid warnings.
+        // Skip printing it if we are running inside DumpRenderTree.
+        if (!DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
+            g_warning("GSettings schema not found - settings will not be used or saved.");
         return 0;
     }
 
     settings = g_settings_new(schemaID);
-
     return settings;
 }
 #endif

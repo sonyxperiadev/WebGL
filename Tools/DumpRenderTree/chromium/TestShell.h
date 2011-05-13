@@ -137,21 +137,20 @@ public:
     int layoutTestTimeoutForWatchDog() { return layoutTestTimeout() + 1000; }
     void setLayoutTestTimeout(int timeout) { m_timeout = timeout; }
 
-    // Number of times to load each URL.
-    int loadCount() { return m_loadCount; }
-    void setLoadCount(int loadCount) { m_loadCount = loadCount; }
+    // V8 JavaScript stress test options.
+    int stressOpt() { return m_stressOpt; }
+    void setStressOpt(bool stressOpt) { m_stressOpt = stressOpt; }
+    int stressDeopt() { return m_stressDeopt; }
+    void setStressDeopt(int stressDeopt) { m_stressDeopt = stressDeopt; }
 
-    // The JavaScript flags are specified as a vector of strings. Each element of the vector is full flags string
-    // which can contain multiple flags (e.g. "--xxx --yyy"). With multiple load testing it is possible to specify
-    // separate sets of flags to each load.
-    std::string javaScriptFlagsForLoad(size_t load) { return (load < m_javaScriptFlags.size()) ? m_javaScriptFlags[load] : ""; }
-    void setJavaScriptFlags(Vector<std::string> javaScriptFlags) { m_javaScriptFlags = javaScriptFlags; }
+    // The JavaScript flags specified as a strings.
+    std::string javaScriptFlags() { return m_javaScriptFlags; }
+    void setJavaScriptFlags(std::string javaScriptFlags) { m_javaScriptFlags = javaScriptFlags; }
 
     // Set whether to dump when the loaded page has finished processing. This is used with multiple load
     // testing where we only want to have the output from the last load.
     void setDumpWhenFinished(bool dumpWhenFinished) { m_dumpWhenFinished = dumpWhenFinished; }
 
-    WebViewHost* createWebView();
     WebViewHost* createNewWindow(const WebKit::WebURL&);
     void closeWindow(WebViewHost*);
     void closeRemainingWindows();
@@ -168,6 +167,8 @@ public:
     static const int virtualWindowBorder = 3;
 
 private:
+    WebViewHost* createNewWindow(const WebKit::WebURL&, DRTDevToolsAgent*);
+    void createMainWindow();
     void createDRTDevToolsClient(DRTDevToolsAgent*);
 
     void resetWebSettings(WebKit::WebView&);
@@ -198,8 +199,9 @@ private:
     bool m_acceleratedCompositingEnabled;
     bool m_accelerated2dCanvasEnabled;
     WebPreferences m_prefs;
-    int m_loadCount;
-    Vector<std::string> m_javaScriptFlags;
+    bool m_stressOpt;
+    bool m_stressDeopt;
+    std::string m_javaScriptFlags;
     bool m_dumpWhenFinished;
 
 

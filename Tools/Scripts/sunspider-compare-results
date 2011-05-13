@@ -67,8 +67,6 @@ if ($showHelp) {
    exit 1;
 }
 
-@ARGV = map { File::Spec->rel2abs($_) } @ARGV;
-
 sub buildJSC
 {
     if (!defined($root)){
@@ -121,7 +119,7 @@ sub pathToJSC()
 
 my $jscPath = pathToJSC();
 chdirWebKit();
-chdir("SunSpider");
+chdir("PerformanceTests/SunSpider");
 
 my @args = ("--shell", $jscPath);
 # This code could be removed if we chose to pass extra args to sunspider instead of Xcode
@@ -129,5 +127,7 @@ push @args, "--suite=${suite}" if $suite;
 push @args, "--ubench" if $ubench;
 push @args, "--v8" if $v8;
 push @args, "--parse-only" if $parseonly;
+
+@ARGV = map { File::Spec->rel2abs($_) } @ARGV;
 
 exec currentPerlPath(), "./sunspider-compare-results", @args, @ARGV;

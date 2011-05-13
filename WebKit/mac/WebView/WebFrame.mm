@@ -56,11 +56,12 @@
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/AnimationController.h>
 #import <WebCore/CSSMutableStyleDeclaration.h>
+#import <WebCore/CachedResourceLoader.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
-#import <WebCore/CachedResourceLoader.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentMarkerController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/Frame.h>
@@ -688,27 +689,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return _private->coreFrame->view() ? _private->coreFrame->view()->needsLayout() : false;
 }
 
-- (id)_accessibilityTree
-{
-#if HAVE(ACCESSIBILITY)
-    if (!AXObjectCache::accessibilityEnabled()) {
-        AXObjectCache::enableAccessibility();
-        if ([[NSApp accessibilityAttributeValue:NSAccessibilityEnhancedUserInterfaceAttribute] boolValue])
-            AXObjectCache::enableEnhancedUserInterfaceAccessibility();
-    }
-
-    if (!_private->coreFrame || !_private->coreFrame->document())
-        return nil;
-    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
-    if (!root)
-        return nil;
-    return _private->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
-#else
-    return nil;
-#endif
-}
-
-- (DOMRange *)_rangeByAlteringCurrentSelection:(SelectionController::EAlteration)alteration direction:(SelectionController::EDirection)direction granularity:(TextGranularity)granularity
+- (DOMRange *)_rangeByAlteringCurrentSelection:(SelectionController::EAlteration)alteration direction:(SelectionDirection)direction granularity:(TextGranularity)granularity
 {
     if (_private->coreFrame->selection()->isNone())
         return nil;
@@ -1338,13 +1319,14 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!AXObjectCache::accessibilityEnabled())
         return;
     
-    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
-    if (!root)
+    if (!_private->coreFrame || !_private->coreFrame->document())
         return;
     
-    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->getOrCreate(root);
-    String strName(name);
-    rootObject->setAccessibleName(strName);
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObject();
+    if (rootObject) {
+        String strName(name);
+        rootObject->setAccessibleName(strName);
+    }
 #endif
 }
 
@@ -1363,6 +1345,27 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!coreFrame)
         return NO;
     return coreFrame->editor()->selectionStartHasSpellingMarkerFor(from, length);
+}
+
+- (id)accessibilityRoot
+{
+#if HAVE(ACCESSIBILITY)
+    if (!AXObjectCache::accessibilityEnabled()) {
+        AXObjectCache::enableAccessibility();
+        if ([[NSApp accessibilityAttributeValue:NSAccessibilityEnhancedUserInterfaceAttribute] boolValue])
+            AXObjectCache::enableEnhancedUserInterfaceAccessibility();
+    }
+    
+    if (!_private->coreFrame || !_private->coreFrame->document())
+        return nil;
+    
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObject();
+    if (rootObject)
+        return rootObject->wrapper();
+    return nil;
+#else
+    return nil;
+#endif
 }
 
 @end
