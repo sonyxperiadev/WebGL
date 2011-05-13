@@ -37,7 +37,7 @@ using namespace std;
 
 namespace android {
 
-WebResponse::WebResponse(URLRequest* request)
+WebResponse::WebResponse(net::URLRequest* request)
     : m_httpStatusCode(0)
 {
     // The misleadingly-named os_error() is actually a net::Error enum constant.

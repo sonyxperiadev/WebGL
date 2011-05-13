@@ -50,7 +50,7 @@ class WebResourceRequest;
 class WebUrlLoaderClient;
 
 // All methods in this class must be called on the io thread
-class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
+class WebRequest : public net::URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
 public:
     WebRequest(WebUrlLoaderClient*, const WebResourceRequest&);
 
@@ -72,11 +72,11 @@ public:
     void pauseLoad(bool pause);
 
     // From URLRequest::Delegate
-    virtual void OnReceivedRedirect(URLRequest*, const GURL&, bool* deferRedirect);
-    virtual void OnResponseStarted(URLRequest*);
-    virtual void OnReadCompleted(URLRequest*, int bytesRead);
-    virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
-    virtual void OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert);
+    virtual void OnReceivedRedirect(net::URLRequest*, const GURL&, bool* deferRedirect);
+    virtual void OnResponseStarted(net::URLRequest*);
+    virtual void OnReadCompleted(net::URLRequest*, int bytesRead);
+    virtual void OnAuthRequired(net::URLRequest*, net::AuthChallengeInfo*);
+    virtual void OnSSLCertificateError(net::URLRequest* request, int cert_error, net::X509Certificate* cert);
 
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
@@ -102,7 +102,7 @@ private:
     void updateLoadFlags(int& loadFlags);
 
     scoped_refptr<WebUrlLoaderClient> m_urlLoader;
-    OwnPtr<URLRequest> m_request;
+    OwnPtr<net::URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
     scoped_ptr<UrlInterceptResponse> m_interceptResponse;
     bool m_androidUrl;

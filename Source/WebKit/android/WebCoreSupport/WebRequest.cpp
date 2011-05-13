@@ -75,7 +75,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
 {
     GURL gurl(m_url);
 
-    m_request = new URLRequest(gurl, this);
+    m_request = new net::URLRequest(gurl, this);
 
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
     m_request->set_referrer(webResourceRequest.referrer());
@@ -367,7 +367,7 @@ void WebRequest::handleBrowserURL(GURL url)
 // The caller must set |*defer_redirect| to false, so that delegates do not
 // need to set it if they are happy with the default behavior of not
 // deferring redirect.
-void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, bool* deferRedirect)
+void WebRequest::OnReceivedRedirect(net::URLRequest* newRequest, const GURL& newUrl, bool* deferRedirect)
 {
     ASSERT(m_loadState < Response, "Redirect after receiving response");
     ASSERT(newRequest && newRequest->status().is_success(), "Invalid redirect");
@@ -386,7 +386,7 @@ void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, 
 // or request->CancelAuth() to cancel the login and display the error page.
 // When it does so, the request will be reissued, restarting the sequence
 // of On* callbacks.
-void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* authInfo)
+void WebRequest::OnAuthRequired(net::URLRequest* request, net::AuthChallengeInfo* authInfo)
 {
     ASSERT(m_loadState == Started, "OnAuthRequired called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
@@ -400,10 +400,11 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
 
 // Called when we received an SSL certificate error. The delegate will provide
 // the user the options to proceed, cancel, or view certificates.
-void WebRequest::OnSSLCertificateError(URLRequest* request, int cert_error, net::X509Certificate* cert)
+void WebRequest::OnSSLCertificateError(net::URLRequest* request, int cert_error, net::X509Certificate* cert)
 {
+    scoped_refptr<net::X509Certificate> scoped_cert = cert;
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-            m_urlLoader.get(), &WebUrlLoaderClient::reportSslCertError, cert_error, cert));
+            m_urlLoader.get(), &WebUrlLoaderClient::reportSslCertError, cert_error, scoped_cert));
 }
 
 // After calling Start(), the delegate will receive an OnResponseStarted
@@ -412,7 +413,7 @@ void WebRequest::OnSSLCertificateError(URLRequest* request, int cert_error, net:
 // followed and the final response is beginning to arrive.  At this point,
 // meta data about the response is available, including for example HTTP
 // response headers if this is a request for a HTTP resource.
-void WebRequest::OnResponseStarted(URLRequest* request)
+void WebRequest::OnResponseStarted(net::URLRequest* request)
 {
     ASSERT(m_loadState == Started, "Got response after receiving response");
 
@@ -511,7 +512,7 @@ bool WebRequest::read(int* bytesRead)
 //
 // If an error occurred, request->status() will contain the error,
 // and bytes read will be -1.
-void WebRequest::OnReadCompleted(URLRequest* request, int bytesRead)
+void WebRequest::OnReadCompleted(net::URLRequest* request, int bytesRead)
 {
     ASSERT(m_loadState == Response || m_loadState == GotData, "OnReadCompleted in state other than RESPONSE and GOTDATA");
 

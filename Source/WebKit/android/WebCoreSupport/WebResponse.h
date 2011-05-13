@@ -44,7 +44,7 @@ class WebResponse {
 
 public:
     WebResponse() {}
-    WebResponse(URLRequest*);
+    WebResponse(net::URLRequest*);
     WebResponse(const std::string &url, const std::string &mimeType, long long expectedSize, const std::string &encoding, int httpStatusCode);
 
     const std::string& getUrl() const;
