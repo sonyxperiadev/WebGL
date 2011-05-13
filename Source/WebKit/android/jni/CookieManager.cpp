@@ -110,8 +110,8 @@ static void removeSessionCookies(WebCookieJar* cookieJar)
 {
 #if USE(CHROME_NETWORK_STACK)
   CookieMonster* cookieMonster = cookieJar->cookieStore()->GetCookieMonster();
-  CookieMonster::CookieList cookies = cookieMonster->GetAllCookies();
-  for (CookieMonster::CookieList::const_iterator iter = cookies.begin(); iter != cookies.end(); ++iter) {
+  CookieList cookies = cookieMonster->GetAllCookies();
+  for (CookieList::const_iterator iter = cookies.begin(); iter != cookies.end(); ++iter) {
     if (iter->IsSessionCookie())
       cookieMonster->DeleteCanonicalCookie(*iter);
   }
