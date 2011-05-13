@@ -116,6 +116,7 @@ WebCache::WebCache(bool isPrivateBrowsing)
     }
 
     m_cache = new net::HttpCache(m_hostResolver.get(),
+                                 new CertVerifier(),
                                  0, // dnsrr_resolver
                                  0, // dns_cert_checker
                                  net::ProxyService::CreateWithoutProxyResolver(m_proxyConfigService, 0 /* net_log */),
