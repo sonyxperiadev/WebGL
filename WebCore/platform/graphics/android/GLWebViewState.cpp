@@ -30,6 +30,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
+#include "GLUtils.h"
 #include "LayerAndroid.h"
 #include "TilesManager.h"
 #include <wtf/CurrentTime.h>
@@ -78,6 +79,8 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
     , m_prevDrawTime(0)
+    , m_displayRings(false)
+    , m_focusRingTexture(-1)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
@@ -144,6 +147,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
         SkSafeUnref(m_currentBaseLayer);
         m_currentBaseLayer = layer;
     }
+    m_displayRings = false;
     invalRegion(inval);
 
 #ifdef MEASURES_PERF
@@ -153,6 +157,14 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 #endif
 
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
+}
+
+void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed)
+{
+    android::Mutex::Autolock lock(m_baseLayerLock);
+    m_displayRings = true;
+    m_rings = rings;
+    m_ringsIsPressed = isPressed;
 }
 
 void GLWebViewState::invalRegion(const SkRegion& region)
@@ -197,6 +209,7 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
     if (!m_lastInval.isEmpty())
         inval(m_lastInval);
     m_lastInval = rect;
+    m_displayRings = false;
 }
 
 void GLWebViewState::inval(const IntRect& rect)
@@ -217,6 +230,87 @@ void GLWebViewState::inval(const IntRect& rect)
         }
     } else {
         m_invalidateRegion.op(rect.x(), rect.y(), rect.right(), rect.bottom(), SkRegion::kUnion_Op);
+    }
+}
+
+void GLWebViewState::resetRings()
+{
+    m_displayRings = false;
+}
+
+void GLWebViewState::drawFocusRing(IntRect& srcRect)
+{
+    // TODO: use a 9-patch texture to draw the focus ring
+    // instead of plain colors
+    const float alpha = 0.3;
+    float borderAlpha = 0.40;
+
+    const int r = 104;
+    const int g = 153;
+    const int b = 255;
+
+    int padding = 4;
+    int border = 1;
+    int fuzzyBorder = border * 2;
+    if (!m_ringsIsPressed) {
+        padding = 0;
+        border = 2;
+        fuzzyBorder = 3;
+        borderAlpha = 0.2;
+    }
+    if (m_focusRingTexture == -1)
+        m_focusRingTexture = GLUtils::createSampleColorTexture(r, g, b);
+
+    SkRect rLeft, rTop, rRight, rBottom, rOverlay;
+
+    IntRect rect(srcRect.x() - padding, srcRect.y() - padding,
+                 srcRect.width() + (padding * 2), srcRect.height() + (padding * 2));
+    rLeft.set(rect.x() - border, rect.y(),
+              rect.x(), rect.y() + rect.height());
+    rTop.set(rect.x() - border, rect.y() - border,
+             rect.x() + rect.width() + border, rect.y());
+    rRight.set(rect.x() + rect.width(), rect.y(),
+               rect.x() + rect.width() + border,
+               rect.y() + rect.height());
+    rBottom.set(rect.x() - border, rect.y() + rect.height(),
+                rect.x() + rect.width() + border,
+                rect.y() + rect.height() + border);
+    rOverlay.set(rect.x() - fuzzyBorder, rect.y() - fuzzyBorder,
+              rect.x() + rect.width() + fuzzyBorder,
+              rect.y() + rect.height() + fuzzyBorder);
+
+    TilesManager::instance()->shader()->drawQuad(rLeft, m_focusRingTexture, borderAlpha);
+    TilesManager::instance()->shader()->drawQuad(rTop, m_focusRingTexture, borderAlpha);
+    TilesManager::instance()->shader()->drawQuad(rRight, m_focusRingTexture, borderAlpha);
+    TilesManager::instance()->shader()->drawQuad(rBottom, m_focusRingTexture, borderAlpha);
+    if (m_ringsIsPressed) {
+        TilesManager::instance()->shader()->drawQuad(rOverlay, m_focusRingTexture, alpha);
+    } else {
+        rLeft.set(rect.x() - fuzzyBorder, rect.y(),
+                  rect.x(), rect.y() + rect.height());
+        rTop.set(rect.x() - fuzzyBorder, rect.y() - fuzzyBorder,
+                 rect.x() + rect.width() + fuzzyBorder, rect.y());
+        rRight.set(rect.x() + rect.width(), rect.y(),
+                   rect.x() + rect.width() + fuzzyBorder,
+                   rect.y() + rect.height());
+        rBottom.set(rect.x() - fuzzyBorder, rect.y() + rect.height(),
+                    rect.x() + rect.width() + fuzzyBorder,
+                    rect.y() + rect.height() + fuzzyBorder);
+        TilesManager::instance()->shader()->drawQuad(rLeft, m_focusRingTexture, alpha);
+        TilesManager::instance()->shader()->drawQuad(rTop, m_focusRingTexture, alpha);
+        TilesManager::instance()->shader()->drawQuad(rRight, m_focusRingTexture, alpha);
+        TilesManager::instance()->shader()->drawQuad(rBottom, m_focusRingTexture, alpha);
+    }
+}
+
+void GLWebViewState::paintExtras()
+{
+    if (m_displayRings) {
+        // TODO: handles correctly the multi-rings case
+        for (int i=0; i<m_rings.size(); i++) {
+            IntRect rect = m_rings.at(i);
+            drawFocusRing(rect);
+        }
     }
 }
 

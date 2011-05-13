@@ -289,6 +289,25 @@ void GLUtils::deleteTexture(GLuint* texture)
     *texture = 0;
 }
 
+GLuint GLUtils::createSampleColorTexture(int r, int g, int b) {
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    GLubyte pixels[4 *3] = {
+        r, g, b,
+        r, g, b,
+        r, g, b,
+        r, g, b
+    };
+    glBindTexture(GL_TEXTURE_2D, texture);
+    GLUtils::checkGlError("glBindTexture");
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    GLUtils::checkGlError("glTexImage2D");
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    return texture;
+}
+
 GLuint GLUtils::createSampleTexture()
 {
     GLuint texture;

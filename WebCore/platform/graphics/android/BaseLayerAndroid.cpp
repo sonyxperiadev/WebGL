@@ -258,6 +258,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         m_glWebViewState->unlockBaseLayerUpdate();
     }
 
+    m_glWebViewState->paintExtras();
     return needsRedraw;
 }
 #endif // USE(ACCELERATED_COMPOSITING)
