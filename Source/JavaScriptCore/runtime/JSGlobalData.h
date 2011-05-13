@@ -30,7 +30,7 @@
 #define JSGlobalData_h
 
 #include "CachedTranscendentalFunction.h"
-#include "Collector.h"
+#include "Heap.h"
 #include "DateInstanceCache.h"
 #include "ExecutableAllocator.h"
 #include "JITStubs.h"
@@ -128,7 +128,7 @@ namespace JSC {
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
         // Will start tracking threads that use the heap, which is resource-heavy.
-        void makeUsableFromMultipleThreads() { heap.makeUsableFromMultipleThreads(); }
+        void makeUsableFromMultipleThreads() { heap.machineStackMarker().makeUsableFromMultipleThreads(); }
 #endif
 
         GlobalDataType globalDataType;
@@ -229,8 +229,7 @@ namespace JSC {
         int maxReentryDepth;
 
         RegExpCache* m_regExpCache;
-
-        BumpPointerAllocator m_regexAllocator;
+        BumpPointerAllocator m_regExpAllocator;
 
 #if ENABLE(REGEXP_TRACING)
         typedef ListHashSet<RefPtr<RegExp> > RTTraceList;

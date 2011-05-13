@@ -43,6 +43,7 @@
 #include "DOMStringList.h"
 #include "DOMTimer.h"
 #include "DOMTokenList.h"
+#include "DOMURL.h"
 #include "Database.h"
 #include "DatabaseCallback.h"
 #include "DeviceMotionController.h"
@@ -64,7 +65,6 @@
 #include "History.h"
 #include "IDBFactory.h"
 #include "IDBFactoryBackendInterface.h"
-#include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "KURL.h"
 #include "Location.h"
@@ -627,9 +627,7 @@ Storage* DOMWindow::sessionStorage(ExceptionCode& ec) const
         return 0;
 
     RefPtr<StorageArea> storageArea = page->sessionStorage()->storageArea(document->securityOrigin());
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->didUseDOMStorage(storageArea.get(), false, m_frame);
-#endif
+    InspectorInstrumentation::didUseDOMStorage(page, storageArea.get(), false, m_frame);
 
     m_sessionStorage = Storage::create(m_frame, storageArea.release());
     return m_sessionStorage.get();
@@ -657,9 +655,7 @@ Storage* DOMWindow::localStorage(ExceptionCode& ec) const
         return 0;
 
     RefPtr<StorageArea> storageArea = page->group().localStorage()->storageArea(document->securityOrigin());
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->didUseDOMStorage(storageArea.get(), true, m_frame);
-#endif
+    InspectorInstrumentation::didUseDOMStorage(page, storageArea.get(), true, m_frame);
 
     m_localStorage = Storage::create(m_frame, storageArea.release());
     return m_localStorage.get();
@@ -1355,7 +1351,7 @@ void DOMWindow::scrollTo(int x, int y) const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-    FrameView* view = m_frame->view();
+    RefPtr<FrameView> view = m_frame->view();
     if (!view)
         return;
 
@@ -1542,13 +1538,7 @@ void DOMWindow::dispatchLoadEvent()
         ownerElement->dispatchGenericEvent(ownerEvent.release());
     }
 
-#if ENABLE(INSPECTOR)
-    if (!frame() || !frame()->page())
-        return;
-
-    if (InspectorController* controller = frame()->page()->inspectorController())
-        controller->mainResourceFiredLoadEvent(frame()->loader()->documentLoader(), url());
-#endif
+    InspectorInstrumentation::mainResourceFiredLoadEvent(frame(), url());
 }
 
 bool DOMWindow::dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget)
@@ -1622,6 +1612,7 @@ EventTargetData* DOMWindow::ensureEventTargetData()
     return &m_eventTargetData;
 }
 
+<<<<<<< HEAD
 #if ENABLE(BLOB)
 String DOMWindow::createObjectURL(Blob* blob)
 {
@@ -1647,6 +1638,8 @@ void DOMWindow::clearDOMStorage()
 }
 #endif
 
+=======
+>>>>>>> WebKit.org @ r75993
 void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow, SetLocationLocking locking)
 {
     Frame* activeFrame = activeWindow->frame();
@@ -1725,17 +1718,11 @@ Frame* DOMWindow::createWindow(const String& urlString, const AtomicString& fram
 {
     Frame* activeFrame = activeWindow->frame();
 
-    // FIXME: It's much better for client API if a new window starts with a URL, here where we
-    // know what URL we are going to open. Unfortunately, this code passes the empty string
-    // for the URL, but there's a reason for that. Before loading we have to set up the opener,
-    // openedByDOM, and dialogArguments values. Also, to decide whether to use the URL we currently
-    // do an isInsecureScriptAccess call using the window we create, which can't be done before
-    // creating it. We'd have to resolve all those issues to pass the URL instead of an empty string.
-
     // For whatever reason, Firefox uses the first frame to determine the outgoingReferrer. We replicate that behavior here.
     String referrer = firstFrame->loader()->outgoingReferrer();
 
-    ResourceRequest request(KURL(), referrer);
+    KURL completedURL = urlString.isEmpty() ? KURL(ParsedURLString, "") : firstFrame->document()->completeURL(urlString);
+    ResourceRequest request(completedURL, referrer);
     FrameLoader::addHTTPOriginIfNeeded(request, firstFrame->loader()->outgoingOrigin());
     FrameLoadRequest frameRequest(activeWindow->securityOrigin(), request, frameName);
 
@@ -1754,8 +1741,6 @@ Frame* DOMWindow::createWindow(const String& urlString, const AtomicString& fram
 
     if (function)
         function(newFrame->domWindow(), functionContext);
-
-    KURL completedURL = urlString.isEmpty() ? KURL(ParsedURLString, "") : firstFrame->document()->completeURL(urlString);
 
     if (created)
         newFrame->loader()->changeLocation(activeWindow->securityOrigin(), completedURL, referrer, false, false);
@@ -1853,5 +1838,14 @@ void DOMWindow::showModalDialog(const String& urlString, const String& dialogFea
 
     dialogFrame->page()->chrome()->runModal();
 }
+
+#if ENABLE(BLOB)
+DOMURL* DOMWindow::webkitURL() const
+{
+    if (!m_domURL)
+        m_domURL = DOMURL::create(this->scriptExecutionContext());
+    return m_domURL.get();
+}
+#endif
 
 } // namespace WebCore

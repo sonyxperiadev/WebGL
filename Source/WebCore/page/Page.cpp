@@ -47,6 +47,7 @@
 #include "HTMLElement.h"
 #include "HistoryItem.h"
 #include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "Logging.h"
 #include "MediaCanStartListener.h"
 #include "Navigator.h"
@@ -94,6 +95,7 @@
 #include "GeolocationController.h"
 #endif
 
+<<<<<<< HEAD
 #if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "InspectorApplicationCacheAgent.h"
 #endif
@@ -102,6 +104,8 @@
 #include "PackageNotifier.h"
 #endif
 
+=======
+>>>>>>> WebKit.org @ r75993
 namespace WebCore {
 
 static HashSet<Page*>* allPages;
@@ -114,19 +118,12 @@ static void networkStateChanged()
 {
     Vector<RefPtr<Frame> > frames;
     
-#if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
-    bool isNowOnline = networkStateNotifier().onLine();
-#endif
-
     // Get all the frames of all the pages in all the page groups
     HashSet<Page*>::iterator end = allPages->end();
     for (HashSet<Page*>::iterator it = allPages->begin(); it != end; ++it) {
         for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
             frames.append(frame);
-#if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
-        if (InspectorApplicationCacheAgent* applicationCacheAgent = (*it)->inspectorController()->applicationCacheAgent())
-            applicationCacheAgent->updateNetworkState(isNowOnline);
-#endif
+        InspectorInstrumentation::networkStateChanged(*it);
     }
 
     AtomicString eventName = networkStateNotifier().onLine() ? eventNames().onlineEvent : eventNames().offlineEvent;
@@ -227,10 +224,8 @@ Page::~Page()
         frame->pageDestroyed();
 
     m_editorClient->pageDestroyed();
-    
-#if ENABLE(INSPECTOR)
-    m_inspectorController->inspectedPageDestroyed();
-#endif
+
+    InspectorInstrumentation::inspectedPageDestroyed(this);
 
     backForward()->close();
 

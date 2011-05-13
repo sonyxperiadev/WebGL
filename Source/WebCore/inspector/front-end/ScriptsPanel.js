@@ -218,11 +218,6 @@ WebInspector.ScriptsPanel.prototype = {
 
         if (this.visibleView)
             this.visibleView.show(this.viewsContainerElement);
-
-        if (this._attachDebuggerWhenShown) {
-            InspectorBackend.enableDebuggerFromFrontend(false);
-            delete this._attachDebuggerWhenShown;
-        }
     },
 
     hide: function()
@@ -256,9 +251,6 @@ WebInspector.ScriptsPanel.prototype = {
             if (resource.finished) {
                 // Resource is finished, bind the script right away.
                 script.resource = resource;
-                var view = WebInspector.ResourceView.existingResourceViewForResource(resource);
-                if (view && view.sourceFrame)
-                    view.sourceFrame.addScript(script);
             } else {
                 // Resource is not finished, bind the script later.
                 if (!resource._scriptsPendingResourceLoad) {
@@ -292,7 +284,7 @@ WebInspector.ScriptsPanel.prototype = {
         return Preferences.canEditScriptSource;
     },
 
-    editScriptSource: function(editData, commitEditingCallback, cancelEditingCallback)
+    editScriptSource: function(editData, revertEditingCallback, cancelEditingCallback)
     {
         if (!this.canEditScripts())
             return;
@@ -305,7 +297,16 @@ WebInspector.ScriptsPanel.prototype = {
         function mycallback(success, newBodyOrErrorMessage, callFrames)
         {
             if (success) {
-                commitEditingCallback(newBodyOrErrorMessage);
+                var script = WebInspector.debuggerModel.scriptForSourceID(editData.sourceID);
+                script.source = newBodyOrErrorMessage;
+                var oldView = script._scriptView
+                if (oldView) {
+                    script._scriptView = new WebInspector.ScriptView(script);
+                    this.viewRecreated(oldView, script._scriptView);
+                }
+                if (script.resource)
+                    script.resource.setContent(newBodyOrErrorMessage, revertEditingCallback);
+
                 if (callFrames && callFrames.length)
                     this._debuggerPaused({ data: { callFrames: callFrames } });
             } else {
@@ -389,15 +390,6 @@ WebInspector.ScriptsPanel.prototype = {
         this._clearInterface();
     },
 
-    attachDebuggerWhenShown: function()
-    {
-        if (this.element.parentElement) {
-            InspectorBackend.enableDebuggerFromFrontend(false);
-        } else {
-            this._attachDebuggerWhenShown = true;
-        }
-    },
-
     debuggerWasEnabled: function()
     {
         if (this._debuggerEnabled)
@@ -460,8 +452,8 @@ WebInspector.ScriptsPanel.prototype = {
 
     viewRecreated: function(oldView, newView)
     {
-        if (this._visibleView === oldView)
-            this._visibleView = newView;
+        if (this.visibleView === oldView)
+            this.visibleView = newView;
     },
 
     canShowSourceLine: function(url, line)
@@ -527,7 +519,6 @@ WebInspector.ScriptsPanel.prototype = {
         if (!this.element.parentNode)
             this.attach();
 
-        view.setupSourceFrameIfNeeded();
         return view.sourceFrame;
     },
 
@@ -545,10 +536,6 @@ WebInspector.ScriptsPanel.prototype = {
         if (!view)
             return null;
 
-        if (!view.setupSourceFrameIfNeeded)
-            return null;
-
-        view.setupSourceFrameIfNeeded();
         return view.sourceFrame;
     },
 
@@ -862,7 +849,7 @@ WebInspector.ScriptsPanel.prototype = {
         if (this._debuggerEnabled)
             InspectorBackend.disableDebugger(true);
         else
-            InspectorBackend.enableDebuggerFromFrontend(!!optionalAlways);
+            InspectorBackend.enableDebugger(!!optionalAlways);
     },
 
     _togglePauseOnExceptions: function()
@@ -892,7 +879,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepOverStatement();
+        InspectorBackend.stepOver();
     },
 
     _stepIntoClicked: function()
@@ -902,7 +889,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepIntoStatement();
+        InspectorBackend.stepInto();
     },
 
     _stepOutClicked: function()
@@ -912,7 +899,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepOutOfFunction();
+        InspectorBackend.stepOut();
     },
 
     toggleBreakpointsClicked: function()

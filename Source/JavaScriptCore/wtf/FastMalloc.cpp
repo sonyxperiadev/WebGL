@@ -1,6 +1,6 @@
 // Copyright (c) 2005, 2007, Google Inc.
 // All rights reserved.
-// Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -442,10 +442,18 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 #endif
+
+#if HAVE(HEADER_DETECTION_H)
+#include "HeaderDetection.h"
+#endif
+
 #if HAVE(DISPATCH_H)
 #include <dispatch/dispatch.h>
 #endif
 
+#if HAVE(PTHREAD_MACHDEP_H)
+#include <System/pthread_machdep.h>
+#endif
 
 #ifndef PRIuS
 #define PRIuS "zu"
@@ -455,7 +463,7 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 // call to the function on Mac OS X, and it's used in performance-critical code. So we
 // use a function pointer. But that's not necessarily faster on other platforms, and we had
 // problems with this technique on Windows, so we'll do this only on Mac OS X.
-#if OS(DARWIN)
+#if OS(DARWIN) && !defined(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0)
 static void* (*pthread_getspecific_function_pointer)(pthread_key_t) = pthread_getspecific;
 #define pthread_getspecific(key) pthread_getspecific_function_pointer(key)
 #endif
@@ -1438,7 +1446,22 @@ class TCMalloc_PageHeap {
   void scavenge();
   ALWAYS_INLINE bool shouldScavenge() const;
 
-#if !HAVE(DISPATCH_H)
+#if HAVE(DISPATCH_H) || OS(WINDOWS)
+  void periodicScavenge();
+  ALWAYS_INLINE bool isScavengerSuspended();
+  ALWAYS_INLINE void scheduleScavenger();
+  ALWAYS_INLINE void rescheduleScavenger();
+  ALWAYS_INLINE void suspendScavenger();
+#endif
+
+#if HAVE(DISPATCH_H)
+  dispatch_queue_t m_scavengeQueue;
+  dispatch_source_t m_scavengeTimer;
+  bool m_scavengingSuspended;
+#elif OS(WINDOWS)
+  static void CALLBACK scavengerTimerFired(void*, BOOLEAN);
+  HANDLE m_scavengeQueueTimer;
+#else 
   static NO_RETURN_WITH_VALUE void* runScavengerThread(void*);
   NO_RETURN void scavengerThread();
 
@@ -1448,12 +1471,6 @@ class TCMalloc_PageHeap {
 
   pthread_mutex_t m_scavengeMutex;
   pthread_cond_t m_scavengeCondition;
-#else // !HAVE(DISPATCH_H)
-  void periodicScavenge();
-
-  dispatch_queue_t m_scavengeQueue;
-  dispatch_source_t m_scavengeTimer;
-  bool m_scavengingScheduled;
 #endif
 
 #endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
@@ -1489,7 +1506,85 @@ void TCMalloc_PageHeap::init()
 
 #if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 
-#if !HAVE(DISPATCH_H)
+#if HAVE(DISPATCH_H)
+
+void TCMalloc_PageHeap::initializeScavenger()
+{
+    m_scavengeQueue = dispatch_queue_create("com.apple.JavaScriptCore.FastMallocSavenger", NULL);
+    m_scavengeTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, m_scavengeQueue);
+    dispatch_time_t startTime = dispatch_time(DISPATCH_TIME_NOW, kScavengeDelayInSeconds * NSEC_PER_SEC);
+    dispatch_source_set_timer(m_scavengeTimer, startTime, kScavengeDelayInSeconds * NSEC_PER_SEC, 1000 * NSEC_PER_USEC);
+    dispatch_source_set_event_handler(m_scavengeTimer, ^{ periodicScavenge(); });
+    m_scavengingSuspended = true;
+}
+
+ALWAYS_INLINE bool TCMalloc_PageHeap::isScavengerSuspended()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    return m_scavengingSuspended;
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::scheduleScavenger()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    m_scavengingSuspended = false;
+    dispatch_resume(m_scavengeTimer);
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::rescheduleScavenger()
+{
+    // Nothing to do here for libdispatch.
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::suspendScavenger()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    m_scavengingSuspended = true;
+    dispatch_suspend(m_scavengeTimer);
+}
+
+#elif OS(WINDOWS)
+
+void TCMalloc_PageHeap::scavengerTimerFired(void* context, BOOLEAN)
+{
+    static_cast<TCMalloc_PageHeap*>(context)->periodicScavenge();
+}
+
+void TCMalloc_PageHeap::initializeScavenger()
+{
+    m_scavengeQueueTimer = 0;
+}
+
+ALWAYS_INLINE bool TCMalloc_PageHeap::isScavengerSuspended()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    return !m_scavengeQueueTimer;
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::scheduleScavenger()
+{
+    // We need to use WT_EXECUTEONLYONCE here and reschedule the timer, because
+    // Windows will fire the timer event even when the function is already running.
+    ASSERT(IsHeld(pageheap_lock));
+    CreateTimerQueueTimer(&m_scavengeQueueTimer, 0, scavengerTimerFired, this, kScavengeDelayInSeconds * 1000, 0, WT_EXECUTEONLYONCE);
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::rescheduleScavenger()
+{
+    // We must delete the timer and create it again, because it is not possible to retrigger a timer on Windows.
+    suspendScavenger();
+    scheduleScavenger();
+}
+
+ALWAYS_INLINE void TCMalloc_PageHeap::suspendScavenger()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    HANDLE scavengeQueueTimer = m_scavengeQueueTimer;
+    m_scavengeQueueTimer = 0;
+    DeleteTimerQueueTimer(0, scavengeQueueTimer, 0);
+}
+
+#else
 
 void TCMalloc_PageHeap::initializeScavenger()
 {
@@ -1527,27 +1622,6 @@ ALWAYS_INLINE void TCMalloc_PageHeap::signalScavenger()
     ASSERT(pthread_mutex_trylock(m_scavengeMutex));
     if (!m_scavengeThreadActive && shouldScavenge())
         pthread_cond_signal(&m_scavengeCondition);
-}
-
-#else // !HAVE(DISPATCH_H)
-
-void TCMalloc_PageHeap::initializeScavenger()
-{
-  m_scavengeQueue = dispatch_queue_create("com.apple.JavaScriptCore.FastMallocSavenger", NULL);
-  m_scavengeTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, m_scavengeQueue);
-  dispatch_time_t startTime = dispatch_time(DISPATCH_TIME_NOW, kScavengeDelayInSeconds * NSEC_PER_SEC);
-  dispatch_source_set_timer(m_scavengeTimer, startTime, kScavengeDelayInSeconds * NSEC_PER_SEC, 1000 * NSEC_PER_USEC);
-  dispatch_source_set_event_handler(m_scavengeTimer, ^{ periodicScavenge(); });
-  m_scavengingScheduled = false;
-}
-
-ALWAYS_INLINE void TCMalloc_PageHeap::signalScavenger()
-{
-    ASSERT(IsHeld(pageheap_lock));
-    if (!m_scavengingScheduled && shouldScavenge()) {
-        m_scavengingScheduled = true;
-        dispatch_resume(m_scavengeTimer);
-    }
 }
 
 #endif
@@ -2378,13 +2452,29 @@ static inline TCMalloc_PageHeap* getPageHeap()
 
 #if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 
-#if !HAVE(DISPATCH_H)
-#if OS(WINDOWS)
-static void sleep(unsigned seconds)
+#if HAVE(DISPATCH_H) || OS(WINDOWS)
+
+void TCMalloc_PageHeap::periodicScavenge()
 {
-    ::Sleep(seconds * 1000);
+    SpinLockHolder h(&pageheap_lock);
+    pageheap->scavenge();
+
+    if (shouldScavenge()) {
+        rescheduleScavenger();
+        return;
+    }
+
+    suspendScavenger();
 }
-#endif
+
+ALWAYS_INLINE void TCMalloc_PageHeap::signalScavenger()
+{
+    ASSERT(IsHeld(pageheap_lock));
+    if (isScavengerSuspended() && shouldScavenge())
+        scheduleScavenger();
+}
+
+#else
 
 void TCMalloc_PageHeap::scavengerThread()
 {
@@ -2409,19 +2499,7 @@ void TCMalloc_PageHeap::scavengerThread()
   }
 }
 
-#else
-
-void TCMalloc_PageHeap::periodicScavenge()
-{
-    SpinLockHolder h(&pageheap_lock);
-    pageheap->scavenge();
-
-    if (!shouldScavenge()) {
-        m_scavengingScheduled = false;
-        dispatch_suspend(m_scavengeTimer);
-    }
-}
-#endif // HAVE(DISPATCH_H)
+#endif
 
 #endif
 
@@ -2448,11 +2526,18 @@ DWORD tlsIndex = TLS_OUT_OF_INDEXES;
 
 static ALWAYS_INLINE void setThreadHeap(TCMalloc_ThreadCache* heap)
 {
-    // still do pthread_setspecific when using MSVC fast TLS to
-    // benefit from the delete callback.
+    // Still do pthread_setspecific even if there's an alternate form
+    // of thread-local storage in use, to benefit from the delete callback.
     pthread_setspecific(heap_key, heap);
+
 #if OS(WINDOWS)
     TlsSetValue(tlsIndex, heap);
+#elif defined(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0)
+    // Can't have two libraries both doing this in the same process,
+    // so check and make this crash right away.
+    if (_pthread_getspecific_direct(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0))
+        CRASH();
+    _pthread_setspecific_direct(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0, heap);
 #endif
 }
 
@@ -2964,6 +3049,8 @@ inline TCMalloc_ThreadCache* TCMalloc_ThreadCache::GetThreadHeap() {
     return threadlocal_heap;
 #elif OS(WINDOWS)
     return static_cast<TCMalloc_ThreadCache*>(TlsGetValue(tlsIndex));
+#elif defined(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0)
+    return static_cast<TCMalloc_ThreadCache*>(_pthread_getspecific_direct(__PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0));
 #else
     return static_cast<TCMalloc_ThreadCache*>(pthread_getspecific(heap_key));
 #endif

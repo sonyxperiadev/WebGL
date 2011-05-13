@@ -30,12 +30,12 @@
 
 WebInspector.DebuggerModel = function()
 {
-    InspectorBackend.registerDomainDispatcher("Debugger", this);
-
     this._paused = false;
     this._breakpoints = {};
     this._sourceIDAndLineToBreakpointId = {};
     this._scripts = {};
+
+    InspectorBackend.registerDomainDispatcher("Debugger", new WebInspector.DebuggerDispatcher(this));
 }
 
 WebInspector.DebuggerModel.Events = {
@@ -84,11 +84,6 @@ WebInspector.DebuggerModel.prototype = {
         delete this._breakpoints[breakpointId];
         delete this._sourceIDAndLineToBreakpointId[this._encodeSourceIDAndLine(breakpoint.sourceID, breakpoint.line)];
         this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.BreakpointRemoved, breakpointId);
-    },
-
-    breakpointResolved: function(breakpointId, sourceID, lineNumber, condition, enabled, originalLineNumber)
-    {
-        this._breakpointSetOnBackend(breakpointId, sourceID, lineNumber, condition, enabled, originalLineNumber, true);
     },
 
     _breakpointSetOnBackend: function(breakpointId, sourceID, lineNumber, condition, enabled, originalLineNumber, restored)
@@ -161,9 +156,7 @@ WebInspector.DebuggerModel.prototype = {
         return scripts;
     },
 
-    // All the methods below are InspectorBackend notification handlers.
-
-    pausedScript: function(details)
+    _pausedScript: function(details)
     {
         this._paused = true;
         if ("_continueToLineBreakpointId" in this) {
@@ -182,7 +175,7 @@ WebInspector.DebuggerModel.prototype = {
         this._lastHitBreakpoint = breakpoint;
     },
 
-    resumedScript: function()
+    _resumedScript: function()
     {
         this._paused = false;
         this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.DebuggerResumed);
@@ -193,9 +186,42 @@ WebInspector.DebuggerModel.prototype = {
         delete this._lastHitBreakpoint;
     },
 
-    attachDebuggerWhenShown: function()
+    _parsedScriptSource: function(sourceID, sourceURL, lineOffset, columnOffset, scriptWorldType)
     {
-        WebInspector.panels.scripts.attachDebuggerWhenShown();
+        var script = new WebInspector.Script(sourceID, sourceURL, "", lineOffset, columnOffset, undefined, undefined, scriptWorldType);
+        this._scripts[sourceID] = script;
+        this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.ParsedScriptSource, sourceID);
+    },
+
+    _failedToParseScriptSource: function(sourceURL, source, startingLine, errorLine, errorMessage)
+    {
+        var script = new WebInspector.Script(null, sourceURL, source, startingLine, errorLine, errorMessage, undefined);
+        this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.FailedToParseScriptSource, script);
+    }
+}
+
+WebInspector.DebuggerModel.prototype.__proto__ = WebInspector.Object.prototype;
+
+WebInspector.DebuggerEventTypes = {
+    JavaScriptPause: 0,
+    JavaScriptBreakpoint: 1,
+    NativeBreakpoint: 2
+};
+
+WebInspector.DebuggerDispatcher = function(debuggerModel)
+{
+    this._debuggerModel = debuggerModel;
+}
+
+WebInspector.DebuggerDispatcher.prototype = {
+    pausedScript: function(details)
+    {
+        this._debuggerModel._pausedScript(details);
+    },
+
+    resumedScript: function()
+    {
+        this._debuggerModel._resumedScript();
     },
 
     debuggerWasEnabled: function()
@@ -208,17 +234,19 @@ WebInspector.DebuggerModel.prototype = {
         WebInspector.panels.scripts.debuggerWasDisabled();
     },
 
-    parsedScriptSource: function(sourceID, sourceURL, source, startingLine, scriptWorldType)
+    parsedScriptSource: function(sourceID, sourceURL, lineOffset, columnOffset, scriptWorldType)
     {
-        var script = new WebInspector.Script(sourceID, sourceURL, source, startingLine, undefined, undefined, scriptWorldType);
-        this._scripts[sourceID] = script;
-        this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.ParsedScriptSource, sourceID);
+        this._debuggerModel._parsedScriptSource(sourceID, sourceURL, lineOffset, columnOffset, scriptWorldType);
     },
 
     failedToParseScriptSource: function(sourceURL, source, startingLine, errorLine, errorMessage)
     {
-        var script = new WebInspector.Script(null, sourceURL, source, startingLine, errorLine, errorMessage, undefined);
-        this.dispatchEventToListeners(WebInspector.DebuggerModel.Events.FailedToParseScriptSource, script);
+        this._debuggerModel._failedToParseScriptSource(sourceURL, source, startingLine, errorLine, errorMessage);
+    },
+
+    breakpointResolved: function(breakpointId, sourceID, lineNumber, condition, enabled, originalLineNumber)
+    {
+        this._debuggerModel._breakpointSetOnBackend(breakpointId, sourceID, lineNumber, condition, enabled, originalLineNumber, true);
     },
 
     didCreateWorker: function()
@@ -233,11 +261,3 @@ WebInspector.DebuggerModel.prototype = {
         workersPane.removeWorker.apply(workersPane, arguments);
     }
 }
-
-WebInspector.DebuggerModel.prototype.__proto__ = WebInspector.Object.prototype;
-
-WebInspector.DebuggerEventTypes = {
-    JavaScriptPause: 0,
-    JavaScriptBreakpoint: 1,
-    NativeBreakpoint: 2
-};

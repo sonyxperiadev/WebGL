@@ -28,12 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.SourceFrame = function(parentElement, scripts, canEditScripts)
+WebInspector.SourceFrame = function(parentElement, contentProvider, url, canEditScripts)
 {
     this._parentElement = parentElement;
-    this._scripts = {};
-    for (var i = 0; i < scripts.length; ++i)
-        this._scripts[scripts[i].sourceID] = scripts[i];
+    this._contentProvider = contentProvider;
+    this._url = url;
     this._canEditScripts = canEditScripts;
 
     this._textModel = new WebInspector.TextEditorModel();
@@ -43,7 +42,6 @@ WebInspector.SourceFrame = function(parentElement, scripts, canEditScripts)
     this._rowMessages = {};
     this._messageBubbles = {};
 
-    this._loaded = false;
     this._popoverObjectGroup = "popover";
 }
 
@@ -51,14 +49,18 @@ WebInspector.SourceFrame.prototype = {
 
     set visible(visible)
     {
-        this._visible = visible;
-        this._createViewerIfNeeded();
+        if (!this._contentRequested) {
+            this._contentRequested = true;
+            this._contentProvider.requestContent(this._createTextViewer.bind(this));
+        }
 
         if (visible) {
             if (this._textViewer && this._scrollTop)
                 this._textViewer.element.scrollTop = this._scrollTop;
             if (this._textViewer && this._scrollLeft)
                 this._textViewer.element.scrollLeft = this._scrollLeft;
+            if (this._textViewer)
+                this._textViewer.resize();
         } else {
             this._hidePopup();
             if (this._textViewer) {
@@ -114,11 +116,6 @@ WebInspector.SourceFrame.prototype = {
             this._addMessageToSource(msg);
     },
 
-    addScript: function(script)
-    {
-        this._scripts[script.sourceID] = script;
-    },
-
     clearMessages: function()
     {
         for (var line in this._messageBubbles) {
@@ -137,20 +134,6 @@ WebInspector.SourceFrame.prototype = {
     {
         if (this._textViewer)
             this._textViewer.revalidateDecorationsAndPaint();
-    },
-
-    setContent: function(mimeType, content, url)
-    {
-        this._loaded = true;
-        this._textModel.setText(null, content);
-        this._mimeType = mimeType;
-        this._url = url;
-        this._createViewerIfNeeded();
-    },
-
-    updateContent: function(content)
-    {
-        this._textModel.setText(null, content);
     },
 
     get textModel()
@@ -185,10 +168,10 @@ WebInspector.SourceFrame.prototype = {
             delete this._lineToHighlight;
     },
 
-    _createViewerIfNeeded: function()
+    _createTextViewer: function(mimeType, content)
     {
-        if (!this._visible || !this._loaded || this._textViewer)
-            return;
+        this._content = content;
+        this._textModel.setText(null, content);
 
         this._textViewer = new WebInspector.TextViewer(this._textModel, WebInspector.platform, this._url);
         var element = this._textViewer.element;
@@ -200,7 +183,7 @@ WebInspector.SourceFrame.prototype = {
 
         this._textViewer.beginUpdates();
 
-        this._textViewer.mimeType = this._mimeType;
+        this._textViewer.mimeType = mimeType;
         this._addExistingMessagesToSource();
         this._updateExecutionLine();
         this._updateDiffDecorations();
@@ -222,6 +205,11 @@ WebInspector.SourceFrame.prototype = {
             delete this._lineToHighlight;
         }
 
+        if (this._delayedFindSearchMatches) {
+            this._delayedFindSearchMatches();
+            delete this._delayedFindSearchMatches;
+        }
+
         var breakpoints = this._breakpoints();
         for (var i = 0; i < breakpoints.length; ++i)
             this._addBreakpoint(breakpoints[i]);
@@ -233,22 +221,35 @@ WebInspector.SourceFrame.prototype = {
             this._textViewer.editCallback = this._editLine.bind(this);
     },
 
-    findSearchMatches: function(query)
+    findSearchMatches: function(query, finishedCallback)
     {
-        var ranges = [];
+        function doFindSearchMatches()
+        {
+            var ranges = [];
 
-        // First do case-insensitive search.
-        var regexObject = createSearchRegex(query);
-        this._collectRegexMatches(regexObject, ranges);
+            // First do case-insensitive search.
+            var regexObject = createSearchRegex(query);
+            this._collectRegexMatches(regexObject, ranges);
 
-        // Then try regex search if user knows the / / hint.
-        try {
-            if (/^\/.*\/$/.test(query))
-                this._collectRegexMatches(new RegExp(query.substring(1, query.length - 1)), ranges);
-        } catch (e) {
-            // Silent catch.
+            // Then try regex search if user knows the / / hint.
+            try {
+                if (/^\/.*\/$/.test(query))
+                    this._collectRegexMatches(new RegExp(query.substring(1, query.length - 1)), ranges);
+            } catch (e) {
+                // Silent catch.
+            }
+            finishedCallback(ranges);
         }
-        return ranges;
+
+        if (this._textViewer)
+            doFindSearchMatches.call(this);
+        else
+            this._delayedFindSearchMatches = doFindSearchMatches.bind(this);
+    },
+
+    cancelFindSearchMatches: function()
+    {
+        delete this._delayedFindSearchMatches;
     },
 
     _collectRegexMatches: function(regexObject, ranges)
@@ -405,7 +406,7 @@ WebInspector.SourceFrame.prototype = {
     {
         var breakpoint = event.data;
 
-        if (breakpoint.sourceID in this._scripts)
+        if (breakpoint.sourceID in this._sourceIDSet())
             this._addBreakpoint(breakpoint);
     },
 
@@ -418,7 +419,6 @@ WebInspector.SourceFrame.prototype = {
         breakpoint.addEventListener("condition-changed", this._breakpointChanged, this);
         breakpoint.addEventListener("removed", this._breakpointRemoved, this);
 
-        breakpoint.sourceText = this._textModel.line(breakpoint.line - 1);
         this._setBreakpointDecoration(breakpoint.line, breakpoint.enabled, !!breakpoint.condition);
     },
 
@@ -789,11 +789,12 @@ WebInspector.SourceFrame.prototype = {
         lineNumber += 1;
 
         var lines = [];
-        for (var i = 0; i < this._textModel.linesCount; ++i) {
+        var oldLines = this._content.split('\n');
+        for (var i = 0; i < oldLines.length; ++i) {
             if (i === lineNumber - 1)
                 lines.push(newContent);
             else
-                lines.push(this._textModel.line(i));
+                lines.push(oldLines[i]);
         }
 
         var editData = {};
@@ -817,16 +818,7 @@ WebInspector.SourceFrame.prototype = {
     _doEditLine: function(editData, cancelEditingCallback)
     {
         var revertEditingCallback = this._revertEditLine.bind(this, editData);
-        var commitEditingCallback = this._commitEditLine.bind(this, editData, revertEditingCallback);
-        WebInspector.panels.scripts.editScriptSource(editData, commitEditingCallback, cancelEditingCallback);
-    },
-
-    _commitEditLine: function(editData, revertEditLineCallback, newContent)
-    {
-        var script = this._scripts[editData.sourceID];
-        script.source = newContent;
-        if (script.resource)
-            script.resource.setContent(newContent, revertEditLineCallback);
+        WebInspector.panels.scripts.editScriptSource(editData, revertEditingCallback, cancelEditingCallback);
     },
 
     _setBreakpoint: function(lineNumber, enabled, condition)
@@ -841,8 +833,8 @@ WebInspector.SourceFrame.prototype = {
 
     _breakpoints: function()
     {
-        var scripts = this._scripts;
-        return WebInspector.debuggerModel.queryBreakpoints(function(b) { return b.sourceID in scripts; });
+        var sourceIDSet = this._sourceIDSet();
+        return WebInspector.debuggerModel.queryBreakpoints(function(b) { return b.sourceID in sourceIDSet; });
     },
 
     _findBreakpoint: function(lineNumber)
@@ -855,15 +847,42 @@ WebInspector.SourceFrame.prototype = {
     {
         var sourceIDForLine = null;
         var closestStartingLine = 0;
-        for (var sourceID in this._scripts) {
-            var script = this._scripts[sourceID];
-            if (script.startingLine <= lineNumber && script.startingLine >= closestStartingLine) {
-                closestStartingLine = script.startingLine;
-                sourceIDForLine = sourceID;
+        var scripts = this._contentProvider.scripts();
+        for (var i = 0; i < scripts.length; ++i) {
+            var startingLine = scripts[i].startingLine;
+            if (startingLine <= lineNumber && startingLine >= closestStartingLine) {
+                closestStartingLine = startingLine;
+                sourceIDForLine = scripts[i].sourceID;
             }
         }
         return sourceIDForLine;
+    },
+
+    _sourceIDSet: function()
+    {
+        var scripts = this._contentProvider.scripts();
+        var sourceIDSet = {};
+        for (var i = 0; i < scripts.length; ++i)
+            sourceIDSet[scripts[i].sourceID] = true;
+        return sourceIDSet;
     }
 }
 
 WebInspector.SourceFrame.prototype.__proto__ = WebInspector.Object.prototype;
+
+
+WebInspector.SourceFrameContentProvider = function()
+{
+}
+
+WebInspector.SourceFrameContentProvider.prototype = {
+    requestContent: function(callback)
+    {
+        // Should be implemented by subclasses.
+    },
+
+    scripts: function()
+    {
+        // Should be implemented by subclasses.
+    }
+}

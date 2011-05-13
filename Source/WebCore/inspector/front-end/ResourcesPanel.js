@@ -165,6 +165,12 @@ WebInspector.ResourcesPanel.prototype = {
             this.sidebarTree.selectedTreeElement.deselect();
     },
 
+    clear: function()
+    {
+        this.resourcesListTreeElement.removeChildren();
+        this.reset();
+    },
+
     addOrUpdateFrame: function(parentFrameId, frameId, title, subtitle)
     {
         var frameTreeElement = this._treeElementForFrameId[frameId];
@@ -1005,7 +1011,7 @@ WebInspector.FrameResourceTreeElement.prototype = {
         if (this._resource.category === WebInspector.resourceCategories.images) {
             var previewImage = document.createElement("img");
             previewImage.className = "image-resource-icon-preview";
-            previewImage.src = this._resource.url;
+            this._resource.populateImageSource(previewImage);
 
             var iconElement = document.createElement("div");
             iconElement.className = "icon";
@@ -1227,7 +1233,7 @@ WebInspector.ApplicationCacheTreeElement.prototype.__proto__ = WebInspector.Base
 
 WebInspector.ResourceRevisionTreeElement = function(storagePanel, revision)
 {
-    var title = revision.timestamp ? revision.timestamp.toLocaleTimeString() : "(original)";
+    var title = revision.timestamp ? revision.timestamp.toLocaleTimeString() : WebInspector.UIString("(original)");
     WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, title, "resource-sidebar-tree-item resources-category-" + revision.category.name);
     if (revision.timestamp)
         this.tooltip = revision.timestamp.toLocaleString();

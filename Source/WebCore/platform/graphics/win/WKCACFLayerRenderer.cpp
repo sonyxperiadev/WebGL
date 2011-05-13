@@ -187,7 +187,6 @@ WKCACFLayerRenderer::WKCACFLayerRenderer(WKCACFLayerRendererClient* client)
     , m_context(wkCACFContextCreate())
     , m_hostWindow(0)
     , m_renderTimer(this, &WKCACFLayerRenderer::renderTimerFired)
-    , m_backingStoreDirty(false)
     , m_mustResetLostDeviceBeforeRendering(false)
     , m_syncLayerChanges(false)
 {
@@ -224,8 +223,23 @@ WKCACFLayerRenderer::WKCACFLayerRenderer(WKCACFLayerRendererClient* client)
 
 WKCACFLayerRenderer::~WKCACFLayerRenderer()
 {
-    destroyRenderer();
+    setHostWindow(0);
+    WKCACFContextFlusher::shared().removeContext(m_context);
     wkCACFContextDestroy(m_context);
+}
+
+void WKCACFLayerRenderer::setHostWindow(HWND window)
+{
+    if (window == m_hostWindow)
+        return;
+
+    if (m_hostWindow)
+        destroyRenderer();
+
+    m_hostWindow = window;
+
+    if (m_hostWindow)
+        createRenderer();
 }
 
 PlatformCALayer* WKCACFLayerRenderer::rootLayer() const
@@ -236,20 +250,6 @@ PlatformCALayer* WKCACFLayerRenderer::rootLayer() const
 void WKCACFLayerRenderer::addPendingAnimatedLayer(PassRefPtr<PlatformCALayer> layer)
 {
     m_pendingAnimatedLayers.add(layer);
-}
-
-void WKCACFLayerRenderer::setRootContents(CGImageRef image)
-{
-    ASSERT(m_rootLayer);
-    m_rootLayer->setContents(image);
-    renderSoon();
-}
-
-void WKCACFLayerRenderer::setRootContentsAndDisplay(CGImageRef image)
-{
-    ASSERT(m_rootLayer);
-    m_rootLayer->setContents(image);
-    paint();
 }
 
 void WKCACFLayerRenderer::setRootChildLayer(PlatformCALayer* layer)
@@ -263,16 +263,6 @@ void WKCACFLayerRenderer::setRootChildLayer(PlatformCALayer* layer)
 void WKCACFLayerRenderer::layerTreeDidChange()
 {
     WKCACFContextFlusher::shared().addContext(m_context);
-    renderSoon();
-}
-
-void WKCACFLayerRenderer::setNeedsDisplay(bool sync)
-{
-    if (!m_syncLayerChanges && sync)
-        m_syncLayerChanges = true;
-
-    ASSERT(m_rootLayer);
-    m_rootLayer->setNeedsDisplay(0);
     renderSoon();
 }
 
@@ -340,7 +330,7 @@ bool WKCACFLayerRenderer::createRenderer()
 
     initD3DGeometry();
 
-    wkCACFContextInitializeD3DDevice(m_context, m_d3dDevice.get());
+    wkCACFContextSetD3DDevice(m_context, m_d3dDevice.get());
 
     if (IsWindow(m_hostWindow))
         m_rootLayer->setBounds(bounds());
@@ -352,6 +342,7 @@ void WKCACFLayerRenderer::destroyRenderer()
 {
     wkCACFContextSetLayer(m_context, m_rootLayer->platformLayer());
 
+    wkCACFContextSetD3DDevice(m_context, 0);
     m_d3dDevice = 0;
     if (s_d3d)
         s_d3d->Release();
@@ -419,15 +410,6 @@ void WKCACFLayerRenderer::paint()
     if (!m_d3dDevice) {
         if (m_mightBeAbleToCreateDeviceLater)
             renderSoon();
-        return;
-    }
-
-    if (m_backingStoreDirty) {
-        // If the backing store is still dirty when we are about to draw the
-        // composited content, we need to force the window to paint into the
-        // backing store. The paint will only paint the dirty region that
-        // if being tracked in WebView.
-        UpdateWindow(m_hostWindow);
         return;
     }
 
@@ -543,6 +525,12 @@ void WKCACFLayerRenderer::renderSoon()
 {
     if (!m_renderTimer.isActive())
         m_renderTimer.startOneShot(0);
+}
+
+void WKCACFLayerRenderer::syncCompositingStateSoon()
+{
+    m_syncLayerChanges = true;
+    renderSoon();
 }
 
 CGRect WKCACFLayerRenderer::bounds() const

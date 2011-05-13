@@ -40,10 +40,7 @@ from webkitpy.common.net.bugzilla import Bugzilla
 from webkitpy.common.net.buildbot import BuildBot
 from webkitpy.common.net.irc.ircproxy import IRCProxy
 from webkitpy.common.net.statusserver import StatusServer
-from webkitpy.common.system.executive import Executive
-from webkitpy.common.system.filesystem import FileSystem
-from webkitpy.common.system.platforminfo import PlatformInfo
-from webkitpy.common.system.user import User
+from webkitpy.common.system import executive, filesystem, platforminfo, user, workspace
 from webkitpy.layout_tests import port
 from webkitpy.tool.multicommandtool import MultiCommandTool
 import webkitpy.tool.commands as commands
@@ -52,6 +49,7 @@ import webkitpy.tool.commands as commands
 class WebKitPatch(MultiCommandTool):
     global_options = [
         make_option("-v", "--verbose", action="store_true", dest="verbose", default=False, help="enable all logging"),
+        make_option("-d", "--directory", action="append", dest="patch_directories", default=[], help="Directory to look at for changed files"),
         make_option("--dry-run", action="store_true", dest="dry_run", default=False, help="do not touch remote servers"),
         make_option("--status-host", action="store", dest="status_host", type="string", help="Hostname (e.g. localhost or commit.webkit.org) where status updates should be posted."),
         make_option("--bot-id", action="store", dest="bot_id", type="string", help="Identifier for this bot (if multiple bots are running for a queue)"),
@@ -70,21 +68,22 @@ class WebKitPatch(MultiCommandTool):
         # manual getter functions (e.g. scm()).
         self.bugs = Bugzilla()
         self.buildbot = BuildBot()
-        self.executive = Executive()
+        self.executive = executive.Executive()
         self._irc = None
-        self.filesystem = FileSystem()
+        self.filesystem = filesystem.FileSystem()
+        self.workspace = workspace.Workspace(self.filesystem, self.executive)
         self._port = None
-        self.user = User()
+        self.user = user.User()
         self._scm = None
         self._checkout = None
         self.status_server = StatusServer()
         self.port_factory = port.factory
-        self.platform = PlatformInfo()
+        self.platform = platforminfo.PlatformInfo()
 
     def scm(self):
         # Lazily initialize SCM to not error-out before command line parsing (or when running non-scm commands).
         if not self._scm:
-            self._scm = default_scm()
+            self._scm = default_scm(self._options.patch_directories)
         return self._scm
 
     def checkout(self):

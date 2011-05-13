@@ -36,7 +36,7 @@
 #include "CSSStyleSelector.h"
 #include "Document.h"
 #include "EventHandler.h"
-#include "EventNames.h"
+#include "EventQueue.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -46,6 +46,7 @@
 #include "OptionGroupElement.h"
 #include "OptionElement.h"
 #include "Page.h"
+#include "PaintInfo.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
@@ -85,12 +86,6 @@ RenderListBox::RenderListBox(Element* element)
 RenderListBox::~RenderListBox()
 {
     setHasVerticalScrollbar(false);
-}
-
-void RenderListBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
-{
-    RenderBlock::styleDidChange(diff, oldStyle);
-    setReplaced(isInline());
 }
 
 void RenderListBox::updateFromElement()
@@ -545,7 +540,7 @@ void RenderListBox::valueChanged(Scrollbar*)
     if (newOffset != m_indexOffset) {
         m_indexOffset = newOffset;
         repaint();
-        node()->dispatchEvent(Event::create(eventNames().scrollEvent, false, false));
+        node()->document()->eventQueue()->enqueueScrollEvent(node(), EventQueue::ScrollEventElementTarget);
     }
 }
 

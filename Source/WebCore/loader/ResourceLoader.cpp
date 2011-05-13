@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2010, 2011 Apple Inc. All rights reserved.
  *           (C) 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -129,14 +129,13 @@ bool ResourceLoader::init(const ResourceRequest& r)
             clientRequest.setFirstPartyForCookies(document->firstPartyForCookies());
     }
 
-    m_request = clientRequest;
-
-    willSendRequest(m_request, ResourceResponse());
-    if (m_request.isNull()) {
+    willSendRequest(clientRequest, ResourceResponse());
+    if (clientRequest.isNull()) {
         didFail(frameLoader()->cancelledError(m_request));
         return false;
     }
 
+    m_request = clientRequest;
     return true;
 }
 
@@ -431,9 +430,7 @@ void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse&
     if (documentLoader()->applicationCacheHost()->maybeLoadFallbackForResponse(this, response))
         return;
 #endif
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(m_frame.get(), identifier(), response);
     didReceiveResponse(response);
-    InspectorInstrumentation::didReceiveResourceResponse(cookie);
 }
 
 void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int lengthReceived)

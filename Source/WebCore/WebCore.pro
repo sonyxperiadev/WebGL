@@ -52,12 +52,12 @@ symbian: {
         " "
     webkitlibs.pkg_prerules = vendorinfo
 
-    webkitbackup.sources = ../../WebKit/qt/symbian/backup_registration.xml
+    webkitbackup.sources = ../../Source/WebKit/qt/symbian/backup_registration.xml
     webkitbackup.path = /private/10202D56/import/packages/$$replace(TARGET.UID3, 0x,)
 
     contains(QT_CONFIG, declarative) {
          declarativeImport.sources = $$QT_BUILD_TREE/imports/QtWebKit/qmlwebkitplugin$${QT_LIBINFIX}.dll
-         declarativeImport.sources += ../../WebKit/qt/declarative/qmldir
+         declarativeImport.sources += ../../Source/WebKit/qt/declarative/qmldir
          declarativeImport.path = c:$$QT_IMPORTS_BASE_DIR/QtWebKit
          DEPLOYMENT += declarativeImport
     }
@@ -90,7 +90,7 @@ CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = $$PWD/../JavaScriptCore/generated
 
-    PRECOMPILED_HEADER = $$PWD/../../WebKit/qt/WebKit_pch.h
+    PRECOMPILED_HEADER = $$PWD/../../Source/WebKit/qt/WebKit_pch.h
 } else {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = ../JavaScriptCore/generated
@@ -110,7 +110,7 @@ CONFIG(QTDIR_build) {
     !static: DEFINES += QT_MAKEDLL
     symbian: TARGET =$$TARGET$${QT_LIBINFIX}
 }
-moduleFile=$$PWD/../../WebKit/qt/qt_webkit_version.pri
+moduleFile=$$PWD/../../Source/WebKit/qt/qt_webkit_version.pri
 isEmpty(QT_BUILD_TREE):include($$moduleFile)
 VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
 
@@ -181,8 +181,8 @@ include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 !v8: addJavaScriptCoreLib(../JavaScriptCore)
 
 webkit2 {
-    include($$PWD/../../WebKit2/WebKit2.pri)
-    addWebKit2LibWholeArchive(../../WebKit2)
+    include($$PWD/../../Source/WebKit2/WebKit2.pri)
+    addWebKit2LibWholeArchive(../../Source/WebKit2)
 }
 
 # Extract sources to build from the generator definitions
@@ -262,6 +262,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/platform/text/transcoder \
     $$PWD/plugins \
     $$PWD/rendering \
+    $$PWD/rendering/mathml \
     $$PWD/rendering/style \
     $$PWD/rendering/svg \
     $$PWD/storage \
@@ -284,8 +285,8 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/platform/graphics/qt \
     $$PWD/platform/network/qt \
     $$PWD/platform/qt \
-    $$PWD/../../WebKit/qt/Api \
-    $$PWD/../../WebKit/qt/WebCoreSupport \
+    $$PWD/../../Source/WebKit/qt/Api \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport \
     $$WEBCORE_INCLUDEPATH
 
 symbian {
@@ -891,6 +892,7 @@ SOURCES += \
     html/DOMFormData.cpp \
     html/DOMSettableTokenList.cpp \
     html/DOMTokenList.cpp \
+    html/DOMURL.cpp \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
     html/DateComponents.cpp \
@@ -1041,8 +1043,10 @@ SOURCES += \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
     inspector/InspectorApplicationCacheAgent.cpp \
+    inspector/InspectorBrowserDebuggerAgent.cpp \
     inspector/InspectorCSSAgent.cpp \
     inspector/InspectorClient.cpp \
+    inspector/InspectorConsoleAgent.cpp \
     inspector/InspectorController.cpp \
     inspector/InspectorDatabaseAgent.cpp \
     inspector/InspectorDatabaseResource.cpp \
@@ -1056,6 +1060,7 @@ SOURCES += \
     inspector/InspectorInstrumentation.cpp \
     inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResourceAgent.cpp \
+    inspector/InspectorSettings.cpp \
     inspector/InspectorState.cpp \
     inspector/InspectorStyleSheet.cpp \
     inspector/InspectorTimelineAgent.cpp \
@@ -1178,7 +1183,7 @@ SOURCES += \
     platform/FileStream.cpp \
     platform/FileSystem.cpp \
     platform/GeolocationService.cpp \
-    platform/image-decoders/qt/RGBA32BufferQt.cpp \
+    platform/image-decoders/qt/ImageFrameQt.cpp \
     platform/graphics/FontDescription.cpp \
     platform/graphics/FontFallbackList.cpp \
     platform/graphics/FontFamily.cpp \
@@ -1205,7 +1210,6 @@ SOURCES += \
     platform/graphics/Path.cpp \
     platform/graphics/PathTraversalState.cpp \
     platform/graphics/Pattern.cpp \
-    platform/graphics/Pen.cpp \
     platform/graphics/SegmentedFontData.cpp \
     platform/graphics/SimpleFontData.cpp \
     platform/graphics/TiledBackingStore.cpp \
@@ -1358,7 +1362,6 @@ SOURCES += \
     rendering/RenderWidget.cpp \
     rendering/RenderWordBreak.cpp \
     rendering/RootInlineBox.cpp \
-    rendering/SVGRenderTreeAsText.cpp \
     rendering/ScrollBehavior.cpp \
     rendering/ShadowElement.cpp \
     rendering/TextControlInnerElements.cpp \
@@ -1814,6 +1817,7 @@ HEADERS += \
     html/DOMFormData.h \
     html/DOMSettableTokenList.h \
     html/DOMTokenList.h \
+    html/DOMURL.h \
     html/FormAssociatedElement.h \
     html/FormDataList.h \
     html/FTPDirectoryDocument.h \
@@ -1934,6 +1938,8 @@ HEADERS += \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
     inspector/InspectorApplicationCacheAgent.h \
+    inspector/InspectorBrowserDebuggerAgent.h \
+    inspector/InspectorConsoleAgent.h \
     inspector/InspectorController.h \
     inspector/InspectorCSSAgent.h \
     inspector/InspectorDatabaseAgent.h \
@@ -1948,6 +1954,7 @@ HEADERS += \
     inspector/InspectorInstrumentation.h \
     inspector/InspectorProfilerAgent.h \
     inspector/InspectorResourceAgent.h \
+    inspector/InspectorSettings.h \
     inspector/InspectorState.h \
     inspector/InspectorStyleSheet.h \
     inspector/InspectorTimelineAgent.h \
@@ -2001,16 +2008,6 @@ HEADERS += \
     mathml/MathMLInlineContainerElement.h \
     mathml/MathMLMathElement.h \
     mathml/MathMLTextElement.h \
-    mathml/RenderMathMLBlock.h \
-    mathml/RenderMathMLFenced.h \
-    mathml/RenderMathMLFraction.h \
-    mathml/RenderMathMLMath.h \
-    mathml/RenderMathMLOperator.h \
-    mathml/RenderMathMLRoot.h \
-    mathml/RenderMathMLRow.h \
-    mathml/RenderMathMLSquareRoot.h \
-    mathml/RenderMathMLSubSup.h \
-    mathml/RenderMathMLUnderOver.h \
     notifications/Notification.h \
     notifications/NotificationCenter.h \
     notifications/NotificationPresenter.h \
@@ -2132,7 +2129,6 @@ HEADERS += \
     platform/graphics/Path.h \
     platform/graphics/PathTraversalState.h \
     platform/graphics/Pattern.h \
-    platform/graphics/Pen.h \
     platform/graphics/qt/FontCustomPlatformData.h \
     platform/graphics/qt/ImageDecoderQt.h \
     platform/graphics/qt/StillImageQt.h \
@@ -2249,6 +2245,16 @@ HEADERS += \
     rendering/InlineFlowBox.h \
     rendering/InlineTextBox.h \
     rendering/LayoutState.h \
+    rendering/mathml/RenderMathMLBlock.h \
+    rendering/mathml/RenderMathMLFenced.h \
+    rendering/mathml/RenderMathMLFraction.h \
+    rendering/mathml/RenderMathMLMath.h \
+    rendering/mathml/RenderMathMLOperator.h \
+    rendering/mathml/RenderMathMLRoot.h \
+    rendering/mathml/RenderMathMLRow.h \
+    rendering/mathml/RenderMathMLSquareRoot.h \
+    rendering/mathml/RenderMathMLSubSup.h \
+    rendering/mathml/RenderMathMLUnderOver.h \
     rendering/MediaControlElements.h \
     rendering/PaintInfo.h \
     rendering/PaintPhase.h \
@@ -2268,7 +2274,6 @@ HEADERS += \
     rendering/RenderFieldset.h \
     rendering/RenderFileUploadControl.h \
     rendering/RenderFlexibleBox.h \
-    rendering/RenderForeignObject.h \
     rendering/RenderFrame.h \
     rendering/RenderFrameBase.h \
     rendering/RenderFrameSet.h \
@@ -2306,28 +2311,6 @@ HEADERS += \
     rendering/RenderScrollbarTheme.h \
     rendering/RenderSlider.h \
     rendering/RenderSummary.h \
-    rendering/RenderSVGBlock.h \
-    rendering/RenderSVGContainer.h \
-    rendering/RenderSVGGradientStop.h \
-    rendering/RenderSVGHiddenContainer.h \
-    rendering/RenderSVGImage.h \
-    rendering/RenderSVGModelObject.h \
-    rendering/RenderSVGResource.h \
-    rendering/RenderSVGResourceClipper.h \
-    rendering/RenderSVGResourceContainer.h \
-    rendering/RenderSVGResourceFilter.h \ 
-    rendering/RenderSVGResourceFilterPrimitive.h \
-    rendering/RenderSVGResourceGradient.h \
-    rendering/RenderSVGResourceLinearGradient.h \
-    rendering/RenderSVGResourceMarker.h \
-    rendering/RenderSVGResourceMasker.h \
-    rendering/RenderSVGResourcePattern.h \
-    rendering/RenderSVGResourceRadialGradient.h \
-    rendering/RenderSVGResourceSolidColor.h \
-    rendering/RenderSVGRoot.h \
-    rendering/RenderSVGShadowTreeRootContainer.h \
-    rendering/RenderSVGTransformableContainer.h \
-    rendering/RenderSVGViewportContainer.h \
     rendering/RenderTableCell.h \
     rendering/RenderTableCol.h \
     rendering/RenderTable.h \
@@ -2372,15 +2355,47 @@ HEADERS += \
     rendering/style/StyleVisualData.h \
     rendering/style/SVGRenderStyleDefs.h \
     rendering/style/SVGRenderStyle.h \
+    rendering/svg/RenderSVGBlock.h \
+    rendering/svg/RenderSVGContainer.h \
+    rendering/svg/RenderSVGForeignObject.h \
+    rendering/svg/RenderSVGGradientStop.h \
+    rendering/svg/RenderSVGHiddenContainer.h \
+    rendering/svg/RenderSVGImage.h \
     rendering/svg/RenderSVGInline.h \
     rendering/svg/RenderSVGInlineText.h \
+    rendering/svg/RenderSVGModelObject.h \
     rendering/svg/RenderSVGPath.h \
+    rendering/svg/RenderSVGResource.h \
+    rendering/svg/RenderSVGResourceClipper.h \
+    rendering/svg/RenderSVGResourceContainer.h \
+    rendering/svg/RenderSVGResourceFilter.h \ 
+    rendering/svg/RenderSVGResourceFilterPrimitive.h \
+    rendering/svg/RenderSVGResourceGradient.h \
+    rendering/svg/RenderSVGResourceLinearGradient.h \
+    rendering/svg/RenderSVGResourceMarker.h \
+    rendering/svg/RenderSVGResourceMasker.h \
+    rendering/svg/RenderSVGResourcePattern.h \
+    rendering/svg/RenderSVGResourceRadialGradient.h \
+    rendering/svg/RenderSVGResourceSolidColor.h \
+    rendering/svg/RenderSVGRoot.h \
+    rendering/svg/RenderSVGShadowTreeRootContainer.h \
     rendering/svg/RenderSVGTSpan.h \
     rendering/svg/RenderSVGText.h \
     rendering/svg/RenderSVGTextPath.h \
+    rendering/svg/RenderSVGTransformableContainer.h \
+    rendering/svg/RenderSVGViewportContainer.h \
+    rendering/svg/SVGImageBufferTools.h \
     rendering/svg/SVGInlineFlowBox.h \
     rendering/svg/SVGInlineTextBox.h \
+    rendering/svg/SVGMarkerData.h \
+    rendering/svg/SVGMarkerLayoutInfo.h \
+    rendering/svg/SVGRenderSupport.h \
+    rendering/svg/SVGRenderTreeAsText.h \
+    rendering/svg/SVGResources.h \
+    rendering/svg/SVGResourcesCache.h \
+    rendering/svg/SVGResourcesCycleSolver.h \
     rendering/svg/SVGRootInlineBox.h \
+    rendering/svg/SVGShadowTreeElements.h \
     rendering/svg/SVGTextChunk.h \
     rendering/svg/SVGTextChunkBuilder.h \
     rendering/svg/SVGTextFragment.h \
@@ -2391,15 +2406,6 @@ HEADERS += \
     rendering/svg/SVGTextLayoutEngineSpacing.h \
     rendering/svg/SVGTextMetrics.h \
     rendering/svg/SVGTextQuery.h \
-    rendering/SVGImageBufferTools.h \
-    rendering/SVGMarkerData.h \
-    rendering/SVGMarkerLayoutInfo.h \
-    rendering/SVGRenderSupport.h \
-    rendering/SVGRenderTreeAsText.h \
-    rendering/SVGResources.h \
-    rendering/SVGResourcesCache.h \
-    rendering/SVGResourcesCycleSolver.h \
-    rendering/SVGShadowTreeElements.h \
     rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
@@ -2649,18 +2655,18 @@ HEADERS += \
     xml/XSLTExtensions.h \
     xml/XSLTProcessor.h \
     xml/XSLTUnicodeSort.h \
-    $$PWD/../../WebKit/qt/Api/qwebplugindatabase_p.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/InspectorServerQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/PageClientQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/PopupMenuQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
-    $$PWD/../../WebKit/qt/WebCoreSupport/WebPlatformStrategies.h \
+    $$PWD/../../Source/WebKit/qt/Api/qwebplugindatabase_p.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/InspectorServerQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/PageClientQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/PopupMenuQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
+    $$PWD/../../Source/WebKit/qt/WebCoreSupport/WebPlatformStrategies.h \
     $$PWD/platform/network/qt/DnsPrefetchHelper.h
 
 v8 {
@@ -2748,39 +2754,39 @@ SOURCES += \
     platform/text/qt/TextCodecQt.cpp \
     platform/qt/WheelEventQt.cpp \
     platform/qt/WidgetQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.cpp \
-    ../../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/DragClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
-    ../../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
-    ../../WebKit/qt/WebCoreSupport/WebPlatformStrategies.cpp \
-    ../../WebKit/qt/Api/qwebframe.cpp \
-    ../../WebKit/qt/Api/qgraphicswebview.cpp \
-    ../../WebKit/qt/Api/qwebpage.cpp \
-    ../../WebKit/qt/Api/qwebview.cpp \
-    ../../WebKit/qt/Api/qwebelement.cpp \
-    ../../WebKit/qt/Api/qwebhistory.cpp \
-    ../../WebKit/qt/Api/qwebsettings.cpp \
-    ../../WebKit/qt/Api/qwebhistoryinterface.cpp \
-    ../../WebKit/qt/Api/qwebplugindatabase.cpp \
-    ../../WebKit/qt/Api/qwebpluginfactory.cpp \
-    ../../WebKit/qt/Api/qwebsecurityorigin.cpp \
-    ../../WebKit/qt/Api/qwebscriptworld.cpp \
-    ../../WebKit/qt/Api/qwebdatabase.cpp \
-    ../../WebKit/qt/Api/qwebinspector.cpp \
-    ../../WebKit/qt/Api/qwebkitversion.cpp
+    ../../Source/WebKit/qt/WebCoreSupport/QtFallbackWebPopup.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/DragClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/PageClientQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
+    ../../Source/WebKit/qt/WebCoreSupport/WebPlatformStrategies.cpp \
+    ../../Source/WebKit/qt/Api/qwebframe.cpp \
+    ../../Source/WebKit/qt/Api/qgraphicswebview.cpp \
+    ../../Source/WebKit/qt/Api/qwebpage.cpp \
+    ../../Source/WebKit/qt/Api/qwebview.cpp \
+    ../../Source/WebKit/qt/Api/qwebelement.cpp \
+    ../../Source/WebKit/qt/Api/qwebhistory.cpp \
+    ../../Source/WebKit/qt/Api/qwebsettings.cpp \
+    ../../Source/WebKit/qt/Api/qwebhistoryinterface.cpp \
+    ../../Source/WebKit/qt/Api/qwebplugindatabase.cpp \
+    ../../Source/WebKit/qt/Api/qwebpluginfactory.cpp \
+    ../../Source/WebKit/qt/Api/qwebsecurityorigin.cpp \
+    ../../Source/WebKit/qt/Api/qwebscriptworld.cpp \
+    ../../Source/WebKit/qt/Api/qwebdatabase.cpp \
+    ../../Source/WebKit/qt/Api/qwebinspector.cpp \
+    ../../Source/WebKit/qt/Api/qwebkitversion.cpp
 
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     HEADERS += platform/qt/QtMobileWebStyle.h
@@ -2788,8 +2794,8 @@ contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
 }
 
 maemo5 {
-    HEADERS += ../../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
-    SOURCES += ../../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
+    HEADERS += ../../Source/WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
+    SOURCES += ../../Source/WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
 }
 
 contains(DEFINES, ENABLE_SMOOTH_SCROLLING=1) {
@@ -3251,8 +3257,13 @@ contains(DEFINES, ENABLE_VIDEO=1) {
 
         PKGCONFIG += glib-2.0 gio-2.0 gstreamer-0.10 gstreamer-app-0.10 gstreamer-base-0.10 gstreamer-interfaces-0.10 gstreamer-pbutils-0.10 gstreamer-plugins-base-0.10 gstreamer-video-0.10
      } else:contains(MOBILITY_CONFIG, multimedia) {
-        HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
-        SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
+        HEADERS += \ 
+            platform/graphics/qt/MediaPlayerPrivateQt.h \
+            $$PWD/../../Source/WebKit/qt/WebCoreSupport/FullScreenVideoQt.h
+
+        SOURCES += \
+            platform/graphics/qt/MediaPlayerPrivateQt.cpp \
+            $$PWD/../../Source/WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp
 
         CONFIG *= mobility
         MOBILITY += multimedia
@@ -3346,16 +3357,16 @@ contains(DEFINES, ENABLE_MATHML=1) {
         mathml/MathMLInlineContainerElement.cpp \
         mathml/MathMLMathElement.cpp \
         mathml/MathMLTextElement.cpp \
-        mathml/RenderMathMLBlock.cpp \
-        mathml/RenderMathMLFenced.cpp \
-        mathml/RenderMathMLFraction.cpp \
-        mathml/RenderMathMLMath.cpp \
-        mathml/RenderMathMLOperator.cpp \
-        mathml/RenderMathMLRoot.cpp \
-        mathml/RenderMathMLRow.cpp \
-        mathml/RenderMathMLSquareRoot.cpp \
-        mathml/RenderMathMLSubSup.cpp \
-        mathml/RenderMathMLUnderOver.cpp
+        rendering/mathml/RenderMathMLBlock.cpp \
+        rendering/mathml/RenderMathMLFenced.cpp \
+        rendering/mathml/RenderMathMLFraction.cpp \
+        rendering/mathml/RenderMathMLMath.cpp \
+        rendering/mathml/RenderMathMLOperator.cpp \
+        rendering/mathml/RenderMathMLRoot.cpp \
+        rendering/mathml/RenderMathMLRow.cpp \
+        rendering/mathml/RenderMathMLSquareRoot.cpp \
+        rendering/mathml/RenderMathMLSubSup.cpp \
+        rendering/mathml/RenderMathMLUnderOver.cpp
 }
 
 contains(DEFINES, ENABLE_WML=1) {
@@ -3438,18 +3449,18 @@ contains(DEFINES, ENABLE_GEOLOCATION=1) {
 
 contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
     HEADERS += \
-        ../../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
-        ../../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h
 
     SOURCES += \
-        ../../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
-        ../../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
-        ../../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
+        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp
 
     CONFIG += mobility
     MOBILITY += sensors
@@ -3470,15 +3481,46 @@ contains(DEFINES, ENABLE_SVG=1) {
         css/SVGCSSStyleSelector.cpp \
         rendering/style/SVGRenderStyle.cpp \
         rendering/style/SVGRenderStyleDefs.cpp \
+        rendering/svg/RenderSVGBlock.cpp \
+        rendering/svg/RenderSVGContainer.cpp \
+        rendering/svg/RenderSVGForeignObject.cpp \
+        rendering/svg/RenderSVGGradientStop.cpp \
+        rendering/svg/RenderSVGHiddenContainer.cpp \
+        rendering/svg/RenderSVGImage.cpp \
         rendering/svg/RenderSVGInline.cpp \
         rendering/svg/RenderSVGInlineText.cpp \
+        rendering/svg/RenderSVGModelObject.cpp \
         rendering/svg/RenderSVGPath.cpp \
+        rendering/svg/RenderSVGResource.cpp \
+        rendering/svg/RenderSVGResourceClipper.cpp \
+        rendering/svg/RenderSVGResourceContainer.cpp \
+        rendering/svg/RenderSVGResourceFilter.cpp \
+        rendering/svg/RenderSVGResourceFilterPrimitive.cpp \
+        rendering/svg/RenderSVGResourceGradient.cpp \
+        rendering/svg/RenderSVGResourceLinearGradient.cpp \
+        rendering/svg/RenderSVGResourceMarker.cpp \
+        rendering/svg/RenderSVGResourceMasker.cpp \
+        rendering/svg/RenderSVGResourcePattern.cpp \
+        rendering/svg/RenderSVGResourceRadialGradient.cpp \
+        rendering/svg/RenderSVGResourceSolidColor.cpp \
+        rendering/svg/RenderSVGRoot.cpp \
+        rendering/svg/RenderSVGShadowTreeRootContainer.cpp \
         rendering/svg/RenderSVGTSpan.cpp \
         rendering/svg/RenderSVGText.cpp \
         rendering/svg/RenderSVGTextPath.cpp \
+        rendering/svg/RenderSVGTransformableContainer.cpp \
+        rendering/svg/RenderSVGViewportContainer.cpp \
+        rendering/svg/SVGImageBufferTools.cpp \
         rendering/svg/SVGInlineFlowBox.cpp \
         rendering/svg/SVGInlineTextBox.cpp \
+        rendering/svg/SVGMarkerLayoutInfo.cpp \
+        rendering/svg/SVGRenderSupport.cpp \
+        rendering/svg/SVGRenderTreeAsText.cpp \
+        rendering/svg/SVGResources.cpp \
+        rendering/svg/SVGResourcesCache.cpp \
+        rendering/svg/SVGResourcesCycleSolver.cpp \
         rendering/svg/SVGRootInlineBox.cpp \
+        rendering/svg/SVGShadowTreeElements.cpp \
         rendering/svg/SVGTextChunk.cpp \
         rendering/svg/SVGTextChunkBuilder.cpp \
         rendering/svg/SVGTextLayoutAttributes.cpp \
@@ -3628,37 +3670,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFilter.cpp \
         svg/graphics/filters/SVGFilterBuilder.cpp \
         svg/graphics/SVGImage.cpp \
-        svg/properties/SVGPathSegListPropertyTearOff.cpp \
-        rendering/RenderForeignObject.cpp \
-        rendering/RenderSVGBlock.cpp \
-        rendering/RenderSVGContainer.cpp \
-        rendering/RenderSVGGradientStop.cpp \
-        rendering/RenderSVGHiddenContainer.cpp \
-        rendering/RenderSVGImage.cpp \
-        rendering/RenderSVGModelObject.cpp \
-        rendering/RenderSVGResource.cpp \
-        rendering/RenderSVGResourceClipper.cpp \
-        rendering/RenderSVGResourceContainer.cpp \
-        rendering/RenderSVGResourceFilter.cpp \
-        rendering/RenderSVGResourceFilterPrimitive.cpp \
-        rendering/RenderSVGResourceGradient.cpp \
-        rendering/RenderSVGResourceLinearGradient.cpp \
-        rendering/RenderSVGResourceMarker.cpp \
-        rendering/RenderSVGResourceMasker.cpp \
-        rendering/RenderSVGResourcePattern.cpp \
-        rendering/RenderSVGResourceRadialGradient.cpp \
-        rendering/RenderSVGResourceSolidColor.cpp \
-        rendering/RenderSVGRoot.cpp \
-        rendering/RenderSVGShadowTreeRootContainer.cpp \
-        rendering/RenderSVGTransformableContainer.cpp \
-        rendering/RenderSVGViewportContainer.cpp \
-        rendering/SVGImageBufferTools.cpp \
-        rendering/SVGMarkerLayoutInfo.cpp \
-        rendering/SVGRenderSupport.cpp \
-        rendering/SVGResources.cpp \
-        rendering/SVGResourcesCache.cpp \
-        rendering/SVGResourcesCycleSolver.cpp \
-        rendering/SVGShadowTreeElements.cpp
+        svg/properties/SVGPathSegListPropertyTearOff.cpp
 }
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
@@ -3853,7 +3865,7 @@ contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
     QMAKE_EXTRA_TARGETS += install
 }
 
-include($$PWD/../../WebKit/qt/Api/headers.pri)
+include($$PWD/../../Source/WebKit/qt/Api/headers.pri)
 
 HEADERS += $$WEBKIT_API_HEADERS
 
@@ -3981,9 +3993,9 @@ contains(CONFIG, texmap) {
 symbian {
     shared {
         contains(CONFIG, def_files) {
-            DEF_FILE=../../WebKit/qt/symbian
+            DEF_FILE=../../Source/WebKit/qt/symbian
             # defFilePath is for Qt4.6 compatibility
-            defFilePath=../../WebKit/qt/symbian
+            defFilePath=../../Source/WebKit/qt/symbian
         } else {
             MMP_RULES += EXPORTUNFROZEN
         }

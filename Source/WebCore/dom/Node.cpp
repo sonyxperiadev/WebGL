@@ -756,6 +756,21 @@ bool Node::hasNonEmptyBoundingBox() const
     return false;
 }
 
+void Node::setDocumentRecursively(Document* document)
+{
+    // FIXME: To match Gecko, we should do this for nodes that are already in the document as well.
+    if (this->document() == document || this->inDocument())
+        return;
+
+    for (Node* node = this; node; node = node->traverseNextNode(this)) {
+        node->setDocument(document);
+        if (!node->isElementNode())
+            continue;
+        if (Node* shadow = toElement(node)->shadowRoot())
+            shadow->setDocumentRecursively(document);
+    }
+}
+
 inline void Node::setStyleChange(StyleChangeType changeType)
 {
     m_nodeFlags = (m_nodeFlags & ~StyleChangeMask) | changeType;
@@ -998,7 +1013,7 @@ void Node::removeCachedLabelsNodeList(DynamicNodeList* list)
     data->m_labelsNodeListCache = 0;
 }
 
-Node *Node::traverseNextNode(const Node *stayWithin) const
+Node* Node::traverseNextNode(const Node* stayWithin) const
 {
     if (firstChild())
         return firstChild();
@@ -1014,7 +1029,7 @@ Node *Node::traverseNextNode(const Node *stayWithin) const
     return 0;
 }
 
-Node *Node::traverseNextSibling(const Node *stayWithin) const
+Node* Node::traverseNextSibling(const Node* stayWithin) const
 {
     if (this == stayWithin)
         return 0;
@@ -1038,7 +1053,7 @@ Node* Node::traverseNextNodePostOrder() const
     return next;
 }
 
-Node *Node::traversePreviousNode(const Node *stayWithin) const
+Node* Node::traversePreviousNode(const Node* stayWithin) const
 {
     if (this == stayWithin)
         return 0;
@@ -1051,7 +1066,7 @@ Node *Node::traversePreviousNode(const Node *stayWithin) const
     return parentNode();
 }
 
-Node *Node::traversePreviousNodePostOrder(const Node *stayWithin) const
+Node* Node::traversePreviousNodePostOrder(const Node* stayWithin) const
 {
     if (lastChild())
         return lastChild();
@@ -1163,15 +1178,6 @@ static void checkAcceptChild(Node* newParent, Node* newChild, ExceptionCode& ec)
     }
 }
 
-static void transferOwnerDocument(Document* newDocument, Node* root)
-{
-    // FIXME: To match Gecko, we should do this for nodes that are already in the document as well.
-    if (root->document() != newDocument && !root->inDocument()) {
-        for (Node* node = root; node; node = node->traverseNextNode(root))
-            node->setDocument(newDocument);
-    }
-}
-
 void Node::checkReplaceChild(Node* newChild, Node* oldChild, ExceptionCode& ec)
 {
     checkAcceptChild(this, newChild, ec);
@@ -1183,7 +1189,7 @@ void Node::checkReplaceChild(Node* newChild, Node* oldChild, ExceptionCode& ec)
         return;
     }
 
-    transferOwnerDocument(document(), newChild);
+    newChild->setDocumentRecursively(document());
 }
 
 void Node::checkAddChild(Node *newChild, ExceptionCode& ec)
@@ -1197,7 +1203,7 @@ void Node::checkAddChild(Node *newChild, ExceptionCode& ec)
         return;
     }
 
-    transferOwnerDocument(document(), newChild);
+    newChild->setDocumentRecursively(document());
 }
 
 bool Node::isDescendantOf(const Node *other) const
@@ -1379,8 +1385,10 @@ void Node::createRendererIfNeeded()
         document()->setFullScreenRenderer(fullscreenRenderer);
     }
 #endif
-    
-    if (parentRenderer && parentRenderer->canHaveChildren() && parent->childShouldCreateRenderer(this)) {
+
+    // FIXME: Ignoreing canHaveChildren() in a case of isShadowRoot() might be wrong.
+    // See https://bugs.webkit.org/show_bug.cgi?id=52423
+    if (parentRenderer && (parentRenderer->canHaveChildren() || isShadowRoot()) && parent->childShouldCreateRenderer(this)) {
         RefPtr<RenderStyle> style = styleForRenderer();
         if (rendererIsNeeded(style.get())) {
             if (RenderObject* r = createRenderer(document()->renderArena(), style.get())) {
@@ -1617,7 +1625,7 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
     CSSSelectorList querySelectorList;
     p.parseSelector(selectors, document(), querySelectorList);
 
-    if (!querySelectorList.first()) {
+    if (!querySelectorList.first() || querySelectorList.hasUnknownPseudoElements()) {
         ec = SYNTAX_ERR;
         return 0;
     }
@@ -1664,7 +1672,7 @@ PassRefPtr<NodeList> Node::querySelectorAll(const String& selectors, ExceptionCo
     CSSSelectorList querySelectorList;
     p.parseSelector(selectors, document(), querySelectorList);
 
-    if (!querySelectorList.first()) {
+    if (!querySelectorList.first() || querySelectorList.hasUnknownPseudoElements()) {
         ec = SYNTAX_ERR;
         return 0;
     }
@@ -2685,6 +2693,22 @@ static const EventContext* topEventContext(const Vector<EventContext>& ancestors
     return ancestors.isEmpty() ? 0 : &ancestors.last();
 }
 
+static EventDispatchBehavior determineDispatchBehavior(Event* event)
+{
+    // Per XBL 2.0 spec, mutation events should never cross shadow DOM boundary:
+    // http://dev.w3.org/2006/xbl2/#event-flow-and-targeting-across-shadow-s
+    if (event->isMutationEvent())
+        return StayInsideShadowDOM;
+
+    // WebKit never allowed selectstart event to cross the the shadow DOM boundary.
+    // Changing this breaks existing sites.
+    // See https://bugs.webkit.org/show_bug.cgi?id=52195 for details.
+    if (event->type() == eventNames().selectstartEvent)
+        return StayInsideShadowDOM;
+
+    return RetargetEvent;
+}
+
 bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
 {
     RefPtr<Event> event(prpEvent);
@@ -2699,7 +2723,7 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
     RefPtr<Node> thisNode(this);
     RefPtr<EventTarget> originalTarget = event->target();
     Vector<EventContext> ancestors;
-    getEventAncestors(ancestors, originalTarget.get(), event->isMutationEvent() ? StayInsideShadowDOM : RetargetEvent);
+    getEventAncestors(ancestors, originalTarget.get(), determineDispatchBehavior(event.get()));
 
     WindowEventContext windowContext(event.get(), this, topEventContext(ancestors));
 

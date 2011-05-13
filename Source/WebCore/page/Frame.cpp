@@ -979,6 +979,18 @@ void Frame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor
     }
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+void Frame::updateContentsScale(float scale)
+{
+    for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())
+        child->updateContentsScale(scale);
+
+    RenderView* root = contentRenderer();
+    if (root && root->compositor())
+        root->compositor()->updateContentsScale(scale);
+}
+#endif
+
 void Frame::scalePage(float scale, const IntPoint& origin)
 {
     Document* document = this->document();
@@ -991,6 +1003,10 @@ void Frame::scalePage(float scale, const IntPoint& origin)
         document->renderer()->setNeedsLayout(true);
 
     document->recalcStyle(Node::Force);
+
+#if USE(ACCELERATED_COMPOSITING)
+    updateContentsScale(scale);
+#endif
 
     if (FrameView* view = this->view()) {
         if (document->renderer() && document->renderer()->needsLayout() && view->didFirstLayout())

@@ -44,6 +44,7 @@
 #ifndef RenderLayer_h
 #define RenderLayer_h
 
+#include "PaintInfo.h"
 #include "RenderBox.h"
 #include "ScrollBehavior.h"
 #include "ScrollbarClient.h"
@@ -488,10 +489,7 @@ public:
         return isTransparent() && ((paintBehavior & PaintBehaviorFlattenCompositingLayers) || !isComposited());
     }
 
-    bool paintsWithTransform(PaintBehavior paintBehavior) const
-    {
-        return transform() && ((paintBehavior & PaintBehaviorFlattenCompositingLayers) || !isComposited());
-    }
+    bool paintsWithTransform(PaintBehavior) const;
 
 private:
     // The normal operator new is disallowed on all render objects.
@@ -620,6 +618,8 @@ private:
     bool mustOverlapCompositedLayers() const { return m_mustOverlapCompositedLayers; }
     void setMustOverlapCompositedLayers(bool b) { m_mustOverlapCompositedLayers = b; }
 #endif
+
+    void updateContentsScale(float);
 
 private:
     friend class RenderLayerBacking;

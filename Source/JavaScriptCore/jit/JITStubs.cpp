@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010, 2011. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 #include "Arguments.h"
 #include "CallFrame.h"
 #include "CodeBlock.h"
-#include "Collector.h"
+#include "Heap.h"
 #include "Debugger.h"
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
@@ -737,6 +737,54 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
     "mov pc, lr" "\n"
 );
 
+#elif COMPILER(RVCT) && CPU(ARM_THUMB2)
+
+__asm EncodedJSValue ctiTrampoline(void*, RegisterFile*, CallFrame*, JSValue*, Profiler**, JSGlobalData*)
+{
+    PRESERVE8
+    sub sp, sp, # ENABLE_PROFILER_REFERENCE_OFFSET
+    str lr, [sp, # PRESERVED_RETURN_ADDRESS_OFFSET ]
+    str r4, [sp, # PRESERVED_R4_OFFSET ]
+    str r5, [sp, # PRESERVED_R5_OFFSET ]
+    str r6, [sp, # PRESERVED_R6_OFFSET ]
+    str r1, [sp, # REGISTER_FILE_OFFSET ]
+    str r2, [sp, # CALLFRAME_OFFSET ]
+    str r3, [sp, # EXCEPTION_OFFSET ]
+    cpy r5, r2
+    mov r6, #512
+    blx r0
+    ldr r6, [sp, # PRESERVED_R6_OFFSET ]
+    ldr r5, [sp, # PRESERVED_R5_OFFSET ]
+    ldr r4, [sp, # PRESERVED_R4_OFFSET ]
+    ldr lr, [sp, # PRESERVED_RETURN_ADDRESS_OFFSET ]
+    add sp, sp, # ENABLE_PROFILER_REFERENCE_OFFSET
+    bx lr
+}
+
+__asm void ctiVMThrowTrampoline()
+{
+    PRESERVE8
+    cpy r0, sp
+    bl cti_vm_throw
+    ldr r6, [sp, # PRESERVED_R6_OFFSET ]
+    ldr r5, [sp, # PRESERVED_R5_OFFSET ]
+    ldr r4, [sp, # PRESERVED_R4_OFFSET ]
+    ldr lr, [sp, # PRESERVED_RETURN_ADDRESS_OFFSET ]
+    add sp, sp, # ENABLE_PROFILER_REFERENCE_OFFSET
+    bx lr
+}
+
+__asm void ctiOpThrowNotCaught()
+{
+    PRESERVE8
+    ldr r6, [sp, # PRESERVED_R6_OFFSET ]
+    ldr r5, [sp, # PRESERVED_R5_OFFSET ]
+    ldr r4, [sp, # PRESERVED_R4_OFFSET ]
+    ldr lr, [sp, # PRESERVED_RETURN_ADDRESS_OFFSET ]
+    add sp, sp, # ENABLE_PROFILER_REFERENCE_OFFSET
+    bx lr
+}
+
 #elif COMPILER(RVCT) && CPU(ARM_TRADITIONAL)
 
 __asm EncodedJSValue ctiTrampoline(void*, RegisterFile*, CallFrame*, void* /*unused1*/, Profiler**, JSGlobalData*)
@@ -1383,7 +1431,7 @@ DEFINE_STUB_FUNCTION(void*, register_file_check)
         // Rewind to the previous call frame because op_call already optimistically
         // moved the call frame forward.
         CallFrame* oldCallFrame = callFrame->callerFrame();
-        ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), ReturnAddressPtr(oldCallFrame->returnPC()));
+        ExceptionHandler handler = jitThrow(stackFrame.globalData, oldCallFrame, createStackOverflowError(oldCallFrame), ReturnAddressPtr(callFrame->returnPC()));
         STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
         callFrame = handler.callFrame;
     }
@@ -3564,16 +3612,6 @@ DEFINE_STUB_FUNCTION(void, op_throw_reference_error)
     CallFrame* callFrame = stackFrame.callFrame;
     UString message = stackFrame.args[0].jsValue().toString(callFrame);
     stackFrame.globalData->exception = createReferenceError(callFrame, message);
-    VM_THROW_EXCEPTION_AT_END();
-}
-
-DEFINE_STUB_FUNCTION(void, op_throw_syntax_error)
-{
-    STUB_INIT_STACK_FRAME(stackFrame);
-
-    CallFrame* callFrame = stackFrame.callFrame;
-    UString message = stackFrame.args[0].jsValue().toString(callFrame);
-    stackFrame.globalData->exception = createSyntaxError(callFrame, message);
     VM_THROW_EXCEPTION_AT_END();
 }
 

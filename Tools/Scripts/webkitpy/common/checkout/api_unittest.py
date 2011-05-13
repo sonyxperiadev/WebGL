@@ -38,6 +38,7 @@ from webkitpy.common.checkout.api import Checkout
 from webkitpy.common.checkout.changelog import ChangeLogEntry
 from webkitpy.common.checkout.scm import detect_scm_system, CommitMessage
 from webkitpy.common.system.outputcapture import OutputCapture
+from webkitpy.common.system.executive import ScriptError
 from webkitpy.thirdparty.mock import Mock
 
 
@@ -130,11 +131,34 @@ class CheckoutTest(unittest.TestCase):
             self.assertEqual(revision, "bar")
             # contents_at_revision is expected to return a byte array (str)
             # so we encode our unicode ChangeLog down to a utf-8 stream.
-            return _changelog1.encode("utf-8")
+            # The ChangeLog utf-8 decoding should ignore invalid codepoints.
+            invalid_utf8 = "\255"
+            return _changelog1.encode("utf-8") + invalid_utf8
         scm.contents_at_revision = mock_contents_at_revision
         checkout = Checkout(scm)
         entry = checkout._latest_entry_for_changelog_at_revision("foo", "bar")
         self.assertEqual(entry.contents(), _changelog1entry1)
+
+    # FIXME: This tests a hack around our current changed_files handling.
+    # Right now changelog_entries_for_revision tries to fetch deleted files
+    # from revisions, resulting in a ScriptError exception.  Test that we
+    # recover from those and still return the other ChangeLog entries.
+    def test_changelog_entries_for_revision(self):
+        scm = Mock()
+        scm.changed_files_for_revision = lambda revision: ['foo/ChangeLog', 'bar/ChangeLog']
+        checkout = Checkout(scm)
+
+        def mock_latest_entry_for_changelog_at_revision(path, revision):
+            if path == "foo/ChangeLog":
+                return 'foo'
+            raise ScriptError()
+
+        checkout._latest_entry_for_changelog_at_revision = mock_latest_entry_for_changelog_at_revision
+
+        # Even though fetching one of the entries failed, the other should succeed.
+        entries = checkout.changelog_entries_for_revision(1)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0], 'foo')
 
     def test_commit_info_for_revision(self):
         scm = Mock()

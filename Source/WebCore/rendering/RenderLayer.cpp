@@ -51,7 +51,7 @@
 #include "Chrome.h"
 #include "Document.h"
 #include "EventHandler.h"
-#include "EventNames.h"
+#include "EventQueue.h"
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
 #include "FocusController.h"
@@ -1413,10 +1413,7 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
     }
 
     // Schedule the scroll DOM event.
-    if (view) {
-        if (FrameView* frameView = view->frameView())
-            frameView->scheduleEvent(Event::create(eventNames().scrollEvent, false, false), renderer()->node());
-    }
+    renderer()->node()->document()->eventQueue()->enqueueScrollEvent(renderer()->node(), EventQueue::ScrollEventElementTarget);
 }
 
 void RenderLayer::scrollRectToVisible(const IntRect& rect, bool scrollToAnchor, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
@@ -2744,7 +2741,7 @@ bool RenderLayer::hitTest(const HitTestRequest& request, HitTestResult& result)
 {
     renderer()->document()->updateLayout();
     
-    IntRect hitTestArea = result.rectForPoint(result.point());
+    IntRect hitTestArea = renderer()->view()->documentRect();
     if (!request.ignoreClipping())
         hitTestArea.intersect(frameVisibleRect(renderer()));
 
@@ -3575,6 +3572,16 @@ bool RenderLayer::hasCompositedMask() const
 }
 #endif
 
+bool RenderLayer::paintsWithTransform(PaintBehavior paintBehavior) const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    bool paintsToWindow = !isComposited() || backing()->paintingGoesToWindow();
+#else
+    bool paintsToWindow = true;
+#endif    
+    return transform() && ((paintBehavior & PaintBehaviorFlattenCompositingLayers) || paintsToWindow);
+}
+
 void RenderLayer::setParent(RenderLayer* parent)
 {
     if (parent == m_parent)
@@ -4033,6 +4040,14 @@ void RenderLayer::updateReflectionStyle()
     newStyle->setMaskBoxImage(renderer()->style()->boxReflect()->mask());
     
     m_reflection->setStyle(newStyle.release());
+}
+
+void RenderLayer::updateContentsScale(float scale)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_backing)
+        m_backing->updateContentsScale(scale);
+#endif
 }
 
 } // namespace WebCore

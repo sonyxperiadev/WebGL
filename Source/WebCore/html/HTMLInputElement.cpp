@@ -455,7 +455,9 @@ void HTMLInputElement::updateType()
     bool neededActivationCallback = needsActivationCallback();
     bool didRespectHeightAndWidth = m_inputType->shouldRespectHeightAndWidthAttributes();
 
+    m_inputType->destroyShadowSubtree();
     m_inputType = newType.release();
+    m_inputType->createShadowSubtree();
 
     setNeedsWillValidateCheck();
 
@@ -637,9 +639,14 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
 #endif
 #if ENABLE(INPUT_SPEECH)
     else if (attr->name() == webkitspeechAttr) {
-      if (renderer())
-          toRenderTextControlSingleLine(renderer())->speechAttributeChanged();
-      setNeedsStyleRecalc();
+        if (renderer()) {
+            // This renderer and its children have quite different layouts and styles depending on
+            // whether the speech button is visible or not. So we reset the whole thing and recreate
+            // to get the right styles and layout.
+            detach();
+            attach();
+        }
+        setNeedsStyleRecalc();
     } else if (attr->name() == onwebkitspeechchangeAttr)
         setAttributeEventListener(eventNames().webkitspeechchangeEvent, createAttributeEventListener(this, attr));
 #endif

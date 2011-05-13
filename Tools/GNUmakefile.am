@@ -5,9 +5,9 @@ noinst_PROGRAMS += \
 
 # GtkLauncher
 Programs_GtkLauncher_CPPFLAGS = \
-	-I$(srcdir)/WebKit/gtk \
+	-I$(srcdir)/Source/WebKit/gtk \
 	-I$(srcdir)/Source/WebCore/platform/network/soup/cache/ \
-	-I$(top_builddir)/WebKit/gtk \
+	-I$(top_builddir)/Source/WebKit/gtk \
 	-I$(top_builddir)/DerivedSources \
 	$(global_cppflags) \
 	$(javascriptcore_cppflags)
@@ -37,10 +37,10 @@ dumprendertree_cppflags := \
 	-I$(srcdir)/Tools/DumpRenderTree \
 	-I$(srcdir)/Tools/DumpRenderTree/cairo \
 	-I$(srcdir)/Tools/DumpRenderTree/gtk \
-	-I$(srcdir)/WebKit/gtk \
+	-I$(srcdir)/Source/WebKit/gtk \
 	-I$(srcdir)/Source/WebCore/platform/gtk \
 	-I$(srcdir)/Source/WebCore/platform/network/soup/cache/ \
-	-I$(top_builddir)/WebKit/gtk \
+	-I$(top_builddir)/Source/WebKit/gtk \
 	-I$(top_builddir)/DerivedSources \
 	$(global_cppflags) \
 	$(javascriptcore_cppflags)
@@ -161,6 +161,11 @@ TestNetscapePlugin_libtestnetscapeplugin_la_CPPFLAGS = \
 	-I$(srcdir)/Tools/DumpRenderTree/TestNetscapePlugIn \
 	$(global_cppflags) \
 	$(javascriptcore_cppflags)
+
+# For the Gtk port we want to use XP_UNIX both on X11 and Mac
+if !TARGET_WIN32
+TestNetscapePlugin_libtestnetscapeplugin_la_CPPFLAGS += -DXP_UNIX
+endif
 
 TestNetscapePlugin_libtestnetscapeplugin_la_SOURCES = \
 	Tools/DumpRenderTree/unix/TestNetscapePlugin/ForwardingHeaders/WebKit/npapi.h \

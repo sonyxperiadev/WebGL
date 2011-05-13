@@ -43,11 +43,7 @@
 #include "WebDocument.h"
 #include "WebElement.h"
 #include "WebFrame.h"
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
 #include "WebGeolocationClientMock.h"
-#else
-#include "WebGeolocationServiceMock.h"
-#endif
 #include "WebInputElement.h"
 #include "WebKit.h"
 #include "WebNotificationPresenter.h"
@@ -488,15 +484,20 @@ public:
     WorkItemLoadHTMLString(const std::string& html, const WebURL& baseURL)
         : m_html(html)
         , m_baseURL(baseURL) {}
+    WorkItemLoadHTMLString(const std::string& html, const WebURL& baseURL, const WebURL& unreachableURL)
+        : m_html(html)
+        , m_baseURL(baseURL)
+        , m_unreachableURL(unreachableURL) {}
     bool run(TestShell* shell)
     {
         shell->webView()->mainFrame()->loadHTMLString(
-            WebKit::WebData(m_html.data(), m_html.length()), m_baseURL);
+            WebKit::WebData(m_html.data(), m_html.length()), m_baseURL, m_unreachableURL);
         return true;
     }
 private:
     std::string m_html;
     WebURL m_baseURL;
+    WebURL m_unreachableURL;
 };
 
 void LayoutTestController::queueLoadHTMLString(const CppArgumentList& arguments, CppVariant* result)
@@ -506,7 +507,10 @@ void LayoutTestController::queueLoadHTMLString(const CppArgumentList& arguments,
         WebURL baseURL;
         if (arguments.size() > 1 && arguments[1].isString())
             baseURL = WebURL(GURL(arguments[1].toString()));
-        m_workQueue.addWork(new WorkItemLoadHTMLString(html, baseURL));
+        if (arguments.size() > 2 && arguments[2].isString())
+            m_workQueue.addWork(new WorkItemLoadHTMLString(html, baseURL, WebURL(GURL(arguments[2].toString()))));
+        else
+            m_workQueue.addWork(new WorkItemLoadHTMLString(html, baseURL));
     }
     result->setNull();
 }
@@ -1519,16 +1523,16 @@ void LayoutTestController::setMockDeviceOrientation(const CppArgumentList& argum
     m_shell->webViewHost()->deviceOrientationClientMock()->setOrientation(orientation);
 }
 
+// FIXME: For greater test flexibility, we should be able to set each page's geolocation mock individually.
+// https://bugs.webkit.org/show_bug.cgi?id=52368
 void LayoutTestController::setGeolocationPermission(const CppArgumentList& arguments, CppVariant* result)
 {
     result->setNull();
     if (arguments.size() < 1 || !arguments[0].isBool())
         return;
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-    m_shell->webViewHost()->geolocationClientMock()->setPermission(arguments[0].toBoolean());
-#else
-    WebGeolocationServiceMock::setMockGeolocationPermission(arguments[0].toBoolean());
-#endif
+    Vector<WebViewHost*> windowList = m_shell->windowList();
+    for (size_t i = 0; i < windowList.size(); i++)
+        windowList[i]->geolocationClientMock()->setPermission(arguments[0].toBoolean());
 }
 
 void LayoutTestController::setMockGeolocationPosition(const CppArgumentList& arguments, CppVariant* result)
@@ -1536,11 +1540,9 @@ void LayoutTestController::setMockGeolocationPosition(const CppArgumentList& arg
     result->setNull();
     if (arguments.size() < 3 || !arguments[0].isNumber() || !arguments[1].isNumber() || !arguments[2].isNumber())
         return;
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-    m_shell->webViewHost()->geolocationClientMock()->setPosition(arguments[0].toDouble(), arguments[1].toDouble(), arguments[2].toDouble());
-#else
-    WebGeolocationServiceMock::setMockGeolocationPosition(arguments[0].toDouble(), arguments[1].toDouble(), arguments[2].toDouble());
-#endif
+    Vector<WebViewHost*> windowList = m_shell->windowList();
+    for (size_t i = 0; i < windowList.size(); i++)
+        windowList[i]->geolocationClientMock()->setPosition(arguments[0].toDouble(), arguments[1].toDouble(), arguments[2].toDouble());
 }
 
 void LayoutTestController::setMockGeolocationError(const CppArgumentList& arguments, CppVariant* result)
@@ -1548,11 +1550,9 @@ void LayoutTestController::setMockGeolocationError(const CppArgumentList& argume
     result->setNull();
     if (arguments.size() < 2 || !arguments[0].isNumber() || !arguments[1].isString())
         return;
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-    m_shell->webViewHost()->geolocationClientMock()->setError(arguments[0].toInt32(), cppVariantToWebString(arguments[1]));
-#else
-    WebGeolocationServiceMock::setMockGeolocationError(arguments[0].toInt32(), cppVariantToWebString(arguments[1]));
-#endif
+    Vector<WebViewHost*> windowList = m_shell->windowList();
+    for (size_t i = 0; i < windowList.size(); i++)
+        windowList[i]->geolocationClientMock()->setError(arguments[0].toInt32(), cppVariantToWebString(arguments[1]));
 }
 
 void LayoutTestController::abortModal(const CppArgumentList& arguments, CppVariant* result)

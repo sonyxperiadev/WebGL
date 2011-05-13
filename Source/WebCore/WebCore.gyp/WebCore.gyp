@@ -32,7 +32,7 @@
   'includes': [
     # FIXME: Sense whether upstream or downstream build, and
     # include the right features.gypi
-    '../../../WebKit/chromium/features.gypi',
+    '../../../Source/WebKit/chromium/features.gypi',
     '../WebCore.gypi',
   ],
   # Location of the chromium src directory.
@@ -40,7 +40,7 @@
     ['inside_chromium_build==0', {
       # Webkit is being built outside of the full chromium project.
       'variables': {
-        'chromium_src_dir': '../../../WebKit/chromium',
+        'chromium_src_dir': '../../../Source/WebKit/chromium',
         'libjpeg_gyp_path': '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp',
       },
     },{
@@ -329,6 +329,29 @@
             '<@(generator_include_dirs)'
           ],
           'message': 'Generating Inspector protocol sources from Inspector.idl',
+        },
+      ]
+    },
+    {
+      'target_name': 'injected_script_source',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'generateInjectedScriptSource',
+          'inputs': [
+            '../inspector/InjectedScriptSource.js',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/InjectedScriptSource.h',
+          ],
+          'action': [
+            'perl',
+            '../inspector/xxd.pl',
+            'InjectedScriptSource_js',
+            '../inspector/InjectedScriptSource.js',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/InjectedScriptSource.h'
+          ],
+          'message': 'Generating InjectedScriptSource.h from InjectedScriptSource.js',
         },
       ]
     },
@@ -723,6 +746,7 @@
       'dependencies': [
         'webcore_bindings_sources',
         'inspector_protocol_sources',
+        'injected_script_source',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:pcre',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
@@ -1061,7 +1085,7 @@
         '<@(webcore_files)',
 
         # For WebCoreSystemInterface, Mac-only.
-        '../../../WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
+        '../../../Source/WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
       ],
       'sources/': [
         # Start by excluding everything then include platform files only.
@@ -1177,7 +1201,7 @@
             # Use USE_NEW_THEME on Mac.
             ['include', 'platform/Theme\\.cpp$'],
 
-            ['include', 'WebKit/mac/WebCoreSupport/WebSystemInterface\\.mm$'],
+            ['include', 'Source/WebKit/mac/WebCoreSupport/WebSystemInterface\\.mm$'],
 
             # Chromium Mac does not use skia.
             ['exclude', 'platform/graphics/skia/[^/]*Skia\\.(cpp|h)$'],
@@ -1234,11 +1258,6 @@
             # The Chromium Win currently uses GlyphPageTreeNodeChromiumWin.cpp from
             # platform/graphics/chromium, included by regex above, instead.
             ['exclude', 'platform/graphics/skia/GlyphPageTreeNodeSkia\\.cpp$']
-          ],
-        }],
-        ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
-          'sources/': [
-            ['exclude', '/GeolocationService.*$'],
           ],
         }],
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
@@ -1303,9 +1322,6 @@
 
         # Don't build IDBKeyPathBackendImpl.  We have our own implementation.
         ['exclude', 'storage/IDBKeyPathBackendImpl\\.cpp$'],
-
-        # Use history/BackForwardListChromium.cpp instead.
-        ['exclude', 'history/BackForwardListImpl\\.cpp$'],
 
         # Use loader/icon/IconDatabaseNone.cpp instead.
         ['exclude', 'loader/icon/IconDatabase\\.cpp$'],
@@ -1448,7 +1464,7 @@
           'direct_dependent_settings': {
             'include_dirs': [
               '../../../WebKitLibraries',
-              '../../../WebKit/mac/WebCoreSupport',
+              '../../../Source/WebKit/mac/WebCoreSupport',
             ],
           },
         }],

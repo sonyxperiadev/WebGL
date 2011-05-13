@@ -209,6 +209,7 @@ GEN := \
     $(intermediates)/html/JSDOMFormData.h \
     $(intermediates)/html/JSDOMSettableTokenList.h \
     $(intermediates)/html/JSDOMTokenList.h \
+    $(intermediates)/html/JSDOMURL.h \
     $(intermediates)/html/JSDataGridColumn.h \
     $(intermediates)/html/JSDataGridColumnList.h \
     $(intermediates)/html/JSHTMLAllCollection.h \

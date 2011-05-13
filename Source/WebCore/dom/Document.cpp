@@ -92,7 +92,6 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "ImageLoader.h"
-#include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "KeyboardEvent.h"
 #include "Logging.h"
@@ -938,9 +937,8 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
         if (source->parentNode())
             source->parentNode()->removeChild(source.get(), ec);
     }
-                
-    for (Node* node = source.get(); node; node = node->traverseNextNode(source.get()))
-        node->setDocument(this);
+
+    source->setDocumentRecursively(this);
 
     return source;
 }
@@ -1194,6 +1192,16 @@ void Document::setDocumentURI(const String& uri)
 KURL Document::baseURI() const
 {
     return m_baseURL;
+}
+
+void Document::setContent(const String& content)
+{
+    removeAllChildren();
+
+    open();
+    m_parser->append(content);
+    m_parser->finish();
+    close();
 }
 
 // FIXME: We need to discuss the DOM API here at some point. Ideas:
@@ -3451,11 +3459,13 @@ void Document::nodeWillBeRemoved(Node* n)
     ASSERT(n);
     if (n->contains(m_fullScreenElement.get())) {
         ASSERT(n != documentElement());
+        
+        if (m_fullScreenRenderer)
+            m_fullScreenRenderer->remove();
+
         setFullScreenRenderer(0);
         m_fullScreenElement = documentElement();
-        m_fullScreenElement->setNeedsStyleRecalc();
-        m_fullScreenElement->detach();
-        updateStyleIfNeeded();
+        recalcStyle(Force);
         m_fullScreenChangeDelayTimer.startOneShot(0);
     }
 #endif
@@ -4309,13 +4319,7 @@ void Document::finishedParsing()
 
         f->loader()->finishedParsing();
 
-#if ENABLE(INSPECTOR)
-        if (!page())
-            return;
-
-        if (InspectorController* controller = page()->inspectorController())
-            controller->mainResourceFiredDOMContentEvent(f->loader()->documentLoader(), url());
-#endif
+        InspectorInstrumentation::mainResourceFiredDOMContentEvent(f, url());
     }
 }
 
@@ -4863,13 +4867,6 @@ bool Document::isXHTMLMPDocument() const
     // and SHOULD accept it identified as "application/xhtml+xml" , "application/xhtml+xml" is a 
     // general MIME type for all XHTML documents, not only for XHTMLMP
     return frame()->loader()->writer()->mimeType() == "application/vnd.wap.xhtml+xml";
-}
-#endif
-
-#if ENABLE(INSPECTOR)
-InspectorController* Document::inspectorController() const
-{
-    return page() ? page()->inspectorController() : 0;
 }
 #endif
 

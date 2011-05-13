@@ -398,7 +398,10 @@ sub adjustPathForRecentRenamings($)
 {
     my ($fullPath) = @_;
 
-    if ($fullPath =~ m|^WebCore/| || $fullPath =~ m|^JavaScriptCore/|) {
+    if ($fullPath =~ m|^WebCore/|
+        || $fullPath =~ m|^JavaScriptCore/|
+        || $fullPath =~ m|^WebKit/|
+        || $fullPath =~ m|^WebKit2/|) {
         return "Source/$fullPath";
     }
     return $fullPath;

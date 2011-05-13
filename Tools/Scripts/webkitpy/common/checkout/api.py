@@ -54,12 +54,25 @@ class Checkout(object):
         # contents_at_revision returns a byte array (str()), but we know
         # that ChangeLog files are utf-8.  parse_latest_entry_from_file
         # expects a file-like object which vends unicode(), so we decode here.
-        changelog_file = StringIO.StringIO(changelog_contents.decode("utf-8"))
+        # Old revisions of Sources/WebKit/wx/ChangeLog have some invalid utf8 characters.
+        changelog_file = StringIO.StringIO(changelog_contents.decode("utf-8", "ignore"))
         return ChangeLog.parse_latest_entry_from_file(changelog_file)
 
     def changelog_entries_for_revision(self, revision):
         changed_files = self._scm.changed_files_for_revision(revision)
-        return [self._latest_entry_for_changelog_at_revision(path, revision) for path in changed_files if self.is_path_to_changelog(path)]
+        # FIXME: This gets confused if ChangeLog files are moved, as
+        # deletes are still "changed files" per changed_files_for_revision.
+        # FIXME: For now we hack around this by caching any exceptions
+        # which result from having deleted files included the changed_files list.
+        changelog_entries = []
+        for path in changed_files:
+            if not self.is_path_to_changelog(path):
+                continue
+            try:
+                changelog_entries.append(self._latest_entry_for_changelog_at_revision(path, revision))
+            except ScriptError:
+                pass
+        return changelog_entries
 
     @memoized
     def commit_info_for_revision(self, revision):

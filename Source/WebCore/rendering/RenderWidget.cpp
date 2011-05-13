@@ -157,9 +157,8 @@ RenderWidget::~RenderWidget()
     clearWidget();
 }
 
-bool RenderWidget::setWidgetGeometry(const IntRect& frame)
+bool RenderWidget::setWidgetGeometry(const IntRect& frame, const IntSize& boundsSize)
 {
-    ASSERT(!widgetHierarchyUpdateSuspendCount);
     if (!node())
         return false;
 
@@ -175,6 +174,8 @@ bool RenderWidget::setWidgetGeometry(const IntRect& frame)
     RenderWidgetProtector protector(this);
     RefPtr<Node> protectedNode(node());
     m_widget->setFrameRect(frame);
+    if (m_widget) // setFrameRect can run arbitrary script, which might clear m_widget.
+        m_widget->setBoundsSize(boundsSize);
     
 #if USE(ACCELERATED_COMPOSITING)
     if (hasLayer() && layer()->isComposited())
@@ -202,7 +203,7 @@ void RenderWidget::setWidget(PassRefPtr<Widget> widget)
         // style pointer).
         if (style()) {
             if (!needsLayout())
-                setWidgetGeometry(absoluteContentBox());
+                setWidgetGeometry(IntRect(localToAbsoluteQuad(FloatQuad(contentBoxRect())).boundingBox()), contentBoxRect().size());
             if (style()->visibility() != VISIBLE)
                 m_widget->hide();
             else
@@ -342,14 +343,9 @@ void RenderWidget::updateWidgetPosition()
     if (!m_widget || !node()) // Check the node in case destroy() has been called.
         return;
 
-    // FIXME: This doesn't work correctly with transforms.
-    FloatPoint absPos = localToAbsolute();
-    absPos.move(borderLeft() + paddingLeft(), borderTop() + paddingTop());
-
-    int w = width() - borderAndPaddingWidth();
-    int h = height() - borderAndPaddingHeight();
-
-    bool boundsChanged = setWidgetGeometry(IntRect(absPos.x(), absPos.y(), w, h));
+    IntRect contentBox = contentBoxRect();
+    IntRect absoluteContentBox = IntRect(localToAbsoluteQuad(FloatQuad(contentBox)).boundingBox());
+    bool boundsChanged = setWidgetGeometry(absoluteContentBox, contentBox.size());
 
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size

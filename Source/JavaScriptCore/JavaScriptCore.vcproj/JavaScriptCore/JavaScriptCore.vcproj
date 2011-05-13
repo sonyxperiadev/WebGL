@@ -586,11 +586,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\Collector.cpp"
+				RelativePath="..\..\runtime\Heap.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\Collector.h"
+				RelativePath="..\..\runtime\Heap.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkedSpace.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkedSpace.h"
 				>
 			</File>
 			<File
@@ -983,6 +991,14 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\Lookup.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MachineStackMarker.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MachineStackMarker.h"
 				>
 			</File>
 			<File
@@ -1650,31 +1666,43 @@
 			Name="yarr"
 			>
 			<File
-				RelativePath="..\..\yarr\RegexInterpreter.cpp"
+				RelativePath="..\..\yarr\Yarr.h"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexInterpreter.h"
+				RelativePath="..\..\yarr\YarrInterpreter.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexJIT.cpp"
+				RelativePath="..\..\yarr\YarrInterpreter.h"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexJIT.h"
+				RelativePath="..\..\yarr\YarrJIT.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexParser.h"
+				RelativePath="..\..\yarr\YarrJIT.h"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexPattern.cpp"
+				RelativePath="..\..\yarr\YarrParser.h"
 				>
 			</File>
 			<File
-				RelativePath="..\..\yarr\RegexPattern.h"
+				RelativePath="..\..\yarr\YarrPattern.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\yarr\YarrPattern.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\yarr\YarrSyntaxChecker.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\yarr\YarrSyntaxChecker.h"
 				>
 			</File>
 		</Filter>

@@ -39,9 +39,13 @@
 #include "FloatQuad.h"
 #include "Frame.h"
 #include "Page.h"
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #include "PlatformBridge.h"
 #endif
+=======
+#include "PaintInfo.h"
+>>>>>>> WebKit.org @ r75993
 #include "RenderArena.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
@@ -227,26 +231,30 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
         return;
 
     if (isFloating()) {
-        RenderBlock* outermostBlock = containingBlock();
-        for (RenderBlock* p = outermostBlock; p && !p->isRenderView(); p = p->containingBlock()) {
-            if (p->containsFloat(this))
-                outermostBlock = p;
+        RenderBlock* parentBlock = 0;
+        for (RenderObject* curr = parent(); curr && !curr->isRenderView(); curr = curr->parent()) {
+            if (curr->isRenderBlock()) {
+                RenderBlock* currBlock = toRenderBlock(curr);
+                if (currBlock->containsFloat(this))
+                    parentBlock = currBlock;
+                else
+                    break;
+            }
         }
 
-        if (outermostBlock) {
-            RenderObject* parent = outermostBlock->parent();
+        if (parentBlock) {
+            RenderObject* parent = parentBlock->parent();
             if (parent && parent->isFlexibleBox())
-                outermostBlock = toRenderBlock(parent);
+                parentBlock = toRenderBlock(parent);
 
-            outermostBlock->markAllDescendantsWithFloatsForLayout(this, false);
+            parentBlock->markAllDescendantsWithFloatsForLayout(this, false);
         }
     }
 
     if (isPositioned()) {
-        RenderObject* p;
-        for (p = parent(); p; p = p->parent()) {
-            if (p->isRenderBlock())
-                toRenderBlock(p)->removePositionedObject(this);
+        for (RenderObject* curr = parent(); curr; curr = curr->parent()) {
+            if (curr->isRenderBlock())
+                toRenderBlock(curr)->removePositionedObject(this);
         }
     }
 }

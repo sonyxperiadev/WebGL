@@ -68,7 +68,7 @@ COMPILE_ASSERT(LastUntaggedToken < 64, LessThan64UntaggedTokens);
 class JSParser {
 public:
     JSParser(Lexer*, JSGlobalData*, FunctionParameters*, bool isStrictContext, bool isFunction, SourceProvider*);
-    bool parseProgram();
+    const char* parseProgram();
 private:
     struct AllowInOverride {
         AllowInOverride(JSParser* parser)
@@ -84,6 +84,16 @@ private:
         JSParser* m_parser;
         bool m_oldAllowsIn;
     };
+    
+    struct ScopeLabelInfo {
+        ScopeLabelInfo(StringImpl* ident, bool isLoop)
+        : m_ident(ident)
+        , m_isLoop(isLoop)
+        {
+        }
+        StringImpl* m_ident;
+        bool m_isLoop;
+    };
 
     void next(Lexer::LexType lexType = Lexer::IdentifyReservedWords)
     {
@@ -91,7 +101,11 @@ private:
         m_lastTokenEnd = m_token.m_info.endOffset;
         m_lexer->setLastLineNumber(m_lastLine);
         m_token.m_type = m_lexer->lex(&m_token.m_data, &m_token.m_info, lexType, strictMode());
-        m_tokenCount++;
+    }
+    
+    bool nextTokenIsColon()
+    {
+        return m_lexer->nextTokenIsColon();
     }
 
     bool consume(JSTokenType expected)
@@ -130,10 +144,39 @@ private:
     bool strictMode() { return currentScope()->strictMode(); }
     bool isValidStrictMode() { return currentScope()->isValidStrictMode(); }
     bool declareParameter(const Identifier* ident) { return currentScope()->declareParameter(ident); }
-    bool breakIsValid() { return currentScope()->breakIsValid(); }
-    void pushLabel(const Identifier* label) { currentScope()->pushLabel(label); }
+    bool breakIsValid()
+    {
+        ScopeRef current = currentScope();
+        while (!current->breakIsValid()) {
+            if (!current.hasContainingScope())
+                return false;
+            current = current.containingScope();
+        }
+        return true;
+    }
+    bool continueIsValid()
+    {
+        ScopeRef current = currentScope();
+        while (!current->continueIsValid()) {
+            if (!current.hasContainingScope())
+                return false;
+            current = current.containingScope();
+        }
+        return true;
+    }
+    void pushLabel(const Identifier* label, bool isLoop) { currentScope()->pushLabel(label, isLoop); }
     void popLabel() { currentScope()->popLabel(); }
-    bool hasLabel(const Identifier* label) { return currentScope()->hasLabel(label); }
+    ScopeLabelInfo* getLabel(const Identifier* label)
+    {
+        ScopeRef current = currentScope();
+        ScopeLabelInfo* result = 0;
+        while (!(result = current->getLabel(label))) {
+            if (!current.hasContainingScope())
+                return 0;
+            current = current.containingScope();
+        }
+        return result;
+    }
 
     enum SourceElementsMode { CheckForStrictMode, DontCheckForStrictMode };
     template <SourceElementsMode mode, class TreeBuilder> TreeSourceElements parseSourceElements(TreeBuilder&);
@@ -202,10 +245,10 @@ private:
     Lexer* m_lexer;
     StackBounds m_stack;
     bool m_error;
+    const char* m_errorMessage;
     JSGlobalData* m_globalData;
     JSToken m_token;
     bool m_allowsIn;
-    int m_tokenCount;
     int m_lastLine;
     int m_lastTokenEnd;
     int m_assignmentCount;
@@ -231,7 +274,7 @@ private:
         int m_originalDepth;
         int* m_depth;
     };
-
+    
     struct Scope {
         Scope(JSGlobalData* globalData, bool isFunction, bool strictMode)
             : m_globalData(globalData)
@@ -241,6 +284,7 @@ private:
             , m_allowsNewDecls(true)
             , m_strictMode(strictMode)
             , m_isFunction(isFunction)
+            , m_isFunctionBoundary(false)
             , m_isValidStrictMode(true)
             , m_loopDepth(0)
             , m_switchDepth(0)
@@ -254,12 +298,13 @@ private:
         void endLoop() { ASSERT(m_loopDepth); m_loopDepth--; }
         bool inLoop() { return !!m_loopDepth; }
         bool breakIsValid() { return m_loopDepth || m_switchDepth; }
+        bool continueIsValid() { return m_loopDepth; }
 
-        void pushLabel(const Identifier* label)
+        void pushLabel(const Identifier* label, bool isLoop)
         {
             if (!m_labels)
                 m_labels = new LabelStack;
-            m_labels->append(label->impl());
+            m_labels->append(ScopeLabelInfo(label->impl(), isLoop));
         }
 
         void popLabel()
@@ -269,19 +314,24 @@ private:
             m_labels->removeLast();
         }
 
-        bool hasLabel(const Identifier* label)
+        ScopeLabelInfo* getLabel(const Identifier* label)
         {
             if (!m_labels)
-                return false;
+                return 0;
             for (int i = m_labels->size(); i > 0; i--) {
-                if (m_labels->at(i - 1) == label->impl())
-                    return true;
+                if (m_labels->at(i - 1).m_ident == label->impl())
+                    return &m_labels->at(i - 1);
             }
-            return false;
+            return 0;
         }
 
-        void setIsFunction() { m_isFunction = true; }
+        void setIsFunction()
+        {
+            m_isFunction = true;
+            m_isFunctionBoundary = true;
+        }
         bool isFunction() { return m_isFunction; }
+        bool isFunctionBoundary() { return m_isFunctionBoundary; }
         
         bool declareVariable(const Identifier* ident)
         {
@@ -376,10 +426,12 @@ private:
         bool m_allowsNewDecls : 1;
         bool m_strictMode : 1;
         bool m_isFunction : 1;
+        bool m_isFunctionBoundary : 1;
         bool m_isValidStrictMode : 1;
         int m_loopDepth;
         int m_switchDepth;
-        typedef Vector<StringImpl*, 2> LabelStack;
+
+        typedef Vector<ScopeLabelInfo, 2> LabelStack;
         LabelStack* m_labels;
         IdentifierSet m_declaredVariables;
         IdentifierSet m_usedVariables;
@@ -397,11 +449,45 @@ private:
         }
         Scope* operator->() { return &m_scopeStack->at(m_index); }
         unsigned index() const { return m_index; }
+
+        bool hasContainingScope()
+        {
+            return m_index && !m_scopeStack->at(m_index).isFunctionBoundary();
+        }
+
+        ScopeRef containingScope()
+        {
+            ASSERT(hasContainingScope());
+            return ScopeRef(m_scopeStack, m_index - 1);
+        }
+
     private:
         ScopeStack* m_scopeStack;
         unsigned m_index;
     };
-    
+
+    struct AutoPopScopeRef : public ScopeRef {
+        AutoPopScopeRef(JSParser* parser, ScopeRef scope)
+            : ScopeRef(scope)
+            , m_parser(parser)
+        {
+        }
+
+        ~AutoPopScopeRef()
+        {
+            if (m_parser)
+                m_parser->popScope(*this, false);
+        }
+
+        void setPopped()
+        {
+            m_parser = 0;
+        }
+
+    private:
+        JSParser* m_parser;
+    };
+
     ScopeRef currentScope()
     {
         return ScopeRef(&m_scopeStack, m_scopeStack.size() - 1);
@@ -419,7 +505,7 @@ private:
         return currentScope();
     }
 
-    bool popScope(ScopeRef scope, bool shouldTrackClosedVariables)
+    bool popScopeInternal(ScopeRef& scope, bool shouldTrackClosedVariables)
     {
         ASSERT_UNUSED(scope, scope.index() == m_scopeStack.size() - 1);
         ASSERT(m_scopeStack.size() > 1);
@@ -427,7 +513,18 @@ private:
         m_scopeStack.removeLast();
         return result;
     }
-    
+
+    bool popScope(ScopeRef& scope, bool shouldTrackClosedVariables)
+    {
+        return popScopeInternal(scope, shouldTrackClosedVariables);
+    }
+
+    bool popScope(AutoPopScopeRef& scope, bool shouldTrackClosedVariables)
+    {
+        scope.setPopped();
+        return popScopeInternal(scope, shouldTrackClosedVariables);
+    }
+
     bool declareVariable(const Identifier* ident)
     {
         unsigned i = m_scopeStack.size() - 1;
@@ -448,7 +545,7 @@ private:
     ScopeStack m_scopeStack;
 };
 
-int jsParse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode parserMode, const SourceCode* source)
+const char* jsParse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode parserMode, const SourceCode* source)
 {
     JSParser parser(globalData->lexer, globalData, parameters, strictness == JSParseStrict, parserMode == JSParseFunctionCode, source->provider());
     return parser.parseProgram();
@@ -458,9 +555,9 @@ JSParser::JSParser(Lexer* lexer, JSGlobalData* globalData, FunctionParameters* p
     : m_lexer(lexer)
     , m_stack(globalData->stack())
     , m_error(false)
+    , m_errorMessage("Parse error")
     , m_globalData(globalData)
     , m_allowsIn(true)
-    , m_tokenCount(0)
     , m_lastLine(0)
     , m_lastTokenEnd(0)
     , m_assignmentCount(0)
@@ -483,7 +580,7 @@ JSParser::JSParser(Lexer* lexer, JSGlobalData* globalData, FunctionParameters* p
     m_lexer->setLastLineNumber(tokenLine());
 }
 
-bool JSParser::parseProgram()
+const char* JSParser::parseProgram()
 {
     ASTBuilder context(m_globalData, m_lexer);
     if (m_lexer->isReparsing())
@@ -491,7 +588,7 @@ bool JSParser::parseProgram()
     ScopeRef scope = currentScope();
     SourceElements* sourceElements = parseSourceElements<CheckForStrictMode>(context);
     if (!sourceElements || !consume(EOFTOK))
-        return true;
+        return m_errorMessage;
     IdentifierSet capturedVariables;
     scope->getCapturedVariables(capturedVariables);
     CodeFeatures features = context.features();
@@ -502,7 +599,7 @@ bool JSParser::parseProgram()
 
     m_globalData->parser->didFinishParsing(sourceElements, context.varDeclarations(), context.funcDeclarations(), features,
                                            m_lastLine, context.numConstants(), capturedVariables);
-    return false;
+    return 0;
 }
 
 bool JSParser::allowAutomaticSemicolon()
@@ -698,8 +795,10 @@ template <class TreeBuilder> TreeStatement JSParser::parseForStatement(TreeBuild
             fail();
 
         // Remainder of a standard for loop is handled identically
-        if (declarations > 1 || match(SEMICOLON))
+        if (match(SEMICOLON))
             goto standardForLoop;
+
+        failIfFalse(declarations == 1);
 
         // Handle for-in with var declaration
         int inLocation = tokenStart();
@@ -785,12 +884,12 @@ template <class TreeBuilder> TreeStatement JSParser::parseBreakStatement(TreeBui
     next();
 
     if (autoSemiColon()) {
-        failIfFalseIfStrict(breakIsValid());
+        failIfFalse(breakIsValid());
         return context.createBreakStatement(startCol, endCol, startLine, endLine);
     }
     matchOrFail(IDENT);
     const Identifier* ident = m_token.m_data.ident;
-    failIfFalseIfStrict(hasLabel(ident));
+    failIfFalse(getLabel(ident));
     endCol = tokenEnd();
     endLine = tokenLine();
     next();
@@ -808,12 +907,14 @@ template <class TreeBuilder> TreeStatement JSParser::parseContinueStatement(Tree
     next();
 
     if (autoSemiColon()) {
-        failIfFalseIfStrict(breakIsValid());
+        failIfFalse(continueIsValid());
         return context.createContinueStatement(startCol, endCol, startLine, endLine);
     }
     matchOrFail(IDENT);
     const Identifier* ident = m_token.m_data.ident;
-    failIfFalseIfStrict(hasLabel(ident));
+    ScopeLabelInfo* label = getLabel(ident);
+    failIfFalse(label);
+    failIfFalse(label->m_isLoop);
     endCol = tokenEnd();
     endLine = tokenLine();
     next();
@@ -824,7 +925,7 @@ template <class TreeBuilder> TreeStatement JSParser::parseContinueStatement(Tree
 template <class TreeBuilder> TreeStatement JSParser::parseReturnStatement(TreeBuilder& context)
 {
     ASSERT(match(RETURN));
-    failIfFalseIfStrict(currentScope()->isFunction());
+    failIfFalse(currentScope()->isFunction());
     int startLine = tokenLine();
     int endLine = startLine;
     int start = tokenStart();
@@ -974,7 +1075,7 @@ template <class TreeBuilder> TreeStatement JSParser::parseTryStatement(TreeBuild
         matchOrFail(IDENT);
         ident = m_token.m_data.ident;
         next();
-        ScopeRef catchScope = pushScope();
+        AutoPopScopeRef catchScope(this, pushScope());
         failIfFalseIfStrict(catchScope->declareVariable(ident));
         catchScope->preventNewDecls();
         consumeOrFail(CLOSEPAREN);
@@ -1118,7 +1219,7 @@ template <class TreeBuilder> TreeFunctionBody JSParser::parseFunctionBody(TreeBu
 
 template <JSParser::FunctionRequirements requirements, bool nameIsInContainingScope, class TreeBuilder> bool JSParser::parseFunctionInfo(TreeBuilder& context, const Identifier*& name, TreeFormalParameterList& parameters, TreeFunctionBody& body, int& openBracePos, int& closeBracePos, int& bodyStartLine)
 {
-    ScopeRef functionScope = pushScope();
+    AutoPopScopeRef functionScope(this, pushScope());
     functionScope->setIsFunction();
     if (match(IDENT)) {
         name = m_token.m_data.ident;
@@ -1168,33 +1269,79 @@ template <class TreeBuilder> TreeStatement JSParser::parseFunctionDeclaration(Tr
     return context.createFuncDeclStatement(name, body, parameters, openBracePos, closeBracePos, bodyStartLine, m_lastLine);
 }
 
+struct LabelInfo {
+    LabelInfo(const Identifier* ident, int start, int end)
+        : m_ident(ident)
+        , m_start(start)
+        , m_end(end)
+    {
+    }
+
+    const Identifier* m_ident;
+    int m_start;
+    int m_end;
+};
+
 template <class TreeBuilder> TreeStatement JSParser::parseExpressionOrLabelStatement(TreeBuilder& context)
 {
 
-    /* Expression and Label statements are ambiguous at LL(1), to avoid
-     * the cost of having a token buffer to support LL(2) we simply assume
-     * we have an expression statement, and then only look for a label if that
-     * parse fails.
+    /* Expression and Label statements are ambiguous at LL(1), so we have a
+     * special case that looks for a colon as the next character in the input.
      */
-    int start = tokenStart();
-    int startLine = tokenLine();
-    const Identifier* ident = m_token.m_data.ident;
-    int currentToken = m_tokenCount;
-    TreeExpression expression = parseExpression(context);
-    failIfFalse(expression);
-    if (autoSemiColon())
-        return context.createExprStatement(expression, startLine, m_lastLine);
-    failIfFalse(currentToken + 1 == m_tokenCount);
-    int end = tokenEnd();
-    consumeOrFail(COLON);
+    Vector<LabelInfo> labels;
+
+    do {
+        int start = tokenStart();
+        int startLine = tokenLine();
+        if (!nextTokenIsColon()) {
+            // If we hit this path we're making a expression statement, which
+            // by definition can't make use of continue/break so we can just
+            // ignore any labels we might have accumulated.
+            TreeExpression expression = parseExpression(context);
+            failIfFalse(expression);
+            failIfFalse(autoSemiColon());
+            return context.createExprStatement(expression, startLine, m_lastLine);
+        }
+        const Identifier* ident = m_token.m_data.ident;
+        int end = tokenEnd();
+        next();
+        consumeOrFail(COLON);
+        if (!m_syntaxAlreadyValidated) {
+            // This is O(N^2) over the current list of consecutive labels, but I
+            // have never seen more than one label in a row in the real world.
+            for (size_t i = 0; i < labels.size(); i++)
+                failIfTrue(ident->impl() == labels[i].m_ident->impl());
+            failIfTrue(getLabel(ident));
+            labels.append(LabelInfo(ident, start, end));
+        }
+    } while (match(IDENT));
+    bool isLoop = false;
+    switch (m_token.m_type) {
+    case FOR:
+    case WHILE:
+    case DO:
+        isLoop = true;
+        break;
+
+    default:
+        break;
+    }
     const Identifier* unused = 0;
-    if (strictMode() && !m_syntaxAlreadyValidated)
-        pushLabel(ident);
+    if (!m_syntaxAlreadyValidated) {
+        for (size_t i = 0; i < labels.size(); i++)
+            pushLabel(labels[i].m_ident, isLoop);
+    }
     TreeStatement statement = parseStatement(context, unused);
-    if (strictMode() && !m_syntaxAlreadyValidated)
-        popLabel();
+    if (!m_syntaxAlreadyValidated) {
+        for (size_t i = 0; i < labels.size(); i++)
+            popLabel();
+    }
     failIfFalse(statement);
-    return context.createLabelStatement(ident, statement, start, end);
+    for (size_t i = 0; i < labels.size(); i++) {
+        const LabelInfo& info = labels[labels.size() - i - 1];
+        statement = context.createLabelStatement(info.m_ident, statement, info.m_start, info.m_end);
+    }
+    return statement;
 }
 
 template <class TreeBuilder> TreeStatement JSParser::parseExpressionStatement(TreeBuilder& context)
@@ -1345,6 +1492,7 @@ template <typename TreeBuilder> TreeExpression JSParser::parseAssignmentExpressi
         next();
         if (strictMode() && m_lastIdentifier && context.isResolve(lhs)) {
             failIfTrueIfStrict(m_globalData->propertyNames->eval == *m_lastIdentifier);
+            failIfTrueIfStrict(m_globalData->propertyNames->arguments == *m_lastIdentifier);
             declareWrite(m_lastIdentifier);
             m_lastIdentifier = 0;
         }
@@ -1400,6 +1548,7 @@ template <class TreeBuilder> TreeExpression JSParser::parseBinaryExpression(Tree
 
     int operandStackDepth = 0;
     int operatorStackDepth = 0;
+    typename TreeBuilder::BinaryExprContext binaryExprContext(context);
     while (true) {
         int exprStart = tokenStart();
         int initialAssignments = m_assignmentCount;
@@ -1679,7 +1828,13 @@ template <class TreeBuilder> TreeExpression JSParser::parsePrimaryExpression(Tre
 
         int start = tokenStart();
         next();
-        return context.createRegex(*pattern, *flags, start);
+        TreeExpression re = context.createRegExp(*pattern, *flags, start);
+        if (!re) {
+            m_errorMessage = Yarr::checkSyntax(pattern->ustring());
+            ASSERT(m_errorMessage);
+            fail();
+        }
+        return re;
     }
     default:
         fail();
@@ -1791,6 +1946,7 @@ endMemberExpression:
 
 template <class TreeBuilder> TreeExpression JSParser::parseUnaryExpression(TreeBuilder& context)
 {
+    typename TreeBuilder::UnaryExprContext unaryExprContext(context);
     AllowInOverride allowInOverride(this);
     int tokenStackDepth = 0;
     bool modifiesExpr = false;
@@ -1826,9 +1982,7 @@ template <class TreeBuilder> TreeExpression JSParser::parseUnaryExpression(TreeB
     bool isEvalOrArguments = false;
     if (strictMode() && !m_syntaxAlreadyValidated) {
         if (context.isResolve(expr)) {
-            isEvalOrArguments = m_globalData->propertyNames->eval == *m_lastIdentifier;
-            if (!isEvalOrArguments && currentScope()->isFunction())
-                isEvalOrArguments = m_globalData->propertyNames->arguments == *m_lastIdentifier;
+            isEvalOrArguments = *m_lastIdentifier == m_globalData->propertyNames->eval || *m_lastIdentifier == m_globalData->propertyNames->arguments;
         }
     }
     failIfTrueIfStrict(isEvalOrArguments && modifiesExpr);

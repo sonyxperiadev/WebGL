@@ -574,6 +574,10 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\InjectedScriptSource.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\WebCore\DerivedSources\JSAbstractWorker.cpp"
 				>
 				<FileConfiguration
@@ -4067,6 +4071,62 @@
 			</File>
 			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\JSDOMTokenList.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\JSDOMURL.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\JSDOMURL.h"
 				>
 			</File>
 			<File
@@ -26633,14 +26693,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\graphics\Pen.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\graphics\Pen.h"
-					>
-				</File>
-				<File
 					RelativePath="..\platform\graphics\SegmentedFontData.cpp"
 					>
 				</File>
@@ -33358,7 +33410,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderForeignObject.cpp"
+				RelativePath="..\rendering\svg\RenderForeignObject.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -33410,7 +33462,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderForeignObject.h"
+				RelativePath="..\rendering\svg\RenderForeignObject.h"
 				>
 			</File>
 			<File
@@ -35462,67 +35514,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGAllInOne.cpp"
+				RelativePath="..\rendering\svg\RenderSVGAllInOne.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGBlock.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGBlock.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGContainer.cpp"
+				RelativePath="..\rendering\svg\RenderSVGBlock.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -35574,67 +35570,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGContainer.h"
+				RelativePath="..\rendering\svg\RenderSVGBlock.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGGradientStop.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGGradientStop.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGHiddenContainer.cpp"
+				RelativePath="..\rendering\svg\RenderSVGContainer.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -35686,67 +35626,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGHiddenContainer.h"
+				RelativePath="..\rendering\svg\RenderSVGContainer.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGImage.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGImage.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGModelObject.cpp"
+				RelativePath="..\rendering\svg\RenderSVGGradientStop.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -35798,67 +35682,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGModelObject.h"
+				RelativePath="..\rendering\svg\RenderSVGGradientStop.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResource.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResource.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceClipper.cpp"
+				RelativePath="..\rendering\svg\RenderSVGHiddenContainer.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -35910,67 +35738,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceClipper.h"
+				RelativePath="..\rendering\svg\RenderSVGHiddenContainer.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceContainer.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceContainer.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceFilter.cpp"
+				RelativePath="..\rendering\svg\RenderSVGImage.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36022,67 +35794,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceFilter.h"
+				RelativePath="..\rendering\svg\RenderSVGImage.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceFilterPrimitive.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceFilterPrimitive.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceGradient.cpp"
+				RelativePath="..\rendering\svg\RenderSVGModelObject.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36134,67 +35850,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceGradient.h"
+				RelativePath="..\rendering\svg\RenderSVGModelObject.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceLinearGradient.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceLinearGradient.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceMarker.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResource.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36246,67 +35906,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceMarker.h"
+				RelativePath="..\rendering\svg\RenderSVGResource.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceMasker.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceMasker.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourcePattern.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResourceClipper.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36358,67 +35962,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourcePattern.h"
+				RelativePath="..\rendering\svg\RenderSVGResourceClipper.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceRadialGradient.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceRadialGradient.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGResourceSolidColor.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResourceContainer.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36470,67 +36018,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGResourceSolidColor.h"
+				RelativePath="..\rendering\svg\RenderSVGResourceContainer.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGRoot.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGRoot.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\RenderSVGShadowTreeRootContainer.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResourceFilter.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36582,11 +36074,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGShadowTreeRootContainer.h"
+				RelativePath="..\rendering\svg\RenderSVGResourceFilter.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGTransformableContainer.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResourceFilterPrimitive.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -36638,11 +36130,571 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGTransformableContainer.h"
+				RelativePath="..\rendering\svg\RenderSVGResourceFilterPrimitive.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderSVGViewportContainer.cpp"
+				RelativePath="..\rendering\svg\RenderSVGResourceGradient.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceGradient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceLinearGradient.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceLinearGradient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceMarker.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceMarker.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceMasker.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceMasker.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourcePattern.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourcePattern.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceRadialGradient.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceRadialGradient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceSolidColor.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGResourceSolidColor.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGRoot.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGRoot.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGShadowTreeRootContainer.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGShadowTreeRootContainer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGTransformableContainer.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGTransformableContainer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\RenderSVGViewportContainer.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -37896,67 +37948,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGMarkerData.h"
+				RelativePath="..\rendering\svg\SVGMarkerData.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGMarkerLayoutInfo.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGMarkerLayoutInfo.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGRenderSupport.cpp"
+				RelativePath="..\rendering\svg\SVGMarkerLayoutInfo.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -38008,67 +38004,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGRenderSupport.h"
+				RelativePath="..\rendering\svg\SVGMarkerLayoutInfo.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGRenderTreeAsText.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGRenderTreeAsText.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGResources.cpp"
+				RelativePath="..\rendering\svg\SVGRenderSupport.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -38120,67 +38060,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGResources.h"
+				RelativePath="..\rendering\svg\SVGRenderSupport.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGResourcesCache.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo_CFLite|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_LTCG|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGResourcesCache.h"
-				>
-			</File>
-			<File
-				RelativePath="..\rendering\SVGResourcesCycleSolver.cpp"
+				RelativePath="..\rendering\svg\SVGRenderTreeAsText.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -38232,11 +38116,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGResourcesCycleSolver.h"
+				RelativePath="..\rendering\svg\SVGRenderTreeAsText.h"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGShadowTreeElements.cpp"
+				RelativePath="..\rendering\svg\SVGResources.cpp"
 				>
 				<FileConfiguration
 					Name="Debug|Win32"
@@ -38288,7 +38172,175 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\rendering\SVGShadowTreeElements.h"
+				RelativePath="..\rendering\svg\SVGResources.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGResourcesCache.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGResourcesCache.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGResourcesCycleSolver.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGResourcesCycleSolver.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGShadowTreeElements.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_LTCG|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\rendering\svg\SVGShadowTreeElements.h"
 				>
 			</File>
 			<File
@@ -38411,6 +38463,90 @@
 				RelativePath="..\rendering\TransformState.h"
 				>
 			</File>
+			<Filter
+			    Name="mathml"
+			    >
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLBlock.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLBlock.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLFenced.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLFenced.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLFraction.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLFraction.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLMath.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLMath.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLOperator.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLOperator.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLRoot.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLRoot.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLRow.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLRow.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLSquareRoot.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLSquareRoot.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLSubSup.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLSubSup.h"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLUnderOver.cpp"
+				    >
+			    </File>
+			    <File
+				    RelativePath="..\rendering\mathml\RenderMathMLUnderOver.h"
+				    >
+			    </File>
+			</Filter>
 			<Filter
 				Name="style"
 				>
@@ -50219,6 +50355,14 @@
 			</File>
 			<File
 				RelativePath="..\html\DOMTokenList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DOMURL.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DOMURL.h"
 				>
 			</File>
 			<File
@@ -64045,7 +64189,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\ForwardingHeaders\runtime\Collector.h"
+					RelativePath="..\ForwardingHeaders\runtime\Heap.h"
 					>
 				</File>
 				<File
@@ -64866,11 +65010,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\inspector\InspectorBrowserDebuggerAgent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorBrowserDebuggerAgent.h"
+				>
+			</File>
+			<File
 				RelativePath="..\inspector\InspectorClient.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\inspector\InspectorClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorConsoleAgent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorConsoleAgent.h"
 				>
 			</File>
 			<File
@@ -64987,6 +65147,14 @@
 			</File>
 			<File
 				RelativePath="..\inspector\InspectorResourceAgent.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorSettings.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorSettings.h"
 				>
 			</File>
 			<File
@@ -65286,10 +65454,6 @@
 				</File>
 				<File
 					RelativePath="..\inspector\front-end\InjectedFakeWorker.js"
-					>
-				</File>
-				<File
-					RelativePath="..\inspector\front-end\InjectedScript.js"
 					>
 				</File>
 				<File
@@ -66003,86 +66167,6 @@
 			</File>
 			<File
 				RelativePath="..\mathml\MathMLTextElement.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLBlock.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLBlock.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLFenced.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLFenced.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLFraction.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLFraction.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLMath.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLMath.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLOperator.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLOperator.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLRoot.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLRoot.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLRow.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLRow.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLSquareRoot.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLSquareRoot.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLSubSup.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLSubSup.h"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLUnderOver.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\mathml\RenderMathMLUnderOver.h"
 				>
 			</File>
 		</Filter>

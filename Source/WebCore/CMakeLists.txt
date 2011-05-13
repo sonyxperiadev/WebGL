@@ -49,6 +49,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/text/transcoder"
     "${WEBCORE_DIR}/plugins"
     "${WEBCORE_DIR}/rendering"
+    "${WEBCORE_DIR}/rendering/mathml"
     "${WEBCORE_DIR}/rendering/style"
     "${WEBCORE_DIR}/rendering/svg"
     "${WEBCORE_DIR}/storage"
@@ -197,6 +198,7 @@ SET(WebCore_IDL_FILES
     html/DOMFormData.idl
     html/DOMSettableTokenList.idl
     html/DOMTokenList.idl
+    html/DOMURL.idl
     html/HTMLAllCollection.idl
     html/HTMLAnchorElement.idl
     html/HTMLAppletElement.idl
@@ -995,6 +997,7 @@ SET(WebCore_SOURCES
     html/DOMFormData.cpp
     html/DOMSettableTokenList.cpp
     html/DOMTokenList.cpp
+    html/DOMURL.cpp
     html/DataGridColumn.cpp
     html/DataGridColumnList.cpp
     html/DateComponents.cpp
@@ -1149,8 +1152,10 @@ SET(WebCore_SOURCES
     inspector/InjectedScript.cpp
     inspector/InjectedScriptHost.cpp
     inspector/InspectorApplicationCacheAgent.cpp
+    inspector/InspectorBrowserDebuggerAgent.cpp
     inspector/InspectorCSSAgent.cpp
     inspector/InspectorClient.cpp
+    inspector/InspectorConsoleAgent.cpp
     inspector/InspectorController.cpp
     inspector/InspectorDOMAgent.cpp
     inspector/InspectorDOMStorageAgent.cpp
@@ -1164,10 +1169,11 @@ SET(WebCore_SOURCES
     inspector/InspectorInstrumentation.cpp
     inspector/InspectorProfilerAgent.cpp
     inspector/InspectorResourceAgent.cpp
-    inspector/InspectorStyleSheet.cpp
-    inspector/InspectorValues.cpp
+    inspector/InspectorSettings.cpp
     inspector/InspectorState.cpp
+    inspector/InspectorStyleSheet.cpp
     inspector/InspectorTimelineAgent.cpp
+    inspector/InspectorValues.cpp
     inspector/ScriptArguments.cpp
     inspector/ScriptBreakpoint.cpp
     inspector/ScriptCallFrame.cpp
@@ -1344,7 +1350,6 @@ SET(WebCore_SOURCES
     platform/graphics/Path.cpp
     platform/graphics/PathTraversalState.cpp
     platform/graphics/Pattern.cpp
-    platform/graphics/Pen.cpp
     platform/graphics/SegmentedFontData.cpp
     platform/graphics/SimpleFontData.cpp
     platform/graphics/StringTruncator.cpp
@@ -1408,6 +1413,7 @@ SET(WebCore_SOURCES
     platform/network/HTTPParsers.cpp
     platform/network/NetworkStateNotifier.cpp
     platform/network/ProtectionSpace.cpp
+    platform/network/ProxyServer.cpp
     platform/network/ResourceErrorBase.cpp
     platform/network/ResourceHandle.cpp
     platform/network/ResourceRequestBase.cpp
@@ -1688,16 +1694,16 @@ IF (ENABLE_MATHML)
         mathml/MathMLInlineContainerElement.cpp
         mathml/MathMLMathElement.cpp
         mathml/MathMLTextElement.cpp
-        mathml/RenderMathMLBlock.cpp
-        mathml/RenderMathMLFenced.cpp
-        mathml/RenderMathMLFraction.cpp
-        mathml/RenderMathMLMath.cpp
-        mathml/RenderMathMLOperator.cpp
-        mathml/RenderMathMLRoot.cpp
-        mathml/RenderMathMLRow.cpp
-        mathml/RenderMathMLSquareRoot.cpp
-        mathml/RenderMathMLSubSup.cpp
-        mathml/RenderMathMLUnderOver.cpp
+        rendering/mathml/RenderMathMLBlock.cpp
+        rendering/mathml/RenderMathMLFenced.cpp
+        rendering/mathml/RenderMathMLFraction.cpp
+        rendering/mathml/RenderMathMLMath.cpp
+        rendering/mathml/RenderMathMLOperator.cpp
+        rendering/mathml/RenderMathMLRoot.cpp
+        rendering/mathml/RenderMathMLRow.cpp
+        rendering/mathml/RenderMathMLSquareRoot.cpp
+        rendering/mathml/RenderMathMLSubSup.cpp
+        rendering/mathml/RenderMathMLUnderOver.cpp
     )
 ENDIF ()
 
@@ -1789,48 +1795,48 @@ IF (ENABLE_SVG)
         css/SVGCSSParser.cpp
         css/SVGCSSStyleSelector.cpp
         rendering/PointerEventsHitRules.cpp
-        rendering/RenderForeignObject.cpp
-        rendering/RenderSVGBlock.cpp
-        rendering/RenderSVGContainer.cpp
-        rendering/RenderSVGGradientStop.cpp
-        rendering/RenderSVGHiddenContainer.cpp
-        rendering/RenderSVGImage.cpp
-        rendering/RenderSVGModelObject.cpp
-        rendering/RenderSVGResource.cpp
-        rendering/RenderSVGResourceClipper.cpp
-        rendering/RenderSVGResourceContainer.cpp
-        rendering/RenderSVGResourceFilter.cpp
-        rendering/RenderSVGResourceFilterPrimitive.cpp
-        rendering/RenderSVGResourceGradient.cpp
-        rendering/RenderSVGResourceLinearGradient.cpp
-        rendering/RenderSVGResourceMarker.cpp
-        rendering/RenderSVGResourceMasker.cpp
-        rendering/RenderSVGResourcePattern.cpp
-        rendering/RenderSVGResourceRadialGradient.cpp
-        rendering/RenderSVGResourceSolidColor.cpp
-        rendering/RenderSVGRoot.cpp
-        rendering/RenderSVGShadowTreeRootContainer.cpp
-        rendering/RenderSVGTransformableContainer.cpp
-        rendering/RenderSVGViewportContainer.cpp
-        rendering/SVGImageBufferTools.cpp
-        rendering/SVGMarkerLayoutInfo.cpp
-        rendering/SVGRenderSupport.cpp
-        rendering/SVGRenderTreeAsText.cpp
-        rendering/SVGResources.cpp
-        rendering/SVGResourcesCache.cpp
-        rendering/SVGResourcesCycleSolver.cpp
-        rendering/SVGShadowTreeElements.cpp
         rendering/style/SVGRenderStyle.cpp
         rendering/style/SVGRenderStyleDefs.cpp
+        rendering/svg/RenderSVGBlock.cpp
+        rendering/svg/RenderSVGContainer.cpp
+        rendering/svg/RenderSVGGradientStop.cpp
+        rendering/svg/RenderSVGForeignObject.cpp
+        rendering/svg/RenderSVGHiddenContainer.cpp
+        rendering/svg/RenderSVGImage.cpp
         rendering/svg/RenderSVGInline.cpp
         rendering/svg/RenderSVGInlineText.cpp
+        rendering/svg/RenderSVGModelObject.cpp
         rendering/svg/RenderSVGPath.cpp
+        rendering/svg/RenderSVGResource.cpp
+        rendering/svg/RenderSVGResourceClipper.cpp
+        rendering/svg/RenderSVGResourceContainer.cpp
+        rendering/svg/RenderSVGResourceFilter.cpp
+        rendering/svg/RenderSVGResourceFilterPrimitive.cpp
+        rendering/svg/RenderSVGResourceGradient.cpp
+        rendering/svg/RenderSVGResourceLinearGradient.cpp
+        rendering/svg/RenderSVGResourceMarker.cpp
+        rendering/svg/RenderSVGResourceMasker.cpp
+        rendering/svg/RenderSVGResourcePattern.cpp
+        rendering/svg/RenderSVGResourceRadialGradient.cpp
+        rendering/svg/RenderSVGResourceSolidColor.cpp
+        rendering/svg/RenderSVGRoot.cpp
+        rendering/svg/RenderSVGShadowTreeRootContainer.cpp
         rendering/svg/RenderSVGTSpan.cpp
         rendering/svg/RenderSVGText.cpp
         rendering/svg/RenderSVGTextPath.cpp
+        rendering/svg/RenderSVGTransformableContainer.cpp
+        rendering/svg/RenderSVGViewportContainer.cpp
+        rendering/svg/SVGImageBufferTools.cpp
         rendering/svg/SVGInlineFlowBox.cpp
         rendering/svg/SVGInlineTextBox.cpp
+        rendering/svg/SVGMarkerLayoutInfo.cpp
+        rendering/svg/SVGRenderSupport.cpp
+        rendering/svg/SVGRenderTreeAsText.cpp
+        rendering/svg/SVGResources.cpp
+        rendering/svg/SVGResourcesCache.cpp
+        rendering/svg/SVGResourcesCycleSolver.cpp
         rendering/svg/SVGRootInlineBox.cpp
+        rendering/svg/SVGShadowTreeElements.cpp
         rendering/svg/SVGTextChunk.cpp
         rendering/svg/SVGTextChunkBuilder.cpp
         rendering/svg/SVGTextLayoutAttributes.cpp
@@ -2096,6 +2102,15 @@ ADD_CUSTOM_COMMAND(
     COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts -I${WEBCORE_DIR}/inspector ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator Inspector ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_DIR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" ${WEBCORE_DIR}/inspector/Inspector.idl
     VERBATIM)
 LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp ${DERIVED_SOURCES_DIR}/InspectorFrontend.cpp)
+
+
+# Generate InjectedScriptSource.h
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/InjectedScriptSource.h
+    MAIN_DEPENDENCY inspector/InjectedScriptSource.js
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/inspector/xxd.pl InjectedScriptSource_js ${WEBCORE_DIR}/inspector/InjectedScriptSource.js ${DERIVED_SOURCES_DIR}/InjectedScriptSource.h
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/InjectedScriptSource.h)
 
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)

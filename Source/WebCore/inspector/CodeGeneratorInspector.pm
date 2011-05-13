@@ -20,10 +20,20 @@ $typeTransform{"CSS"} = {
     "header" => "InspectorCSSAgent.h",
     "domainAccessor" => "m_inspectorController->m_cssAgent",
 };
+$typeTransform{"Console"} = {
+    "forward" => "InspectorConsoleAgent",
+    "header" => "InspectorConsoleAgent.h",
+    "domainAccessor" => "m_inspectorController->m_consoleAgent",
+};
 $typeTransform{"Debugger"} = {
     "forward" => "InspectorDebuggerAgent",
     "header" => "InspectorDebuggerAgent.h",
     "domainAccessor" => "m_inspectorController->m_debuggerAgent",
+};
+$typeTransform{"BrowserDebugger"} = {
+    "forward" => "InspectorBrowserDebuggerAgent",
+    "header" => "InspectorBrowserDebuggerAgent.h",
+    "domainAccessor" => "m_inspectorController->m_browserDebuggerAgent",
 };
 $typeTransform{"Database"} = {
     "forward" => "InspectorDatabaseAgent",

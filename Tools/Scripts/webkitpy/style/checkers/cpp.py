@@ -344,6 +344,12 @@ class Position(object):
         self.row = row
         self.column = column
 
+    def __str__(self):
+        return '(%s, %s)' % (self.row, self.column)
+
+    def __cmp__(self, other):
+        return self.row.__cmp__(other.row) or self.column.__cmp__(other.column)
+
 
 class Parameter(object):
     """Information about one function parameter."""
@@ -486,32 +492,37 @@ class _FunctionState(object):
         self.current_function = ''
         self.in_a_function = False
         self.lines_in_function = 0
-        # Make sure these will not be mistaken for real lines (even when a
+        # Make sure these will not be mistaken for real positions (even when a
         # small amount is added to them).
-        self.body_start_line_number = -1000
-        self.ending_line_number = -1000
+        self.body_start_position = Position(-1000, 0)
+        self.end_position = Position(-1000, 0)
 
-    def begin(self, function_name, body_start_line_number, ending_line_number, is_declaration,
+    def begin(self, function_name, function_name_start_position, body_start_position, end_position,
               parameter_start_position, parameter_end_position, clean_lines):
         """Start analyzing function body.
 
         Args:
             function_name: The name of the function being tracked.
-            body_start_line_number: The line number of the { or the ; for a protoype.
-            ending_line_number: The line number where the function ends.
-            is_declaration: True if this is a prototype.
-            parameter_start_position: position in elided of the '(' for the parameters.
-            parameter_end_position: position in elided of the ')' for the parameters.
+            function_name_start_position: Position in elided where the function name starts.
+            body_start_position: Position in elided of the { or the ; for a prototype.
+            end_position: Position in elided just after the final } (or ; is.
+            parameter_start_position: Position in elided of the '(' for the parameters.
+            parameter_end_position: Position in elided just after the ')' for the parameters.
             clean_lines: A CleansedLines instance containing the file.
         """
         self.in_a_function = True
         self.lines_in_function = -1  # Don't count the open brace line.
         self.current_function = function_name
-        self.body_start_line_number = body_start_line_number
-        self.ending_line_number = ending_line_number
-        self.is_declaration = is_declaration
+        self.function_name_start_position = function_name_start_position
+        self.body_start_position = body_start_position
+        self.end_position = end_position
+        self.is_declaration = clean_lines.elided[body_start_position.row][body_start_position.column] == ';'
         self.parameter_start_position = parameter_start_position
         self.parameter_end_position = parameter_end_position
+        self.is_pure = False
+        if self.is_declaration:
+            characters_after_parameters = SingleLineView(clean_lines.elided, parameter_end_position, body_start_position).single_line
+            self.is_pure = bool(match(r'\s*=\s*0\s*', characters_after_parameters))
         self._clean_lines = clean_lines
         self._parameter_list = None
 
@@ -524,7 +535,7 @@ class _FunctionState(object):
 
     def count(self, line_number):
         """Count line in current function body."""
-        if self.in_a_function and line_number >= self.body_start_line_number:
+        if self.in_a_function and line_number >= self.body_start_position.row:
             self.lines_in_function += 1
 
     def check(self, error, line_number):
@@ -791,49 +802,58 @@ class CleansedLines(object):
         return elided
 
 
-def close_expression(clean_lines, line_number, pos):
+def close_expression(elided, position):
     """If input points to ( or { or [, finds the position that closes it.
 
-    If clean_lines.elided[line_number][pos] points to a '(' or '{' or '[', finds
-    the line_number/pos that correspond to the closing of the expression.
+    If elided[position.row][position.column] points to a '(' or '{' or '[',
+    finds the line_number/pos that correspond to the closing of the expression.
 
-    Args:
-      clean_lines: A CleansedLines instance containing the file.
-      line_number: The number of the line to check.
-      pos: A position on the line.
+     Args:
+       elided: A CleansedLines.elided instance containing the file.
+       position: The position of the opening item.
 
-    Returns:
-      A tuple (line, line_number, pos) pointer *past* the closing brace, or
-      ('', len(clean_lines.elided), -1) if we never find a close.  Note we
-      ignore strings and comments when matching; and the line we return is the
-      'cleansed' line at line_number.
+     Returns:
+      The Position *past* the closing brace, or Position(len(elided), -1)
+      if we never find a close. Note we ignore strings and comments when matching.
     """
-
-    line = clean_lines.elided[line_number]
-    start_character = line[pos]
-    if start_character not in '({[':
-        return (line, clean_lines.num_lines(), -1)
+    line = elided[position.row]
+    start_character = line[position.column]
     if start_character == '(':
-        end_character = ')'
-    if start_character == '[':
-        end_character = ']'
-    if start_character == '{':
-        end_character = '}'
+        enclosing_character_regex = r'[\(\)]'
+    elif start_character == '[':
+        enclosing_character_regex = r'[\[\]]'
+    elif start_character == '{':
+        enclosing_character_regex = r'[\{\}]'
+    else:
+        return Position(len(elided), -1)
 
-    num_open = line.count(start_character) - line.count(end_character)
-    while num_open > 0:
+    current_column = position.column + 1
+    line_number = position.row
+    net_open = 1
+    for line in elided[position.row:]:
+        line = line[current_column:]
+
+        # Search the current line for opening and closing characters.
+        while True:
+            next_enclosing_character = search(enclosing_character_regex, line)
+            # No more on this line.
+            if not next_enclosing_character:
+                break
+            current_column += next_enclosing_character.end(0)
+            line = line[next_enclosing_character.end(0):]
+            if next_enclosing_character.group(0) == start_character:
+                net_open += 1
+            else:
+                net_open -= 1
+                if not net_open:
+                    return Position(line_number, current_column)
+
+        # Proceed to the next line.
         line_number += 1
-        if line_number >= clean_lines.num_lines():
-            return ('', len(clean_lines.elided), -1)
-        line = clean_lines.elided[line_number]
-        num_open += line.count(start_character) - line.count(end_character)
-    # OK, now find the end_character that actually got us back to even
-    endpos = len(line)
-    while num_open >= 0:
-        endpos = line.rfind(')', 0, endpos)
-        num_open -= 1                 # chopped off another )
-    return (line, line_number, endpos + 1)
+        current_column = 0
 
+    # The given item was not closed.
+    return Position(len(elided), -1)
 
 def check_for_copyright(lines, error):
     """Logs an error if no Copyright message appears at the top of the file."""
@@ -1378,7 +1398,7 @@ def detect_functions(clean_lines, line_number, function_state, error):
       error: The function to call with any errors found.
     """
     # Are we now past the end of a function?
-    if function_state.ending_line_number + 1 == line_number:
+    if function_state.end_position.row + 1 == line_number:
         function_state.end()
 
     # If we're in a function, don't try to detect a new one.
@@ -1409,7 +1429,10 @@ def detect_functions(clean_lines, line_number, function_state, error):
     for start_line_number in xrange(line_number, clean_lines.num_lines()):
         start_line = clean_lines.elided[start_line_number]
         joined_line += ' ' + start_line.lstrip()
-        if search(r'{|;', start_line):
+        body_match = search(r'{|;', start_line)
+        if body_match:
+            body_start_position = Position(start_line_number, body_match.start(0))
+
             # Replace template constructs with _ so that no spaces remain in the function name,
             # while keeping the column numbers of other characters the same as "line".
             line_with_no_templates = iteratively_replace_matches_with_char(r'<[^<>]*>', '_', line)
@@ -1420,6 +1443,7 @@ def detect_functions(clean_lines, line_number, function_state, error):
             # Use the column numbers from the modified line to find the
             # function name in the original line.
             function = line[match_function.start(1):match_function.end(1)]
+            function_name_start_position = Position(line_number, match_function.start(1))
 
             if match(r'TEST', function):    # Handle TEST... macros
                 parameter_regexp = search(r'(\(.*\))', joined_line)
@@ -1429,19 +1453,21 @@ def detect_functions(clean_lines, line_number, function_state, error):
                 function += '()'
 
             parameter_start_position = Position(line_number, match_function.end(1))
-            close_result = close_expression(clean_lines, line_number, parameter_start_position.column)
-            if close_result[1] == len(clean_lines.elided):
+            parameter_end_position = close_expression(clean_lines.elided, parameter_start_position)
+            if parameter_end_position.row == len(clean_lines.elided):
                 # No end was found.
                 return
-            parameter_end_position = Position(close_result[1], close_result[2])
 
-            is_declaration = bool(search(r'^[^{]*;', start_line))
-            if is_declaration:
-                ending_line_number = start_line_number
+            if start_line[body_start_position.column] == ';':
+                end_position = Position(body_start_position.row, body_start_position.column + 1)
             else:
-                open_brace_index = start_line.find('{')
-                ending_line_number = close_expression(clean_lines, start_line_number, open_brace_index)[1]
-            function_state.begin(function, start_line_number, ending_line_number, is_declaration,
+                end_position = close_expression(clean_lines.elided, body_start_position)
+
+            # Check for nonsensical positions. (This happens in test cases which check code snippets.)
+            if parameter_end_position > body_start_position:
+                return
+
+            function_state.begin(function, function_name_start_position, body_start_position, end_position,
                                  parameter_start_position, parameter_end_position, clean_lines)
             return
 
@@ -1471,7 +1497,7 @@ def check_for_function_lengths(clean_lines, line_number, function_state, error):
     raw = clean_lines.raw_lines
     raw_line = raw[line_number]
 
-    if function_state.ending_line_number == line_number:  # last line
+    if function_state.end_position.row == line_number:  # last line
         if not search(r'\bNOLINT\b', raw_line):
             function_state.check(error, line_number)
     elif not match(r'^\s*$', line):
@@ -1517,7 +1543,7 @@ def check_function_definition(clean_lines, line_number, function_state, error):
        error: The function to call with any errors found.
     """
     # Only do checks when we have a function declaration.
-    if line_number != function_state.body_start_line_number or not function_state.is_declaration:
+    if line_number != function_state.body_start_position.row or not function_state.is_declaration:
         return
 
     parameter_list = function_state.parameter_list()
@@ -1553,7 +1579,7 @@ def check_pass_ptr_usage(clean_lines, line_number, function_state, error):
 
     lines = clean_lines.lines
     line = lines[line_number]
-    if line_number > function_state.body_start_line_number:
+    if line_number > function_state.body_start_position.row:
         matched_pass_ptr = match(r'^\s*Pass([A-Z][A-Za-z]*)Ptr<', line)
         if matched_pass_ptr:
             type_name = 'Pass%sPtr' % matched_pass_ptr.group(1)

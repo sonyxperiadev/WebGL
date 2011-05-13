@@ -299,25 +299,30 @@ bool SecurityOrigin::isAccessWhiteListed(const SecurityOrigin* targetOrigin) con
     }
     return false;
 }
-  
+
+bool SecurityOrigin::isAccessToURLWhiteListed(const KURL& url) const
+{
+    RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
+    return isAccessWhiteListed(targetOrigin.get());
+}
+
 bool SecurityOrigin::canDisplay(const KURL& url) const
 {
+    String protocol = url.protocol().lower();
+
 #if ENABLE(BLOB)
-    if (url.protocolIs(BlobURL::blobProtocol()))
+    // FIXME: We should generalize this check.
+    if (protocol == BlobURL::blobProtocol())
         return canRequest(url);
 #endif
 
-    if (!restrictAccessToLocal())
-        return true;
+    if (SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(protocol))
+        return m_protocol == protocol || isAccessToURLWhiteListed(url);
 
-    if (!SchemeRegistry::shouldTreatURLAsLocal(url.string()))
-        return true;
+    if (restrictAccessToLocal() && SchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
+        return canLoadLocalResources() || isAccessToURLWhiteListed(url);
 
-    RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
-    if (isAccessWhiteListed(targetOrigin.get()))
-        return true;
-
-    return canLoadLocalResources();
+    return true;
 }
 
 void SecurityOrigin::grantLoadLocalResources()

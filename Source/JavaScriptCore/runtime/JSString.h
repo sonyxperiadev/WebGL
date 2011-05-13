@@ -314,11 +314,15 @@ namespace JSC {
         ~JSString()
         {
             ASSERT(vptr() == JSGlobalData::jsStringVPtr);
-            for (unsigned i = 0; i < m_fiberCount; ++i)
-                RopeImpl::deref(m_other.m_fibers[i]);
-
-            if (!m_fiberCount && m_other.m_finalizerCallback)
-                m_other.m_finalizerCallback(this, m_other.m_finalizerContext);
+            if (!m_fiberCount) {
+                if (m_other.m_finalizerCallback)
+                    m_other.m_finalizerCallback(this, m_other.m_finalizerContext);
+            } else {
+                unsigned i = 0;
+                do
+                    RopeImpl::deref(m_other.m_fibers[i]);
+                while (++i < m_fiberCount);
+            }
         }
 
         const UString& value(ExecState* exec) const
@@ -624,8 +628,7 @@ namespace JSC {
 
     inline UString JSValue::toPrimitiveString(ExecState* exec) const
     {
-        if (isString())
-            return static_cast<JSString*>(asCell())->value(exec);
+        ASSERT(!isString());
         if (isInt32())
             return exec->globalData().numericStrings.add(asInt32());
         if (isDouble())

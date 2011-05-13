@@ -127,6 +127,7 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
+<<<<<<< HEAD
 SOURCE_PATH := $(BASE_PATH)/Source
 WEBCORE_PATH := $(SOURCE_PATH)/WebCore
 JAVASCRIPTCORE_PATH := $(SOURCE_PATH)/JavaScriptCore
@@ -134,6 +135,9 @@ WEBKIT_PATH := $(BASE_PATH)/WebKit
 WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/Source/WebCore
 
 # Build our list of include paths. We include WebKit/android/icu first so that
+=======
+# Build our list of include paths. We include Source/WebKit/android/icu first so that
+>>>>>>> WebKit.org @ r75993
 # any files that include <unicode/ucnv.h> will include our ucnv.h first. We
 # also add external/ as an include directory so that we can specify the real
 # icu header directory as a more exact reference to avoid including our ucnv.h.
@@ -142,7 +146,11 @@ WEBCORE_INTERMEDIATES_PATH := $(base_intermediates)/Source/WebCore
 # the right config.h.
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
+<<<<<<< HEAD
 	$(WEBKIT_PATH)/android/icu \
+=======
+	$(LOCAL_PATH)/Source/WebKit/android/icu \
+>>>>>>> WebKit.org @ r75993
 	external/ \
 	external/icu4c/common \
 	external/icu4c/i18n \
@@ -166,6 +174,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(SOURCE_PATH)
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+<<<<<<< HEAD
 	$(WEBCORE_PATH) \
 	$(WEBCORE_PATH)/accessibility \
 	$(WEBCORE_PATH)/bindings/ \
@@ -228,6 +237,14 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH)/websockets \
 	$(WEBCORE_PATH)/workers \
 	$(WEBCORE_PATH)/xml
+=======
+	$(LOCAL_PATH)/Source/WebKit/android \
+	$(LOCAL_PATH)/Source/WebKit/android/WebCoreSupport \
+	$(LOCAL_PATH)/Source/WebKit/android/jni \
+	$(LOCAL_PATH)/Source/WebKit/android/nav \
+	$(LOCAL_PATH)/Source/WebKit/android/plugins \
+	$(LOCAL_PATH)/Source/WebKit/android/stl
+>>>>>>> WebKit.org @ r75993
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBKIT_PATH)/android \

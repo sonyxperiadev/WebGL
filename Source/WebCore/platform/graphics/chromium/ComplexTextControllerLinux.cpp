@@ -50,7 +50,6 @@ ComplexTextController::ComplexTextController(const TextRun& run, unsigned starti
     , m_startingX(startingX)
     , m_offsetX(m_startingX)
     , m_run(getNormalizedTextRun(run, m_normalizedRun, m_normalizedBuffer))
-    , m_iterateBackwards(m_run.rtl())
     , m_wordSpacingAdjustment(0)
     , m_padding(0)
     , m_padPerWordBreak(0)
@@ -140,54 +139,33 @@ void ComplexTextController::setPadding(int padding)
 
 void ComplexTextController::reset()
 {
-    if (m_iterateBackwards)
-        m_indexOfNextScriptRun = m_run.length() - 1;
-    else
-        m_indexOfNextScriptRun = 0;
+    m_indexOfNextScriptRun = 0;
     m_offsetX = m_startingX;
-}
-
-void ComplexTextController::setBackwardsIteration(bool isBackwards)
-{
-    m_iterateBackwards = isBackwards;
-    reset();
 }
 
 // Advance to the next script run, returning false when the end of the
 // TextRun has been reached.
 bool ComplexTextController::nextScriptRun()
 {
-    if (m_iterateBackwards) {
-        // In right-to-left mode we need to render the shaped glyph backwards and
-        // also render the script runs themselves backwards. So given a TextRun:
-        //    AAAAAAACTTTTTTT   (A = Arabic, C = Common, T = Thai)
-        // we render:
-        //    TTTTTTCAAAAAAA
-        // (and the glyphs in each A, C and T section are backwards too)
-        if (!hb_utf16_script_run_prev(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
-            return false;
-        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
-    } else {
-        if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
-            return false;
+    if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
+        return false;
 
-        // It is actually wrong to consider script runs at all in this code.
-        // Other WebKit code (e.g. Mac) segments complex text just by finding
-        // the longest span of text covered by a single font.
-        // But we currently need to call hb_utf16_script_run_next anyway to fill
-        // in the harfbuzz data structures to e.g. pick the correct script's shaper.
-        // So we allow that to run first, then do a second pass over the range it
-        // found and take the largest subregion that stays within a single font.
-        m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
-        unsigned endOfRun;
-        for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
-            const SimpleFontData* nextFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos + endOfRun], false).fontData;
-            if (nextFontData != m_currentFontData)
-                break;
-        }
-        m_item.item.length = endOfRun;
-        m_indexOfNextScriptRun = m_item.item.pos + endOfRun;
+    // It is actually wrong to consider script runs at all in this code.
+    // Other WebKit code (e.g. Mac) segments complex text just by finding
+    // the longest span of text covered by a single font.
+    // But we currently need to call hb_utf16_script_run_next anyway to fill
+    // in the harfbuzz data structures to e.g. pick the correct script's shaper.
+    // So we allow that to run first, then do a second pass over the range it
+    // found and take the largest subregion that stays within a single font.
+    m_currentFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
+    unsigned endOfRun;
+    for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
+        const SimpleFontData* nextFontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos + endOfRun], false).fontData;
+        if (nextFontData != m_currentFontData)
+            break;
     }
+    m_item.item.length = endOfRun;
+    m_indexOfNextScriptRun = m_item.item.pos + endOfRun;
 
     setupFontForScriptRun();
     shapeGlyphs();
@@ -273,7 +251,7 @@ void ComplexTextController::shapeGlyphs()
 {
     // HB_ShapeItem() resets m_item.num_glyphs. If the previous call to
     // HB_ShapeItem() used less space than was available, the capacity of
-    // the array may be larger than the current value of m_item.num_glyphs. 
+    // the array may be larger than the current value of m_item.num_glyphs.
     // So, we need to reset the num_glyphs to the capacity of the array.
     m_item.num_glyphs = m_glyphsArrayCapacity;
     resetGlyphArrays();
@@ -291,62 +269,49 @@ void ComplexTextController::shapeGlyphs()
 
 void ComplexTextController::setGlyphXPositions(bool isRTL)
 {
+    const double rtlFlip = isRTL ? -1 : 1;
     double position = 0;
-    // logClustersIndex indexes logClusters for the first (or last when
-    // RTL) codepoint of the current glyph.  Each time we advance a glyph,
-    // we skip over all the codepoints that contributed to the current
-    // glyph.
+
+    // logClustersIndex indexes logClusters for the first codepoint of the current glyph.
+    // Each time we advance a glyph, we skip over all the codepoints that contributed to the current glyph.
     int logClustersIndex = 0;
 
-    if (isRTL) {
-        logClustersIndex = m_item.num_glyphs - 1;
+    // Iterate through the glyphs in logical order, flipping for RTL where necessary.
+    // In RTL mode all variables are positive except m_xPositions, which starts from m_offsetX and runs negative.
+    // It is fixed up in a second pass below.
+    for (size_t i = 0; i < m_item.num_glyphs; ++i) {
+        while (static_cast<unsigned>(logClustersIndex) < m_item.item.length && logClusters()[logClustersIndex] < i)
+            logClustersIndex++;
 
-        // Glyphs are stored in logical order, but for layout purposes we
-        // always go left to right.
-        for (int i = m_item.num_glyphs - 1; i >= 0; --i) {
-            if (!m_currentFontData->isZeroWidthSpaceGlyph(m_glyphs16[i])) {
-                // Whitespace must be laid out in logical order, so when inserting
-                // spaces in RTL (but iterating in LTR order) we must insert spaces
-                // _before_ the next glyph.
-                if (static_cast<unsigned>(i + 1) >= m_item.num_glyphs || m_item.attributes[i + 1].clusterStart)
-                    position += m_letterSpacing;
+        // If the current glyph is just after a space, add in the word spacing.
+        position += determineWordBreakSpacing(logClustersIndex);
 
-                position += determineWordBreakSpacing(logClustersIndex);
-            }
+        m_glyphs16[i] = m_item.glyphs[i];
+        double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
+        double advance = truncateFixedPointToInteger(m_item.advances[i]);
+        if (isRTL)
+            offsetX -= advance;
 
-            m_glyphs16[i] = m_item.glyphs[i];
-            double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
-            m_xPositions[i] = m_offsetX + position + offsetX;
+        m_xPositions[i] = m_offsetX + (position * rtlFlip) + offsetX;
 
-            while (logClustersIndex > 0 && logClusters()[logClustersIndex] == i)
-                logClustersIndex--;
+        if (m_currentFontData->isZeroWidthSpaceGlyph(m_glyphs16[i]))
+            continue;
 
-            if (!m_currentFontData->isZeroWidthSpaceGlyph(m_glyphs16[i]))
-                position += truncateFixedPointToInteger(m_item.advances[i]);
-        }
-    } else {
-        for (size_t i = 0; i < m_item.num_glyphs; ++i) {
-            m_glyphs16[i] = m_item.glyphs[i];
-            double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
-            m_xPositions[i] = m_offsetX + position + offsetX;
+        // At the end of each cluster, add in the letter spacing.
+        if (i + 1 == m_item.num_glyphs || m_item.attributes[i + 1].clusterStart)
+            position += m_letterSpacing;
 
-            if (m_currentFontData->isZeroWidthSpaceGlyph(m_glyphs16[i]))
-                continue;
-
-            double advance = truncateFixedPointToInteger(m_item.advances[i]);
-
-            advance += determineWordBreakSpacing(logClustersIndex);
-
-            if (m_item.attributes[i].clusterStart)
-                advance += m_letterSpacing;
-
-            while (static_cast<unsigned>(logClustersIndex) < m_item.item.length && logClusters()[logClustersIndex] == i)
-                logClustersIndex++;
-
-            position += advance;
-        }
+        position += advance;
     }
-    m_pixelWidth = std::max(position, 0.0);
+    const double width = position;
+
+    // Now that we've computed the total width, do another pass to fix positioning for RTL.
+    if (isRTL) {
+        for (size_t i = 0; i < m_item.num_glyphs; ++i)
+            m_xPositions[i] += width;
+    }
+
+    m_pixelWidth = std::max(width, 0.0);
     m_offsetX += m_pixelWidth;
 }
 

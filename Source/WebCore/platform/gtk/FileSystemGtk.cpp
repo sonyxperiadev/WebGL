@@ -2,6 +2,7 @@
  * Copyright (C) 2007, 2009 Holger Hans Peter Freyther
  * Copyright (C) 2008 Collabora, Ltd.
  * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -45,10 +46,8 @@ String filenameToString(const char* filename)
 #if OS(WINDOWS)
     return String::fromUTF8(filename);
 #else
-    gchar* escapedString = g_uri_escape_string(filename, "/:", false);
-    String string(escapedString);
-    g_free(escapedString);
-    return string;
+    GOwnPtr<gchar> escapedString(g_uri_escape_string(filename, "/:", false));
+    return escapedString.get();
 #endif
 }
 
@@ -57,10 +56,8 @@ CString fileSystemRepresentation(const String& path)
 #if OS(WINDOWS)
     return path.utf8();
 #else
-    char* filename = g_uri_unescape_string(path.utf8().data(), 0);
-    CString cfilename(filename);
-    g_free(filename);
-    return cfilename;
+    GOwnPtr<gchar> filename(g_uri_unescape_string(path.utf8().data(), 0));
+    return filename.get();
 #endif
 }
 
@@ -71,14 +68,11 @@ String filenameForDisplay(const String& string)
     return string;
 #else
     CString filename = fileSystemRepresentation(string);
-    gchar* display = g_filename_to_utf8(filename.data(), 0, 0, 0, 0);
+    GOwnPtr<gchar> display(g_filename_to_utf8(filename.data(), 0, 0, 0, 0));
     if (!display)
         return string;
 
-    String displayString = String::fromUTF8(display);
-    g_free(display);
-
-    return displayString;
+    return String::fromUTF8(display.get());
 #endif
 }
 
@@ -176,11 +170,31 @@ String pathGetFileName(const String& pathName)
         return pathName;
 
     CString tmpFilename = fileSystemRepresentation(pathName);
-    char* baseName = g_path_get_basename(tmpFilename.data());
-    String fileName = String::fromUTF8(baseName);
-    g_free(baseName);
+    GOwnPtr<gchar> baseName(g_path_get_basename(tmpFilename.data()));
+    return String::fromUTF8(baseName.get());
+}
 
-    return fileName;
+CString applicationDirectoryPath()
+{
+#if OS(LINUX)
+    // Handle the /proc filesystem case.
+    char pathFromProc[PATH_MAX] = {0};
+    if (readlink("/proc/self/exe", pathFromProc, sizeof(pathFromProc) - 1) == -1)
+        return CString();
+
+    GOwnPtr<char> dirname(g_path_get_dirname(pathFromProc));
+    return dirname.get();
+#elif OS(UNIX)
+    // If the above fails, check the PATH env variable.
+    GOwnPtr<char> currentExePath(g_find_program_in_path(g_get_prgname()));
+    if (!currentExePath.get())
+        return CString();
+
+    GOwnPtr<char> dirname(g_path_get_dirname(currentExePath.get()));
+    return dirname.get();
+#else
+    return CString();
+#endif
 }
 
 String directoryName(const String& path)

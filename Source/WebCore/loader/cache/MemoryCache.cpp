@@ -50,7 +50,7 @@ static const double cMinDelayBeforeLiveDecodedPrune = 1; // Seconds.
 static const float cTargetPrunePercentage = .95f; // Percentage of capacity toward which we prune, to avoid immediately pruning again.
 static const double cDefaultDecodedDataDeletionInterval = 0;
 
-MemoryCache* cache()
+MemoryCache* memoryCache()
 {
     static MemoryCache* staticCache = new MemoryCache;
     return staticCache;
@@ -344,16 +344,6 @@ void MemoryCache::evict(CachedResource* resource)
 
     if (resource->canDelete())
         delete resource;
-}
-
-void MemoryCache::addCachedResourceLoader(CachedResourceLoader* cachedResourceLoader)
-{
-    m_cachedResourceLoaders.add(cachedResourceLoader);
-}
-
-void MemoryCache::removeCachedResourceLoader(CachedResourceLoader* cachedResourceLoader)
-{
-    m_cachedResourceLoaders.remove(cachedResourceLoader);
 }
 
 static inline unsigned fastLog2(unsigned i)

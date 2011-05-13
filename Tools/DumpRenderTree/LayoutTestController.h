@@ -31,6 +31,7 @@
 
 #include <JavaScriptCore/JSObjectRef.h>
 #include <JavaScriptCore/JSRetainPtr.h>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -45,6 +46,8 @@ public:
     void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
 
     void addDisallowedURL(JSStringRef url);
+    void addURLToRedirect(std::string origin, std::string destination);
+    const std::string& redirectionDestinationForURL(std::string);
     void clearAllApplicationCaches();
     void clearAllDatabases();
     void clearBackForwardList();
@@ -74,6 +77,7 @@ public:
     void queueForwardNavigation(int howFarForward);
     void queueLoad(JSStringRef url, JSStringRef target);
     void queueLoadHTMLString(JSStringRef content, JSStringRef baseURL);
+    void queueLoadAlternateHTMLString(JSStringRef content, JSStringRef baseURL, JSStringRef unreachableURL);
     void queueLoadingScript(JSStringRef script);
     void queueNonLoadingScript(JSStringRef script);
     void queueReload();
@@ -361,6 +365,8 @@ private:
     
     // origins which have been granted desktop notification access
     std::vector<JSStringRef> m_desktopNotificationAllowedOrigins;
+
+    std::map<std::string, std::string> m_URLsToRedirect;
     
     static JSClassRef getJSClass();
     static JSStaticValue* staticValues();

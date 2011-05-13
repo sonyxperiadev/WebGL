@@ -22,12 +22,15 @@
 #include "config.h"
 #include "RenderStyle.h"
 
+#include "ContentData.h"
+#include "CursorList.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "FontSelector.h"
 #include "RenderArena.h"
 #include "RenderObject.h"
 #include "ScaleTransformOperation.h"
+#include "ShadowData.h"
 #include "StyleImage.h"
 #include <wtf/StdLibExtras.h>
 #include <algorithm>

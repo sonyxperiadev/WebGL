@@ -623,10 +623,10 @@ class MockStatusServer(object):
 # FIXME: Unify with common.system.executive_mock.MockExecutive.
 class MockExecutive(Mock):
     def __init__(self, should_log):
-        self._should_log = should_log
+        self.should_log = should_log
 
     def run_and_throw_if_fail(self, args, quiet=False):
-        if self._should_log:
+        if self.should_log:
             log("MOCK run_and_throw_if_fail: %s" % args)
         return "MOCK output of child process"
 
@@ -638,7 +638,7 @@ class MockExecutive(Mock):
                     return_exit_code=False,
                     return_stderr=True,
                     decode_output=False):
-        if self._should_log:
+        if self.should_log:
             log("MOCK run_command: %s" % args)
         return "MOCK output of child process"
 
@@ -686,6 +686,14 @@ class MockPlatformInfo(object):
         return "MockPlatform 1.0"
 
 
+class MockWorkspace(object):
+    def find_unused_filename(self, directory, name, extension, search_limit=10):
+        return "%s/%s.%s" % (directory, name, extension)
+
+    def create_zip(self, zip_path, source_path):
+        pass
+
+
 class MockTool(object):
 
     def __init__(self, log_executive=False):
@@ -694,6 +702,7 @@ class MockTool(object):
         self.buildbot = MockBuildBot()
         self.executive = MockExecutive(should_log=log_executive)
         self.filesystem = MockFileSystem()
+        self.workspace = MockWorkspace()
         self._irc = None
         self.user = MockUser()
         self._scm = MockSCM()

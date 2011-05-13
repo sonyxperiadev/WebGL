@@ -80,6 +80,13 @@ public:
     {
         m_scopes.append(Scope(globalData));
     }
+    
+    struct BinaryExprContext {
+        BinaryExprContext(ASTBuilder&) {}
+    };
+    struct UnaryExprContext {
+        UnaryExprContext(ASTBuilder&) {}
+    };
 
     typedef SyntaxChecker FunctionBodyBuilder;
 
@@ -208,8 +215,10 @@ public:
         return node;
     }
 
-    ExpressionNode* createRegex(const Identifier& pattern, const Identifier& flags, int start)
+    ExpressionNode* createRegExp(const Identifier& pattern, const Identifier& flags, int start)
     {
+        if (Yarr::checkSyntax(pattern.ustring()))
+            return 0;
         RegExpNode* node = new (m_globalData) RegExpNode(m_globalData, pattern, flags);
         int size = pattern.length() + 2; // + 2 for the two /'s
         setExceptionLocation(node, start, start + size, start + size);

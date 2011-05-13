@@ -55,7 +55,27 @@ WebInspector.Resource.Type = {
 
     toUIString: function(type)
     {
-        return WebInspector.UIString(WebInspector.Resource.Type.toString(type));
+        switch (type) {
+            case this.Document:
+                return WebInspector.UIString("Document");
+            case this.Stylesheet:
+                return WebInspector.UIString("Stylesheet");
+            case this.Image:
+                return WebInspector.UIString("Image");
+            case this.Font:
+                return WebInspector.UIString("Font");
+            case this.Script:
+                return WebInspector.UIString("Script");
+            case this.XHR:
+                return WebInspector.UIString("XHR");
+            case this.Media:
+                return WebInspector.UIString("Media");
+            case this.WebSocket:
+                return WebInspector.UIString("WebSocket");
+            case this.Other:
+            default:
+                return WebInspector.UIString("Other");
+        }
     },
 
     // Returns locale-independent string identifier of resource type (primarily for use in extension API).
@@ -658,7 +678,20 @@ WebInspector.Resource.prototype = {
             this._innerRequestContent();
     },
 
-    get contentURL()
+    populateImageSource: function(image)
+    {
+        function onResourceContent()
+        {
+            image.src = this._contentURL();
+        }
+
+        if (Preferences.useDataURLForResourceImageIcons)
+            this.requestContent(onResourceContent.bind(this));
+        else
+            image.src = this.url;
+    },
+
+    _contentURL: function()
     {
         const maxDataUrlSize = 1024 * 1024;
         // If resource content is not available or won't fit a data URL, fall back to using original URL.

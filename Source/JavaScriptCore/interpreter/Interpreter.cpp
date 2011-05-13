@@ -35,7 +35,7 @@
 #include "CallFrame.h"
 #include "CallFrameClosure.h"
 #include "CodeBlock.h"
-#include "Collector.h"
+#include "Heap.h"
 #include "Debugger.h"
 #include "DebuggerCallFrame.h"
 #include "ErrorInstance.h"
@@ -4630,17 +4630,6 @@ skip_id_custom_self:
         */
         UString message = callFrame->r(vPC[1].u.operand).jsValue().toString(callFrame);
         exceptionValue = JSValue(createReferenceError(callFrame, message));
-        goto vm_throw;
-    }
-    DEFINE_OPCODE(op_throw_syntax_error) {
-        /* op_throw_syntax_error message(k)
-
-           Constructs a new syntax Error instance using the
-           original constructor, using constant message as the
-           message string. The result is thrown.
-        */
-        UString message = callFrame->r(vPC[1].u.operand).jsValue().toString(callFrame);
-        exceptionValue = JSValue(createSyntaxError(callFrame, message));
         goto vm_throw;
     }
     DEFINE_OPCODE(op_end) {

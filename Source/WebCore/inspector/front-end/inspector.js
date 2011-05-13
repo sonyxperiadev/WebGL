@@ -443,6 +443,11 @@ var WebInspector = {
         return this.panels.network.resources;
     },
 
+    networkResourceById: function(id)
+    {
+        return this.panels.network.resourceById(id);
+    },
+
     forAllResources: function(callback)
     {
         WebInspector.resourceTreeModel.forAllResources(callback);
@@ -492,7 +497,7 @@ WebInspector.loaded = function()
 
 WebInspector.doLoadedDone = function()
 {
-    InspectorBackend.setInjectedScriptSource("(" + injectedScriptConstructor + ");");
+    InspectorFrontendHost.loaded();
 
     var platform = WebInspector.platform;
     document.body.addStyleClass("platform-" + platform);
@@ -502,7 +507,6 @@ WebInspector.doLoadedDone = function()
     var port = WebInspector.port;
     document.body.addStyleClass("port-" + port);
 
-    InspectorFrontendHost.loaded();
     WebInspector.settings = new WebInspector.Settings();
 
     this._registerShortcuts();
@@ -618,7 +622,6 @@ WebInspector.doLoadedDone = function()
     {
         WebInspector.cssNameCompletions = new WebInspector.CSSCompletions(names);
     }
-
     // As a DOMAgent method, this needs to happen after the frontend has loaded and the agent is available.
     InspectorBackend.getSupportedCSSProperties(propertyNamesCallback);
 }
@@ -1175,11 +1178,6 @@ WebInspector.showPanel = function(panel)
     this.currentPanel = this.panels[panel];
 }
 
-WebInspector.consoleMessagesCleared = function()
-{
-    WebInspector.console.clearMessages();
-}
-
 WebInspector.domContentEventFired = function(time)
 {
     this.panels.audits.mainResourceDOMContentTime = time;
@@ -1235,33 +1233,6 @@ WebInspector.inspectedURLChanged = function(url)
     InspectorFrontendHost.inspectedURLChanged(url);
     this.settings.inspectedURLChanged(url);
     this.extensionServer.notifyInspectedURLChanged();
-}
-
-WebInspector.updateConsoleMessageExpiredCount = function(count)
-{
-    var message = String.sprintf(WebInspector.UIString("%d console messages are not shown."), count);
-    WebInspector.console.addMessage(WebInspector.ConsoleMessage.createTextMessage(message, WebInspector.ConsoleMessage.MessageLevel.Warning));
-}
-
-WebInspector.addConsoleMessage = function(payload)
-{
-    var consoleMessage = new WebInspector.ConsoleMessage(
-        payload.source,
-        payload.type,
-        payload.level,
-        payload.line,
-        payload.url,
-        payload.repeatCount,
-        payload.message,
-        payload.parameters,
-        payload.stackTrace,
-        payload.requestId);
-    this.console.addMessage(consoleMessage);
-}
-
-WebInspector.updateConsoleMessageRepeatCount = function(count)
-{
-    this.console.updateMessageRepeatCount(count);
 }
 
 WebInspector.log = function(message, messageLevel)
@@ -1679,6 +1650,12 @@ WebInspector.doPerformSearch = function(query, forceSearch, isBackwardSearch, re
 
     this.currentPanel.currentQuery = query;
     this.currentPanel.performSearch(query);
+}
+
+WebInspector.frontendReused = function()
+{
+    this.networkManager.reset();
+    this.reset();
 }
 
 WebInspector.addNodesToSearchResult = function(nodeIds)

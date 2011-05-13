@@ -303,7 +303,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/DOMFormData.cpp \
 	html/DOMSettableTokenList.cpp \
 	html/DOMTokenList.cpp \
+<<<<<<< HEAD
 	html/DateComponents.cpp \
+=======
+	html/DOMURL.cpp \
+>>>>>>> WebKit.org @ r75993
 	html/DateInputType.cpp \
 	html/DateTimeInputType.cpp \
 	html/DateTimeLocalInputType.cpp \
@@ -596,7 +600,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/Path.cpp \
 	platform/graphics/PathTraversalState.cpp \
 	platform/graphics/Pattern.cpp \
-	platform/graphics/Pen.cpp \
 	platform/graphics/SegmentedFontData.cpp \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
@@ -795,7 +798,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
 	rendering/RenderFlexibleBox.cpp \
-	rendering/RenderForeignObject.cpp \
 	rendering/RenderFrame.cpp \
 	rendering/RenderFrameBase.cpp \
 	rendering/RenderFrameSet.cpp \
@@ -828,6 +830,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+<<<<<<< HEAD
 	rendering/RenderSVGBlock.cpp \
 	rendering/RenderSVGContainer.cpp \
 	rendering/RenderSVGGradientStop.cpp \
@@ -851,15 +854,48 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGTransformableContainer.cpp \
 	rendering/RenderSVGViewportContainer.cpp \
 	\
+=======
+	rendering/svg/RenderSVGBlock.cpp \
+	rendering/svg/RenderSVGContainer.cpp \
+	rendering/svg/RenderSVGForeignObject.cpp \
+	rendering/svg/RenderSVGGradientStop.cpp \
+	rendering/svg/RenderSVGHiddenContainer.cpp \
+	rendering/svg/RenderSVGImage.cpp \
+>>>>>>> WebKit.org @ r75993
 	rendering/svg/RenderSVGInline.cpp \
 	rendering/svg/RenderSVGInlineText.cpp \
+	rendering/svg/RenderSVGModelObject.cpp \
 	rendering/svg/RenderSVGPath.cpp \
+	rendering/svg/RenderSVGResource.cpp \
+	rendering/svg/RenderSVGResourceClipper.cpp \
+	rendering/svg/RenderSVGResourceContainer.cpp \
+	rendering/svg/RenderSVGResourceFilter.cpp \
+	rendering/svg/RenderSVGResourceFilterPrimitive.cpp \
+	rendering/svg/RenderSVGResourceGradient.cpp \
+	rendering/svg/RenderSVGResourceLinearGradient.cpp \
+	rendering/svg/RenderSVGResourceMarker.cpp \
+	rendering/svg/RenderSVGResourceMasker.cpp \
+	rendering/svg/RenderSVGResourcePattern.cpp \
+	rendering/svg/RenderSVGResourceRadialGradient.cpp \
+	rendering/svg/RenderSVGResourceSolidColor.cpp \
+	rendering/svg/RenderSVGRoot.cpp \
+	rendering/svg/RenderSVGShadowTreeRootContainer.cpp \
 	rendering/svg/RenderSVGTSpan.cpp \
 	rendering/svg/RenderSVGText.cpp \
 	rendering/svg/RenderSVGTextPath.cpp \
+	rendering/svg/RenderSVGTransformableContainer.cpp \
+	rendering/svg/RenderSVGViewportContainer.cpp \
+	rendering/svg/SVGImageBufferTools.cpp \
 	rendering/svg/SVGInlineFlowBox.cpp \
 	rendering/svg/SVGInlineTextBox.cpp \
+	rendering/svg/SVGMarkerLayoutInfo.cpp \
+	rendering/svg/SVGRenderSupport.cpp \
+	rendering/svg/SVGRenderTreeAsText.cpp \
+	rendering/svg/SVGResources.cpp \
+	rendering/svg/SVGResourcesCache.cpp \
+	rendering/svg/SVGResourcesCycleSolver.cpp \
 	rendering/svg/SVGRootInlineBox.cpp \
+	rendering/svg/SVGShadowTreeElements.cpp
 	rendering/svg/SVGTextChunk.cpp \
 	rendering/svg/SVGTextChunkBuilder.cpp \
 	rendering/svg/SVGTextLayoutAttributes.cpp \
@@ -894,18 +930,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderWidget.cpp \
 	rendering/RenderWordBreak.cpp \
 	rendering/RootInlineBox.cpp \
-
-ifeq ($(ENABLE_SVG), true)
-LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	rendering/SVGImageBufferTools.cpp \
-	rendering/SVGMarkerLayoutInfo.cpp \
-	rendering/SVGRenderSupport.cpp \
-	rendering/SVGRenderTreeAsText.cpp \
-	rendering/SVGResources.cpp \
-	rendering/SVGResourcesCache.cpp \
-	rendering/SVGResourcesCycleSolver.cpp \
-	rendering/SVGShadowTreeElements.cpp
-endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \

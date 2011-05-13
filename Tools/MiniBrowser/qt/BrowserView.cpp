@@ -30,15 +30,10 @@
 
 #include <QGraphicsScene>
 
-static QWKPage* createNewPage(QWKPage* page)
-{
-    return page;
-}
-
-BrowserView::BrowserView(QGraphicsWKView::BackingStoreType backingStoreType, QWidget* parent)
+BrowserView::BrowserView(QGraphicsWKView::BackingStoreType backingStoreType, QWKContext* context, QWidget* parent)
     : QGraphicsView(parent)
     , m_item(0)
-    , m_context(new QWKContext(this))
+    , m_context(context ? context : new QWKContext(this))
 {
     m_item = new QGraphicsWKView(m_context, backingStoreType, 0);
     setScene(new QGraphicsScene(this));
@@ -49,7 +44,6 @@ BrowserView::BrowserView(QGraphicsWKView::BackingStoreType backingStoreType, QWi
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     connect(m_item, SIGNAL(titleChanged(QString)), this, SLOT(setWindowTitle(QString)));
-    m_item->page()->setCreateNewPageFunction(createNewPage);
 }
 
 void BrowserView::resizeEvent(QResizeEvent* event)

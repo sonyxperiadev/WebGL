@@ -72,6 +72,7 @@
 #include "IconDatabase.h"
 #include "IconLoader.h"
 #include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MainResourceLoader.h"
@@ -974,9 +975,16 @@ void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
 ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn)
 {
     String mimeType = mimeTypeIn;
+    String extension = url.path().substring(url.path().reverseFind('.') + 1);
+
     // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
     if (mimeType.isEmpty())
-        mimeType = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
+        mimeType = MIMETypeRegistry::getMIMETypeForExtension(extension);
+
+#if !PLATFORM(MAC) && !PLATFORM(CHROMIUM) && !PLATFORM(EFL) // Mac has no PluginDatabase, nor does Chromium or EFL
+    if (mimeType.isEmpty())
+        mimeType = PluginDatabase::installedPlugins()->MIMETypeForExtension(extension);
+#endif
 
     if (mimeType.isEmpty())
         return ObjectContentFrame; // Go ahead and hope that we can display the content.
@@ -2358,8 +2366,9 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             // Check all children first.
             RefPtr<HistoryItem> item;
             if (Page* page = m_frame->page())
-                if (isBackForwardLoadType(loadType()) && m_frame == page->mainFrame())
-                    item = history()->currentItem();
+                if (isBackForwardLoadType(loadType()))
+                    // Reset the back forward list to the last committed history item at the top level.
+                    item = page->mainFrame()->loader()->history()->currentItem();
                 
             bool shouldReset = true;
             if (!(pdl->isLoadingInAPISense() && !pdl->isStopping())) {
@@ -2602,10 +2611,7 @@ void FrameLoader::detachFromParent()
     // handlers might start a new subresource load in this frame.
     stopAllLoaders();
 
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->frameDetachedFromParent(m_frame);
-#endif
+    InspectorInstrumentation::frameDetachedFromParent(m_frame);
 
     detachViewsAndDocumentLoader();
 
@@ -3071,9 +3077,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
         return;
 
     if (!page->areMemoryCacheClientCallsEnabled()) {
-#if ENABLE(INSPECTOR)
-        page->inspectorController()->didLoadResourceFromMemoryCache(m_documentLoader.get(), resource);
-#endif
+        InspectorInstrumentation::didLoadResourceFromMemoryCache(page, m_documentLoader.get(), resource);
         m_documentLoader->recordMemoryCacheLoadForFutureClientNotification(resource->url());
         m_documentLoader->didTellClientAboutLoad(resource->url());
         return;
@@ -3081,9 +3085,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
 
     ResourceRequest request(resource->url());
     if (m_client->dispatchDidLoadResourceFromMemoryCache(m_documentLoader.get(), request, resource->response(), resource->encodedSize())) {
-#if ENABLE(INSPECTOR)
-        page->inspectorController()->didLoadResourceFromMemoryCache(m_documentLoader.get(), resource);
-#endif
+        InspectorInstrumentation::didLoadResourceFromMemoryCache(page, m_documentLoader.get(), resource);
         m_documentLoader->didTellClientAboutLoad(resource->url());
         return;
     }
@@ -3091,9 +3093,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
     unsigned long identifier;
     ResourceError error;
     requestFromDelegate(request, identifier, error);
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->markResourceAsCached(identifier);
-#endif
+    InspectorInstrumentation::markResourceAsCached(page, identifier);
     notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, resource->response(), resource->encodedSize(), error);
 }
 
@@ -3399,15 +3399,7 @@ void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 
     m_client->dispatchDidClearWindowObjectInWorld(world);
 
-#if ENABLE(INSPECTOR)
-    if (world != mainThreadNormalWorld())
-        return;
-
-    if (Page* page = m_frame->page()) {
-        if (InspectorController* inspector = page->inspectorController())
-            inspector->inspectedWindowScriptObjectCleared(m_frame);
-    }
-#endif
+    InspectorInstrumentation::didClearWindowObjectInWorld(m_frame, world);
 }
 
 void FrameLoader::updateSandboxFlags()
@@ -3454,10 +3446,7 @@ void FrameLoader::dispatchDidCommitLoad()
 
     m_client->dispatchDidCommitLoad();
 
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->didCommitLoad(m_documentLoader.get());
-#endif
+    InspectorInstrumentation::didCommitLoad(m_frame, m_documentLoader.get());
 }
 
 void FrameLoader::tellClientAboutPastMemoryCacheLoads()
@@ -3473,7 +3462,7 @@ void FrameLoader::tellClientAboutPastMemoryCacheLoads()
 
     size_t size = pastLoads.size();
     for (size_t i = 0; i < size; ++i) {
-        CachedResource* resource = cache()->resourceForURL(KURL(ParsedURLString, pastLoads[i]));
+        CachedResource* resource = memoryCache()->resourceForURL(KURL(ParsedURLString, pastLoads[i]));
 
         // FIXME: These loads, loaded from cache, but now gone from the cache by the time
         // Page::setMemoryCacheClientCallsEnabled(true) is called, will not be seen by the client.
@@ -3504,8 +3493,6 @@ Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLoadReque
     if (!request.frameName().isEmpty() && request.frameName() != "_blank") {
         Frame* frame = lookupFrame->tree()->find(request.frameName());
         if (frame && openerFrame->loader()->shouldAllowNavigation(frame)) {
-            if (!request.resourceRequest().url().isEmpty())
-                frame->loader()->loadFrameRequest(request, false, false, 0, 0, SendReferrer);
             if (Page* page = frame->page())
                 page->chrome()->focus();
             created = false;

@@ -26,7 +26,7 @@
 #ifndef MemoryStatistics_h
 #define MemoryStatistics_h
 
-#include "Collector.h"
+#include "Heap.h"
 
 class JSGlobalData;
 
@@ -37,7 +37,7 @@ struct GlobalMemoryStatistics {
     size_t JITBytes;
 };
 
-Heap::Statistics heapStatistics(JSGlobalData* commonGlobalData);
+MarkedSpace::Statistics heapStatistics(JSGlobalData* commonGlobalData);
 GlobalMemoryStatistics globalMemoryStatistics();
 
 }

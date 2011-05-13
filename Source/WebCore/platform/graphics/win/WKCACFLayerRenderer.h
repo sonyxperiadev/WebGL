@@ -54,7 +54,6 @@ class WKCACFLayerRendererClient {
 public:
     virtual ~WKCACFLayerRendererClient() { }
     virtual bool shouldRender() const = 0;
-    virtual void animationsStarted(CFTimeInterval) { }
     virtual void syncCompositingState() { }
 };
 
@@ -70,17 +69,12 @@ public:
 
     static bool acceleratedCompositingAvailable();
 
-    void setRootContents(CGImageRef);
-    void setRootContentsAndDisplay(CGImageRef);
     void setRootChildLayer(PlatformCALayer*);
     void layerTreeDidChange();
-    void setNeedsDisplay(bool sync = false);
-    void setHostWindow(HWND window) { m_hostWindow = window; }
-    void setBackingStoreDirty(bool dirty) { m_backingStoreDirty = dirty; }
-    bool createRenderer();
-    void destroyRenderer();
+    void setHostWindow(HWND);
+    void paint();
     void resize();
-    void renderSoon();
+    void syncCompositingStateSoon();
 
 protected:
     PlatformCALayer* rootLayer() const;
@@ -89,6 +83,9 @@ protected:
 private:
     WKCACFLayerRenderer(WKCACFLayerRendererClient*);
 
+    bool createRenderer();
+    void destroyRenderer();
+    void renderSoon();
     void renderTimerFired(Timer<WKCACFLayerRenderer>*);
 
     CGRect bounds() const;
@@ -102,7 +99,6 @@ private:
     bool resetDevice(ResetReason);
 
     void render(const Vector<CGRect>& dirtyRects = Vector<CGRect>());
-    void paint();
 
     WKCACFLayerRendererClient* m_client;
     bool m_mightBeAbleToCreateDeviceLater;
@@ -112,7 +108,6 @@ private:
     WKCACFContext* m_context;
     HWND m_hostWindow;
     Timer<WKCACFLayerRenderer> m_renderTimer;
-    bool m_backingStoreDirty;
     bool m_mustResetLostDeviceBeforeRendering;
     bool m_syncLayerChanges;
     HashSet<RefPtr<PlatformCALayer> > m_pendingAnimatedLayers;

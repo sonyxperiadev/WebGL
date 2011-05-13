@@ -43,8 +43,10 @@
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "PingLoader.h"
+#include "ResourceLoadScheduler.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
 
 #define PRELOAD_DEBUG 0
@@ -76,8 +78,7 @@ static CachedResource* createResource(CachedResource::Type type, const KURL& url
 }
 
 CachedResourceLoader::CachedResourceLoader(Document* document)
-    : m_cache(cache())
-    , m_document(document)
+    : m_document(document)
     , m_requestCount(0)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     , m_blockNetworkImage(false)
@@ -86,7 +87,6 @@ CachedResourceLoader::CachedResourceLoader(Document* document)
     , m_loadFinishing(false)
     , m_allowStaleResources(false)
 {
-    m_cache->addCachedResourceLoader(this);
 }
 
 CachedResourceLoader::~CachedResourceLoader()
@@ -96,7 +96,6 @@ CachedResourceLoader::~CachedResourceLoader()
     DocumentResourceMap::iterator end = m_documentResources.end();
     for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it)
         it->second->setOwningCachedResourceLoader(0);
-    m_cache->removeCachedResourceLoader(this);
 
     // Make sure no requests still point to this CachedResourceLoader
     ASSERT(m_requestCount == 0);
@@ -160,14 +159,14 @@ CachedCSSStyleSheet* CachedResourceLoader::requestUserCSSStyleSheet(const String
 {
     KURL url = MemoryCache::removeFragmentIdentifierIfNeeded(KURL(KURL(), requestURL));
 
-    if (CachedResource* existing = cache()->resourceForURL(url)) {
+    if (CachedResource* existing = memoryCache()->resourceForURL(url)) {
         if (existing->type() == CachedResource::CSSStyleSheet)
             return static_cast<CachedCSSStyleSheet*>(existing);
-        cache()->remove(existing);
+        memoryCache()->remove(existing);
     }
     CachedCSSStyleSheet* userSheet = new CachedCSSStyleSheet(url, charset);
     
-    bool inCache = cache()->add(userSheet);
+    bool inCache = memoryCache()->add(userSheet);
     if (!inCache)
         userSheet->setInCache(true);
     
@@ -290,7 +289,7 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
         return 0;
     }
 
-    if (cache()->disabled()) {
+    if (memoryCache()->disabled()) {
         DocumentResourceMap::iterator it = m_documentResources.find(url.string());
         if (it != m_documentResources.end()) {
             it->second->setOwningCachedResourceLoader(0);
@@ -299,21 +298,21 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
     }
 
     // See if we can use an existing resource from the cache.
-    CachedResource* resource = cache()->resourceForURL(url);
+    CachedResource* resource = memoryCache()->resourceForURL(url);
 
     switch (determineRevalidationPolicy(type, forPreload, resource)) {
     case Load:
         resource = loadResource(type, url, charset, priority);
         break;
     case Reload:
-        cache()->remove(resource);
+        memoryCache()->remove(resource);
         resource = loadResource(type, url, charset, priority);
         break;
     case Revalidate:
         resource = revalidateResource(resource, priority);
         break;
     case Use:
-        cache()->resourceAccessed(resource);
+        memoryCache()->resourceAccessed(resource);
         notifyLoadedFromMemoryCache(resource);
         break;
     }
@@ -331,7 +330,7 @@ CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resourc
 {
     ASSERT(resource);
     ASSERT(resource->inCache());
-    ASSERT(!cache()->disabled());
+    ASSERT(!memoryCache()->disabled());
     ASSERT(resource->canUseCacheValidator());
     ASSERT(!resource->resourceToRevalidate());
     
@@ -341,8 +340,8 @@ CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resourc
     LOG(ResourceLoading, "Resource %p created to revalidate %p", newResource, resource);
     newResource->setResourceToRevalidate(resource);
     
-    cache()->remove(resource);
-    cache()->add(newResource);
+    memoryCache()->remove(resource);
+    memoryCache()->add(newResource);
     
     newResource->setLoadPriority(priority);
     newResource->load(this);
@@ -353,13 +352,13 @@ CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resourc
 
 CachedResource* CachedResourceLoader::loadResource(CachedResource::Type type, const KURL& url, const String& charset, ResourceLoadPriority priority)
 {
-    ASSERT(!cache()->resourceForURL(url));
+    ASSERT(!memoryCache()->resourceForURL(url));
     
     LOG(ResourceLoading, "Loading CachedResource for '%s'.", url.string().latin1().data());
     
     CachedResource* resource = createResource(type, url, charset);
     
-    bool inCache = cache()->add(resource);
+    bool inCache = memoryCache()->add(resource);
     
     // Pretend the resource is in the cache, to prevent it from being deleted during the load() call.
     // FIXME: CachedResource should just use normal refcounting instead.
@@ -377,7 +376,7 @@ CachedResource* CachedResourceLoader::loadResource(CachedResource::Type type, co
     // We don't support immediate loads, but we do support immediate failure.
     if (resource->errorOccurred()) {
         if (inCache)
-            cache()->remove(resource);
+            memoryCache()->remove(resource);
         else
             delete resource;
         return 0;
@@ -410,6 +409,16 @@ CachedResourceLoader::RevalidationPolicy CachedResourceLoader::determineRevalida
     if (existingResource->isPreloaded())
         return Use;
     
+    // CachePolicyHistoryBuffer uses the cache no matter what.
+    if (cachePolicy() == CachePolicyHistoryBuffer)
+        return Use;
+
+    // Don't reuse resources with Cache-control: no-store.
+    if (existingResource->response().cacheControlContainsNoStore()) {
+        LOG(ResourceLoading, "CachedResourceLoader::determineRevalidationPolicy reloading due to Cache-control: no-store.");
+        return Reload;
+    }
+
     // Avoid loading the same resource multiple times for a single document, even if the cache policies would tell us to.
     if (m_validatedURLs.contains(existingResource->url()))
         return Use;
@@ -419,10 +428,6 @@ CachedResourceLoader::RevalidationPolicy CachedResourceLoader::determineRevalida
         LOG(ResourceLoading, "CachedResourceLoader::determineRevalidationPolicy reloading due to CachePolicyReload.");
         return Reload;
     }
-    
-    // CachePolicyHistoryBuffer uses the cache no matter what.
-    if (cachePolicy() == CachePolicyHistoryBuffer)
-        return Use;
     
     // We'll try to reload the resource if it failed last time.
     if (existingResource->errorOccurred()) {
@@ -562,6 +567,7 @@ void CachedResourceLoader::loadDone(CachedResourceRequest* request)
     if (frame())
         frame()->loader()->loadDone();
     checkForPendingPreloads();
+    resourceLoadScheduler()->servePendingRequests();
 }
 
 void CachedResourceLoader::cancelRequests()
@@ -671,7 +677,7 @@ void CachedResourceLoader::clearPreloads()
         if (res->canDelete() && !res->inCache())
             delete res;
         else if (res->preloadResult() == CachedResource::PreloadNotReferenced)
-            cache()->remove(res);
+            memoryCache()->remove(res);
     }
     m_preloads.clear();
 }
@@ -715,7 +721,7 @@ void CachedResourceLoader::printPreloadStats()
         }
         
         if (res->errorOccurred())
-            cache()->remove(res);
+            memoryCache()->remove(res);
         
         res->decreasePreloadCount();
     }

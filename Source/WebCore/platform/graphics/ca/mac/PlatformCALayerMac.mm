@@ -723,4 +723,24 @@ void PlatformCALayer::setTimeOffset(CFTimeInterval value)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+float PlatformCALayer::contentsScale() const
+{
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    return [m_layer.get() contentsScale];
+#else
+    return 1;
+#endif
+}
+
+void PlatformCALayer::setContentsScale(float value)
+{
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [m_layer.get() setContentsScale:value];
+    END_BLOCK_OBJC_EXCEPTIONS
+#else
+    UNUSED_PARAM(value);
+#endif
+}
+
 #endif // USE(ACCELERATED_COMPOSITING)

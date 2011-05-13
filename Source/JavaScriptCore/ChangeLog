@@ -1,3 +1,1316 @@
+2011-01-17  Jarred Nicholls  <jarred@sencha.com>
+
+        Reviewed by Csaba Osztrogonác.
+
+        REGRESSION(r75709): Return value of fscanf() shouldn't be ignored.
+        https://bugs.webkit.org/show_bug.cgi?id=52585
+        
+        gcc 4.4.4+ has warn_unused_value attribute on fscanf, so we should check
+        the return value to get around the gcc warning
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::maybeModifyVMPoolSize):
+
+2011-01-17  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        [regexfuzz] Crash running regex with lookahead
+        https://bugs.webkit.org/show_bug.cgi?id=52548
+
+        Eliminated agressive chaining of backtracks.  This code was overwriting
+        already valid backtrack information.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::processBacktracks):
+
+2011-01-17  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Fix some headers with missing or misspelled #ifndef guards
+        https://bugs.webkit.org/show_bug.cgi?id=52545
+
+        * wtf/RefPtrHashMap.h:
+
+2011-01-17  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Update xcodeproj svn:ignore to include xcuserdata.
+
+        * JavaScriptCore.xcodeproj: Modified property svn:ignore.
+
+2011-01-16  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Move WebKit into Source
+        https://bugs.webkit.org/show_bug.cgi?id=52530
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+
+2011-01-16  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        [jsfunfuzz] Parser doesn't correctly validate for-loop syntax
+        https://bugs.webkit.org/show_bug.cgi?id=52516
+
+        Ensure that we always check for a semicolon after encountering
+        multiple declarations in the initialiser portion of a for-loop.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseForStatement):
+
+2011-01-16  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Strict mode restrictions on arguments and eval usage aren't complete
+        https://bugs.webkit.org/show_bug.cgi?id=52528
+
+        Fix a few bugs in strict mode where we incorrect allow mutation of
+        arguments and eval in the parser.
+
+        Alas the "optimisation" used by the syntax checker for validating
+        binary and unary expressions was too aggressive: we do actually need
+        a stack for operations and operands although it needn't be as complete
+        as that used for the full AST builder.
+
+        Also disallow assignment to arguments in all cases as allowing arguments
+        to be assignable is always an error in strict mode, regardless of context.
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::BinaryExprContext::BinaryExprContext):
+        (JSC::ASTBuilder::UnaryExprContext::UnaryExprContext):
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseAssignmentExpression):
+        (JSC::JSParser::parseBinaryExpression):
+        (JSC::JSParser::parseUnaryExpression):
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::BinaryExprContext::BinaryExprContext):
+        (JSC::SyntaxChecker::BinaryExprContext::~BinaryExprContext):
+        (JSC::SyntaxChecker::UnaryExprContext::UnaryExprContext):
+        (JSC::SyntaxChecker::UnaryExprContext::~UnaryExprContext):
+        (JSC::SyntaxChecker::appendBinaryExpressionInfo):
+        (JSC::SyntaxChecker::operatorStackPop):
+
+2011-01-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Rolled back in r75886.
+        https://bugs.webkit.org/show_bug.cgi?id=52527
+        
+        r75886 broke the GTK Linux bot because Linux was -- quite surprisingly --
+        set up to use the constants for embedded devices.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::maybeModifyVMPoolSize): Separated Linux constants from embedded
+        constants.
+
+2011-01-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r75886.
+        http://trac.webkit.org/changeset/75886
+        https://bugs.webkit.org/show_bug.cgi?id=52526
+
+        "Broke GTK+ 64bit" (Requested by xan_ on #webkit).
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+
+2011-01-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/8870429> Shrink the executable pool on embedded devices
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp: Dropped the pool size from 32MB
+        to 16MB.
+
+2011-01-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Incorrect behavior changing attributes of an accessor
+        https://bugs.webkit.org/show_bug.cgi?id=52515
+
+        defineProperty doesn't correctly handle changing attributes of an accessor
+        property.  This is because we don't pass the full descriptor to the 
+        putDescriptor helper function, which means we have insufficient information
+        to do the right thing. Once that's passed the correct behavior is relatively
+        simple to implement.
+
+        * runtime/JSObject.cpp:
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+
+2011-01-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        [jsfunfuzz] Incorrect handling of consecutive duplicate labels
+        https://bugs.webkit.org/show_bug.cgi?id=52505
+
+        Compare StringImpl*'s instead of Identifier*'s when looking for duplicate
+        labels.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+
+2011-01-14  Simon Fraser  <simon.fraser@apple.com>
+
+        No review.
+        
+        Initialize m_operationInProgress after r75855.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+
+2011-01-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reverted accidentally committed code from my last checkin.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::markRoots):
+
+2011-01-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Try to fix the GTK bot.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::markRoots): Kids, remember to initialize your data members.
+        Knowing is half the battle.
+
+2011-01-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Stephanie Lewis.
+
+        [jsfunfuzz] We should be clearing the lexers temporary character buffers when switching to strict mode
+        https://bugs.webkit.org/show_bug.cgi?id=52501
+
+        Clear the temporary character buffers used for reading escaped characters and
+        numbers.
+
+        * parser/Lexer.h:
+        (JSC::Lexer::setOffset):
+
+2011-01-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix non-Dtrace builds: #include Tracing.h instead of TracingDtrace.h.
+
+        * runtime/Heap.cpp:
+
+2011-01-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Split out a MarkedSpace strategy object from Heap.
+        https://bugs.webkit.org/show_bug.cgi?id=52421
+        
+        SunSpider reports no change.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj: Updated our 7 build systems. Which is cool.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::destroy):
+        (JSC::Heap::recordExtraCost):
+        (JSC::Heap::allocate):
+        (JSC::Heap::markConservatively):
+        (JSC::Heap::markRoots):
+        (JSC::Heap::objectCount):
+        (JSC::Heap::statistics):
+        (JSC::Heap::size):
+        (JSC::Heap::isBusy):
+        (JSC::Heap::collectAllGarbage):
+        (JSC::Heap::primaryHeapBegin):
+        (JSC::Heap::primaryHeapEnd):
+        * runtime/Heap.h:
+        (JSC::Heap::globalData):
+        (JSC::Heap::markedSpace):
+        (JSC::Heap::isCellMarked):
+        (JSC::Heap::checkMarkCell):
+        (JSC::Heap::markCell): Moved all code pertaining to managing chunks of
+        collector memory out of this class. Heap now just delegates to MarkedSpace.
+
+        * runtime/JSCell.h:
+        (JSC::JSCell::Heap::heap): Updated for MarkedSpace delegation.
+
+        * runtime/JSValue.h: Moved the ValueStringPair typedef to help with #includes.
+
+        * runtime/MarkedSpace.cpp: Copied from runtime/Heap.cpp.
+        (JSC::MarkedSpace::MarkedSpace):
+        (JSC::MarkedSpace::destroy):
+        (JSC::MarkedSpace::allocateBlock):
+        (JSC::MarkedSpace::freeBlock):
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::resizeBlocks):
+        (JSC::MarkedSpace::growBlocks):
+        (JSC::MarkedSpace::shrinkBlocks):
+        (JSC::MarkedSpace::markConservatively):
+        (JSC::MarkedSpace::clearMarkBits):
+        (JSC::MarkedSpace::markedCells):
+        (JSC::MarkedSpace::sweep):
+        (JSC::MarkedSpace::objectCount):
+        (JSC::MarkedSpace::addToStatistics):
+        (JSC::MarkedSpace::statistics):
+        (JSC::MarkedSpace::size):
+        (JSC::MarkedSpace::reset):
+        (JSC::MarkedSpace::primaryHeapBegin):
+        (JSC::MarkedSpace::primaryHeapEnd):
+        * runtime/MarkedSpace.h: Copied from runtime/Heap.h.
+        (JSC::MarkedSpace::globalData):
+        (JSC::MarkedSpace::didShrink):
+        (JSC::MarkedSpace::cellBlock):
+        (JSC::MarkedSpace::cellOffset):
+        (JSC::MarkedSpace::isCellMarked):
+        (JSC::MarkedSpace::checkMarkCell):
+        (JSC::MarkedSpace::markCell): Moved all code pertaining to managing chunks of
+        collector memory into this class.
+
+        * runtime/MemoryStatistics.cpp:
+        (JSC::heapStatistics):
+        * runtime/MemoryStatistics.h: Updated for MarkedSpace delegation.
+
+2011-01-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [jsfunfuzz] parser doesn't enforce continue restrictions correctly.
+        https://bugs.webkit.org/show_bug.cgi?id=52493
+
+        This patch reworks handling of break, continue and label statements
+        to correctly handle all the valid and invalid cases.  Previously certain
+        errors would be missed by the parser in strict mode, but the bytecode 
+        generator needed to handle those cases for non-strict code so nothing
+        failed, it simply became non-standard behaviour.
+
+        Now that we treat break and continue errors as early faults in non-strict
+        mode as well that safety net has been removed so the parser bugs result in
+        crashes at codegen time.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::ScopeLabelInfo::ScopeLabelInfo):
+        (JSC::JSParser::next):
+        (JSC::JSParser::nextTokenIsColon):
+        (JSC::JSParser::continueIsValid):
+            Continue is only valid in loops so we can't use breakIsValid()
+        (JSC::JSParser::pushLabel):
+            We now track whether the label is for a loop (and is therefore a
+            valid target for continue.
+        (JSC::JSParser::popLabel):
+        (JSC::JSParser::getLabel):
+            Replace hasLabel with getLabel so that we can validate the target
+            when parsing continue statements.
+        (JSC::JSParser::Scope::continueIsValid):
+        (JSC::JSParser::Scope::pushLabel):
+        (JSC::JSParser::Scope::getLabel):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseBreakStatement):
+        (JSC::JSParser::parseContinueStatement):
+        (JSC::LabelInfo::LabelInfo):
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+            Consecutive labels now get handled iteratively so that we can determine
+            whether they're valid targets for continue.
+        * parser/Lexer.cpp:
+        (JSC::Lexer::nextTokenIsColon):
+        * parser/Lexer.h:
+        (JSC::Lexer::setOffset):
+
+2011-01-14  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Use the Windows thread pool instead of an extra thread for FastMalloc scavenging
+        https://bugs.webkit.org/show_bug.cgi?id=45186
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::scheduleScavenger): Added missing this pointer to CreateTimerQueueTimer().
+
+2011-01-14  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Use the Windows thread pool instead of an extra thread for FastMalloc scavenging
+        https://bugs.webkit.org/show_bug.cgi?id=45186
+
+        r75819 accidentally changed the initial state of the scavenge timer.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger): Changed initial state of m_scavengingSuspended to true.
+
+2011-01-14  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed Windows Release build fix.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::scavengerTimerFired):
+
+2011-01-14  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed Windows Release build fix.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::scavengerTimerFired):
+
+2011-01-14  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Use the Windows thread pool instead of an extra thread for FastMalloc scavenging
+        https://bugs.webkit.org/show_bug.cgi?id=45186
+
+        Use CreateTimerQueueTimer() to start periodicScavenge() and stop it with DeleteTimerQueueTimer().
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger):
+        (WTF::TCMalloc_PageHeap::isScavengerSuspended):
+        (WTF::TCMalloc_PageHeap::scheduleScavenger):
+        (WTF::TCMalloc_PageHeap::rescheduleScavenger):
+        (WTF::TCMalloc_PageHeap::suspendScavenger):
+        (WTF::scavengerTimerFired):
+        (WTF::TCMalloc_PageHeap::periodicScavenge):
+        (WTF::TCMalloc_PageHeap::signalScavenger):
+
+2011-01-14  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Align import/export directives
+        https://bugs.webkit.org/show_bug.cgi?id=52208
+
+        * API/JSBase.h: Align import/export directives with
+        WebKit2/Shared/API/c/WKBase.h
+
+2011-01-14  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Incorrect backtracking for nested alternatives
+        https://bugs.webkit.org/show_bug.cgi?id=52387
+
+        In the process of propigating a datalabel it wasn't getting connected
+        to a destination when the destination was an indirect jump.  Added
+        code to recognize a direct backtrack destination that was an indirect
+        jump and added mechanism to associate DataLabelPtrs with indirect
+        jump entries.
+        Removed dead method
+        BacktrackDestination::linkDataLabelToHereIfExists()
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::IndirectJumpEntry::IndirectJumpEntry):
+        (JSC::Yarr::YarrGenerator::IndirectJumpEntry::addDataLabel):
+        (JSC::Yarr::YarrGenerator::GenerationState::addIndirectJumpEntry):
+        (JSC::Yarr::YarrGenerator::GenerationState::emitIndirectJumpTable):
+        Changes to link indirect jumps with DataLabelPtr's.
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::clearSubDataLabelPtr):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::linkDataLabelToBacktrackIfExists): 
+        Updated to handle immediate linking of indirect jumps to
+        DataLabelPtr.
+        (JSC::Yarr::YarrGenerator::generateParenthesesDisjunction): Changed to
+        reflect updated linkDataLabelToBacktrackIfExists().
+
+2011-01-14  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: provide script column offset to frontend.
+        https://bugs.webkit.org/show_bug.cgi?id=52377
+
+        * parser/SourceCode.h:
+        (JSC::SourceCode::SourceCode):
+        (JSC::SourceCode::firstColumn):
+
+2011-01-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        <rdar://problem/5469576> Use __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0 if available.
+
+        * DerivedSources.make: Create a header file, HeaderDetection.h, that tells
+        us whether pthread_machdep.h is available.
+        * wtf/FastMalloc.cpp: If __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY0 is available, then
+        don't do the pthread_getspecific_function_pointer trick.
+        (WTF::setThreadHeap): Ditto, but set thread-specific data.
+        (WTF::TCMalloc_ThreadCache::GetThreadHeap): Ditto, but get rather than set.
+
+2011-01-13  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gavin Barraclough.
+
+        JIT requires VM overcommit (particularly on x86-64), Linux does not by default support this without swap?
+        https://bugs.webkit.org/show_bug.cgi?id=42756
+
+        The FixedVMPool Allocator does not work well on systems where
+        allocating very large amounts of memory upfront is not reasonable,
+        like Linux without overcommit enabled. As a workaround, on Linux,
+        default to the values used in embedded environments (in the MB
+        range), and only jump to the GB range if we detect at runtime that
+        overcommit is enabled. Should fix crashes on Linux/x86_64 with
+        less than 3 or 4GB of RAM.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::free): use new variables for VM pool
+        size and coalesce limit.
+        (JSC::ExecutableAllocator::isValid): swap the variables from
+        embedded to generic values at runtime, on linux, if overcommit is
+        enabled.
+        (JSC::ExecutableAllocator::underMemoryPressure): use new variables
+        for VM pool size and coalesce limit.
+
+2011-01-12  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Add new Yarr.h header to the list file.
+
+        * GNUmakefile.am: ditto.
+
+2011-01-12  Martin Robinson  <mrobinson@igalia.com>
+
+        Missing Source/JavaScriptCore/assembler/MacroAssemblerARMv7.h in WebKitGtk tarball
+        https://bugs.webkit.org/show_bug.cgi?id=52299
+
+        * GNUmakefile.am: Fix the GTK+ build on ARMv7 by including missing source
+        files in the source list.
+
+2011-01-12  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Add Yarr.h to YARR
+        https://bugs.webkit.org/show_bug.cgi?id=51021
+
+        Move other common constants and functions from YARR's different files
+        to Yarr.h.
+        Use Yarr.h header instead of including other YARR headers where it
+        is possible.
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/RegExp.cpp:
+        * yarr/Yarr.h: Added.
+        * yarr/YarrInterpreter.cpp:
+        * yarr/YarrInterpreter.h:
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::jitCompile):
+        (JSC::Yarr::execute):
+        * yarr/YarrJIT.h:
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.cpp:
+        (JSC::Yarr::YarrPattern::compile):
+        (JSC::Yarr::YarrPattern::YarrPattern):
+        * yarr/YarrPattern.h:
+
+2011-01-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r75595.
+        http://trac.webkit.org/changeset/75595
+        https://bugs.webkit.org/show_bug.cgi?id=52286
+
+        It broke fast/regex/pcre-test-1.html (Requested by Ossy on
+        #webkit).
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/RegExp.cpp:
+        * yarr/Yarr.h: Removed.
+        * yarr/YarrInterpreter.cpp:
+        * yarr/YarrInterpreter.h:
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::jitCompile):
+        * yarr/YarrJIT.h:
+        (JSC::Yarr::execute):
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.cpp:
+        (JSC::Yarr::compile):
+        (JSC::Yarr::YarrPattern::YarrPattern):
+        * yarr/YarrPattern.h:
+
+2011-01-12  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Add Yarr.h to YARR
+        https://bugs.webkit.org/show_bug.cgi?id=51021
+
+        Move other common constants and functions from YARR's different files
+        to Yarr.h.
+        Use Yarr.h header instead of including other YARR headers where it
+        is possible.
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/RegExp.cpp:
+        * yarr/Yarr.h: Added.
+        * yarr/YarrInterpreter.cpp:
+        * yarr/YarrInterpreter.h:
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::jitCompile):
+        (JSC::Yarr::execute):
+        * yarr/YarrJIT.h:
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.cpp:
+        (JSC::Yarr::YarrPattern::compile):
+        (JSC::Yarr::YarrPattern::YarrPattern):
+        * yarr/YarrPattern.h:
+
+2011-01-11  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Missing call to popTempSortVector() for exception case in JSArray::sort.
+        https://bugs.webkit.org/show_bug.cgi?id=50718
+
+        Fix to patch of 50718 that added pushTempSortVector() and 
+        popTempSortVector() to JSArray::sort() to mark elements during sort.
+        Need to add popTempSortVector() for the return case if toString()
+        had an exception.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort): Added popTempSortVector()
+
+2011-01-11  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Darin Adler.
+
+        Microoptimization in ~JSString
+        https://bugs.webkit.org/show_bug.cgi?id=52222
+
+        The case where m_fibers is 0 seems to be the most common one
+        (almost 1/2 of the time, followed at some distance by m_fibers = 1
+        in 1/4 of the cases in a typical SunSpider execution). We can save
+        one comparison in this common case by doing a bit of refactoring
+        in the JSString destructor; overall a 0.3% progression, but only
+        the string tests show improvement.
+
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::~JSString):
+
+2011-01-10  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        ASSERTION Failure in JSC::binaryChop
+        https://bugs.webkit.org/show_bug.cgi?id=25614
+
+        Changed JITStubs::cti_register_file_check() to use the current stack's
+        return PC to find the bytecode for handling the exception in the prior
+        frame.  Also added the appropriate arrity check routine call to the
+        JIT to bytecode vector (m_callReturnIndexVector) in the CodeBlock.
+
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompile): Changed the arrity check call location
+        so that it gets added to the m_calls list so that it's included in
+        CodeBlock::m_callReturnIndexVector.
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION): Use the current call frame's return PC.
+
+2011-01-10  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Remove extraneous COMPILER(GCC) condition when checking GCC_VERSION_AT_LEAST()
+        https://bugs.webkit.org/show_bug.cgi?id=52178
+
+        It is sufficient to test GCC_VERSION_AT_LEAST() instead of both COMPILER(GCC) and
+        GCC_VERSION_AT_LEAST(). Notice GCC_VERSION_AT_LEAST() is defined to be 0 when we
+        are not compiling with GCC.
+
+        Fixes style issues at the callsites (i.e. replace comma with comma-space in
+        macro function argument list). Also, makes a spelling correction in a comment.
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::cacheFlush):
+        * wtf/Platform.h:
+
+2011-01-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: removed some uses of nextNumber that I missed last time.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::reset):
+        (JSC::Heap::collectAllGarbage):
+
+2011-01-10  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Use __builtin_expect when compiling using RVCT in GNU mode
+        https://bugs.webkit.org/show_bug.cgi?id=51866
+
+        We should only use __builtin_expect if we are compiling with GCC or RVCT 3 or higher in GNU mode
+        as pointed out by Siddharth Mathur per <http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0202h/Cjabddedbde.html>.
+
+        * wtf/AlwaysInline.h:
+        * wtf/Platform.h: Removed define WTF_COMPILER_RVCT4_OR_GREATER. Instead added macro
+        function RVCT_VERSION_AT_LEAST so that we can test for an arbitrary minimum RVCT
+        version.
+
+2011-01-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Moved Collector.* => Heap.*, since the file contains a class named "Heap".
+
+        * API/JSCallbackObject.cpp:
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * interpreter/Interpreter.cpp:
+        * interpreter/RegisterFile.h:
+        * jit/JITStubs.cpp:
+        * runtime/Collector.cpp: Removed.
+        * runtime/Collector.h: Removed.
+        * runtime/CollectorHeapIterator.h:
+        * runtime/GCActivityCallbackCF.cpp:
+        * runtime/Heap.cpp: Copied from JavaScriptCore/runtime/Collector.cpp.
+        * runtime/Heap.h: Copied from JavaScriptCore/runtime/Collector.h.
+        * runtime/InitializeThreading.cpp:
+        * runtime/JSCell.h:
+        * runtime/JSGlobalData.cpp:
+        * runtime/JSGlobalData.h:
+        * runtime/JSLock.cpp:
+        * runtime/JSNumberCell.h:
+        * runtime/MachineStackMarker.cpp:
+        * runtime/MemoryStatistics.h:
+        * runtime/Protect.h:
+        * runtime/UString.cpp:
+        * runtime/WeakGCMap.h:
+        * runtime/WeakGCPtr.h:
+
+2011-01-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove unused isString() case in JSString::toPrimitiveString()
+        https://bugs.webkit.org/show_bug.cgi?id=52167
+
+        We never call toPrimitiveString() with strings, so remove the
+        check and add an ASSERT ensuring this never happens. 0.7% overall
+        progression in sunspider, since one of the call sites is very hot.
+
+        * runtime/JSString.h:
+        (JSC::JSValue::toPrimitiveString):
+
+2011-01-10  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Rename the existing YARR files and classes
+        https://bugs.webkit.org/show_bug.cgi?id=51872
+
+        Replace the "Regex" prefix with "Yarr" in the name of YARR files and classes.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::compile):
+        (JSC::RegExp::match):
+        (JSC::RegExp::printTraceData):
+        * yarr/YarrInterpreter.cpp: Renamed from Source/JavaScriptCore/yarr/RegexInterpreter.cpp.
+        (JSC::Yarr::Interpreter::appendParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::popParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::DisjunctionContext::DisjunctionContext):
+        (JSC::Yarr::Interpreter::DisjunctionContext::operator new):
+        (JSC::Yarr::Interpreter::allocDisjunctionContext):
+        (JSC::Yarr::Interpreter::freeDisjunctionContext):
+        (JSC::Yarr::Interpreter::ParenthesesDisjunctionContext::ParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::ParenthesesDisjunctionContext::operator new):
+        (JSC::Yarr::Interpreter::ParenthesesDisjunctionContext::restoreOutput):
+        (JSC::Yarr::Interpreter::ParenthesesDisjunctionContext::getDisjunctionContext):
+        (JSC::Yarr::Interpreter::allocParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::freeParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::InputStream::InputStream):
+        (JSC::Yarr::Interpreter::InputStream::next):
+        (JSC::Yarr::Interpreter::InputStream::rewind):
+        (JSC::Yarr::Interpreter::InputStream::read):
+        (JSC::Yarr::Interpreter::InputStream::readPair):
+        (JSC::Yarr::Interpreter::InputStream::readChecked):
+        (JSC::Yarr::Interpreter::InputStream::reread):
+        (JSC::Yarr::Interpreter::InputStream::prev):
+        (JSC::Yarr::Interpreter::InputStream::getPos):
+        (JSC::Yarr::Interpreter::InputStream::setPos):
+        (JSC::Yarr::Interpreter::InputStream::atStart):
+        (JSC::Yarr::Interpreter::InputStream::atEnd):
+        (JSC::Yarr::Interpreter::InputStream::checkInput):
+        (JSC::Yarr::Interpreter::InputStream::uncheckInput):
+        (JSC::Yarr::Interpreter::InputStream::isNotAvailableInput):
+        (JSC::Yarr::Interpreter::testCharacterClass):
+        (JSC::Yarr::Interpreter::checkCharacter):
+        (JSC::Yarr::Interpreter::checkCasedCharacter):
+        (JSC::Yarr::Interpreter::checkCharacterClass):
+        (JSC::Yarr::Interpreter::tryConsumeBackReference):
+        (JSC::Yarr::Interpreter::matchAssertionBOL):
+        (JSC::Yarr::Interpreter::matchAssertionEOL):
+        (JSC::Yarr::Interpreter::matchAssertionWordBoundary):
+        (JSC::Yarr::Interpreter::backtrackPatternCharacter):
+        (JSC::Yarr::Interpreter::backtrackPatternCasedCharacter):
+        (JSC::Yarr::Interpreter::matchCharacterClass):
+        (JSC::Yarr::Interpreter::backtrackCharacterClass):
+        (JSC::Yarr::Interpreter::matchBackReference):
+        (JSC::Yarr::Interpreter::backtrackBackReference):
+        (JSC::Yarr::Interpreter::recordParenthesesMatch):
+        (JSC::Yarr::Interpreter::resetMatches):
+        (JSC::Yarr::Interpreter::parenthesesDoBacktrack):
+        (JSC::Yarr::Interpreter::matchParenthesesOnceBegin):
+        (JSC::Yarr::Interpreter::matchParenthesesOnceEnd):
+        (JSC::Yarr::Interpreter::backtrackParenthesesOnceBegin):
+        (JSC::Yarr::Interpreter::backtrackParenthesesOnceEnd):
+        (JSC::Yarr::Interpreter::matchParenthesesTerminalBegin):
+        (JSC::Yarr::Interpreter::matchParenthesesTerminalEnd):
+        (JSC::Yarr::Interpreter::backtrackParenthesesTerminalBegin):
+        (JSC::Yarr::Interpreter::backtrackParenthesesTerminalEnd):
+        (JSC::Yarr::Interpreter::matchParentheticalAssertionBegin):
+        (JSC::Yarr::Interpreter::matchParentheticalAssertionEnd):
+        (JSC::Yarr::Interpreter::backtrackParentheticalAssertionBegin):
+        (JSC::Yarr::Interpreter::backtrackParentheticalAssertionEnd):
+        (JSC::Yarr::Interpreter::matchParentheses):
+        (JSC::Yarr::Interpreter::backtrackParentheses):
+        (JSC::Yarr::Interpreter::lookupForBeginChars):
+        (JSC::Yarr::Interpreter::matchDisjunction):
+        (JSC::Yarr::Interpreter::matchNonZeroDisjunction):
+        (JSC::Yarr::Interpreter::interpret):
+        (JSC::Yarr::Interpreter::Interpreter):
+        (JSC::Yarr::ByteCompiler::ParenthesesStackEntry::ParenthesesStackEntry):
+        (JSC::Yarr::ByteCompiler::ByteCompiler):
+        (JSC::Yarr::ByteCompiler::compile):
+        (JSC::Yarr::ByteCompiler::checkInput):
+        (JSC::Yarr::ByteCompiler::assertionBOL):
+        (JSC::Yarr::ByteCompiler::assertionEOL):
+        (JSC::Yarr::ByteCompiler::assertionWordBoundary):
+        (JSC::Yarr::ByteCompiler::atomPatternCharacter):
+        (JSC::Yarr::ByteCompiler::atomCharacterClass):
+        (JSC::Yarr::ByteCompiler::atomBackReference):
+        (JSC::Yarr::ByteCompiler::atomParenthesesOnceBegin):
+        (JSC::Yarr::ByteCompiler::atomParenthesesTerminalBegin):
+        (JSC::Yarr::ByteCompiler::atomParenthesesSubpatternBegin):
+        (JSC::Yarr::ByteCompiler::atomParentheticalAssertionBegin):
+        (JSC::Yarr::ByteCompiler::atomParentheticalAssertionEnd):
+        (JSC::Yarr::ByteCompiler::popParenthesesStack):
+        (JSC::Yarr::ByteCompiler::dumpDisjunction):
+        (JSC::Yarr::ByteCompiler::closeAlternative):
+        (JSC::Yarr::ByteCompiler::closeBodyAlternative):
+        (JSC::Yarr::ByteCompiler::atomParenthesesSubpatternEnd):
+        (JSC::Yarr::ByteCompiler::atomParenthesesOnceEnd):
+        (JSC::Yarr::ByteCompiler::atomParenthesesTerminalEnd):
+        (JSC::Yarr::ByteCompiler::regexBegin):
+        (JSC::Yarr::ByteCompiler::regexEnd):
+        (JSC::Yarr::ByteCompiler::alternativeBodyDisjunction):
+        (JSC::Yarr::ByteCompiler::alternativeDisjunction):
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+        (JSC::Yarr::byteCompile):
+        (JSC::Yarr::interpret):
+        * yarr/YarrInterpreter.h: Renamed from Source/JavaScriptCore/yarr/RegexInterpreter.h.
+        (JSC::Yarr::ByteTerm::ByteTerm):
+        (JSC::Yarr::ByteTerm::BOL):
+        (JSC::Yarr::ByteTerm::CheckInput):
+        (JSC::Yarr::ByteTerm::EOL):
+        (JSC::Yarr::ByteTerm::WordBoundary):
+        (JSC::Yarr::ByteTerm::BackReference):
+        (JSC::Yarr::ByteTerm::BodyAlternativeBegin):
+        (JSC::Yarr::ByteTerm::BodyAlternativeDisjunction):
+        (JSC::Yarr::ByteTerm::BodyAlternativeEnd):
+        (JSC::Yarr::ByteTerm::AlternativeBegin):
+        (JSC::Yarr::ByteTerm::AlternativeDisjunction):
+        (JSC::Yarr::ByteTerm::AlternativeEnd):
+        (JSC::Yarr::ByteTerm::SubpatternBegin):
+        (JSC::Yarr::ByteTerm::SubpatternEnd):
+        (JSC::Yarr::ByteTerm::invert):
+        (JSC::Yarr::ByteTerm::capture):
+        (JSC::Yarr::ByteDisjunction::ByteDisjunction):
+        (JSC::Yarr::BytecodePattern::BytecodePattern):
+        (JSC::Yarr::BytecodePattern::~BytecodePattern):
+        * yarr/YarrJIT.cpp: Renamed from Source/JavaScriptCore/yarr/RegexJIT.cpp.
+        (JSC::Yarr::YarrGenerator::optimizeAlternative):
+        (JSC::Yarr::YarrGenerator::matchCharacterClassRange):
+        (JSC::Yarr::YarrGenerator::matchCharacterClass):
+        (JSC::Yarr::YarrGenerator::jumpIfNoAvailableInput):
+        (JSC::Yarr::YarrGenerator::jumpIfAvailableInput):
+        (JSC::Yarr::YarrGenerator::checkInput):
+        (JSC::Yarr::YarrGenerator::atEndOfInput):
+        (JSC::Yarr::YarrGenerator::notAtEndOfInput):
+        (JSC::Yarr::YarrGenerator::jumpIfCharEquals):
+        (JSC::Yarr::YarrGenerator::jumpIfCharNotEquals):
+        (JSC::Yarr::YarrGenerator::readCharacter):
+        (JSC::Yarr::YarrGenerator::storeToFrame):
+        (JSC::Yarr::YarrGenerator::storeToFrameWithPatch):
+        (JSC::Yarr::YarrGenerator::loadFromFrame):
+        (JSC::Yarr::YarrGenerator::loadFromFrameAndJump):
+        (JSC::Yarr::YarrGenerator::IndirectJumpEntry::IndirectJumpEntry):
+        (JSC::Yarr::YarrGenerator::IndirectJumpEntry::addJump):
+        (JSC::Yarr::YarrGenerator::AlternativeBacktrackRecord::AlternativeBacktrackRecord):
+        (JSC::Yarr::YarrGenerator::GenerationState::GenerationState):
+        (JSC::Yarr::YarrGenerator::GenerationState::addIndirectJumpEntry):
+        (JSC::Yarr::YarrGenerator::GenerationState::emitIndirectJumpTable):
+        (JSC::Yarr::YarrGenerator::GenerationState::incrementParenNestingLevel):
+        (JSC::Yarr::YarrGenerator::GenerationState::decrementParenNestingLevel):
+        (JSC::Yarr::YarrGenerator::GenerationState::addParenthesesTail):
+        (JSC::Yarr::YarrGenerator::GenerationState::emitParenthesesTail):
+        (JSC::Yarr::YarrGenerator::GenerationState::addJumpToNextInteration):
+        (JSC::Yarr::YarrGenerator::GenerationState::addJumpsToNextInteration):
+        (JSC::Yarr::YarrGenerator::GenerationState::addDataLabelToNextIteration):
+        (JSC::Yarr::YarrGenerator::GenerationState::linkToNextIteration):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::BacktrackDestination):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::clear):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::clearDataLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::hasDestination):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::isStackOffset):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::isLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::isJumpList):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::hasDataLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::copyTarget):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::copyTo):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::addBacktrackJump):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setStackOffset):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setNextBacktrackLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::copyBacktrackToLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setBacktrackToLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setBacktrackJumpList):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setBacktrackSourceLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setDataLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::setSubDataLabelPtr):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::linkToNextBacktrack):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::getStackOffset):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::getLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::getBacktrackJumps):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::getDataLabel):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::jumpToBacktrack):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::linkDataLabelToHereIfExists):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::plantJumpToBacktrackIfExists):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::linkAlternativeBacktracks):
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::linkAlternativeBacktracksTo):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::TermGenerationState):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::resetAlternative):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::alternativeValid):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::nextAlternative):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::alternative):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::isLastAlternative):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::resetTerm):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::termValid):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::nextTerm):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::term):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::isLastTerm):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::getSubParenNum):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::isMainDisjunction):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setParenthesesTail):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::getParenthesesTail):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::lookaheadTerm):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::isSinglePatternCharacterLookaheadTerm):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::inputOffset):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::clearBacktrack):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::jumpToBacktrack):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::plantJumpToBacktrackIfExists):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::linkDataLabelToBacktrackIfExists):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::addBacktrackJump):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setBacktrackDataLabel):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setBackTrackStackOffset):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setBacktrackLabel):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::linkAlternativeBacktracks):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::linkAlternativeBacktracksTo):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setBacktrackLink):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::chainBacktracks):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::chainBacktrackJumps):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::getBacktrackDestination):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::propagateBacktrackingFrom):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::ParenthesesTail):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::processBacktracks):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::setNextIteration):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::addAfterParenJump):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::YarrGenerator::generateAssertionBOL):
+        (JSC::Yarr::YarrGenerator::generateAssertionEOL):
+        (JSC::Yarr::YarrGenerator::matchAssertionWordchar):
+        (JSC::Yarr::YarrGenerator::generateAssertionWordBoundary):
+        (JSC::Yarr::YarrGenerator::generatePatternCharacterSingle):
+        (JSC::Yarr::YarrGenerator::generatePatternCharacterPair):
+        (JSC::Yarr::YarrGenerator::generatePatternCharacterFixed):
+        (JSC::Yarr::YarrGenerator::generatePatternCharacterGreedy):
+        (JSC::Yarr::YarrGenerator::generatePatternCharacterNonGreedy):
+        (JSC::Yarr::YarrGenerator::generateCharacterClassSingle):
+        (JSC::Yarr::YarrGenerator::generateCharacterClassFixed):
+        (JSC::Yarr::YarrGenerator::generateCharacterClassGreedy):
+        (JSC::Yarr::YarrGenerator::generateCharacterClassNonGreedy):
+        (JSC::Yarr::YarrGenerator::generateParenthesesDisjunction):
+        (JSC::Yarr::YarrGenerator::generateParenthesesSingle):
+        (JSC::Yarr::YarrGenerator::generateParenthesesGreedyNoBacktrack):
+        (JSC::Yarr::YarrGenerator::generateParentheticalAssertion):
+        (JSC::Yarr::YarrGenerator::generateTerm):
+        (JSC::Yarr::YarrGenerator::generateDisjunction):
+        (JSC::Yarr::YarrGenerator::generateEnter):
+        (JSC::Yarr::YarrGenerator::generateReturn):
+        (JSC::Yarr::YarrGenerator::YarrGenerator):
+        (JSC::Yarr::YarrGenerator::generate):
+        (JSC::Yarr::YarrGenerator::compile):
+        (JSC::Yarr::jitCompile):
+        * yarr/YarrJIT.h: Renamed from Source/JavaScriptCore/yarr/RegexJIT.h.
+        (JSC::Yarr::YarrCodeBlock::YarrCodeBlock):
+        (JSC::Yarr::YarrCodeBlock::~YarrCodeBlock):
+        (JSC::Yarr::YarrCodeBlock::setFallBack):
+        (JSC::Yarr::YarrCodeBlock::isFallBack):
+        (JSC::Yarr::YarrCodeBlock::set):
+        (JSC::Yarr::YarrCodeBlock::execute):
+        (JSC::Yarr::YarrCodeBlock::getAddr):
+        (JSC::Yarr::execute):
+        * yarr/YarrParser.h: Renamed from Source/JavaScriptCore/yarr/RegexParser.h.
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::CharacterClassParserDelegate):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::begin):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::atomPatternCharacter):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::atomBuiltInCharacterClass):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::end):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::assertionWordBoundary):
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::atomBackReference):
+        (JSC::Yarr::Parser::Parser):
+        (JSC::Yarr::Parser::parseEscape):
+        (JSC::Yarr::Parser::parseAtomEscape):
+        (JSC::Yarr::Parser::parseCharacterClassEscape):
+        (JSC::Yarr::Parser::parseCharacterClass):
+        (JSC::Yarr::Parser::parseParenthesesBegin):
+        (JSC::Yarr::Parser::parseParenthesesEnd):
+        (JSC::Yarr::Parser::parseQuantifier):
+        (JSC::Yarr::Parser::parseTokens):
+        (JSC::Yarr::Parser::parse):
+        (JSC::Yarr::Parser::saveState):
+        (JSC::Yarr::Parser::restoreState):
+        (JSC::Yarr::Parser::atEndOfPattern):
+        (JSC::Yarr::Parser::peek):
+        (JSC::Yarr::Parser::peekIsDigit):
+        (JSC::Yarr::Parser::peekDigit):
+        (JSC::Yarr::Parser::consume):
+        (JSC::Yarr::Parser::consumeDigit):
+        (JSC::Yarr::Parser::consumeNumber):
+        (JSC::Yarr::Parser::consumeOctal):
+        (JSC::Yarr::Parser::tryConsume):
+        (JSC::Yarr::Parser::tryConsumeHex):
+        (JSC::Yarr::parse):
+        * yarr/YarrPattern.cpp: Renamed from Source/JavaScriptCore/yarr/RegexPattern.cpp.
+        (JSC::Yarr::CharacterClassConstructor::CharacterClassConstructor):
+        (JSC::Yarr::CharacterClassConstructor::reset):
+        (JSC::Yarr::CharacterClassConstructor::append):
+        (JSC::Yarr::CharacterClassConstructor::putChar):
+        (JSC::Yarr::CharacterClassConstructor::isUnicodeUpper):
+        (JSC::Yarr::CharacterClassConstructor::isUnicodeLower):
+        (JSC::Yarr::CharacterClassConstructor::putRange):
+        (JSC::Yarr::CharacterClassConstructor::charClass):
+        (JSC::Yarr::CharacterClassConstructor::addSorted):
+        (JSC::Yarr::CharacterClassConstructor::addSortedRange):
+        (JSC::Yarr::BeginCharHelper::BeginCharHelper):
+        (JSC::Yarr::BeginCharHelper::addBeginChar):
+        (JSC::Yarr::BeginCharHelper::merge):
+        (JSC::Yarr::BeginCharHelper::addCharacter):
+        (JSC::Yarr::BeginCharHelper::linkHotTerms):
+        (JSC::Yarr::YarrPatternConstructor::YarrPatternConstructor):
+        (JSC::Yarr::YarrPatternConstructor::~YarrPatternConstructor):
+        (JSC::Yarr::YarrPatternConstructor::reset):
+        (JSC::Yarr::YarrPatternConstructor::assertionBOL):
+        (JSC::Yarr::YarrPatternConstructor::assertionEOL):
+        (JSC::Yarr::YarrPatternConstructor::assertionWordBoundary):
+        (JSC::Yarr::YarrPatternConstructor::atomPatternCharacter):
+        (JSC::Yarr::YarrPatternConstructor::atomBuiltInCharacterClass):
+        (JSC::Yarr::YarrPatternConstructor::atomCharacterClassBegin):
+        (JSC::Yarr::YarrPatternConstructor::atomCharacterClassAtom):
+        (JSC::Yarr::YarrPatternConstructor::atomCharacterClassRange):
+        (JSC::Yarr::YarrPatternConstructor::atomCharacterClassBuiltIn):
+        (JSC::Yarr::YarrPatternConstructor::atomCharacterClassEnd):
+        (JSC::Yarr::YarrPatternConstructor::atomParenthesesSubpatternBegin):
+        (JSC::Yarr::YarrPatternConstructor::atomParentheticalAssertionBegin):
+        (JSC::Yarr::YarrPatternConstructor::atomParenthesesEnd):
+        (JSC::Yarr::YarrPatternConstructor::atomBackReference):
+        (JSC::Yarr::YarrPatternConstructor::copyDisjunction):
+        (JSC::Yarr::YarrPatternConstructor::copyTerm):
+        (JSC::Yarr::YarrPatternConstructor::quantifyAtom):
+        (JSC::Yarr::YarrPatternConstructor::disjunction):
+        (JSC::Yarr::YarrPatternConstructor::regexBegin):
+        (JSC::Yarr::YarrPatternConstructor::regexEnd):
+        (JSC::Yarr::YarrPatternConstructor::regexError):
+        (JSC::Yarr::YarrPatternConstructor::setupAlternativeOffsets):
+        (JSC::Yarr::YarrPatternConstructor::setupDisjunctionOffsets):
+        (JSC::Yarr::YarrPatternConstructor::setupOffsets):
+        (JSC::Yarr::YarrPatternConstructor::checkForTerminalParentheses):
+        (JSC::Yarr::YarrPatternConstructor::optimizeBOL):
+        (JSC::Yarr::YarrPatternConstructor::addBeginTerm):
+        (JSC::Yarr::YarrPatternConstructor::setupDisjunctionBeginTerms):
+        (JSC::Yarr::YarrPatternConstructor::setupAlternativeBeginTerms):
+        (JSC::Yarr::YarrPatternConstructor::setupBeginChars):
+        (JSC::Yarr::compile):
+        (JSC::Yarr::YarrPattern::YarrPattern):
+        * yarr/YarrPattern.h: Renamed from Source/JavaScriptCore/yarr/RegexPattern.h.
+        (JSC::Yarr::CharacterRange::CharacterRange):
+        (JSC::Yarr::CharacterClassTable::create):
+        (JSC::Yarr::CharacterClassTable::CharacterClassTable):
+        (JSC::Yarr::CharacterClass::CharacterClass):
+        (JSC::Yarr::PatternTerm::PatternTerm):
+        (JSC::Yarr::PatternTerm::ForwardReference):
+        (JSC::Yarr::PatternTerm::BOL):
+        (JSC::Yarr::PatternTerm::EOL):
+        (JSC::Yarr::PatternTerm::WordBoundary):
+        (JSC::Yarr::PatternTerm::invert):
+        (JSC::Yarr::PatternTerm::capture):
+        (JSC::Yarr::PatternTerm::quantify):
+        (JSC::Yarr::PatternAlternative::PatternAlternative):
+        (JSC::Yarr::PatternAlternative::lastTerm):
+        (JSC::Yarr::PatternAlternative::removeLastTerm):
+        (JSC::Yarr::PatternAlternative::setOnceThrough):
+        (JSC::Yarr::PatternAlternative::onceThrough):
+        (JSC::Yarr::PatternDisjunction::PatternDisjunction):
+        (JSC::Yarr::PatternDisjunction::~PatternDisjunction):
+        (JSC::Yarr::PatternDisjunction::addNewAlternative):
+        (JSC::Yarr::TermChain::TermChain):
+        (JSC::Yarr::BeginChar::BeginChar):
+        (JSC::Yarr::YarrPattern::~YarrPattern):
+        (JSC::Yarr::YarrPattern::reset):
+        (JSC::Yarr::YarrPattern::containsIllegalBackReference):
+        (JSC::Yarr::YarrPattern::newlineCharacterClass):
+        (JSC::Yarr::YarrPattern::digitsCharacterClass):
+        (JSC::Yarr::YarrPattern::spacesCharacterClass):
+        (JSC::Yarr::YarrPattern::wordcharCharacterClass):
+        (JSC::Yarr::YarrPattern::nondigitsCharacterClass):
+        (JSC::Yarr::YarrPattern::nonspacesCharacterClass):
+        (JSC::Yarr::YarrPattern::nonwordcharCharacterClass):
+
+2011-01-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * parser/SyntaxChecker.h:
+
+2011-01-10  Dave Tapuska  <dtapuska@rim.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add CTI ASM versions for RVCT ARM THUMB2 mode.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52154
+
+        * jit/JITStubs.cpp:
+        (JSC::ctiTrampoline):
+        (JSC::ctiVMThrowTrampoline):
+        (JSC::ctiOpThrowNotCaught):
+
+2011-01-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Qt build fix.
+
+        * JavaScriptCore.pro:
+
+2011-01-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 52079 - Syntax errors should be early errors.
+
+        From chapter 16 the spec:
+            An implementation must report most errors at the time the relevant ECMAScript language construct is
+            evaluated. An early error is an error that can be detected and reported prior to the evaluation of
+            any construct in the Program containing the error. An implementation must report early errors in a
+            Program prior to the first evaluation of that Program. Early errors in eval code are reported at
+            the time eval is called but prior to evaluation of any construct within the eval code. All errors
+            that are not early errors are runtime errors.
+
+            An implementation must treat any instance of the following kinds of errors as an early error:
+                * Any syntax error."
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+            Added new files.
+        * bytecode/CodeBlock.cpp:
+            Removed op_throw_syntax_error.
+        * bytecode/Opcode.h:
+            Removed op_throw_syntax_error.
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::generate):
+            If m_expressionTooDeep then throw a runtime error.
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+            Initialize m_expressionTooDeep.
+        (JSC::BytecodeGenerator::emitThrowExpressionTooDeepException):
+            Sets m_expressionTooDeep.
+        * bytecompiler/BytecodeGenerator.h:
+            Added m_expressionTooDeep, removed emitThrowSyntaxError.
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::RegExpNode::emitBytecode):
+        (JSC::ContinueNode::emitBytecode):
+        (JSC::BreakNode::emitBytecode):
+        (JSC::ReturnNode::emitBytecode):
+        (JSC::LabelNode::emitBytecode):
+            Conditions that threw syntax error are now handled during parsing;
+            during bytecompilation these are now just ASSERTs.
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        * jit/JITOpcodes32_64.cpp:
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+            Removed op_throw_syntax_error.
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createRegExp):
+            Renamed; added syntax check.
+        * parser/JSParser.cpp:
+        (JSC::JSParser::breakIsValid):
+        (JSC::JSParser::hasLabel):
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::setIsFunction):
+        (JSC::JSParser::Scope::isFunctionBoundary):
+        (JSC::JSParser::ScopeRef::hasContainingScope):
+        (JSC::JSParser::ScopeRef::containingScope):
+        (JSC::JSParser::AutoPopScopeRef::AutoPopScopeRef):
+        (JSC::JSParser::AutoPopScopeRef::~AutoPopScopeRef):
+        (JSC::JSParser::AutoPopScopeRef::setPopped):
+        (JSC::JSParser::popScopeInternal):
+        (JSC::JSParser::popScope):
+        (JSC::jsParse):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseBreakStatement):
+        (JSC::JSParser::parseContinueStatement):
+        (JSC::JSParser::parseReturnStatement):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+        (JSC::JSParser::parsePrimaryExpression):
+        * parser/JSParser.h:
+        * parser/Nodes.h:
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::createRegExp):
+            Renamed; added syntax check.
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createOutOfMemoryError):
+        (JSC::throwOutOfMemoryError):
+        * runtime/ExceptionHelpers.h:
+            Broke out createOutOfMemoryError.
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+            Add check for exception after bytecode generation.
+        * runtime/RegExpConstructor.cpp:
+        (JSC::constructRegExp):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncCompile):
+            RegExp error prefixes not included in error string.
+        * yarr/RegexParser.h:
+        (JSC::Yarr::Parser::parse):
+            Removed regexBegin/regexEnd/regexError.
+        * yarr/RegexPattern.cpp:
+        (JSC::Yarr::RegexPatternConstructor::regexBegin):
+            Removed regexEnd/regexError.
+        (JSC::Yarr::compileRegex):
+            Add call to regexBegin (no longer called from the parser).
+        * yarr/YarrSyntaxChecker.cpp: Added.
+        (JSC::Yarr::SyntaxChecker::assertionBOL):
+        (JSC::Yarr::SyntaxChecker::assertionEOL):
+        (JSC::Yarr::SyntaxChecker::assertionWordBoundary):
+        (JSC::Yarr::SyntaxChecker::atomPatternCharacter):
+        (JSC::Yarr::SyntaxChecker::atomBuiltInCharacterClass):
+        (JSC::Yarr::SyntaxChecker::atomCharacterClassBegin):
+        (JSC::Yarr::SyntaxChecker::atomCharacterClassAtom):
+        (JSC::Yarr::SyntaxChecker::atomCharacterClassRange):
+        (JSC::Yarr::SyntaxChecker::atomCharacterClassBuiltIn):
+        (JSC::Yarr::SyntaxChecker::atomCharacterClassEnd):
+        (JSC::Yarr::SyntaxChecker::atomParenthesesSubpatternBegin):
+        (JSC::Yarr::SyntaxChecker::atomParentheticalAssertionBegin):
+        (JSC::Yarr::SyntaxChecker::atomParenthesesEnd):
+        (JSC::Yarr::SyntaxChecker::atomBackReference):
+        (JSC::Yarr::SyntaxChecker::quantifyAtom):
+        (JSC::Yarr::SyntaxChecker::disjunction):
+        (JSC::Yarr::checkSyntax):
+        * yarr/YarrSyntaxChecker.h: Added.
+            Check RegExp syntax.
+
+2011-01-10  Adam Roben  <aroben@apple.com>
+
+        Roll out r75289
+
+        It was causing assertion failures. See <http://webkit.org/b/52156>.
+
+        * wtf/StackBounds.cpp:
+        (WTF::StackBounds::initialize):
+
+2011-01-08  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Unify string table adding in AtomicString
+        https://bugs.webkit.org/show_bug.cgi?id=51927
+
+        Move code for adding a string into a separate function.
+        This removes multiple occurrence of the same logic.
+
+        * wtf/text/AtomicString.cpp:
+        (WTF::addToStringTable): Added.
+        (WTF::AtomicString::add): Use addToStringTable().
+        (WTF::AtomicString::fromUTF8): Ditto.
+
+2011-01-07  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Split machine stack marking functions into their own class (MachineStackMarker)
+        https://bugs.webkit.org/show_bug.cgi?id=52088
+
+        * API/APIShims.h:
+        (JSC::APIEntryShimWithoutLock::APIEntryShimWithoutLock): Moved registerThread()
+        call behind an #ifdef because we shouldn't be registering threads at all
+        if we don't support usage on multiple threads.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj: Updated projects.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::destroy):
+        (JSC::Heap::markRoots):
+        * runtime/Collector.h:
+        (JSC::Heap::machineStackMarker): Moved code to machineStackMarker.
+
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::makeUsableFromMultipleThreads): Removed an unnecessary
+        level of indirection, to make Heap less of a God class.
+
+        * runtime/MachineStackMarker.h: Copied from Source/JavaScriptCore/runtime/Collector.h.
+        * runtime/MachineStackMarker.cpp: Copied from Source/JavaScriptCore/runtime/Collector.cpp.
+        (JSC::MachineStackMarker::MachineStackMarker):
+        (JSC::MachineStackMarker::~MachineStackMarker):
+        (JSC::MachineStackMarker::makeUsableFromMultipleThreads):
+        (JSC::MachineStackMarker::registerThread):
+        (JSC::MachineStackMarker::unregisterThread):
+        (JSC::MachineStackMarker::markCurrentThreadConservativelyInternal):
+        (JSC::MachineStackMarker::markCurrentThreadConservatively):
+        (JSC::MachineStackMarker::markOtherThreadConservatively):
+        (JSC::MachineStackMarker::markMachineStackConservatively): Moved code from Heap.
+
 2011-01-07  Gavin Barraclough  <barraclough@apple.com>
 
         Reviewed by Geoff Garen.

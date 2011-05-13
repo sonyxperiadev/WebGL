@@ -105,6 +105,12 @@ void RenderLayerBacking::createGraphicsLayer()
     m_graphicsLayer->setName(nameForLayer());
 #endif  // NDEBUG
 
+#if USE(ACCELERATED_COMPOSITING)
+    ASSERT(renderer() && renderer()->document() && renderer()->document()->frame());
+    if (Frame* frame = renderer()->document()->frame())
+        m_graphicsLayer->setContentsScale(frame->pageScaleFactor());
+#endif
+
     updateLayerOpacity(renderer()->style());
     updateLayerTransform(renderer()->style());
 }
@@ -543,6 +549,8 @@ bool RenderLayerBacking::updateForegroundLayer(bool needsForegroundLayer)
 #endif
             m_foregroundLayer->setDrawsContent(true);
             m_foregroundLayer->setPaintingPhase(GraphicsLayerPaintForeground);
+            if (Frame* frame = renderer()->document()->frame())
+                m_foregroundLayer->setContentsScale(frame->pageScaleFactor());
             layerChanged = true;
         }
     } else if (m_foregroundLayer) {
@@ -568,6 +576,8 @@ bool RenderLayerBacking::updateMaskLayer(bool needsMaskLayer)
 #endif
             m_maskLayer->setDrawsContent(true);
             m_maskLayer->setPaintingPhase(GraphicsLayerPaintMask);
+            if (Frame* frame = renderer()->document()->frame())
+                m_maskLayer->setContentsScale(frame->pageScaleFactor());
             layerChanged = true;
         }
     } else if (m_maskLayer) {
@@ -933,7 +943,7 @@ FloatPoint RenderLayerBacking::contentsToGraphicsLayerCoordinates(const Graphics
 bool RenderLayerBacking::paintingGoesToWindow() const
 {
     if (m_owningLayer->isRootLayer())
-        return !m_owningLayer->hasTransform() && (compositor()->rootLayerAttachment() != RenderLayerCompositor::RootLayerAttachedViaEnclosingIframe);
+        return compositor()->rootLayerAttachment() != RenderLayerCompositor::RootLayerAttachedViaEnclosingIframe;
     
     return false;
 }
@@ -1275,7 +1285,7 @@ void RenderLayerBacking::notifyAnimationStarted(const GraphicsLayer*, double tim
 void RenderLayerBacking::notifySyncRequired(const GraphicsLayer*)
 {
     if (!renderer()->documentBeingDestroyed())
-        compositor()->scheduleSync();
+        compositor()->scheduleLayerFlush();
 }
 
 // This is used for the 'freeze' API, for testing only.
@@ -1359,6 +1369,18 @@ CompositingLayerType RenderLayerBacking::compositingLayerType() const
         return m_graphicsLayer->usingTiledLayer() ? TiledCompositingLayer : NormalCompositingLayer;
     
     return ContainerCompositingLayer;
+}
+
+void RenderLayerBacking::updateContentsScale(float scale)
+{
+    if (m_graphicsLayer)
+        m_graphicsLayer->setContentsScale(scale);
+
+    if (m_foregroundLayer)
+        m_foregroundLayer->setContentsScale(scale);
+
+    if (m_maskLayer)
+        m_maskLayer->setContentsScale(scale);
 }
 
 } // namespace WebCore

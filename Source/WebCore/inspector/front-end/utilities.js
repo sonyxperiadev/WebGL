@@ -388,6 +388,17 @@ String.prototype.hasSubstring = function(string, caseInsensitive)
     return this.match(new RegExp(string.escapeForRegExp(), "i"));
 }
 
+String.prototype.findAll = function(string)
+{
+    var matches = [];
+    var i = this.indexOf(string);
+    while (i !== -1) {
+        matches.push(i);
+        i = this.indexOf(string, i + string.length);
+    }
+    return matches;
+}
+
 String.prototype.asParsedURL = function()
 {
     // RegExp groups:
@@ -643,61 +654,56 @@ function parentNode(node)
     return node.parentNode;
 }
 
-Number.millisToString = function(ms, formatterFunction, higherResolution)
+Number.millisToString = function(ms, higherResolution)
 {
-    return Number.secondsToString(ms / 1000, formatterFunction, higherResolution);
+    return Number.secondsToString(ms / 1000, higherResolution);
 }
 
-Number.secondsToString = function(seconds, formatterFunction, higherResolution)
+Number.secondsToString = function(seconds, higherResolution)
 {
-    if (!formatterFunction)
-        formatterFunction = String.sprintf;
-
     if (seconds === 0)
         return "0";
 
     var ms = seconds * 1000;
     if (higherResolution && ms < 1000)
-        return formatterFunction("%.3fms", ms);
+        return WebInspector.UIString("%.3fms", ms);
     else if (ms < 1000)
-        return formatterFunction("%.0fms", ms);
+        return WebInspector.UIString("%.0fms", ms);
 
     if (seconds < 60)
-        return formatterFunction("%.2fs", seconds);
+        return WebInspector.UIString("%.2fs", seconds);
 
     var minutes = seconds / 60;
     if (minutes < 60)
-        return formatterFunction("%.1fmin", minutes);
+        return WebInspector.UIString("%.1fmin", minutes);
 
     var hours = minutes / 60;
     if (hours < 24)
-        return formatterFunction("%.1fhrs", hours);
+        return WebInspector.UIString("%.1fhrs", hours);
 
     var days = hours / 24;
-    return formatterFunction("%.1f days", days);
+    return WebInspector.UIString("%.1f days", days);
 }
 
-Number.bytesToString = function(bytes, formatterFunction, higherResolution)
+Number.bytesToString = function(bytes, higherResolution)
 {
-    if (!formatterFunction)
-        formatterFunction = String.sprintf;
     if (typeof higherResolution === "undefined")
         higherResolution = true;
 
     if (bytes < 1024)
-        return formatterFunction("%.0fB", bytes);
+        return WebInspector.UIString("%.0fB", bytes);
 
     var kilobytes = bytes / 1024;
     if (higherResolution && kilobytes < 1024)
-        return formatterFunction("%.2fKB", kilobytes);
+        return WebInspector.UIString("%.2fKB", kilobytes);
     else if (kilobytes < 1024)
-        return formatterFunction("%.0fKB", kilobytes);
+        return WebInspector.UIString("%.0fKB", kilobytes);
 
     var megabytes = kilobytes / 1024;
     if (higherResolution)
-        return formatterFunction("%.2fMB", megabytes);
+        return WebInspector.UIString("%.2fMB", megabytes);
     else
-        return formatterFunction("%.0fMB", megabytes);
+        return WebInspector.UIString("%.0fMB", megabytes);
 }
 
 Number.constrain = function(num, min, max)
@@ -715,7 +721,7 @@ HTMLTextAreaElement.prototype.moveCursorToEnd = function()
     this.setSelectionRange(length, length);
 }
 
-Array.prototype.remove = function(value, onlyFirst)
+Object.defineProperty(Array.prototype, "remove", { value: function(value, onlyFirst)
 {
     if (onlyFirst) {
         var index = this.indexOf(value);
@@ -729,15 +735,15 @@ Array.prototype.remove = function(value, onlyFirst)
         if (this[i] === value)
             this.splice(i, 1);
     }
-}
+}});
 
-Array.prototype.keySet = function()
+Object.defineProperty(Array.prototype, "keySet", { value: function()
 {
     var keys = {};
     for (var i = 0; i < this.length; ++i)
         keys[this[i]] = true;
     return keys;
-}
+}});
 
 Array.diff = function(left, right)
 {
@@ -1050,6 +1056,6 @@ function offerFileForDownload(contents)
     var builder = new BlobBuilder();
     builder.append(contents);
     var blob = builder.getBlob("application/octet-stream");
-    var url = window.createObjectURL(blob);
+    var url = window.webkitURL.createObjectURL(blob);
     window.open(url);
 }

@@ -84,7 +84,8 @@ LOCAL_SRC_FILES := \
 	runtime/BooleanObject.cpp \
 	runtime/BooleanPrototype.cpp \
 	runtime/CallData.cpp \
-	runtime/Collector.cpp \
+	runtime/MarkedSpace.cpp \
+	runtime/Heap.cpp \
 	runtime/CommonIdentifiers.cpp \
 	runtime/Completion.cpp \
 	runtime/ConstructData.cpp \
@@ -131,6 +132,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSWrapperObject.cpp \
 	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
+	runtime/MachineStackMarker.cpp \
 	runtime/MarkStack.cpp \
 	runtime/MarkStackPosix.cpp \
 	runtime/MathObject.cpp \
@@ -200,6 +202,7 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
+<<<<<<< HEAD
 	wtf/url/src/URLCharacterTypes.cpp \
 	wtf/url/src/URLEscape.cpp \
 	wtf/url/src/URLSegments.cpp \
@@ -207,6 +210,12 @@ LOCAL_SRC_FILES := \
 	yarr/RegexInterpreter.cpp \
 	yarr/RegexJIT.cpp \
 	yarr/RegexPattern.cpp
+=======
+	yarr/YarrPattern.cpp \
+	yarr/YarrInterpreter.cpp \
+	yarr/YarrJIT.cpp \
+    yarr/YarrSyntaxChecker.cpp
+>>>>>>> WebKit.org @ r75993
 
 # generated headers
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \

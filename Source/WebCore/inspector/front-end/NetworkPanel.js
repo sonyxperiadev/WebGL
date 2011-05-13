@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
  * Copyright (C) 2008, 2009 Anthony Ricaud <rik@webkit.org>
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +38,6 @@ WebInspector.NetworkPanel = function()
     this._resources = [];
     this._resourcesById = {};
     this._resourcesByURL = {};
-    this._lastIdentifier = 0;
     this._staleResources = [];
     this._resourceGridNodes = {};
     this._mainResourceLoadTime = -1;
@@ -733,12 +732,6 @@ WebInspector.NetworkPanel.prototype = {
         this._preserveLogToggle.toggled = !this._preserveLogToggle.toggled;
     },
 
-    reset: function()
-    {
-        if (!this._preserveLogToggle.toggled)
-            this._reset();
-    },
-
     _reset: function()
     {
         this._popoverHelper.hidePopup();
@@ -771,31 +764,33 @@ WebInspector.NetworkPanel.prototype = {
 
     get resources()
     {
-        return this._resourcesById;
+        return this._resources;
+    },
+
+    resourceById: function(id)
+    {
+        return this._resourcesById[id];
+    },
+
+    appendResource: function(resource)
+    {
+        this._resources.push(resource);
+        this._resourcesById[resource.identifier] = resource;
+        this._resourcesByURL[resource.url] = resource;
+
+        // Pull all the redirects of the main resource upon commit load.
+        if (resource.redirects) {
+            for (var i = 0; i < resource.redirects.length; ++i)
+                this.refreshResource(resource.redirects[i]);
+        }
+
+        this.refreshResource(resource);
     },
 
     refreshResource: function(resource)
     {
-        if (!resource.identifier)
-            resource.identifier = "network:" + this._lastIdentifier++;
-
-        if (!this._resourcesById[resource.identifier]) {
-            this._resources.push(resource);
-            this._resourcesById[resource.identifier] = resource;
-            this._resourcesByURL[resource.url] = resource;
-
-            // Pull all the redirects of the main resource upon commit load.
-            if (resource.redirects) {
-                for (var i = 0; i < resource.redirects.length; ++i)
-                    this.refreshResource(resource.redirects[i]);
-            }
-        }
-
         this._staleResources.push(resource);
         this._scheduleRefresh();
-
-        if (!resource)
-            return;
 
         var oldView = WebInspector.ResourceView.existingResourceViewForResource(resource);
         if (!oldView)
@@ -807,6 +802,24 @@ WebInspector.NetworkPanel.prototype = {
         var newView = WebInspector.ResourceView.recreateResourceView(resource);
         if (this.visibleView === oldView)
             this.visibleView = newView;
+    },
+
+    clear: function()
+    {
+        if (this._preserveLogToggle.toggled)
+            return;
+        this._reset();
+    },
+
+    mainResourceChanged: function()
+    {
+        if (this._preserveLogToggle.toggled)
+            return;
+
+        this._reset();
+        // Now resurrect the main resource along with all redirects that lead to it.
+        var resourcesToAppend = (WebInspector.mainResource.redirects || []).concat(WebInspector.mainResource);
+        resourcesToAppend.forEach(this.appendResource, this);
     },
 
     canShowSourceLine: function(url, line)
@@ -978,7 +991,7 @@ WebInspector.NetworkPanel.prototype = {
     _contextMenu: function(event)
     {
         // createBlobURL is enabled conditionally, do not expose resource export if it's not available.
-        if (typeof window.createObjectURL !== "function" || !Preferences.resourceExportEnabled)
+        if (typeof window.webkitURL.createObjectURL !== "function" || !Preferences.resourceExportEnabled)
             return;
 
         var contextMenu = new WebInspector.ContextMenu();
@@ -1230,7 +1243,7 @@ WebInspector.NetworkTimeCalculator.prototype = {
 
     formatValue: function(value)
     {
-        return Number.secondsToString(value, WebInspector.UIString);
+        return Number.secondsToString(value);
     },
 
     _lowerBound: function(resource)
@@ -1254,7 +1267,7 @@ WebInspector.NetworkTransferTimeCalculator = function()
 WebInspector.NetworkTransferTimeCalculator.prototype = {
     formatValue: function(value)
     {
-        return Number.secondsToString(value, WebInspector.UIString);
+        return Number.secondsToString(value);
     },
 
     _lowerBound: function(resource)
@@ -1278,7 +1291,7 @@ WebInspector.NetworkTransferDurationCalculator = function()
 WebInspector.NetworkTransferDurationCalculator.prototype = {
     formatValue: function(value)
     {
-        return Number.secondsToString(value, WebInspector.UIString);
+        return Number.secondsToString(value);
     },
 
     _upperBound: function(resource)
@@ -1408,15 +1421,7 @@ WebInspector.NetworkDataGridNode.prototype = {
         if (this._resource.category === WebInspector.resourceCategories.images) {
             var previewImage = document.createElement("img");
             previewImage.className = "image-network-icon-preview";
-
-            function onResourceContent()
-            {
-                previewImage.src = this._resource.contentURL;
-            }
-            if (Preferences.useDataURLForResourceImageIcons)
-                this._resource.requestContent(onResourceContent.bind(this));
-            else
-                previewImage.src = this._resource.url;
+            this._resource.populateImageSource(previewImage);
 
             var iconElement = document.createElement("div");
             iconElement.className = "icon";

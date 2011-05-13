@@ -33,6 +33,7 @@
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "MediaControlElements.h"
+#include "PaintInfo.h"
 #include "RenderBox.h"
 #include "RenderObject.h"
 #include "TimeRanges.h"
@@ -101,71 +102,20 @@ PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
     return rt;
 }
 
-static int mozGtkRefCount = 0;
-
 RenderThemeGtk::RenderThemeGtk()
-    : m_gtkWindow(0)
-    , m_gtkContainer(0)
-    , m_gtkButton(0)
-    , m_gtkEntry(0)
-    , m_gtkTreeView(0)
-    , m_gtkVScale(0)
-    , m_gtkHScale(0)
-    , m_panelColor(Color::white)
+    : m_panelColor(Color::white)
     , m_sliderColor(Color::white)
     , m_sliderThumbColor(Color::white)
     , m_mediaIconSize(16)
     , m_mediaSliderHeight(14)
     , m_mediaSliderThumbWidth(12)
     , m_mediaSliderThumbHeight(12)
-#ifdef GTK_API_VERSION_2
-    , m_themePartsHaveRGBAColormap(true)
-#endif
 {
-
-    memset(&m_themeParts, 0, sizeof(GtkThemeParts));
-#ifdef GTK_API_VERSION_2
-    GdkColormap* colormap = gdk_screen_get_rgba_colormap(gdk_screen_get_default());
-    if (!colormap) {
-        m_themePartsHaveRGBAColormap = false;
-        colormap = gdk_screen_get_default_colormap(gdk_screen_get_default());
-    }
-    m_themeParts.colormap = colormap;
-#endif
-
-    // Initialize the Mozilla theme drawing code.
-    if (!mozGtkRefCount) {
-        moz_gtk_init();
-        moz_gtk_use_theme_parts(&m_themeParts);
-    }
-    ++mozGtkRefCount;
-
+    platformInit();
 #if ENABLE(VIDEO)
     initMediaColors();
     initMediaButtons();
 #endif
-}
-
-RenderThemeGtk::~RenderThemeGtk()
-{
-    --mozGtkRefCount;
-
-    if (!mozGtkRefCount)
-        moz_gtk_shutdown();
-
-    gtk_widget_destroy(m_gtkWindow);
-}
-
-void RenderThemeGtk::getIndicatorMetrics(ControlPart part, int& indicatorSize, int& indicatorSpacing) const
-{
-    ASSERT(part == CheckboxPart || part == RadioPart);
-    if (part == CheckboxPart) {
-        moz_gtk_checkbox_get_metrics(&indicatorSize, &indicatorSpacing);
-        return;
-    }
-
-    // RadioPart
-    moz_gtk_radio_get_metrics(&indicatorSize, &indicatorSpacing);
 }
 
 static bool supportsFocus(ControlPart appearance)
@@ -227,13 +177,13 @@ GtkTextDirection gtkTextDirection(TextDirection direction)
     }
 }
 
-GtkStateType RenderThemeGtk::gtkIconState(RenderObject* renderObject)
+static GtkStateType gtkIconState(RenderTheme* theme, RenderObject* renderObject)
 {
-    if (!isEnabled(renderObject))
+    if (!theme->isEnabled(renderObject))
         return GTK_STATE_INSENSITIVE;
-    if (isPressed(renderObject))
+    if (theme->isPressed(renderObject))
         return GTK_STATE_ACTIVE;
-    if (isHovered(renderObject))
+    if (theme->isHovered(renderObject))
         return GTK_STATE_PRELIGHT;
 
     return GTK_STATE_NORMAL;
@@ -318,7 +268,7 @@ bool RenderThemeGtk::paintSearchFieldResultsDecoration(RenderObject* renderObjec
 {
     GRefPtr<GdkPixbuf> icon = getStockIcon(GTK_TYPE_ENTRY, GTK_STOCK_FIND,
                                            gtkTextDirection(renderObject->style()->direction()),
-                                           gtkIconState(renderObject), GTK_ICON_SIZE_MENU);
+                                           gtkIconState(this, renderObject), GTK_ICON_SIZE_MENU);
     paintGdkPixbuf(paintInfo.context, icon.get(), centerRectVerticallyInParentInputElement(renderObject, rect));
     return false;
 }
@@ -338,7 +288,7 @@ bool RenderThemeGtk::paintSearchFieldCancelButton(RenderObject* renderObject, co
 {
     GRefPtr<GdkPixbuf> icon = getStockIcon(GTK_TYPE_ENTRY, GTK_STOCK_CLEAR,
                                            gtkTextDirection(renderObject->style()->direction()),
-                                           gtkIconState(renderObject), GTK_ICON_SIZE_MENU);
+                                           gtkIconState(this, renderObject), GTK_ICON_SIZE_MENU);
     paintGdkPixbuf(paintInfo.context, icon.get(), centerRectVerticallyInParentInputElement(renderObject, rect));
     return false;
 }
@@ -438,19 +388,16 @@ String RenderThemeGtk::extraMediaControlsStyleSheet()
 
 void RenderThemeGtk::adjustMediaSliderThumbSize(RenderObject* renderObject) const
 {
-    ControlPart part = renderObject->style()->appearance();
-
-    if (part == MediaSliderThumbPart) {
-        renderObject->style()->setWidth(Length(m_mediaSliderThumbWidth, Fixed));
-        renderObject->style()->setHeight(Length(m_mediaSliderThumbHeight, Fixed));
-    }
+    ASSERT(renderObject->style()->appearance() == MediaSliderThumbPart);
+    renderObject->style()->setWidth(Length(m_mediaSliderThumbWidth, Fixed));
+    renderObject->style()->setHeight(Length(m_mediaSliderThumbHeight, Fixed));
 }
 
 bool RenderThemeGtk::paintMediaButton(RenderObject* renderObject, GraphicsContext* context, const IntRect& rect, const char* iconName)
 {
     GRefPtr<GdkPixbuf> icon = getStockIcon(GTK_TYPE_CONTAINER, iconName,
                                            gtkTextDirection(renderObject->style()->direction()),
-                                           gtkIconState(renderObject),
+                                           gtkIconState(this, renderObject),
                                            getMediaButtonIconSize(m_mediaIconSize));
     IntPoint iconPoint(rect.x() + (rect.width() - m_mediaIconSize) / 2,
                        rect.y() + (rect.height() - m_mediaIconSize) / 2);
@@ -560,6 +507,23 @@ bool RenderThemeGtk::paintMediaSliderThumb(RenderObject* o, const PaintInfo& pai
     return false;
 }
 
+bool RenderThemeGtk::paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    GraphicsContext* context = paintInfo.context;
+    context->fillRect(FloatRect(rect), m_panelColor, ColorSpaceDeviceRGB);
+    return false;
+}
+
+bool RenderThemeGtk::paintMediaVolumeSliderTrack(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    return paintSliderTrack(renderObject, paintInfo, rect);
+}
+
+bool RenderThemeGtk::paintMediaVolumeSliderThumb(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    return paintSliderThumb(renderObject, paintInfo, rect);
+}
+
 String RenderThemeGtk::formatMediaControlsCurrentTime(float currentTime, float duration) const
 {
     return formatMediaControlsTime(currentTime) + " / " + formatMediaControlsTime(duration);
@@ -575,20 +539,6 @@ bool RenderThemeGtk::paintMediaCurrentTime(RenderObject* renderObject, const Pai
 #endif
 
 #if ENABLE(PROGRESS_TAG)
-double RenderThemeGtk::animationRepeatIntervalForProgressBar(RenderProgress*) const
-{
-    // FIXME: It doesn't look like there is a good way yet to support animated
-    // progress bars with the Mozilla theme drawing code.
-    return 0;
-}
-
-double RenderThemeGtk::animationDurationForProgressBar(RenderProgress*) const
-{
-    // FIXME: It doesn't look like there is a good way yet to support animated
-    // progress bars with the Mozilla theme drawing code.
-    return 0;
-}
-
 void RenderThemeGtk::adjustProgressBarStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBoxShadow(0);

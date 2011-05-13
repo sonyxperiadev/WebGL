@@ -91,7 +91,6 @@ class HTMLInputElement;
 class HTMLMapElement;
 class HitTestRequest;
 class HitTestResult;
-class InspectorController;
 class IntPoint;
 class DOMWrapperWorld;
 class JSNode;
@@ -349,6 +348,8 @@ public:
 
     void setCharset(const String&);
 
+    void setContent(const String&);
+
     String contentLanguage() const { return m_contentLanguage; }
     void setContentLanguage(const String& lang) { m_contentLanguage = lang; }
 
@@ -500,9 +501,6 @@ public:
     Frame* frame() const { return m_frame; } // can be NULL
     Page* page() const; // can be NULL
     Settings* settings() const; // can be NULL
-#if ENABLE(INSPECTOR)
-    virtual InspectorController* inspectorController() const; // can be NULL
-#endif
 
     PassRefPtr<Range> createRange();
 

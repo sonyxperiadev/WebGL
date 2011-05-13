@@ -26,11 +26,43 @@
 #ifndef SyntaxChecker_h
 #define SyntaxChecker_h
 
+#include <yarr/YarrSyntaxChecker.h>
+
 namespace JSC {
 class SyntaxChecker {
 public:
+    struct BinaryExprContext {
+        BinaryExprContext(SyntaxChecker& context)
+            : m_context(&context)
+        {
+            m_context->m_topBinaryExprs.append(m_context->m_topBinaryExpr);
+            m_context->m_topBinaryExpr = 0;
+        }
+        ~BinaryExprContext()
+        {
+            m_context->m_topBinaryExpr = m_context->m_topBinaryExprs.last();
+            m_context->m_topBinaryExprs.removeLast();
+        }
+    private:
+        SyntaxChecker* m_context;
+    };
+    struct UnaryExprContext {
+        UnaryExprContext(SyntaxChecker& context)
+            : m_context(&context)
+        {
+            m_context->m_topUnaryTokens.append(m_context->m_topUnaryToken);
+            m_context->m_topUnaryToken = 0;
+        }
+        ~UnaryExprContext()
+        {
+            m_context->m_topUnaryToken = m_context->m_topUnaryTokens.last();
+            m_context->m_topUnaryTokens.removeLast();
+        }
+    private:
+        SyntaxChecker* m_context;
+    };
+    
     SyntaxChecker(JSGlobalData* , Lexer*)
-        : m_topBinaryExpr(0)
     {
     }
 
@@ -107,7 +139,7 @@ public:
     ExpressionType createNull() { return NullExpr; }
     ExpressionType createBracketAccess(ExpressionType, ExpressionType, bool, int, int, int) { return BracketExpr; }
     ExpressionType createDotAccess(ExpressionType, const Identifier&, int, int, int) { return DotExpr; }
-    ExpressionType createRegex(const Identifier&, const Identifier&, int) { return RegExpExpr; }
+    ExpressionType createRegExp(const Identifier& pattern, const Identifier&, int) { return Yarr::checkSyntax(pattern.ustring()) ? 0 : RegExpExpr; }
     ExpressionType createNewExpr(ExpressionType, int, int, int, int) { return NewExpr; }
     ExpressionType createNewExpr(ExpressionType, int, int) { return NewExpr; }
     ExpressionType createConditionalExpr(ExpressionType, ExpressionType, ExpressionType) { return ConditionalExpr; }
@@ -210,6 +242,8 @@ public:
 private:
     int m_topBinaryExpr;
     int m_topUnaryToken;
+    Vector<int, 8> m_topBinaryExprs;
+    Vector<int, 8> m_topUnaryTokens;
 };
 
 }

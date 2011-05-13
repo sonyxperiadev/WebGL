@@ -87,7 +87,8 @@ SET(JavaScriptCore_SOURCES
     runtime/BooleanObject.cpp
     runtime/BooleanPrototype.cpp
     runtime/CallData.cpp
-    runtime/Collector.cpp
+    runtime/MarkedSpace.cpp
+    runtime/Heap.cpp
     runtime/CommonIdentifiers.cpp
     runtime/Completion.cpp
     runtime/ConstructData.cpp
@@ -135,6 +136,7 @@ SET(JavaScriptCore_SOURCES
     runtime/JSZombie.cpp
     runtime/LiteralParser.cpp
     runtime/Lookup.cpp
+    runtime/MachineStackMarker.cpp
     runtime/MarkStack.cpp
     runtime/MathObject.cpp
     runtime/NativeErrorConstructor.cpp
@@ -166,9 +168,10 @@ SET(JavaScriptCore_SOURCES
     runtime/TimeoutChecker.cpp
     runtime/UString.cpp
 
-    yarr/RegexPattern.cpp
-    yarr/RegexInterpreter.cpp
-    yarr/RegexJIT.cpp
+    yarr/YarrPattern.cpp
+    yarr/YarrInterpreter.cpp
+    yarr/YarrJIT.cpp
+    yarr/YarrSyntaxChecker.cpp
 
     wtf/DateMath.cpp
     wtf/PageAllocationAligned.cpp
@@ -219,7 +222,7 @@ ADD_CUSTOM_COMMAND(
     MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/create_regex_tables
     COMMAND ${PYTHON_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/create_regex_tables > ${DERIVED_SOURCES_DIR}/RegExpJitTables.h
     VERBATIM)
-ADD_SOURCE_DEPENDENCIES(${JAVASCRIPTCORE_DIR}/yarr/RegexPattern.cpp ${DERIVED_SOURCES_DIR}/RegExpJitTables.h)
+ADD_SOURCE_DEPENDENCIES(${JAVASCRIPTCORE_DIR}/yarr/YarrPattern.cpp ${DERIVED_SOURCES_DIR}/RegExpJitTables.h)
 
 
 

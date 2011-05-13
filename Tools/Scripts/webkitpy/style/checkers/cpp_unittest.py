@@ -342,6 +342,14 @@ class CppStyleTestBase(unittest.TestCase):
                 'Blank line at the end of a code block.  Is this needed?'
                 '  [whitespace/blank_line] [3]'))
 
+    def assert_positions_equal(self, position, tuple_position):
+        """Checks if the two positions are equal.
+
+        position: a cpp_style.Position object.
+        tuple_position: a tuple (row, column) to compare against."""
+        self.assertEquals(position, cpp_style.Position(tuple_position[0], tuple_position[1]),
+                          'position %s, tuple_position %s' % (position, tuple_position))
+
 
 class FunctionDetectionTest(CppStyleTestBase):
     def perform_function_detection(self, lines, function_information):
@@ -354,9 +362,13 @@ class FunctionDetectionTest(CppStyleTestBase):
             return
         self.assertEquals(function_state.in_a_function, True)
         self.assertEquals(function_state.current_function, function_information['name'] + '()')
-        self.assertEquals(function_state.body_start_line_number, function_information['body_start_line_number'])
-        self.assertEquals(function_state.ending_line_number, function_information['ending_line_number'])
+        self.assertEquals(function_state.is_pure, function_information['is_pure'])
         self.assertEquals(function_state.is_declaration, function_information['is_declaration'])
+        self.assert_positions_equal(function_state.function_name_start_position, function_information['function_name_start_position'])
+        self.assert_positions_equal(function_state.parameter_start_position, function_information['parameter_start_position'])
+        self.assert_positions_equal(function_state.parameter_end_position, function_information['parameter_end_position'])
+        self.assert_positions_equal(function_state.body_start_position, function_information['body_start_position'])
+        self.assert_positions_equal(function_state.end_position, function_information['end_position'])
         expected_parameters = function_information.get('parameter_list')
         if expected_parameters:
             actual_parameters = function_state.parameter_list()
@@ -373,44 +385,105 @@ class FunctionDetectionTest(CppStyleTestBase):
             ['void theTestFunctionName(int) {',
              '}'],
             {'name': 'theTestFunctionName',
-             'body_start_line_number': 0,
-             'ending_line_number': 1,
+             'function_name_start_position': (0, 5),
+             'parameter_start_position': (0, 24),
+             'parameter_end_position': (0, 29),
+             'body_start_position': (0, 30),
+             'end_position': (1, 1),
+             'is_pure': False,
              'is_declaration': False})
 
     def test_function_declaration_detection(self):
         self.perform_function_detection(
             ['void aFunctionName(int);'],
             {'name': 'aFunctionName',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 5),
+             'parameter_start_position': (0, 18),
+             'parameter_end_position': (0, 23),
+             'body_start_position': (0, 23),
+             'end_position': (0, 24),
+             'is_pure': False,
              'is_declaration': True})
 
         self.perform_function_detection(
             ['CheckedInt<T> operator /(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
             {'name': 'operator /',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 14),
+             'parameter_start_position': (0, 24),
+             'parameter_end_position': (0, 76),
+             'body_start_position': (0, 76),
+             'end_position': (0, 77),
+             'is_pure': False,
              'is_declaration': True})
 
         self.perform_function_detection(
             ['CheckedInt<T> operator -(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
             {'name': 'operator -',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
-            'is_declaration': True})
+             'function_name_start_position': (0, 14),
+             'parameter_start_position': (0, 24),
+             'parameter_end_position': (0, 76),
+             'body_start_position': (0, 76),
+             'end_position': (0, 77),
+             'is_pure': False,
+             'is_declaration': True})
 
         self.perform_function_detection(
             ['CheckedInt<T> operator !=(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
             {'name': 'operator !=',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 14),
+             'parameter_start_position': (0, 25),
+             'parameter_end_position': (0, 77),
+             'body_start_position': (0, 77),
+             'end_position': (0, 78),
+             'is_pure': False,
              'is_declaration': True})
 
         self.perform_function_detection(
             ['CheckedInt<T> operator +(const CheckedInt<T> &lhs, const CheckedInt<T> &rhs);'],
             {'name': 'operator +',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 14),
+             'parameter_start_position': (0, 24),
+             'parameter_end_position': (0, 76),
+             'body_start_position': (0, 76),
+             'end_position': (0, 77),
+             'is_pure': False,
+             'is_declaration': True})
+
+    def test_pure_function_detection(self):
+        self.perform_function_detection(
+            ['virtual void theTestFunctionName(int = 0);'],
+            {'name': 'theTestFunctionName',
+             'function_name_start_position': (0, 13),
+             'parameter_start_position': (0, 32),
+             'parameter_end_position': (0, 41),
+             'body_start_position': (0, 41),
+             'end_position': (0, 42),
+             'is_pure': False,
+             'is_declaration': True})
+
+        self.perform_function_detection(
+            ['virtual void theTestFunctionName(int) = 0;'],
+            {'name': 'theTestFunctionName',
+             'function_name_start_position': (0, 13),
+             'parameter_start_position': (0, 32),
+             'parameter_end_position': (0, 37),
+             'body_start_position': (0, 41),
+             'end_position': (0, 42),
+             'is_pure': True,
+             'is_declaration': True})
+
+        # Hopefully, no one writes code like this but it is a tricky case.
+        self.perform_function_detection(
+            ['virtual void theTestFunctionName(int)',
+             ' = ',
+             ' 0 ;'],
+            {'name': 'theTestFunctionName',
+             'function_name_start_position': (0, 13),
+             'parameter_start_position': (0, 32),
+             'parameter_end_position': (0, 37),
+             'body_start_position': (2, 3),
+             'end_position': (2, 4),
+             'is_pure': True,
              'is_declaration': True})
 
     def test_ignore_macros(self):
@@ -425,8 +498,12 @@ class FunctionDetectionTest(CppStyleTestBase):
             # This isn't a function but it looks like one to our simple
             # algorithm and that is ok.
             {'name': 'asm',
-             'body_start_line_number': 2,
-             'ending_line_number': 2,
+             'function_name_start_position': (0, 0),
+             'parameter_start_position': (0, 3),
+             'parameter_end_position': (2, 1),
+             'body_start_position': (2, 1),
+             'end_position': (2, 2),
+             'is_pure': False,
              'is_declaration': True})
 
         # Simple test case with something that is not a function.
@@ -437,8 +514,12 @@ class FunctionDetectionTest(CppStyleTestBase):
         function_state = self.perform_function_detection(
             ['void functionName();'],
             {'name': 'functionName',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 5),
+             'parameter_start_position': (0, 17),
+             'parameter_end_position': (0, 19),
+             'body_start_position': (0, 19),
+             'end_position': (0, 20),
+             'is_pure': False,
              'is_declaration': True,
              'parameter_list': ()})
 
@@ -446,8 +527,12 @@ class FunctionDetectionTest(CppStyleTestBase):
         function_state = self.perform_function_detection(
             ['void functionName(int);'],
             {'name': 'functionName',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 5),
+             'parameter_start_position': (0, 17),
+             'parameter_end_position': (0, 22),
+             'body_start_position': (0, 22),
+             'end_position': (0, 23),
+             'is_pure': False,
              'is_declaration': True,
              'parameter_list':
                  ({'type': 'int', 'name': '', 'row': 0},)})
@@ -456,8 +541,12 @@ class FunctionDetectionTest(CppStyleTestBase):
         function_state = self.perform_function_detection(
             ['void functionName(unsigned a, short b, long c, long long short unsigned int);'],
             {'name': 'functionName',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'function_name_start_position': (0, 5),
+             'parameter_start_position': (0, 17),
+             'parameter_end_position': (0, 76),
+             'body_start_position': (0, 76),
+             'end_position': (0, 77),
+             'is_pure': False,
              'is_declaration': True,
              'parameter_list':
                  ({'type': 'unsigned', 'name': 'a', 'row': 0},
@@ -469,8 +558,12 @@ class FunctionDetectionTest(CppStyleTestBase):
         function_state = self.perform_function_detection(
             ['virtual void determineARIADropEffects(Vector<String>*&, const unsigned long int*&, const MediaPlayer::Preload, Other<Other2, Other3<P1, P2> >, int);'],
             {'name': 'determineARIADropEffects',
-             'body_start_line_number': 0,
-             'ending_line_number': 0,
+             'parameter_start_position': (0, 37),
+             'function_name_start_position': (0, 13),
+             'parameter_end_position': (0, 147),
+             'body_start_position': (0, 147),
+             'end_position': (0, 148),
+             'is_pure': False,
              'is_declaration': True,
              'parameter_list':
                  ({'type': 'Vector<String>*&', 'name': '', 'row': 0},
@@ -486,8 +579,12 @@ class FunctionDetectionTest(CppStyleTestBase):
              'const ComplexTemplate<Class1, NestedTemplate<P1, P2> >* const * param = new ComplexTemplate<Class1, NestedTemplate<P1, P2> >(34, 42),',
              'int* myCount = 0);'],
             {'name': 'aFunctionName',
-             'body_start_line_number': 3,
-             'ending_line_number': 3,
+             'function_name_start_position': (0, 32),
+             'parameter_start_position': (0, 45),
+             'parameter_end_position': (3, 17),
+             'body_start_position': (3, 17),
+             'end_position': (3, 18),
+             'is_pure': False,
              'is_declaration': True,
              'parameter_list':
                  ({'type': 'PassRefPtr<MyClass>', 'name': 'paramName', 'row': 0},
@@ -522,6 +619,24 @@ class CppStyleTest(CppStyleTestBase):
         lines = ['a', '  /* comment ', ' * still comment', ' comment */   ', 'b']
         cpp_style.remove_multi_line_comments_from_range(lines, 1, 4)
         self.assertEquals(['a', '// dummy', '// dummy', '// dummy', 'b'], lines)
+
+    def test_position(self):
+        position = cpp_style.Position(3, 4)
+        self.assert_positions_equal(position, (3, 4))
+        self.assertEquals(position.row, 3)
+        self.assertTrue(position > cpp_style.Position(position.row - 1, position.column + 1))
+        self.assertTrue(position > cpp_style.Position(position.row, position.column - 1))
+        self.assertTrue(position < cpp_style.Position(position.row, position.column + 1))
+        self.assertTrue(position < cpp_style.Position(position.row + 1, position.column - 1))
+        self.assertEquals(position.__str__(), '(3, 4)')
+
+    def test_close_expression(self):
+        self.assertEquals(cpp_style.Position(1, -1), cpp_style.close_expression([')('], cpp_style.Position(0, 1)))
+        self.assertEquals(cpp_style.Position(1, -1), cpp_style.close_expression([') ()'], cpp_style.Position(0, 1)))
+        self.assertEquals(cpp_style.Position(0, 4), cpp_style.close_expression([')[)]'], cpp_style.Position(0, 1)))
+        self.assertEquals(cpp_style.Position(0, 5), cpp_style.close_expression(['}{}{}'], cpp_style.Position(0, 3)))
+        self.assertEquals(cpp_style.Position(1, 1), cpp_style.close_expression(['}{}{', '}'], cpp_style.Position(0, 3)))
+        self.assertEquals(cpp_style.Position(2, -1), cpp_style.close_expression(['][][', ' '], cpp_style.Position(0, 3)))
 
     def test_spaces_at_end_of_line(self):
         self.assert_lint(

@@ -27,6 +27,9 @@
 #include "CSSStyleSelector.h"
 
 #include "Attribute.h"
+#include "ContentData.h"
+#include "CounterContent.h"
+#include "CursorList.h"
 #include "CSSBorderImageValue.h"
 #include "CSSCursorImageValue.h"
 #include "CSSFontFaceRule.h"
@@ -76,6 +79,7 @@
 #include "ScaleTransformOperation.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "ShadowData.h"
 #include "ShadowValue.h"
 #include "SkewTransformOperation.h"
 #include "StyleCachedImage.h"
@@ -424,6 +428,7 @@ public:
     CSSRuleDataList* getIDRules(AtomicStringImpl* key) { return m_idRules.get(key); }
     CSSRuleDataList* getClassRules(AtomicStringImpl* key) { return m_classRules.get(key); }
     CSSRuleDataList* getTagRules(AtomicStringImpl* key) { return m_tagRules.get(key); }
+    CSSRuleDataList* getPseudoRules(AtomicStringImpl* key) { return m_pseudoRules.get(key); }
     CSSRuleDataList* getUniversalRules() { return m_universalRules.get(); }
     CSSRuleDataList* getPageRules() { return m_pageRules.get(); }
     
@@ -431,6 +436,7 @@ public:
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
     AtomRuleMap m_tagRules;
+    AtomRuleMap m_pseudoRules;
     OwnPtr<CSSRuleDataList> m_universalRules;
     OwnPtr<CSSRuleDataList> m_pageRules;
     unsigned m_ruleCount;
@@ -658,6 +664,10 @@ void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& l
         for (size_t i = 0; i < size; ++i)
             matchRulesForList(rules->getClassRules(classNames[i].impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     }
+    if (!m_element->shadowPseudoId().isEmpty()) {
+        ASSERT(m_styledElement);
+        matchRulesForList(rules->getPseudoRules(m_element->shadowPseudoId().impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
+    }
     matchRulesForList(rules->getTagRules(m_element->localName().impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     matchRulesForList(rules->getUniversalRules(), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     
@@ -816,12 +826,7 @@ inline void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* paren
 {
     m_checker.m_pseudoStyle = pseudoID;
 
-    m_parentNode = e ? e->parentNode() : 0;
-
-#if ENABLE(SVG)
-    if (!m_parentNode && e && e->isSVGElement() && e->isShadowRoot())
-        m_parentNode = e->shadowHost();
-#endif
+    m_parentNode = e ? e->parentOrHostNode() : 0;
 
     if (parentStyle)
         m_parentStyle = parentStyle;
@@ -980,6 +985,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n) const
             (s->hovered() == m_element->hovered()) &&
             (s->active() == m_element->active()) &&
             (s->focused() == m_element->focused()) &&
+            (s->shadowPseudoId() == m_element->shadowPseudoId()) &&
             (s != s->document()->cssTarget() && m_element != m_element->document()->cssTarget()) &&
             (s->fastGetAttribute(typeAttr) == m_element->fastGetAttribute(typeAttr)) &&
             (s->fastGetAttribute(XMLNames::langAttr) == m_element->fastGetAttribute(XMLNames::langAttr)) &&
@@ -2051,6 +2057,14 @@ CSSStyleSelector::SelectorMatch CSSStyleSelector::SelectorChecker::checkSelector
                 !((RenderScrollbar::scrollbarForStyleResolve() || dynamicPseudo == SCROLLBAR_CORNER || dynamicPseudo == RESIZER) && sel->m_match == CSSSelector::PseudoClass))
                 return SelectorFailsCompletely;
             return checkSelector(sel, e, selectorAttrs, dynamicPseudo, true, encounteredLink, elementStyle, elementParentStyle);
+        case CSSSelector::ShadowDescendant:
+        {
+            Node* shadowHostNode = e->shadowAncestorNode();
+            if (shadowHostNode == e || !shadowHostNode->isElementNode())
+                return SelectorFailsCompletely;
+            e = static_cast<Element*>(shadowHostNode);
+            return checkSelector(sel, e, selectorAttrs, dynamicPseudo, false, encounteredLink);
+        }
     }
 
     return SelectorFailsCompletely;
@@ -2703,12 +2717,8 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
             if (Document* document = e->document())
                 document->setUsesFirstLetterRules(true);
         }
-        if (pseudoId != NOPSEUDO) {
+        if (pseudoId != NOPSEUDO)
             dynamicPseudo = pseudoId;
-            return true;
-        }
-        ASSERT_NOT_REACHED();
-        return false;
     }
     // ### add the rest of the checks...
     return true;
@@ -2829,12 +2839,17 @@ void CSSRuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
         return;
     }
      
+    if (sel->isUnknownPseudoElement()) {
+        addToRuleSet(sel->m_value.impl(), m_pseudoRules, rule, sel);
+        return;
+    }
+
     const AtomicString& localName = sel->m_tag.localName();
     if (localName != starAtom) {
         addToRuleSet(localName.impl(), m_tagRules, rule, sel);
         return;
     }
-    
+
     // Just put it in the universal rule set.
     if (!m_universalRules)
         m_universalRules = adoptPtr(new CSSRuleDataList(m_ruleCount++, rule, sel));

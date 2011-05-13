@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2010 Google Inc. All rights reserved.
+* Copyright (C) 2011 Google Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,20 +34,25 @@
 #if ENABLE(INSPECTOR)
 
 #include "DOMWindow.h"
+#include "Database.h"
+#include "DocumentLoader.h"
 #include "Event.h"
 #include "EventContext.h"
+#include "InspectorApplicationCacheAgent.h"
+#include "InspectorBrowserDebuggerAgent.h"
+#include "InspectorConsoleAgent.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDebuggerAgent.h"
+#include "InspectorProfilerAgent.h"
+#include "InspectorResourceAgent.h"
 #include "InspectorTimelineAgent.h"
+#include "ScriptArguments.h"
+#include "ScriptCallStack.h"
 #include "XMLHttpRequest.h"
 #include <wtf/text/CString.h>
 
 namespace WebCore {
-
-static const char* const domNativeBreakpointType = "DOM";
-static const char* const eventListenerNativeBreakpointType = "EventListener";
-static const char* const xhrNativeBreakpointType = "XHR";
 
 static const char* const listenerEventCategoryType = "listener";
 static const char* const instrumentationEventCategoryType = "instrumentation";
@@ -75,20 +80,21 @@ static bool eventHasListeners(const AtomicString& eventType, DOMWindow* window, 
     return false;
 }
 
+void InspectorInstrumentation::didClearWindowObjectInWorldImpl(InspectorController* inspectorController, Frame* frame, DOMWrapperWorld* world)
+{
+    inspectorController->didClearWindowObjectInWorld(frame, world);
+}
+
+void InspectorInstrumentation::inspectedPageDestroyedImpl(InspectorController* inspectorController)
+{
+    inspectorController->inspectedPageDestroyed();
+}
+
 void InspectorInstrumentation::willInsertDOMNodeImpl(InspectorController* inspectorController, Node* node, Node* parent)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    InspectorDebuggerAgent* debuggerAgent = inspectorController->m_debuggerAgent.get();
-    if (!debuggerAgent)
-        return;
-    InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get();
-    if (!domAgent)
-        return;
-    RefPtr<InspectorObject> eventData = InspectorObject::create();
-    if (domAgent->shouldBreakOnNodeInsertion(node, parent, eventData)) {
-        eventData->setString("breakpointType", domNativeBreakpointType);
-        debuggerAgent->breakProgram(NativeBreakpointDebuggerEventType, eventData);
-    }
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->willInsertDOMNode(node, parent);
 #endif
 }
 
@@ -96,27 +102,26 @@ void InspectorInstrumentation::didInsertDOMNodeImpl(InspectorController* inspect
 {
     if (InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get())
         domAgent->didInsertDOMNode(node);
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->didInsertDOMNode(node);
+#endif
 }
 
 void InspectorInstrumentation::willRemoveDOMNodeImpl(InspectorController* inspectorController, Node* node)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    InspectorDebuggerAgent* debuggerAgent = inspectorController->m_debuggerAgent.get();
-    if (!debuggerAgent)
-        return;
-    InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get();
-    if (!domAgent)
-        return;
-    RefPtr<InspectorObject> eventData = InspectorObject::create();
-    if (domAgent->shouldBreakOnNodeRemoval(node, eventData)) {
-        eventData->setString("breakpointType", domNativeBreakpointType);
-        debuggerAgent->breakProgram(NativeBreakpointDebuggerEventType, eventData);
-    }
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->willRemoveDOMNode(node);
 #endif
 }
 
 void InspectorInstrumentation::didRemoveDOMNodeImpl(InspectorController* inspectorController, Node* node)
 {
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->didRemoveDOMNode(node);
+#endif
     if (InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get())
         domAgent->didRemoveDOMNode(node);
 }
@@ -124,17 +129,8 @@ void InspectorInstrumentation::didRemoveDOMNodeImpl(InspectorController* inspect
 void InspectorInstrumentation::willModifyDOMAttrImpl(InspectorController* inspectorController, Element* element)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    InspectorDebuggerAgent* debuggerAgent = inspectorController->m_debuggerAgent.get();
-    if (!debuggerAgent)
-        return;
-    InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get();
-    if (!domAgent)
-        return;
-    RefPtr<InspectorObject> eventData = InspectorObject::create();
-    if (domAgent->shouldBreakOnAttributeModification(element, eventData)) {
-        eventData->setString("breakpointType", domNativeBreakpointType);
-        debuggerAgent->breakProgram(NativeBreakpointDebuggerEventType, eventData);
-    }
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->willModifyDOMAttr(element);
 #endif
 }
 
@@ -142,6 +138,16 @@ void InspectorInstrumentation::didModifyDOMAttrImpl(InspectorController* inspect
 {
     if (InspectorDOMAgent* domAgent = inspectorController->m_domAgent.get())
         domAgent->didModifyDOMAttr(element);
+}
+
+void InspectorInstrumentation::mouseDidMoveOverElementImpl(InspectorController* inspectorController, const HitTestResult& result, unsigned modifierFlags)
+{
+    inspectorController->mouseDidMoveOverElement(result, modifierFlags);
+}
+
+bool InspectorInstrumentation::handleMousePressImpl(InspectorController* inspectorController)
+{
+    return inspectorController->handleMousePress();
 }
 
 void InspectorInstrumentation::characterDataModifiedImpl(InspectorController* inspectorController, CharacterData* characterData)
@@ -153,19 +159,8 @@ void InspectorInstrumentation::characterDataModifiedImpl(InspectorController* in
 void InspectorInstrumentation::willSendXMLHttpRequestImpl(InspectorController* inspectorController, const String& url)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    InspectorDebuggerAgent* debuggerAgent = inspectorController->m_debuggerAgent.get();
-    if (!debuggerAgent)
-        return;
-
-    String breakpointURL;
-    if (!inspectorController->hasXHRBreakpoint(url, &breakpointURL))
-        return;
-
-    RefPtr<InspectorObject> eventData = InspectorObject::create();
-    eventData->setString("breakpointType", xhrNativeBreakpointType);
-    eventData->setString("breakpointURL", breakpointURL);
-    eventData->setString("url", url);
-    debuggerAgent->breakProgram(NativeBreakpointDebuggerEventType, eventData);
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->willSendXMLHttpRequest(url);
 #endif
 }
 
@@ -188,7 +183,6 @@ void InspectorInstrumentation::didRemoveTimerImpl(InspectorController* inspector
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(inspectorController))
         timelineAgent->didRemoveTimer(timerId);
 }
-
 
 InspectorInstrumentationCookie InspectorInstrumentation::willCallFunctionImpl(InspectorController* inspectorController, const String& scriptName, int scriptLine)
 {
@@ -372,6 +366,40 @@ void InspectorInstrumentation::didRecalculateStyleImpl(const InspectorInstrument
         timelineAgent->didRecalculateStyle();
 }
 
+void InspectorInstrumentation::identifierForInitialRequestImpl(InspectorController* ic, unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
+{
+    if (!ic->enabled())
+        return;
+    ic->ensureSettingsLoaded();
+
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->identifierForInitialRequest(identifier, request.url(), loader);
+}
+
+void InspectorInstrumentation::willSendRequestImpl(InspectorController* ic, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
+{
+    ic->willSendRequest(request);
+    if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(ic))
+        timelineAgent->willSendResourceRequest(identifier, request);
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->willSendRequest(identifier, request, redirectResponse);
+}
+
+void InspectorInstrumentation::markResourceAsCachedImpl(InspectorController* ic, unsigned long identifier)
+{
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->markResourceAsCached(identifier);
+}
+
+void InspectorInstrumentation::didLoadResourceFromMemoryCacheImpl(InspectorController* ic, DocumentLoader* loader, const CachedResource* cachedResource)
+{
+    if (!ic->enabled())
+        return;
+    ic->ensureSettingsLoaded();
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->didLoadResourceFromMemoryCache(loader, cachedResource);
+}
+
 InspectorInstrumentationCookie InspectorInstrumentation::willReceiveResourceDataImpl(InspectorController* inspectorController, unsigned long identifier)
 {
     int timelineAgentId = 0;
@@ -400,10 +428,71 @@ InspectorInstrumentationCookie InspectorInstrumentation::willReceiveResourceResp
     return InspectorInstrumentationCookie(inspectorController, timelineAgentId);
 }
 
-void InspectorInstrumentation::didReceiveResourceResponseImpl(const InspectorInstrumentationCookie& cookie)
+void InspectorInstrumentation::didReceiveResourceResponseImpl(const InspectorInstrumentationCookie& cookie, unsigned long identifier, DocumentLoader* loader, const ResourceResponse& response)
 {
+    InspectorController* ic = cookie.first;
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->didReceiveResponse(identifier, loader, response);
+    ic->m_consoleAgent->didReceiveResponse(identifier, response);
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(cookie))
         timelineAgent->didReceiveResourceResponse();
+}
+
+void InspectorInstrumentation::didReceiveContentLengthImpl(InspectorController* ic, unsigned long identifier, int lengthReceived)
+{
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->didReceiveContentLength(identifier, lengthReceived);
+}
+
+void InspectorInstrumentation::didFinishLoadingImpl(InspectorController* ic, unsigned long identifier, double finishTime)
+{
+    if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(ic))
+        timelineAgent->didFinishLoadingResource(identifier, false, finishTime);
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->didFinishLoading(identifier, finishTime);
+}
+
+void InspectorInstrumentation::didFailLoadingImpl(InspectorController* ic, unsigned long identifier, const ResourceError& error)
+{
+    ic->m_consoleAgent->didFailLoading(identifier, error);
+    if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(ic))
+        timelineAgent->didFinishLoadingResource(identifier, true, 0);
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->didFailLoading(identifier, error);
+}
+
+void InspectorInstrumentation::resourceRetrievedByXMLHttpRequestImpl(InspectorController* ic, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber)
+{
+    ic->m_consoleAgent->resourceRetrievedByXMLHttpRequest(url, sendURL, sendLineNumber);
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->setInitialContent(identifier, sourceString, "XHR");
+}
+
+void InspectorInstrumentation::scriptImportedImpl(InspectorController* ic, unsigned long identifier, const String& sourceString)
+{
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(ic))
+        resourceAgent->setInitialContent(identifier, sourceString, "Script");
+}
+
+void InspectorInstrumentation::mainResourceFiredLoadEventImpl(InspectorController* inspectorController, Frame* frame, const KURL& url)
+{
+    inspectorController->mainResourceFiredLoadEvent(frame->loader()->documentLoader(), url);
+}
+
+void InspectorInstrumentation::mainResourceFiredDOMContentEventImpl(InspectorController* inspectorController, Frame* frame, const KURL& url)
+{
+    inspectorController->mainResourceFiredDOMContentEvent(frame->loader()->documentLoader(), url);
+}
+
+void InspectorInstrumentation::frameDetachedFromParentImpl(InspectorController* inspectorController, Frame* frame)
+{
+    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorController))
+        resourceAgent->frameDetachedFromParent(frame);
+}
+
+void InspectorInstrumentation::didCommitLoadImpl(InspectorController* inspectorController, DocumentLoader* loader)
+{
+    inspectorController->didCommitLoad(loader);
 }
 
 InspectorInstrumentationCookie InspectorInstrumentation::willWriteHTMLImpl(InspectorController* inspectorController, unsigned int length, unsigned int startLine)
@@ -422,6 +511,74 @@ void InspectorInstrumentation::didWriteHTMLImpl(const InspectorInstrumentationCo
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(cookie))
         timelineAgent->didWriteHTML(endLine);
 }
+
+void InspectorInstrumentation::addMessageToConsoleImpl(InspectorController* inspectorController, MessageSource source, MessageType type, MessageLevel level, const String& message, ScriptArguments* arguments, ScriptCallStack* callStack)
+{
+    inspectorController->consoleAgent()->addMessageToConsole(source, type, level, message, arguments, callStack);
+}
+
+void InspectorInstrumentation::addMessageToConsoleImpl(InspectorController* inspectorController, MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
+{
+    inspectorController->consoleAgent()->addMessageToConsole(source, type, level, message, lineNumber, sourceID);
+}
+
+void InspectorInstrumentation::consoleCountImpl(InspectorController* inspectorController, ScriptArguments* arguments, ScriptCallStack* stack)
+{
+    inspectorController->consoleAgent()->count(arguments, stack);
+}
+
+void InspectorInstrumentation::startConsoleTimingImpl(InspectorController* inspectorController, const String& title)
+{
+    inspectorController->consoleAgent()->startTiming(title);
+}
+
+void InspectorInstrumentation::stopConsoleTimingImpl(InspectorController* inspectorController, const String& title, ScriptCallStack* stack)
+{
+    inspectorController->consoleAgent()->stopTiming(title, stack);
+}
+
+void InspectorInstrumentation::consoleMarkTimelineImpl(InspectorController* inspectorController, ScriptArguments* arguments)
+{
+    if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(inspectorController)) {
+        String message;
+        arguments->getFirstArgumentAsString(message);
+        timelineAgent->didMarkTimeline(message);
+    }
+}
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+void InspectorInstrumentation::addStartProfilingMessageToConsoleImpl(InspectorController* inspectorController, const String& title, unsigned lineNumber, const String& sourceURL)
+{
+    if (InspectorProfilerAgent* profilerAgent = inspectorController->m_profilerAgent.get())
+        profilerAgent->addStartProfilingMessageToConsole(title, lineNumber, sourceURL);
+}
+#endif
+
+#if ENABLE(DATABASE)
+void InspectorInstrumentation::didOpenDatabaseImpl(InspectorController* inspectorController, Database* database, const String& domain, const String& name, const String& version)
+{
+    inspectorController->didOpenDatabase(database, domain, name, version);
+}
+#endif
+
+#if ENABLE(DOM_STORAGE)
+void InspectorInstrumentation::didUseDOMStorageImpl(InspectorController* inspectorController, StorageArea* storageArea, bool isLocalStorage, Frame* frame)
+{
+    inspectorController->didUseDOMStorage(storageArea, isLocalStorage, frame);
+}
+#endif
+
+#if ENABLE(WORKERS)
+void InspectorInstrumentation::didCreateWorkerImpl(InspectorController* inspectorController, intptr_t id, const String& url, bool isSharedWorker)
+{
+    inspectorController->didCreateWorker(id, url, isSharedWorker);
+}
+
+void InspectorInstrumentation::didDestroyWorkerImpl(InspectorController* inspectorController, intptr_t id)
+{
+    inspectorController->didDestroyWorker(id);
+}
+#endif
 
 #if ENABLE(WEB_SOCKETS)
 void InspectorInstrumentation::didCreateWebSocketImpl(InspectorController* inspectorController, unsigned long identifier, const KURL& requestURL, const KURL& documentURL)
@@ -445,6 +602,20 @@ void InspectorInstrumentation::didCloseWebSocketImpl(InspectorController* inspec
 }
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void InspectorInstrumentation::networkStateChangedImpl(InspectorController* ic)
+{
+    if (InspectorApplicationCacheAgent* applicationCacheAgent = ic->applicationCacheAgent())
+        applicationCacheAgent->networkStateChanged();
+}
+
+void InspectorInstrumentation::updateApplicationCacheStatusImpl(InspectorController* ic, Frame* frame)
+{
+    if (InspectorApplicationCacheAgent* applicationCacheAgent = ic->applicationCacheAgent())
+        applicationCacheAgent->updateApplicationCacheStatus(frame);
+}
+#endif
+
 bool InspectorInstrumentation::hasFrontend(InspectorController* inspectorController)
 {
     return inspectorController->hasFrontend();
@@ -453,19 +624,8 @@ bool InspectorInstrumentation::hasFrontend(InspectorController* inspectorControl
 void InspectorInstrumentation::pauseOnNativeEventIfNeeded(InspectorController* inspectorController, const String& categoryType, const String& eventName, bool synchronous)
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    InspectorDebuggerAgent* debuggerAgent = inspectorController->m_debuggerAgent.get();
-    if (!debuggerAgent)
-        return;
-    String fullEventName = String::format("%s:%s", categoryType.utf8().data(), eventName.utf8().data());
-    if (!inspectorController->hasEventListenerBreakpoint(fullEventName))
-        return;
-    RefPtr<InspectorObject> eventData = InspectorObject::create();
-    eventData->setString("breakpointType", eventListenerNativeBreakpointType);
-    eventData->setString("eventName", fullEventName);
-    if (synchronous)
-        debuggerAgent->breakProgram(NativeBreakpointDebuggerEventType, eventData);
-    else
-        debuggerAgent->schedulePauseOnNextStatement(NativeBreakpointDebuggerEventType, eventData);
+    if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = inspectorController->m_browserDebuggerAgent.get())
+        browserDebuggerAgent->pauseOnNativeEventIfNeeded(categoryType, eventName, synchronous);
 #endif
 }
 
@@ -488,6 +648,11 @@ InspectorTimelineAgent* InspectorInstrumentation::retrieveTimelineAgent(const In
     if (timelineAgent && timelineAgent->id() == cookie.second)
         return timelineAgent;
     return 0;
+}
+
+InspectorResourceAgent* InspectorInstrumentation::retrieveResourceAgent(InspectorController* ic)
+{
+    return ic->m_resourceAgent.get();
 }
 
 } // namespace WebCore

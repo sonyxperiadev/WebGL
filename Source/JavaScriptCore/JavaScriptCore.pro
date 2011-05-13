@@ -127,7 +127,8 @@ SOURCES += \
     runtime/BooleanObject.cpp \
     runtime/BooleanPrototype.cpp \
     runtime/CallData.cpp \
-    runtime/Collector.cpp \
+    runtime/MarkedSpace.cpp \
+    runtime/Heap.cpp \
     runtime/CommonIdentifiers.cpp \
     runtime/Completion.cpp \
     runtime/ConstructData.cpp \
@@ -174,6 +175,7 @@ SOURCES += \
     runtime/JSWrapperObject.cpp \
     runtime/LiteralParser.cpp \
     runtime/Lookup.cpp \
+    runtime/MachineStackMarker.cpp \
     runtime/MarkStackPosix.cpp \
     runtime/MarkStackSymbian.cpp \
     runtime/MarkStackWin.cpp \
@@ -207,9 +209,10 @@ SOURCES += \
     runtime/Structure.cpp \
     runtime/TimeoutChecker.cpp \
     runtime/UString.cpp \
-    yarr/RegexPattern.cpp \
-    yarr/RegexInterpreter.cpp \
-    yarr/RegexJIT.cpp
+    yarr/YarrPattern.cpp \
+    yarr/YarrInterpreter.cpp \
+    yarr/YarrJIT.cpp \
+    yarr/YarrSyntaxChecker.cpp
 
 # Generated files, simply list them for JavaScriptCore
 

@@ -40,7 +40,7 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "MessageEvent.h"
 #include "TextEncoding.h"
 #include "WorkerContextProxy.h"
@@ -70,10 +70,7 @@ PassRefPtr<Worker> Worker::create(const String& url, ScriptExecutionContext* con
     // The worker context does not exist while loading, so we must ensure that the worker object is not collected, nor are its event listeners.
     worker->setPendingActivity(worker.get());
 
-#if ENABLE(INSPECTOR)
-    if (InspectorController* inspector = context->inspectorController())
-        inspector->didCreateWorker(worker->asID(), scriptURL.string(), false);
-#endif
+    InspectorInstrumentation::didCreateWorker(context, worker->asID(), scriptURL.string(), false);
 
     return worker.release();
 }
@@ -135,10 +132,7 @@ void Worker::notifyFinished()
         dispatchEvent(Event::create(eventNames().errorEvent, false, true));
     else {
         m_contextProxy->startWorkerContext(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script());
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(m_scriptLoader->identifier(), m_scriptLoader->script());
-#endif
+        InspectorInstrumentation::scriptImported(scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
     }
     m_scriptLoader = 0;
 

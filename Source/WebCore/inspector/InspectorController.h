@@ -45,8 +45,8 @@ namespace WebCore {
 
 class CachedResource;
 class CharacterData;
-class ConsoleMessage;
 class Database;
+class DOMWrapperWorld;
 class Document;
 class DocumentLoader;
 class FloatRect;
@@ -57,7 +57,9 @@ class InjectedScript;
 class InjectedScriptHost;
 class InspectorArray;
 class InspectorBackendDispatcher;
+class InspectorBrowserDebuggerAgent;
 class InspectorClient;
+class InspectorConsoleAgent;
 class InspectorCSSAgent;
 class InspectorDOMAgent;
 class InspectorDOMStorageAgent;
@@ -70,6 +72,7 @@ class InspectorFrontendClient;
 class InspectorObject;
 class InspectorProfilerAgent;
 class InspectorResourceAgent;
+class InspectorSettings;
 class InspectorState;
 class InspectorStorageAgent;
 class InspectorTimelineAgent;
@@ -141,38 +144,21 @@ public:
     void reuseFrontend();
     void disconnectFrontend();
 
-    void setConsoleMessagesEnabled(bool enabled, bool* newState);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack>);
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String&);
-    void clearConsoleMessages();
-    const Vector<OwnPtr<ConsoleMessage> >& consoleMessages() const { return m_consoleMessages; }
+    InspectorConsoleAgent* consoleAgent() const { return m_consoleAgent.get(); }
+    InspectorDOMAgent* domAgent() const { return m_domAgent.get(); }
 
     bool searchingForNodeInPage() const;
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
-    void handleMousePress();
+    bool handleMousePress();
 
     void setInspectorFrontendClient(PassOwnPtr<InspectorFrontendClient> client);
     bool hasInspectorFrontendClient() const { return m_inspectorFrontendClient; }
 
-    void inspectedWindowScriptObjectCleared(Frame*);
+    void didClearWindowObjectInWorld(Frame*, DOMWrapperWorld*);
 
     void didCommitLoad(DocumentLoader*);
-    void frameDetachedFromParent(Frame*);
-    void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
-
-    void identifierForInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
-    void willSendRequest(unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
-    void markResourceAsCached(unsigned long identifier);
-    void didReceiveResponse(unsigned long identifier, DocumentLoader*, const ResourceResponse&);
-    void didReceiveContentLength(unsigned long identifier, int lengthReceived);
-    void didFinishLoading(unsigned long identifier, double finishTime);
-    void didFailLoading(unsigned long identifier, const ResourceError&);
-    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
-    void scriptImported(unsigned long identifier, const String& sourceString);
 
     void setExtraHeaders(PassRefPtr<InspectorObject>);
-
-    void ensureSettingsLoaded();
 
     void startTimelineProfiler();
     void stopTimelineProfiler();
@@ -217,20 +203,8 @@ public:
     void openInInspectedWindow(const String& url);
     void drawElementTitle(GraphicsContext&, const IntRect& boundingBox, const FloatRect& overlayRect, WebCore::Settings*) const;
 
-    void count(const String& title, unsigned lineNumber, const String& sourceID);
-
-    void startTiming(const String& title);
-    bool stopTiming(const String& title, double& elapsed);
-
-    void startGroup(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack> callFrame, bool collapsed = false);
-    void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
-
-    void markTimeline(const String& message);
-
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void addProfile(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
-    void addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
-    void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
     bool isRecordingUserInitiatedProfile() const;
     String getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false);
     void startProfiling() { startUserInitiatedProfiling(); }
@@ -241,18 +215,13 @@ public:
     void disableProfiler(bool always = false);
     bool profilerEnabled() const;
 
-    void enableDebugger();
+    void showAndEnableDebugger();
+    void enableDebugger(bool always);
     void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerAgent; }
     void resume();
 
     void setStickyBreakpoints(PassRefPtr<InspectorObject> breakpoints);
-    void setEventListenerBreakpoint(const String& eventName);
-    void removeEventListenerBreakpoint(const String& eventName);
-    bool hasEventListenerBreakpoint(const String& eventName);
-    void setXHRBreakpoint(const String& url);
-    void removeXHRBreakpoint(const String& url);
-    bool hasXHRBreakpoint(const String& url, String* breakpointURL);
 #endif
 
     void setInjectedScriptSource(const String& source);
@@ -272,26 +241,28 @@ public:
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
     void setInspectorAttachedHeight(long height);
-    int inspectorAttachedHeight() const;
-
-    static const unsigned defaultAttachedHeight;
+    long inspectorAttachedHeight() const;
 
 private:
-    void getInspectorState(RefPtr<InspectorObject>* state);
-    void setConsoleMessagesEnabled(bool enabled);
-
     friend class InspectorBackend;
     friend class InspectorBackendDispatcher;
+    friend class InspectorBrowserDebuggerAgent;
     friend class InspectorInstrumentation;
     friend class InjectedScriptHost;
 
+    void willSendRequest(ResourceRequest&);
+
+    void ensureSettingsLoaded();
+
+    void getInspectorState(RefPtr<InspectorObject>* state);
+
+    void populateScriptObjects();
+    void pushDataCollectedOffline();
+    void restoreDebugger();
     enum ProfilerRestoreAction {
         ProfilerRestoreNoAction = 0,
         ProfilerRestoreResetAgent = 1
     };
-    
-    void populateScriptObjects();
-    void restoreDebugger();
     void restoreProfiler(ProfilerRestoreAction action);
     void unbindAllResources();
     void setSearchingForNode(bool enabled);
@@ -304,7 +275,6 @@ private:
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void toggleRecordButton(bool);
-    void enableDebuggerFromFrontend(bool always);
     void restoreStickyBreakpoints();
     void restoreStickyBreakpoint(PassRefPtr<InspectorObject> breakpoint);
 #endif
@@ -313,8 +283,6 @@ private:
     PassRefPtr<InspectorArray> buildArrayForCookies(ListHashSet<Cookie>&);
 
     void focusNode();
-
-    void addConsoleMessage(PassOwnPtr<ConsoleMessage>);
 
     bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
 
@@ -338,6 +306,7 @@ private:
 
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
     OwnPtr<InspectorState> m_state;
+    OwnPtr<InspectorSettings> m_settings;
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     OwnPtr<InspectorApplicationCacheAgent> m_applicationCacheAgent;
@@ -349,11 +318,6 @@ private:
 
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResourceAgent> m_resourceAgent;
-    unsigned long m_mainResourceIdentifier;
-    Vector<OwnPtr<ConsoleMessage> > m_consoleMessages;
-    unsigned m_expiredConsoleMessageCount;
-    HashMap<String, double> m_times;
-    HashMap<String, unsigned> m_counts;
 
 #if ENABLE(DATABASE)
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
@@ -366,13 +330,9 @@ private:
 
     String m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
-    ConsoleMessage* m_previousMessage;
-    bool m_settingsLoaded;
     OwnPtr<InspectorBackendDispatcher> m_inspectorBackendDispatcher;
     RefPtr<InjectedScriptHost> m_injectedScriptHost;
-
-    typedef HashMap<String, String> Settings;
-    mutable Settings m_settings;
+    OwnPtr<InspectorConsoleAgent> m_consoleAgent;
 
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
     Vector<String> m_scriptsToEvaluateOnLoad;
@@ -380,10 +340,7 @@ private:
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_attachDebuggerWhenShown;
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
-
-    HashSet<String> m_eventListenerBreakpoints;
-    HashSet<String> m_XHRBreakpoints;
-    bool m_hasXHRBreakpointWithEmptyURL;
+    OwnPtr<InspectorBrowserDebuggerAgent> m_browserDebuggerAgent;
 
     OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif

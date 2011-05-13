@@ -35,7 +35,6 @@
 #include "EventNames.h"
 #include "File.h"
 #include "HTTPParsers.h"
-#include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
@@ -245,12 +244,8 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
             m_responseXML = 0;
         } else {
             m_responseXML = Document::create(0, m_url);
-            m_responseXML->open();
             // FIXME: Set Last-Modified.
-            m_responseXML->write(m_responseBuilder.toStringPreserveCapacity());
-            m_responseXML->finishParsing();
-            m_responseXML->close();
-
+            m_responseXML->setContent(m_responseBuilder.toStringPreserveCapacity());
             if (!m_responseXML->wellFormed())
                 m_responseXML = 0;
         }
@@ -1002,10 +997,7 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
     // FIXME: Set m_responseBlob to something here in the ResponseTypeBlob case.
 #endif
 
-#if ENABLE(INSPECTOR)
-    if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-        inspector->resourceRetrievedByXMLHttpRequest(identifier, m_responseBuilder.toStringPreserveCapacity(), m_url, m_lastSendURL, m_lastSendLineNumber);
-#endif
+    InspectorInstrumentation::resourceRetrievedByXMLHttpRequest(scriptExecutionContext(), identifier, m_responseBuilder.toStringPreserveCapacity(), m_url, m_lastSendURL, m_lastSendLineNumber);
 
     bool hadLoader = m_loader;
     m_loader = 0;

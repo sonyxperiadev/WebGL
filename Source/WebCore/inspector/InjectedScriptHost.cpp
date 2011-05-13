@@ -30,6 +30,7 @@
 
 #include "config.h"
 #include "InjectedScriptHost.h"
+#include "InjectedScriptSource.h"
 #include "InspectorDatabaseAgent.h"
 #include "InspectorDOMStorageAgent.h"
 
@@ -42,6 +43,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "InjectedScript.h"
 #include "InspectorClient.h"
+#include "InspectorConsoleAgent.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorFrontend.h"
@@ -82,7 +84,7 @@ InjectedScriptHost::~InjectedScriptHost()
 void InjectedScriptHost::clearConsoleMessages()
 {
     if (m_inspectorController)
-        m_inspectorController->clearConsoleMessages();
+        m_inspectorController->consoleAgent()->clearConsoleMessages();
 }
 
 void InjectedScriptHost::copyText(const String& text)
@@ -180,6 +182,11 @@ InspectorFrontend* InjectedScriptHost::frontend()
     if (!m_inspectorController)
         return 0;
     return m_inspectorController->m_frontend.get();
+}
+
+String InjectedScriptHost::injectedScriptSource()
+{
+    return String(reinterpret_cast<char*>(InjectedScriptSource_js), sizeof(InjectedScriptSource_js));
 }
 
 pair<long, ScriptObject> InjectedScriptHost::injectScript(const String& source, ScriptState* scriptState)

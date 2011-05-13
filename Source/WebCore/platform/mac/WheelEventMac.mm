@@ -29,8 +29,30 @@
 #import "PlatformMouseEvent.h"
 #import "Scrollbar.h"
 #import "WebCoreSystemInterface.h"
+#import <wtf/UnusedParam.h>
 
 namespace WebCore {
+
+static PlatformWheelEventPhase phaseForEvent(NSEvent *event)
+{
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    uint32_t phase = PlatformWheelEventPhaseNone; 
+    if ([event momentumPhase] & NSEventPhaseBegan)
+        phase |= PlatformWheelEventPhaseBegan;
+    if ([event momentumPhase] & NSEventPhaseStationary)
+        phase |= PlatformWheelEventPhaseStationary;
+    if ([event momentumPhase] & NSEventPhaseChanged)
+        phase |= PlatformWheelEventPhaseChanged;
+    if ([event momentumPhase] & NSEventPhaseEnded)
+        phase |= PlatformWheelEventPhaseEnded;
+    if ([event momentumPhase] & NSEventPhaseCancelled)
+        phase |= PlatformWheelEventPhaseCancelled;
+    return static_cast<PlatformWheelEventPhase>(phase);
+#else
+    UNUSED_PARAM(event);
+    return PlatformWheelEventPhaseNone;
+#endif
+}
 
 PlatformWheelEvent::PlatformWheelEvent(NSEvent* event, NSView *windowView)
     : m_position(pointForEvent(event, windowView))
@@ -41,9 +63,10 @@ PlatformWheelEvent::PlatformWheelEvent(NSEvent* event, NSView *windowView)
     , m_ctrlKey([event modifierFlags] & NSControlKeyMask)
     , m_altKey([event modifierFlags] & NSAlternateKeyMask)
     , m_metaKey([event modifierFlags] & NSCommandKeyMask)
+    , m_phase(phaseForEvent(event))
 {
     BOOL continuous;
-    
+
     wkGetWheelEventDeltas(event, &m_deltaX, &m_deltaY, &continuous);
     if (continuous) {
         m_wheelTicksX = m_deltaX / static_cast<float>(Scrollbar::pixelsPerLineStep());

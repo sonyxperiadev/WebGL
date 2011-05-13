@@ -22,6 +22,7 @@
 #include "RenderSlider.h"
 
 #include "CSSPropertyNames.h"
+#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventHandler.h"
@@ -60,8 +61,6 @@ RenderSlider::RenderSlider(HTMLInputElement* element)
 
 RenderSlider::~RenderSlider()
 {
-    if (m_thumb)
-        m_thumb->detach();
 }
 
 int RenderSlider::baselinePosition(FontBaseline, bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
@@ -100,50 +99,14 @@ void RenderSlider::computePreferredLogicalWidths()
     setPreferredLogicalWidthsDirty(false); 
 }
 
-void RenderSlider::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
-{
-    RenderBlock::styleDidChange(diff, oldStyle);
-
-    if (m_thumb)
-        m_thumb->renderer()->setStyle(createThumbStyle(style()));
-
-    setReplaced(isInline());
-}
-
-PassRefPtr<RenderStyle> RenderSlider::createThumbStyle(const RenderStyle* parentStyle)
-{
-    RefPtr<RenderStyle> style;
-    RenderStyle* pseudoStyle = getCachedPseudoStyle(SLIDER_THUMB);
-    if (pseudoStyle)
-        // We may be sharing style with another slider, but we must not share the thumb style.
-        style = RenderStyle::clone(pseudoStyle);
-    else
-        style = RenderStyle::create();
-
-    if (parentStyle)
-        style->inheritFrom(parentStyle);
-
-    style->setDisplay(BLOCK);
-
-    if (parentStyle->appearance() == SliderVerticalPart)
-        style->setAppearance(SliderThumbVerticalPart);
-    else if (parentStyle->appearance() == SliderHorizontalPart)
-        style->setAppearance(SliderThumbHorizontalPart);
-    else if (parentStyle->appearance() == MediaSliderPart)
-        style->setAppearance(MediaSliderThumbPart);
-    else if (parentStyle->appearance() == MediaVolumeSliderPart)
-        style->setAppearance(MediaVolumeSliderThumbPart);
-
-    return style.release();
-}
-
 IntRect RenderSlider::thumbRect()
 {
-    if (!m_thumb)
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    if (!thumbElement)
         return IntRect();
 
     IntRect thumbRect;
-    RenderBox* thumb = toRenderBox(m_thumb->renderer());
+    RenderBox* thumb = toRenderBox(thumbElement->renderer());
 
     thumbRect.setWidth(thumb->style()->width().calcMinValue(contentWidth()));
     thumbRect.setHeight(thumb->style()->height().calcMinValue(contentHeight()));
@@ -165,7 +128,8 @@ void RenderSlider::layout()
 {
     ASSERT(needsLayout());
 
-    RenderBox* thumb = m_thumb ? toRenderBox(m_thumb->renderer()) : 0;
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    RenderBox* thumb = thumbElement ? toRenderBox(thumbElement->renderer()) : 0;
 
     IntSize baseSize(borderAndPaddingWidth(), borderAndPaddingHeight());
 
@@ -212,43 +176,35 @@ void RenderSlider::layout()
     setNeedsLayout(false);
 }
 
-void RenderSlider::updateFromElement()
+SliderThumbElement* RenderSlider::sliderThumbElement() const
 {
-    // Layout will take care of the thumb's size and position.
-    if (!m_thumb) {
-        m_thumb = SliderThumbElement::create(static_cast<HTMLElement*>(node()));
-        RefPtr<RenderStyle> thumbStyle = createThumbStyle(style());
-        m_thumb->setRenderer(m_thumb->createRenderer(renderArena(), thumbStyle.get()));
-        m_thumb->renderer()->setStyle(thumbStyle.release());
-        m_thumb->setAttached();
-        m_thumb->setInDocument();
-        addChild(m_thumb->renderer());
-    }
-    setNeedsLayout(true);
+    return toSliderThumbElement(static_cast<Element*>(node())->shadowRoot());
 }
 
 bool RenderSlider::mouseEventIsInThumb(MouseEvent* evt)
 {
-    if (!m_thumb || !m_thumb->renderer())
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    if (!thumbElement || !thumbElement->renderer())
         return false;
 
 #if ENABLE(VIDEO)
     if (style()->appearance() == MediaSliderPart || style()->appearance() == MediaVolumeSliderPart) {
-        MediaControlInputElement *sliderThumb = static_cast<MediaControlInputElement*>(m_thumb->renderer()->node());
+        MediaControlInputElement* sliderThumb = static_cast<MediaControlInputElement*>(thumbElement->renderer()->node());
         return sliderThumb->hitTest(evt->absoluteLocation());
     }
 #endif
 
-    FloatPoint localPoint = m_thumb->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
-    IntRect thumbBounds = m_thumb->renderBox()->borderBoxRect();
+    FloatPoint localPoint = thumbElement->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
+    IntRect thumbBounds = thumbElement->renderBox()->borderBoxRect();
     return thumbBounds.contains(roundedIntPoint(localPoint));
 }
 
 FloatPoint RenderSlider::mouseEventOffsetToThumb(MouseEvent* evt)
 {
-    ASSERT(m_thumb && m_thumb->renderer());
-    FloatPoint localPoint = m_thumb->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
-    IntRect thumbBounds = m_thumb->renderBox()->borderBoxRect();
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    ASSERT(thumbElement && thumbElement->renderer());
+    FloatPoint localPoint = thumbElement->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
+    IntRect thumbBounds = thumbElement->renderBox()->borderBoxRect();
     FloatPoint offset;
     offset.setX(thumbBounds.x() + thumbBounds.width() / 2 - localPoint.x());
     offset.setY(thumbBounds.y() + thumbBounds.height() / 2 - localPoint.y());
@@ -257,7 +213,8 @@ FloatPoint RenderSlider::mouseEventOffsetToThumb(MouseEvent* evt)
 
 void RenderSlider::setValueForPosition(int position)
 {
-    if (!m_thumb || !m_thumb->renderer())
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    if (!thumbElement || !thumbElement->renderer())
         return;
 
     HTMLInputElement* element = static_cast<HTMLInputElement*>(node());
@@ -282,40 +239,45 @@ void RenderSlider::setValueForPosition(int position)
 
 int RenderSlider::positionForOffset(const IntPoint& p)
 {
-    if (!m_thumb || !m_thumb->renderer())
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    if (!thumbElement || !thumbElement->renderer())
         return 0;
 
     int position;
     if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        position = p.y() - m_thumb->renderBox()->height() / 2;
+        position = p.y() - thumbElement->renderBox()->height() / 2;
     else
-        position = p.x() - m_thumb->renderBox()->width() / 2;
+        position = p.x() - thumbElement->renderBox()->width() / 2;
     
     return max(0, min(position, trackSize()));
 }
 
 int RenderSlider::currentPosition()
 {
-    ASSERT(m_thumb);
-    ASSERT(m_thumb->renderer());
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    ASSERT(thumbElement && thumbElement->renderer());
 
     if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        return toRenderBox(m_thumb->renderer())->y() - contentBoxRect().y();
-    return toRenderBox(m_thumb->renderer())->x() - contentBoxRect().x();
+        return toRenderBox(thumbElement->renderer())->y() - contentBoxRect().y();
+    return toRenderBox(thumbElement->renderer())->x() - contentBoxRect().x();
 }
 
 int RenderSlider::trackSize()
 {
-    ASSERT(m_thumb);
-    ASSERT(m_thumb->renderer());
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    ASSERT(thumbElement && thumbElement->renderer());
 
     if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        return contentHeight() - m_thumb->renderBox()->height();
-    return contentWidth() - m_thumb->renderBox()->width();
+        return contentHeight() - thumbElement->renderBox()->height();
+    return contentWidth() - thumbElement->renderBox()->width();
 }
 
 void RenderSlider::forwardEvent(Event* event)
 {
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    if (!thumbElement)
+        return;
+
     if (event->isMouseEvent()) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         if (event->type() == eventNames().mousedownEvent && mouseEvent->button() == LeftButton) {
@@ -326,12 +288,13 @@ void RenderSlider::forwardEvent(Event* event)
         }
     }
 
-    m_thumb->defaultEventHandler(event);
+    thumbElement->defaultEventHandler(event);
 }
 
 bool RenderSlider::inDragMode() const
 {
-    return m_thumb && m_thumb->inDragMode();
+    SliderThumbElement* thumbElement = sliderThumbElement();
+    return thumbElement && thumbElement->inDragMode();
 }
 
 } // namespace WebCore

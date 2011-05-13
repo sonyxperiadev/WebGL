@@ -35,6 +35,7 @@
 #include "EventHandler.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
+#include "NavigationScheduler.h"
 #include "SelectionController.h"
 #include "ScriptController.h"
 #include "UserScriptTypes.h"
@@ -206,6 +207,10 @@ namespace WebCore {
 
         void injectUserScriptsForWorld(DOMWrapperWorld*, const UserScriptVector&, UserScriptInjectionTime);
         void lifeSupportTimerFired(Timer<Frame>*);
+
+#if USE(ACCELERATED_COMPOSITING)
+        void updateContentsScale(float);
+#endif
 
         HashSet<FrameDestructionObserver*> m_destructionObservers;
 

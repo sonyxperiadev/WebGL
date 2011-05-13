@@ -126,7 +126,7 @@ my @features = (
       define => "ENABLE_ACCELERATED_2D_CANVAS", default => 0, value => \$accelerated2dCanvasSupport },
 
     { option => "blob", desc => "Toggle Blob support",
-      define => "ENABLE_BLOB", default => (isAppleMacWebKit()), value => \$blobSupport },
+      define => "ENABLE_BLOB", default => (isAppleMacWebKit() || isGtk()), value => \$blobSupport },
 
     { option => "channel-messaging", desc => "Toggle MessageChannel and MessagePort support",
       define => "ENABLE_CHANNEL_MESSAGING", default => 1, value => \$channelMessagingSupport },
@@ -198,7 +198,7 @@ my @features = (
       define => "ENABLE_METER_TAG", default => !isGtk() && !isAppleWinWebKit(), value => \$meterTagSupport },
 
     { option => "netscape-plugin", desc => "Netscape Plugin support",
-      define => "ENABLE_NETSCAPE_PLUGIN_API", default => !isWinCE(), value => \$netscapePluginSupport },
+      define => "ENABLE_NETSCAPE_PLUGIN_API", default => !isEfl(), value => \$netscapePluginSupport },
 
     { option => "notifications", desc => "Toggle Desktop Notifications Support",
       define => "ENABLE_NOTIFICATIONS", default => 0, value => \$notificationsSupport },
@@ -377,7 +377,7 @@ sub unlinkZeroFiles ()
 }
 
 # Check that all the project directories are there.
-my @projects = ("Source/JavaScriptCore", "Source/WebCore", "WebKit");
+my @projects = ("Source/JavaScriptCore", "Source/WebCore", "Source/WebKit");
 
 my @otherDirs = ("WebKitLibraries");
 for my $dir (@projects, @otherDirs) {
@@ -422,7 +422,7 @@ if (isGtk()) {
     splice @projects, 0, 0, "Source/ThirdParty/ANGLE";
 
     # WebKit2 is only supported in SnowLeopard and later at present.
-    push @projects, ("WebKit2", "Tools/MiniBrowser") if osXVersion()->{"minor"} >= 6 and !$noWebKit2;
+    push @projects, ("Source/WebKit2", "Tools/MiniBrowser") if osXVersion()->{"minor"} >= 6 and !$noWebKit2;
 
     # Copy library and header from WebKitLibraries to a findable place in the product directory.
     my @librariesToCopy = (
@@ -542,7 +542,7 @@ for my $dir (@projects) {
     my $result = 0;
 
     # For Gtk and Qt the WebKit project builds all others
-    if ((isGtk() || isQt()) && $dir ne "WebKit") {
+    if ((isGtk() || isQt()) && $dir ne "Source/WebKit") {
         chdirWebKit();
         next;
     }

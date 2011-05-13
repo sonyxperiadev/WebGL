@@ -149,6 +149,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
     $(intermediates)/bindings/V8BlobBuilder.h \
+<<<<<<< HEAD
     $(intermediates)/bindings/V8DOMFileSystem.h \
     $(intermediates)/bindings/V8DOMFileSystemSync.h \
     $(intermediates)/bindings/V8DirectoryEntry.h \
@@ -162,6 +163,13 @@ GEN := \
     $(intermediates)/bindings/V8EntryCallback.h \
     $(intermediates)/bindings/V8EntrySync.h \
     $(intermediates)/bindings/V8ErrorCallback.h \
+=======
+    $(intermediates)/bindings/V8DOMTokenList.h \
+    $(intermediates)/bindings/V8DOMSettableTokenList.h \
+    $(intermediates)/bindings/V8DOMURL.h \
+    $(intermediates)/bindings/V8DataGridColumn.h \
+    $(intermediates)/bindings/V8DataGridColumnList.h \
+>>>>>>> WebKit.org @ r75993
     $(intermediates)/bindings/V8File.h \
     $(intermediates)/bindings/V8FileCallback.h \
     $(intermediates)/bindings/V8FileEntry.h \

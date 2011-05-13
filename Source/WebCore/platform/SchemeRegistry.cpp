@@ -45,6 +45,12 @@ static URLSchemesMap& localURLSchemes()
     return localSchemes;
 }
 
+static URLSchemesMap& displayIsolatedURLSchemes()
+{
+    DEFINE_STATIC_LOCAL(URLSchemesMap, displayIsolatedSchemes, ());
+    return displayIsolatedSchemes;
+}
+
 static URLSchemesMap& secureSchemes()
 {
     DEFINE_STATIC_LOCAL(URLSchemesMap, secureSchemes, ());
@@ -82,7 +88,7 @@ static URLSchemesMap& emptyDocumentSchemes()
 
 void SchemeRegistry::registerURLSchemeAsLocal(const String& scheme)
 {
-    WebCore::localURLSchemes().add(scheme);
+    localURLSchemes().add(scheme);
 }
 
 void SchemeRegistry::removeURLSchemeRegisteredAsLocal(const String& scheme)
@@ -93,50 +99,19 @@ void SchemeRegistry::removeURLSchemeRegisteredAsLocal(const String& scheme)
     if (scheme == "applewebdata")
         return;
 #endif
-    WebCore::localURLSchemes().remove(scheme);
+    localURLSchemes().remove(scheme);
 }
 
-const URLSchemesMap& SchemeRegistry::localURLSchemes()
+const URLSchemesMap& SchemeRegistry::localSchemes()
 {
-    return WebCore::localURLSchemes();
-}
-
-bool SchemeRegistry::shouldTreatURLAsLocal(const String& url)
-{
-    // This avoids an allocation of another String and the HashSet contains()
-    // call for the file: and http: schemes.
-    if (url.length() >= 5) {
-        const UChar* s = url.characters();
-        if (s[0] == 'h' && s[1] == 't' && s[2] == 't' && s[3] == 'p' && s[4] == ':')
-            return false;
-        if (s[0] == 'f' && s[1] == 'i' && s[2] == 'l' && s[3] == 'e' && s[4] == ':')
-            return true;
-    }
-
-    size_t loc = url.find(':');
-    if (loc == notFound)
-        return false;
-
-    String scheme = url.left(loc);
-    return WebCore::localURLSchemes().contains(scheme);
+    return localURLSchemes();
 }
 
 bool SchemeRegistry::shouldTreatURLSchemeAsLocal(const String& scheme)
 {
-    // This avoids an allocation of another String and the HashSet contains()
-    // call for the file: and http: schemes.
-    if (scheme.length() == 4) {
-        const UChar* s = scheme.characters();
-        if (s[0] == 'h' && s[1] == 't' && s[2] == 't' && s[3] == 'p')
-            return false;
-        if (s[0] == 'f' && s[1] == 'i' && s[2] == 'l' && s[3] == 'e')
-            return true;
-    }
-
     if (scheme.isEmpty())
         return false;
-
-    return WebCore::localURLSchemes().contains(scheme);
+    return localURLSchemes().contains(scheme);
 }
 
 void SchemeRegistry::registerURLSchemeAsNoAccess(const String& scheme)
@@ -147,6 +122,16 @@ void SchemeRegistry::registerURLSchemeAsNoAccess(const String& scheme)
 bool SchemeRegistry::shouldTreatURLSchemeAsNoAccess(const String& scheme)
 {
     return schemesWithUniqueOrigins().contains(scheme);
+}
+
+void SchemeRegistry::registerURLSchemeAsDisplayIsolated(const String& scheme)
+{
+    displayIsolatedURLSchemes().add(scheme);
+}
+
+bool SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(const String& scheme)
+{
+    return displayIsolatedURLSchemes().contains(scheme);
 }
 
 void SchemeRegistry::registerURLSchemeAsSecure(const String& scheme)

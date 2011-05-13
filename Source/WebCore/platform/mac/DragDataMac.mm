@@ -33,41 +33,52 @@
 #import "DOMDocumentFragmentInternal.h"
 #import "MIMETypeRegistry.h"
 #import "Pasteboard.h"
-#import "PasteboardHelper.h"
+#import "Range.h"
 
 namespace WebCore {
 
 DragData::DragData(DragDataRef data, const IntPoint& clientPosition, const IntPoint& globalPosition, 
-    DragOperation sourceOperationMask, PasteboardHelper* pasteboardHelper)
+    DragOperation sourceOperationMask, DragApplicationFlags flags)
     : m_clientPosition(clientPosition)
     , m_globalPosition(globalPosition)
     , m_platformDragData(data)
     , m_draggingSourceOperationMask(sourceOperationMask)
-    , m_pasteboardHelper(pasteboardHelper)
+    , m_applicationFlags(flags)
+    , m_pasteboard([m_platformDragData draggingPasteboard])
 {
-    ASSERT(pasteboardHelper);  
+}
+
+DragData::DragData(const String& dragStorageName, const IntPoint& clientPosition, const IntPoint& globalPosition,
+    DragOperation sourceOperationMask, DragApplicationFlags flags)
+    : m_clientPosition(clientPosition)
+    , m_globalPosition(globalPosition)
+    , m_platformDragData(0)
+    , m_draggingSourceOperationMask(sourceOperationMask)
+    , m_applicationFlags(flags)
+    , m_pasteboard([NSPasteboard pasteboardWithName:dragStorageName])
+{
 }
     
 bool DragData::canSmartReplace() const
 {
     //Need to call this so that the various Pasteboard type strings are intialised
     Pasteboard::generalPasteboard();
-    return [[[m_platformDragData draggingPasteboard] types] containsObject:WebSmartPastePboardType];
+    return [[m_pasteboard.get() types] containsObject:WebSmartPastePboardType];
 }
 
 bool DragData::containsColor() const
 {
-    return [[[m_platformDragData draggingPasteboard] types] containsObject:NSColorPboardType];
+    return [[m_pasteboard.get() types] containsObject:NSColorPboardType];
 }
 
 bool DragData::containsFiles() const
 {
-    return [[[m_platformDragData draggingPasteboard] types] containsObject:NSFilenamesPboardType];
+    return [[m_pasteboard.get() types] containsObject:NSFilenamesPboardType];
 }
 
 void DragData::asFilenames(Vector<String>& result) const
 {
-    NSArray *filenames = [[m_platformDragData draggingPasteboard] propertyListForType:NSFilenamesPboardType];
+    NSArray *filenames = [m_pasteboard.get() propertyListForType:NSFilenamesPboardType];
     NSEnumerator *fileEnumerator = [filenames objectEnumerator];
     
     while (NSString *filename = [fileEnumerator nextObject])
@@ -76,19 +87,19 @@ void DragData::asFilenames(Vector<String>& result) const
 
 bool DragData::containsPlainText() const
 {
-    NSPasteboard *pasteboard = [m_platformDragData draggingPasteboard];
-    NSArray *types = [pasteboard types];
+    NSArray *types = [m_pasteboard.get() types];
     
     return [types containsObject:NSStringPboardType] 
         || [types containsObject:NSRTFDPboardType]
         || [types containsObject:NSRTFPboardType]
         || [types containsObject:NSFilenamesPboardType]
-        || [NSURL URLFromPasteboard:pasteboard];
+        || [NSURL URLFromPasteboard:m_pasteboard.get()];
 }
 
-String DragData::asPlainText() const
+String DragData::asPlainText(Frame *frame) const
 {
-    return m_pasteboardHelper->plainTextFromPasteboard([m_platformDragData draggingPasteboard]);
+    Pasteboard pasteboard(m_pasteboard.get());
+    return pasteboard.plainText(frame);
 }
 
 Color DragData::asColor() const
@@ -98,29 +109,50 @@ Color DragData::asColor() const
                     (int)([color blueComponent] * 255.0 + 0.5), (int)([color alphaComponent] * 255.0 + 0.5));
 }
 
+static NSArray *insertablePasteboardTypes()
+{
+    static NSArray *types = nil;
+    if (!types) {
+        types = [[NSArray alloc] initWithObjects:WebArchivePboardType, NSHTMLPboardType, NSFilenamesPboardType, NSTIFFPboardType, NSPDFPboardType,
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+                 NSPICTPboardType,
+#endif
+                 NSURLPboardType, NSRTFDPboardType, NSRTFPboardType, NSStringPboardType, NSColorPboardType, kUTTypePNG, nil];
+        CFRetain(types);
+    }
+    return types;
+}
+    
 bool DragData::containsCompatibleContent() const
 {
-    NSPasteboard *pasteboard = [m_platformDragData draggingPasteboard];
-    NSMutableSet *types = [NSMutableSet setWithArray:[pasteboard types]];
-    [types intersectSet:[NSSet setWithArray:m_pasteboardHelper->insertablePasteboardTypes()]];
+    NSMutableSet *types = [NSMutableSet setWithArray:[m_pasteboard.get() types]];
+    [types intersectSet:[NSSet setWithArray:insertablePasteboardTypes()]];
     return [types count] != 0;
 }
     
-bool DragData::containsURL(FilenameConversionPolicy filenamePolicy) const
+bool DragData::containsURL(Frame* frame, FilenameConversionPolicy filenamePolicy) const
 {
-    return !asURL(filenamePolicy).isEmpty();
+    return !asURL(frame, filenamePolicy).isEmpty();
 }
     
-String DragData::asURL(FilenameConversionPolicy filenamePolicy, String* title) const
+String DragData::asURL(Frame* frame, FilenameConversionPolicy filenamePolicy, String* title) const
 {
     // FIXME: Use filenamePolicy.
     (void)filenamePolicy;
-    return m_pasteboardHelper->urlFromPasteboard([m_platformDragData draggingPasteboard], title);
+
+    if (title) {
+        if (NSString *URLTitleString = [[m_platformDragData draggingPasteboard] stringForType:WebURLNamePboardType])
+            *title = URLTitleString;
+    }
+    Pasteboard pasteboard(m_pasteboard.get());
+    return pasteboard.asURL(frame);
 }
 
-PassRefPtr<DocumentFragment> DragData::asFragment(Document*) const
+PassRefPtr<DocumentFragment> DragData::asFragment(Frame* frame, PassRefPtr<Range> range, bool allowPlainText, bool& chosePlainText) const
 {
-    return core(m_pasteboardHelper->fragmentFromPasteboard([m_platformDragData draggingPasteboard]));
+    Pasteboard pasteboard(m_pasteboard.get());
+    
+    return pasteboard.documentFragment(frame, range, allowPlainText, chosePlainText);
 }
     
 } // namespace WebCore

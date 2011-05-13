@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -129,9 +129,7 @@ WebInspector.AuditsPanel.prototype = {
 
     _executeAudit: function(categories, resultCallback)
     {
-        var resources = [];
-        for (var id in WebInspector.networkResources)
-            resources.push(WebInspector.networkResources[id]);
+        var resources = WebInspector.networkResources;
 
         var rulesRemaining = 0;
         for (var i = 0; i < categories.length; ++i)
@@ -248,12 +246,6 @@ WebInspector.AuditsPanel.prototype = {
             x.show(this.viewsContainerElement);
     },
 
-    show: function()
-    {
-        WebInspector.Panel.prototype.show.call(this);
-        this._updateLauncherViewControls(!WebInspector.panels.resources || WebInspector.panels.resources.resourceTrackingEnabled);
-    },
-
     reset: function()
     {
         this._launcherView.reset();
@@ -269,12 +261,6 @@ WebInspector.AuditsPanel.prototype = {
     updateMainViewWidth: function(width)
     {
         this.viewsContainerElement.style.left = width + "px";
-    },
-
-    _updateLauncherViewControls: function(isTracking)
-    {
-        if (this._launcherView)
-            this._launcherView.updateResourceTrackingState(isTracking);
     },
 
     _clearButtonClicked: function()

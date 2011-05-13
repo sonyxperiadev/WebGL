@@ -99,7 +99,10 @@ inline unsigned CSSSelector::specificityForOneSelector() const
     case Contain:
     case Begin:
     case End:
-        s += 0x100;
+        if (pseudoType() == PseudoNot && simpleSelector())
+            s += simpleSelector()->specificityForOneSelector();
+        else
+            s += 0x100;
     case None:
         break;
     }
@@ -148,8 +151,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
     case PseudoInputSpeechButton:
         return INPUT_SPEECH_BUTTON;
 #endif
-    case PseudoSliderThumb:
-        return SLIDER_THUMB;
     case PseudoSearchCancelButton:
         return SEARCH_CANCEL_BUTTON;
     case PseudoSearchDecoration:
@@ -417,7 +418,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, searchResultsDecoration, ("-webkit-search-results-decoration"));
     DEFINE_STATIC_LOCAL(AtomicString, searchResultsButton, ("-webkit-search-results-button"));
     DEFINE_STATIC_LOCAL(AtomicString, selection, ("selection"));
-    DEFINE_STATIC_LOCAL(AtomicString, sliderThumb, ("-webkit-slider-thumb"));
     DEFINE_STATIC_LOCAL(AtomicString, target, ("target"));
     DEFINE_STATIC_LOCAL(AtomicString, visited, ("visited"));
     DEFINE_STATIC_LOCAL(AtomicString, windowInactive, ("window-inactive"));
@@ -546,7 +546,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(searchResultsDecoration.impl(), CSSSelector::PseudoSearchResultsDecoration);
         nameToPseudoType->set(searchResultsButton.impl(), CSSSelector::PseudoSearchResultsButton);
         nameToPseudoType->set(selection.impl(), CSSSelector::PseudoSelection);
-        nameToPseudoType->set(sliderThumb.impl(), CSSSelector::PseudoSliderThumb);
         nameToPseudoType->set(target.impl(), CSSSelector::PseudoTarget);
         nameToPseudoType->set(visited.impl(), CSSSelector::PseudoVisited);
         nameToPseudoType->set(firstPage.impl(), CSSSelector::PseudoFirstPage);
@@ -634,7 +633,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoSearchResultsDecoration:
     case PseudoSearchResultsButton:
     case PseudoSelection:
-    case PseudoSliderThumb:
         element = true;
         break;
     case PseudoUnknown:

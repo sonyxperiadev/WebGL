@@ -176,7 +176,7 @@ void RenderLayerCompositor::setCompositingLayersNeedRebuild(bool needRebuild)
         m_compositingLayersNeedRebuild = needRebuild;
 }
 
-void RenderLayerCompositor::scheduleSync()
+void RenderLayerCompositor::scheduleLayerFlush()
 {
     Frame* frame = m_renderView->frameView()->frame();
     Page* page = frame ? frame->page() : 0;
@@ -184,6 +184,16 @@ void RenderLayerCompositor::scheduleSync()
         return;
 
     page->chrome()->client()->scheduleCompositingLayerSync();
+}
+
+void RenderLayerCompositor::flushPendingLayerChanges()
+{
+    // FIXME: FrameView::syncCompositingStateRecursive() calls this for each
+    // frame, so when compositing layers are connected between frames, we'll
+    // end up syncing subframe's layers multiple times.
+    // https://bugs.webkit.org/show_bug.cgi?id=52489
+    if (GraphicsLayer* rootLayer = rootPlatformLayer())
+        rootLayer->syncCompositingState();
 }
 
 void RenderLayerCompositor::scheduleCompositingLayerUpdate()
@@ -1171,7 +1181,12 @@ bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
         return true;
 
     // On Mac, only propagate compositing if the iframe is overlapped in the parent
-    // document, or the parent is already compositing.
+    // document, or the parent is already compositing, or the main frame is scaled.
+    Frame* frame = m_renderView->frameView()->frame();
+    Page* page = frame ? frame->page() : 0;
+    if (page->mainFrame()->pageScaleFactor() != 1)
+        return true;
+    
     RenderIFrame* iframeRenderer = toRenderIFrame(renderer);
     if (iframeRenderer->widget()) {
         ASSERT(iframeRenderer->widget()->isFrameView());
@@ -1661,6 +1676,34 @@ bool RenderLayerCompositor::layerHas3DContent(const RenderLayer* layer) const
         }
     }
     return false;
+}
+
+void RenderLayerCompositor::updateContentsScale(float scale, RenderLayer* layer)
+{
+    if (!layer)
+        layer = rootRenderLayer();
+
+    layer->updateContentsScale(scale);
+
+    if (layer->isStackingContext()) {
+        if (Vector<RenderLayer*>* negZOrderList = layer->negZOrderList()) {
+            size_t listSize = negZOrderList->size();
+            for (size_t i = 0; i < listSize; ++i)
+                updateContentsScale(scale, negZOrderList->at(i));
+        }
+
+        if (Vector<RenderLayer*>* posZOrderList = layer->posZOrderList()) {
+            size_t listSize = posZOrderList->size();
+            for (size_t i = 0; i < listSize; ++i)
+                updateContentsScale(scale, posZOrderList->at(i));
+        }
+    }
+
+    if (Vector<RenderLayer*>* normalFlowList = layer->normalFlowList()) {
+        size_t listSize = normalFlowList->size();
+        for (size_t i = 0; i < listSize; ++i)
+            updateContentsScale(scale, normalFlowList->at(i));
+    }
 }
 
 } // namespace WebCore

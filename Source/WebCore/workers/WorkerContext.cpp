@@ -38,11 +38,12 @@
 #include "DatabaseSync.h"
 #include "DatabaseTracker.h"
 #include "DOMTimer.h"
+#include "DOMURL.h"
 #include "DOMWindow.h"
 #include "ErrorEvent.h"
 #include "Event.h"
 #include "EventException.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "KURL.h"
 #include "MessagePort.h"
 #include "NotImplemented.h"
@@ -245,10 +246,7 @@ void WorkerContext::importScripts(const Vector<String>& urls, ExceptionCode& ec)
             return;
         }
 
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(scriptLoader.identifier(), scriptLoader.script());
-#endif
+       InspectorInstrumentation::scriptImported(scriptExecutionContext(), scriptLoader.identifier(), scriptLoader.script());
 
         ScriptValue exception;
         m_script->evaluate(ScriptSourceCode(scriptLoader.script(), *it), &exception);
@@ -341,14 +339,11 @@ EventTargetData* WorkerContext::ensureEventTargetData()
 }
 
 #if ENABLE(BLOB)
-String WorkerContext::createObjectURL(Blob* blob)
+DOMURL* WorkerContext::webkitURL() const
 {
-    return scriptExecutionContext()->createPublicBlobURL(blob).string();
-}
-
-void WorkerContext::revokeObjectURL(const String& blobURLString)
-{
-    scriptExecutionContext()->revokePublicBlobURL(KURL(ParsedURLString, blobURLString));
+    if (!m_domURL)
+        m_domURL = DOMURL::create(this->scriptExecutionContext());
+    return m_domURL.get();
 }
 #endif
 

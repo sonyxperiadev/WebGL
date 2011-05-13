@@ -23,12 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Script = function(sourceID, sourceURL, source, startingLine, errorLine, errorMessage, worldType)
+WebInspector.Script = function(sourceID, sourceURL, source, lineOffset, columnOffset, errorLine, errorMessage, worldType)
 {
     this.sourceID = sourceID;
     this.sourceURL = sourceURL;
     this._source = source;
-    this.startingLine = startingLine;
+    this.lineOffset = lineOffset;
+    this.columnOffset = columnOffset;
     this.errorLine = errorLine;
     this.errorMessage = errorMessage;
     this.worldType = worldType;
@@ -57,24 +58,40 @@ WebInspector.Script.WorldType = {
     EXTENSIONS_WORLD: 1
 }
 
-WebInspector.Script.Events = {
-    SourceChanged: "source-changed"
-}
-
 WebInspector.Script.prototype = {
+    get startingLine()
+    {
+        return this.lineOffset + 1;
+    },
+
     get linesCount()
     {
         if (!this.source)
             return 0;
-        if (this._linesCount)
-            return this._linesCount;
-        this._linesCount = 0;
-        var lastIndex = this.source.indexOf("\n");
-        while (lastIndex !== -1) {
-            lastIndex = this.source.indexOf("\n", lastIndex + 1)
-            this._linesCount++;
+        if (!this._lineEndings)
+            this._lineEndings = this._source.findAll("\n");
+        return this._lineEndings.length + 1;
+    },
+
+    sourceLine: function(lineNumber, callback)
+    {
+        function extractSourceLine()
+        {
+            lineNumber -= this.startingLine;
+            callback(this._source.substring(this._lineEndings[lineNumber - 1], this._lineEndings[lineNumber]));
         }
-        return this._linesCount;
+
+        if (this._lineEndings) {
+            extractSourceLine.call(this);
+            return;
+        }
+
+        function didRequestSource()
+        {
+            this._lineEndings = this._source.findAll("\n");
+            extractSourceLine.call(this);
+        }
+        this.requestSource(didRequestSource.bind(this));
     },
 
     get source()
@@ -85,8 +102,20 @@ WebInspector.Script.prototype = {
     set source(source)
     {
         this._source = source;
-        this.dispatchEventToListeners(WebInspector.Script.Events.SourceChanged);
+    },
+
+    requestSource: function(callback)
+    {
+        if (this._source) {
+            callback(this._source);
+            return;
+        }
+
+        function didGetScriptSource(source)
+        {
+            this._source = source;
+            callback(this._source);
+        }
+        InspectorBackend.getScriptSource(this.sourceID, didGetScriptSource.bind(this));
     }
 }
-
-WebInspector.Script.prototype.__proto__ = WebInspector.Object.prototype;

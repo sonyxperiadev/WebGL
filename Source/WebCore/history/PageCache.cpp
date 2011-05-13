@@ -252,6 +252,8 @@ bool PageCache::canCachePageContainingThisFrame(Frame* frame)
     
     return frame->loader()->documentLoader()
         && frame->loader()->documentLoader()->mainDocumentError().isNull()
+        // Do not cache error pages (these can be recognized as pages with substitute data or unreachable URLs).
+        && !(frame->loader()->documentLoader()->substituteData().isValid() && !frame->loader()->documentLoader()->substituteData().failingURL().isEmpty())
         // FIXME: If we ever change this so that frames with plug-ins will be cached,
         // we need to make sure that we don't cache frames that have outstanding NPObjects
         // (objects created by the plug-in). Since there is no way to pause/resume a Netscape plug-in,
@@ -453,7 +455,7 @@ void PageCache::releaseAutoreleasedPagesNow()
     m_autoreleaseTimer.stop();
 
     // Postpone dead pruning until all our resources have gone dead.
-    cache()->setPruneEnabled(false);
+    memoryCache()->setPruneEnabled(false);
 
     CachedPageSet tmp;
     tmp.swap(m_autoreleaseSet);
@@ -463,8 +465,8 @@ void PageCache::releaseAutoreleasedPagesNow()
         (*it)->destroy();
 
     // Now do the prune.
-    cache()->setPruneEnabled(true);
-    cache()->prune();
+    memoryCache()->setPruneEnabled(true);
+    memoryCache()->prune();
 }
 
 void PageCache::autorelease(PassRefPtr<CachedPage> page)

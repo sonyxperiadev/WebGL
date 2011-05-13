@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,7 +37,6 @@ module core {
         ///////////////////////////////////////////////////////////////////////
 
         // HUGE FIXME: we need to expose InjectedScript methods here. Or document InjectedScript capabilities.
-        [domain=Inspector] void setInjectedScriptSource(in String scriptSource);
         [domain=Inspector] void dispatchOnInjectedScript(in long injectedScriptId, in String methodName, in String arguments, out Value result, out boolean isException);
         [domain=Inspector] void addScriptToEvaluateOnLoad(in String scriptSource);
         [domain=Inspector] void removeAllScriptsToEvaluateOnLoad();
@@ -49,6 +48,7 @@ module core {
 
         [domain=Inspector] void openInInspectedWindow(in String url);
         [domain=Inspector] void setSearchingForNode(in boolean enabled, out boolean newState);
+        [notify, domain=Inspector] void frontendReused();
         [notify, domain=Inspector] void addNodesToSearchResult(out Array nodeIds);
         [notify, domain=Inspector] void bringToFront();
         [notify, domain=Inspector] void disconnectFromBackend();
@@ -76,12 +76,12 @@ module core {
         // Console API
         ///////////////////////////////////////////////////////////////////////
 
-        [domain=Inspector] void setConsoleMessagesEnabled(in boolean enabled, out boolean newState);
-        [notify, domain=Inspector] void addConsoleMessage(out Object messageObj);
-        [notify, domain=Inspector] void updateConsoleMessageExpiredCount(out unsigned long count);
-        [notify, domain=Inspector] void updateConsoleMessageRepeatCount(out unsigned long count);
-        [domain=Inspector] void clearConsoleMessages();
-        [notify, domain=Inspector] void consoleMessagesCleared();
+        [domain=Console] void setConsoleMessagesEnabled(in boolean enabled, out boolean newState);
+        [notify, domain=Console] void addConsoleMessage(out Object messageObj);
+        [notify, domain=Console] void updateConsoleMessageExpiredCount(out unsigned long count);
+        [notify, domain=Console] void updateConsoleMessageRepeatCount(out unsigned long count);
+        [domain=Console] void clearConsoleMessages();
+        [notify, domain=Console] void consoleMessagesCleared();
 
         ///////////////////////////////////////////////////////////////////////
         // Network API
@@ -186,7 +186,6 @@ module core {
         [notify, domain=DOM] void childNodeCountUpdated(out long id, out int newValue);
         [notify, domain=DOM] void childNodeInserted(out long parentId, out long prevId, out Object node);
         [notify, domain=DOM] void childNodeRemoved(out long parentId, out long id);
-        [notify, domain=DOM] void didCommitLoad();
 
         ///////////////////////////////////////////////////////////////////////
         // CSS API
@@ -222,14 +221,15 @@ module core {
         // Debugger API
         ///////////////////////////////////////////////////////////////////////
 
-        [domain=Inspector] void enableDebuggerFromFrontend(in boolean always);
+        [domain=Inspector] void enableDebugger(in boolean always);
         [domain=Inspector] void disableDebugger(in boolean always);
+
+        [domain=Inspector] void setStickyBreakpoints(in Object breakpoints);
+
         [notify, domain=Debugger] void debuggerWasEnabled();
         [notify, domain=Debugger] void debuggerWasDisabled();
 
-        [notify, domain=Debugger] void attachDebuggerWhenShown(); // FIXME: do something with this eventually.
-
-        [notify, domain=Debugger] void parsedScriptSource(out String sourceID, out String url, out String data, out int firstLine, out int scriptWorldType);
+        [notify, domain=Debugger] void parsedScriptSource(out String sourceID, out String url, out int lineOffset, out int columnOffset, out int scriptWorldType);
         [notify, domain=Debugger] void failedToParseScriptSource(out String url, out String data, out int firstLine, out int errorLine, out String errorMessage);
 
         [domain=Debugger] void activateBreakpoints();
@@ -238,20 +238,16 @@ module core {
         [domain=Debugger] void setBreakpoint(in String sourceID, in unsigned int lineNumber, in String condition, in boolean enabled, out String breakpointId, out unsigned int actualLineNumber);
         [domain=Debugger] void removeBreakpoint(in String breakpointId);
 
-        [domain=Inspector] void setStickyBreakpoints(in Object breakpoints); // FIXME: Move to newly introduced BrowserDebugger.
+        [domain=BrowserDebugger] void setDOMBreakpoint(in long nodeId, in long type);
+        [domain=BrowserDebugger] void removeDOMBreakpoint(in long nodeId, in long type);
+        [domain=BrowserDebugger] void setEventListenerBreakpoint(in String eventName);
+        [domain=BrowserDebugger] void removeEventListenerBreakpoint(in String eventName);
+        [domain=BrowserDebugger] void setXHRBreakpoint(in String url);
+        [domain=BrowserDebugger] void removeXHRBreakpoint(in String url);
 
-        [domain=DOM] void setDOMBreakpoint(in long nodeId, in long type); // FIXME: Move to newly introduced BrowserDebugger.
-        [domain=DOM] void removeDOMBreakpoint(in long nodeId, in long type); // FIXME: Move to newly introduced BrowserDebugger.
-
-        [domain=Inspector] void setEventListenerBreakpoint(in String eventName); // FIXME: Move to newly introduced BrowserDebugger.
-        [domain=Inspector] void removeEventListenerBreakpoint(in String eventName); // FIXME: Move to newly introduced BrowserDebugger.
-
-        [domain=Inspector] void setXHRBreakpoint(in String url); // FIXME: Move to newly introduced BrowserDebugger.
-        [domain=Inspector] void removeXHRBreakpoint(in String url); // FIXME: Move to newly introduced BrowserDebugger.
-
-        [domain=Debugger] void stepOverStatement(); // FIXME: rename to stepOver
-        [domain=Debugger] void stepIntoStatement(); // FIXME: rename to stepInto
-        [domain=Debugger] void stepOutOfFunction(); // FIXME: rename to stepOut
+        [domain=Debugger] void stepOver();
+        [domain=Debugger] void stepInto();
+        [domain=Debugger] void stepOut();
         [domain=Debugger] void pause();
         [notify, domain=Debugger] void pausedScript(out Object details);
         [domain=Debugger] void resume();

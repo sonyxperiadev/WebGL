@@ -38,14 +38,34 @@
 #include <wtf/PageReservation.h>
 #include <wtf/VMTags.h>
 
-#if CPU(X86_64)
-    // These limits suitable on 64-bit platforms (particularly x86-64, where we require all jumps to have a 2Gb max range).
-    #define VM_POOL_SIZE (2u * 1024u * 1024u * 1024u) // 2Gb
-    #define COALESCE_LIMIT (16u * 1024u * 1024u) // 16Mb
+#if OS(LINUX)
+#include <stdio.h>
+#endif
+
+static const unsigned vmPoolSizeOvercommit = 2u * 1024u * 1024u * 1024u; // 2Gb
+static const unsigned coalesceLimitOvercommit = 16u * 1024u * 1024u; // 16Mb
+
+static const unsigned vmPoolSizeNoOvercommit = 32u * 1024u * 1024u; // 32Mb
+static const unsigned coalesceLimitNoOvercommit = 4u * 1024u * 1024u; // 4Mb
+
+static const unsigned vmPoolSizeEmbedded = 16u * 1024u * 1024u; // 16Mb
+static const unsigned coalesceLimitEmbedded = 4u * 1024u * 1024u; // 4Mb
+
+#if CPU(X86_64) && !OS(LINUX)
+// These limits suitable on 64-bit platforms (particularly x86-64,
+// where we require all jumps to have a 2Gb max range). We don't
+// enable this by default on Linux, since it needs overcommit and
+// distros commonly disable that feature. We'll check the value
+// for the overcommit feature at runtime and re-assign the Generic
+// values if it's enabled.
+static unsigned vmPoolSize = vmPoolSizeOvercommit;
+static unsigned coalesceLimit = coalesceLimitOvercommit;
+#elif CPU(ARM)
+static unsigned vmPoolSize = vmPoolSizeEmbedded;
+static unsigned coalesceLimit = coalesceLimitEmbedded;
 #else
-    // These limits are hopefully sensible on embedded platforms.
-    #define VM_POOL_SIZE (32u * 1024u * 1024u) // 32Mb
-    #define COALESCE_LIMIT (4u * 1024u * 1024u) // 4Mb
+static unsigned vmPoolSize = vmPoolSizeNoOvercommit;
+static unsigned coalesceLimit = coalesceLimitNoOvercommit;
 #endif
 
 using namespace WTF;
@@ -315,7 +335,7 @@ public:
         // 16MB of allocations have been freed, sweep m_freeList
         // coalescing any neighboring fragments.
         m_countFreedSinceLastCoalesce += size;
-        if (m_countFreedSinceLastCoalesce >= COALESCE_LIMIT) {
+        if (m_countFreedSinceLastCoalesce >= coalesceLimit) {
             m_countFreedSinceLastCoalesce = 0;
             coalesceFreeSpace();
         }
@@ -433,11 +453,34 @@ void ExecutableAllocator::intializePageSize()
 static FixedVMPoolAllocator* allocator = 0;
 static size_t allocatedCount = 0;
 
+#if OS(LINUX)
+static void maybeModifyVMPoolSize()
+{
+    FILE* fp = fopen("/proc/sys/vm/overcommit_memory", "r");
+    if (!fp)
+        return;
+
+    unsigned overcommit = 0;
+    if (fscanf(fp, "%u", &overcommit) == 1) {
+        if (overcommit == 1) {
+            vmPoolSize = vmPoolSizeOvercommit;
+            coalesceLimit = coalesceLimitOvercommit;
+        }
+    }
+
+    fclose(fp);
+}
+#endif
+
 bool ExecutableAllocator::isValid() const
 {
     SpinLockHolder lock_holder(&spinlock);
-    if (!allocator)
-        allocator = new FixedVMPoolAllocator(JIT_ALLOCATOR_LARGE_ALLOC_SIZE, VM_POOL_SIZE);
+    if (!allocator) {
+#if OS(LINUX)
+        maybeModifyVMPoolSize();
+#endif
+        allocator = new FixedVMPoolAllocator(JIT_ALLOCATOR_LARGE_ALLOC_SIZE, vmPoolSize);
+    }
     return allocator->isValid();
 }
 
@@ -445,7 +488,7 @@ bool ExecutableAllocator::underMemoryPressure()
 {
     // Technically we should take the spin lock here, but we don't care if we get stale data.
     // This is only really a heuristic anyway.
-    return allocatedCount > (VM_POOL_SIZE / 2);
+    return allocatedCount > (vmPoolSize / 2);
 }
 
 ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t size)

@@ -80,7 +80,7 @@ HTMLFormControlElement::~HTMLFormControlElement()
 
 void HTMLFormControlElement::detach()
 {
-    hideVisibleValidationMessage();
+    m_validationMessage = 0;
     HTMLElement::detach();
 }
 
@@ -142,6 +142,12 @@ void HTMLFormControlElement::attach()
             ((hasTagName(inputTag) && !isInputTypeHidden) || hasTagName(selectTag) ||
               hasTagName(buttonTag) || hasTagName(textareaTag)))
          focus();
+}
+
+void HTMLFormControlElement::willMoveToNewOwnerDocument()
+{
+    FormAssociatedElement::willMoveToNewOwnerDocument();
+    HTMLElement::willMoveToNewOwnerDocument();
 }
 
 void HTMLFormControlElement::insertedIntoTree(bool deep)
@@ -304,18 +310,24 @@ void HTMLFormControlElement::updateVisibleValidationMessage()
             message.append(title);
         }
     }
+    if (message.isEmpty()) {
+        hideVisibleValidationMessage();
+        return;
+    }
     if (!m_validationMessage) {
         m_validationMessage = ValidationMessage::create(this);
         m_validationMessage->setMessage(message);
-    } else if (message.isEmpty())
-        hideVisibleValidationMessage();
-    else if (m_validationMessage->message() != message)
+    } else {
+        // Call setMessage() even if m_validationMesage->message() == message
+        // because the existing message might be to be hidden.
         m_validationMessage->setMessage(message);
+    }
 }
 
 void HTMLFormControlElement::hideVisibleValidationMessage()
 {
-    m_validationMessage = 0;
+    if (m_validationMessage)
+        m_validationMessage->requestToHideMessage();
 }
 
 String HTMLFormControlElement::visibleValidationMessage() const

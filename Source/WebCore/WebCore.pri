@@ -60,6 +60,7 @@ STYLESHEETS_EMBED = \
     $$PWD/css/wml.css \
     $$PWD/css/mediaControls.css \
     $$PWD/css/mediaControlsQt.css \
+    $$PWD/css/mediaControlsQtFullscreen.css \
     $$PWD/css/themeQtNoListboxes.css \
     $$PWD/css/themeQtMobile.css
 
@@ -213,6 +214,7 @@ IDL_BINDINGS += \
     html/DOMFormData.idl \
     html/DOMSettableTokenList.idl \
     html/DOMTokenList.idl \
+    html/DOMURL.idl \
     html/HTMLAllCollection.idl \
     html/HTMLAudioElement.idl \
     html/HTMLAnchorElement.idl \
@@ -537,6 +539,7 @@ IDL_BINDINGS += \
 
 INSPECTOR_INTERFACES = inspector/Inspector.idl
 INSPECTOR_BACKEND_STUB_QRC = inspector/front-end/InspectorBackendStub.qrc
+INJECTED_SCRIPT_SOURCE = $$PWD/inspector/InjectedScriptSource.js
 
 v8: wrapperFactoryArg = --wrapperFactoryV8
 else: wrapperFactoryArg = --wrapperFactory
@@ -650,6 +653,12 @@ inspectorBackendStub.tempNames = $$PWD/$$INSPECTOR_BACKEND_STUB_QRC $${WC_GENERA
 inspectorBackendStub.commands = $$QMAKE_COPY $$replace(inspectorBackendStub.tempNames, "/", $$QMAKE_DIR_SEP)
 addExtraCompiler(inspectorBackendStub)
 
+# GENERATOR 2-a: inspector injected script source compiler
+injectedScriptSource.output = $${WC_GENERATED_SOURCES_DIR}/InjectedScriptSource.h
+injectedScriptSource.input = INJECTED_SCRIPT_SOURCE
+injectedScriptSource.commands = perl $$PWD/inspector/xxd.pl InjectedScriptSource_js $$PWD/inspector/InjectedScriptSource.js  $${WC_GENERATED_SOURCES_DIR}/InjectedScriptSource.h
+addExtraCompiler(injectedScriptSource)
+
 # GENERATOR 3: tokenizer (flex)
 tokenizer.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.cpp
 tokenizer.input = TOKENIZER
@@ -737,11 +746,11 @@ xpathbison.depends = ${QMAKE_FILE_NAME}
 addExtraCompiler(xpathbison)
 
 # GENERATOR 11: WebKit Version
-# The appropriate Apple-maintained Version.xcconfig file for WebKit version information is in WebKit/mac/Configurations/.
-webkitversion.wkScript = $$PWD/../../WebKit/scripts/generate-webkitversion.pl
+# The appropriate Apple-maintained Version.xcconfig file for WebKit version information is in Source/WebKit/mac/Configurations/.
+webkitversion.wkScript = $$PWD/../../Source/WebKit/scripts/generate-webkitversion.pl
 webkitversion.output = $${WC_GENERATED_SOURCES_DIR}/WebKitVersion.h
 webkitversion.input = webkitversion.wkScript
-webkitversion.commands = perl $$webkitversion.wkScript --config $$PWD/../../WebKit/mac/Configurations/Version.xcconfig --outputDir $${WC_GENERATED_SOURCES_DIR}/
+webkitversion.commands = perl $$webkitversion.wkScript --config $$PWD/../../Source/WebKit/mac/Configurations/Version.xcconfig --outputDir $${WC_GENERATED_SOURCES_DIR}/
 webkitversion.clean = ${QMAKE_VAR_WC_GENERATED_SOURCES_DIR}/WebKitVersion.h
 webkitversion.wkAddOutputToSources = false
 addExtraCompiler(webkitversion)

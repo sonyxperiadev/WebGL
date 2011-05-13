@@ -52,6 +52,7 @@
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLTextAreaElement.h"
@@ -3031,7 +3032,8 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, b
 
 String Editor::selectedText() const
 {
-    return plainText(m_frame->selection()->toNormalizedRange().get());
+    // We remove '\0' characters because they are not visibly rendered to the user.
+    return plainText(m_frame->selection()->toNormalizedRange().get()).replace(0, "");
 }
 
 IntRect Editor::firstRectForRange(Range* range) const

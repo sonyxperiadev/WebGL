@@ -36,6 +36,7 @@ import shutil
 
 from webkitpy.common.system.executive import Executive, run_command, ScriptError
 from webkitpy.common.system.deprecated_logging import error, log
+import webkitpy.common.system.ospath as ospath
 from webkitpy.common.memoized import memoized
 
 
@@ -52,7 +53,7 @@ def find_checkout_root():
     return None
 
 
-def default_scm():
+def default_scm(patch_directories=None):
     """Return the default SCM object as determined by the CWD and running code.
 
     Returns the default SCM object for the current working directory; if the
@@ -62,10 +63,10 @@ def default_scm():
 
     """
     cwd = os.getcwd()
-    scm_system = detect_scm_system(cwd)
+    scm_system = detect_scm_system(cwd, patch_directories)
     if not scm_system:
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        scm_system = detect_scm_system(script_directory)
+        scm_system = detect_scm_system(script_directory, patch_directories)
         if scm_system:
             log("The current directory (%s) is not a WebKit checkout, using %s" % (cwd, scm_system.checkout_root))
         else:
@@ -73,11 +74,14 @@ def default_scm():
     return scm_system
 
 
-def detect_scm_system(path):
+def detect_scm_system(path, patch_directories=None):
     absolute_path = os.path.abspath(path)
 
+    if patch_directories == []:
+        patch_directories = None
+
     if SVN.in_working_directory(absolute_path):
-        return SVN(cwd=absolute_path)
+        return SVN(cwd=absolute_path, patch_directories=patch_directories)
     
     if Git.in_working_directory(absolute_path):
         return Git(cwd=absolute_path)
@@ -141,16 +145,16 @@ class AmbiguousCommitError(Exception):
 
 # SCM methods are expected to return paths relative to self.checkout_root.
 class SCM:
-    def __init__(self, cwd):
+    def __init__(self, cwd, executive=None):
         self.cwd = cwd
         self.checkout_root = self.find_checkout_root(self.cwd)
         self.dryrun = False
+        self._executive = executive or Executive()
 
     # A wrapper used by subclasses to create processes.
     def run(self, args, cwd=None, input=None, error_handler=None, return_exit_code=False, return_stderr=True, decode_output=True):
         # FIXME: We should set cwd appropriately.
-        # FIXME: We should use Executive.
-        return run_command(args,
+        return self._executive.run_command(args,
                            cwd=cwd,
                            input=input,
                            error_handler=error_handler,
@@ -262,7 +266,7 @@ class SCM:
     def display_name(self):
         self._subclass_must_implement()
 
-    def create_patch(self, git_commit=None, changed_files=[]):
+    def create_patch(self, git_commit=None, changed_files=None):
         self._subclass_must_implement()
 
     def committer_email_for_revision(self, revision):
@@ -315,13 +319,20 @@ class SCM:
 
 
 class SVN(SCM):
-    # FIXME: We should move these values to a WebKit-specific config. file.
+    # FIXME: We should move these values to a WebKit-specific config file.
     svn_server_host = "svn.webkit.org"
     svn_server_realm = "<http://svn.webkit.org:80> Mac OS Forge"
 
-    def __init__(self, cwd):
-        SCM.__init__(self, cwd)
+    def __init__(self, cwd, patch_directories, executive=None):
+        SCM.__init__(self, cwd, executive)
         self._bogus_dir = None
+        if patch_directories == []:
+            # FIXME: ScriptError is for Executive, this should probably be a normal Exception.
+            raise ScriptError(script_args=svn_info_args, message='Empty list of patch directories passed to SCM.__init__')
+        elif patch_directories == None:
+            self._patch_directories = [ospath.relpath(cwd, self.checkout_root)]
+        else:
+            self._patch_directories = patch_directories
 
     @staticmethod
     def in_working_directory(path):
@@ -427,7 +438,10 @@ class SVN(SCM):
         return self.run(["svn", "delete", "--force", base], cwd=parent)
 
     def changed_files(self, git_commit=None):
-        return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("ACDMR"))
+        status_command = ["svn", "status"]
+        status_command.extend(self._patch_directories)
+        # ACDMR: Addded, Conflicted, Deleted, Modified or Replaced
+        return self.run_status_and_extract_filenames(status_command, self._status_regexp("ACDMR"))
 
     def changed_files_for_revision(self, revision):
         # As far as I can tell svn diff --summarize output looks just like svn status output.
@@ -463,10 +477,14 @@ class SVN(SCM):
         return "svn"
 
     # FIXME: This method should be on Checkout.
-    def create_patch(self, git_commit=None, changed_files=[]):
+    def create_patch(self, git_commit=None, changed_files=None):
         """Returns a byte array (str()) representing the patch file.
         Patch files are effectively binary since they may contain
         files of multiple different encodings."""
+        if changed_files == []:
+            return ""
+        elif changed_files == None:
+            changed_files = []
         return self.run([self.script_path("svn-create-patch")] + changed_files,
             cwd=self.checkout_root, return_stderr=False,
             decode_output=False)
@@ -574,8 +592,8 @@ class SVN(SCM):
 
 # All git-specific logic should go here.
 class Git(SCM):
-    def __init__(self, cwd):
-        SCM.__init__(self, cwd)
+    def __init__(self, cwd, executive=None):
+        SCM.__init__(self, cwd, executive)
         self._check_git_architecture()
 
     def _machine_is_64bit(self):
@@ -688,7 +706,10 @@ class Git(SCM):
         return self.remote_merge_base()
 
     def changed_files(self, git_commit=None):
+        # FIXME: --diff-filter could be used to avoid the "extract_filenames" step.
         status_command = ['git', 'diff', '-r', '--name-status', '-C', '-M', "--no-ext-diff", "--full-index", self.merge_base(git_commit)]
+        # FIXME: I'm not sure we're returning the same set of files that SVN.changed_files is.
+        # Added (A), Copied (C), Deleted (D), Modified (M), Renamed (R)
         return self.run_status_and_extract_filenames(status_command, self._status_regexp("ADM"))
 
     def _changes_files_for_commit(self, git_commit):
@@ -725,11 +746,14 @@ class Git(SCM):
     def display_name(self):
         return "git"
 
-    def create_patch(self, git_commit=None, changed_files=[]):
+    def create_patch(self, git_commit=None, changed_files=None):
         """Returns a byte array (str()) representing the patch file.
         Patch files are effectively binary since they may contain
         files of multiple different encodings."""
-        return self.run(['git', 'diff', '--binary', "--no-ext-diff", "--full-index", "-M", self.merge_base(git_commit), "--"] + changed_files, decode_output=False, cwd=self.checkout_root)
+        command = ['git', 'diff', '--binary', "--no-ext-diff", "--full-index", "-M", self.merge_base(git_commit), "--"]
+        if changed_files:
+            command += changed_files
+        return self.run(command, decode_output=False, cwd=self.checkout_root)
 
     def _run_git_svn_find_rev(self, arg):
         # git svn find-rev always exits 0, even when the revision or commit is not found.
