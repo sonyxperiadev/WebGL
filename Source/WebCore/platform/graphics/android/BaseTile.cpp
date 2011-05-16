@@ -40,12 +40,12 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <cutils/atomic.h>
+#include <wtf/text/CString.h>
 
 #ifdef DEBUG
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
@@ -58,6 +58,20 @@
 #endif // DEBUG
 
 namespace WebCore {
+
+static const String TAG_CREATE_BITMAP = "create_bitmap";
+static const String TAG_RECORD_PICTURE = "record_picture";
+static const String TAG_DRAW_PICTURE = "draw_picture";
+static const String TAG_UPDATE_TEXTURE = "update_texture";
+static const String TAG_RESET_BITMAP = "reset_bitmap";
+#define TAG_COUNT 5
+static const String TAGS[] = {
+    TAG_CREATE_BITMAP,
+    TAG_RECORD_PICTURE,
+    TAG_DRAW_PICTURE,
+    TAG_UPDATE_TEXTURE,
+    TAG_RESET_BITMAP
+};
 
 BaseTile::BaseTile()
     : m_page(0)
@@ -264,6 +278,23 @@ void BaseTile::drawTileInfo(SkCanvas* canvas,
     canvas->drawText(str, strlen(str), 0, 10, paint);
     paint.setARGB(255, 255, 0, 0);
     canvas->drawText(str, strlen(str), 0, 11, paint);
+    float total = 0;
+    for (int i = 0; i < TAG_COUNT; i++) {
+        float tagDuration = m_perfMon.getAverageDuration(TAGS[i]);
+        total += tagDuration;
+        snprintf(str, 256, "%s: %.2f", TAGS[i].utf8().data(), tagDuration);
+        paint.setARGB(255, 0, 0, 0);
+        int textY = (i * 12) + 25;
+        canvas->drawText(str, strlen(str), 0, textY, paint);
+        paint.setARGB(255, 255, 0, 0);
+        canvas->drawText(str, strlen(str), 0, textY + 1, paint);
+    }
+    snprintf(str, 256, "total: %.2f", total);
+    paint.setARGB(255, 0, 0, 0);
+    int textY = (TAG_COUNT * 12) + 30;
+    canvas->drawText(str, strlen(str), 0, textY, paint);
+    paint.setARGB(255, 255, 0, 0);
+    canvas->drawText(str, strlen(str), 0, textY + 1, paint);
 }
 
 // This is called from the texture generation thread
@@ -432,7 +463,11 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
         tx = - x() * TilesManager::instance()->tileWidth() / scale;
         ty = - y() * TilesManager::instance()->tileHeight() / scale;
     }
+    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
+    bool measurePerf = fullRepaint && visualIndicator;
 
+    if (measurePerf)
+        m_perfMon.start(TAG_CREATE_BITMAP);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
     bitmap.allocPixels();
@@ -441,6 +476,10 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
     SkCanvas canvas(bitmap);
     canvas.drawARGB(255, 255, 255, 255);
 
+    if (measurePerf) {
+        m_perfMon.stop(TAG_CREATE_BITMAP);
+        m_perfMon.start(TAG_RECORD_PICTURE);
+    }
     SkPicture picture;
     SkCanvas* nCanvas = picture.beginRecording(rect.width(), rect.height());
     nCanvas->scale(scale, scale);
@@ -448,12 +487,18 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
     int pictureCount = tiledPage->paintBaseLayerContent(nCanvas);
     picture.endRecording();
 
-    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
+    if (measurePerf) {
+        m_perfMon.stop(TAG_RECORD_PICTURE);
+        m_perfMon.start(TAG_DRAW_PICTURE);
+    }
     if (visualIndicator)
         canvas.save();
     picture.draw(&canvas);
     if (visualIndicator)
         canvas.restore();
+    if (measurePerf) {
+        m_perfMon.stop(TAG_DRAW_PICTURE);
+    }
 
     if (visualIndicator) {
         int color = 20 + pictureCount % 100;
@@ -477,10 +522,20 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
         textureInfo->m_width = rect.width();
         textureInfo->m_height = rect.height();
     } else {
+        if (measurePerf)
+            m_perfMon.start(TAG_UPDATE_TEXTURE);
         GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, rect.fLeft, rect.fTop, bitmap);
+        if (measurePerf)
+            m_perfMon.stop(TAG_UPDATE_TEXTURE);
     }
 
+    if (measurePerf)
+        m_perfMon.start(TAG_RESET_BITMAP);
+
     bitmap.reset();
+
+    if (measurePerf)
+        m_perfMon.stop(TAG_RESET_BITMAP);
 
     return pictureCount;
 }

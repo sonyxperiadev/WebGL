@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "HashMap.h"
+#include "PerformanceMonitor.h"
 #include "SharedTexture.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
@@ -143,6 +144,8 @@ private:
     // across all threads and cores.
     android::Mutex m_atomicSync;
 
+    // Performance tracking
+    PerformanceMonitor m_perfMon;
 };
 
 } // namespace WebCore
