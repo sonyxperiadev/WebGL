@@ -1778,7 +1778,7 @@ static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
-    WebCore::cache()->setDisabled(disabled);
+    WebCore::memoryCache()->setDisabled(disabled);
 }
 
 static jboolean CacheDisabled(JNIEnv *env, jobject obj)
@@ -1786,16 +1786,16 @@ static jboolean CacheDisabled(JNIEnv *env, jobject obj)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
-    return WebCore::cache()->disabled();
+    return WebCore::memoryCache()->disabled();
 }
 
 static void ClearWebCoreCache()
 {
-    if (!WebCore::cache()->disabled()) {
+    if (!WebCore::memoryCache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
         // still live on if they are referenced by some Web page though.
-        WebCore::cache()->setDisabled(true);
-        WebCore::cache()->setDisabled(false);
+        WebCore::memoryCache()->setDisabled(true);
+        WebCore::memoryCache()->setDisabled(false);
     }
 
     // clear page cache
@@ -1827,7 +1827,7 @@ static void ClearCache(JNIEnv *env, jobject obj)
             jsHeapStatistics.size, jsHeapStatistics.free);
 #endif  // USE(JSC)
     LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead",
-            cache()->getLiveSize(), cache()->getDeadSize());
+            memoryCache()->getLiveSize(), memoryCache()->getDeadSize());
 #endif  // ANDROID_INSTRUMENT
     ClearWebCoreCache();
     ClearWebViewCache();

@@ -364,7 +364,7 @@ void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
 
 void JavaBridge::SetCacheSize(JNIEnv* env, jobject obj, jint bytes)
 {
-    WebCore::cache()->setCapacities(0, bytes/2, bytes);
+    WebCore::memoryCache()->setCapacities(0, bytes/2, bytes);
 }
 
 void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
