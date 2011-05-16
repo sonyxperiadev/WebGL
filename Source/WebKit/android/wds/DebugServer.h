@@ -29,6 +29,7 @@
 // Turn on the wds feature in webkit
 #define ENABLE_WDS 0
 
+#include "wtf/Noncopyable.h"
 #include "wtf/Threading.h"
 #include "wtf/Vector.h"
 
@@ -45,7 +46,8 @@ namespace android {
 // WebCore Debug Server
 namespace WDS {
 
-class DebugServer : WTFNoncopyable::Noncopyable {
+class DebugServer {
+    WTF_MAKE_NONCOPYABLE(DebugServer);
 public:
     void start();
     void addFrame(Frame* frame) {

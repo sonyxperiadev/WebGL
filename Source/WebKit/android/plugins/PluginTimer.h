@@ -27,6 +27,7 @@
 #ifndef PluginTimer_H
 #define PluginTimer_H
 
+#include "FastAllocBase.h"
 #include "RefCounted.h"
 #include "Timer.h"
 #include "npapi.h"
@@ -36,6 +37,7 @@ namespace WebCore {
     class PluginTimerList;
 
     class PluginTimer : public TimerBase, public RefCounted<PluginTimer> {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         PluginTimer(PluginTimer** list, NPP instance, bool repeat,
                     void (*proc)(NPP npp, uint32_t timerID));

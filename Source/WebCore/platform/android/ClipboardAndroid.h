@@ -36,6 +36,7 @@ namespace WebCore {
 class CachedImage;
 
 class ClipboardAndroid : public Clipboard, public CachedResourceClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     ClipboardAndroid(ClipboardAccessPolicy policy, ClipboardType);
     ~ClipboardAndroid();

@@ -66,8 +66,9 @@ private:
     OwnPtr<webkit_glue::FormField> mField;
 };
 
-class WebAutoFill : public Noncopyable
+class WebAutoFill
 {
+    WTF_MAKE_NONCOPYABLE(WebAutoFill);
 public:
     WebAutoFill();
     virtual ~WebAutoFill();

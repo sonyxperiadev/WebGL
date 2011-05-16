@@ -38,7 +38,8 @@ namespace WebCore {
 class FontPlatformData;
 class SharedBuffer;
 
-class FontCustomPlatformData : public Noncopyable {
+class FontCustomPlatformData {
+    WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
 public:
     FontCustomPlatformData(SkTypeface* face);
     ~FontCustomPlatformData();

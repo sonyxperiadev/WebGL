@@ -38,7 +38,8 @@ namespace android {
 
 class JavaInputStreamWrapper;
 
-class UrlInterceptResponse : public Noncopyable {
+class UrlInterceptResponse {
+    WTF_MAKE_NONCOPYABLE(UrlInterceptResponse);
 public:
     UrlInterceptResponse(JNIEnv* env, jobject response);
     ~UrlInterceptResponse();

@@ -37,7 +37,8 @@
 
 namespace WebCore {
 
-class PackageNotifier : public Noncopyable {
+class PackageNotifier {
+    WTF_MAKE_NONCOPYABLE(PackageNotifier);
 public:
     PackageNotifier();
 
