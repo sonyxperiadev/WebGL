@@ -100,13 +100,8 @@ public:
 
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-    void updatePositionedObjects();
-=======
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     void serviceScriptedAnimations();
->>>>>>> WebKit.org at r76408
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -119,6 +114,10 @@ public:
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool hasOverflowScroll() const { return m_hasOverflowScroll; }
+#endif
+
+#if PLATFORM(ANDROID)
+    void updatePositionedObjects();
 #endif
 
     bool hasCompositedContent() const;

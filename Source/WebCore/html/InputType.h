@@ -54,6 +54,10 @@ class RenderObject;
 class RenderStyle;
 class WheelEvent;
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+class TouchEvent;
+#endif
+
 typedef int ExceptionCode;
 
 struct ClickHandlingState {
@@ -165,6 +169,11 @@ public:
     virtual void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*);
     virtual void handleWheelEvent(WheelEvent*);
     virtual void forwardEvent(Event*);
+
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    virtual void handleTouchStartEvent(TouchEvent*);
+#endif
+
     // Helpers for event handlers.
     virtual bool shouldSubmitImplicitly(Event*);
     virtual PassRefPtr<HTMLFormElement> formForSubmission() const;

@@ -113,11 +113,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDirectoryEntrySyncCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
-<<<<<<< HEAD
 	bindings/js/JSEntrySyncCustom.cpp \
-=======
 	bindings/js/JSErrorHandler.cpp \
->>>>>>> WebKit.org at r76408
 	bindings/js/JSEventCustom.cpp \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \

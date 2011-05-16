@@ -43,11 +43,12 @@
 #include "StepRange.h"
 #include <wtf/MathExtras.h>
 
-using namespace std;
-
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+#include "Page.h"
 #include "TouchEvent.h"
 #endif
+
+using namespace std;
 
 namespace WebCore {
 
@@ -139,6 +140,12 @@ void SliderThumbElement::startDragging()
 {
     if (Frame* frame = document()->frame()) {
         frame->eventHandler()->setCapturingMouseEventsNode(this);
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+        // Touch events come from Java to the main frame event handler, so we need
+        // to flag we are capturing those events also on the main frame event
+        // handler.
+        frame->page()->mainFrame()->eventHandler()->setCapturingTouchEventsNode(this);
+#endif
         m_inDragMode = true;
     }
 }
@@ -150,6 +157,11 @@ void SliderThumbElement::stopDragging()
 
     if (Frame* frame = document()->frame())
         frame->eventHandler()->setCapturingMouseEventsNode(0);
+
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (Frame* frame = document()->frame())
+        frame->page()->mainFrame()->eventHandler()->setCapturingTouchEventsNode(0);
+#endif
     m_inDragMode = false;
 }
 
@@ -164,88 +176,62 @@ void SliderThumbElement::defaultEventHandler(Event* event)
         return;
     }
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    bool isLeftButton = false;
+
+    if (event->isMouseEvent()) {
+        MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
+        isLeftButton = mouseEvent->button() == LeftButton;
+    }
+#else
     MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
     bool isLeftButton = mouseEvent->button() == LeftButton;
+#endif
     const AtomicString& eventType = event->type();
 
-<<<<<<< HEAD
     if (eventType == eventNames().mousedownEvent && isLeftButton
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-        || eventType == eventNames().touchstartEvent
+            || eventType == eventNames().touchstartEvent
 #endif
-        ) {
-        if (document()->frame() && renderer()) {
-            RenderSlider* slider = toRenderSlider(renderer()->parent());
-            if (slider) {
-                if (slider->mouseEventIsInThumb(mouseEvent)) {
-                    // We selected the thumb, we want the cursor to always stay at
-                    // the same position relative to the thumb.
-                    m_offsetToThumb = slider->mouseEventOffsetToThumb(mouseEvent);
-                } else {
-                    // We are outside the thumb, move the thumb to the point were
-                    // we clicked. We'll be exactly at the center of the thumb.
-                    m_offsetToThumb.setX(0);
-                    m_offsetToThumb.setY(0);
-                }
-
-                m_inDragMode = true;
-                document()->frame()->eventHandler()->setCapturingMouseEventsNode(shadowHost());
-                event->setDefaultHandled();
-                return;
-            }
-        }
-    } else if (eventType == eventNames().mouseupEvent && isLeftButton
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-               || eventType == eventNames().touchendEvent
-#endif
-               ) {
-        if (m_inDragMode) {
-            if (Frame* frame = document()->frame())
-                frame->eventHandler()->setCapturingMouseEventsNode(0);      
-            m_inDragMode = false;
-            event->setDefaultHandled();
-            return;
-        }
-    } else if (eventType == eventNames().mousemoveEvent
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-               || eventType == eventNames().touchmoveEvent
-#endif
-               ) {
-        if (m_inDragMode && renderer() && renderer()->parent()) {
-            RenderSlider* slider = toRenderSlider(renderer()->parent());
-            if (slider) {
-                FloatPoint curPoint = slider->absoluteToLocal(mouseEvent->absoluteLocation(), false, true);
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-                // Update the position when it is a touch event
-                if (event->isTouchEvent()) {
-                    TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
-                    if (touchEvent && touchEvent->touches() && touchEvent->touches()->item(0)) {
-                        curPoint.setX(touchEvent->touches()->item(0)->pageX());
-                        curPoint.setY(touchEvent->touches()->item(0)->pageY());
-                        curPoint = slider->absoluteToLocal(curPoint, false, true);
-                    }
-                }
-                // Tell the webview that webkit will handle the following move events
-                event->setDefaultPrevented(true);
-#endif
-                IntPoint eventOffset(curPoint.x() + m_offsetToThumb.x(), curPoint.y() + m_offsetToThumb.y());
-                slider->setValueForPosition(slider->positionForOffset(eventOffset));
-                event->setDefaultHandled();
-                return;
-            }
-        }
-=======
-    if (eventType == eventNames().mousedownEvent && isLeftButton) {
+            ) {
         startDragging();
         return;
-    } else if (eventType == eventNames().mouseupEvent && isLeftButton) {
+    } else if (eventType == eventNames().mouseupEvent && isLeftButton
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+            || eventType == eventNames().touchendEvent
+            || eventType == eventNames().touchcancelEvent
+#endif
+            ) {
         stopDragging();
         return;
-    } else if (eventType == eventNames().mousemoveEvent) {
+    } else if (eventType == eventNames().mousemoveEvent
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+            || eventType == eventNames().touchmoveEvent
+#endif
+            ) {
         if (m_inDragMode)
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+        {
+            if (event->isMouseEvent()) {
+                MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
+#endif
             setPosition(mouseEvent->absoluteLocation());
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+            } else if (event->isTouchEvent()) {
+                TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
+                if (touchEvent->touches() && touchEvent->touches()->item(0)) {
+                    IntPoint curPoint;
+                    curPoint.setX(touchEvent->touches()->item(0)->pageX());
+                    curPoint.setY(touchEvent->touches()->item(0)->pageY());
+                    setPosition(curPoint);
+                    // Tell the webview that webkit will handle the following move events
+                    event->setDefaultPrevented(true);
+                }
+            }
+
+        }
+#endif
         return;
->>>>>>> WebKit.org at r76408
     }
 
     HTMLDivElement::defaultEventHandler(event);

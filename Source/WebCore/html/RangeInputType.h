@@ -66,6 +66,9 @@ private:
     virtual String fallbackValue();
     virtual String sanitizeValue(const String& proposedValue);
     virtual bool shouldRespectListAttribute();
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    virtual void handleTouchStartEvent(TouchEvent*);
+#endif
 };
 
 } // namespace WebCore

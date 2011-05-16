@@ -215,6 +215,9 @@ public:
 
 #if ENABLE(TOUCH_EVENTS)
     bool handleTouchEvent(const PlatformTouchEvent&);
+#if PLATFORM(ANDROID)
+    void setCapturingTouchEventsNode(PassRefPtr<Node>);
+#endif
 #endif
 
 private:
@@ -440,6 +443,9 @@ private:
     typedef HashMap<int, RefPtr<EventTarget> > TouchTargetMap;
     TouchTargetMap m_originatingTouchPointTargets;
     bool m_touchPressed;
+#if PLATFORM(ANDROID)
+    RefPtr<Node> m_capturingTouchEventsNode;
+#endif
 #endif
 };
 

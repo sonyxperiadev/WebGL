@@ -249,6 +249,9 @@ void EventHandler::clear()
     m_previousWheelScrolledNode = 0;
 #if ENABLE(TOUCH_EVENTS)
     m_originatingTouchPointTargets.clear();
+#if PLATFORM(ANDROID)
+    m_capturingTouchEventsNode = 0;
+#endif
 #endif
 }
 
@@ -1788,6 +1791,13 @@ void EventHandler::clearDragState()
 }
 #endif // ENABLE(DRAG_SUPPORT)
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+void EventHandler::setCapturingTouchEventsNode(PassRefPtr<Node> n)
+{
+    m_capturingTouchEventsNode = n;
+}
+#endif
+
 void EventHandler::setCapturingMouseEventsNode(PassRefPtr<Node> n)
 {
     m_capturingMouseEventsNode = n;
@@ -2921,7 +2931,20 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         default:
             break;
         }
+#if PLATFORM(ANDROID)
+        Node* node = 0;
+        if (m_capturingTouchEventsNode)
+            node = m_capturingTouchEventsNode.get();
+        else {
+            HitTestResult result = hitTestResultAtPoint(pagePoint, /*allowShadowContent*/ false, false, DontHitTestScrollbars, hitType);
+            node = result.innerNode();
+            ASSERT(node);
 
+            // Touch events should not go to text nodes
+            if (node->isTextNode())
+                node = node->parentNode();
+        }
+#else
         HitTestResult result = hitTestResultAtPoint(pagePoint, /*allowShadowContent*/ false, false, DontHitTestScrollbars, hitType);
         Node* node = result.innerNode();
         ASSERT(node);
@@ -2929,6 +2952,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // Touch events should not go to text nodes
         if (node->isTextNode())
             node = node->parentNode();
+#endif
+
 
         Document* doc = node->document();
         if (!doc)
@@ -2947,6 +2972,11 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // Increment the platform touch id by 1 to avoid storing a key of 0 in the hashmap.
         unsigned touchPointTargetKey = point.id() + 1;
         RefPtr<EventTarget> touchTarget;
+#if PLATFORM(ANDROID)
+        if (m_capturingTouchEventsNode)
+            touchTarget = node;
+        else {
+#endif
         if (pointState == PlatformTouchPoint::TouchPressed) {
             m_originatingTouchPointTargets.set(touchPointTargetKey, node);
             touchTarget = node;
@@ -2956,7 +2986,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             touchTarget = m_originatingTouchPointTargets.take(touchPointTargetKey);
         } else
             touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey);
-
+#if PLATFORM(ANDROID)
+        }
+#endif
         if (!touchTarget.get())
             continue;
 

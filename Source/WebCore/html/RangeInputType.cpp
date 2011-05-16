@@ -45,6 +45,10 @@
 #include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+#include "TouchEvent.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -192,21 +196,22 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
     event->setDefaultHandled();
 }
 
-<<<<<<< HEAD
-void RangeInputType::forwardEvent(Event* event)
-{
-    if (element()->renderer()
-        && (event->isMouseEvent()
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-            || event->isTouchEvent()
-#endif
-            || event->isDragEvent()
-            || event->isWheelEvent()))
-        toRenderSlider(element()->renderer())->forwardEvent(event);
+void RangeInputType::handleTouchStartEvent(TouchEvent* touchEvent)
+{
+    if (SliderThumbElement* thumb = toSliderThumbElement(element()->shadowRoot())) {
+        if (touchEvent->touches() && touchEvent->touches()->item(0)) {
+            IntPoint curPoint;
+            curPoint.setX(touchEvent->touches()->item(0)->pageX());
+            curPoint.setY(touchEvent->touches()->item(0)->pageY());
+            thumb->dragFrom(curPoint);
+            touchEvent->setDefaultHandled();
+            touchEvent->setDefaultPrevented(true);
+        }
+    }
 }
+#endif
 
-=======
->>>>>>> WebKit.org at r76408
 void RangeInputType::createShadowSubtree()
 {
     element()->setShadowRoot(SliderThumbElement::create(element()->document()));

@@ -57,6 +57,10 @@
 #include "PlatformBridge.h"
 #endif
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+#include "TouchEvent.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -1053,6 +1057,14 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         if (evt->defaultHandled())
             return;
     }
+
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (evt->isTouchEvent() && evt->type() == eventNames().touchstartEvent) {
+        m_inputType->handleTouchStartEvent(static_cast<TouchEvent*>(evt));
+        if (evt->defaultHandled())
+            return;
+    }
+#endif
 
     m_inputType->forwardEvent(evt);
 
