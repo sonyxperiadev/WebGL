@@ -26,6 +26,7 @@
 #ifndef RenderThemeAndroid_h
 #define RenderThemeAndroid_h
 
+#include "PaintInfo.h"
 #include "RenderTheme.h"
 
 namespace WebCore {
