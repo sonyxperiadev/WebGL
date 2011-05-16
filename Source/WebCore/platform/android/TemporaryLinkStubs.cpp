@@ -159,12 +159,6 @@ Pasteboard::Pasteboard()
     notImplemented();
 }
 
-Pasteboard::~Pasteboard()
-{
-    notImplemented();
-}
-
-
 ContextMenu::ContextMenu()
 {
     ASSERT_NOT_REACHED();
