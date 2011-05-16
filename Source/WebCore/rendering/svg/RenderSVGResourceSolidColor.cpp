@@ -26,7 +26,7 @@
 #include "RenderStyle.h"
 #include "SVGRenderSupport.h"
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
 #include "PlatformContextSkia.h"
 #endif
 

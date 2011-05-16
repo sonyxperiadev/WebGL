@@ -1612,19 +1612,6 @@ EventTargetData* DOMWindow::ensureEventTargetData()
     return &m_eventTargetData;
 }
 
-<<<<<<< HEAD
-#if ENABLE(BLOB)
-String DOMWindow::createObjectURL(Blob* blob)
-{
-    return scriptExecutionContext()->createPublicBlobURL(blob).string();
-}
-
-void DOMWindow::revokeObjectURL(const String& blobURLString)
-{
-    scriptExecutionContext()->revokePublicBlobURL(KURL(KURL(), blobURLString));
-}
-#endif
-
 #if ENABLE(DOM_STORAGE) && defined(ANDROID)
 void DOMWindow::clearDOMStorage()
 {
@@ -1638,8 +1625,6 @@ void DOMWindow::clearDOMStorage()
 }
 #endif
 
-=======
->>>>>>> WebKit.org @ r75993
 void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow, SetLocationLocking locking)
 {
     Frame* activeFrame = activeWindow->frame();

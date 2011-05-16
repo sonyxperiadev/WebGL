@@ -39,13 +39,7 @@
 #include "FloatQuad.h"
 #include "Frame.h"
 #include "Page.h"
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-#include "PlatformBridge.h"
-#endif
-=======
 #include "PaintInfo.h"
->>>>>>> WebKit.org @ r75993
 #include "RenderArena.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
@@ -62,6 +56,10 @@
 
 #if ENABLE(WML)
 #include "WMLNames.h"
+#endif
+
+#if PLATFORM(ANDROID)
+#include "PlatformBridge.h"
 #endif
 
 using namespace std;

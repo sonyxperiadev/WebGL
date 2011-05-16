@@ -123,9 +123,5 @@ private:
     
 }
 
-<<<<<<< HEAD
-#endif //!DragData_h
-=======
 #endif // !DragData_h
 
->>>>>>> WebKit.org @ r75993

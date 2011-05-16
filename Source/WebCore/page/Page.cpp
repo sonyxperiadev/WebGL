@@ -95,17 +95,10 @@
 #include "GeolocationController.h"
 #endif
 
-<<<<<<< HEAD
-#if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
-#include "InspectorApplicationCacheAgent.h"
-#endif
-
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 #include "PackageNotifier.h"
 #endif
 
-=======
->>>>>>> WebKit.org @ r75993
 namespace WebCore {
 
 static HashSet<Page*>* allPages;

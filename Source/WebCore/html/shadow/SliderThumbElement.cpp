@@ -86,17 +86,12 @@ RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle
 
 void SliderThumbElement::defaultEventHandler(Event* event)
 {
-<<<<<<< HEAD
     if (!event->isMouseEvent()
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
         && !event->isTouchEvent()
 #endif
         ) {
-        ShadowBlockElement::defaultEventHandler(event);
-=======
-    if (!event->isMouseEvent()) {
         HTMLDivElement::defaultEventHandler(event);
->>>>>>> WebKit.org @ r75993
         return;
     }
 
