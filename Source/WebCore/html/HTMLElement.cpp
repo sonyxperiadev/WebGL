@@ -190,6 +190,10 @@ void HTMLElement::parseMappedAttribute(Attribute* attr)
         setAttributeEventListener(eventNames().focusinEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onfocusoutAttr) {
         setAttributeEventListener(eventNames().focusoutEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == onformchangeAttr) {
+        setAttributeEventListener(eventNames().formchangeEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == onforminputAttr) {
+        setAttributeEventListener(eventNames().forminputEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onblurAttr) {
         setAttributeEventListener(eventNames().blurEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onkeydownAttr) {
@@ -685,19 +689,18 @@ bool HTMLElement::isContentRichlyEditable() const
 
 String HTMLElement::contentEditable() const 
 {
-    if (!renderer())
-        return "false";
-    
-    switch (renderer()->style()->userModify()) {
-        case READ_WRITE:
-            return "true";
-        case READ_ONLY:
-            return "false";
-        case READ_WRITE_PLAINTEXT_ONLY:
-            return "plaintext-only";
-        default:
-            return "inherit";
-    }
+    const AtomicString& value = fastGetAttribute(contenteditableAttr);
+
+    if (value.isNull())
+        return "inherit";
+    if (value.isEmpty() || equalIgnoringCase(value, "true"))
+        return "true";
+    if (equalIgnoringCase(value, "false"))
+         return "false";
+    if (equalIgnoringCase(value, "plaintext-only"))
+        return "plaintext-only";
+
+    return "inherit";
 }
 
 void HTMLElement::setContentEditable(Attribute* attr) 
@@ -726,14 +729,16 @@ void HTMLElement::setContentEditable(Attribute* attr)
     }
 }
 
-void HTMLElement::setContentEditable(const String &enabled)
+void HTMLElement::setContentEditable(const String& enabled, ExceptionCode& ec)
 {
-    if (enabled == "inherit") {
-        ExceptionCode ec;
+    if (equalIgnoringCase(enabled, "true"))
+        setAttribute(contenteditableAttr, "true", ec);
+    else if (equalIgnoringCase(enabled, "false"))
+        setAttribute(contenteditableAttr, "false", ec);
+    else if (equalIgnoringCase(enabled, "inherit"))
         removeAttribute(contenteditableAttr, ec);
-    }
     else
-        setAttribute(contenteditableAttr, enabled.isEmpty() ? "true" : enabled);
+        ec = SYNTAX_ERR;
 }
 
 bool HTMLElement::draggable() const
@@ -835,6 +840,40 @@ HTMLFormElement* HTMLElement::findFormAncestor() const
 HTMLFormElement* HTMLElement::virtualForm() const
 {
     return findFormAncestor();
+}
+
+HTMLFormElement* HTMLElement::shadowAncestorOwnerForm()
+{
+    Node* ancestorNode = shadowAncestorNode();
+    if (!ancestorNode)
+        return form();
+
+    if (!ancestorNode->isHTMLElement())
+        return 0;
+    HTMLElement* ancestorHTML = static_cast<HTMLElement*>(ancestorNode);
+    if (!ancestorHTML)
+        return 0;
+    return ancestorHTML->form();
+}
+
+void HTMLElement::dispatchChangeEvents()
+{
+    RefPtr<HTMLElement> protector(this);
+    RefPtr<HTMLFormElement> ownerForm(shadowAncestorOwnerForm());
+
+    Node::dispatchChangeEvents();
+    if (ownerForm)
+        ownerForm->dispatchFormChange();
+}
+
+void HTMLElement::dispatchInputEvents()
+{
+    RefPtr<HTMLElement> protector(this);
+    RefPtr<HTMLFormElement> ownerForm(shadowAncestorOwnerForm());
+
+    Node::dispatchInputEvents();
+    if (ownerForm)
+        ownerForm->dispatchFormInput();
 }
 
 } // namespace WebCore

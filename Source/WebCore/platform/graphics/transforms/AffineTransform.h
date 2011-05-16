@@ -55,7 +55,8 @@ class IntPoint;
 class IntRect;
 class TransformationMatrix;
 
-class AffineTransform : public FastAllocBase {
+class AffineTransform {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     typedef double Transform[6];
 
@@ -95,8 +96,7 @@ public:
 
     void makeIdentity();
 
-    AffineTransform& multiply(const AffineTransform&);
-    AffineTransform& multLeft(const AffineTransform&);
+    AffineTransform& multiply(const AffineTransform& other);
     AffineTransform& scale(double); 
     AffineTransform& scale(double sx, double sy); 
     AffineTransform& scaleNonUniform(double sx, double sy);
@@ -147,15 +147,14 @@ public:
     // *this = *this * t (i.e., a multRight)
     AffineTransform& operator*=(const AffineTransform& t)
     {
-        *this = *this * t;
-        return *this;
+        return multiply(t);
     }
     
     // result = *this * t (i.e., a multRight)
     AffineTransform operator*(const AffineTransform& t) const
     {
-        AffineTransform result = t;
-        result.multLeft(*this);
+        AffineTransform result = *this;
+        result *= t;
         return result;
     }
 

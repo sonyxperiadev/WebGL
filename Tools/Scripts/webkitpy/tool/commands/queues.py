@@ -323,10 +323,12 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskD
         results_name, _ = os.path.splitext(os.path.basename(results_directory))
         # Note: We name the zip with the bug_id instead of patch_id to match work_item_log_path().
         zip_path = self._tool.workspace.find_unused_filename(self._log_directory(), "%s-%s" % (patch.bug_id(), results_name), "zip")
+        if not zip_path:
+            return None
         archive = self._tool.workspace.create_zip(zip_path, results_directory)
         # Remove the results directory to prevent http logs, etc. from getting huge between runs.
         # We could have create_zip remove the original, but this is more explicit.
-        self._tool.filesystem.remove_tree(results_directory, ignore_errors=True)
+        self._tool.filesystem.rmtree(results_directory)
         return archive
 
     def refetch_patch(self, patch):

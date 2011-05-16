@@ -173,9 +173,18 @@ void InspectorDebuggerAgent::setPauseOnExceptionsState(long pauseState, long* ne
     *newState = ScriptDebugServer::shared().pauseOnExceptionsState();
 }
 
-long InspectorDebuggerAgent::pauseOnExceptionsState()
+void InspectorDebuggerAgent::evaluateOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, const String& objectGroup, RefPtr<InspectorValue>* result)
 {
-    return ScriptDebugServer::shared().pauseOnExceptionsState();
+    InjectedScript injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptForObjectId(callFrameId.get());
+    if (!injectedScript.hasNoValue())
+        injectedScript.evaluateOnCallFrame(callFrameId, expression, objectGroup, result);
+}
+
+void InspectorDebuggerAgent::getCompletionsOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, bool includeInspectorCommandLineAPI, RefPtr<InspectorValue>* result)
+{
+    InjectedScript injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptForObjectId(callFrameId.get());
+    if (!injectedScript.hasNoValue())
+        injectedScript.getCompletionsOnCallFrame(callFrameId, expression, includeInspectorCommandLineAPI, result);
 }
 
 void InspectorDebuggerAgent::clearForPageNavigation()
@@ -202,7 +211,7 @@ PassRefPtr<InspectorValue> InspectorDebuggerAgent::currentCallFrames()
 void InspectorDebuggerAgent::didParseSource(const String& sourceID, const String& url, const String& data, int lineOffset, int columnOffset, ScriptWorldType worldType)
 {
     // Don't send script content to the front end until it's really needed.
-    m_frontend->parsedScriptSource(sourceID, url, lineOffset, columnOffset, worldType);
+    m_frontend->parsedScriptSource(sourceID, url, lineOffset, columnOffset, data.length(), worldType);
 
     m_scriptIDToContent.set(sourceID, data);
 

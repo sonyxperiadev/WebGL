@@ -37,6 +37,7 @@
 #include "PluginProxy.h"
 #include "PluginView.h"
 #include "PrintInfo.h"
+#include "RunLoop.h"
 #include "SessionState.h"
 #include "ShareableBitmap.h"
 #include "WebBackForwardList.h"
@@ -149,6 +150,8 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     , m_findController(this)
     , m_geolocationPermissionRequestManager(this)
     , m_pageID(pageID)
+    , m_canRunModal(parameters.canRunModal)
+    , m_isRunningModal(false)
 {
     ASSERT(m_pageID);
 
@@ -182,7 +185,7 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     platformInitialize();
     Settings::setMinDOMTimerInterval(0.004);
 
-    m_drawingArea = DrawingArea::create(parameters.drawingAreaInfo.type, parameters.drawingAreaInfo.identifier, this);
+    m_drawingArea = DrawingArea::create(this, parameters);
     m_mainFrame = WebFrame::createMainFrame(this);
 
     setDrawsBackground(parameters.drawsBackground);
@@ -322,7 +325,9 @@ void WebPage::changeAcceleratedCompositingMode(WebCore::GraphicsLayer* layer)
     if (newDrawingAreaInfo.type != drawingArea()->info().type) {
         m_drawingArea = 0;
         if (newDrawingAreaInfo.type != DrawingAreaInfo::None) {
-            m_drawingArea = DrawingArea::create(newDrawingAreaInfo.type, newDrawingAreaInfo.identifier, this);
+            WebPageCreationParameters parameters;
+            parameters.drawingAreaInfo = newDrawingAreaInfo;
+            m_drawingArea = DrawingArea::create(this, parameters);
             m_drawingArea->setNeedsDisplay(IntRect(IntPoint(0, 0), m_viewSize));
         }
     }
@@ -375,6 +380,11 @@ void WebPage::close()
     m_drawingArea.clear();
 
     WebProcess::shared().removeWebPage(m_pageID);
+
+    if (m_isRunningModal) {
+        m_isRunningModal = false;
+        WebProcess::shared().runLoop()->stop();
+    }
 }
 
 void WebPage::tryClose()
@@ -427,6 +437,15 @@ void WebPage::loadPlainTextString(const String& string)
 {
     RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(reinterpret_cast<const char*>(string.characters()), string.length() * sizeof(UChar));
     loadData(sharedBuffer, "text/plain", "utf-16", blankURL(), KURL());
+}
+
+void WebPage::stopLoadingFrame(uint64_t frameID)
+{
+    WebFrame* frame = WebProcess::shared().webFrame(frameID);
+    if (!frame)
+        return;
+
+    frame->coreFrame()->loader()->stopForUserCancel();
 }
 
 void WebPage::stopLoading()
@@ -1134,6 +1153,23 @@ void WebPage::getMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID)
     send(Messages::WebPageProxy::DataCallback(dataReference, callbackID));
 }
 
+void WebPage::getResourceDataFromFrame(uint64_t frameID, const String& resourceURL, uint64_t callbackID)
+{
+    CoreIPC::DataReference dataReference;
+
+    RefPtr<SharedBuffer> buffer;
+    if (WebFrame* frame = WebProcess::shared().webFrame(frameID)) {
+        if (DocumentLoader* loader = frame->coreFrame()->loader()->documentLoader()) {
+            if (RefPtr<ArchiveResource> subresource = loader->subresource(KURL(KURL(), resourceURL))) {
+                if (buffer = subresource->data())
+                    dataReference = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>(buffer->data()), buffer->size());
+            }
+        }
+    }
+
+    send(Messages::WebPageProxy::DataCallback(dataReference, callbackID));
+}
+
 void WebPage::getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
 {
     CoreIPC::DataReference dataReference;
@@ -1288,6 +1324,20 @@ void WebPage::performDragControllerAction(uint64_t action, WebCore::IntPoint cli
     default:
         ASSERT_NOT_REACHED();
     }
+}
+
+void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation)
+{
+    IntPoint adjustedClientPosition(clientPosition.x() + m_page->dragController()->dragOffset().x(), clientPosition.y() + m_page->dragController()->dragOffset().y());
+    IntPoint adjustedGlobalPosition(globalPosition.x() + m_page->dragController()->dragOffset().x(), globalPosition.y() + m_page->dragController()->dragOffset().y());
+    
+    m_page->dragController()->dragEnded();
+    FrameView* view = m_page->mainFrame()->view();
+    if (!view)
+        return;
+    // FIXME: These are fake modifier keys here, but they should be real ones instead.
+    PlatformMouseEvent event(adjustedClientPosition, adjustedGlobalPosition, LeftButton, MouseEventMoved, 0, false, false, false, false, currentTime());
+    m_page->mainFrame()->eventHandler()->dragSourceEndedAt(event, (DragOperation)operation);
 }
 
 WebEditCommand* WebPage::webEditCommand(uint64_t commandID)
@@ -1590,7 +1640,13 @@ void WebPage::SandboxExtensionTracker::beginLoad(WebFrame* frame, const SandboxE
 {
     ASSERT(frame->isMainFrame());
 
-    ASSERT(!m_pendingProvisionalSandboxExtension);
+    // If we get two beginLoad calls in succession, without a provisional load starting, then
+    // m_pendingProvisionalSandboxExtension will be non-null. Invalidate and null out the extension if that is the case.
+    if (m_pendingProvisionalSandboxExtension) {
+        m_pendingProvisionalSandboxExtension->invalidate();
+        m_pendingProvisionalSandboxExtension = nullptr;
+    }
+        
     m_pendingProvisionalSandboxExtension = SandboxExtension::create(handle);
 }
 
@@ -1633,7 +1689,7 @@ void WebPage::SandboxExtensionTracker::didFailProvisionalLoad(WebFrame* frame)
         return;
 
     m_provisionalSandboxExtension->invalidate();
-    m_provisionalSandboxExtension = 0;
+    m_provisionalSandboxExtension = nullptr;
 }
 
 bool WebPage::hasLocalDataForURL(const KURL& url)
@@ -1753,5 +1809,18 @@ void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, Vect
     CFDataGetBytes(pdfPageData.get(), CFRangeMake(0, pdfData.size()), pdfData.data());
 }
 #endif
+
+void WebPage::runModal()
+{
+    if (m_isClosed)
+        return;
+    if (m_isRunningModal)
+        return;
+
+    m_isRunningModal = true;
+    send(Messages::WebPageProxy::RunModal());
+    RunLoop::run();
+    ASSERT(!m_isRunningModal);
+}
 
 } // namespace WebKit

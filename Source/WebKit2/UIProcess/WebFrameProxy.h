@@ -86,6 +86,8 @@ public:
     bool isFrameSet() const { return m_isFrameSet; }
 
     LoadState loadState() const { return m_loadState; }
+    
+    void stopLoading() const;
 
     const String& url() const { return m_url; }
     const String& provisionalURL() const { return m_provisionalURL; }
@@ -107,6 +109,7 @@ public:
 
     void getWebArchive(PassRefPtr<DataCallback>);
     void getMainResourceData(PassRefPtr<DataCallback>);
+    void getResourceData(WebURL*, PassRefPtr<DataCallback>);
 
     void didStartProvisionalLoad(const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const String& url);

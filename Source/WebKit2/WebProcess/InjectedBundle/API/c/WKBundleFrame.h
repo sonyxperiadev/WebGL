@@ -46,6 +46,8 @@ WK_EXPORT WKURLRef WKBundleFrameCopyProvisionalURL(WKBundleFrameRef frame);
 WK_EXPORT JSGlobalContextRef WKBundleFrameGetJavaScriptContext(WKBundleFrameRef frame);
 WK_EXPORT JSGlobalContextRef WKBundleFrameGetJavaScriptContextForWorld(WKBundleFrameRef frame, WKBundleScriptWorldRef world);
 
+WK_EXPORT WKBundleFrameRef WKBundleFrameForJavaScriptContext(JSContextRef context);
+
 WK_EXPORT JSValueRef WKBundleFrameGetJavaScriptWrapperForNodeForWorld(WKBundleFrameRef frame, WKBundleNodeHandleRef nodeHandle, WKBundleScriptWorldRef world);
 WK_EXPORT JSValueRef WKBundleFrameGetJavaScriptWrapperForRangeForWorld(WKBundleFrameRef frame, WKBundleRangeHandleRef rangeHandle, WKBundleScriptWorldRef world);
 
@@ -56,6 +58,8 @@ WK_EXPORT bool WKBundleFrameAllowsFollowingLink(WKBundleFrameRef frame, WKURLRef
 WK_EXPORT WKRect WKBundleFrameGetContentBounds(WKBundleFrameRef frame);
 WK_EXPORT WKRect WKBundleFrameGetVisibleContentBounds(WKBundleFrameRef frame);
 WK_EXPORT WKSize WKBundleFrameGetScrollOffset(WKBundleFrameRef frame);
+
+WK_EXPORT WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frame, WKURLRef url);
 
 #ifdef __cplusplus
 }

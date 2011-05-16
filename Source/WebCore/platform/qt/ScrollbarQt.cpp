@@ -34,6 +34,7 @@
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include "PlatformMouseEvent.h"
+#include "ScrollableArea.h"
 #include "ScrollbarTheme.h"
 
 #include <QApplication>
@@ -76,17 +77,17 @@ bool Scrollbar::contextMenu(const PlatformMouseEvent& event)
         const QPoint pos = convertFromContainingWindow(event.pos());
         moveThumb(horizontal ? pos.x() : pos.y());
     } else if (actionSelected == actScrollTop)
-        scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByDocument);
+        scrollableArea()->scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByDocument);
     else if (actionSelected == actScrollBottom)
-        scroll(horizontal ? ScrollRight : ScrollDown, ScrollByDocument);
+        scrollableArea()->scroll(horizontal ? ScrollRight : ScrollDown, ScrollByDocument);
     else if (actionSelected == actPageUp)
-        scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByPage);
+        scrollableArea()->scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByPage);
     else if (actionSelected == actPageDown)
-        scroll(horizontal ? ScrollRight : ScrollDown, ScrollByPage);
+        scrollableArea()->scroll(horizontal ? ScrollRight : ScrollDown, ScrollByPage);
     else if (actionSelected == actScrollUp)
-        scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByLine);
+        scrollableArea()->scroll(horizontal ? ScrollLeft : ScrollUp, ScrollByLine);
     else if (actionSelected == actScrollDown)
-        scroll(horizontal ? ScrollRight : ScrollDown, ScrollByLine);
+        scrollableArea()->scroll(horizontal ? ScrollRight : ScrollDown, ScrollByLine);
 #endif // QT_NO_CONTEXTMENU
     return true;
 }

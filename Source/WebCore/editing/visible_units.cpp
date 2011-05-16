@@ -57,8 +57,8 @@ static VisiblePosition previousBoundary(const VisiblePosition& c, BoundarySearch
         return VisiblePosition();
 
     Document* d = boundary->document();
-    Position start = rangeCompliantEquivalent(Position(boundary, 0));
-    Position end = rangeCompliantEquivalent(pos);
+    Position start = Position(boundary, 0).parentAnchoredEquivalent();
+    Position end = pos.parentAnchoredEquivalent();
     RefPtr<Range> searchRange = Range::create(d);
     
     Vector<UChar, 1024> string;
@@ -115,22 +115,18 @@ static VisiblePosition previousBoundary(const VisiblePosition& c, BoundarySearch
         ASSERT(!needMoreContext);
     }
 
-    if (it.atEnd() && next == 0) {
-        pos = it.range()->startPosition();
-    } else if (next != 0) {
-        Node *node = it.range()->startContainer(ec);
-        if ((node->isTextNode() && static_cast<int>(next) <= node->maxCharacterOffset()) || (node->renderer() && node->renderer()->isBR() && !next))
-            // The next variable contains a usable index into a text node
-            pos = Position(node, next);
-        else {
-            // Use the character iterator to translate the next value into a DOM position.
-            BackwardsCharacterIterator charIt(searchRange.get(), TextIteratorEndsAtEditingBoundary);
-            charIt.advance(string.size() - suffixLength - next);
-            pos = charIt.range()->endPosition();
-        }
-    }
+    if (!next)
+        return VisiblePosition(it.atEnd() ? it.range()->startPosition() : pos, DOWNSTREAM);
 
-    return VisiblePosition(pos, DOWNSTREAM);
+    Node* node = it.range()->startContainer(ec);
+    if ((node->isTextNode() && static_cast<int>(next) <= node->maxCharacterOffset()) || (node->renderer() && node->renderer()->isBR() && !next))
+        // The next variable contains a usable index into a text node
+        return VisiblePosition(Position(node, next), DOWNSTREAM);
+
+    // Use the character iterator to translate the next value into a DOM position.
+    BackwardsCharacterIterator charIt(searchRange.get(), TextIteratorEndsAtEditingBoundary);
+    charIt.advance(string.size() - suffixLength - next);
+    return VisiblePosition(charIt.range()->endPosition(), DOWNSTREAM);
 }
 
 static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunction searchFunction)
@@ -142,7 +138,7 @@ static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunc
 
     Document* d = boundary->document();
     RefPtr<Range> searchRange(d->createRange());
-    Position start(rangeCompliantEquivalent(pos));
+    Position start(pos.parentAnchoredEquivalent());
 
     Vector<UChar, 1024> string;
     unsigned prefixLength = 0;

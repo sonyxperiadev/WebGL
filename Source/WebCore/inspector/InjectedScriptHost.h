@@ -44,6 +44,7 @@ class Database;
 class InjectedScript;
 class InspectorDOMAgent;
 class InspectorFrontend;
+class InspectorObject;
 class Node;
 class ScriptObject;
 class Storage;
@@ -57,6 +58,9 @@ public:
     }
 
     ~InjectedScriptHost();
+
+    // Part of the protocol.
+    void evaluateOnSelf(const String& functionBody, PassRefPtr<InspectorArray> argumentsArray, RefPtr<InspectorValue>* result);
 
     InspectorController* inspectorController() { return m_inspectorController; }
     void disconnectController() { m_inspectorController = 0; }
@@ -84,6 +88,8 @@ public:
     pair<long, ScriptObject> injectScript(const String& source, ScriptState*);
     InjectedScript injectedScriptFor(ScriptState*);
     InjectedScript injectedScriptForId(long);
+    InjectedScript injectedScriptForObjectId(InspectorObject* objectId);
+    InjectedScript injectedScriptForMainFrame();
     void discardInjectedScripts();
     void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
 

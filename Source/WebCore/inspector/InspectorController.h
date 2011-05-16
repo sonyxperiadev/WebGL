@@ -72,6 +72,7 @@ class InspectorFrontendClient;
 class InspectorObject;
 class InspectorProfilerAgent;
 class InspectorResourceAgent;
+class InspectorRuntimeAgent;
 class InspectorSettings;
 class InspectorState;
 class InspectorStorageAgent;
@@ -104,7 +105,8 @@ class WebSocketHandshakeRequest;
 class WebSocketHandshakeResponse;
 #endif
 
-class InspectorController : public Noncopyable {
+class InspectorController {
+    WTF_MAKE_NONCOPYABLE(InspectorController); WTF_MAKE_FAST_ALLOCATED;
 public:
     static const char* const ConsolePanel;
     static const char* const ElementsPanel;
@@ -123,6 +125,7 @@ public:
     bool enabled() const;
 
     Page* inspectedPage() const { return m_inspectedPage; }
+    KURL inspectedURL() const;
     void reloadPage();
 
     void restoreInspectorStateFromCookie(const String& inspectorCookie);
@@ -143,9 +146,35 @@ public:
     void connectFrontend();
     void reuseFrontend();
     void disconnectFrontend();
+    InspectorFrontend* frontend() const { return m_frontend.get(); }
 
-    InspectorConsoleAgent* consoleAgent() const { return m_consoleAgent.get(); }
-    InspectorDOMAgent* domAgent() const { return m_domAgent.get(); }
+    InspectorResourceAgent* resourceAgent();
+
+    InspectorController* inspectorAgent() { return this; }
+    InspectorConsoleAgent* consoleAgent() { return m_consoleAgent.get(); }
+    InspectorCSSAgent* cssAgent() { return m_cssAgent.get(); }
+    InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
+    InjectedScriptHost* injectedScriptAgent() { return m_injectedScriptHost.get(); }
+    InspectorRuntimeAgent* runtimeAgent() { return m_runtimeAgent.get(); }
+    InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
+#if ENABLE(DATABASE)
+    InspectorDatabaseAgent* databaseAgent() { return m_databaseAgent.get(); }
+#endif
+#if ENABLE(DOM_STORAGE)
+    InspectorDOMStorageAgent* domStorageAgent() { return m_domStorageAgent.get(); }
+#endif
+#if ENABLE(FILE_SYSTEM)
+    InspectorFileSystemAgent* fileSystemAgent() { return m_fileSystemAgent.get(); }
+#endif
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    InspectorBrowserDebuggerAgent* browserDebuggerAgent() const { return m_browserDebuggerAgent.get(); }
+    InspectorDebuggerAgent* debuggerAgent() const { return m_debuggerAgent.get(); }
+    InspectorProfilerAgent* profilerAgent() const { return m_profilerAgent.get(); }
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    InspectorApplicationCacheAgent* applicationCacheAgent() { return m_applicationCacheAgent.get(); }
+#endif
+
 
     bool searchingForNodeInPage() const;
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
@@ -162,14 +191,9 @@ public:
 
     void startTimelineProfiler();
     void stopTimelineProfiler();
-    InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
 
     void getCookies(RefPtr<InspectorArray>* cookies, WTF::String* cookiesString);
     void deleteCookie(const String& cookieName, const String& domain);
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    InspectorApplicationCacheAgent* applicationCacheAgent() { return m_applicationCacheAgent.get(); }
-#endif
 
     void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
     void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
@@ -204,9 +228,7 @@ public:
     void drawElementTitle(GraphicsContext&, const IntRect& boundingBox, const FloatRect& overlayRect, WebCore::Settings*) const;
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    void addProfile(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     bool isRecordingUserInitiatedProfile() const;
-    String getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false);
     void startProfiling() { startUserInitiatedProfiling(); }
     void startUserInitiatedProfiling();
     void stopProfiling() { stopUserInitiatedProfiling(); }
@@ -221,18 +243,11 @@ public:
     bool debuggerEnabled() const { return m_debuggerAgent; }
     void resume();
 
-    void setStickyBreakpoints(PassRefPtr<InspectorObject> breakpoints);
+    void setAllBrowserBreakpoints(PassRefPtr<InspectorObject>);
 #endif
 
-    void setInjectedScriptSource(const String& source);
-    void dispatchOnInjectedScript(long injectedScriptId, const String& methodName, const String& arguments, RefPtr<InspectorValue>* result, bool* hadException);
-
     // Generic code called from custom implementations.
-    void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
-
     void evaluateForTestInFrontend(long testCallId, const String& script);
-
-    InjectedScript injectedScriptForNodeId(long id);
 
     void addScriptToEvaluateOnLoad(const String& source);
     void removeAllScriptsToEvaluateOnLoad();
@@ -243,20 +258,22 @@ public:
     void setInspectorAttachedHeight(long height);
     long inspectorAttachedHeight() const;
 
-private:
-    friend class InspectorBackend;
-    friend class InspectorBackendDispatcher;
-    friend class InspectorBrowserDebuggerAgent;
-    friend class InspectorInstrumentation;
-    friend class InjectedScriptHost;
+    InspectorState* state() { return m_state.get(); }
+    InspectorSettings* settings() { return m_settings.get(); }
 
+    // InspectorAgent API
+    void getInspectorState(RefPtr<InspectorObject>* state);
+    void setMonitoringXHREnabled(bool enabled, bool* newState);
+    void populateScriptObjects();
+    // Following are used from InspectorBackend and internally.
+    void setSearchingForNode(bool enabled, bool* newState);
+    void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
+
+    // InspectorInstrumentation API
+    void ensureSettingsLoaded();
     void willSendRequest(ResourceRequest&);
 
-    void ensureSettingsLoaded();
-
-    void getInspectorState(RefPtr<InspectorObject>* state);
-
-    void populateScriptObjects();
+private:
     void pushDataCollectedOffline();
     void restoreDebugger();
     enum ProfilerRestoreAction {
@@ -267,26 +284,17 @@ private:
     void unbindAllResources();
     void setSearchingForNode(bool enabled);
 
-    // Following are used from InspectorBackend and internally.
-    void setSearchingForNode(bool enabled, bool* newState);
-
-    void setMonitoringXHREnabled(bool enabled, bool* newState);
     void releaseFrontendLifetimeAgents();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void toggleRecordButton(bool);
-    void restoreStickyBreakpoints();
-    void restoreStickyBreakpoint(PassRefPtr<InspectorObject> breakpoint);
 #endif
 
     PassRefPtr<InspectorObject> buildObjectForCookie(const Cookie&);
     PassRefPtr<InspectorArray> buildArrayForCookies(ListHashSet<Cookie>&);
 
     void focusNode();
-
     bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
-
-    void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
@@ -318,6 +326,7 @@ private:
 
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResourceAgent> m_resourceAgent;
+    OwnPtr<InspectorRuntimeAgent> m_runtimeAgent;
 
 #if ENABLE(DATABASE)
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
@@ -341,7 +350,6 @@ private:
     bool m_attachDebuggerWhenShown;
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
     OwnPtr<InspectorBrowserDebuggerAgent> m_browserDebuggerAgent;
-
     OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif
     OwnPtr<HTTPHeaderMap> m_extraHeaders;

@@ -23,6 +23,7 @@
     <file>CookieParser.js</file>
     <file>CookiesTable.js</file>
     <file>CSSCompletions.js</file>
+    <file>CSSKeywordCompletions.js</file>
     <file>CSSStyleModel.js</file>
     <file>Database.js</file>
     <file>DatabaseQueryView.js</file>
@@ -51,7 +52,6 @@
     <file>HelpScreen.js</file>
     <file>ImageView.js</file>
     <file>InjectedFakeWorker.js</file>
-    <file>InjectedScriptAccess.js</file>
     <file>inspector.js</file>
     <file>InspectorFrontendHostStub.js</file>
     <file>KeyboardShortcut.js</file>
@@ -81,6 +81,8 @@
     <file>ResourcesPanel.js</file>
     <file>ScopeChainSidebarPane.js</file>
     <file>Script.js</file>
+    <file>ScriptFormatter.js</file>
+    <file>ScriptFormatterWorker.js</file>
     <file>ScriptsPanel.js</file>
     <file>ScriptView.js</file>
     <file>Section.js</file>
@@ -114,6 +116,8 @@
     <file>WatchExpressionsSidebarPane.js</file>
     <file>WelcomeView.js</file>
     <file>WorkersSidebarPane.js</file>
+    <file>UglifyJS/parse-js.js</file>
+    <file>UglifyJS/process.js</file>
     <file>audits.css</file>
     <file>goToLineDialog.css</file>
     <file>heapProfiler.css</file>

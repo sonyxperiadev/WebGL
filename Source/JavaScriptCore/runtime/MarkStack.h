@@ -27,6 +27,7 @@
 #define MarkStack_h
 
 #include "JSValue.h"
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OSAllocator.h>
 
@@ -37,7 +38,8 @@ namespace JSC {
     
     enum MarkSetProperties { MayContainNullValues, NoNullValues };
     
-    class MarkStack : Noncopyable {
+    class MarkStack {
+        WTF_MAKE_NONCOPYABLE(MarkStack);
     public:
         MarkStack(void* jsArrayVPtr)
             : m_jsArrayVPtr(jsArrayVPtr)
@@ -184,6 +186,20 @@ namespace JSC {
         bool m_isCheckingForDefaultMarkViolation;
         bool m_isDraining;
 #endif
+    };
+    
+    class ConservativeSet {
+    public:
+        void add(JSCell* cell) { m_set.add(cell); }
+        void mark(MarkStack& markStack)
+        {
+            HashSet<JSCell*>::iterator end = m_set.end();
+            for (HashSet<JSCell*>::iterator it = m_set.begin(); it != end; ++it)
+                markStack.append(*it);
+        }
+
+    private:
+        HashSet<JSCell*> m_set;
     };
 }
 

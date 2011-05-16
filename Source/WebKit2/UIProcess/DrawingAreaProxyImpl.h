@@ -31,12 +31,14 @@
 
 namespace WebKit {
 
+class Region;
+
 class DrawingAreaProxyImpl : public DrawingAreaProxy {
 public:
     static PassOwnPtr<DrawingAreaProxyImpl> create(WebPageProxy*);
     virtual ~DrawingAreaProxyImpl();
 
-    void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&);
+    void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, Region& unpaintedRegion);
 
 private:
     explicit DrawingAreaProxyImpl(WebPageProxy*);
@@ -46,16 +48,21 @@ private:
     virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
     virtual bool paint(const WebCore::IntRect&, PlatformDrawingContext);
     virtual void sizeDidChange();
+    virtual void visibilityDidChange();
     virtual void setPageIsVisible(bool);
     virtual void attachCompositingContext(uint32_t contextID);
     virtual void detachCompositingContext();
 
     // CoreIPC message handlers
     virtual void update(const UpdateInfo&);
-    virtual void didSetSize();
+    virtual void didSetSize(const UpdateInfo&);
     
     void incorporateUpdate(const UpdateInfo&);
     void sendSetSize();
+
+    // Whether we've sent a SetSize message and are now waiting for a DidSetSize message.
+    // Used to throttle SetSize messages so we don't send them faster than the Web process can handle.
+    bool m_isWaitingForDidSetSize;
 
     OwnPtr<BackingStore> m_backingStore;
 };

@@ -50,7 +50,6 @@
 #include "V8Binding.h"
 #include "V8BindingState.h"
 #include "V8Collection.h"
-#include "V8ConsoleMessage.h"
 #include "V8DOMCoreException.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
@@ -139,21 +138,22 @@ typedef HashMap<int, v8::FunctionTemplate*> FunctionTemplateMap;
 
 bool AllowAllocation::m_current = false;
 
+static void addMessageToConsole(Page* page, const String& message, const String& sourceID, unsigned lineNumber)
+{
+    ASSERT(page);
+    Console* console = page->mainFrame()->domWindow()->console();
+    console->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, lineNumber, sourceID);
+}
+
 void logInfo(Frame* frame, const String& message, const String& url)
 {
     Page* page = frame->page();
     if (!page)
         return;
-    V8ConsoleMessage consoleMessage(message, url, 0);
-    consoleMessage.dispatchNow(page);
+    addMessageToConsole(page, message, url, 0);
 }
 
-enum DelayReporting {
-    ReportLater,
-    ReportNow
-};
-
-void V8Proxy::reportUnsafeAccessTo(Frame* target, DelayReporting delay)
+void V8Proxy::reportUnsafeAccessTo(Frame* target)
 {
     ASSERT(target);
     Document* targetDocument = target->document();
@@ -174,20 +174,11 @@ void V8Proxy::reportUnsafeAccessTo(Frame* target, DelayReporting delay)
     // Build a console message with fake source ID and line number.
     const String kSourceID = "";
     const int kLineNumber = 1;
-    V8ConsoleMessage message(str, kSourceID, kLineNumber);
 
-    if (delay == ReportNow) {
-        // NOTE: Safari prints the message in the target page, but it seems like
-        // it should be in the source page. Even for delayed messages, we put it in
-        // the source page; see V8ConsoleMessage::processDelayed().
-        message.dispatchNow(source->page());
-    } else {
-        ASSERT(delay == ReportLater);
-        // We cannot safely report the message eagerly, because this may cause
-        // allocations and GCs internally in V8 and we cannot handle that at this
-        // point. Therefore we delay the reporting.
-        message.dispatchLater();
-    }
+    // NOTE: Safari prints the message in the target page, but it seems like
+    // it should be in the source page. Even for delayed messages, we put it in
+    // the source page.
+    addMessageToConsole(source->page(), str, kSourceID, kLineNumber);
 }
 
 static void handleFatalErrorInV8()
@@ -440,8 +431,6 @@ v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, b
     // Run the script and keep track of the current recursion depth.
     v8::Local<v8::Value> result;
     {
-        V8ConsoleMessage::Scope scope;
-
         // See comment in V8Proxy::callFunction.
         m_frame->keepAlive();
 
@@ -477,8 +466,6 @@ v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8
     V8GCController::checkMemoryUsage();
     v8::Local<v8::Value> result;
     {
-        V8ConsoleMessage::Scope scope;
-
         if (m_recursion >= kMaxRecursionDepth) {
             v8::Local<v8::String> code = v8::String::New("throw new RangeError('Maximum call stack size exceeded.')");
             if (code.IsEmpty())
@@ -545,8 +532,6 @@ v8::Local<v8::Value> V8Proxy::newInstance(v8::Handle<v8::Function> constructor, 
     // V8Proxy::callFunction.
     v8::Local<v8::Value> result;
     {
-        V8ConsoleMessage::Scope scope;
-
         // See comment in V8Proxy::callFunction.
         m_frame->keepAlive();
 
@@ -806,11 +791,6 @@ v8::Handle<v8::Value> V8Proxy::checkNewLegal(const v8::Arguments& args)
         return throwError(TypeError, "Illegal constructor");
 
     return args.This();
-}
-
-void V8Proxy::processConsoleMessages()
-{
-    V8ConsoleMessage::processDelayed();
 }
 
 void V8Proxy::registerExtensionWithV8(v8::Extension* extension)

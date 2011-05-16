@@ -31,20 +31,22 @@
 #include "config.h"
 #include "ScrollAnimator.h"
 
-#include "ScrollbarClient.h"
+#include "FloatPoint.h"
+#include "ScrollableArea.h"
 #include <algorithm>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 #if !ENABLE(SMOOTH_SCROLLING)
-ScrollAnimator* ScrollAnimator::create(ScrollbarClient* client)
+PassOwnPtr<ScrollAnimator> ScrollAnimator::create(ScrollableArea* scrollableArea)
 {
-    return new ScrollAnimator(client);
+    return adoptPtr(new ScrollAnimator(scrollableArea));
 }
 #endif
 
-ScrollAnimator::ScrollAnimator(ScrollbarClient* client)
-    : m_client(client)
+ScrollAnimator::ScrollAnimator(ScrollableArea* scrollableArea)
+    : m_scrollableArea(scrollableArea)
     , m_currentPosX(0)
     , m_currentPosY(0)
 {
@@ -57,20 +59,33 @@ ScrollAnimator::~ScrollAnimator()
 bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity, float step, float multiplier)
 {
     float* currentPos = (orientation == HorizontalScrollbar) ? &m_currentPosX : &m_currentPosY;
-    float newPos = std::max(std::min(*currentPos + (step * multiplier), static_cast<float>(m_client->scrollSize(orientation))), 0.0f);
+    float newPos = std::max(std::min(*currentPos + (step * multiplier), static_cast<float>(m_scrollableArea->scrollSize(orientation))), 0.0f);
     if (*currentPos == newPos)
         return false;
     *currentPos = newPos;
-    m_client->setScrollOffsetFromAnimation(IntPoint(m_currentPosX, m_currentPosY));
+
+    notityPositionChanged();
+
     return true;
 }
 
-void ScrollAnimator::setScrollPositionAndStopAnimation(ScrollbarOrientation orientation, float pos)
+void ScrollAnimator::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
 {
-    if (orientation == HorizontalScrollbar)
-        m_currentPosX = pos;
-    else
-        m_currentPosY = pos;
+    if (m_currentPosX != offset.x() || m_currentPosY != offset.y()) {
+        m_currentPosX = offset.x();
+        m_currentPosY = offset.y();
+        notityPositionChanged();
+    }
+}
+
+FloatPoint ScrollAnimator::currentPosition() const
+{
+    return FloatPoint(m_currentPosX, m_currentPosY);
+}
+
+void ScrollAnimator::notityPositionChanged()
+{
+    m_scrollableArea->setScrollOffsetFromAnimation(IntPoint(m_currentPosX, m_currentPosY));
 }
 
 } // namespace WebCore

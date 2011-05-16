@@ -185,20 +185,9 @@ var WebInspector = {
         }
     },
 
-    createJSBreakpointsSidebarPane: function()
-    {
-        var pane = new WebInspector.BreakpointsSidebarPane(WebInspector.UIString("Breakpoints"));
-        function breakpointAdded(event)
-        {
-            pane.addBreakpointItem(new WebInspector.BreakpointItem(event.data));
-        }
-        WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.BreakpointAdded, breakpointAdded);
-        return pane;
-    },
-
     createDOMBreakpointsSidebarPane: function()
     {
-        var pane = new WebInspector.BreakpointsSidebarPane(WebInspector.UIString("DOM Breakpoints"));
+        var pane = new WebInspector.NativeBreakpointsSidebarPane(WebInspector.UIString("DOM Breakpoints"));
         function breakpointAdded(event)
         {
             pane.addBreakpointItem(new WebInspector.BreakpointItem(event.data));
@@ -534,7 +523,7 @@ WebInspector.doLoadedDone = function()
         scripts: new WebInspector.ResourceCategory("scripts", WebInspector.UIString("Scripts"), "rgb(255,121,0)"),
         xhr: new WebInspector.ResourceCategory("xhr", WebInspector.UIString("XHR"), "rgb(231,231,10)"),
         fonts: new WebInspector.ResourceCategory("fonts", WebInspector.UIString("Fonts"), "rgb(255,82,62)"),
-        websockets: new WebInspector.ResourceCategory("websockets", WebInspector.UIString("WebSocket"), "rgb(186,186,186)"), // FIXME: Decide the color.
+        websockets: new WebInspector.ResourceCategory("websockets", WebInspector.UIString("WebSockets"), "rgb(186,186,186)"), // FIXME: Decide the color.
         other: new WebInspector.ResourceCategory("other", WebInspector.UIString("Other"), "rgb(186,186,186)")
     };
 
@@ -600,14 +589,6 @@ WebInspector.doLoadedDone = function()
     document.getElementById("close-button-right").addEventListener("click", this.close, true);
 
     this.extensionServer.initExtensions();
-
-    function populateInspectorState(inspectorState)
-    {
-        WebInspector.monitoringXHREnabled = inspectorState.monitoringXHREnabled;
-        if ("pauseOnExceptionsState" in inspectorState)
-            WebInspector.panels.scripts.updatePauseOnExceptionsState(inspectorState.pauseOnExceptionsState);
-    }
-    InspectorBackend.getInspectorState(populateInspectorState);
 
     function onPopulateScriptObjects()
     {

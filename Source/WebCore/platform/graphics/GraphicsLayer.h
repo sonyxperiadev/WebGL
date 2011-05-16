@@ -100,7 +100,8 @@ class TimingFunction;
 // Base class for animation values (also used for transitions). Here to
 // represent values for properties being animated via the GraphicsLayer,
 // without pulling in style-related data from outside of the platform directory.
-class AnimationValue : public Noncopyable {
+class AnimationValue {
+    WTF_MAKE_NONCOPYABLE(AnimationValue); WTF_MAKE_FAST_ALLOCATED;
 public:
     AnimationValue(float keyTime, PassRefPtr<TimingFunction> timingFunction = 0)
         : m_keyTime(keyTime)
@@ -152,7 +153,8 @@ private:
 
 // Used to store a series of values in a keyframe list. Values will all be of the same type,
 // which can be inferred from the property.
-class KeyframeValueList : public Noncopyable {
+class KeyframeValueList {
+    WTF_MAKE_NONCOPYABLE(KeyframeValueList); WTF_MAKE_FAST_ALLOCATED;
 public:
 
     KeyframeValueList(AnimatedPropertyID property)
@@ -184,8 +186,8 @@ protected:
 // which may have associated transformation and animations.
 
 class GraphicsLayer {
+    WTF_MAKE_NONCOPYABLE(GraphicsLayer); WTF_MAKE_FAST_ALLOCATED;
 public:
-
     static PassOwnPtr<GraphicsLayer> create(GraphicsLayerClient*);
     
     virtual ~GraphicsLayer();

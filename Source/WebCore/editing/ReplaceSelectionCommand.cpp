@@ -62,7 +62,8 @@ enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
 
 // --- ReplacementFragment helper class
 
-class ReplacementFragment : public Noncopyable {
+class ReplacementFragment {
+    WTF_MAKE_NONCOPYABLE(ReplacementFragment);
 public:
     ReplacementFragment(Document*, DocumentFragment*, bool matchStyle, const VisibleSelection&);
 
@@ -568,7 +569,7 @@ static bool handleStyleSpansBeforeInsertion(ReplacementFragment& fragment, const
     Node* sourceDocumentStyleSpan = topNode;
     RefPtr<Node> copiedRangeStyleSpan = sourceDocumentStyleSpan->firstChild();
 
-    RefPtr<EditingStyle> styleAtInsertionPos = EditingStyle::create(rangeCompliantEquivalent(insertionPos));
+    RefPtr<EditingStyle> styleAtInsertionPos = EditingStyle::create(insertionPos.parentAnchoredEquivalent());
     String styleText = styleAtInsertionPos->style()->cssText();
 
     // FIXME: This string comparison is a naive way of comparing two styles.

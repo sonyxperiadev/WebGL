@@ -24,6 +24,7 @@
 #include "Assertions.h"
 #include "Noncopyable.h"
 #include "NullPtr.h"
+#include "OwnPtrCommon.h"
 #include "OwnArrayPtrCommon.h"
 #include <algorithm>
 
@@ -35,7 +36,7 @@ namespace WTF {
 template<typename T> class PassOwnArrayPtr;
 template<typename T> PassOwnArrayPtr<T> adoptArrayPtr(T*);
 
-template <typename T> class OwnArrayPtr : public Noncopyable {
+template <typename T> class OwnArrayPtr {
 public:
     typedef T* PtrType;
 

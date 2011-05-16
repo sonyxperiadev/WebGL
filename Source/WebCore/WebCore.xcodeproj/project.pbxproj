@@ -1664,9 +1664,11 @@
 		7A74ECBA101839A600BF939E /* InspectorDOMStorageAgent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A74ECB8101839A500BF939E /* InspectorDOMStorageAgent.cpp */; };
 		7A74ECBB101839A600BF939E /* InspectorDOMStorageAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A74ECB9101839A600BF939E /* InspectorDOMStorageAgent.h */; };
 		7A74ECBD101839DA00BF939E /* JSInspectorFrontendHostCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A74ECBC101839DA00BF939E /* JSInspectorFrontendHostCustom.cpp */; };
+		7AA365EE12E7265400DCA242 /* InspectorRuntimeAgent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7AA365ED12E7265400DCA242 /* InspectorRuntimeAgent.cpp */; };
 		7AB0B1C01211A62200A76940 /* InspectorDatabaseAgent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7AB0B1BE1211A62200A76940 /* InspectorDatabaseAgent.cpp */; };
 		7AB0B1C11211A62200A76940 /* InspectorDatabaseAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7AB0B1BF1211A62200A76940 /* InspectorDatabaseAgent.h */; };
 		7ADE722610CBBB9B006B3B3A /* ContextMenuProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 7ADE722510CBBB9B006B3B3A /* ContextMenuProvider.h */; };
+		7AF11A5A12E727490061F23C /* InspectorRuntimeAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7AF11A5912E727490061F23C /* InspectorRuntimeAgent.h */; };
 		7AFD4A8B1131C2760035B883 /* ScriptBreakpoint.h in Headers */ = {isa = PBXBuildFile; fileRef = 7AFD4A8A1131C2760035B883 /* ScriptBreakpoint.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7AFD4FF4113277B60035B883 /* ScriptDebugListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 7AFD4FF3113277B60035B883 /* ScriptDebugListener.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		7E33CD01127F340D00BE8F17 /* PurgePriority.h in Headers */ = {isa = PBXBuildFile; fileRef = 7E33CD00127F340D00BE8F17 /* PurgePriority.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2758,6 +2760,11 @@
 		8F67561B1288B17B0047ACA3 /* EventQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 8F6756191288B17B0047ACA3 /* EventQueue.h */; };
 		8F67561C1288B17B0047ACA3 /* EventQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8F67561A1288B17B0047ACA3 /* EventQueue.cpp */; };
 		8FAC774D119872CB0015AE94 /* JSMainThreadExecState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8F934D841189F1EE00508D5D /* JSMainThreadExecState.cpp */; };
+		9001774012E0347800648462 /* OESStandardDerivatives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9001773D12E0347800648462 /* OESStandardDerivatives.cpp */; };
+		9001774112E0347800648462 /* OESStandardDerivatives.h in Headers */ = {isa = PBXBuildFile; fileRef = 9001773E12E0347800648462 /* OESStandardDerivatives.h */; };
+		9001774212E0347800648462 /* OESStandardDerivatives.idl in Resources */ = {isa = PBXBuildFile; fileRef = 9001773F12E0347800648462 /* OESStandardDerivatives.idl */; };
+		9001788012E0370700648462 /* JSOESStandardDerivatives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9001787E12E0370700648462 /* JSOESStandardDerivatives.cpp */; };
+		9001788112E0370700648462 /* JSOESStandardDerivatives.h in Headers */ = {isa = PBXBuildFile; fileRef = 9001787F12E0370700648462 /* JSOESStandardDerivatives.h */; };
 		9302B0BD0D79F82900C7EE83 /* PageGroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9302B0BC0D79F82900C7EE83 /* PageGroup.cpp */; };
 		9302B0BF0D79F82C00C7EE83 /* PageGroup.h in Headers */ = {isa = PBXBuildFile; fileRef = 9302B0BE0D79F82C00C7EE83 /* PageGroup.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9305B24D098F1B6B00C28855 /* Timer.h in Headers */ = {isa = PBXBuildFile; fileRef = 9305B24C098F1B6B00C28855 /* Timer.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3157,12 +3164,19 @@
 		A59E3C1F11580F510072928E /* KeyEventIPhone.mm in Sources */ = {isa = PBXBuildFile; fileRef = A59E3C1D11580F510072928E /* KeyEventIPhone.mm */; };
 		A5AFB34F115151A700B045CB /* StepRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5AFB34D115151A700B045CB /* StepRange.cpp */; };
 		A5AFB350115151A700B045CB /* StepRange.h in Headers */ = {isa = PBXBuildFile; fileRef = A5AFB34E115151A700B045CB /* StepRange.h */; };
+		A6148A6212E41D3A0044A784 /* DOMHTMLKeygenElementInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = A6148A6112E41D3A0044A784 /* DOMHTMLKeygenElementInternal.h */; };
+		A6148A6712E41D940044A784 /* DOMHTMLKeygenElement.h in Headers */ = {isa = PBXBuildFile; fileRef = A6148A6512E41D940044A784 /* DOMHTMLKeygenElement.h */; };
+		A6148A6812E41D940044A784 /* DOMHTMLKeygenElement.mm in Sources */ = {isa = PBXBuildFile; fileRef = A6148A6612E41D940044A784 /* DOMHTMLKeygenElement.mm */; };
+		A6148A7812E41E3B0044A784 /* JSHTMLKeygenElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6148A7612E41E3B0044A784 /* JSHTMLKeygenElement.cpp */; };
+		A6148A7912E41E3B0044A784 /* JSHTMLKeygenElement.h in Headers */ = {isa = PBXBuildFile; fileRef = A6148A7712E41E3B0044A784 /* JSHTMLKeygenElement.h */; };
 		A622A8FB122C44A600A785B3 /* BindingSecurity.h in Headers */ = {isa = PBXBuildFile; fileRef = A622A8F5122C44A600A785B3 /* BindingSecurity.h */; };
 		A622A8FC122C44A600A785B3 /* BindingSecurityBase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A622A8F6122C44A600A785B3 /* BindingSecurityBase.cpp */; };
 		A622A8FD122C44A600A785B3 /* BindingSecurityBase.h in Headers */ = {isa = PBXBuildFile; fileRef = A622A8F7122C44A600A785B3 /* BindingSecurityBase.h */; };
 		A622A8FF122C44A600A785B3 /* GenericBinding.h in Headers */ = {isa = PBXBuildFile; fileRef = A622A8F9122C44A600A785B3 /* GenericBinding.h */; };
 		A718760E0B2A120100A16ECE /* DragActions.h in Headers */ = {isa = PBXBuildFile; fileRef = A718760D0B2A120100A16ECE /* DragActions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A71878900B2D04AC00A16ECE /* DragControllerMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = A718788F0B2D04AC00A16ECE /* DragControllerMac.mm */; };
+		A73F95FE12C97BFE0031AAF9 /* RoundedIntRect.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A73F95FC12C97BFE0031AAF9 /* RoundedIntRect.cpp */; };
+		A73F95FF12C97BFE0031AAF9 /* RoundedIntRect.h in Headers */ = {isa = PBXBuildFile; fileRef = A73F95FD12C97BFE0031AAF9 /* RoundedIntRect.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A75E497610752ACB00C9B896 /* SerializedScriptValue.h in Headers */ = {isa = PBXBuildFile; fileRef = A75E497410752ACB00C9B896 /* SerializedScriptValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A75E497710752ACB00C9B896 /* SerializedScriptValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A75E497510752ACB00C9B896 /* SerializedScriptValue.cpp */; };
 		A75E8B880E1DE2D6007F2481 /* FEBlend.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A75E8B800E1DE2D6007F2481 /* FEBlend.cpp */; };
@@ -3177,6 +3191,7 @@
 		A779791A0D6B9D0C003851B9 /* ImageData.h in Headers */ = {isa = PBXBuildFile; fileRef = A77979140D6B9D0C003851B9 /* ImageData.h */; };
 		A77979280D6B9E64003851B9 /* JSImageData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A77979240D6B9E64003851B9 /* JSImageData.cpp */; };
 		A77979290D6B9E64003851B9 /* JSImageData.h in Headers */ = {isa = PBXBuildFile; fileRef = A77979250D6B9E64003851B9 /* JSImageData.h */; };
+		A77B41A012E675A90054343D /* TextEventInputType.h in Headers */ = {isa = PBXBuildFile; fileRef = A77B419F12E675A90054343D /* TextEventInputType.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A784941B0B5FE507001E237A /* Clipboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A784941A0B5FE507001E237A /* Clipboard.cpp */; };
 		A78FE13B12366B1000ACE8D0 /* SpellChecker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A78FE13912366B1000ACE8D0 /* SpellChecker.cpp */; };
 		A78FE13C12366B1000ACE8D0 /* SpellChecker.h in Headers */ = {isa = PBXBuildFile; fileRef = A78FE13A12366B1000ACE8D0 /* SpellChecker.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5044,6 +5059,8 @@
 		BC82432A0D0CE8A200460C8F /* JSSQLTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8243260D0CE8A200460C8F /* JSSQLTransaction.h */; };
 		BC8243E80D0CFD7500460C8F /* WindowFeatures.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC8243E60D0CFD7500460C8F /* WindowFeatures.cpp */; };
 		BC8243E90D0CFD7500460C8F /* WindowFeatures.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8243E70D0CFD7500460C8F /* WindowFeatures.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC8AE34E12EA096A00EB3AE6 /* ScrollableArea.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC8AE34C12EA096A00EB3AE6 /* ScrollableArea.cpp */; };
+		BC8AE34F12EA096A00EB3AE6 /* ScrollableArea.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8AE34D12EA096A00EB3AE6 /* ScrollableArea.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC8B853E0E7C7F1100AB6984 /* ScrollbarThemeMac.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8B853C0E7C7F1100AB6984 /* ScrollbarThemeMac.h */; };
 		BC8B854B0E7C7F5600AB6984 /* ScrollbarTheme.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8B854A0E7C7F5600AB6984 /* ScrollbarTheme.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC8BF151105813BF00A40A07 /* UserStyleSheet.h in Headers */ = {isa = PBXBuildFile; fileRef = BC8BF150105813BF00A40A07 /* UserStyleSheet.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5078,8 +5095,6 @@
 		BC99812E0DBE807A008CE9EF /* DOMAbstractViewFrame.h in Headers */ = {isa = PBXBuildFile; fileRef = BC99812D0DBE807A008CE9EF /* DOMAbstractViewFrame.h */; };
 		BC9ADD230CC4032600098C4C /* WebKitCSSTransformValue.h in Headers */ = {isa = PBXBuildFile; fileRef = BC9ADD220CC4032600098C4C /* WebKitCSSTransformValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BC9ADD800CC4092200098C4C /* WebKitCSSTransformValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC9ADD7F0CC4092200098C4C /* WebKitCSSTransformValue.cpp */; };
-		BC9BC64D0E7C4889008B9849 /* ScrollbarClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC9BC64B0E7C4889008B9849 /* ScrollbarClient.cpp */; settings = {ATTRIBUTES = (Private, ); }; };
-		BC9BC64E0E7C4889008B9849 /* ScrollbarClient.h in Headers */ = {isa = PBXBuildFile; fileRef = BC9BC64C0E7C4889008B9849 /* ScrollbarClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BCA169A20BFD55B40019CA76 /* JSHTMLTableCaptionElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCA169A00BFD55B40019CA76 /* JSHTMLTableCaptionElement.cpp */; };
 		BCA169A30BFD55B40019CA76 /* JSHTMLTableCaptionElement.h in Headers */ = {isa = PBXBuildFile; fileRef = BCA169A10BFD55B40019CA76 /* JSHTMLTableCaptionElement.h */; };
 		BCA257151293C010007A263D /* VerticalPositionCache.h in Headers */ = {isa = PBXBuildFile; fileRef = BCA257141293C010007A263D /* VerticalPositionCache.h */; };
@@ -5609,8 +5624,8 @@
 		F392249D126F11AE00A926D9 /* ScriptCallStackFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F392249B126F11AE00A926D9 /* ScriptCallStackFactory.h */; };
 		F39BE95B12673BF400E0A674 /* ScriptArguments.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F39BE95912673BF400E0A674 /* ScriptArguments.cpp */; };
 		F39BE95C12673BF400E0A674 /* ScriptArguments.h in Headers */ = {isa = PBXBuildFile; fileRef = F39BE95A12673BF400E0A674 /* ScriptArguments.h */; };
-		F3D461481161D53200CA0D09 /* JSWorkerContextErrorHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F3D461461161D53200CA0D09 /* JSWorkerContextErrorHandler.cpp */; };
-		F3D461491161D53200CA0D09 /* JSWorkerContextErrorHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F3D461471161D53200CA0D09 /* JSWorkerContextErrorHandler.h */; };
+		F3D461481161D53200CA0D09 /* JSErrorHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F3D461461161D53200CA0D09 /* JSErrorHandler.cpp */; };
+		F3D461491161D53200CA0D09 /* JSErrorHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F3D461471161D53200CA0D09 /* JSErrorHandler.h */; };
 		F3D4C47812E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F3D4C47612E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp */; };
 		F3D4C47912E07663003DA150 /* InspectorBrowserDebuggerAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = F3D4C47712E07663003DA150 /* InspectorBrowserDebuggerAgent.h */; };
 		F4EAF4AE10C742B1009100D3 /* OpenTypeSanitizer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F4EAF4AC10C742B1009100D3 /* OpenTypeSanitizer.cpp */; };
@@ -8086,9 +8101,11 @@
 		7A74ECB8101839A500BF939E /* InspectorDOMStorageAgent.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InspectorDOMStorageAgent.cpp; sourceTree = "<group>"; };
 		7A74ECB9101839A600BF939E /* InspectorDOMStorageAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InspectorDOMStorageAgent.h; sourceTree = "<group>"; };
 		7A74ECBC101839DA00BF939E /* JSInspectorFrontendHostCustom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInspectorFrontendHostCustom.cpp; sourceTree = "<group>"; };
+		7AA365ED12E7265400DCA242 /* InspectorRuntimeAgent.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InspectorRuntimeAgent.cpp; sourceTree = "<group>"; };
 		7AB0B1BE1211A62200A76940 /* InspectorDatabaseAgent.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InspectorDatabaseAgent.cpp; sourceTree = "<group>"; };
 		7AB0B1BF1211A62200A76940 /* InspectorDatabaseAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InspectorDatabaseAgent.h; sourceTree = "<group>"; };
 		7ADE722510CBBB9B006B3B3A /* ContextMenuProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ContextMenuProvider.h; sourceTree = "<group>"; };
+		7AF11A5912E727490061F23C /* InspectorRuntimeAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InspectorRuntimeAgent.h; sourceTree = "<group>"; };
 		7AFD4A8A1131C2760035B883 /* ScriptBreakpoint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptBreakpoint.h; sourceTree = "<group>"; };
 		7AFD4FF3113277B60035B883 /* ScriptDebugListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptDebugListener.h; sourceTree = "<group>"; };
 		7E33CD00127F340D00BE8F17 /* PurgePriority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PurgePriority.h; sourceTree = "<group>"; };
@@ -9135,6 +9152,11 @@
 		8F67561A1288B17B0047ACA3 /* EventQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EventQueue.cpp; sourceTree = "<group>"; };
 		8F934D831189F1EE00508D5D /* JSMainThreadExecState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSMainThreadExecState.h; sourceTree = "<group>"; };
 		8F934D841189F1EE00508D5D /* JSMainThreadExecState.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSMainThreadExecState.cpp; sourceTree = "<group>"; };
+		9001773D12E0347800648462 /* OESStandardDerivatives.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = OESStandardDerivatives.cpp; path = canvas/OESStandardDerivatives.cpp; sourceTree = "<group>"; };
+		9001773E12E0347800648462 /* OESStandardDerivatives.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OESStandardDerivatives.h; path = canvas/OESStandardDerivatives.h; sourceTree = "<group>"; };
+		9001773F12E0347800648462 /* OESStandardDerivatives.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = OESStandardDerivatives.idl; path = canvas/OESStandardDerivatives.idl; sourceTree = "<group>"; };
+		9001787E12E0370700648462 /* JSOESStandardDerivatives.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSOESStandardDerivatives.cpp; sourceTree = "<group>"; };
+		9001787F12E0370700648462 /* JSOESStandardDerivatives.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSOESStandardDerivatives.h; sourceTree = "<group>"; };
 		9302B0BC0D79F82900C7EE83 /* PageGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PageGroup.cpp; sourceTree = "<group>"; };
 		9302B0BE0D79F82C00C7EE83 /* PageGroup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PageGroup.h; sourceTree = "<group>"; };
 		9305B24C098F1B6B00C28855 /* Timer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Timer.h; sourceTree = "<group>"; };
@@ -9526,6 +9548,12 @@
 		A5AFB34E115151A700B045CB /* StepRange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StepRange.h; sourceTree = "<group>"; };
 		A5C974CF11485FF10066F2AB /* KeyEventCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KeyEventCocoa.h; path = cocoa/KeyEventCocoa.h; sourceTree = "<group>"; };
 		A5C974D011485FF10066F2AB /* KeyEventCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = KeyEventCocoa.mm; path = cocoa/KeyEventCocoa.mm; sourceTree = "<group>"; };
+		A6148A6112E41D3A0044A784 /* DOMHTMLKeygenElementInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DOMHTMLKeygenElementInternal.h; sourceTree = "<group>"; };
+		A6148A6512E41D940044A784 /* DOMHTMLKeygenElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DOMHTMLKeygenElement.h; sourceTree = "<group>"; };
+		A6148A6612E41D940044A784 /* DOMHTMLKeygenElement.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = DOMHTMLKeygenElement.mm; sourceTree = "<group>"; };
+		A6148A7612E41E3B0044A784 /* JSHTMLKeygenElement.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSHTMLKeygenElement.cpp; sourceTree = "<group>"; };
+		A6148A7712E41E3B0044A784 /* JSHTMLKeygenElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSHTMLKeygenElement.h; sourceTree = "<group>"; };
+		A6148A7F12E41ED10044A784 /* HTMLKeygenElement.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = HTMLKeygenElement.idl; sourceTree = "<group>"; };
 		A622A8F5122C44A600A785B3 /* BindingSecurity.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BindingSecurity.h; path = generic/BindingSecurity.h; sourceTree = "<group>"; };
 		A622A8F6122C44A600A785B3 /* BindingSecurityBase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = BindingSecurityBase.cpp; path = generic/BindingSecurityBase.cpp; sourceTree = "<group>"; };
 		A622A8F7122C44A600A785B3 /* BindingSecurityBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BindingSecurityBase.h; path = generic/BindingSecurityBase.h; sourceTree = "<group>"; };
@@ -9533,6 +9561,8 @@
 		A718760D0B2A120100A16ECE /* DragActions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DragActions.h; sourceTree = "<group>"; };
 		A718788F0B2D04AC00A16ECE /* DragControllerMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = DragControllerMac.mm; sourceTree = "<group>"; };
 		A71A70C911AFB02000989D6D /* HTMLMeterElement.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = HTMLMeterElement.idl; sourceTree = "<group>"; };
+		A73F95FC12C97BFE0031AAF9 /* RoundedIntRect.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RoundedIntRect.cpp; sourceTree = "<group>"; };
+		A73F95FD12C97BFE0031AAF9 /* RoundedIntRect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RoundedIntRect.h; sourceTree = "<group>"; };
 		A75E497410752ACB00C9B896 /* SerializedScriptValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SerializedScriptValue.h; sourceTree = "<group>"; };
 		A75E497510752ACB00C9B896 /* SerializedScriptValue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SerializedScriptValue.cpp; sourceTree = "<group>"; };
 		A75E8B800E1DE2D6007F2481 /* FEBlend.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = FEBlend.cpp; path = filters/FEBlend.cpp; sourceTree = "<group>"; };
@@ -9548,6 +9578,7 @@
 		A77979150D6B9D0C003851B9 /* ImageData.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ImageData.idl; sourceTree = "<group>"; };
 		A77979240D6B9E64003851B9 /* JSImageData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSImageData.cpp; sourceTree = "<group>"; };
 		A77979250D6B9E64003851B9 /* JSImageData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSImageData.h; sourceTree = "<group>"; };
+		A77B419F12E675A90054343D /* TextEventInputType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextEventInputType.h; sourceTree = "<group>"; };
 		A784941A0B5FE507001E237A /* Clipboard.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Clipboard.cpp; sourceTree = "<group>"; };
 		A78FE13912366B1000ACE8D0 /* SpellChecker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SpellChecker.cpp; sourceTree = "<group>"; };
 		A78FE13A12366B1000ACE8D0 /* SpellChecker.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = SpellChecker.h; sourceTree = "<group>"; };
@@ -11336,6 +11367,8 @@
 		BC8243260D0CE8A200460C8F /* JSSQLTransaction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSSQLTransaction.h; sourceTree = "<group>"; };
 		BC8243E60D0CFD7500460C8F /* WindowFeatures.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WindowFeatures.cpp; sourceTree = "<group>"; };
 		BC8243E70D0CFD7500460C8F /* WindowFeatures.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WindowFeatures.h; sourceTree = "<group>"; };
+		BC8AE34C12EA096A00EB3AE6 /* ScrollableArea.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScrollableArea.cpp; sourceTree = "<group>"; };
+		BC8AE34D12EA096A00EB3AE6 /* ScrollableArea.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollableArea.h; sourceTree = "<group>"; };
 		BC8B853C0E7C7F1100AB6984 /* ScrollbarThemeMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollbarThemeMac.h; sourceTree = "<group>"; };
 		BC8B854A0E7C7F5600AB6984 /* ScrollbarTheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollbarTheme.h; sourceTree = "<group>"; };
 		BC8BF150105813BF00A40A07 /* UserStyleSheet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UserStyleSheet.h; sourceTree = "<group>"; };
@@ -11373,8 +11406,6 @@
 		BC99812D0DBE807A008CE9EF /* DOMAbstractViewFrame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DOMAbstractViewFrame.h; sourceTree = "<group>"; };
 		BC9ADD220CC4032600098C4C /* WebKitCSSTransformValue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WebKitCSSTransformValue.h; sourceTree = "<group>"; };
 		BC9ADD7F0CC4092200098C4C /* WebKitCSSTransformValue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = WebKitCSSTransformValue.cpp; sourceTree = "<group>"; };
-		BC9BC64B0E7C4889008B9849 /* ScrollbarClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScrollbarClient.cpp; sourceTree = "<group>"; };
-		BC9BC64C0E7C4889008B9849 /* ScrollbarClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollbarClient.h; sourceTree = "<group>"; };
 		BCA169A00BFD55B40019CA76 /* JSHTMLTableCaptionElement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = JSHTMLTableCaptionElement.cpp; sourceTree = "<group>"; };
 		BCA169A10BFD55B40019CA76 /* JSHTMLTableCaptionElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = JSHTMLTableCaptionElement.h; sourceTree = "<group>"; };
 		BCA257141293C010007A263D /* VerticalPositionCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VerticalPositionCache.h; sourceTree = "<group>"; };
@@ -11394,7 +11425,7 @@
 		BCA8CA5D11E4E6D100812FB7 /* BackForwardListImpl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BackForwardListImpl.cpp; sourceTree = "<group>"; };
 		BCA8CA5E11E4E6D100812FB7 /* BackForwardListImpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BackForwardListImpl.h; sourceTree = "<group>"; };
 		BCA979161215D055005C485C /* ImageBufferData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImageBufferData.h; sourceTree = "<group>"; };
-		BCAA90C20A7EBA60008B1229 /* Scrollbar.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Scrollbar.cpp; path = platform/Scrollbar.cpp; sourceTree = SOURCE_ROOT; };
+		BCAA90C20A7EBA60008B1229 /* Scrollbar.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Scrollbar.cpp; sourceTree = "<group>"; };
 		BCACF3BA1072921A00C0C8A3 /* UserContentURLPattern.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = UserContentURLPattern.cpp; sourceTree = "<group>"; };
 		BCACF3BB1072921A00C0C8A3 /* UserContentURLPattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UserContentURLPattern.h; sourceTree = "<group>"; };
 		BCAE1FA512939DB7004CB026 /* ScrollAnimatorMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollAnimatorMac.h; sourceTree = "<group>"; };
@@ -11953,8 +11984,8 @@
 		F392249B126F11AE00A926D9 /* ScriptCallStackFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptCallStackFactory.h; sourceTree = "<group>"; };
 		F39BE95912673BF400E0A674 /* ScriptArguments.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScriptArguments.cpp; sourceTree = "<group>"; };
 		F39BE95A12673BF400E0A674 /* ScriptArguments.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptArguments.h; sourceTree = "<group>"; };
-		F3D461461161D53200CA0D09 /* JSWorkerContextErrorHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSWorkerContextErrorHandler.cpp; sourceTree = "<group>"; };
-		F3D461471161D53200CA0D09 /* JSWorkerContextErrorHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSWorkerContextErrorHandler.h; sourceTree = "<group>"; };
+		F3D461461161D53200CA0D09 /* JSErrorHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSErrorHandler.cpp; sourceTree = "<group>"; };
+		F3D461471161D53200CA0D09 /* JSErrorHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSErrorHandler.h; sourceTree = "<group>"; };
 		F3D4C47612E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InspectorBrowserDebuggerAgent.cpp; sourceTree = "<group>"; };
 		F3D4C47712E07663003DA150 /* InspectorBrowserDebuggerAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InspectorBrowserDebuggerAgent.h; sourceTree = "<group>"; };
 		F4EAF4AC10C742B1009100D3 /* OpenTypeSanitizer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = OpenTypeSanitizer.cpp; path = opentype/OpenTypeSanitizer.cpp; sourceTree = "<group>"; };
@@ -12936,8 +12967,6 @@
 				7A0E76F710BF08ED00A0276E /* InjectedScriptHost.h */,
 				7A0E76F810BF08ED00A0276E /* InjectedScriptHost.idl */,
 				7A563F9512DF5C9100F4536D /* InjectedScriptSource.js */,
-				7A5640BD12DF9E5E00F4536D /* InspectorSettings.cpp */,
-				7A5640BE12DF9E5E00F4536D /* InspectorSettings.h */,
 				B885E8D211E06DD2009FFBF4 /* InspectorApplicationCacheAgent.cpp */,
 				B885E8D311E06DD2009FFBF4 /* InspectorApplicationCacheAgent.h */,
 				F3D4C47612E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp */,
@@ -12976,6 +13005,10 @@
 				9F0D6B2D121BFEBA006C0288 /* InspectorProfilerAgent.h */,
 				82AB1771125C826700C5069D /* InspectorResourceAgent.cpp */,
 				82AB1772125C826700C5069D /* InspectorResourceAgent.h */,
+				7AA365ED12E7265400DCA242 /* InspectorRuntimeAgent.cpp */,
+				7AF11A5912E727490061F23C /* InspectorRuntimeAgent.h */,
+				7A5640BD12DF9E5E00F4536D /* InspectorSettings.cpp */,
+				7A5640BE12DF9E5E00F4536D /* InspectorSettings.h */,
 				4FA3B908125CD12100300BAD /* InspectorState.cpp */,
 				4FA3B909125CD12200300BAD /* InspectorState.h */,
 				82AB176F125C826700C5069D /* InspectorStyleSheet.cpp */,
@@ -13267,6 +13300,9 @@
 				49C7B9AC1042D32E0009D447 /* Int8Array.h */,
 				49C7B9AD1042D32E0009D447 /* Int8Array.idl */,
 				6E96BB1A11986EE1007D94CD /* IntegralTypedArrayBase.h */,
+				9001773D12E0347800648462 /* OESStandardDerivatives.cpp */,
+				9001773E12E0347800648462 /* OESStandardDerivatives.h */,
+				9001773F12E0347800648462 /* OESStandardDerivatives.idl */,
 				6EBF0E4512A8926100DB1709 /* OESTextureFloat.cpp */,
 				6EBF0E4612A8926100DB1709 /* OESTextureFloat.h */,
 				6EBF0E4712A8926100DB1709 /* OESTextureFloat.idl */,
@@ -13867,7 +13903,6 @@
 				1CE24F960D7CAF0E007E04C2 /* SchedulePairMac.mm */,
 				BCAE1FA512939DB7004CB026 /* ScrollAnimatorMac.h */,
 				BC51156D12B1749C00C96754 /* ScrollAnimatorMac.mm */,
-				BCAA90C20A7EBA60008B1229 /* Scrollbar.cpp */,
 				BC8B853C0E7C7F1100AB6984 /* ScrollbarThemeMac.h */,
 				BCEF869E0E844E9D00A85CD5 /* ScrollbarThemeMac.mm */,
 				9353676A09AED88B00D35CD6 /* ScrollViewMac.mm */,
@@ -14828,6 +14863,8 @@
 				1CCA732110ADD43E00FD440D /* DOMHTMLInputElementPrivate.h */,
 				859A9C410AA5E3BD00B694B2 /* DOMHTMLIsIndexElement.h */,
 				859A9C420AA5E3BD00B694B2 /* DOMHTMLIsIndexElement.mm */,
+				A6148A6512E41D940044A784 /* DOMHTMLKeygenElement.h */,
+				A6148A6612E41D940044A784 /* DOMHTMLKeygenElement.mm */,
 				85BA4CD90AA6861B0088052D /* DOMHTMLLabelElement.h */,
 				85BA4CDA0AA6861B0088052D /* DOMHTMLLabelElement.mm */,
 				85BA4CDB0AA6861B0088052D /* DOMHTMLLegendElement.h */,
@@ -14963,6 +15000,7 @@
 				85E711630AC5D5350053270F /* DOMHTMLImageElementInternal.h */,
 				85E711640AC5D5350053270F /* DOMHTMLInputElementInternal.h */,
 				85E711650AC5D5350053270F /* DOMHTMLIsIndexElementInternal.h */,
+				A6148A6112E41D3A0044A784 /* DOMHTMLKeygenElementInternal.h */,
 				85E711660AC5D5350053270F /* DOMHTMLLabelElementInternal.h */,
 				85E711670AC5D5350053270F /* DOMHTMLLegendElementInternal.h */,
 				85E711680AC5D5350053270F /* DOMHTMLLIElementInternal.h */,
@@ -15576,6 +15614,7 @@
 				1AE2AA850A1CDCCE00B42B25 /* HTMLIsIndexElement.idl */,
 				A81369C9097374F600D74463 /* HTMLKeygenElement.cpp */,
 				A81369C8097374F500D74463 /* HTMLKeygenElement.h */,
+				A6148A7F12E41ED10044A784 /* HTMLKeygenElement.idl */,
 				A81369C7097374F500D74463 /* HTMLLabelElement.cpp */,
 				A81369C6097374F500D74463 /* HTMLLabelElement.h */,
 				1AE2AABE0A1CDD8300B42B25 /* HTMLLabelElement.idl */,
@@ -16082,6 +16121,8 @@
 				A80E7E8D0A1A83E3007FB8C5 /* JSHTMLInputElement.h */,
 				1AE2AA950A1CDD2D00B42B25 /* JSHTMLIsIndexElement.cpp */,
 				1AE2AA960A1CDD2D00B42B25 /* JSHTMLIsIndexElement.h */,
+				A6148A7612E41E3B0044A784 /* JSHTMLKeygenElement.cpp */,
+				A6148A7712E41E3B0044A784 /* JSHTMLKeygenElement.h */,
 				1AE2AB170A1CE63B00B42B25 /* JSHTMLLabelElement.cpp */,
 				1AE2AB180A1CE63B00B42B25 /* JSHTMLLabelElement.h */,
 				1AE2AB190A1CE63B00B42B25 /* JSHTMLLegendElement.cpp */,
@@ -16164,6 +16205,8 @@
 				49C7B9831042D2D30009D447 /* JSInt8Array.h */,
 				E44614100CD6826900FADA75 /* JSMediaError.cpp */,
 				E44614110CD6826900FADA75 /* JSMediaError.h */,
+				9001787E12E0370700648462 /* JSOESStandardDerivatives.cpp */,
+				9001787F12E0370700648462 /* JSOESStandardDerivatives.h */,
 				6EBF0E7412A9868800DB1709 /* JSOESTextureFloat.cpp */,
 				6EBF0E7512A9868800DB1709 /* JSOESTextureFloat.h */,
 				BCEF45F30E687B5C001C1287 /* JSTextMetrics.cpp */,
@@ -17460,6 +17503,8 @@
 				A88DD4860B4629A300C02990 /* PathTraversalState.h */,
 				A8FA6E5C0E4CFDED00D5CF49 /* Pattern.cpp */,
 				A8FA6E5B0E4CFDED00D5CF49 /* Pattern.h */,
+				A73F95FC12C97BFE0031AAF9 /* RoundedIntRect.cpp */,
+				A73F95FD12C97BFE0031AAF9 /* RoundedIntRect.h */,
 				371F4FFB0D25E7F300ECE0D5 /* SegmentedFontData.cpp */,
 				371F4FFA0D25E7F300ECE0D5 /* SegmentedFontData.h */,
 				B2C3DA530D006CD600EF6F26 /* SimpleFontData.cpp */,
@@ -17675,6 +17720,8 @@
 				BCBFB53B0DCD29CF0019B3E5 /* JSDOMWindowShell.h */,
 				BC53DAC611433064000D817E /* JSDOMWrapper.cpp */,
 				65E0E9431133C89F00B4CB10 /* JSDOMWrapper.h */,
+				F3D461461161D53200CA0D09 /* JSErrorHandler.cpp */,
+				F3D461471161D53200CA0D09 /* JSErrorHandler.h */,
 				BC60901E0E91B8EC000C68B5 /* JSEventTarget.cpp */,
 				BC60901D0E91B8EC000C68B5 /* JSEventTarget.h */,
 				3314ACE910892086000F0E56 /* JSExceptionBase.cpp */,
@@ -17686,8 +17733,6 @@
 				14CD8D81106B529000A46D23 /* JSSharedWorkerCustom.cpp */,
 				E1C36D320EB0A094007410BC /* JSWorkerContextBase.cpp */,
 				E1C36D330EB0A094007410BC /* JSWorkerContextBase.h */,
-				F3D461461161D53200CA0D09 /* JSWorkerContextErrorHandler.cpp */,
-				F3D461471161D53200CA0D09 /* JSWorkerContextErrorHandler.h */,
 				BCA378BA0D15F64200B793D6 /* ScheduledAction.cpp */,
 				BCA378BB0D15F64200B793D6 /* ScheduledAction.h */,
 				41F1D21E0EF35C2A00DA8753 /* ScriptCachedFrameData.cpp */,
@@ -18245,11 +18290,12 @@
 				1C63A2460F71646600C09D5A /* RunLoopTimer.h */,
 				5162C7F211F77EFA00612EFE /* SchemeRegistry.cpp */,
 				5162C7F311F77EFB00612EFE /* SchemeRegistry.h */,
+				BC8AE34C12EA096A00EB3AE6 /* ScrollableArea.cpp */,
+				BC8AE34D12EA096A00EB3AE6 /* ScrollableArea.h */,
 				CA3BF67B10D99BAE00E6CE53 /* ScrollAnimator.cpp */,
 				CA3BF67D10D99BAE00E6CE53 /* ScrollAnimator.h */,
+				BCAA90C20A7EBA60008B1229 /* Scrollbar.cpp */,
 				BC7B2AF80450824100A8000F /* Scrollbar.h */,
-				BC9BC64B0E7C4889008B9849 /* ScrollbarClient.cpp */,
-				BC9BC64C0E7C4889008B9849 /* ScrollbarClient.h */,
 				BC8B854A0E7C7F5600AB6984 /* ScrollbarTheme.h */,
 				BC1402880E83680800319717 /* ScrollbarThemeComposite.cpp */,
 				BC1402890E83680800319717 /* ScrollbarThemeComposite.h */,
@@ -19079,6 +19125,7 @@
 				933A142B0B7D188600A53FFD /* TextEvent.cpp */,
 				933A142D0B7D188600A53FFD /* TextEvent.h */,
 				933A142C0B7D188600A53FFD /* TextEvent.idl */,
+				A77B419F12E675A90054343D /* TextEventInputType.h */,
 				5DB1BC6810715A6400EFAA49 /* TransformSource.h */,
 				5DB1BC6910715A6400EFAA49 /* TransformSourceLibxslt.cpp */,
 				854FE72C0A2297BE0058D7AD /* Traversal.cpp */,
@@ -19855,6 +19902,8 @@
 				85E711B30AC5D5350053270F /* DOMHTMLInputElementInternal.h in Headers */,
 				859A9C4B0AA5E3BD00B694B2 /* DOMHTMLIsIndexElement.h in Headers */,
 				85E711B40AC5D5350053270F /* DOMHTMLIsIndexElementInternal.h in Headers */,
+				A6148A6712E41D940044A784 /* DOMHTMLKeygenElement.h in Headers */,
+				A6148A6212E41D3A0044A784 /* DOMHTMLKeygenElementInternal.h in Headers */,
 				85BA4CE10AA6861B0088052D /* DOMHTMLLabelElement.h in Headers */,
 				85E711B50AC5D5350053270F /* DOMHTMLLabelElementInternal.h in Headers */,
 				85BA4CE30AA6861B0088052D /* DOMHTMLLegendElement.h in Headers */,
@@ -20434,6 +20483,7 @@
 				850B41C30AD9E7E700A6ED4F /* DOMTreeWalkerInternal.h in Headers */,
 				85C7F4910AAF79DC004014DD /* DOMUIEvent.h in Headers */,
 				85989DD00ACC8BBD00A0BC51 /* DOMUIEventInternal.h in Headers */,
+				2E37DFDB12DBAFB800A6B233 /* DOMURL.h in Headers */,
 				15C770A6100D41CD005BA267 /* DOMValidityState.h in Headers */,
 				BC1A37C0097C715F0019F3D8 /* DOMViews.h in Headers */,
 				31C0FF490E4CEFDD007D6FE5 /* DOMWebKitAnimationEvent.h in Headers */,
@@ -20833,6 +20883,7 @@
 				93309DF2099E64920056E581 /* InsertTextCommand.h in Headers */,
 				B885E8D511E06DD2009FFBF4 /* InspectorApplicationCacheAgent.h in Headers */,
 				4F707A9A11EF679400ACDA69 /* InspectorBackendDispatcher.h in Headers */,
+				F3D4C47912E07663003DA150 /* InspectorBrowserDebuggerAgent.h in Headers */,
 				1C81B95C0E97330800266E07 /* InspectorClient.h in Headers */,
 				F3335BF912E07DC300D33011 /* InspectorConsoleAgent.h in Headers */,
 				1C81B95A0E97330800266E07 /* InspectorController.h in Headers */,
@@ -20850,6 +20901,8 @@
 				20D629271253690B00081543 /* InspectorInstrumentation.h in Headers */,
 				9F0D6B2F121BFEBA006C0288 /* InspectorProfilerAgent.h in Headers */,
 				82AB1776125C826700C5069D /* InspectorResourceAgent.h in Headers */,
+				7AF11A5A12E727490061F23C /* InspectorRuntimeAgent.h in Headers */,
+				7A5640C012DF9E5E00F4536D /* InspectorSettings.h in Headers */,
 				4FA3B90B125CD12200300BAD /* InspectorState.h in Headers */,
 				82AB1774125C826700C5069D /* InspectorStyleSheet.h in Headers */,
 				754133A8102E00E800075D00 /* InspectorTimelineAgent.h in Headers */,
@@ -20973,6 +21026,7 @@
 				C5137CF311A58378004ADB99 /* JSDOMStringList.h in Headers */,
 				BC64649811D82349006455B0 /* JSDOMStringMap.h in Headers */,
 				7694563D1214D97C0007CBAE /* JSDOMTokenList.h in Headers */,
+				2E37E00612DBC5A400A6B233 /* JSDOMURL.h in Headers */,
 				BC6932740D7E293900AE44D1 /* JSDOMWindowBase.h in Headers */,
 				652FBBBC0DE27CB60001D386 /* JSDOMWindowCustom.h in Headers */,
 				BCBFB53D0DCD29CF0019B3E5 /* JSDOMWindowShell.h in Headers */,
@@ -20988,6 +21042,7 @@
 				893C483B12495472002B3D86 /* JSEntrySync.h in Headers */,
 				898785AF122CA2A7003AABDA /* JSErrorCallback.h in Headers */,
 				2ECF7ADD10162B3800427DE7 /* JSErrorEvent.h in Headers */,
+				F3D461491161D53200CA0D09 /* JSErrorHandler.h in Headers */,
 				14E8378E09F85D4F00B85AE4 /* JSEvent.h in Headers */,
 				BC60D9C00D2A269A00B9918F /* JSEventException.h in Headers */,
 				93B70D6A09EB0C7C009D8468 /* JSEventListener.h in Headers */,
@@ -21055,6 +21110,7 @@
 				A80E7E970A1A83E3007FB8C5 /* JSHTMLInputElement.h in Headers */,
 				E1AD14231295EA7F00ACA989 /* JSHTMLInputElementCustom.h in Headers */,
 				1AE2AA9A0A1CDD2D00B42B25 /* JSHTMLIsIndexElement.h in Headers */,
+				A6148A7912E41E3B0044A784 /* JSHTMLKeygenElement.h in Headers */,
 				1AE2AB220A1CE63B00B42B25 /* JSHTMLLabelElement.h in Headers */,
 				1AE2AB240A1CE63B00B42B25 /* JSHTMLLegendElement.h in Headers */,
 				1AE2AB260A1CE63B00B42B25 /* JSHTMLLIElement.h in Headers */,
@@ -21143,6 +21199,7 @@
 				65DF31FE09D1CC60000BE325 /* JSNotation.h in Headers */,
 				33503CA410179AD7003B47E1 /* JSNotification.h in Headers */,
 				33503CA610179AD7003B47E1 /* JSNotificationCenter.h in Headers */,
+				9001788112E0370700648462 /* JSOESStandardDerivatives.h in Headers */,
 				6EBF0E7712A9868800DB1709 /* JSOESTextureFloat.h in Headers */,
 				A826E8AE0A1A8F2300CD1BB6 /* JSOptionConstructor.h in Headers */,
 				1A0D57410A5C7867007EDD4C /* JSOverflowEvent.h in Headers */,
@@ -21352,7 +21409,6 @@
 				E1CAA5C60E8BD23600A73ECA /* JSWorker.h in Headers */,
 				E18256900EF2B02D00933242 /* JSWorkerContext.h in Headers */,
 				E1C36D350EB0A094007410BC /* JSWorkerContextBase.h in Headers */,
-				F3D461491161D53200CA0D09 /* JSWorkerContextErrorHandler.h in Headers */,
 				E1C362EF0EAF2AA9007410BC /* JSWorkerLocation.h in Headers */,
 				E1271A580EEECDE400F61213 /* JSWorkerNavigator.h in Headers */,
 				BC348BD40DB7F804004ABAB9 /* JSXMLHttpRequest.h in Headers */,
@@ -21487,6 +21543,7 @@
 				1CF6BDFA0E9BB26A0025E1CD /* ObjCEventListener.h in Headers */,
 				1CF6BE150E9BB4670025E1CD /* ObjCNodeFilterCondition.h in Headers */,
 				E16982551134629D00894115 /* ObjCRuntimeObject.h in Headers */,
+				9001774112E0347800648462 /* OESStandardDerivatives.h in Headers */,
 				6EBF0E4912A8926100DB1709 /* OESTextureFloat.h in Headers */,
 				F4EAF4AF10C742B1009100D3 /* OpenTypeSanitizer.h in Headers */,
 				087281560F26B9B600AFC596 /* OptionElement.h in Headers */,
@@ -21726,6 +21783,7 @@
 				BC74DA371013F3F7007987AD /* RGBColor.h in Headers */,
 				A8CFF5E10A155A05000A4234 /* RootInlineBox.h in Headers */,
 				49E911C90EF86D47009D0CAF /* RotateTransformOperation.h in Headers */,
+				A73F95FF12C97BFE0031AAF9 /* RoundedIntRect.h in Headers */,
 				1C63A2480F71646600C09D5A /* RunLoopTimer.h in Headers */,
 				1A569D1F0D7E2B82007C3983 /* runtime_array.h in Headers */,
 				1A569D210D7E2B82007C3983 /* runtime_method.h in Headers */,
@@ -21769,7 +21827,6 @@
 				CA3BF67E10D99BAE00E6CE53 /* ScrollAnimator.h in Headers */,
 				BCAE1FA712939DB7004CB026 /* ScrollAnimatorMac.h in Headers */,
 				93F199B808245E59001E9ABC /* Scrollbar.h in Headers */,
-				BC9BC64E0E7C4889008B9849 /* ScrollbarClient.h in Headers */,
 				BC8B854B0E7C7F5600AB6984 /* ScrollbarTheme.h in Headers */,
 				BC14028B0E83680800319717 /* ScrollbarThemeComposite.h in Headers */,
 				BC8B853E0E7C7F1100AB6984 /* ScrollbarThemeMac.h in Headers */,
@@ -22138,6 +22195,7 @@
 				C105DA640F3AA6B8001DD44F /* TextEncodingDetector.h in Headers */,
 				B2C3DA490D006C1D00EF6F26 /* TextEncodingRegistry.h in Headers */,
 				933A14300B7D188600A53FFD /* TextEvent.h in Headers */,
+				A77B41A012E675A90054343D /* TextEventInputType.h in Headers */,
 				F55B3DD81251F12D003EF269 /* TextFieldInputType.h in Headers */,
 				93309E18099E64920056E581 /* TextGranularity.h in Headers */,
 				F55B3DDA1251F12D003EF269 /* TextInputType.h in Headers */,
@@ -22352,10 +22410,7 @@
 				93F199ED08245E59001E9ABC /* XSLTProcessor.h in Headers */,
 				E1BE512E0CF6C512002EA959 /* XSLTUnicodeSort.h in Headers */,
 				97DD4D870FDF4D6E00ECF9A4 /* XSSAuditor.h in Headers */,
-				2E37DFDB12DBAFB800A6B233 /* DOMURL.h in Headers */,
-				2E37E00612DBC5A400A6B233 /* JSDOMURL.h in Headers */,
-				7A5640C012DF9E5E00F4536D /* InspectorSettings.h in Headers */,
-				F3D4C47912E07663003DA150 /* InspectorBrowserDebuggerAgent.h in Headers */,
+				BC8AE34F12EA096A00EB3AE6 /* ScrollableArea.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -22468,6 +22523,7 @@
 				85136CA20AED665900F90A3D /* northWestResizeCursor.png in Resources */,
 				85136CA30AED665900F90A3D /* northWestSouthEastResizeCursor.png in Resources */,
 				464EA2740B8A350B00A8E6E3 /* notAllowedCursor.png in Resources */,
+				9001774212E0347800648462 /* OESStandardDerivatives.idl in Resources */,
 				46F9D5DF0B0D60170028EE36 /* progressCursor.png in Resources */,
 				85136CA40AED665900F90A3D /* southEastResizeCursor.png in Resources */,
 				85136CA50AED665900F90A3D /* southResizeCursor.png in Resources */,
@@ -23020,6 +23076,7 @@
 				85DF812A0AA7787200486AD7 /* DOMHTMLImageElement.mm in Sources */,
 				85F32AED0AA63B8700FF3184 /* DOMHTMLInputElement.mm in Sources */,
 				859A9C4C0AA5E3BD00B694B2 /* DOMHTMLIsIndexElement.mm in Sources */,
+				A6148A6812E41D940044A784 /* DOMHTMLKeygenElement.mm in Sources */,
 				85BA4CE20AA6861B0088052D /* DOMHTMLLabelElement.mm in Sources */,
 				85BA4CE40AA6861B0088052D /* DOMHTMLLegendElement.mm in Sources */,
 				85BA4D120AA688680088052D /* DOMHTMLLIElement.mm in Sources */,
@@ -23227,6 +23284,7 @@
 				76FC2B0B12370DA0006A991A /* DOMTokenList.cpp in Sources */,
 				85526CD30AB0B7DA000302EA /* DOMTreeWalker.mm in Sources */,
 				85C7F4920AAF79DC004014DD /* DOMUIEvent.mm in Sources */,
+				2E37DFDA12DBAFB800A6B233 /* DOMURL.cpp in Sources */,
 				BC1A37BF097C715F0019F3D8 /* DOMUtility.mm in Sources */,
 				15C770A5100D41CD005BA267 /* DOMValidityState.mm in Sources */,
 				31C0FF4A0E4CEFDD007D6FE5 /* DOMWebKitAnimationEvent.mm in Sources */,
@@ -23566,6 +23624,7 @@
 				93309DF1099E64920056E581 /* InsertTextCommand.cpp in Sources */,
 				B885E8D411E06DD2009FFBF4 /* InspectorApplicationCacheAgent.cpp in Sources */,
 				4F707A9911EF679400ACDA69 /* InspectorBackendDispatcher.cpp in Sources */,
+				F3D4C47812E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp in Sources */,
 				7A1F2B52126C61B20006A7E6 /* InspectorClient.cpp in Sources */,
 				F3335BF812E07DC300D33011 /* InspectorConsoleAgent.cpp in Sources */,
 				1C81B95B0E97330800266E07 /* InspectorController.cpp in Sources */,
@@ -23583,6 +23642,8 @@
 				20D629261253690B00081543 /* InspectorInstrumentation.cpp in Sources */,
 				9F0D6B2E121BFEBA006C0288 /* InspectorProfilerAgent.cpp in Sources */,
 				82AB1775125C826700C5069D /* InspectorResourceAgent.cpp in Sources */,
+				7AA365EE12E7265400DCA242 /* InspectorRuntimeAgent.cpp in Sources */,
+				7A5640BF12DF9E5E00F4536D /* InspectorSettings.cpp in Sources */,
 				4FA3B90A125CD12200300BAD /* InspectorState.cpp in Sources */,
 				82AB1773125C826700C5069D /* InspectorStyleSheet.cpp in Sources */,
 				754133AA102E00F400075D00 /* InspectorTimelineAgent.cpp in Sources */,
@@ -23742,6 +23803,7 @@
 				BC64649711D82349006455B0 /* JSDOMStringMap.cpp in Sources */,
 				BC64649C11D8238C006455B0 /* JSDOMStringMapCustom.cpp in Sources */,
 				7694563C1214D97C0007CBAE /* JSDOMTokenList.cpp in Sources */,
+				2E37E00512DBC5A400A6B233 /* JSDOMURL.cpp in Sources */,
 				1403BA0C09EB18C700797C7F /* JSDOMWindow.cpp in Sources */,
 				BC6932730D7E293900AE44D1 /* JSDOMWindowBase.cpp in Sources */,
 				BCD9C2620C17AA67005C90A2 /* JSDOMWindowCustom.cpp in Sources */,
@@ -23761,6 +23823,7 @@
 				893C485312499B06002B3D86 /* JSEntrySyncCustom.cpp in Sources */,
 				898785AE122CA2A7003AABDA /* JSErrorCallback.cpp in Sources */,
 				2ECF7ADC10162B3800427DE7 /* JSErrorEvent.cpp in Sources */,
+				F3D461481161D53200CA0D09 /* JSErrorHandler.cpp in Sources */,
 				14E8378409F85D1C00B85AE4 /* JSEvent.cpp in Sources */,
 				BCEFAF4E0C317E6900FA81F6 /* JSEventCustom.cpp in Sources */,
 				BC60D9BF0D2A269A00B9918F /* JSEventException.cpp in Sources */,
@@ -23843,6 +23906,7 @@
 				A80E7E980A1A83E3007FB8C5 /* JSHTMLInputElement.cpp in Sources */,
 				BCC438780E886CC700533DD5 /* JSHTMLInputElementCustom.cpp in Sources */,
 				1AE2AA990A1CDD2D00B42B25 /* JSHTMLIsIndexElement.cpp in Sources */,
+				A6148A7812E41E3B0044A784 /* JSHTMLKeygenElement.cpp in Sources */,
 				1AE2AB210A1CE63B00B42B25 /* JSHTMLLabelElement.cpp in Sources */,
 				1AE2AB230A1CE63B00B42B25 /* JSHTMLLegendElement.cpp in Sources */,
 				1AE2AB250A1CE63B00B42B25 /* JSHTMLLIElement.cpp in Sources */,
@@ -23955,6 +24019,7 @@
 				65DF31FD09D1CC60000BE325 /* JSNotation.cpp in Sources */,
 				33503CA310179AD7003B47E1 /* JSNotification.cpp in Sources */,
 				33503CA510179AD7003B47E1 /* JSNotificationCenter.cpp in Sources */,
+				9001788012E0370700648462 /* JSOESStandardDerivatives.cpp in Sources */,
 				6EBF0E7612A9868800DB1709 /* JSOESTextureFloat.cpp in Sources */,
 				A826EC480A1B0CBE00CD1BB6 /* JSOptionConstructor.cpp in Sources */,
 				1A0D57400A5C7867007EDD4C /* JSOverflowEvent.cpp in Sources */,
@@ -24189,7 +24254,6 @@
 				E182568F0EF2B02D00933242 /* JSWorkerContext.cpp in Sources */,
 				E1C36D340EB0A094007410BC /* JSWorkerContextBase.cpp in Sources */,
 				E18258AC0EF3CD7000933242 /* JSWorkerContextCustom.cpp in Sources */,
-				F3D461481161D53200CA0D09 /* JSWorkerContextErrorHandler.cpp in Sources */,
 				E1CA5CBC0E8CDCAF00E8EF90 /* JSWorkerCustom.cpp in Sources */,
 				E1C362F00EAF2AA9007410BC /* JSWorkerLocation.cpp in Sources */,
 				E1271A590EEECDE400F61213 /* JSWorkerNavigator.cpp in Sources */,
@@ -24309,6 +24373,7 @@
 				1CF6BDFB0E9BB26A0025E1CD /* ObjCEventListener.mm in Sources */,
 				1CF6BE140E9BB4670025E1CD /* ObjCNodeFilterCondition.mm in Sources */,
 				E16982601134636A00894115 /* ObjCRuntimeObject.mm in Sources */,
+				9001774012E0347800648462 /* OESStandardDerivatives.cpp in Sources */,
 				6EBF0E4812A8926100DB1709 /* OESTextureFloat.cpp in Sources */,
 				F4EAF4AE10C742B1009100D3 /* OpenTypeSanitizer.cpp in Sources */,
 				087281550F26B9B600AFC596 /* OptionElement.cpp in Sources */,
@@ -24517,6 +24582,7 @@
 				BC74DA381013F3F7007987AD /* RGBColor.cpp in Sources */,
 				A8CFF5E70A155A05000A4234 /* RootInlineBox.cpp in Sources */,
 				49E911C80EF86D47009D0CAF /* RotateTransformOperation.cpp in Sources */,
+				A73F95FE12C97BFE0031AAF9 /* RoundedIntRect.cpp in Sources */,
 				1C63A2490F71646600C09D5A /* RunLoopTimerCF.cpp in Sources */,
 				1A569D1E0D7E2B82007C3983 /* runtime_array.cpp in Sources */,
 				1A569D200D7E2B82007C3983 /* runtime_method.cpp in Sources */,
@@ -24555,7 +24621,6 @@
 				CA3BF67C10D99BAE00E6CE53 /* ScrollAnimator.cpp in Sources */,
 				BC51156E12B1749C00C96754 /* ScrollAnimatorMac.mm in Sources */,
 				BCAA90C30A7EBA60008B1229 /* Scrollbar.cpp in Sources */,
-				BC9BC64D0E7C4889008B9849 /* ScrollbarClient.cpp in Sources */,
 				BC14028A0E83680800319717 /* ScrollbarThemeComposite.cpp in Sources */,
 				BCEF869F0E844E9D00A85CD5 /* ScrollbarThemeMac.mm in Sources */,
 				5D925B670F64D4DD00B847F0 /* ScrollBehavior.cpp in Sources */,
@@ -25040,10 +25105,7 @@
 				93F19B0508245E59001E9ABC /* XSLTProcessorLibxslt.cpp in Sources */,
 				E1BE512D0CF6C512002EA959 /* XSLTUnicodeSort.cpp in Sources */,
 				97DD4D860FDF4D6E00ECF9A4 /* XSSAuditor.cpp in Sources */,
-				2E37DFDA12DBAFB800A6B233 /* DOMURL.cpp in Sources */,
-				2E37E00512DBC5A400A6B233 /* JSDOMURL.cpp in Sources */,
-				7A5640BF12DF9E5E00F4536D /* InspectorSettings.cpp in Sources */,
-				F3D4C47812E07663003DA150 /* InspectorBrowserDebuggerAgent.cpp in Sources */,
+				BC8AE34E12EA096A00EB3AE6 /* ScrollableArea.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

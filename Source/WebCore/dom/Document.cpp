@@ -119,6 +119,7 @@
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "ScriptCallStack.h"
 #include "ScriptController.h"
 #include "ScriptElement.h"
 #include "ScriptEventListener.h"
@@ -218,6 +219,10 @@
 
 #if ENABLE(FULLSCREEN_API)
 #include "RenderFullScreen.h"
+#endif
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+#include "RequestAnimationFrameCallback.h"
 #endif
 
 using namespace std;
@@ -441,6 +446,9 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     , m_loadEventDelayTimer(this, &Document::loadEventDelayTimerFired)
     , m_directionSetOnDocumentElement(false)
     , m_writingModeSetOnDocumentElement(false)
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    , m_nextRequestAnimationFrameCallbackId(0)
+#endif
 {
     m_document = this;
 
@@ -1330,7 +1338,7 @@ PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
     if (visiblePosition.isNull())
         return 0;
 
-    Position rangeCompliantPosition = rangeCompliantEquivalent(visiblePosition);
+    Position rangeCompliantPosition = visiblePosition.deepEquivalent().parentAnchoredEquivalent();
     return Range::create(this, rangeCompliantPosition, rangeCompliantPosition);
 }
 
@@ -2345,6 +2353,17 @@ const KURL& Document::virtualURL() const
 KURL Document::virtualCompleteURL(const String& url) const
 {
     return completeURL(url);
+}
+
+EventTarget* Document::errorEventTarget()
+{
+    return domWindow();
+}
+
+void Document::logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack> callStack)
+{
+    MessageType messageType = callStack ? UncaughtExceptionMessageType : LogMessageType;
+    addMessage(JSMessageSource, messageType, ErrorMessageLevel, errorMessage, lineNumber, sourceURL, callStack);
 }
 
 void Document::setURL(const KURL& url)
@@ -4735,18 +4754,15 @@ void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
     m_haveExplicitlyDisabledDNSPrefetch = true;
 }
 
-void Document::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
-{
-    addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, errorMessage, lineNumber, sourceURL);
-}
-
-void Document::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+void Document::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack> callStack)
 {
     if (DOMWindow* window = domWindow())
-        window->console()->addMessage(source, type, level, message, lineNumber, sourceURL);
+        window->console()->addMessage(source, type, level, message, lineNumber, sourceURL, callStack);
 }
 
-struct PerformTaskContext : Noncopyable {
+struct PerformTaskContext {
+    WTF_MAKE_NONCOPYABLE(PerformTaskContext); WTF_MAKE_FAST_ALLOCATED;
+public:
     PerformTaskContext(PassRefPtr<DocumentWeakReference> documentReference, PassOwnPtr<ScriptExecutionContext::Task> task)
         : documentReference(documentReference)
         , task(task)
@@ -5003,6 +5019,86 @@ void Document::loadEventDelayTimerFired(Timer<Document>*)
     if (frame())
         frame()->loader()->checkCompleted();
 }
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+int Document::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* e)
+{
+    if (!m_requestAnimationFrameCallbacks)
+        m_requestAnimationFrameCallbacks = new RequestAnimationFrameCallbackList;
+    int id = m_nextRequestAnimationFrameCallbackId++;
+    callback->m_firedOrCancelled = false;
+    callback->m_id = id;
+    callback->m_element = e;
+    m_requestAnimationFrameCallbacks->append(callback);
+    if (FrameView* v = view())
+        v->scheduleAnimation();
+    return id;
+}
+
+void Document::webkitCancelRequestAnimationFrame(int id)
+{
+    if (!m_requestAnimationFrameCallbacks)
+        return;
+    for (size_t i = 0; i < m_requestAnimationFrameCallbacks->size(); ++i) {
+        if (m_requestAnimationFrameCallbacks->at(i)->m_id == id) {
+            m_requestAnimationFrameCallbacks->at(i)->m_firedOrCancelled = true;
+            m_requestAnimationFrameCallbacks->remove(i);
+            return;
+        }
+    }
+}
+
+void Document::serviceScriptedAnimations()
+{
+    if (!m_requestAnimationFrameCallbacks)
+        return;
+    // We want to run the callback for all elements in the document that have registered
+    // for a callback and that are visible.  Running the callbacks can cause new callbacks
+    // to be registered, existing callbacks to be cancelled, and elements to gain or lose
+    // visibility so this code has to iterate carefully.
+
+    // FIXME: Currently, this code doesn't do any visibility tests beyond checking display:
+
+    // First, generate a list of callbacks to consider.  Callbacks registered from this point
+    // on are considered only for the "next" frame, not this one.
+    RequestAnimationFrameCallbackList callbacks(*m_requestAnimationFrameCallbacks);
+
+    // Firing the callback may cause the visibility of other elements to change.  To avoid
+    // missing any callbacks, we keep iterating through the list of candiate callbacks and firing
+    // them until nothing new becomes visible.
+    bool firedCallback;
+    do {
+        firedCallback = false;
+        // A previous iteration may have invalidated style (or layout).  Update styles for each iteration
+        // for now since all we check is the existence of a renderer.
+        updateStyleIfNeeded();
+        for (size_t i = 0; i < callbacks.size(); ++i) {
+            RequestAnimationFrameCallback* callback = callbacks[i].get();
+            if (!callback->m_firedOrCancelled && (!callback->m_element || callback->m_element->renderer())) {
+                callback->m_firedOrCancelled = true;
+                callback->handleEvent();
+                firedCallback = true;
+                callbacks.remove(i);
+                break;
+            }
+        }
+    } while (firedCallback);
+
+    // Remove any callbacks we fired from the list of pending callbacks.
+    for (size_t i = 0; i < m_requestAnimationFrameCallbacks->size();) {
+        if (m_requestAnimationFrameCallbacks->at(i)->m_firedOrCancelled)
+            m_requestAnimationFrameCallbacks->remove(i);
+        else
+            ++i;
+    }
+
+    // In most cases we expect this list to be empty, so no need to keep around the vector's inline buffer.
+    if (!m_requestAnimationFrameCallbacks->size())
+        m_requestAnimationFrameCallbacks.clear();
+    else if (FrameView* v = view())
+        v->scheduleAnimation();
+}
+#endif
 
 #if ENABLE(TOUCH_EVENTS)
 PassRefPtr<Touch> Document::createTouch(DOMWindow* window, EventTarget* target, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const

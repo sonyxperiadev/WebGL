@@ -75,6 +75,11 @@ WKURLRef WKFrameCopyUnreachableURL(WKFrameRef frameRef)
     return toCopiedURLAPI(toImpl(frameRef)->unreachableURL());
 }
 
+void WKFrameStopLoading(WKFrameRef frameRef)
+{
+    toImpl(frameRef)->stopLoading();
+}
+
 WKStringRef WKFrameCopyMIMEType(WKFrameRef frameRef)
 {
     return toCopiedAPI(toImpl(frameRef)->mimeType());
@@ -93,6 +98,11 @@ WKPageRef WKFrameGetPage(WKFrameRef frameRef)
 WKArrayRef WKFrameCopyChildFrames(WKFrameRef frameRef)
 {
     return toAPI(toImpl(frameRef)->childFrames().releaseRef());
+}
+
+WKFrameRef WKFrameGetParentFrame(WKFrameRef frameRef)
+{
+    return toAPI(toImpl(frameRef)->parentFrame());
 }
 
 WKCertificateInfoRef WKFrameGetCertificateInfo(WKFrameRef frameRef)
@@ -125,22 +135,32 @@ bool WKFrameIsFrameSet(WKFrameRef frameRef)
     return toImpl(frameRef)->isFrameSet();
 }
 
-void WKFrameGetMainResourceData(WKFrameRef frameRef, WKFrameGetMainResourceDataFunction callback, void* context)
+void WKFrameGetMainResourceData(WKFrameRef frameRef, WKFrameGetResourceDataFunction callback, void* context)
 {
     toImpl(frameRef)->getMainResourceData(DataCallback::create(context, callback));
 }
 
-#ifdef __BLOCKS__
-static void callGetMainResourceDataBlockAndDispose(WKDataRef data, WKErrorRef error, void* context)
+void WKFrameGetResourceData(WKFrameRef frameRef, WKURLRef resourceURL, WKFrameGetResourceDataFunction callback, void* context)
 {
-    WKFrameGetMainResourceDataBlock block = (WKFrameGetMainResourceDataBlock)context;
+    toImpl(frameRef)->getResourceData(toImpl(resourceURL), DataCallback::create(context, callback));
+}
+
+#ifdef __BLOCKS__
+static void callGetResourceDataBlockAndDispose(WKDataRef data, WKErrorRef error, void* context)
+{
+    WKFrameGetResourceDataBlock block = (WKFrameGetResourceDataBlock)context;
     block(data, error);
     Block_release(block);
 }
 
-void WKFrameGetMainResourceData_b(WKFrameRef frameRef, WKFrameGetMainResourceDataBlock block)
+void WKFrameGetMainResourceData_b(WKFrameRef frameRef, WKFrameGetResourceDataBlock block)
 {
-    WKFrameGetMainResourceData(frameRef, callGetMainResourceDataBlockAndDispose, Block_copy(block));
+    WKFrameGetMainResourceData(frameRef, callGetResourceDataBlockAndDispose, Block_copy(block));
+}
+
+void WKFrameGetResourceData_b(WKFrameRef frameRef, WKURLRef resourceURL, WKFrameGetResourceDataBlock block)
+{
+    WKFrameGetResourceData(frameRef, resourceURL, callGetResourceDataBlockAndDispose, Block_copy(block));
 }
 #endif
 

@@ -41,6 +41,10 @@
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
+#if ENABLE(PROGRESS_TAG)
+#include "RenderProgress.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -305,6 +309,24 @@ bool RenderThemeGtk::paintSearchField(RenderObject* o, const PaintInfo& i, const
     return paintTextField(o, i, rect);
 }
 
+bool RenderThemeGtk::paintCapsLockIndicator(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    // The other paint methods don't need to check whether painting is disabled because RenderTheme already checks it
+    // before calling them, but paintCapsLockIndicator() is called by RenderTextControlSingleLine which doesn't check it.
+    if (paintInfo.context->paintingDisabled())
+        return true;
+
+    GRefPtr<GdkPixbuf> icon = getStockIcon(GTK_TYPE_ENTRY, GTK_STOCK_CAPS_LOCK_WARNING,
+                                           gtkTextDirection(renderObject->style()->direction()),
+                                           gtkIconState(this, renderObject), GTK_ICON_SIZE_MENU);
+
+    // GTK+ locates the icon right aligned in the entry. The given rectangle is already
+    // centered vertically by RenderTextControlSingleLine.
+    IntPoint iconPosition(rect.x() + rect.width() - gdk_pixbuf_get_width(icon.get()), rect.y());
+    paintGdkPixbuf(paintInfo.context, icon.get(), iconPosition);
+    return true;
+}
+
 void RenderThemeGtk::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBoxShadow(0);
@@ -330,7 +352,7 @@ double RenderThemeGtk::caretBlinkInterval() const
     return time / 2000.;
 }
 
-static double getScreenDPI()
+double RenderThemeGtk::getScreenDPI()
 {
     // FIXME: Really this should be the widget's screen.
     GdkScreen* screen = gdk_screen_get_default();
@@ -542,6 +564,50 @@ bool RenderThemeGtk::paintMediaCurrentTime(RenderObject* renderObject, const Pai
 void RenderThemeGtk::adjustProgressBarStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBoxShadow(0);
+}
+
+// These values have been copied from RenderThemeChromiumSkia.cpp
+static const int progressActivityBlocks = 5;
+static const int progressAnimationFrames = 10;
+static const double progressAnimationInterval = 0.125;
+double RenderThemeGtk::animationRepeatIntervalForProgressBar(RenderProgress*) const
+{
+    return progressAnimationInterval;
+}
+
+double RenderThemeGtk::animationDurationForProgressBar(RenderProgress*) const
+{
+    return progressAnimationInterval * progressAnimationFrames * 2; // "2" for back and forth;
+}
+
+IntRect RenderThemeGtk::calculateProgressRect(RenderObject* renderObject, const IntRect& fullBarRect)
+{
+    IntRect progressRect(fullBarRect);
+    RenderProgress* renderProgress = toRenderProgress(renderObject);
+    if (renderProgress->isDeterminate()) {
+        int progressWidth = progressRect.width() * renderProgress->position();
+        if (renderObject->style()->direction() == RTL)
+            progressRect.setX(progressRect.x() + progressRect.width() - progressWidth);
+        progressRect.setWidth(progressWidth);
+        return progressRect;
+    }
+
+    double animationProgress = renderProgress->animationProgress();
+
+    // Never let the progress rect shrink smaller than 2 pixels.
+    int newWidth = max(2, progressRect.width() / progressActivityBlocks);
+    int movableWidth = progressRect.width() - newWidth;
+    progressRect.setWidth(newWidth);
+
+    // We want the first 0.5 units of the animation progress to represent the
+    // forward motion and the second 0.5 units to represent the backward motion,
+    // thus we multiply by two here to get the full sweep of the progress bar with
+    // each direction.
+    if (animationProgress < 0.5)
+        progressRect.setX(progressRect.x() + (animationProgress * 2 * movableWidth));
+    else
+        progressRect.setX(progressRect.x() + ((1.0 - animationProgress) * 2 * movableWidth));
+    return progressRect;
 }
 #endif
 

@@ -86,7 +86,8 @@ struct WindowFeatures;
 
 bool isBackForwardLoadType(FrameLoadType);
 
-class FrameLoader : public Noncopyable {
+class FrameLoader {
+    WTF_MAKE_NONCOPYABLE(FrameLoader);
 public:
     FrameLoader(Frame*, FrameLoaderClient*);
     ~FrameLoader();
@@ -129,7 +130,7 @@ public:
     bool canHandleRequest(const ResourceRequest&);
 
     // Also not cool.
-    void stopAllLoaders(DatabasePolicy = DatabasePolicyStop);
+    void stopAllLoaders(DatabasePolicy = DatabasePolicyStop, ClearProvisionalItemPolicy = ShouldClearProvisionalItem);
     void stopForUserCancel(bool deferCheckLoadComplete = false);
 
     bool isLoadingMainResource() const { return m_isLoadingMainResource; }
@@ -306,6 +307,11 @@ public:
 
     void open(CachedFrameBase&);
 
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    void hideMediaPlayerProxyPlugin(Widget*);
+    void showMediaPlayerProxyPlugin(Widget*);
+#endif
+
     // FIXME: Should these really be public?
     void completed();
     bool allAncestorsAreComplete() const; // including this
@@ -351,7 +357,7 @@ private:
     void addExtraFieldsToRequest(ResourceRequest&, FrameLoadType loadType, bool isMainResource, bool cookiePolicyURLFromRequest);
 
     // Also not cool.
-    void stopLoadingSubframes();
+    void stopLoadingSubframes(DatabasePolicy, ClearProvisionalItemPolicy);
 
     void clearProvisionalLoad();
     void markLoadComplete();

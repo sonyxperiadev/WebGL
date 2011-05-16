@@ -105,6 +105,10 @@
 #include "LocalFileSystem.h"
 #endif
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+#include "RequestAnimationFrameCallback.h"
+#endif
+
 using std::min;
 using std::max;
 
@@ -1476,6 +1480,21 @@ void DOMWindow::clearInterval(int timeoutId)
     DOMTimer::removeById(context, timeoutId);
 }
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+int DOMWindow::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* e)
+{
+    if (Document* d = document())
+        return d->webkitRequestAnimationFrame(callback, e);
+    return 0;
+}
+
+void DOMWindow::webkitCancelRequestAnimationFrame(int id)
+{
+    if (Document* d = document())
+        d->webkitCancelRequestAnimationFrame(id);
+}
+#endif
+
 bool DOMWindow::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
 {
     if (!EventTarget::addEventListener(eventType, listener, useCapture))
@@ -1627,6 +1646,9 @@ void DOMWindow::clearDOMStorage()
 
 void DOMWindow::setLocation(const String& urlString, DOMWindow* activeWindow, DOMWindow* firstWindow, SetLocationLocking locking)
 {
+    if (!m_frame)
+        return;
+
     Frame* activeFrame = activeWindow->frame();
     if (!activeFrame)
         return;

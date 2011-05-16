@@ -69,7 +69,8 @@ class StyledElement;
 class WebKitCSSKeyframeRule;
 class WebKitCSSKeyframesRule;
 
-class MediaQueryResult : public Noncopyable {
+class MediaQueryResult {
+    WTF_MAKE_NONCOPYABLE(MediaQueryResult); WTF_MAKE_FAST_ALLOCATED;
 public:
     MediaQueryResult(const MediaQueryExp& expr, bool result)
         : m_expression(expr)
@@ -82,7 +83,8 @@ public:
 };
 
     // This class selects a RenderStyle for a given element based on a collection of stylesheets.
-    class CSSStyleSelector : public Noncopyable {
+    class CSSStyleSelector {
+        WTF_MAKE_NONCOPYABLE(CSSStyleSelector); WTF_MAKE_FAST_ALLOCATED;
     public:
         CSSStyleSelector(Document*, StyleSheetList* authorSheets, CSSStyleSheet* mappedElementSheet,
                          CSSStyleSheet* pageUserSheet, const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets,
@@ -108,8 +110,10 @@ public:
     private:
         void initForStyleResolve(Element*, RenderStyle* parentStyle = 0, PseudoId = NOPSEUDO);
         void initElement(Element*);
-        ALWAYS_INLINE RenderStyle* locateSharedStyle() const;
+        RenderStyle* locateSharedStyle();
+        bool matchesSiblingRules();
         Node* locateCousinList(Element* parent, unsigned depth = 1) const;
+        Node* findSiblingForStyleSharing(Node*, unsigned& count) const;
         bool canShareStyleWithElement(Node*) const;
 
         RenderStyle* style() const { return m_style.get(); }
@@ -197,6 +201,9 @@ public:
         
         OwnPtr<CSSRuleSet> m_authorStyle;
         OwnPtr<CSSRuleSet> m_userStyle;
+        
+        OwnPtr<CSSRuleSet> m_siblingRules;
+        HashSet<AtomicStringImpl*> m_idsInRules;
 
         bool m_hasUAAppearance;
         BorderData m_borderData;
@@ -209,7 +216,8 @@ public:
     public:
         static RenderStyle* styleNotYetAvailable() { return s_styleNotYetAvailable; }
 
-        class SelectorChecker : public Noncopyable {
+        class SelectorChecker {
+            WTF_MAKE_NONCOPYABLE(SelectorChecker);
         public:
             SelectorChecker(Document*, bool strictParsing);
 

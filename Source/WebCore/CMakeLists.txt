@@ -237,6 +237,7 @@ SET(WebCore_IDL_FILES
     html/HTMLImageElement.idl
     html/HTMLInputElement.idl
     html/HTMLIsIndexElement.idl
+    html/HTMLKeygenElement.idl
     html/HTMLLabelElement.idl
     html/HTMLLegendElement.idl
     html/HTMLLIElement.idl
@@ -291,6 +292,7 @@ SET(WebCore_IDL_FILES
     html/canvas/Int16Array.idl
     html/canvas/Int32Array.idl
     html/canvas/Int8Array.idl
+    html/canvas/OESStandardDerivatives.idl
     html/canvas/OESTextureFloat.idl
     html/canvas/Uint16Array.idl
     html/canvas/Uint32Array.idl
@@ -637,6 +639,7 @@ SET(WebCore_SOURCES
     bindings/js/JSDeviceOrientationEventCustom.cpp
     bindings/js/JSDocumentCustom.cpp
     bindings/js/JSElementCustom.cpp
+    bindings/js/JSErrorHandler.cpp
     bindings/js/JSEventCustom.cpp
     bindings/js/JSEventListener.cpp
     bindings/js/JSEventSourceCustom.cpp
@@ -705,7 +708,6 @@ SET(WebCore_SOURCES
     bindings/js/JSWebSocketCustom.cpp
     bindings/js/JSWorkerContextBase.cpp
     bindings/js/JSWorkerContextCustom.cpp
-    bindings/js/JSWorkerContextErrorHandler.cpp
     bindings/js/JSWorkerCustom.cpp
     bindings/js/JSXMLHttpRequestCustom.cpp
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
@@ -1169,6 +1171,7 @@ SET(WebCore_SOURCES
     inspector/InspectorInstrumentation.cpp
     inspector/InspectorProfilerAgent.cpp
     inspector/InspectorResourceAgent.cpp
+    inspector/InspectorRuntimeAgent.cpp
     inspector/InspectorSettings.cpp
     inspector/InspectorState.cpp
     inspector/InspectorStyleSheet.cpp
@@ -1308,8 +1311,8 @@ SET(WebCore_SOURCES
     platform/Logging.cpp
     platform/MIMETypeRegistry.cpp
     platform/ScrollAnimator.cpp
+    platform/ScrollableArea.cpp
     platform/Scrollbar.cpp
-    platform/ScrollbarClient.cpp
     platform/ScrollbarThemeComposite.cpp
     platform/ScrollView.cpp
     platform/SharedBuffer.cpp
@@ -1350,6 +1353,7 @@ SET(WebCore_SOURCES
     platform/graphics/Path.cpp
     platform/graphics/PathTraversalState.cpp
     platform/graphics/Pattern.cpp
+    platform/graphics/RoundedIntRect.cpp
     platform/graphics/SegmentedFontData.cpp
     platform/graphics/SimpleFontData.cpp
     platform/graphics/StringTruncator.cpp

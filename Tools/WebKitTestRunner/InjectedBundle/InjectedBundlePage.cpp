@@ -168,7 +168,6 @@ static ostream& operator<<(ostream& out, WKBundleFrameRef frame)
 InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
     : m_page(page)
     , m_world(AdoptWK, WKBundleScriptWorldCreateWorld())
-    , m_isLoading(false)
 {
     WKBundlePageLoaderClient loaderClient = {
         0,
@@ -233,7 +232,6 @@ InjectedBundlePage::~InjectedBundlePage()
 void InjectedBundlePage::stopLoading()
 {
     WKBundlePageStopLoading(m_page);
-    m_isLoading = false;
 }
 
 void InjectedBundlePage::reset()
@@ -334,8 +332,9 @@ void InjectedBundlePage::didStartProvisionalLoadForFrame(WKBundleFrameRef frame)
     if (!InjectedBundle::shared().isTestRunning())
         return;
 
-    if (frame == WKBundlePageGetMainFrame(m_page))
-        m_isLoading = true;
+    if (InjectedBundle::shared().topLoadingFrame())
+        return;
+    InjectedBundle::shared().setTopLoadingFrame(frame);
 }
 
 void InjectedBundlePage::didReceiveServerRedirectForProvisionalLoadForFrame(WKBundleFrameRef frame)
@@ -344,6 +343,17 @@ void InjectedBundlePage::didReceiveServerRedirectForProvisionalLoadForFrame(WKBu
 
 void InjectedBundlePage::didFailProvisionalLoadWithErrorForFrame(WKBundleFrameRef frame, WKErrorRef error)
 {
+    if (!InjectedBundle::shared().isTestRunning())
+        return;
+
+    if (frame != InjectedBundle::shared().topLoadingFrame())
+        return;
+    InjectedBundle::shared().setTopLoadingFrame(0);
+
+    if (InjectedBundle::shared().layoutTestController()->waitToDump())
+        return;
+
+    InjectedBundle::shared().done();
 }
 
 void InjectedBundlePage::didCommitLoadForFrame(WKBundleFrameRef frame)
@@ -475,18 +485,14 @@ void InjectedBundlePage::didFinishLoadForFrame(WKBundleFrameRef frame)
     if (!InjectedBundle::shared().isTestRunning())
         return;
 
-    if (!WKBundleFrameIsMainFrame(frame))
+    if (frame != InjectedBundle::shared().topLoadingFrame())
         return;
-
-    m_isLoading = false;
-
-    if (this != InjectedBundle::shared().page())
-        return;
+    InjectedBundle::shared().setTopLoadingFrame(0);
 
     if (InjectedBundle::shared().layoutTestController()->waitToDump())
         return;
 
-    dump();
+    InjectedBundle::shared().page()->dump();
 }
 
 void InjectedBundlePage::didFailLoadWithErrorForFrame(WKBundleFrameRef frame, WKErrorRef)
@@ -494,12 +500,11 @@ void InjectedBundlePage::didFailLoadWithErrorForFrame(WKBundleFrameRef frame, WK
     if (!InjectedBundle::shared().isTestRunning())
         return;
 
-    if (!WKBundleFrameIsMainFrame(frame))
+    if (frame != InjectedBundle::shared().topLoadingFrame())
         return;
+    InjectedBundle::shared().setTopLoadingFrame(0);
 
-    m_isLoading = false;
-
-    if (this != InjectedBundle::shared().page())
+    if (InjectedBundle::shared().layoutTestController()->waitToDump())
         return;
 
     InjectedBundle::shared().done();
@@ -521,11 +526,13 @@ void InjectedBundlePage::didClearWindowForFrame(WKBundleFrameRef frame, WKBundle
     if (!InjectedBundle::shared().isTestRunning())
         return;
 
-    if (WKBundleScriptWorldNormalWorld() != world)
-        return;
-
     JSGlobalContextRef context = WKBundleFrameGetJavaScriptContextForWorld(frame, world);
     JSObjectRef window = JSContextGetGlobalObject(context);
+
+    if (WKBundleScriptWorldNormalWorld() != world) {
+        JSObjectSetProperty(context, window, toJS("__worldID").get(), JSValueMakeNumber(context, LayoutTestController::worldIDForWorld(world)), kJSPropertyAttributeReadOnly, 0);
+        return;
+    }
 
     JSValueRef exception = 0;
     InjectedBundle::shared().layoutTestController()->makeWindowObject(context, window, &exception);

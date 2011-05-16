@@ -61,7 +61,7 @@ public:
     virtual bool isContentRichlyEditable() const;
 
     String contentEditable() const;
-    void setContentEditable(const String&);
+    void setContentEditable(const String&, ExceptionCode&);
 
     virtual bool draggable() const;
     void setDraggable(bool);
@@ -84,6 +84,9 @@ public:
 
     HTMLFormElement* findFormAncestor() const;
 
+    virtual void dispatchChangeEvents();
+    virtual void dispatchInputEvents();
+
 protected:
     HTMLElement(const QualifiedName& tagName, Document*);
 
@@ -101,6 +104,8 @@ private:
 
     Node* insertAdjacent(const String& where, Node* newChild, ExceptionCode&);
     PassRefPtr<DocumentFragment> textToFragment(const String&, ExceptionCode&);
+
+    HTMLFormElement* shadowAncestorOwnerForm();
 };
 
 inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document* document)

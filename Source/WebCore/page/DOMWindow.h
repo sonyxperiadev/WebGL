@@ -64,6 +64,10 @@ namespace WebCore {
     class StyleMedia;
     class WebKitPoint;
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    class RequestAnimationFrameCallback;
+#endif
+
     struct WindowFeatures;
 
     typedef int ExceptionCode;
@@ -237,6 +241,12 @@ namespace WebCore {
         int setInterval(PassOwnPtr<ScheduledAction>, int timeout, ExceptionCode&);
         void clearInterval(int timeoutId);
 
+        // WebKit animation extensions
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+        int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>, Element*);
+        void webkitCancelRequestAnimationFrame(int id);
+#endif
+
         // Events
         // EventTarget API
         virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
@@ -269,6 +279,8 @@ namespace WebCore {
         DEFINE_ATTRIBUTE_EVENT_LISTENER(ended);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(focus);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(formchange);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(forminput);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(hashchange);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);

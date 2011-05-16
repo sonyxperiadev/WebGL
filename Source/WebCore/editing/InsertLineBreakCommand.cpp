@@ -82,7 +82,7 @@ bool InsertLineBreakCommand::shouldUseBreakElement(const Position& insertionPos)
     // An editing position like [input, 0] actually refers to the position before
     // the input element, and in that case we need to check the input element's
     // parent's renderer.
-    Position p(rangeCompliantEquivalent(insertionPos));
+    Position p(insertionPos.parentAnchoredEquivalent());
     return p.node()->renderer() && !p.node()->renderer()->style()->preserveNewline();
 }
 
@@ -121,13 +121,13 @@ void InsertLineBreakCommand::doApply()
         if (needExtraLineBreak)
             insertNodeBefore(nodeToInsert->cloneNode(false), nodeToInsert);
         
-        VisiblePosition endingPosition(Position(nodeToInsert.get(), 0));
+        VisiblePosition endingPosition(positionBeforeNode(nodeToInsert.get()));
         setEndingSelection(VisibleSelection(endingPosition));
     } else if (pos.deprecatedEditingOffset() <= caretMinOffset(pos.node())) {
         insertNodeAt(nodeToInsert.get(), pos);
         
         // Insert an extra br or '\n' if the just inserted one collapsed.
-        if (!isStartOfParagraph(VisiblePosition(Position(nodeToInsert.get(), 0))))
+        if (!isStartOfParagraph(positionBeforeNode(nodeToInsert.get())))
             insertNodeBefore(nodeToInsert->cloneNode(false).get(), nodeToInsert.get());
         
         setEndingSelection(VisibleSelection(positionInParentAfterNode(nodeToInsert.get()), DOWNSTREAM));
@@ -141,7 +141,7 @@ void InsertLineBreakCommand::doApply()
         Text* textNode = static_cast<Text*>(pos.node());
         splitTextNode(textNode, pos.deprecatedEditingOffset());
         insertNodeBefore(nodeToInsert, textNode);
-        Position endingPosition = Position(textNode, 0);
+        Position endingPosition = firstPositionInNode(textNode);
         
         // Handle whitespace that occurs after the split
         updateLayout();
@@ -156,7 +156,7 @@ void InsertLineBreakCommand::doApply()
             else {
                 RefPtr<Text> nbspNode = document()->createTextNode(nonBreakingSpaceString());
                 insertNodeAt(nbspNode.get(), positionBeforeTextNode);
-                endingPosition = Position(nbspNode.get(), 0);
+                endingPosition = firstPositionInNode(nbspNode.get());
             }
         }
         

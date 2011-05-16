@@ -169,13 +169,21 @@ protected:
     virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
 #endif
 
+    virtual bool paintCapsLockIndicator(RenderObject*, const PaintInfo&, const IntRect&);
+
 private:
     void platformInit();
+    static void setTextInputBorders(RenderStyle*);
+    GRefPtr<GdkPixbuf> getStockIcon(GType, const char* iconName, gint direction, gint state, gint iconSize);
+    static double getScreenDPI();
+
 #if ENABLE(VIDEO)
     bool paintMediaButton(RenderObject*, GraphicsContext*, const IntRect&, const char* iconName);
 #endif
-    static void setTextInputBorders(RenderStyle*);
-    GRefPtr<GdkPixbuf> getStockIcon(GType, const char* iconName, gint direction, gint state, gint iconSize);
+
+#if ENABLE(PROGRESS_TAG)
+    static IntRect calculateProgressRect(RenderObject*, const IntRect&);
+#endif
 
     mutable Color m_panelColor;
     mutable Color m_sliderColor;
@@ -188,13 +196,26 @@ private:
 #ifdef GTK_API_VERSION_2
     void setupWidgetAndAddToContainer(GtkWidget*, GtkWidget*) const;
     bool paintRenderObject(GtkThemeWidgetType, RenderObject*, GraphicsContext*, const IntRect&, int flags = 0);
+    void refreshComboBoxChildren() const;
+    void getComboBoxPadding(RenderStyle*, int& left, int& top, int& right, int& bottom) const;
+    int getComboBoxSeparatorWidth() const;
+    int comboBoxArrowSize(RenderStyle*) const;
     GtkThemeParts m_themeParts;
+
     GtkWidget* gtkButton() const;
     GtkWidget* gtkEntry() const;
     GtkWidget* gtkTreeView() const;
     GtkWidget* gtkVScale() const;
     GtkWidget* gtkHScale() const;
     GtkWidget* gtkContainer() const;
+    GtkWidget* gtkRadioButton() const;
+    GtkWidget* gtkCheckButton() const;
+    GtkWidget* gtkProgressBar() const;
+    GtkWidget* gtkComboBox() const;
+    GtkWidget* gtkComboBoxButton() const;
+    GtkWidget* gtkComboBoxArrow() const;
+    GtkWidget* gtkComboBoxSeparator() const;
+
     mutable GtkWidget* m_gtkWindow;
     mutable GtkWidget* m_gtkContainer;
     mutable GtkWidget* m_gtkButton;
@@ -202,6 +223,13 @@ private:
     mutable GtkWidget* m_gtkTreeView;
     mutable GtkWidget* m_gtkVScale;
     mutable GtkWidget* m_gtkHScale;
+    mutable GtkWidget* m_gtkRadioButton;
+    mutable GtkWidget* m_gtkCheckButton;
+    mutable GtkWidget* m_gtkProgressBar;
+    mutable GtkWidget* m_gtkComboBox;
+    mutable GtkWidget* m_gtkComboBoxButton;
+    mutable GtkWidget* m_gtkComboBoxArrow;
+    mutable GtkWidget* m_gtkComboBoxSeparator;
     bool m_themePartsHaveRGBAColormap;
     friend class WidgetRenderingContext;
 #endif

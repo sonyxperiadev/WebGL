@@ -387,6 +387,11 @@ WebView::~WebView()
     ASSERT(!m_preferences);
     ASSERT(!m_viewWindow);
 
+#if USE(ACCELERATED_COMPOSITING)
+    ASSERT(!m_layerTreeHost);
+    ASSERT(!m_backingLayer);
+#endif
+
     WebViewCount--;
     gClassCount--;
     gClassNameCount.remove("WebView");
@@ -819,7 +824,12 @@ void WebView::addToDirtyRegion(HRGN newRegion)
 void WebView::scrollBackingStore(FrameView* frameView, int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    ASSERT(!isAcceleratedCompositing());
+    if (isAcceleratedCompositing()) {
+        // FIXME: We should be doing something smarter here, like moving tiles around and painting
+        // any newly-exposed tiles. <http://webkit.org/b/52714>
+        m_backingLayer->setNeedsDisplayInRect(scrollViewRect);
+        return;
+    }
 #endif
 
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
@@ -873,8 +883,8 @@ void WebView::sizeChanged(const IntSize& newSize)
         coreFrame->view()->resize(newSize);
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_layerRenderer)
-        m_layerRenderer->resize();
+    if (m_layerTreeHost)
+        m_layerTreeHost->resize();
     if (m_backingLayer) {
         m_backingLayer->setSize(newSize);
         m_backingLayer->setNeedsDisplay();
@@ -980,11 +990,11 @@ void WebView::paint(HDC dc, LPARAM options)
 
 #if USE(ACCELERATED_COMPOSITING)
     if (isAcceleratedCompositing()) {
-        syncCompositingState();
-        // Syncing might have taken us out of compositing mode.
+        m_layerTreeHost->flushPendingLayerChangesNow();
+        // Flushing might have taken us out of compositing mode.
         if (isAcceleratedCompositing()) {
             // FIXME: We need to paint into dc (if provided). <http://webkit.org/b/52578>
-            m_layerRenderer->paint();
+            m_layerTreeHost->paint();
             ::ValidateRect(m_viewWindow, 0);
             return;
         }
@@ -4792,6 +4802,10 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setShowRepaintCounter(enabled);
 
+#if ENABLE(WEB_AUDIO)
+    settings->setWebAudioEnabled(true);
+#endif // ENABLE(WEB_AUDIO)
+
 #if ENABLE(3D_CANVAS)
     settings->setWebGLEnabled(true);
 #endif  // ENABLE(3D_CANVAS)
@@ -6262,26 +6276,26 @@ void WebView::setRootChildLayer(GraphicsLayer* layer)
     m_backingLayer->addChild(layer);
 }
 
-void WebView::scheduleCompositingLayerSync()
+void WebView::flushPendingGraphicsLayerChangesSoon()
 {
-    if (!m_layerRenderer)
+    if (!m_layerTreeHost)
         return;
-    m_layerRenderer->syncCompositingStateSoon();
+    m_layerTreeHost->flushPendingGraphicsLayerChangesSoon();
 }
 
 void WebView::setAcceleratedCompositing(bool accelerated)
 {
-    if (m_isAcceleratedCompositing == accelerated || !WKCACFLayerRenderer::acceleratedCompositingAvailable())
+    if (m_isAcceleratedCompositing == accelerated || !CACFLayerTreeHost::acceleratedCompositingAvailable())
         return;
 
     if (accelerated) {
-        m_layerRenderer = WKCACFLayerRenderer::create(this);
-        if (m_layerRenderer) {
+        m_layerTreeHost = CACFLayerTreeHost::create();
+        if (m_layerTreeHost) {
             m_isAcceleratedCompositing = true;
 
-            // Create the root layer
+            m_layerTreeHost->setClient(this);
             ASSERT(m_viewWindow);
-            m_layerRenderer->setHostWindow(m_viewWindow);
+            m_layerTreeHost->setWindow(m_viewWindow);
 
             // FIXME: We could perhaps get better performance by never allowing this layer to
             // become tiled (or choosing a higher-than-normal tiling threshold).
@@ -6294,7 +6308,7 @@ void WebView::setAcceleratedCompositing(bool accelerated)
             m_backingLayer->setSize(IntRect(clientRect).size());
             m_backingLayer->setNeedsDisplay();
 
-            m_layerRenderer->setRootChildLayer(PlatformCALayer::platformCALayer(m_backingLayer->platformLayer()));
+            m_layerTreeHost->setRootChildLayer(PlatformCALayer::platformCALayer(m_backingLayer->platformLayer()));
 
             // We aren't going to be using our backing store while we're in accelerated compositing
             // mode. But don't delete it immediately, in case we switch out of accelerated
@@ -6302,7 +6316,10 @@ void WebView::setAcceleratedCompositing(bool accelerated)
             deleteBackingStoreSoon();
         }
     } else {
-        m_layerRenderer = 0;
+        ASSERT(m_layerTreeHost);
+        m_layerTreeHost->setClient(0);
+        m_layerTreeHost->setWindow(0);
+        m_layerTreeHost = 0;
         m_backingLayer = 0;
         m_isAcceleratedCompositing = false;
     }
@@ -6468,7 +6485,7 @@ void WebView::notifyAnimationStarted(const GraphicsLayer*, double)
 
 void WebView::notifySyncRequired(const GraphicsLayer*)
 {
-    scheduleCompositingLayerSync();
+    flushPendingGraphicsLayerChangesSoon();
 }
 
 void WebView::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const IntRect& inClip)
@@ -6493,19 +6510,7 @@ bool WebView::showRepaintCounter() const
     return m_page->settings()->showRepaintCounter();
 }
 
-bool WebView::shouldRender() const
-{
-    Frame* coreFrame = core(m_mainFrame);
-    if (!coreFrame)
-        return true;
-    FrameView* frameView = coreFrame->view();
-    if (!frameView)
-        return true;
-
-    return !frameView->layoutPending();
-}
-
-void WebView::syncCompositingState()
+void WebView::flushPendingGraphicsLayerChanges()
 {
     Frame* coreFrame = core(m_mainFrame);
     if (!coreFrame)
@@ -6522,7 +6527,7 @@ void WebView::syncCompositingState()
     if (m_backingLayer)
         m_backingLayer->syncCompositingStateForThisLayerOnly();
 
-    view->syncCompositingStateRecursive();
+    view->syncCompositingStateIncludingSubframes();
 }
 
 #endif

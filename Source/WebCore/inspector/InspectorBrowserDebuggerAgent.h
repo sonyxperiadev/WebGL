@@ -46,9 +46,11 @@ namespace WebCore {
 class Element;
 class InspectorController;
 class InspectorObject;
+class KURL;
 class Node;
 
-class InspectorBrowserDebuggerAgent : public Noncopyable {
+class InspectorBrowserDebuggerAgent {
+    WTF_MAKE_NONCOPYABLE(InspectorBrowserDebuggerAgent);
 public:
     static PassOwnPtr<InspectorBrowserDebuggerAgent> create(InspectorController* inspectorController)
     {
@@ -56,6 +58,8 @@ public:
     }
 
     virtual ~InspectorBrowserDebuggerAgent();
+
+    void inspectedURLChanged(const KURL&);
 
     // BrowserDebugger API for InspectorFrontend
     void setXHRBreakpoint(const String& url);
@@ -74,9 +78,10 @@ public:
     void willSendXMLHttpRequest(const String& url);
     void pauseOnNativeEventIfNeeded(const String& categoryType, const String& eventName, bool synchronous);
 
-    void clearForPageNavigation();
 private:
     InspectorBrowserDebuggerAgent(InspectorController*);
+
+    void restoreStickyBreakpoint(PassRefPtr<InspectorObject> breakpoint);
 
     void descriptionForDOMEvent(Node* target, long breakpointType, bool insertion, InspectorObject* description);
     void updateSubtreeBreakpoints(Node*, uint32_t rootMask, bool set);
@@ -84,7 +89,7 @@ private:
     void discardBindings();
 
     InspectorController* m_inspectorController;
-    HashMap<Node*, uint32_t> m_breakpoints;
+    HashMap<Node*, uint32_t> m_domBreakpoints;
     HashSet<String> m_eventListenerBreakpoints;
     HashSet<String> m_XHRBreakpoints;
     bool m_hasXHRBreakpointWithEmptyURL;

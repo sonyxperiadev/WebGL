@@ -185,6 +185,7 @@
       '../svg/graphics',
       '../svg/graphics/filters',
       '../svg/properties',
+      '../thirdparty/glu',
       '../webaudio',
       '../websockets',
       '../workers',
@@ -1117,6 +1118,8 @@
 
         # Use LinkHashChromium.cpp instead
         ['exclude', 'platform/LinkHash\\.cpp$'],
+
+        ['include', 'thirdparty/glu/libtess/'],
       ],
       'conditions': [
         ['OS=="linux" or OS=="freebsd"', {
@@ -1132,6 +1135,10 @@
           'dependencies': [
             '<(chromium_src_dir)/third_party/harfbuzz/harfbuzz.gyp:harfbuzz',
           ],
+        }],
+        ['OS=="linux" and target_arch=="arm"', {
+          # Due to a bug in gcc arm, we get warnings about uninitialized timesNewRoman.unstatic.3258
+          'cflags': ['-Wno-uninitialized'],
         }],
         ['OS=="mac"', {
           # Necessary for Mac .mm stuff.
@@ -1173,9 +1180,7 @@
             ['include', 'platform/(graphics/)?mac/[^/]*Font[^/]*\\.(cpp|mm?)$'],
             ['include', 'platform/graphics/mac/ComplexText[^/]*\\.(cpp|h)$'],
 
-            # AudioBusMac is necessary for web audio API bringup on Chrome.
-            # It will later be replaced with chromium-specific code.
-            ['include', 'platform/audio/mac/AudioBusMac\\.mm$'],
+            # We can use this for the fast Accelerate.framework FFT.
             ['include', 'platform/audio/mac/FFTFrameMac\\.cpp$'],
 
             # Cherry-pick some files that can't be included by broader regexps.

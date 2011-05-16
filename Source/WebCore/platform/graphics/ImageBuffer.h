@@ -31,7 +31,7 @@
 #include "AffineTransform.h"
 #include "ColorSpace.h"
 #include "FloatRect.h"
-#include "Image.h"
+#include "GraphicsTypes.h"
 #include "IntSize.h"
 #include "ImageBufferData.h"
 #include <wtf/ByteArray.h>
@@ -39,6 +39,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/Vector.h>
 
 #if (PLATFORM(MAC) && PLATFORM(CA) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD))
 #define WTF_USE_IOSURFACE_CANVAS_BACKING_STORE 1
@@ -47,6 +48,7 @@
 namespace WebCore {
 
     class GraphicsContext;
+    class Image;
     class ImageData;
     class IntPoint;
     class IntRect;
@@ -61,7 +63,8 @@ namespace WebCore {
         Accelerated
     };
 
-    class ImageBuffer : public Noncopyable {
+    class ImageBuffer {
+        WTF_MAKE_NONCOPYABLE(ImageBuffer); WTF_MAKE_FAST_ALLOCATED;
     public:
         // Will return a null pointer on allocation failure.
         static PassOwnPtr<ImageBuffer> create(const IntSize& size, ColorSpace colorSpace = ColorSpaceDeviceRGB, RenderingMode renderingMode = Unaccelerated)
@@ -78,6 +81,8 @@ namespace WebCore {
         const IntSize& size() const { return m_size; }
         int width() const { return m_size.width(); }
         int height() const { return m_size.height(); }
+        
+        size_t dataSize() const;
         
         GraphicsContext* context() const;
 

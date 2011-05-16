@@ -29,10 +29,7 @@
 
 """Unit tests for printing.py."""
 
-import os
 import optparse
-import pdb
-import sys
 import unittest
 import logging
 
@@ -117,6 +114,7 @@ class TestUtilityFunctions(unittest.TestCase):
 class  Testprinter(unittest.TestCase):
     def get_printer(self, args=None, single_threaded=False,
                    is_fully_parallel=False):
+        args = args or []
         printing_options = printing.print_options()
         option_parser = optparse.OptionParser(option_list=printing_options)
         options, args = option_parser.parse_args(args)
@@ -138,11 +136,11 @@ class  Testprinter(unittest.TestCase):
             failures = [test_failures.FailureTimeout()]
         elif result_type == test_expectations.CRASH:
             failures = [test_failures.FailureCrash()]
-        path = os.path.join(self._port.layout_tests_dir(), test)
+        path = self._port._filesystem.join(self._port.layout_tests_dir(), test)
         return test_results.TestResult(path, failures=failures, test_run_time=run_time)
 
     def get_result_summary(self, tests, expectations_str):
-        test_paths = [os.path.join(self._port.layout_tests_dir(), test) for
+        test_paths = [self._port._filesystem.join(self._port.layout_tests_dir(), test) for
                       test in tests]
         expectations = test_expectations.TestExpectations(
             self._port, test_paths, expectations_str,

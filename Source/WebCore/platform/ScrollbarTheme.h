@@ -36,8 +36,10 @@ class PlatformMouseEvent;
 class Scrollbar;
 class ScrollView;
 
-class ScrollbarTheme : public Noncopyable {
+class ScrollbarTheme {
+    WTF_MAKE_NONCOPYABLE(ScrollbarTheme); WTF_MAKE_FAST_ALLOCATED;
 public:
+    ScrollbarTheme() { }
     virtual ~ScrollbarTheme() {};
 
     virtual bool paint(Scrollbar*, GraphicsContext*, const IntRect& /*damageRect*/) { return false; }
@@ -48,6 +50,7 @@ public:
     virtual ScrollbarButtonsPlacement buttonsPlacement() const { return ScrollbarButtonsSingle; }
 
     virtual bool supportsControlTints() const { return false; }
+    virtual bool usesOverlayScrollbars() const { return false; }
 
     virtual void themeChanged() {}
     

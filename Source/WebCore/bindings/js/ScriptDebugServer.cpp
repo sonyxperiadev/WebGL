@@ -48,7 +48,7 @@
 #include "ScrollView.h"
 #include "Widget.h"
 #include <debugger/DebuggerCallFrame.h>
-#include <parser/SourceCode.h>
+#include <parser/SourceProvider.h>
 #include <runtime/JSLock.h>
 #include <wtf/text/StringConcatenate.h>
 #include <wtf/MainThread.h>
@@ -282,23 +282,25 @@ void ScriptDebugServer::dispatchDidContinue(ScriptDebugListener* listener)
     listener->didContinue();
 }
 
-void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, const JSC::SourceCode& source, ScriptWorldType worldType)
+void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, SourceProvider* sourceProvider, ScriptWorldType worldType)
 {
-    String sourceID = ustringToString(JSC::UString::number(source.provider()->asID()));
-    String url = ustringToString(source.provider()->url());
-    String data = ustringToString(JSC::UString(source.data(), source.length()));
+    String sourceID = ustringToString(JSC::UString::number(sourceProvider->asID()));
+    String url = ustringToString(sourceProvider->url());
+    String data = ustringToString(JSC::UString(sourceProvider->data(), sourceProvider->length()));
+    int lineOffset = sourceProvider->startPosition().m_line.convertAsZeroBasedInt();
+    int columnOffset = sourceProvider->startPosition().m_column.convertAsZeroBasedInt();
 
     Vector<ScriptDebugListener*> copy;
     copyToVector(listeners, copy);
     for (size_t i = 0; i < copy.size(); ++i)
-        copy[i]->didParseSource(sourceID, url, data, source.firstLine() - 1, source.firstColumn() - 1, worldType);
+        copy[i]->didParseSource(sourceID, url, data, lineOffset, columnOffset, worldType);
 }
 
-void ScriptDebugServer::dispatchFailedToParseSource(const ListenerSet& listeners, const SourceCode& source, int errorLine, const String& errorMessage)
+void ScriptDebugServer::dispatchFailedToParseSource(const ListenerSet& listeners, SourceProvider* sourceProvider, int errorLine, const String& errorMessage)
 {
-    String url = ustringToString(source.provider()->url());
-    String data = ustringToString(JSC::UString(source.data(), source.length()));
-    int firstLine = source.firstLine();
+    String url = ustringToString(sourceProvider->url());
+    String data = ustringToString(JSC::UString(sourceProvider->data(), sourceProvider->length()));
+    int firstLine = sourceProvider->startPosition().m_line.oneBasedInt();
 
     Vector<ScriptDebugListener*> copy;
     copyToVector(listeners, copy);
@@ -335,7 +337,7 @@ void ScriptDebugServer::detach(JSGlobalObject* globalObject)
     Debugger::detach(globalObject);
 }
 
-void ScriptDebugServer::sourceParsed(ExecState* exec, const SourceCode& source, int errorLine, const UString& errorMessage)
+void ScriptDebugServer::sourceParsed(ExecState* exec, SourceProvider* sourceProvider, int errorLine, const UString& errorMessage)
 {
     if (m_callingListeners)
         return;
@@ -353,9 +355,9 @@ void ScriptDebugServer::sourceParsed(ExecState* exec, const SourceCode& source, 
     if (ListenerSet* pageListeners = m_pageListenersMap.get(page)) {
         ASSERT(!pageListeners->isEmpty());
         if (isError)
-            dispatchFailedToParseSource(*pageListeners, source, errorLine, ustringToString(errorMessage));
+            dispatchFailedToParseSource(*pageListeners, sourceProvider, errorLine, ustringToString(errorMessage));
         else
-            dispatchDidParseSource(*pageListeners, source, worldType);
+            dispatchDidParseSource(*pageListeners, sourceProvider, worldType);
     }
 
     m_callingListeners = false;
@@ -440,6 +442,24 @@ void ScriptDebugServer::setJavaScriptPaused(FrameView* view, bool paused)
     }
 }
 
+void ScriptDebugServer::createCallFrameAndPauseIfNeeded(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
+{
+    TextPosition1 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber), WTF::OneBasedNumber::base());
+    m_currentCallFrame = JavaScriptCallFrame::create(debuggerCallFrame, m_currentCallFrame, sourceID, textPosition);
+    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+}
+
+void ScriptDebugServer::updateCallFrameAndPauseIfNeeded(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
+{
+    ASSERT(m_currentCallFrame);
+    if (!m_currentCallFrame)
+        return;
+
+    TextPosition1 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber), WTF::OneBasedNumber::base());
+    m_currentCallFrame->update(debuggerCallFrame, sourceID, textPosition);
+    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+}
+
 void ScriptDebugServer::pauseIfNeeded(Page* page)
 {
     if (m_paused)
@@ -480,24 +500,14 @@ void ScriptDebugServer::pauseIfNeeded(Page* page)
 
 void ScriptDebugServer::callEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
 {
-    if (m_paused)
-        return;
-
-    m_currentCallFrame = JavaScriptCallFrame::create(debuggerCallFrame, m_currentCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    if (!m_paused)
+        createCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 }
 
 void ScriptDebugServer::atStatement(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
 {
-    if (m_paused)
-        return;
-
-    ASSERT(m_currentCallFrame);
-    if (!m_currentCallFrame)
-        return;
-
-    m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    if (!m_paused)
+        updateCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 }
 
 void ScriptDebugServer::returnEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
@@ -505,12 +515,7 @@ void ScriptDebugServer::returnEvent(const DebuggerCallFrame& debuggerCallFrame, 
     if (m_paused)
         return;
 
-    ASSERT(m_currentCallFrame);
-    if (!m_currentCallFrame)
-        return;
-
-    m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    updateCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 
     // detach may have been called during pauseIfNeeded
     if (!m_currentCallFrame)
@@ -527,24 +532,16 @@ void ScriptDebugServer::exception(const DebuggerCallFrame& debuggerCallFrame, in
     if (m_paused)
         return;
 
-    ASSERT(m_currentCallFrame);
-    if (!m_currentCallFrame)
-        return;
-
     if (m_pauseOnExceptionsState == PauseOnAllExceptions || (m_pauseOnExceptionsState == PauseOnUncaughtExceptions && !hasHandler))
         m_pauseOnNextStatement = true;
 
-    m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    updateCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 }
 
 void ScriptDebugServer::willExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
 {
-    if (m_paused)
-        return;
-
-    m_currentCallFrame = JavaScriptCallFrame::create(debuggerCallFrame, m_currentCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    if (!m_paused)
+        createCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 }
 
 void ScriptDebugServer::didExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
@@ -552,12 +549,7 @@ void ScriptDebugServer::didExecuteProgram(const DebuggerCallFrame& debuggerCallF
     if (m_paused)
         return;
 
-    ASSERT(m_currentCallFrame);
-    if (!m_currentCallFrame)
-        return;
-
-    m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    updateCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 
     // Treat stepping over the end of a program like stepping out.
     if (m_currentCallFrame == m_pauseOnCallFrame)
@@ -570,13 +562,8 @@ void ScriptDebugServer::didReachBreakpoint(const DebuggerCallFrame& debuggerCall
     if (m_paused)
         return;
 
-    ASSERT(m_currentCallFrame);
-    if (!m_currentCallFrame)
-        return;
-
     m_pauseOnNextStatement = true;
-    m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
-    pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+    updateCallFrameAndPauseIfNeeded(debuggerCallFrame, sourceID, lineNumber);
 }
 
 void ScriptDebugServer::recompileAllJSFunctionsSoon()

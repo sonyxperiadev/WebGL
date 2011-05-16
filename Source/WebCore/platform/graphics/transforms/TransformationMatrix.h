@@ -26,7 +26,6 @@
 #ifndef TransformationMatrix_h
 #define TransformationMatrix_h
 
-#include "AffineTransform.h"
 #include "FloatPoint.h"
 #include "IntPoint.h"
 #include <string.h> //for memcpy
@@ -65,7 +64,8 @@ class FloatPoint3D;
 class FloatRect;
 class FloatQuad;
 
-class TransformationMatrix : public FastAllocBase {
+class TransformationMatrix {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     typedef double Matrix4[4][4];
 

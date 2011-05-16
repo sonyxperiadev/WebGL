@@ -200,6 +200,7 @@ public:
     bool drawsTransparentBackground() const { return m_drawsTransparentBackground; }
 
     void stopLoading();
+    void stopLoadingFrame(uint64_t frameID);
     void setDefersLoading(bool deferLoading);
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -300,6 +301,7 @@ public:
 
     void replaceSelectionWithText(WebCore::Frame*, const String&);
     void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WTF::String& dragStorageName, uint32_t flags);
+    void dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation);
 
     void beginPrinting(uint64_t frameID, const PrintInfo&);
     void endPrinting();
@@ -309,6 +311,9 @@ public:
 #endif
 
     bool mainFrameHasCustomRepresentation() const;
+
+    bool canRunModal() const { return m_canRunModal; }
+    void runModal();
 
 private:
     WebPage(uint64_t pageID, const WebPageCreationParameters&);
@@ -364,6 +369,7 @@ private:
 
     void getContentsAsString(uint64_t callbackID);
     void getMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID);
+    void getResourceDataFromFrame(uint64_t frameID, const String& resourceURL, uint64_t callbackID);
     void getRenderTreeExternalRepresentation(uint64_t callbackID);
     void getSelectionOrContentsAsString(uint64_t callbackID);
     void getSourceForFrame(uint64_t frameID, uint64_t callbackID);
@@ -492,6 +498,9 @@ private:
 
     SandboxExtensionTracker m_sandboxExtensionTracker;
     uint64_t m_pageID;
+
+    bool m_canRunModal;
+    bool m_isRunningModal;
 };
 
 } // namespace WebKit

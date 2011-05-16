@@ -26,6 +26,7 @@
 #ifndef PageClient_h
 #define PageClient_h
 
+#include "ShareableBitmap.h"
 #include "WebPageProxy.h"
 #include "WebPopupMenuProxy.h"
 #include <wtf/Forward.h>
@@ -57,6 +58,9 @@ public:
 
     // Tell the view to immediately display its invalid rect.
     virtual void displayView() = 0;
+
+    // Tell the view to scroll scrollRect by scrollOffset.
+    virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
 
     // Return the size of the view the page is associated with.
     virtual WebCore::IntSize viewSize() = 0;
@@ -95,7 +99,8 @@ public:
     virtual void setEditCommandState(const String& commandName, bool isEnabled, int state) = 0;
 #if PLATFORM(MAC)
     virtual void accessibilityChildTokenReceived(const CoreIPC::DataReference&) = 0;
-    virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>&, uint32_t, uint32_t, Vector<WebCore::CompositionUnderline>&) = 0;
+    virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines) = 0;
+    virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag) = 0;
 #endif
 #if PLATFORM(WIN)
     virtual void compositionSelectionChanged(bool) = 0;
@@ -121,6 +126,8 @@ public:
 
 #if PLATFORM(MAC)
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled) = 0;
+
+    virtual CGContextRef containingWindowGraphicsContext() = 0;
 #endif
 
     // Custom representations.

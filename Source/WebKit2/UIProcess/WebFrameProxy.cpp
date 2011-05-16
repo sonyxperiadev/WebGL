@@ -29,6 +29,7 @@
 #include "WebContext.h"
 #include "WebFormSubmissionListenerProxy.h"
 #include "WebFramePolicyListenerProxy.h"
+#include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include <WebCore/DOMImplementation.h>
 #include <WebCore/Image.h>
@@ -81,6 +82,17 @@ bool WebFrameProxy::isMainFrame() const
     return this == m_page->mainFrame();
 }
 
+void WebFrameProxy::stopLoading() const
+{
+    if (!m_page)
+        return;
+
+    if (!m_page->isValid())
+        return;
+
+    m_page->process()->send(Messages::WebPage::StopLoadingFrame(m_frameID), m_page->pageID());
+}
+    
 bool WebFrameProxy::canProvideSource() const
 {
     return isDisplayingMarkupDocument();
@@ -117,7 +129,6 @@ bool WebFrameProxy::isDisplayingMarkupDocument() const
 
 void WebFrameProxy::didStartProvisionalLoad(const String& url)
 {
-    ASSERT(!url.isEmpty());
     ASSERT(m_loadState == LoadStateFinished);
     ASSERT(m_provisionalURL.isEmpty());
     m_loadState = LoadStateProvisional;
@@ -143,7 +154,6 @@ void WebFrameProxy::didFailProvisionalLoad()
 void WebFrameProxy::didCommitLoad(const String& contentType, const PlatformCertificateInfo& certificateInfo)
 {
     ASSERT(m_loadState == LoadStateProvisional);
-    ASSERT(!m_provisionalURL.isEmpty());
     m_loadState = LoadStateCommitted;
     m_url = m_provisionalURL;
     m_provisionalURL = String();
@@ -157,7 +167,6 @@ void WebFrameProxy::didFinishLoad()
 {
     ASSERT(m_loadState == LoadStateCommitted);
     ASSERT(m_provisionalURL.isEmpty());
-    ASSERT(!m_url.isEmpty());
     m_loadState = LoadStateFinished;
 }
 
@@ -303,6 +312,16 @@ void WebFrameProxy::getMainResourceData(PassRefPtr<DataCallback> callback)
     }
 
     m_page->getMainResourceDataOfFrame(this, callback);
+}
+
+void WebFrameProxy::getResourceData(WebURL* resourceURL, PassRefPtr<DataCallback> callback)
+{
+    if (!m_page) {
+        callback->invalidate();
+        return;
+    }
+
+    m_page->getResourceDataFromFrame(this, resourceURL, callback);
 }
 
 } // namespace WebKit

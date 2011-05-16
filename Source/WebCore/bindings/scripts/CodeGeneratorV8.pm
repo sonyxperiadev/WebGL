@@ -1001,6 +1001,10 @@ END
                 $implIncludes{"V8EventListenerList.h"} = 1;
                 $implIncludes{"V8WorkerContextErrorHandler.h"} = 1;
                 push(@implContentDecls, "    imp->set$implSetterFunctionName(V8EventListenerList::findOrCreateWrapper<V8WorkerContextErrorHandler>(value, true)");
+            } elsif ($interfaceName eq "DOMWindow" and $attribute->signature->name eq "onerror") {
+                $implIncludes{"V8EventListenerList.h"} = 1;
+                $implIncludes{"V8WindowErrorHandler.h"} = 1;
+                push(@implContentDecls, "    imp->set$implSetterFunctionName(V8EventListenerList::findOrCreateWrapper<V8WindowErrorHandler>(value, true)");
             } else {
                 push(@implContentDecls, "    imp->set$implSetterFunctionName(V8DOMWrapper::getEventListener(value, true, ListenerFindOrCreate)");
             }
@@ -2397,9 +2401,13 @@ END
                 push(@args, "        ${paramName}Handle");
             }
 
-            push(@implContent, "\n    v8::Handle<v8::Value> argv[] = {\n");
-            push(@implContent, join(",\n", @args));
-            push(@implContent, "\n    };\n\n");
+            if (scalar(@args) > 0) {
+                push(@implContent, "\n    v8::Handle<v8::Value> argv[] = {\n");
+                push(@implContent, join(",\n", @args));
+                push(@implContent, "\n    };\n\n");
+            } else {
+                push(@implContent, "\n    v8::Handle<v8::Value> *argv = 0;\n\n");
+            }
             push(@implContent, "    bool callbackReturnValue = false;\n");
             push(@implContent, "    return !invokeCallback(m_callback, " . scalar(@params) . ", argv, callbackReturnValue, scriptExecutionContext());\n");
             push(@implContent, "}\n");

@@ -52,12 +52,12 @@ symbian: {
         " "
     webkitlibs.pkg_prerules = vendorinfo
 
-    webkitbackup.sources = ../../Source/WebKit/qt/symbian/backup_registration.xml
+    webkitbackup.sources = ../WebKit/qt/symbian/backup_registration.xml
     webkitbackup.path = /private/10202D56/import/packages/$$replace(TARGET.UID3, 0x,)
 
     contains(QT_CONFIG, declarative) {
          declarativeImport.sources = $$QT_BUILD_TREE/imports/QtWebKit/qmlwebkitplugin$${QT_LIBINFIX}.dll
-         declarativeImport.sources += ../../Source/WebKit/qt/declarative/qmldir
+         declarativeImport.sources += ../WebKit/qt/declarative/qmldir
          declarativeImport.path = c:$$QT_IMPORTS_BASE_DIR/QtWebKit
          DEPLOYMENT += declarativeImport
     }
@@ -90,7 +90,7 @@ CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = $$PWD/../JavaScriptCore/generated
 
-    PRECOMPILED_HEADER = $$PWD/../../Source/WebKit/qt/WebKit_pch.h
+    PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
 } else {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = ../JavaScriptCore/generated
@@ -110,7 +110,7 @@ CONFIG(QTDIR_build) {
     !static: DEFINES += QT_MAKEDLL
     symbian: TARGET =$$TARGET$${QT_LIBINFIX}
 }
-moduleFile=$$PWD/../../Source/WebKit/qt/qt_webkit_version.pri
+moduleFile=$$PWD/../WebKit/qt/qt_webkit_version.pri
 isEmpty(QT_BUILD_TREE):include($$moduleFile)
 VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
 
@@ -181,8 +181,8 @@ include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 !v8: addJavaScriptCoreLib(../JavaScriptCore)
 
 webkit2 {
-    include($$PWD/../../Source/WebKit2/WebKit2.pri)
-    addWebKit2LibWholeArchive(../../Source/WebKit2)
+    include($$PWD/../WebKit2/WebKit2.pri)
+    addWebKit2LibWholeArchive(../WebKit2)
 }
 
 # Extract sources to build from the generator definitions
@@ -285,8 +285,8 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/platform/graphics/qt \
     $$PWD/platform/network/qt \
     $$PWD/platform/qt \
-    $$PWD/../../Source/WebKit/qt/Api \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport \
+    $$PWD/../WebKit/qt/Api \
+    $$PWD/../WebKit/qt/WebCoreSupport \
     $$WEBCORE_INCLUDEPATH
 
 symbian {
@@ -390,7 +390,6 @@ v8 {
         bindings/v8/V8AbstractEventListener.cpp \
         bindings/v8/V8Binding.cpp \
         bindings/v8/V8Collection.cpp \
-        bindings/v8/V8ConsoleMessage.cpp \
         bindings/v8/V8DOMMap.cpp \
         bindings/v8/V8DOMWrapper.cpp \
         bindings/v8/V8DataGridDataSource.cpp \
@@ -407,6 +406,7 @@ v8 {
         bindings/v8/V8NodeFilterCondition.cpp \
         bindings/v8/V8Proxy.cpp \
         bindings/v8/V8Utilities.cpp \
+        bindings/v8/V8WindowErrorHandler.cpp \
         bindings/v8/V8WorkerContextEventListener.cpp \
         bindings/v8/WorkerContextExecutionProxy.cpp \
         bindings/v8/WorkerScriptController.cpp \
@@ -548,6 +548,7 @@ v8 {
         bindings/js/JSDeviceOrientationEventCustom.cpp \
         bindings/js/JSDocumentCustom.cpp \
         bindings/js/JSElementCustom.cpp \
+        bindings/js/JSErrorHandler.cpp \
         bindings/js/JSEventCustom.cpp \
         bindings/js/JSEventListener.cpp \
         bindings/js/JSEventSourceCustom.cpp \
@@ -606,7 +607,6 @@ v8 {
         bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
         bindings/js/JSWebKitCSSMatrixCustom.cpp \
         bindings/js/JSWebKitPointCustom.cpp \
-        bindings/js/JSWorkerContextErrorHandler.cpp \
         bindings/js/JSXMLHttpRequestCustom.cpp \
         bindings/js/JSXMLHttpRequestUploadCustom.cpp \
         bindings/js/ScheduledAction.cpp \
@@ -1060,6 +1060,7 @@ SOURCES += \
     inspector/InspectorInstrumentation.cpp \
     inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResourceAgent.cpp \
+    inspector/InspectorRuntimeAgent.cpp \
     inspector/InspectorSettings.cpp \
     inspector/InspectorState.cpp \
     inspector/InspectorStyleSheet.cpp \
@@ -1210,6 +1211,7 @@ SOURCES += \
     platform/graphics/Path.cpp \
     platform/graphics/PathTraversalState.cpp \
     platform/graphics/Pattern.cpp \
+    platform/graphics/RoundedIntRect.cpp \
     platform/graphics/SegmentedFontData.cpp \
     platform/graphics/SimpleFontData.cpp \
     platform/graphics/TiledBackingStore.cpp \
@@ -1253,9 +1255,9 @@ SOURCES += \
     platform/network/ResourceResponseBase.cpp \
     platform/text/RegularExpression.cpp \
     platform/SchemeRegistry.cpp \
+    platform/ScrollableArea.cpp \
     platform/ScrollAnimator.cpp \
     platform/Scrollbar.cpp \
-    platform/ScrollbarClient.cpp \
     platform/ScrollbarThemeComposite.cpp \
     platform/ScrollView.cpp \
     platform/text/SegmentedString.cpp \
@@ -1463,7 +1465,6 @@ v8 {
         bindings/v8/V8AbstractEventListener.h \
         bindings/v8/V8Binding.h \
         bindings/v8/V8Collection.h \
-        bindings/v8/V8ConsoleMessage.h \
         bindings/v8/V8DataGridDataSource.h \
         bindings/v8/V8DOMMap.h \
         bindings/v8/V8DOMWindowShell.h \
@@ -1480,6 +1481,7 @@ v8 {
         bindings/v8/V8NPUtils.h \
         bindings/v8/V8Proxy.h \
         bindings/v8/V8Utilities.h \
+        bindings/v8/V8WindowErrorHandler.h \
         bindings/v8/V8WorkerContextEventListener.h \
         bindings/v8/WorkerContextExecutionProxy.h \
         bindings/v8/WorkerScriptController.h \
@@ -1506,6 +1508,7 @@ v8 {
         bindings/js/JSDOMWindowCustom.h \
         bindings/js/JSDOMWindowShell.h \
         bindings/js/JSDOMWrapper.h \
+        bindings/js/JSErrorHandler.h \
         bindings/js/JSEventListener.h \
         bindings/js/JSEventTarget.h \
         bindings/js/JSHistoryCustom.h \
@@ -1523,7 +1526,6 @@ v8 {
         bindings/js/JSPluginElementFunctions.h \
         bindings/js/JSStorageCustom.h \
         bindings/js/JSWorkerContextBase.h \
-        bindings/js/JSWorkerContextErrorHandler.h \
         bindings/js/JavaScriptCallFrame.h \
         bindings/js/ScheduledAction.h \
         bindings/js/ScriptCachedFrameData.h \
@@ -1713,6 +1715,7 @@ HEADERS += \
     dom/StyleElement.h \
     dom/TagNodeList.h \
     dom/TextEvent.h \
+    dom/TextEventInputType.h \
     dom/Text.h \
     dom/Touch.h \
     dom/TouchEvent.h \
@@ -1954,6 +1957,7 @@ HEADERS += \
     inspector/InspectorInstrumentation.h \
     inspector/InspectorProfilerAgent.h \
     inspector/InspectorResourceAgent.h \
+    inspector/InspectorRuntimeAgent.h \
     inspector/InspectorSettings.h \
     inspector/InspectorState.h \
     inspector/InspectorStyleSheet.h \
@@ -2129,6 +2133,7 @@ HEADERS += \
     platform/graphics/Path.h \
     platform/graphics/PathTraversalState.h \
     platform/graphics/Pattern.h \
+    platform/graphics/RoundedIntRect.h \
     platform/graphics/qt/FontCustomPlatformData.h \
     platform/graphics/qt/ImageDecoderQt.h \
     platform/graphics/qt/StillImageQt.h \
@@ -2189,9 +2194,9 @@ HEADERS += \
     platform/qt/QtStyleOptionWebComboBox.h \
     platform/qt/RenderThemeQt.h \
     platform/qt/ScrollbarThemeQt.h \
+    platform/ScrollableArea.h \
     platform/ScrollAnimator.h \
     platform/Scrollbar.h \
-    platform/ScrollbarClient.h \
     platform/ScrollbarThemeComposite.h \
     platform/ScrollView.h \
     platform/SearchPopupMenu.h \
@@ -2655,18 +2660,18 @@ HEADERS += \
     xml/XSLTExtensions.h \
     xml/XSLTProcessor.h \
     xml/XSLTUnicodeSort.h \
-    $$PWD/../../Source/WebKit/qt/Api/qwebplugindatabase_p.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/InspectorServerQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/PageClientQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/PopupMenuQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
-    $$PWD/../../Source/WebKit/qt/WebCoreSupport/WebPlatformStrategies.h \
+    $$PWD/../WebKit/qt/Api/qwebplugindatabase_p.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/InspectorServerQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/PopupMenuQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/WebPlatformStrategies.h \
     $$PWD/platform/network/qt/DnsPrefetchHelper.h
 
 v8 {
@@ -2754,39 +2759,39 @@ SOURCES += \
     platform/text/qt/TextCodecQt.cpp \
     platform/qt/WheelEventQt.cpp \
     platform/qt/WidgetQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/QtFallbackWebPopup.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/DragClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/PageClientQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
-    ../../Source/WebKit/qt/WebCoreSupport/WebPlatformStrategies.cpp \
-    ../../Source/WebKit/qt/Api/qwebframe.cpp \
-    ../../Source/WebKit/qt/Api/qgraphicswebview.cpp \
-    ../../Source/WebKit/qt/Api/qwebpage.cpp \
-    ../../Source/WebKit/qt/Api/qwebview.cpp \
-    ../../Source/WebKit/qt/Api/qwebelement.cpp \
-    ../../Source/WebKit/qt/Api/qwebhistory.cpp \
-    ../../Source/WebKit/qt/Api/qwebsettings.cpp \
-    ../../Source/WebKit/qt/Api/qwebhistoryinterface.cpp \
-    ../../Source/WebKit/qt/Api/qwebplugindatabase.cpp \
-    ../../Source/WebKit/qt/Api/qwebpluginfactory.cpp \
-    ../../Source/WebKit/qt/Api/qwebsecurityorigin.cpp \
-    ../../Source/WebKit/qt/Api/qwebscriptworld.cpp \
-    ../../Source/WebKit/qt/Api/qwebdatabase.cpp \
-    ../../Source/WebKit/qt/Api/qwebinspector.cpp \
-    ../../Source/WebKit/qt/Api/qwebkitversion.cpp
+    ../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.cpp \
+    ../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/DragClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp \
+    ../WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
+    ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
+    ../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
+    ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
+    ../WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
+    ../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
+    ../WebKit/qt/WebCoreSupport/WebPlatformStrategies.cpp \
+    ../WebKit/qt/Api/qwebframe.cpp \
+    ../WebKit/qt/Api/qgraphicswebview.cpp \
+    ../WebKit/qt/Api/qwebpage.cpp \
+    ../WebKit/qt/Api/qwebview.cpp \
+    ../WebKit/qt/Api/qwebelement.cpp \
+    ../WebKit/qt/Api/qwebhistory.cpp \
+    ../WebKit/qt/Api/qwebsettings.cpp \
+    ../WebKit/qt/Api/qwebhistoryinterface.cpp \
+    ../WebKit/qt/Api/qwebplugindatabase.cpp \
+    ../WebKit/qt/Api/qwebpluginfactory.cpp \
+    ../WebKit/qt/Api/qwebsecurityorigin.cpp \
+    ../WebKit/qt/Api/qwebscriptworld.cpp \
+    ../WebKit/qt/Api/qwebdatabase.cpp \
+    ../WebKit/qt/Api/qwebinspector.cpp \
+    ../WebKit/qt/Api/qwebkitversion.cpp
 
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     HEADERS += platform/qt/QtMobileWebStyle.h
@@ -2794,8 +2799,8 @@ contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
 }
 
 maemo5 {
-    HEADERS += ../../Source/WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
-    SOURCES += ../../Source/WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
+    HEADERS += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
+    SOURCES += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
 }
 
 contains(DEFINES, ENABLE_SMOOTH_SCROLLING=1) {
@@ -3259,11 +3264,11 @@ contains(DEFINES, ENABLE_VIDEO=1) {
      } else:contains(MOBILITY_CONFIG, multimedia) {
         HEADERS += \ 
             platform/graphics/qt/MediaPlayerPrivateQt.h \
-            $$PWD/../../Source/WebKit/qt/WebCoreSupport/FullScreenVideoQt.h
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.h
 
         SOURCES += \
             platform/graphics/qt/MediaPlayerPrivateQt.cpp \
-            $$PWD/../../Source/WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp
 
         CONFIG *= mobility
         MOBILITY += multimedia
@@ -3449,18 +3454,18 @@ contains(DEFINES, ENABLE_GEOLOCATION=1) {
 
 contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
     HEADERS += \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h
+        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h
 
     SOURCES += \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
-        ../../Source/WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp
+        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp
 
     CONFIG += mobility
     MOBILITY += sensors
@@ -3805,6 +3810,7 @@ contains(DEFINES, ENABLE_3D_CANVAS=1) {
         html/canvas/WebGLRenderbuffer.h \
         html/canvas/WebGLRenderingContext.h \
         html/canvas/WebGLShader.h \
+        html/canvas/OESStandardDerivatives.h \
         html/canvas/OESTextureFloat.h \
         html/canvas/WebGLTexture.h \
         html/canvas/WebGLUniformLocation.h \
@@ -3829,6 +3835,7 @@ contains(DEFINES, ENABLE_3D_CANVAS=1) {
         html/canvas/WebGLRenderbuffer.cpp \
         html/canvas/WebGLRenderingContext.cpp \
         html/canvas/WebGLShader.cpp \
+        html/canvas/OESStandardDerivatives.cpp \
         html/canvas/OESTextureFloat.cpp \
         html/canvas/WebGLTexture.cpp \
         html/canvas/WebGLUniformLocation.cpp \
@@ -3865,7 +3872,7 @@ contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
     QMAKE_EXTRA_TARGETS += install
 }
 
-include($$PWD/../../Source/WebKit/qt/Api/headers.pri)
+include($$PWD/../WebKit/qt/Api/headers.pri)
 
 HEADERS += $$WEBKIT_API_HEADERS
 
@@ -3993,9 +4000,9 @@ contains(CONFIG, texmap) {
 symbian {
     shared {
         contains(CONFIG, def_files) {
-            DEF_FILE=../../Source/WebKit/qt/symbian
+            DEF_FILE=../WebKit/qt/symbian
             # defFilePath is for Qt4.6 compatibility
-            defFilePath=../../Source/WebKit/qt/symbian
+            defFilePath=../WebKit/qt/symbian
         } else {
             MMP_RULES += EXPORTUNFROZEN
         }

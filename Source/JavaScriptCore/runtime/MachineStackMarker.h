@@ -32,14 +32,15 @@
 namespace JSC {
 
     class Heap;
-    class MarkStack;
+    class ConservativeSet;
 
-    class MachineStackMarker : public Noncopyable {
+    class MachineStackMarker {
+        WTF_MAKE_NONCOPYABLE(MachineStackMarker);
     public:
         MachineStackMarker(Heap*);
         ~MachineStackMarker();
 
-        void markMachineStackConservatively(MarkStack&);
+        void markMachineStackConservatively(ConservativeSet&);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
         void makeUsableFromMultipleThreads();
@@ -47,8 +48,8 @@ namespace JSC {
 #endif
 
     private:
-        void markCurrentThreadConservatively(MarkStack&);
-        void markCurrentThreadConservativelyInternal(MarkStack&);
+        void markCurrentThreadConservatively(ConservativeSet&);
+        void markCurrentThreadConservativelyInternal(ConservativeSet&);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
         class Thread;
@@ -56,7 +57,7 @@ namespace JSC {
         static void unregisterThread(void*);
 
         void unregisterThread();
-        void markOtherThreadConservatively(MarkStack&, Thread*);
+        void markOtherThreadConservatively(ConservativeSet&, Thread*);
 #endif
 
         Heap* m_heap;

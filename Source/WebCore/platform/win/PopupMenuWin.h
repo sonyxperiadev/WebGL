@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
@@ -23,8 +24,8 @@
 #include "IntRect.h"
 #include "PopupMenu.h"
 #include "PopupMenuClient.h"
+#include "ScrollableArea.h"
 #include "Scrollbar.h"
-#include "ScrollbarClient.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -38,7 +39,7 @@ namespace WebCore {
 class FrameView;
 class Scrollbar;
 
-class PopupMenuWin : public PopupMenu, private ScrollbarClient {
+class PopupMenuWin : public PopupMenu, private ScrollableArea {
 public:
     PopupMenuWin(PopupMenuClient*);
     ~PopupMenuWin();
@@ -78,7 +79,6 @@ private:
     void setWasClicked(bool b = true) { m_wasClicked = b; }
     bool wasClicked() const { return m_wasClicked; }
 
-    void setScrollOffset(int offset) { m_scrollOffset = offset; }
     int scrollOffset() const { return m_scrollOffset; }
 
     bool scrollToRevealSelection();
@@ -90,13 +90,17 @@ private:
     bool scrollbarCapturingMouse() const { return m_scrollbarCapturingMouse; }
     void setScrollbarCapturingMouse(bool b) { m_scrollbarCapturingMouse = b; }
 
-    // ScrollBarClient
+    // ScrollableArea
     virtual int scrollSize(ScrollbarOrientation orientation) const;
-    virtual void setScrollOffsetFromAnimation(const IntPoint&);
-    virtual void valueChanged(Scrollbar*);
+    virtual int scrollPosition(Scrollbar*) const;
+    virtual void setScrollOffset(const IntPoint&);
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const { return true; }
     virtual bool scrollbarCornerPresent() const { return false; }
+    virtual Scrollbar* verticalScrollbar() const { return m_scrollbar.get(); }
+
+    // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
+    void scrollTo(int offset);
 
     void calculatePositionAndSize(const IntRect&, FrameView*);
     void invalidateItem(int index);
@@ -120,6 +124,6 @@ private:
     bool m_showPopup;
 };
 
-}
+} // namespace WebCore
 
 #endif // PopupMenuWin_h

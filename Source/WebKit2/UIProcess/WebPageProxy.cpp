@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -227,7 +227,9 @@ void WebPageProxy::reattachToWebProcessWithItem(WebBackForwardListItem* item)
         m_backForwardList->goToItem(item);
     
     reattachToWebProcess();
-    process()->send(Messages::WebPage::GoToBackForwardItem(item->itemID()), m_pageID);
+    
+    if (item)
+        process()->send(Messages::WebPage::GoToBackForwardItem(item->itemID()), m_pageID);
 }
 
 void WebPageProxy::initializeWebPage()
@@ -475,6 +477,11 @@ void WebPageProxy::displayView()
     m_pageClient->displayView();
 }
 
+void WebPageProxy::scrollView(const IntRect& scrollRect, const IntSize& scrollOffset)
+{
+    m_pageClient->scrollView(scrollRect, scrollOffset);
+}
+
 void WebPageProxy::viewStateDidChange(ViewStateFlags flags)
 {
     if (!isValid())
@@ -490,6 +497,7 @@ void WebPageProxy::viewStateDidChange(ViewStateFlags flags)
         bool isVisible = m_pageClient->isViewVisible();
         if (isVisible != m_isVisible) {
             m_isVisible = isVisible;
+            m_drawingArea->visibilityDidChange();
             m_drawingArea->setPageIsVisible(isVisible);
         }
     }
@@ -607,6 +615,24 @@ void WebPageProxy::performDragControllerAction(DragControllerAction action, WebC
 void WebPageProxy::didPerformDragControllerAction(uint64_t resultOperation)
 {
     m_currentDragOperation = static_cast<DragOperation>(resultOperation);
+}
+
+#if PLATFORM(MAC)
+void WebPageProxy::setDragImage(const WebCore::IntPoint& clientPosition, const IntSize& imageSize, const SharedMemory::Handle& dragImageHandle, bool isLinkDrag)
+{
+    RefPtr<ShareableBitmap> dragImage = ShareableBitmap::create(imageSize, dragImageHandle);
+    if (!dragImage)
+        return;
+    
+    m_pageClient->setDragImage(clientPosition, imageSize, dragImage.release(), isLinkDrag);
+}
+#endif
+
+void WebPageProxy::dragEnded(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, uint64_t operation)
+{
+    if (!isValid())
+        return;
+    process()->send(Messages::WebPage::DragEnded(clientPosition, globalPosition, operation), m_pageID);
 }
 
 void WebPageProxy::handleMouseEvent(const WebMouseEvent& event)
@@ -960,6 +986,14 @@ void WebPageProxy::getMainResourceDataOfFrame(WebFrameProxy* frame, PassRefPtr<D
     process()->send(Messages::WebPage::GetMainResourceDataOfFrame(frame->frameID(), callbackID), m_pageID);
 }
 
+void WebPageProxy::getResourceDataFromFrame(WebFrameProxy* frame, WebURL* resourceURL, PassRefPtr<DataCallback> prpCallback)
+{
+    RefPtr<DataCallback> callback = prpCallback;
+    uint64_t callbackID = callback->callbackID();
+    m_dataCallbacks.set(callbackID, callback.get());
+    process()->send(Messages::WebPage::GetResourceDataFromFrame(frame->frameID(), resourceURL->string(), callbackID), m_pageID);
+}
+
 void WebPageProxy::getWebArchiveOfFrame(WebFrameProxy* frame, PassRefPtr<DataCallback> prpCallback)
 {
     RefPtr<DataCallback> callback = prpCallback;
@@ -1067,6 +1101,11 @@ void WebPageProxy::didCreateSubframe(uint64_t frameID, uint64_t parentFrameID)
     parentFrame->appendChild(subFrame.get());
 }
 
+static bool isDisconnectedFrame(WebFrameProxy* frame)
+{
+    return !frame->page() || !frame->page()->mainFrame() || !frame->isDescendantOf(frame->page()->mainFrame());
+}
+
 void WebPageProxy::didSaveFrameToPageCache(uint64_t frameID)
 {
     MESSAGE_CHECK(m_mainFrame);
@@ -1074,7 +1113,7 @@ void WebPageProxy::didSaveFrameToPageCache(uint64_t frameID)
     WebFrameProxy* subframe = process()->webFrame(frameID);
     MESSAGE_CHECK(subframe);
 
-    if (!subframe->parentFrame())
+    if (isDisconnectedFrame(subframe))
         return;
 
     MESSAGE_CHECK(subframe->isDescendantOf(m_mainFrame.get()));
@@ -1631,6 +1670,14 @@ void WebPageProxy::runOpenPanel(uint64_t frameID, const WebOpenPanelParameters::
 
     if (!m_uiClient.runOpenPanel(this, frame, data, m_openPanelResultListener.get()))
         didCancelForOpenPanel();
+}
+
+void WebPageProxy::printFrame(uint64_t frameID)
+{
+    WebFrameProxy* frame = process()->webFrame(frameID);
+    MESSAGE_CHECK(frame);
+
+    m_uiClient.printFrame(this, frame);
 }
 
 #if PLATFORM(QT)
@@ -2231,7 +2278,6 @@ WebPageCreationParameters WebPageProxy::creationParameters() const
     parameters.isFocused = m_pageClient->isViewFocused();
     parameters.isVisible = m_pageClient->isViewVisible();
     parameters.isInWindow = m_pageClient->isViewInWindow();
-
     parameters.drawingAreaInfo = m_drawingArea->info();
     parameters.store = m_pageGroup->preferences()->store();
     parameters.pageGroupData = m_pageGroup->data();
@@ -2242,6 +2288,7 @@ WebPageCreationParameters WebPageProxy::creationParameters() const
     parameters.userAgent = userAgent();
     parameters.sessionState = SessionState(m_backForwardList->entries(), m_backForwardList->currentIndex());
     parameters.highestUsedBackForwardItemID = WebBackForwardListItem::highedUsedItemID();
+    parameters.canRunModal = m_uiClient.canRunModal();
 
 #if PLATFORM(MAC)
     parameters.isSmartInsertDeleteEnabled = m_isSmartInsertDeleteEnabled;
@@ -2313,6 +2360,26 @@ void WebPageProxy::requestGeolocationPermissionForFrame(uint64_t geolocationID, 
 
     if (!m_uiClient.decidePolicyForGeolocationPermissionRequest(this, frame, origin.get(), request.get()))
         request->deny();
+}
+
+float WebPageProxy::headerHeight(WebFrameProxy* frame)
+{
+    return m_uiClient.headerHeight(this, frame);
+}
+
+float WebPageProxy::footerHeight(WebFrameProxy* frame)
+{
+    return m_uiClient.footerHeight(this, frame);
+}
+
+void WebPageProxy::drawHeader(WebFrameProxy* frame, const WebCore::FloatRect& rect)
+{
+    m_uiClient.drawHeader(this, frame, rect);
+}
+
+void WebPageProxy::drawFooter(WebFrameProxy* frame, const WebCore::FloatRect& rect)
+{
+    m_uiClient.drawFooter(this, frame, rect);
 }
 
 void WebPageProxy::didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference& dataReference)

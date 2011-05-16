@@ -103,6 +103,11 @@ static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKF
     return true;
 }
 
+void TestController::runModal(WKPageRef page, const void* clientInfo)
+{
+    runModal(static_cast<PlatformWebView*>(const_cast<void*>(clientInfo)));
+}
+
 static void closeOtherPage(WKPageRef page, const void* clientInfo)
 {
     WKPageClose(page);
@@ -110,7 +115,7 @@ static void closeOtherPage(WKPageRef page, const void* clientInfo)
     delete view;
 }
 
-static WKPageRef createOtherPage(WKPageRef oldPage, WKDictionaryRef, WKEventModifiers, WKEventMouseButton, const void*)
+WKPageRef TestController::createOtherPage(WKPageRef oldPage, WKDictionaryRef, WKEventModifiers, WKEventMouseButton, const void*)
 {
     PlatformWebView* view = new PlatformWebView(WKPageGetContext(oldPage), WKPageGetPageGroup(oldPage));
     WKPageRef newPage = view->page();
@@ -146,6 +151,12 @@ static WKPageRef createOtherPage(WKPageRef oldPage, WKDictionaryRef, WKEventModi
         0, // exceededDatabaseQuota
         0, // runOpenPanel
         0, // decidePolicyForGeolocationPermissionRequest
+        0, // headerHeight
+        0, // footerHeight
+        0, // drawHeader
+        0, // drawFooter
+        0, // printFrame
+        runModal,
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
 
@@ -251,6 +262,12 @@ void TestController::initialize(int argc, const char* argv[])
         0, // exceededDatabaseQuota
         0, // runOpenPanel
         0, // decidePolicyForGeolocationPermissionRequest
+        0, // headerHeight
+        0, // footerHeight
+        0, // drawHeader
+        0, // drawFooter
+        0, // printFrame
+        0, // runModal
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient);
 
@@ -327,8 +344,11 @@ bool TestController::resetStateToConsistentValues()
 
 bool TestController::runTest(const char* test)
 {
-    if (!resetStateToConsistentValues())
+    if (!resetStateToConsistentValues()) {
+        fputs("#CRASHED - WebProcess\n", stderr);
+        fflush(stderr);
         return false;
+    }
 
     m_state = RunningTest;
     m_currentInvocation.set(new TestInvocation(test));
@@ -386,6 +406,8 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKContextRef
 
 void TestController::didReceiveMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
 {
+    if (!m_currentInvocation)
+        return;
     m_currentInvocation->didReceiveMessageFromInjectedBundle(messageName, messageBody);
 }
 

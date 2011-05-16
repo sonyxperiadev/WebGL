@@ -74,7 +74,6 @@
 #include "AssociatedURLLoader.h"
 #include "BackForwardController.h"
 #include "Chrome.h"
-#include "ChromiumBridge.h"
 #include "ClipboardUtilitiesChromium.h"
 #include "Console.h"
 #include "DOMUtilitiesPrivate.h"
@@ -103,6 +102,7 @@
 #include "InspectorController.h"
 #include "Page.h"
 #include "Performance.h"
+#include "PlatformBridge.h"
 #include "PlatformContextSkia.h"
 #include "PluginDocument.h"
 #include "PrintContext.h"
@@ -284,7 +284,8 @@ WebPluginContainerImpl* WebFrameImpl::pluginContainerFromFrame(Frame* frame)
 
 // Simple class to override some of PrintContext behavior. Some of the methods
 // made virtual so that they can be overriden by ChromePluginPrintContext.
-class ChromePrintContext : public PrintContext, public Noncopyable {
+class ChromePrintContext : public PrintContext {
+    WTF_MAKE_NONCOPYABLE(ChromePrintContext);
 public:
     ChromePrintContext(Frame* frame)
         : PrintContext(frame)
@@ -883,6 +884,17 @@ void WebFrameImpl::loadHistoryItem(const WebHistoryItem& item)
     RefPtr<HistoryItem> historyItem = PassRefPtr<HistoryItem>(item);
     ASSERT(historyItem.get());
 
+    // Sanity check for http://webkit.org/b/52819.  It appears that some child
+    // items of this item might be null.  Try validating just the first set of
+    // children in an attempt to catch it early.
+    const HistoryItemVector& childItems = historyItem->children();
+    int size = childItems.size();
+    for (int i = 0; i < size; ++i) {
+      RefPtr<HistoryItem> childItem = childItems[i].get();
+      if (!childItem.get())
+        CRASH();
+    }
+
     // If there is no currentItem, which happens when we are navigating in
     // session history after a crash, we need to manufacture one otherwise WebKit
     // hoarks. This is probably the wrong thing to do, but it seems to work.
@@ -1198,6 +1210,9 @@ void WebFrameImpl::enableContinuousSpellChecking(bool enable)
 {
     if (enable == isContinuousSpellCheckingEnabled())
         return;
+    // Note, the editor will will notify the client that the continuous spell
+    // checking state has changed by calling
+    // WebFrameClient::didToggleContinuousSpellChecking().
     frame()->editor()->toggleContinuousSpellChecking();
 }
 
@@ -1820,13 +1835,13 @@ WebFrameImpl::WebFrameImpl(WebFrameClient* client)
     , m_animationController(this)
     , m_identifier(generateFrameIdentifier())
 {
-    ChromiumBridge::incrementStatsCounter(webFrameActiveCount);
+    PlatformBridge::incrementStatsCounter(webFrameActiveCount);
     frameCount++;
 }
 
 WebFrameImpl::~WebFrameImpl()
 {
-    ChromiumBridge::decrementStatsCounter(webFrameActiveCount);
+    PlatformBridge::decrementStatsCounter(webFrameActiveCount);
     frameCount--;
 
     cancelPendingScopingEffort();

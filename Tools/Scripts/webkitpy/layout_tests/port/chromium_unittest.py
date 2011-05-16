@@ -26,12 +26,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
 import unittest
 import StringIO
 
+from webkitpy.common.system import logtesting
+from webkitpy.common.system import executive_mock
+from webkitpy.common.system import filesystem_mock
 from webkitpy.tool import mocktool
 from webkitpy.thirdparty.mock import Mock
+
 
 import chromium
 import chromium_linux
@@ -98,7 +101,8 @@ class ChromiumPortTest(unittest.TestCase):
         def __init__(self, options):
             chromium_linux.ChromiumLinuxPort.__init__(self,
                                                       port_name='test-port',
-                                                      options=options)
+                                                      options=options,
+                                                      filesystem=filesystem_mock.MockFileSystem())
 
         def default_configuration(self):
             self.default_configuration_called = True
@@ -126,7 +130,7 @@ class ChromiumPortTest(unittest.TestCase):
         mock_options = mocktool.MockOptions()
         port = ChromiumPortTest.TestLinuxPort(options=mock_options)
 
-        fake_test = os.path.join(port.layout_tests_dir(), "fast/js/not-good.js")
+        fake_test = port._filesystem.join(port.layout_tests_dir(), "fast/js/not-good.js")
 
         port.test_expectations = lambda: """BUG_TEST SKIP : fast/js/not-good.js = TEXT
 LINUX WIN : fast/js/very-good.js = TIMEOUT PASS"""
@@ -153,41 +157,45 @@ LINUX WIN : fast/js/very-good.js = TIMEOUT PASS"""
             def _path_to_image_diff(self):
                 return "/path/to/image_diff"
 
-        class MockExecute:
-            def __init__(self, result):
-                self._result = result
-
-            def run_command(self,
-                            args,
-                            cwd=None,
-                            input=None,
-                            error_handler=None,
-                            return_exit_code=False,
-                            return_stderr=True,
-                            decode_output=False):
-                if return_exit_code:
-                    return self._result
-                return ''
-
         mock_options = mocktool.MockOptions()
         port = ChromiumPortTest.TestLinuxPort(mock_options)
 
         # Images are different.
-        port._executive = MockExecute(0)
+        port._executive = executive_mock.MockExecutive2(exit_code=0)
         self.assertEquals(False, port.diff_image("EXPECTED", "ACTUAL"))
 
         # Images are the same.
-        port._executive = MockExecute(1)
+        port._executive = executive_mock.MockExecutive2(exit_code=1)
         self.assertEquals(True, port.diff_image("EXPECTED", "ACTUAL"))
 
         # There was some error running image_diff.
-        port._executive = MockExecute(2)
+        port._executive = executive_mock.MockExecutive2(exit_code=2)
         exception_raised = False
         try:
             port.diff_image("EXPECTED", "ACTUAL")
         except ValueError, e:
             exception_raised = True
         self.assertFalse(exception_raised)
+
+
+class ChromiumPortLoggingTest(logtesting.LoggingTestCase):
+    def test_check_sys_deps(self):
+        mock_options = mocktool.MockOptions()
+        port = ChromiumPortTest.TestLinuxPort(options=mock_options)
+
+        # Success
+        port._executive = executive_mock.MockExecutive2(exit_code=0)
+        self.assertTrue(port.check_sys_deps(needs_http=False))
+
+        # Failure
+        port._executive = executive_mock.MockExecutive2(exit_code=1,
+            output='testing output failure')
+        self.assertFalse(port.check_sys_deps(needs_http=False))
+        self.assertLog([
+            'ERROR: System dependencies check failed.\n',
+            'ERROR: To override, invoke with --nocheck-sys-deps\n',
+            'ERROR: \n',
+            'ERROR: testing output failure\n'])
 
 if __name__ == '__main__':
     unittest.main()

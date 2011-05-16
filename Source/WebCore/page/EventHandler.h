@@ -31,6 +31,7 @@
 #include "HitTestRequest.h"
 #include "PlatformMouseEvent.h"
 #include "ScrollTypes.h"
+#include "TextEventInputType.h"
 #include "Timer.h"
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
@@ -80,7 +81,8 @@ extern const int GeneralDragHysteresis;
 
 enum HitTestScrollbars { ShouldHitTestScrollbars, DontHitTestScrollbars };
 
-class EventHandler : public Noncopyable {
+class EventHandler {
+    WTF_MAKE_NONCOPYABLE(EventHandler);
 public:
     EventHandler(Frame*);
     ~EventHandler();
@@ -173,8 +175,7 @@ public:
     bool keyEvent(const PlatformKeyboardEvent&);
     void defaultKeyboardEventHandler(KeyboardEvent*);
 
-    bool handleTextInputEvent(const String& text, Event* underlyingEvent = 0,
-        bool isLineBreak = false, bool isBackTab = false);
+    bool handleTextInputEvent(const String& text, Event* underlyingEvent = 0, TextEventInputType = TextEventInputKeyboard);
     void defaultTextInputEventHandler(TextEvent*);
 
 #if ENABLE(DRAG_SUPPORT)
@@ -224,7 +225,10 @@ private:
         PerformDragAndDrop
     };
 
-    struct EventHandlerDragState : Noncopyable {
+    struct EventHandlerDragState {
+        WTF_MAKE_NONCOPYABLE(EventHandlerDragState); WTF_MAKE_FAST_ALLOCATED;
+    public:
+        EventHandlerDragState() { }
         RefPtr<Node> m_dragSrc; // element that may be a drag source, for the current mouse gesture
         bool m_dragSrcIsLink;
         bool m_dragSrcIsImage;

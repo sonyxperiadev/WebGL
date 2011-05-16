@@ -31,9 +31,10 @@ namespace WebKit {
 
 void UpdateInfo::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
+    encoder->encode(timestamp);
     encoder->encode(viewSize);
     encoder->encode(scrollRect);
-    encoder->encode(scrollDelta);
+    encoder->encode(scrollOffset);
     encoder->encode(updateRectBounds);
     encoder->encode(updateRects);
     encoder->encode(bitmapHandle);
@@ -41,11 +42,13 @@ void UpdateInfo::encode(CoreIPC::ArgumentEncoder* encoder) const
 
 bool UpdateInfo::decode(CoreIPC::ArgumentDecoder* decoder, UpdateInfo& result)
 {
+    if (!decoder->decode(result.timestamp))
+        return false;
     if (!decoder->decode(result.viewSize))
         return false;
     if (!decoder->decode(result.scrollRect))
         return false;
-    if (!decoder->decode(result.scrollDelta))
+    if (!decoder->decode(result.scrollOffset))
         return false;
     if (!decoder->decode(result.updateRectBounds))
         return false;

@@ -53,6 +53,7 @@ void JSActivation::markChildren(MarkStack& markStack)
 {
     Base::markChildren(markStack);
 
+    // No need to mark our registers if they're still in the RegisterFile.
     Register* registerArray = d()->registerArray.get();
     if (!registerArray)
         return;
@@ -202,14 +203,16 @@ JSValue JSActivation::argumentsGetter(ExecState*, JSValue slotBase, const Identi
     JSActivation* activation = asActivation(slotBase);
     CallFrame* callFrame = CallFrame::create(activation->d()->registers);
     int argumentsRegister = activation->d()->functionExecutable->generatedBytecode().argumentsRegister();
-    if (!callFrame->uncheckedR(argumentsRegister).jsValue()) {
-        JSValue arguments = JSValue(new (callFrame) Arguments(callFrame));
-        callFrame->uncheckedR(argumentsRegister) = arguments;
-        callFrame->uncheckedR(unmodifiedArgumentsRegister(argumentsRegister)) = arguments;
-    }
+    if (JSValue arguments = callFrame->uncheckedR(argumentsRegister).jsValue())
+        return arguments;
+    int realArgumentsRegister = unmodifiedArgumentsRegister(argumentsRegister);
 
-    ASSERT(callFrame->uncheckedR(argumentsRegister).jsValue().inherits(&Arguments::info));
-    return callFrame->uncheckedR(argumentsRegister).jsValue();
+    JSValue arguments = JSValue(new (callFrame) Arguments(callFrame));
+    callFrame->uncheckedR(argumentsRegister) = arguments;
+    callFrame->uncheckedR(realArgumentsRegister) = arguments;
+    
+    ASSERT(callFrame->uncheckedR(realArgumentsRegister).jsValue().inherits(&Arguments::info));
+    return callFrame->uncheckedR(realArgumentsRegister).jsValue();
 }
 
 // These two functions serve the purpose of isolating the common case from a

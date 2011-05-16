@@ -35,9 +35,15 @@
 
 #include "Event.h"
 #include "Frame.h"
+#include "HTMLInputElement.h"
+#include "HTMLParserIdioms.h"
 #include "MouseEvent.h"
 #include "RenderSlider.h"
 #include "RenderTheme.h"
+#include "StepRange.h"
+#include <wtf/MathExtras.h>
+
+using namespace std;
 
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
 #include "TouchEvent.h"
@@ -51,7 +57,6 @@ public:
     RenderSliderThumb(Node*);
     virtual void layout();
 };
-
 
 RenderSliderThumb::RenderSliderThumb(Node* node)
     : RenderBlock(node)
@@ -84,6 +89,70 @@ RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle
     return new (arena) RenderSliderThumb(this);
 }
 
+void SliderThumbElement::dragFrom(const IntPoint& point)
+{
+    setPosition(point);
+    startDragging();
+}
+
+void SliderThumbElement::setPosition(const IntPoint& point)
+{
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowHost());
+    ASSERT(input);
+
+    if (!input->renderer() || !renderer())
+        return;
+
+    IntPoint offset = roundedIntPoint(input->renderer()->absoluteToLocal(point, false, true));
+    RenderStyle* sliderStyle = input->renderer()->style();
+    bool isVertical = sliderStyle->appearance() == SliderVerticalPart || sliderStyle->appearance() == MediaVolumeSliderPart;
+
+    int trackSize;
+    int position;
+    int currentPosition;
+    if (isVertical) {
+        trackSize = input->renderBox()->contentHeight() - renderBox()->height();
+        position = offset.y() - renderBox()->height() / 2;
+        currentPosition = renderBox()->y() - input->renderBox()->contentBoxRect().y();
+    } else {
+        trackSize = input->renderBox()->contentWidth() - renderBox()->width();
+        position = offset.x() - renderBox()->width() / 2;
+        currentPosition = renderBox()->x() - input->renderBox()->contentBoxRect().x();
+    }
+    position = max(0, min(position, trackSize));
+    if (position == currentPosition)
+        return;
+
+    StepRange range(input);
+    double fraction = static_cast<double>(position) / trackSize;
+    if (isVertical)
+        fraction = 1 - fraction;
+    double value = range.clampValue(range.valueFromProportion(fraction));
+
+    // FIXME: This is no longer being set from renderer. Consider updating the method name.
+    input->setValueFromRenderer(serializeForNumberType(value));
+    renderer()->setNeedsLayout(true);
+    input->dispatchFormControlChangeEvent();
+}
+
+void SliderThumbElement::startDragging()
+{
+    if (Frame* frame = document()->frame()) {
+        frame->eventHandler()->setCapturingMouseEventsNode(this);
+        m_inDragMode = true;
+    }
+}
+
+void SliderThumbElement::stopDragging()
+{
+    if (!m_inDragMode)
+        return;
+
+    if (Frame* frame = document()->frame())
+        frame->eventHandler()->setCapturingMouseEventsNode(0);
+    m_inDragMode = false;
+}
+
 void SliderThumbElement::defaultEventHandler(Event* event)
 {
     if (!event->isMouseEvent()
@@ -99,6 +168,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
     bool isLeftButton = mouseEvent->button() == LeftButton;
     const AtomicString& eventType = event->type();
 
+<<<<<<< HEAD
     if (eventType == eventNames().mousedownEvent && isLeftButton
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
         || eventType == eventNames().touchstartEvent
@@ -164,6 +234,18 @@ void SliderThumbElement::defaultEventHandler(Event* event)
                 return;
             }
         }
+=======
+    if (eventType == eventNames().mousedownEvent && isLeftButton) {
+        startDragging();
+        return;
+    } else if (eventType == eventNames().mouseupEvent && isLeftButton) {
+        stopDragging();
+        return;
+    } else if (eventType == eventNames().mousemoveEvent) {
+        if (m_inDragMode)
+            setPosition(mouseEvent->absoluteLocation());
+        return;
+>>>>>>> WebKit.org at r76408
     }
 
     HTMLDivElement::defaultEventHandler(event);

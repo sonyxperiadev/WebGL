@@ -329,60 +329,12 @@ bool isBlock(const Node* node)
 // knowing about these kinds of special cases.
 Node* enclosingBlock(Node* node)
 {
-    return static_cast<Element*>(enclosingNodeOfType(Position(node, 0), isBlock));
-}
-
-// Internally editing uses "invalid" positions for historical reasons.  For
-// example, in <div><img /></div>, Editing might use (img, 1) for the position
-// after <img>, but we have to convert that to (div, 1) before handing the
-// position to a Range object.  Ideally all internal positions should
-// be "range compliant" for simplicity.
-Position rangeCompliantEquivalent(const Position& pos)
-{
-    if (pos.isNull())
-        return Position();
-
-    Node* node = pos.node();
-
-    if (pos.deprecatedEditingOffset() <= 0) {
-        if (node->parentNode() && (editingIgnoresContent(node) || isTableElement(node)))
-            return positionInParentBeforeNode(node);
-        return Position(node, 0);
-    }
-
-    if (node->offsetInCharacters())
-        return Position(node, min(node->maxCharacterOffset(), pos.deprecatedEditingOffset()));
-
-    int maxCompliantOffset = node->childNodeCount();
-    if (pos.deprecatedEditingOffset() > maxCompliantOffset) {
-        if (node->parentNode())
-            return positionInParentAfterNode(node);
-
-        // there is no other option at this point than to
-        // use the highest allowed position in the node
-        return Position(node, maxCompliantOffset);
-    } 
-
-    // Editing should never generate positions like this.
-    if ((pos.deprecatedEditingOffset() < maxCompliantOffset) && editingIgnoresContent(node)) {
-        ASSERT_NOT_REACHED();
-        return node->parentNode() ? positionInParentBeforeNode(node) : Position(node, 0);
-    }
-    
-    if (pos.deprecatedEditingOffset() == maxCompliantOffset && (editingIgnoresContent(node) || isTableElement(node)))
-        return positionInParentAfterNode(node);
-    
-    return Position(pos);
-}
-
-Position rangeCompliantEquivalent(const VisiblePosition& vpos)
-{
-    return rangeCompliantEquivalent(vpos.deepEquivalent());
+    return static_cast<Element*>(enclosingNodeOfType(firstPositionInOrBeforeNode(node), isBlock));
 }
 
 // This method is used to create positions in the DOM. It returns the maximum valid offset
 // in a node.  It returns 1 for some elements even though they do not have children, which
-// creates technically invalid DOM Positions.  Be sure to call rangeCompliantEquivalent
+// creates technically invalid DOM Positions.  Be sure to call parentAnchoredEquivalent
 // on a Position before using it to create a DOM Range, or an exception will be thrown.
 int lastOffsetForEditing(const Node* node)
 {
@@ -704,7 +656,7 @@ HTMLElement* enclosingList(Node* node)
     if (!node)
         return 0;
         
-    Node* root = highestEditableRoot(Position(node, 0));
+    Node* root = highestEditableRoot(firstPositionInOrBeforeNode(node));
     
     for (ContainerNode* n = node->parentNode(); n; n = n->parentNode()) {
         if (n->hasTagName(ulTag) || n->hasTagName(olTag))
@@ -722,7 +674,7 @@ HTMLElement* enclosingListChild(Node *node)
         return 0;
     // Check for a list item element, or for a node whose parent is a list element.  Such a node
     // will appear visually as a list item (but without a list marker)
-    Node* root = highestEditableRoot(Position(node, 0));
+    Node* root = highestEditableRoot(firstPositionInOrBeforeNode(node));
     
     // FIXME: This function is inappropriately named if it starts with node instead of node->parentNode()
     for (Node* n = node; n && n->parentNode(); n = n->parentNode()) {
@@ -1081,7 +1033,8 @@ int indexForVisiblePosition(const VisiblePosition& visiblePosition)
     if (visiblePosition.isNull())
         return 0;
     Position p(visiblePosition.deepEquivalent());
-    RefPtr<Range> range = Range::create(p.node()->document(), Position(p.node()->document(), 0), rangeCompliantEquivalent(p));
+    RefPtr<Range> range = Range::create(p.node()->document(), firstPositionInNode(p.anchorNode()->document()->documentElement()),
+                                        p.parentAnchoredEquivalent());
     return TextIterator::rangeLength(range.get(), true);
 }
 
@@ -1104,11 +1057,11 @@ bool isNodeVisiblyContainedWithin(Node* node, const Range* selectedRange)
         return true;
 
     bool startIsVisuallySame = visiblePositionBeforeNode(node) == selectedRange->startPosition();
-    if (startIsVisuallySame && comparePositions(Position(node->parentNode(), node->nodeIndex()+1), selectedRange->endPosition()) < 0)
+    if (startIsVisuallySame && comparePositions(positionInParentAfterNode(node), selectedRange->endPosition()) < 0)
         return true;
 
     bool endIsVisuallySame = visiblePositionAfterNode(node) == selectedRange->endPosition();
-    if (endIsVisuallySame && comparePositions(selectedRange->startPosition(), Position(node->parentNode(), node->nodeIndex())) < 0)
+    if (endIsVisuallySame && comparePositions(selectedRange->startPosition(), positionInParentBeforeNode(node)) < 0)
         return true;
 
     return startIsVisuallySame && endIsVisuallySame;
@@ -1157,23 +1110,23 @@ VisibleSelection avoidIntersectionWithNode(const VisibleSelection& selection, No
 {
     if (selection.isNone())
         return VisibleSelection(selection);
-        
+
     VisibleSelection updatedSelection(selection);
     Node* base = selection.base().node();
     Node* extent = selection.extent().node();
     ASSERT(base);
     ASSERT(extent);
-    
+
     if (base == node || base->isDescendantOf(node)) {
         ASSERT(node->parentNode());
-        updatedSelection.setBase(Position(node->parentNode(), node->nodeIndex()));
+        updatedSelection.setBase(positionInParentBeforeNode(node));
     }
-    
+
     if (extent == node || extent->isDescendantOf(node)) {
         ASSERT(node->parentNode());
-        updatedSelection.setExtent(Position(node->parentNode(), node->nodeIndex()));
+        updatedSelection.setExtent(positionInParentBeforeNode(node));
     }
-        
+
     return updatedSelection;
 }
 

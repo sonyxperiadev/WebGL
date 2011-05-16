@@ -39,8 +39,14 @@ public:
 
     bool paintMozillaWidget(GtkThemeWidgetType, GtkWidgetState*, int flags, GtkTextDirection = GTK_TEXT_DIR_NONE);
     void gtkPaintBox(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*);
+    void gtkPaintFlatBox(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*);
     void gtkPaintFocus(const IntRect&, GtkWidget*, GtkStateType, const gchar*);
     void gtkPaintSlider(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*, GtkOrientation);
+    void gtkPaintCheck(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*);
+    void gtkPaintOption(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*);
+    void gtkPaintShadow(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, const gchar*);
+    void gtkPaintArrow(const IntRect&, GtkWidget*, GtkStateType, GtkShadowType, int arrowDirection, const gchar*);
+    void gtkPaintVLine(const IntRect&, GtkWidget*, GtkStateType, const gchar*);
 
 private:
     GraphicsContext* m_graphicsContext;

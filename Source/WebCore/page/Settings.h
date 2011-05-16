@@ -50,7 +50,8 @@ namespace WebCore {
         TextDirectionSubmenuAlwaysIncluded
     };
 
-    class Settings : public Noncopyable {
+    class Settings {
+        WTF_MAKE_NONCOPYABLE(Settings); WTF_MAKE_FAST_ALLOCATED;
     public:
         Settings(Page*);
 
@@ -379,6 +380,9 @@ namespace WebCore {
         void setPluginAllowedRunTime(unsigned);
         unsigned pluginAllowedRunTime() const { return m_pluginAllowedRunTime; }
 
+        void setWebAudioEnabled(bool);
+        bool webAudioEnabled() const { return m_webAudioEnabled; }
+
         void setWebGLEnabled(bool);
         bool webGLEnabled() const { return m_webGLEnabled; }
 
@@ -544,6 +548,7 @@ namespace WebCore {
         bool m_showRepaintCounter : 1;
         bool m_experimentalNotificationsEnabled : 1;
         bool m_webGLEnabled : 1;
+        bool m_webAudioEnabled : 1;
         bool m_acceleratedCanvas2dEnabled : 1;
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;

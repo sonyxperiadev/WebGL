@@ -26,7 +26,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
 import unittest
 
 import base
@@ -37,8 +36,8 @@ class TestFilesTest(unittest.TestCase):
     def test_find_no_paths_specified(self):
         port = base.Port()
         layout_tests_dir = port.layout_tests_dir()
-        port.layout_tests_dir = lambda: os.path.join(layout_tests_dir,
-                                                     'fast', 'html')
+        port.layout_tests_dir = lambda: port._filesystem.join(layout_tests_dir,
+                                                              'fast', 'html')
         tests = test_files.find(port, [])
         self.assertNotEqual(tests, 0)
 
@@ -64,11 +63,13 @@ class TestFilesTest(unittest.TestCase):
         self.assertEqual(tests, set([]))
 
     def test_is_test_file(self):
-        self.assertTrue(test_files._is_test_file('foo.html'))
-        self.assertTrue(test_files._is_test_file('foo.shtml'))
-        self.assertFalse(test_files._is_test_file('foo.png'))
-        self.assertFalse(test_files._is_test_file('foo-expected.html'))
-        self.assertFalse(test_files._is_test_file('foo-expected-mismatch.html'))
+        port = base.Port()
+        fs = port._filesystem
+        self.assertTrue(test_files._is_test_file(fs, '', 'foo.html'))
+        self.assertTrue(test_files._is_test_file(fs, '', 'foo.shtml'))
+        self.assertFalse(test_files._is_test_file(fs, '', 'foo.png'))
+        self.assertFalse(test_files._is_test_file(fs, '', 'foo-expected.html'))
+        self.assertFalse(test_files._is_test_file(fs, '', 'foo-expected-mismatch.html'))
 
 
 if __name__ == '__main__':

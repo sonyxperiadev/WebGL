@@ -1,3 +1,1045 @@
+2011-01-21  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit2: Need API to stop loading a WKFrame
+        https://bugs.webkit.org/show_bug.cgi?id=52925
+
+        * UIProcess/API/C/WKFrame.cpp:
+        (WKFrameStopLoading): Call through to WebFrameProxy::stopLoading.
+        * UIProcess/API/C/WKFrame.h:
+        * UIProcess/WebFrameProxy.cpp:
+        (WebKit::WebFrameProxy::stopLoading): Send a message to the WebProcess to stop loading the frame
+            with the passed in ID.
+        * UIProcess/WebFrameProxy.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::stopLoadingFrame): Call stopForUserCancel on the passed-in frame.
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in: Add StopLoadingFrame.
+
+2011-01-21  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/8894125> and https://bugs.webkit.org/show_bug.cgi?id=52916
+        Expose "suggested filename" for a resource based on its resource response.
+
+        API pieces:
+        * WebProcess/InjectedBundle/API/c/WKBundleFrame.cpp:
+        (WKBundleFrameCopySuggestedFilenameForResourceURL):
+        * WebProcess/InjectedBundle/API/c/WKBundleFrame.h:
+        
+        Implementation:
+        * WebProcess/WebPage/WebFrame.cpp:
+        (WebKit::WebFrame::suggestedFilenameForResourceURL): See if the DocumentLoader has
+          a resource for this URL and, if so, return the response's suggested filename.
+        * WebProcess/WebPage/WebFrame.h:
+
+2011-01-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        DrawingAreaProxyImpl::paint should return the unpainted region
+        https://bugs.webkit.org/show_bug.cgi?id=52918
+
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView drawRect:]):
+        Add unpaintedRegion parameter.
+
+        * UIProcess/BackingStore.h:
+        (WebKit::BackingStore::size):
+        Add a size getter.
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::paint):
+        Initialize the unpainted region to the dirty region, then subtract the painted region.
+
+2011-01-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein and Maciej Stachowiak.
+
+        Fix for <rdar://problem/8896057>
+
+        Give the Web Process access to the PubSub agent.
+
+        * WebProcess/com.apple.WebProcess.sb:
+
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Part 2 of "Cleanup Scrollbar/ScrollbarClient relationship"
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        Rename ScrollbarClient -> ScrollableArea.
+
+        * UIProcess/win/WebPopupMenuProxyWin.cpp:
+        (WebKit::WebPopupMenuProxyWin::onMouseWheel):
+        (WebKit::WebPopupMenuProxyWin::scrollToRevealSelection):
+        * UIProcess/win/WebPopupMenuProxyWin.h:
+
+2011-01-21  Adam Roben  <aroben@apple.com>
+
+        Update for WKCACFLayerRenderer -> CACFLayerView rename
+
+        Fixes <http://webkit.org/b/52898> WKCACFLayerRenderer sounds like a render object, but isn't
+
+        Reviewed by Simon Fraser.
+
+        * WebProcess/WebPage/win/LayerBackedDrawingAreaWin.cpp: Just removed all the unnecessary
+        #includes.
+
+2011-01-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKit2: Implement showModalDialog
+        https://bugs.webkit.org/show_bug.cgi?id=52855
+
+        * Shared/WebPageCreationParameters.h: Added canRunModal.
+
+        * UIProcess/API/C/WKPage.h: Added a runModal function pointer to
+        WKPageUIClient. Also removed a lot of redundant typedefs and added
+        a new one, WKPageCallback, for callbacks without arguments or return
+        values.
+
+        * UIProcess/API/qt/qwkpage.cpp:
+        (QWKPage::QWKPage): Added a runModal function pointer of 0.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::creationParameters): Set canRunModal
+        based on return value of WebUIClient::canRunModal.
+
+        * UIProcess/WebPageProxy.h: Added runModal.
+        Calls WebUIClient::runModal.
+
+        * UIProcess/WebPageProxy.messages.in: Added RunModal message.
+        Also removed the periods from the phrases in the comments
+        as Maciej requested a while back.
+
+        * UIProcess/WebUIClient.cpp:
+        (WebKit::WebUIClient::canRunModal): Added. Returns true or false
+        based on whether a runModal function was supplied in the
+        WKPageUIClient structure.
+        (WebKit::WebUIClient::runModal): Added. Calls the runModal
+        function from the WKPageUIClient structure.
+        * UIProcess/WebUIClient.h: Declared the above functions.
+
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::canRunModal): Call through to WebPage.
+        (WebKit::WebChromeClient::runModal): Ditto.
+
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::WebPage): Initialize m_canRunModal based on the
+        creation parameters. Initialize m_isRunningModal to false.
+        (WebKit::WebPage::close): Stop the nested run loop if we are running modal.
+        (WebKit::WebPage::runModal): Send a message to ask the UI process to run
+        modal and then start a nested run loop. It gets stopped when the page is closed.
+        * WebProcess/WebPage/WebPage.h: Defined the canRunModal function
+        and declared the runModal function.
+
+2011-01-20  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52849
+        Make window.print work with WebKit2
+
+        * UIProcess/API/qt/qwkpage.cpp:
+        (QWKPage::QWKPage):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::printFrame):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * UIProcess/WebUIClient.cpp:
+        (WebKit::WebUIClient::printFrame):
+        * UIProcess/WebUIClient.h:
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::print):
+        Just pass through deelagte call to a WebKit2 client.
+
+        * UIProcess/API/C/WKPage.h: Also added "Callback" suffix to other printing related function
+        types.
+
+2011-01-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Keep track of the latest update timestamp in the backing store
+        https://bugs.webkit.org/show_bug.cgi?id=52848
+
+        * Shared/UpdateInfo.h:
+        (WebKit::UpdateInfo::UpdateInfo):
+        Initialize timestamp to 0.
+
+        * UIProcess/BackingStore.cpp:
+        (WebKit::BackingStore::BackingStore):
+        Initialize m_latestUpdateTimestamp to 0.
+
+        (WebKit::BackingStore::incorporateUpdate):
+        If the update is too old, discard it. Otherwise, create a bitmap
+        and pass it to platformIncorporateUpdate. Finally update the timestamp.
+
+        * UIProcess/BackingStore.h:
+        Add m_latestUpdateTimestamp.
+
+        * UIProcess/mac/BackingStoreMac.mm:
+        (WebKit::BackingStore::platformIncorporateUpdate):
+        Update now that we are already given the shareable bitmap.
+
+2011-01-20  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Fix for <rdar://problem/8890255>
+
+        Allow WebKitSystemInterface to draw scrollbars 
+        when appropriate.
+        * WebProcess/WebCoreSupport/mac/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dave Hyatt.
+
+        Cleanup Scrollbar/ScrollbarClient relationship
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        * UIProcess/win/WebPopupMenuProxyWin.cpp:
+        (WebKit::WebPopupMenuProxyWin::scrollPosition):
+        (WebKit::WebPopupMenuProxyWin::setScrollOffset):
+        (WebKit::WebPopupMenuProxyWin::scrollTo):
+        (WebKit::WebPopupMenuProxyWin::onMouseWheel):
+        (WebKit::WebPopupMenuProxyWin::scrollToRevealSelection):
+        * UIProcess/win/WebPopupMenuProxyWin.h:
+        (WebKit::WebPopupMenuProxyWin::verticalScrollbar):
+
+2011-01-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add a timestamp to UpdateInfo
+        https://bugs.webkit.org/show_bug.cgi?id=52844
+
+        * Shared/UpdateInfo.cpp:
+        (WebKit::UpdateInfo::encode):
+        (WebKit::UpdateInfo::decode):
+        * Shared/UpdateInfo.h:
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::setSize):
+        (WebKit::DrawingAreaImpl::display):
+
+2011-01-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Add Connection::waitForAndDispatchImmediately
+        https://bugs.webkit.org/show_bug.cgi?id=52841
+
+        * Platform/CoreIPC/Connection.h:
+        (CoreIPC::Connection::waitForAndDispatchImmediately):
+
+2011-01-20  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/8880689> need a way to obtain the rendered rectangle for box elements
+        https://bugs.webkit.org/show_bug.cgi?id=52823
+        
+        * WebProcess/InjectedBundle/API/c/WKBundleNodeHandle.cpp:
+        (WKBundleNodeHandleGetRenderRect): Added new method that will return a rendered rectangle for box elements
+        * WebProcess/InjectedBundle/API/c/WKBundleNodeHandlePrivate.h: Ditto.
+        * WebProcess/InjectedBundle/DOM/InjectedBundleNodeHandle.cpp: Ditto.
+        (WebKit::InjectedBundleNodeHandle::renderRect): Ditto.
+        * WebProcess/InjectedBundle/DOM/InjectedBundleNodeHandle.h: Ditto.
+
+2011-01-20  Kimmo Kinnunen  <kimmo.t.kinnunen@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Remove null ptr deref that happens when reattaching to
+        a new web process.
+
+        Implement didRelaunchProcess that sets the drawing area size
+        after the drawing area is re-instantiated.
+
+        [Qt][WK2] Null ptr deref in UI process after web process has crashed
+        https://bugs.webkit.org/show_bug.cgi?id=52796
+
+        * UIProcess/API/qt/qgraphicswkview.cpp:
+        (QGraphicsWKView::QGraphicsWKView):
+        * UIProcess/API/qt/qwkpage.cpp:
+        (QWKPagePrivate::QWKPagePrivate):
+        (QWKPagePrivate::init):
+        (QWKPagePrivate::createDrawingAreaProxy):
+        (QWKPagePrivate::didRelaunchProcess): Reset drawing area size after crash.
+        * UIProcess/API/qt/qwkpage_p.h:
+
+2011-01-20  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKitTestRunner needs to support layoutTestController.evaluateScriptInIsolatedWorld
+        https://bugs.webkit.org/show_bug.cgi?id=42327
+        
+        Added a new API call, WKBundleFrameForJavaScriptContext, that gets the WKBundleFrameRef
+        that corresponds to a JSContextRef (or null if none).
+
+        * WebProcess/InjectedBundle/API/c/WKBundleFrame.cpp:
+        (WKBundleFrameForJavaScriptContext): Simple wrapper, defers to a WebFrame
+        static method.
+        * WebProcess/InjectedBundle/API/c/WKBundleFrame.h:
+        * WebProcess/WebPage/WebFrame.cpp:
+        (WebKit::WebFrame::frameForContext): Follow the maze of twisty pointers.
+        * WebProcess/WebPage/WebFrame.h:
+
+2011-01-20  Alejandro G. Castro  <alex@igalia.com>
+
+        Fix compilation error in GTK WebKit2.
+
+        * Platform/CoreIPC/gtk/ConnectionGtk.cpp:
+        (CoreIPC::readBytesFromSocket):
+        (CoreIPC::writeBytesToSocket):
+
+2011-01-20  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Refactoring of the custom allocation framework
+        https://bugs.webkit.org/show_bug.cgi?id=49897
+
+        Inheriting from FastAllocBase can result in objects getting larger (bug #33896, #46589).
+        The modification replaces Noncopyable and FastAllocBase classes and these inherits with their
+        equivalent macro implementation at the necessary places.
+
+2011-01-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix the WebKit2 build.
+
+        * WebProcess/WebPage/mac/LayerBackedDrawingAreaMac.mm:
+        (WebKit::LayerBackedDrawingArea::syncCompositingLayers):
+
+2011-01-19  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit2: Need API to get the parent frame of a frame
+        https://bugs.webkit.org/show_bug.cgi?id=52774
+        
+        Add the API to get the parent frame of a frame.
+
+        * UIProcess/API/C/WKFrame.cpp:
+        (WKFrameGetParentFrame):
+        * UIProcess/API/C/WKFrame.h:
+
+2011-01-19  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit2: add support for drag and drop
+        https://bugs.webkit.org/show_bug.cgi?id=52343
+        <rdar://problem/7660558>
+        
+        This patch contains the remaining work to support drag and drop on Mac.
+        I've added a PasteboardTypes class to encapsulate all the pasteboard formats
+        supported for drag and drop.
+        In this implementation we don't support the promised types, since I could not
+        find an efficient way to do this across processes.
+        The bulk of the patch consists in creating a shareable bitmap for the drag image,
+        pass its handle to the UI process and create a new NSImage from it to be given to
+        AppKit for dragging.
+        I've added the missing implementation of the methods in the drag client to hook
+        up the placement of the data in the pasteboard.
+        
+        * Shared/mac/PasteboardTypes.h: Added.
+        * Shared/mac/PasteboardTypes.mm: Added.
+        (WebKit::PasteboardTypes::forEditing):
+        (WebKit::PasteboardTypes::forURL):
+        (WebKit::PasteboardTypes::forImages):
+        (WebKit::PasteboardTypes::forImagesWithArchive):
+        * UIProcess/API/mac/PageClientImpl.h:
+        * UIProcess/API/mac/PageClientImpl.mm:
+        (WebKit::PageClientImpl::setDragImage): Added.
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView _registerDraggedTypes]): Refactored to use the new PasteboardTypes class.
+        (-[WKView initWithFrame:contextRef:pageGroupRef:]):
+        (-[WKView _setMouseDownEvent:]):
+        (-[WKView _mouseHandler:]):
+        (-[WKView mouseDown:]):
+        (-[WKView mouseUp:]):
+        (-[WKView mouseDragged:]):
+        (-[WKView draggedImage:endedAt:operation:]):
+        (-[WKView draggingEntered:]):
+        (-[WKView _setDragImage:at:linkDrag:]):
+        * UIProcess/API/mac/WKViewInternal.h:
+        * UIProcess/PageClient.h:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::setDragImage):
+        (WebKit::WebPageProxy::dragEnded):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * WebKit2.xcodeproj/project.pbxproj:
+        * WebProcess/WebCoreSupport/WebDragClient.cpp:
+        * WebProcess/WebCoreSupport/WebDragClient.h:
+        * WebProcess/WebCoreSupport/mac/WebDragClientMac.mm: Added.
+        (WebKit::fontFromNSFont):
+        (WebKit::WebDragClient::startDrag): Added implementation.
+        (WebKit::WebDragClient::createDragImageForLink): Ditto.
+        (WebKit::writeURL): Helper function.
+        (WebKit::writeImage): Helper function.
+        (WebKit::WebDragClient::declareAndWriteDragImage): Added implementation.
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::dragEnded):
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in:
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Put the deprecated Connection member functions next to eachother
+        https://bugs.webkit.org/show_bug.cgi?id=52767
+
+        * Platform/CoreIPC/Connection.h:
+        (CoreIPC::Connection::sendSync):
+        (CoreIPC::Connection::send):
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        When resizing, the web process should repaint the page
+        https://bugs.webkit.org/show_bug.cgi?id=52764
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::didSetSize):
+        Incorporate the update.
+
+        (WebKit::DrawingAreaProxyImpl::incorporateUpdate):
+        Return early if the update bounds rect is empty. This can happen if painting is
+        disabled and we get a DidSetSize message.
+
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::setSize):
+        If painting is disabled, just send back an empty UpdateInfo struct. Otherwise,
+        paint and fill in the UpdateInfo struct.
+
+        (WebKit::DrawingAreaImpl::display):
+        Assert that painting is not disabled.
+
+2011-01-19  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52739
+        Make it possible for a WebKit2 client to print headers and footers
+
+        * UIProcess/API/C/WKPage.h:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::headerHeight):
+        (WebKit::WebPageProxy::footerHeight):
+        (WebKit::WebPageProxy::drawHeader):
+        (WebKit::WebPageProxy::drawFooter):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebUIClient.cpp:
+        (WebKit::WebUIClient::headerHeight):
+        (WebKit::WebUIClient::footerHeight):
+        (WebKit::WebUIClient::drawHeader):
+        (WebKit::WebUIClient::drawFooter):
+        * UIProcess/WebUIClient.h:
+        Pass UIClient calls through.
+
+        * UIProcess/API/mac/WKView.mm:
+        (currentPrintOperationScale): A helper to extract scale factor from the current NSPrintOperation.
+        (-[WKView _adjustPrintingMarginsForHeaderAndFooter]): Copied from WebKit1. Change current
+        print info to account for header and footer height as provided by the client.
+        (-[WKView knowsPageRange:]): Call -[self _adjustPrintingMarginsForHeaderAndFooter].
+        (-[WKView drawPageBorderWithSize:]): When AppKit asks to print page border, call the client
+        to do that. Code adapted form WebKit1.
+
+        * UIProcess/API/qt/qwkpage:
+        (QWKPage::QWKPage): Added zeroes for new WKPageUIClient members to avoid breaking the build.
+
+2011-01-19  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Crash in WebDatabaseManagerProxy::getDatabaseOrigins when called after the WebProcess has
+        died at least once
+        https://bugs.webkit.org/show_bug.cgi?id=52730
+
+        WebDatabaseManagerProxy::invalidate was setting m_webContext to 0, and invalidate gets
+        called in WebContext::processDidClose. However, m_webContext is only set in the
+        constructor, which is only called from the constructor of WebContext, so attempting to send
+        a message to any new WebProcess after the first one died was causing a null deref.
+
+        This patch moves setting m_webcontext into clearContext and clearContext is only called in
+        the WebContext destructor.
+
+        This patch also adds checks for a valid WebProcessProxy before attempting to send messages to
+        the WebProcessProxy so that if the WebProcess has died and has not been revived, it does not
+        attempt to dereference a null WebProcessProxy.
+
+        * UIProcess/WebContext.cpp:
+        (WebKit::WebContext::~WebContext):
+        Call WebDatabaseManagerProxy::clearContext.
+        * UIProcess/WebContext.h:
+        (WebKit::WebContext::hasValidProcess):
+        Make this method public so that it can be called from WebDatabaseManagerProxy.
+
+        * UIProcess/WebDatabaseManagerProxy.cpp:
+        (WebKit::WebDatabaseManagerProxy::getDatabasesByOrigin):
+        If there isn't a valid process, invalidate the callback and return early.
+        (WebKit::WebDatabaseManagerProxy::getDatabaseOrigins):
+        Ditto.
+        (WebKit::WebDatabaseManagerProxy::deleteDatabaseWithNameForOrigin):
+        If tehre isn't a valid process return early.
+        (WebKit::WebDatabaseManagerProxy::deleteDatabasesForOrigin):
+        Ditto.
+        (WebKit::WebDatabaseManagerProxy::deleteAllDatabases):
+        Ditto.
+        (WebKit::WebDatabaseManagerProxy::setQuotaForOrigin):
+        Ditto.
+        (WebKit::WebDatabaseManagerProxy::invalidate):
+        Move setting m_webContext to 0 from here ...
+        * UIProcess/WebDatabaseManagerProxy.h:
+        (WebKit::WebDatabaseManagerProxy::clearContext):
+        ... to here.
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Suspend/resume painting as the WKView visibility changes
+        https://bugs.webkit.org/show_bug.cgi?id=52738
+
+        * UIProcess/DrawingAreaProxy.h:
+        (WebKit::DrawingAreaProxy::visibilityDidChange):
+        Add new member function. It should really be pure virtual once setPageIsVisible
+        is removed.
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::visibilityDidChange):
+        Send SuspendPainting/ResumePainting messages based on whether the view is visible or not.
+
+        (WebKit::DrawingAreaProxyImpl::setPageIsVisible):
+        Make this a stub; it should really be removed.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::viewStateDidChange):
+        Call visibilityDidChange.
+
+        * UIProcess/WebPageProxy.h:
+        (WebKit::WebPageProxy::isViewVisible):
+        Add new getter.
+
+        * WebProcess/WebPage/DrawingArea.messages.in:
+        Add SuspendPainting and ResumePainting messages.
+
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::DrawingAreaImpl):
+        Initialize m_isPaintingSuspended.
+
+        (WebKit::DrawingAreaImpl::suspendPainting):
+        Set m_isPaintingSuspended to true and stop the display timer.
+
+        (WebKit::DrawingAreaImpl::resumePainting):
+        Set m_isPaintingSuspended to false.
+
+        (WebKit::DrawingAreaImpl::scheduleDisplay):
+        (WebKit::DrawingAreaImpl::display):
+        Bail if m_isPaintingSuspended is true.
+
+2011-01-19  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt][WK2] Implement formatLocalizedString() for Qt.
+
+        * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebKit::formatLocalizedString):
+
+2011-01-19  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        WK2 - Multiple crashes in PlatformCALayer::replaceSublayer
+        https://bugs.webkit.org/show_bug.cgi?id=52695
+
+        Added a hostingLayer as the parent of the existing drawingLayer.
+        The hostingLayer is now the root which is passed to the 
+        remote context. It never changes except to track the size
+        of the window. The backingLayer is now a child of the 
+        hostingLayer, which allow it to switch between tiled and
+        non-tiled.
+
+        I also now give back accurate settings for debug borders and
+        repaint counters.
+
+        * WebProcess/WebPage/LayerBackedDrawingArea.cpp:
+        (WebKit::LayerBackedDrawingArea::LayerBackedDrawingArea):
+        (WebKit::LayerBackedDrawingArea::setSize):
+        (WebKit::LayerBackedDrawingArea::showDebugBorders):
+        (WebKit::LayerBackedDrawingArea::showRepaintCounter):
+        * WebProcess/WebPage/LayerBackedDrawingArea.h:
+        * WebProcess/WebPage/mac/LayerBackedDrawingAreaMac.mm:
+        (WebKit::LayerBackedDrawingArea::platformInit):
+        (WebKit::LayerBackedDrawingArea::attachCompositingContext):
+        (WebKit::LayerBackedDrawingArea::syncCompositingLayers):
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Send a new SetSize message if the size differs from the current size
+        https://bugs.webkit.org/show_bug.cgi?id=52728
+
+        * UIProcess/DrawingAreaProxy.h:
+        (WebKit::DrawingAreaProxy::didSetSize):
+        Add UpdateInfo parameter.
+
+        * UIProcess/DrawingAreaProxy.messages.in:
+        Add UpdateInfo parameter to the DidSetSize message.
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::didSetSize):
+        If the view size differs from the current size send another SetSize message.
+
+        * UIProcess/DrawingAreaProxyImpl.h:
+        Add UpdateInfo parameter to didSetSize.
+
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::setSize):
+        The DidSetSize message now takes an UpdateInfo parameter.
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Throttle sending of SetSize messages
+        https://bugs.webkit.org/show_bug.cgi?id=52727
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::DrawingAreaProxyImpl):
+        Initialize m_isWaitingForDidSetSize to false.
+
+        (WebKit::DrawingAreaProxyImpl::didSetSize):
+        Null out the backing store.
+
+        (WebKit::DrawingAreaProxyImpl::sendSetSize):
+        If m_isWaitingForDidSetSize is true, do nothing. Otherwise, set m_isWaitingForDidSetSize
+        to true and send a SetSize message.
+
+        * UIProcess/DrawingAreaProxyImpl.h:
+        Add m_isWaitingForDidSetSize.
+
+2011-01-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Pass WebPageCreationParameters to DrawingArea::create
+        https://bugs.webkit.org/show_bug.cgi?id=52726
+
+        * WebProcess/WebPage/DrawingArea.cpp:
+        (WebKit::DrawingArea::create):
+        * WebProcess/WebPage/DrawingArea.h:
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::create):
+        (WebKit::DrawingAreaImpl::DrawingAreaImpl):
+        * WebProcess/WebPage/DrawingAreaImpl.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::WebPage):
+        (WebKit::WebPage::changeAcceleratedCompositingMode):
+
+2011-01-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Laszlo Gombos and Tor Arne Vestbø.
+
+        [Qt] Remove unnecessary "../Source" from paths
+        after moving source files into Source is finished.
+
+        * DerivedSources.pro:
+        * WebKit2.pro:
+
+2011-01-18  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner should track loading more like DumpRenderTree
+        https://bugs.webkit.org/show_bug.cgi?id=52692
+        
+        Relax the message check in didSaveFrameToPageCache a bit more, since
+        layout tests were still hitting the old one.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::isDisconnectedFrame):
+        (WebKit::WebPageProxy::didSaveFrameToPageCache):
+
+2011-01-18  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8860833> and https://bugs.webkit.org/show_bug.cgi?id=52599
+        UIProcess crash in WebPageProxy::reattachToWebProcess when web process crashes with a new tab/window.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::reattachToWebProcessWithItem): Null check item *both* places it is used.
+
+2011-01-18  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Maciej Stachowiak. 
+
+        <rdar://problem/8752200> and https://bugs.webkit.org/show_bug.cgi?id=52664
+        Need WebKit2 API to asynchronously get the resource data for a URL
+
+        Rename WKFrameGetMainResourceDataFunction to WKFrameGetResourceDataFunction, and add
+        new API to get a resource by URL:
+        * UIProcess/API/C/WKFrame.cpp:
+        (WKFrameGetMainResourceData):
+        (WKFrameGetResourceData):
+        (callGetResourceDataBlockAndDispose):
+        (WKFrameGetMainResourceData_b):
+        (WKFrameGetResourceData_b):
+        * UIProcess/API/C/WKFrame.h:
+
+        Implement the new API in the UIProcess side:
+        * UIProcess/WebFrameProxy.cpp:
+        (WebKit::WebFrameProxy::getResourceData):
+        * UIProcess/WebFrameProxy.h:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::getResourceDataFromFrame):
+        * UIProcess/WebPageProxy.h:
+
+        Have the WebProcess get the data and call back to the UIProcess:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::getResourceDataFromFrame):
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in:
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Make PageClientImpl::scrollView do hardware blitting
+        https://bugs.webkit.org/show_bug.cgi?id=52689
+
+        * UIProcess/API/mac/PageClientImpl.mm:
+        (WebKit::PageClientImpl::scrollView):
+        Clip the scroll rect and scroll the view.
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::incorporateUpdate):
+        Scroll before painting.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Artifacts when scrolling with new drawing area
+        https://bugs.webkit.org/show_bug.cgi?id=52682
+
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::scroll):
+        When scrolling, we want the intersection of the scroll rect and clip rect.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Use a CGLayer for the backing store when possible
+        https://bugs.webkit.org/show_bug.cgi?id=52679
+
+        * UIProcess/mac/BackingStoreMac.mm:
+        (WebKit::BackingStore::paint):
+        If there is a layer, paint it into the given context.
+
+        (WebKit::BackingStore::backingStoreContext):
+        If we can get the containing window graphics context, use it to create a 
+        CGLayer that we'll use for the backing store.
+
+        (WebKit::BackingStore::scroll):
+        Paint the layer into itself.
+
+        * UIProcess/mac/WebPageProxyMac.mm:
+        (WebKit::WebPageProxy::containingWindowGraphicsContext):
+        Call the page client.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Pass the web page proxy to BackingStore::create
+        https://bugs.webkit.org/show_bug.cgi?id=52673
+
+        * UIProcess/BackingStore.cpp:
+        (WebKit::BackingStore::create):
+        Add WebPageProxy parameter.
+    
+        (WebKit::BackingStore::BackingStore):
+        Add WebPageProxy parameter.
+
+        * UIProcess/BackingStore.h:
+        Add WebPageProxy member variable.
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::incorporateUpdate):
+        Pass the web page proxy when creating the backing store.
+
+        * UIProcess/mac/BackingStoreMac.mm:
+        (WebKit::BackingStore::backingStoreContext):
+        Set the default blend mode.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Factor code to create the backing store bitmap context out into a new function
+        https://bugs.webkit.org/show_bug.cgi?id=52670
+
+        * UIProcess/BackingStore.h:
+        * UIProcess/mac/BackingStoreMac.mm:
+        (WebKit::BackingStore::backingStoreContext):
+        Create the backing store context.
+
+        (WebKit::BackingStore::incorporateUpdate):
+        Call backingStoreContext.
+
+        (WebKit::BackingStore::scroll):
+        Assert that the context is not null.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add PageClientImpl::containingWindowGraphicsContext
+        https://bugs.webkit.org/show_bug.cgi?id=52666
+
+        * UIProcess/API/mac/PageClientImpl.h:
+        * UIProcess/API/mac/PageClientImpl.mm:
+        (WebKit::PageClientImpl::containingWindowGraphicsContext):
+        * UIProcess/PageClient.h:
+        * UIProcess/WebPageProxy.h:
+
+2011-01-18  Damian Kaleta  <dkaleta@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WK2 methods WKPageScaleWebView and WKPageGetViewScaleFactor need to have consistent names
+        https://bugs.webkit.org/show_bug.cgi?id=52647
+
+        * UIProcess/API/C/WKPage.cpp:
+        (WKPageSetScaleFactor):
+        (WKPageGetScaleFactor):
+        * UIProcess/API/C/WKPage.h:
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Ask the web page proxy to scroll the view when needed
+        https://bugs.webkit.org/show_bug.cgi?id=52665
+
+        * UIProcess/DrawingAreaProxyImpl.cpp:
+        (WebKit::DrawingAreaProxyImpl::incorporateUpdate):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::scrollView):
+        * UIProcess/WebPageProxy.h:
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+
+        * UIProcess/win/WebView.cpp:
+        (WebKit::WebView::scrollView):
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add PageClient::scrollView
+        https://bugs.webkit.org/show_bug.cgi?id=52663
+
+        * UIProcess/API/mac/PageClientImpl.h:
+        * UIProcess/API/mac/PageClientImpl.mm:
+        (WebKit::PageClientImpl::scrollView):
+        * UIProcess/API/qt/qwkpage.cpp:
+        (QWKPagePrivate::scrollView):
+        * UIProcess/API/qt/qwkpage_p.h:
+        * UIProcess/PageClient.h:
+        * UIProcess/win/WebView.cpp:
+        (WebKit::PageClientImpl::scrollView):
+        * UIProcess/win/WebView.h:
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename scrollDelta to scrollOffset everywhere.
+
+        * Shared/UpdateInfo.cpp:
+        (WebKit::UpdateInfo::encode):
+        (WebKit::UpdateInfo::decode):
+        * Shared/UpdateInfo.h:
+        * UIProcess/BackingStore.h:
+        * UIProcess/mac/BackingStoreMac.mm:
+        (WebKit::BackingStore::incorporateUpdate):
+        (WebKit::BackingStore::scroll):
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::scroll):
+        (WebKit::WebChromeClient::delegatedScrollRequested):
+        * WebProcess/WebCoreSupport/WebChromeClient.h:
+        * WebProcess/WebPage/ChunkedUpdateDrawingArea.cpp:
+        (WebKit::ChunkedUpdateDrawingArea::scroll):
+        * WebProcess/WebPage/ChunkedUpdateDrawingArea.h:
+        * WebProcess/WebPage/DrawingArea.h:
+        * WebProcess/WebPage/DrawingAreaImpl.cpp:
+        (WebKit::DrawingAreaImpl::scroll):
+        (WebKit::DrawingAreaImpl::display):
+        * WebProcess/WebPage/DrawingAreaImpl.h:
+        * WebProcess/WebPage/LayerBackedDrawingArea.cpp:
+        (WebKit::LayerBackedDrawingArea::scroll):
+        * WebProcess/WebPage/LayerBackedDrawingArea.h:
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get and paint each individual rect in -[WKView drawRect:]
+        https://bugs.webkit.org/show_bug.cgi?id=52660
+
+        * UIProcess/API/mac/WKView.mm:
+        (-[WKView drawRect:]):
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Assertion when loading two URLs in quick succession
+        https://bugs.webkit.org/show_bug.cgi?id=52649
+        <rdar://problem/8764645>
+
+        If beginLoad is called twice without didStartProvisionalLoad being called in between,
+        m_pendingProvisionalSandboxExtension would be non-null and an assert would fire.
+
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::SandboxExtensionTracker::beginLoad):
+        Instead of asserting that m_pendingProvisionalSandboxExtension is null, invalidate it
+        if it is not null, since that's valid.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Implement NPN_PopUpContextMenu
+        https://bugs.webkit.org/show_bug.cgi?id=52646
+        <rdar://problem/8735616>
+
+        * WebProcess/Plugins/Netscape/NetscapeBrowserFuncs.cpp:
+        (WebKit::NPN_PopUpContextMenu):
+        Call NetscapePlugin::popUpContextMenu.
+
+        * WebProcess/Plugins/Netscape/NetscapePlugin.cpp:
+        (WebKit::NetscapePlugin::NetscapePlugin):
+        Initialize m_currentMouseEvent.
+
+        * WebProcess/Plugins/Netscape/NetscapePlugin.h:
+        Add m_currentMouseEvent.
+
+        * WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm:
+        (WebKit::NetscapePlugin::popUpContextMenu):
+        Convert the coordinates from the current mouse event to screen coordinates and call
+        WKPopupContextMenu.
+
+        (WebKit::NetscapePlugin::platformHandleMouseEvent):
+        Update m_currentMouseEvent.
+
+2011-01-18  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit2: Do not assert that the provisional and committed URLs cannot be empty/null
+        https://bugs.webkit.org/show_bug.cgi?id=52641
+
+        * UIProcess/WebFrameProxy.cpp:
+        (WebKit::WebFrameProxy::didStartProvisionalLoad):
+        (WebKit::WebFrameProxy::didCommitLoad):
+        (WebKit::WebFrameProxy::didFinishLoad):
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        ASSERT in plug-in code when going to youtube
+        https://bugs.webkit.org/show_bug.cgi?id=52638
+
+        * PluginProcess/PluginControllerProxy.cpp:
+        (WebKit::PluginControllerProxy::paintEntirePlugin):
+        Don't try to paint the plug-in if the plug-in frame is empty.
+
+2011-01-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Plug-in hosting WebProcess instances appear in Activity Monitor as WebProcess
+        https://bugs.webkit.org/show_bug.cgi?id=52635
+        <rdar://problem/8731337>
+
+        * PluginProcess/PluginProcess.cpp:
+        (WebKit::PluginProcess::initialize):
+        Call platformInitialize.
+
+        * PluginProcess/PluginProcess.h:
+        Add platformInitialize.
+
+        * PluginProcess/mac/PluginProcessMac.mm:
+        (WebKit::PluginProcess::platformInitialize):
+        Set the compositing render server port and the visible application name.
+
+        * Shared/Plugins/PluginProcessCreationParameters.cpp:
+        (WebKit::PluginProcessCreationParameters::encode):
+        (WebKit::PluginProcessCreationParameters::decode):
+        Encode/decode the parent process name.
+
+        * Shared/Plugins/PluginProcessCreationParameters.h:
+        Add parentProcessName.
+
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::encode):
+        (WebKit::WebProcessCreationParameters::decode):
+        Encode/decode the parent process name.
+
+        * Shared/WebProcessCreationParameters.h:
+        Add parentProcessName.
+
+        * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+        (WebKit::ProcessLauncher::launchProcess):
+        Don't pass the parent process name here.
+
+        * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+        (WebKit::PluginProcessProxy::platformInitializePluginProcess):
+        Set the visible name.
+
+        * UIProcess/mac/WebContextMac.mm:
+        (WebKit::WebContext::platformInitializeWebProcess):
+        Pass along the parent process name.
+
+        * WebProcess/mac/WebProcessMac.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+        Set the visible name.
+
+        * WebProcess/mac/WebProcessMainMac.mm:
+        (WebKit::WebProcessMain):
+        Don't set the visible name here. It's done in platformInitializeWebProcess.
+
+2011-01-18  Balazs Kelemen  <kbalazs@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [Qt][WK2] Not implemented warnings should not break layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=52616
+
+        * WebKit2Prefix.h: Define DISABLE_NOT_IMPLEMENTED_WARNINGS on Qt.
+
 2011-01-17  Jon Honeycutt  <jhoneycutt@apple.com>
 
         Windows build fix. Unreviewed.

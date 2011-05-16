@@ -47,45 +47,42 @@ public:
         monitoringXHR = 1,
         timelineProfilerEnabled,
         searchingForNode,
-        pauseOnExceptionsState,
         consoleMessagesEnabled,
         userInitiatedProfiling,
-        stickyBreakpoints,
+        browserBreakpoints,
+        resourceAgentEnabled,
         lastPropertyId
     };
 
     InspectorState(InspectorClient* client);
 
-    PassRefPtr<InspectorObject> generateStateObjectForFrontend();
     void restoreFromInspectorCookie(const String& jsonString);
-    String getFrontendAlias(InspectorPropertyId propertyId);
 
-    bool getBoolean(InspectorPropertyId propertyId);
-    String getString(InspectorPropertyId propertyId);
-    long getLong(InspectorPropertyId propertyId);
-    PassRefPtr<InspectorObject> getObject(InspectorPropertyId id);
+    bool getBoolean(InspectorPropertyId);
+    String getString(InspectorPropertyId);
+    long getLong(InspectorPropertyId);
+    PassRefPtr<InspectorObject> getObject(InspectorPropertyId);
 
     void setBoolean(InspectorPropertyId propertyId, bool value) { setValue(propertyId, InspectorBasicValue::create(value)); }
     void setString(InspectorPropertyId propertyId, const String& value) { setValue(propertyId, InspectorString::create(value)); }
     void setLong(InspectorPropertyId propertyId, long value) { setValue(propertyId, InspectorBasicValue::create((double)value)); }
-    void setObject(InspectorPropertyId propertyId, PassRefPtr<InspectorObject> value);
+    void setObject(InspectorPropertyId, PassRefPtr<InspectorObject> value);
 
 private:
     void updateCookie();
-    void setValue(InspectorPropertyId propertyId, PassRefPtr<InspectorValue> value);
+    void setValue(InspectorPropertyId, PassRefPtr<InspectorValue>);
 
     struct Property {
-        static Property create(PassRefPtr<InspectorValue> value, const String& frontendAlias);
-        String m_frontendAlias;
+        static Property create(PassRefPtr<InspectorValue> value);
         RefPtr<InspectorValue> m_value;
     };
     typedef HashMap<long, Property> PropertyMap;
     PropertyMap m_properties;
 
-    void registerBoolean(InspectorPropertyId propertyId, bool value, const String& frontendAlias);
-    void registerString(InspectorPropertyId propertyId, const String& value, const String& frontendAlias);
-    void registerLong(InspectorPropertyId propertyId, long value, const String& frontendAlias);
-    void registerObject(InspectorPropertyId propertyId, const String& frontendAlias);
+    void registerBoolean(InspectorPropertyId, bool value);
+    void registerString(InspectorPropertyId, const String& value);
+    void registerLong(InspectorPropertyId, long value);
+    void registerObject(InspectorPropertyId);
 
     InspectorClient* m_client;
 };

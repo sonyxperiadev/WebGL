@@ -41,17 +41,20 @@ class UpdateInfo {
     WTF_MAKE_NONCOPYABLE(UpdateInfo);
 
 public:
-    UpdateInfo() { }
+    UpdateInfo() : timestamp(0) { }
 
     void encode(CoreIPC::ArgumentEncoder*) const;
     static bool decode(CoreIPC::ArgumentDecoder*, UpdateInfo&);
+
+    // The timestamp of this update.
+    double timestamp;
 
     // The size of the web view.
     WebCore::IntSize viewSize;
 
     // The rect and delta to be scrolled.
     WebCore::IntRect scrollRect;
-    WebCore::IntSize scrollDelta;
+    WebCore::IntSize scrollOffset;
     
     // The bounds of the update rects.
     WebCore::IntRect updateRectBounds;

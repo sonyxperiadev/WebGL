@@ -33,6 +33,7 @@ from __future__ import with_statement
 import codecs
 import errno
 import exceptions
+import glob
 import os
 import shutil
 import tempfile
@@ -43,10 +44,70 @@ class FileSystem(object):
 
     Unless otherwise noted, all paths are allowed to be either absolute
     or relative."""
+    def __init__(self):
+        self.sep = os.sep
+
+    def abspath(self, path):
+        return os.path.abspath(path)
+
+    def basename(self, path):
+        """Wraps os.path.basename()."""
+        return os.path.basename(path)
+
+    def copyfile(self, source, destination):
+        """Copies the contents of the file at the given path to the destination
+        path."""
+        shutil.copyfile(source, destination)
+
+    def dirname(self, path):
+        """Wraps os.path.dirname()."""
+        return os.path.dirname(path)
 
     def exists(self, path):
         """Return whether the path exists in the filesystem."""
         return os.path.exists(path)
+
+    def files_under(self, path, dirs_to_skip=[], file_filter=None):
+        """Return the list of all files under the given path in topdown order.
+
+        Args:
+            dirs_to_skip: a list of directories to skip over during the
+                traversal (e.g., .svn, resources, etc.)
+            file_filter: if not None, the filter will be invoked
+                with the filesystem object and the dirname and basename of
+                each file found. The file is included in the result if the
+                callback returns True.
+        """
+        def filter_all(fs, dirpath, basename):
+            return True
+
+        file_filter = file_filter or filter_all
+        files = []
+        if self.isfile(path):
+            if file_filter(self, self.dirname(path), self.basename(path)):
+                files.append(path)
+            return files
+
+        if self.basename(path) in dirs_to_skip:
+            return []
+
+        for (dirpath, dirnames, filenames) in os.walk(path):
+            for d in dirs_to_skip:
+                if d in dirnames:
+                    dirnames.remove(d)
+
+            for filename in filenames:
+                if file_filter(self, dirpath, filename):
+                    files.append(self.join(dirpath, filename))
+        return files
+
+    def glob(self, path):
+        """Wraps glob.glob()."""
+        return glob.glob(path)
+
+    def isabs(self, path):
+        """Return whether the path is an absolute path."""
+        return os.path.isabs(path)
 
     def isfile(self, path):
         """Return whether the path refers to a file."""
@@ -71,14 +132,20 @@ class FileSystem(object):
         the directory will self-delete at the end of the block (if the
         directory is empty; non-empty directories raise errors). The
         directory can be safely deleted inside the block as well, if so
-        desired."""
+        desired.
+
+        Note that the object returned is not a string and does not support all of the string
+        methods. If you need a string, coerce the object to a string and go from there.
+        """
         class TemporaryDirectory(object):
             def __init__(self, **kwargs):
                 self._kwargs = kwargs
-                self._directory_path = None
+                self._directory_path = tempfile.mkdtemp(**self._kwargs)
+
+            def __str__(self):
+                return self._directory_path
 
             def __enter__(self):
-                self._directory_path = tempfile.mkdtemp(**self._kwargs)
                 return self._directory_path
 
             def __exit__(self, type, value, traceback):
@@ -97,6 +164,41 @@ class FileSystem(object):
         except OSError, e:
             if e.errno != errno.EEXIST:
                 raise
+
+    def move(self, src, dest):
+        shutil.move(src, dest)
+
+    def mtime(self, path):
+        return os.stat(path).st_mtime
+
+    def normpath(self, path):
+        """Wraps os.path.normpath()."""
+        return os.path.normpath(path)
+
+    def open_binary_tempfile(self, suffix):
+        """Create, open, and return a binary temp file. Returns a tuple of the file and the name."""
+        temp_fd, temp_name = tempfile.mkstemp(suffix)
+        f = os.fdopen(temp_fd, 'wb')
+        return f, temp_name
+
+    def open_text_file_for_writing(self, path, append=False):
+        """Returns a file handle suitable for writing to."""
+        mode = 'w'
+        if append:
+            mode = 'a'
+        return codecs.open(path, mode, 'utf8')
+
+    def read_binary_file(self, path):
+        """Return the contents of the file at the given path as a byte string."""
+        with file(path, 'rb') as f:
+            return f.read()
+
+    def read_text_file(self, path):
+        """Return the contents of the file at the given path as a Unicode string.
+
+        The file is read assuming it is a UTF-8 encoded file with no BOM."""
+        with codecs.open(path, 'r', 'utf8') as f:
+            return f.read()
 
     class _WindowsError(exceptions.OSError):
         """Fake exception for Linux and Mac."""
@@ -124,8 +226,9 @@ class FileSystem(object):
                 if retry_timeout_sec < 0:
                     raise e
 
-    def remove_tree(self, path, ignore_errors=False):
-        shutil.rmtree(path, ignore_errors)
+    def rmtree(self, path):
+        """Delete the directory rooted at path, empty or no."""
+        shutil.rmtree(path, ignore_errors=True)
 
     def read_binary_file(self, path):
         """Return the contents of the file at the given path as a byte string."""
@@ -139,6 +242,10 @@ class FileSystem(object):
         with codecs.open(path, 'r', 'utf8') as f:
             return f.read()
 
+    def splitext(self, path):
+        """Return (dirname + os.sep + basename, '.' + ext)"""
+        return os.path.splitext(path)
+
     def write_binary_file(self, path, contents):
         """Write the contents to the file at the given location."""
         with file(path, 'wb') as f:
@@ -150,14 +257,3 @@ class FileSystem(object):
         The file is written encoded as UTF-8 with no BOM."""
         with codecs.open(path, 'w', 'utf8') as f:
             f.write(contents)
-
-    def copyfile(self, source, destination):
-        """Copies the contents of the file at the given path to the destination
-        path."""
-        shutil.copyfile(source, destination)
-
-    def files_under(self, path):
-        """Return the list of all files under the given path."""
-        return [self.join(path_to_file, filename)
-            for (path_to_file, _, filenames) in os.walk(path)
-            for filename in filenames]

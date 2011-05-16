@@ -50,6 +50,7 @@
 #include "Settings.h"
 #endif
 #include "RenderView.h"
+#include "ScrollbarTheme.h"
 #include "TransformState.h"
 #include <algorithm>
 #include <math.h>
@@ -573,6 +574,18 @@ IntRect RenderBox::reflectedRect(const IntRect& r) const
     return result;
 }
 
+bool RenderBox::includeVerticalScrollbarSize() const
+{
+    return !ScrollbarTheme::nativeTheme()->usesOverlayScrollbars() 
+        && hasOverflowClip() && (style()->overflowY() == OSCROLL || style()->overflowY() == OAUTO);
+}
+
+bool RenderBox::includeHorizontalScrollbarSize() const
+{
+    return !ScrollbarTheme::nativeTheme()->usesOverlayScrollbars()
+        && hasOverflowClip() && (style()->overflowX() == OSCROLL || style()->overflowX() == OAUTO);
+}
+
 int RenderBox::verticalScrollbarWidth() const
 {
     return includeVerticalScrollbarSize() ? layer()->verticalScrollbarWidth() : 0;
@@ -1078,14 +1091,8 @@ bool RenderBox::pushContentsClip(PaintInfo& paintInfo, int tx, int ty)
     }
     IntRect clipRect(isControlClip ? controlClipRect(tx, ty) : overflowClipRect(tx, ty));
     paintInfo.context->save();
-    if (style()->hasBorderRadius()) {
-        IntSize topLeft, topRight, bottomLeft, bottomRight;
-        IntRect borderRect = IntRect(tx, ty, width(), height());
-        style()->getBorderRadiiForRect(borderRect, topLeft, topRight, bottomLeft, bottomRight);
-
-        paintInfo.context->addRoundedRectClip(borderRect, topLeft, topRight, bottomLeft, bottomRight);
-    }
-    
+    if (style()->hasBorderRadius())
+        paintInfo.context->addRoundedRectClip(style()->getRoundedBorderFor(IntRect(tx, ty, width(), height())));
     paintInfo.context->clip(clipRect);
     return true;
 }
@@ -3164,14 +3171,12 @@ VisiblePosition RenderBox::positionForPoint(const IntPoint& point)
 
 bool RenderBox::shrinkToAvoidFloats() const
 {
-    // FIXME: Technically we should be able to shrink replaced elements on a line, but this is difficult to accomplish, since this
-    // involves doing a relayout during findNextLineBreak and somehow overriding the containingBlockWidth method to return the
-    // current remaining width on a line.
-    if ((isInline() && !isHTMLMarquee()) || !avoidsFloats())
+    // Floating objects don't shrink.  Objects that don't avoid floats don't shrink.  Marquees don't shrink.
+    if ((isInline() && !isHTMLMarquee()) || !avoidsFloats() || isFloating())
         return false;
 
     // All auto-width objects that avoid floats should always use lineWidth.
-    return style()->width().isAuto();
+    return style()->width().isAuto(); 
 }
 
 bool RenderBox::avoidsFloats() const

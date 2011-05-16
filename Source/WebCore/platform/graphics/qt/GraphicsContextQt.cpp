@@ -8,7 +8,7 @@
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (C) 2008 Dirk Schulze <vbs85@gmx.de>
- * Copyright (C) 2010 Sencha, Inc.
+ * Copyright (C) 2010, 2011 Sencha, Inc.
  *
  * All rights reserved.
  *
@@ -174,7 +174,8 @@ static inline Qt::FillRule toQtFillRule(WindRule rule)
     return Qt::OddEvenFill;
 }
 
-class GraphicsContextPlatformPrivate : public Noncopyable {
+class GraphicsContextPlatformPrivate {
+    WTF_MAKE_NONCOPYABLE(GraphicsContextPlatformPrivate); WTF_MAKE_FAST_ALLOCATED;
 public:
     GraphicsContextPlatformPrivate(QPainter*, const QColor& initialSolidColor);
     ~GraphicsContextPlatformPrivate();
@@ -505,14 +506,19 @@ void GraphicsContext::fillPath(const Path& path)
                     brush.setTransform(m_state.fillGradient->gradientSpaceTransform());
                     shadowPainter->setOpacity(static_cast<qreal>(shadow->m_color.alpha()) / 255);
                     shadowPainter->fillPath(platformPath, brush);
-                } else
-                    shadowPainter->fillPath(platformPath, QColor(shadow->m_color));
+                } else {
+                    QColor shadowColor = shadow->m_color;
+                    shadowColor.setAlphaF(shadowColor.alphaF() * p->brush().color().alphaF());
+                    shadowPainter->fillPath(platformPath, shadowColor);
+                }
                 shadow->endShadowLayer(this);
             }
         } else {
             QPointF offset = shadow->offset();
             p->translate(offset);
-            p->fillPath(platformPath, QColor(shadow->m_color));
+            QColor shadowColor = shadow->m_color;
+            shadowColor.setAlphaF(shadowColor.alphaF() * p->brush().color().alphaF());
+            p->fillPath(platformPath, shadowColor);
             p->translate(-offset);
         }
     }
@@ -550,10 +556,12 @@ void GraphicsContext::strokePath(const Path& path)
                 shadow->endShadowLayer(this);
             }
         } else {
-            QPen shadowPen(pen);
-            shadowPen.setColor(m_data->shadow.m_color);
             QPointF offset = shadow->offset();
             p->translate(offset);
+            QColor shadowColor = shadow->m_color;
+            shadowColor.setAlphaF(shadowColor.alphaF() * pen.color().alphaF());
+            QPen shadowPen(pen);
+            shadowPen.setColor(shadowColor);
             p->strokePath(platformPath, shadowPen);
             p->translate(-offset);
         }
@@ -983,11 +991,9 @@ void GraphicsContext::clearRect(const FloatRect& rect)
 
     QPainter* p = m_data->p();
     QPainter::CompositionMode currentCompositionMode = p->compositionMode();
-    if (p->paintEngine()->hasFeature(QPaintEngine::PorterDuff))
-        p->setCompositionMode(QPainter::CompositionMode_Source);
+    p->setCompositionMode(QPainter::CompositionMode_Source);
     p->fillRect(rect, Qt::transparent);
-    if (p->paintEngine()->hasFeature(QPaintEngine::PorterDuff))
-        p->setCompositionMode(currentCompositionMode);
+    p->setCompositionMode(currentCompositionMode);
 }
 
 void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
@@ -1077,12 +1083,7 @@ void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
     if (paintingDisabled())
         return;
 
-    QPainter* painter = m_data->p();
-
-    if (!painter->paintEngine()->hasFeature(QPaintEngine::PorterDuff))
-        return;
-
-    painter->setCompositionMode(toQtCompositionMode(op));
+    m_data->p()->setCompositionMode(toQtCompositionMode(op));
 }
 
 void GraphicsContext::clip(const Path& path)

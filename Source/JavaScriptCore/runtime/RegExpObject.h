@@ -58,9 +58,9 @@ namespace JSC {
     private:
         bool match(ExecState*);
 
-        virtual CallType getCallData(CallData&);
-
-        struct RegExpObjectData : FastAllocBase {
+        struct RegExpObjectData {
+            WTF_MAKE_FAST_ALLOCATED;
+        public:
             RegExpObjectData(NonNullPassRefPtr<RegExp> regExp, double lastIndex)
                 : regExp(regExp)
                 , lastIndex(lastIndex)
@@ -70,7 +70,9 @@ namespace JSC {
             RefPtr<RegExp> regExp;
             double lastIndex;
         };
-
+#if PLATFORM(WIN)
+        friend void WTF::deleteOwnedPtr<RegExpObjectData>(RegExpObjectData*);
+#endif
         OwnPtr<RegExpObjectData> d;
     };
 

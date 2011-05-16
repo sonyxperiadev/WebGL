@@ -1,3 +1,484 @@
+2011-01-21  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        [RegexFuzz] Hang with forward assertion
+        https://bugs.webkit.org/show_bug.cgi?id=52825
+        <rdar://problem/8894332>
+
+        The backtrackTo label from the first term in a list of terms is
+        being overwritten by processing of subsequent terms.  Changed
+        copyBacktrackToLabel() to check for an existing bcaktrackTo label
+        before copying and renamed it to propagateBacktrackToLabel() since
+        it no longer copies.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::propagateBacktrackToLabel):
+        (JSC::Yarr::YarrGenerator::generateParenthesesSingle):
+
+2011-01-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Moved the mark stack from global data to the heap, since it pertains
+        to the heap, and not the virtual machine as a whole.
+        https://bugs.webkit.org/show_bug.cgi?id=52930
+        
+        SunSpider reports no change.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::markRoots):
+        * runtime/Heap.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+
+2011-01-21  Peter Gal  <galpeter@inf.u-szeged.hu>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r76177): All JavaScriptCore tests fail on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=52814
+
+        Get the approximateByteSize value before releasing the OwnPtr.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseFunctionInfo):
+
+2011-01-21  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Remove unnecessary <stdio.h> include
+        https://bugs.webkit.org/show_bug.cgi?id=52884
+
+        * jit/JIT.cpp: remove unnecessary include.
+
+2011-01-20  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Added OwnPtrCommon.h because OwnArrayPtr::set calls deleteOwnedPtr.
+
+        * wtf/OwnArrayPtr.h:
+
+2011-01-20  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        [WINCE] Remove obsolete JSVALUE32 code
+        https://bugs.webkit.org/show_bug.cgi?id=52450
+
+        Remove the "offset hack" in create_jit_stubs, since we
+        only support JSVALUE32_64 in the meantime.
+
+        * create_jit_stubs: Removed offset argument
+        * jit/JITStubs.cpp:
+
+2011-01-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        When marking conservatively, guard against reviving dead objects.
+        https://bugs.webkit.org/show_bug.cgi?id=52840
+        
+        SunSpider and v8 say no change.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::markCallFrames): Updated to use the ConservativeSet API.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::recordExtraCost): No need to guard against conservative
+        marking reviving dead objects anymore, since the conservative marking
+        mechanism guards against this now.
+
+        (JSC::Heap::markConservatively):
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors): Don't drain the mark stack inside a
+        marking function. We want to establish a separation of concerns between
+        visiting roots and draining the mark stack.
+
+        (JSC::Heap::markRoots): Gather the set of conservative references before
+        clearning mark bits, because conservative marking now uses the mark bits
+        to determine if a reference is valid, and avoid reviving dead objects.
+
+        (JSC::Heap::collectAllGarbage): No need to guard against conservative
+        marking reviving dead objects anymore, since the conservative marking
+        mechanism guards against this now.
+
+        * runtime/Heap.h: Updated to use the ConservativeSet API.
+
+        * runtime/MachineStackMarker.cpp:
+        (JSC::MachineStackMarker::markCurrentThreadConservativelyInternal):
+        (JSC::MachineStackMarker::markCurrentThreadConservatively):
+        (JSC::MachineStackMarker::markOtherThreadConservatively):
+        (JSC::MachineStackMarker::markMachineStackConservatively):
+        * runtime/MachineStackMarker.h: Ditto.
+
+        * runtime/MarkStack.h:
+        (JSC::ConservativeSet::add):
+        (JSC::ConservativeSet::mark): Added ConservativeSet, for gathering the
+        set of conservative references. This is different from MarkStack, since
+        we don't mark the set until it is completely gathered.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::freeBlock):
+        (JSC::MarkedSpace::resizeBlocks):
+        (JSC::MarkedSpace::markConservatively):
+        * runtime/MarkedSpace.h: When marking conservatively, guard against
+        reviving dead objects.
+
+2011-01-20  Siddharth Mathur  <siddharth.mathur@nokia.com>
+
+        Reviewed by Geoffrey Garen.
+
+        [Symbian] Fix StackBounds::initialize()
+        https://bugs.webkit.org/show_bug.cgi?id=52842
+
+        * wtf/StackBounds.cpp:
+        (WTF::StackBounds::initialize): Use TThreadStackInfo.iLimit for stack limit
+
+2011-01-20  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/8890203> [RegexFuzz] Crash in generated code (52773)
+        https://bugs.webkit.org/show_bug.cgi?id=52773
+
+        Fixed case where an existing DataLabelPtr is overwritten.  The
+        replacing DataLabelPtr is now resolved immediately in
+        linkDataLabelToBacktrackIfExists().  Cleanup - eliminated bool
+        return value for the routine as it was never used.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::TermGenerationState::linkDataLabelToBacktrackIfExists):
+
+2011-01-20  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [Qt][WK2] WebKit2 enabled build fails to link
+
+        Work around undefined reference linking issues until the buildsystem gets redesigned.
+        These issues first occured in minimal builds (see BUG 50519).
+
+        * JavaScriptCore.pri: link as whole-archive for WebKit2 builds
+
+2011-01-20  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Refactoring of the custom allocation framework
+        https://bugs.webkit.org/show_bug.cgi?id=49897
+
+        Inheriting from FastAllocBase can result in objects getting larger (bug #33896, #46589).
+        The modification replaces Noncopyable and FastAllocBase classes and these inherits with their
+        equivalent macro implementation at the necessary places.
+
+        * wtf/FastAllocBase.h: Turn FastAllocBase's implementation into a macro.
+
+2011-01-20  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Follow-up to r75766 / <rdar://problem/5469576>.
+
+        We were failing to initialize the key, causing all sorts of unexpected behavior.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::setThreadHeap):
+        (WTF::TCMalloc_ThreadCache::GetThreadHeap):
+        (WTF::TCMalloc_ThreadCache::InitTSD): Ensure that the key is initialized.
+
+2011-01-18  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Rolled back in r76078, with crash fixed.
+        https://bugs.webkit.org/show_bug.cgi?id=52668
+        
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::markChildren): Account for the fact that the global
+        object moves its variables into and out of the register file. While out
+        of the register file, the symbol table's size is not an accurate count
+        for the size of the register array, since the BytecodeGenerator might
+        be compiling, adding items to the symbol table.
+        
+2011-01-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Stack overflow when converting an Error object to string
+        https://bugs.webkit.org/show_bug.cgi?id=46410
+
+        * Android.mk: Added StringRecursionChecker.cpp and
+        StringRecursionChecker.h.
+        * CMakeLists.txt: Ditto.
+        * GNUmakefile.am: Ditto.
+        * JavaScriptCore.gypi: Ditto.
+        * JavaScriptCore.pro: Ditto.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj: Ditto.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Ditto.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString): Use StringRecursionChecker instead
+        of the older hand-written code to do the same thing.
+        (JSC::arrayProtoFuncToLocaleString): Ditto.
+        (JSC::arrayProtoFuncJoin): Ditto.
+
+        * runtime/ErrorPrototype.cpp:
+        (JSC::errorProtoFuncToString): Use StringRecursionChecker.
+
+        * runtime/JSGlobalData.h: Renamed arrayVisitedElements to
+        stringRecursionCheckVisitedObjects.
+
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncToString): Use StringRecursionChecker.
+
+        * runtime/StringRecursionChecker.cpp: Added.
+        * runtime/StringRecursionChecker.h: Added.
+
+2011-01-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove non-spec support for callable RegExp
+        https://bugs.webkit.org/show_bug.cgi?id=28285
+
+        Remove support for callable regexps.  If it breaks sites we can
+        just roll this out.
+
+        * runtime/RegExpObject.cpp:
+        * runtime/RegExpObject.h:
+        * tests/mozilla/expected.html: update results.
+
+2011-01-19  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Cache function offsets to speed up javascript parsing
+        https://bugs.webkit.org/show_bug.cgi?id=52622
+        
+        Use cache to save function offsets and some other info.
+        This avoids quite a bit of work when reparsing the source.
+
+        * parser/ASTBuilder.h:
+        * parser/JSParser.cpp:
+        (JSC::JSParser::CachedFunctionInfo::CachedFunctionInfo):
+        (JSC::JSParser::CachedFunctionInfo::approximateByteSize):
+        (JSC::JSParser::CachedFunctionInfo::closeBraceToken):
+        (JSC::JSParser::Scope::copyCapturedVariablesToVector):
+        (JSC::JSParser::Scope::saveFunctionInfo):
+        (JSC::JSParser::Scope::restoreFunctionInfo):
+        (JSC::JSParser::findCachedFunctionInfo):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseFunctionInfo):
+        * parser/Lexer.h:
+        (JSC::Lexer::setOffset):
+        (JSC::Lexer::setLineNumber):
+        (JSC::Lexer::sourceProvider):
+        * parser/SourceProvider.h:
+        (JSC::SourceProviderCache::SourceProviderCache):
+        (JSC::SourceProviderCache::~SourceProviderCache):
+        (JSC::SourceProviderCache::byteSize):
+        (JSC::SourceProviderCache::add):
+        (JSC::SourceProviderCache::get):
+        (JSC::SourceProvider::SourceProvider):
+        (JSC::SourceProvider::~SourceProvider):
+        (JSC::SourceProvider::cache):
+        (JSC::SourceProvider::notifyCacheSizeChanged):
+        (JSC::SourceProvider::cacheSizeChanged):
+        * parser/SyntaxChecker.h:
+
+2011-01-19  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Follow-up to r75766 / <rdar://problem/5469576>.
+
+        * DerivedSources.make: Evaluate the SDKROOT variable correctly.
+
+2011-01-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [jsfunfuzz] Defining a function called __proto__ inside an eval triggers an assertion
+        https://bugs.webkit.org/show_bug.cgi?id=52672
+
+        Rather than coming up with a somewhat convoluted mechanism to ensure that
+        developers can override the global objects prototype with a function named
+        __proto__ and expect it to work, we just disallow it at the syntax level.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseFunctionInfo):
+
+2011-01-19  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8882994> Regression: Simple nested backtrack hangs
+        https://bugs.webkit.org/show_bug.cgi?id=52675
+
+        The changeset (r76076) for https://bugs.webkit.org/show_bug.cgi?id=52540
+        broke simple backtracking in some cases.  Reworked that change to 
+        link both jumps and labels.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::hasBacktrackToLabel):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::propagateBacktrackingFrom):
+        (JSC::Yarr::YarrGenerator::generateParenthesesSingle):
+
+2011-01-19  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: [JSC] scripts have incorrect starting line (always 1).
+        https://bugs.webkit.org/show_bug.cgi?id=52721
+
+        * debugger/Debugger.cpp:
+        (JSC::Debugger::recompileAllJSFunctions):
+        * debugger/Debugger.h:
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+        * parser/SourceCode.h:
+        (JSC::SourceCode::SourceCode):
+        * parser/SourceProvider.h:
+        (JSC::SourceProvider::startPosition):
+
+2011-01-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Laszlo Gombos and Tor Arne Vestbø.
+
+        [Qt] Remove unnecessary "../Source" from paths
+        after moving source files into Source is finished.
+
+        * JavaScriptCore.pri:
+
+2011-01-19  Benjamin Kalman  <kalman@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Don't return void from void function String::split
+        https://bugs.webkit.org/show_bug.cgi?id=52684
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::split):
+
+2011-01-18  Kenneth Russell  <kbr@google.com>
+
+        Unreviewed, rolling out r76078.
+        http://trac.webkit.org/changeset/76078
+        https://bugs.webkit.org/show_bug.cgi?id=52668
+
+        Caused crashes of fast/canvas/webgl/constants.html,
+        fast/canvas/webgl/gl-enum-tests.html, and possibly other layout
+        test crashes in Release mode. WebGL crashes were observed with
+        "run-webkit-tests fast/canvas/webgl". It was necessary to run
+        multiple tests to provoke the crash.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::markGlobals):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::markChildren):
+
+2011-01-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [jsfunfuzz] Assertion asking activation for arguments when arguments is overridden
+        https://bugs.webkit.org/show_bug.cgi?id=52690
+
+        Clean up code to retrieve arguments from activation and function objects.
+        Remove the incorrect assertion from JSActivation's argumentsGetter.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::retrieveArguments):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::argumentsGetter):
+
+2011-01-18  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Removed RegisterFile::markGlobals because it was obtuse, and it
+        unnecessarily relied on conservative marking.
+        https://bugs.webkit.org/show_bug.cgi?id=52668
+
+        * interpreter/RegisterFile.h: Removed markGlobals.
+
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren): Added a comment explaning why some
+        JSActivations don't always mark their registers arrays.
+
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::markChildren): Instead of calling markGlobals, mark
+        the registers array directly.
+
+2011-01-18  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/8875432> Regression: Some text-only e-mails cause hang beneath RegExp::match (52540)
+        https://bugs.webkit.org/show_bug.cgi?id=52540
+        https://bugs.webkit.org/show_bug.cgi?id=52662
+
+        Directly use backtrack label with parentheses nested under a
+        non-capturing parentheses.  Also linked current parentheses
+        tail code object for possible parens nested within a non-capturing
+        parentheses.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::BacktrackDestination::linkBacktrackToLabel):
+        (JSC::Yarr::YarrGenerator::generateParenthesesSingle):
+
+2011-01-18  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Only use moving memory model assumption in ExecutableAllocator::intializePageSize() for Symbian OS
+        https://bugs.webkit.org/show_bug.cgi?id=52517
+
+        Patch by David Tapuska
+
+        Currently, we compile code with respect to the Symbian-specific moving memory model
+        assumption for all ARMv5 or lower architectures. Instead, we should only compile
+        such code when building for Symbian OS on those architectures because this model
+        is Symbian-specific.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::intializePageSize):
+
+2011-01-18  Dimitry Andric  <dim@freebsd.org>
+
+        Reviewed by Andreas Kling.
+
+        Fix linking JavaScriptCore on FreeBSD/amd64
+        https://bugs.webkit.org/show_bug.cgi?id=52591
+
+        Linking of JavaScriptCore on FreeBSD/amd64 fails, for the same reason as
+        in bug 28422: cti_vm_throw needs a "@plt" suffix, otherwise the linker
+        complains about the relocation type.
+
+        * jit/JITStubs.cpp: use @plt suffix on x86_64 platforms, for both Linux
+        and FreeBSD.
+
+2011-01-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Antti Koivisto.
+
+        [jsfunfuzz] Assertion in codegen for array of NaN constants
+        https://bugs.webkit.org/show_bug.cgi?id=52643
+
+        Don't cache NaN literals in the code generator, as NaN doesn't compare
+        as equal to itself it causes problems when rehashing the number cache.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitLoad):
+
 2011-01-17  Jarred Nicholls  <jarred@sencha.com>
 
         Reviewed by Csaba Osztrogonác.

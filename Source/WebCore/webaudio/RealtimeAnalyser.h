@@ -26,7 +26,7 @@
 #define RealtimeAnalyser_h
 
 #include "AudioArray.h"
-#include <wtf/NonCopyable.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
@@ -39,7 +39,8 @@ class Float32Array;
 class Uint8Array;
 #endif
 
-class RealtimeAnalyser : public Noncopyable {
+class RealtimeAnalyser {
+    WTF_MAKE_NONCOPYABLE(RealtimeAnalyser);
 public:
     RealtimeAnalyser();
     virtual ~RealtimeAnalyser();

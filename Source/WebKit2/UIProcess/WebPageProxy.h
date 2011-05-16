@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -173,6 +173,7 @@ public:
 
     void setViewNeedsDisplay(const WebCore::IntRect&);
     void displayView();
+    void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
 
     enum {
         ViewWindowIsActive = 1 << 0,
@@ -184,6 +185,7 @@ public:
     void viewStateDidChange(ViewStateFlags flags);
 
     WebCore::IntSize viewSize() const;
+    bool isViewVisible() const { return m_isVisible; }
 
     void executeEditCommand(const String& commandName);
     void validateMenuItem(const String& commandName);
@@ -197,6 +199,7 @@ public:
     uint64_t characterIndexForPoint(const WebCore::IntPoint);
     WebCore::IntRect firstRectForCharacterRange(uint64_t, uint64_t);
     void sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
+    CGContextRef containingWindowGraphicsContext();
 #endif
 #if PLATFORM(WIN)
     void didChangeCompositionSelection(bool);
@@ -264,11 +267,17 @@ public:
 
     void getContentsAsString(PassRefPtr<StringCallback>);
     void getMainResourceDataOfFrame(WebFrameProxy*, PassRefPtr<DataCallback>);
+    void getResourceDataFromFrame(WebFrameProxy*, WebURL*, PassRefPtr<DataCallback>);
     void getRenderTreeExternalRepresentation(PassRefPtr<StringCallback>);
     void getSelectionOrContentsAsString(PassRefPtr<StringCallback>);
     void getSourceForFrame(WebFrameProxy*, PassRefPtr<StringCallback>);
     void getWebArchiveOfFrame(WebFrameProxy*, PassRefPtr<DataCallback>);
     void runJavaScriptInMainFrame(const String&, PassRefPtr<StringCallback>);
+
+    float headerHeight(WebFrameProxy*);
+    float footerHeight(WebFrameProxy*);
+    void drawHeader(WebFrameProxy*, const WebCore::FloatRect&);
+    void drawFooter(WebFrameProxy*, const WebCore::FloatRect&);
 
     void receivedPolicyDecision(WebCore::PolicyAction, WebFrameProxy*, uint64_t listenerID);
 
@@ -277,7 +286,10 @@ public:
     // Drag and drop support.
     void performDragControllerAction(DragControllerAction, WebCore::DragData*, const String&);
     void didPerformDragControllerAction(uint64_t resultOperation);
-
+    void dragEnded(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, uint64_t operation);
+#if PLATFORM(MAC)
+    void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, const SharedMemory::Handle& dragImageHandle, bool isLinkDrag);
+#endif
     void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
 
@@ -426,8 +438,10 @@ private:
     void didChangeViewportData(const WebCore::ViewportArguments&);
     void pageDidScroll();
     void runOpenPanel(uint64_t frameID, const WebOpenPanelParameters::Data&);
+    void printFrame(uint64_t frameID);
     void exceededDatabaseQuota(uint64_t frameID, const String& originIdentifier, const String& databaseName, const String& displayName, uint64_t currentQuota, uint64_t currentUsage, uint64_t expectedUsage, uint64_t& newQuota);
     void requestGeolocationPermissionForFrame(uint64_t geolocationID, uint64_t frameID, String originIdentifier);
+    void runModal() { m_uiClient.runModal(this); }
 
     void reattachToWebProcess();
     void reattachToWebProcessWithItem(WebBackForwardListItem*);

@@ -146,6 +146,10 @@ class Touch;
 class TouchList;
 #endif
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+class RequestAnimationFrameCallback;
+#endif
+
 typedef int ExceptionCode;
 
 class FormElementKey {
@@ -249,6 +253,8 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragstart);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(drag);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragend);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(formchange);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(forminput);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(keydown);
@@ -942,8 +948,7 @@ public:
     bool isDNSPrefetchEnabled() const { return m_isDNSPrefetchEnabled; }
     void parseDNSPrefetchControlHeader(const String&);
 
-    virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
-    virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+    virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
     virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
 
 #if USE(JSC)
@@ -1083,7 +1088,16 @@ public:
 
     const DocumentTiming* timing() const { return &m_documentTiming; }
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>, Element*);
+    void webkitCancelRequestAnimationFrame(int id);
+    void serviceScriptedAnimations();
+#endif
+
     bool mayCauseFlashOfUnstyledContent() const;
+
+    virtual EventTarget* errorEventTarget();
+    virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
 
     void initDNSPrefetch();
 
@@ -1408,6 +1422,12 @@ private:
 
     DocumentTiming m_documentTiming;
     RefPtr<MediaQueryMatcher> m_mediaQueryMatcher;
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    typedef Vector<RefPtr<RequestAnimationFrameCallback> > RequestAnimationFrameCallbackList;
+    OwnPtr<RequestAnimationFrameCallbackList> m_requestAnimationFrameCallbacks;
+    int m_nextRequestAnimationFrameCallbackId;
+#endif
 };
 
 inline bool Document::DocumentOrderedMap::contains(AtomicStringImpl* id) const

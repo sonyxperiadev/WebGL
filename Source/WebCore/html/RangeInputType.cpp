@@ -36,6 +36,8 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
+#include "MouseEvent.h"
+#include "PlatformMouseEvent.h"
 #include "RenderSlider.h"
 #include "SliderThumbElement.h"
 #include "StepRange.h"
@@ -141,6 +143,15 @@ double RangeInputType::stepScaleFactor() const
     return rangeStepScaleFactor;
 }
 
+void RangeInputType::handleMouseDownEvent(MouseEvent* event)
+{
+    if (event->button() != LeftButton || event->target() != element())
+        return;
+
+    if (SliderThumbElement* thumb = toSliderThumbElement(element()->shadowRoot()))
+        thumb->dragFrom(event->absoluteLocation());
+}
+
 void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 {
     const String& key = event->keyIdentifier();
@@ -181,6 +192,7 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
     event->setDefaultHandled();
 }
 
+<<<<<<< HEAD
 void RangeInputType::forwardEvent(Event* event)
 {
     if (element()->renderer()
@@ -193,6 +205,8 @@ void RangeInputType::forwardEvent(Event* event)
         toRenderSlider(element()->renderer())->forwardEvent(event);
 }
 
+=======
+>>>>>>> WebKit.org at r76408
 void RangeInputType::createShadowSubtree()
 {
     element()->setShadowRoot(SliderThumbElement::create(element()->document()));

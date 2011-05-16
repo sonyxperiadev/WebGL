@@ -35,7 +35,6 @@
 #include "ExecutableAllocator.h"
 #include "JITStubs.h"
 #include "JSValue.h"
-#include "MarkStack.h"
 #include "NumericStrings.h"
 #include "SmallStrings.h"
 #include "Terminator.h"
@@ -214,11 +213,9 @@ namespace JSC {
         JSGlobalObject* head;
         JSGlobalObject* dynamicGlobalObject;
 
-        HashSet<JSObject*> arrayVisitedElements;
+        HashSet<JSObject*> stringRecursionCheckVisitedObjects;
 
         Stringifier* firstStringifierToMark;
-
-        MarkStack markStack;
 
         double cachedUTCOffset;
         DSTOffsetCache dstOffsetCache;

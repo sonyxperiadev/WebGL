@@ -234,6 +234,7 @@ DOM_CLASSES = \
     HTMLImageElement \
     HTMLInputElement \
     HTMLIsIndexElement \
+    HTMLKeygenElement \
     HTMLLIElement \
     HTMLLabelElement \
     HTMLLegendElement \
@@ -311,6 +312,7 @@ DOM_CLASSES = \
     Notation \
     Notification \
     NotificationCenter \
+    OESStandardDerivatives \
     OESTextureFloat \
     OverflowEvent \
     PageTransitionEvent \

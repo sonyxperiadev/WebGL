@@ -48,10 +48,13 @@ public:
 private:
     // This class only needs to be instantiated by GraphicsContext3D implementations.
     friend class GraphicsContext3D;
-    Extensions3DOpenGL();
+    Extensions3DOpenGL(GraphicsContext3D*);
 
     bool m_initializedAvailableExtensions;
     HashSet<String> m_availableExtensions;
+    
+    // Weak pointer back to GraphicsContext3D
+    GraphicsContext3D* m_context;
 };
 
 } // namespace WebCore

@@ -88,6 +88,8 @@ void InspectorProfilerAgent::addProfile(PassRefPtr<ScriptProfile> prpProfile, un
 
 void InspectorProfilerAgent::addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile> prpProfile, unsigned lineNumber, const String& sourceURL)
 {
+    if (!m_frontend)
+        return;
     RefPtr<ScriptProfile> profile = prpProfile;
     String title = profile->title();
     String message = makeString("Profile \"webkit-profile://", CPUProfileType, '/', encodeWithURLEscapeSequences(title), '#', String::number(profile->uid()), "\" finished.");
@@ -96,6 +98,8 @@ void InspectorProfilerAgent::addProfileFinishedMessageToConsole(PassRefPtr<Scrip
 
 void InspectorProfilerAgent::addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL)
 {
+    if (!m_frontend)
+        return;
     String message = makeString("Profile \"webkit-profile://", CPUProfileType, '/', encodeWithURLEscapeSequences(title), "#0\" started.");
     m_inspectorController->consoleAgent()->addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
@@ -211,7 +215,12 @@ void InspectorProfilerAgent::resetState()
     m_currentUserInitiatedProfileNumber = 1;
     m_nextUserInitiatedProfileNumber = 1;
     m_nextUserInitiatedHeapSnapshotNumber = 1;
-    if (m_frontend)
+    resetFrontendProfiles();
+}
+
+void InspectorProfilerAgent::resetFrontendProfiles()
+{
+    if (m_frontend && m_profiles.begin() == m_profiles.end())
         m_frontend->resetProfiles();
 }
 

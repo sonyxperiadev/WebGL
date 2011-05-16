@@ -639,6 +639,12 @@ static void runOpenPanel(WKPageRef page, WKFrameRef frame, WKOpenPanelParameters
         0,          /* exceededDatabaseQuota */
         runOpenPanel,
         0,          /* decidePolicyForGeolocationPermissionRequest */
+        0, // headerHeight
+        0, // footerHeight
+        0, // drawHeader
+        0, // drawFooter
+        0, // printFrame
+        0, // showModal
     };
     WKPageSetPageUIClient(_webView.pageRef, &uiClient);
 }

@@ -26,6 +26,7 @@
 #include "DrawingAreaProxyImpl.h"
 
 #include "DrawingAreaMessages.h"
+#include "Region.h"
 #include "UpdateInfo.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
@@ -45,6 +46,7 @@ PassOwnPtr<DrawingAreaProxyImpl> DrawingAreaProxyImpl::create(WebPageProxy* webP
 
 DrawingAreaProxyImpl::DrawingAreaProxyImpl(WebPageProxy* webPageProxy)
     : DrawingAreaProxy(DrawingAreaInfo::Impl, webPageProxy)
+    , m_isWaitingForDidSetSize(false)
 {
 }
 
@@ -52,12 +54,15 @@ DrawingAreaProxyImpl::~DrawingAreaProxyImpl()
 {
 }
 
-void DrawingAreaProxyImpl::paint(BackingStore::PlatformGraphicsContext context, const IntRect& rect)
+void DrawingAreaProxyImpl::paint(BackingStore::PlatformGraphicsContext context, const IntRect& rect, Region& unpaintedRegion)
 {
+    unpaintedRegion = rect;
+
     if (!m_backingStore)
         return;
 
     m_backingStore->paint(context, rect);
+    unpaintedRegion.subtract(IntRect(IntPoint(), m_backingStore->size()));
 }
 
 void DrawingAreaProxyImpl::didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*)
@@ -81,9 +86,20 @@ void DrawingAreaProxyImpl::sizeDidChange()
     sendSetSize();
 }
 
-void DrawingAreaProxyImpl::setPageIsVisible(bool pageIsVisible)
+void DrawingAreaProxyImpl::visibilityDidChange()
 {
-    // FIXME: Implement.
+    if (!m_webPageProxy->isViewVisible()) {
+        // Suspend painting.
+        m_webPageProxy->process()->send(Messages::DrawingArea::SuspendPainting(), m_webPageProxy->pageID());
+        return;
+    }
+
+    // Resume painting.
+    m_webPageProxy->process()->send(Messages::DrawingArea::ResumePainting(), m_webPageProxy->pageID());
+}
+
+void DrawingAreaProxyImpl::setPageIsVisible(bool)
+{
 }
 
 void DrawingAreaProxyImpl::attachCompositingContext(uint32_t contextID)
@@ -104,26 +120,39 @@ void DrawingAreaProxyImpl::update(const UpdateInfo& updateInfo)
     m_webPageProxy->process()->send(Messages::DrawingArea::DidUpdate(), m_webPageProxy->pageID());
 }
 
-void DrawingAreaProxyImpl::didSetSize()
+void DrawingAreaProxyImpl::didSetSize(const UpdateInfo& updateInfo)
 {
+    ASSERT(m_isWaitingForDidSetSize);
+    m_isWaitingForDidSetSize = false;
+
+    if (m_size != updateInfo.viewSize)
+        sendSetSize();
+
+    m_backingStore = nullptr;
+
+    incorporateUpdate(updateInfo);
 }
 
 void DrawingAreaProxyImpl::incorporateUpdate(const UpdateInfo& updateInfo)
 {
-    // FIXME: Check for the update bounds being empty here.
+    if (updateInfo.updateRectBounds.isEmpty())
+        return;
 
     if (!m_backingStore)
-        m_backingStore = BackingStore::create(updateInfo.viewSize);
+        m_backingStore = BackingStore::create(updateInfo.viewSize, m_webPageProxy);
 
     m_backingStore->incorporateUpdate(updateInfo);
 
+    bool shouldScroll = !updateInfo.scrollRect.isEmpty();
+
+    if (shouldScroll)
+        m_webPageProxy->scrollView(updateInfo.scrollRect, updateInfo.scrollOffset);
+    
     for (size_t i = 0; i < updateInfo.updateRects.size(); ++i)
         m_webPageProxy->setViewNeedsDisplay(updateInfo.updateRects[i]);
 
-    if (!updateInfo.scrollRect.isEmpty()) {
-        m_webPageProxy->setViewNeedsDisplay(updateInfo.scrollRect);
+    if (shouldScroll)
         m_webPageProxy->displayView();
-    }
 }
 
 void DrawingAreaProxyImpl::sendSetSize()
@@ -131,6 +160,10 @@ void DrawingAreaProxyImpl::sendSetSize()
     if (!m_webPageProxy->isValid())
         return;
 
+    if (m_isWaitingForDidSetSize)
+        return;
+
+    m_isWaitingForDidSetSize = true;
     m_webPageProxy->process()->send(Messages::DrawingArea::SetSize(m_size), m_webPageProxy->pageID());
 }
 

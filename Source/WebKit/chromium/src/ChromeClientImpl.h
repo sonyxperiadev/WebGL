@@ -105,6 +105,9 @@ public:
     virtual void invalidateWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    virtual void scheduleAnimation();
+#endif
     virtual void scroll(
         const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll,
         const WebCore::IntRect& clipRect);
@@ -132,7 +135,7 @@ public:
     virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
     virtual void chooseIconForFiles(const Vector<WTF::String>&, WebCore::FileChooser*);
-    virtual void setCursor(const WebCore::Cursor&) { }
+    virtual void setCursor(const WebCore::Cursor&);
     virtual void formStateDidChange(const WebCore::Node*);
     virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 #if ENABLE(TOUCH_EVENTS)
@@ -167,8 +170,7 @@ public:
     virtual void postAccessibilityNotification(WebCore::AccessibilityObject*, WebCore::AXObjectCache::AXNotification);
 
     // ChromeClientImpl:
-    void setCursor(const WebCursorInfo& cursor);
-    void setCursorForPlugin(const WebCursorInfo& cursor);
+    void setCursorForPlugin(const WebCursorInfo&);
 
     virtual bool selectItemWritingDirectionIsNatural();
     virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
@@ -180,6 +182,7 @@ public:
 
 private:
     void getPopupMenuInfo(WebCore::PopupContainer*, WebPopupMenuInfo*);
+    void setCursor(const WebCursorInfo&);
 
     WebViewImpl* m_webView;  // weak pointer
     bool m_toolbarsVisible;

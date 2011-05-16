@@ -1,3 +1,70 @@
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Part 2 of "Cleanup Scrollbar/ScrollbarClient relationship"
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        Rename ScrollbarClient -> ScrollableArea.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setScrollBarValue):
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Fix build.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setScrollBarValue):
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Fix build.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setScrollBarValue):
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dave Hyatt.
+
+        Cleanup Scrollbar/ScrollbarClient relationship
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setScrollBarValue):
+
+2011-01-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        GraphicsLayers in subframes can get sync'd multiple times
+        https://bugs.webkit.org/show_bug.cgi?id=52489
+
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQWidget::syncLayers): syncCompositingStateRecursive()
+        was renamed to syncCompositingStateIncludingSubframes().
+
+2011-01-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Laszlo Gombos and Tor Arne Vestbø.
+
+        [Qt] Remove unnecessary "../Source" from paths
+        after moving source files into Source is finished.
+
+        * Api/DerivedSources.pro:
+
+2011-01-18  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] http/tests/incremental/slow-utf8-text.pl fails
+        https://bugs.webkit.org/show_bug.cgi?id=44282
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::responseMimeType):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
 2011-01-17  Alexey Proskuryakov  <ap@apple.com>
 
         https://bugs.webkit.org/show_bug.cgi?id=52495

@@ -31,9 +31,10 @@
 #include "config.h"
 #include "UniscribeHelperTextRun.h"
 
-#include "ChromiumBridge.h"
 #include "Font.h"
+#include "PlatformBridge.h"
 #include "SimpleFontData.h"
+#include "TextRun.h"
 
 namespace WebCore {
 
@@ -79,7 +80,7 @@ void UniscribeHelperTextRun::tryToPreloadFont(HFONT font)
     // Ask the browser to get the font metrics for this font.
     // That will preload the font and it should now be accessible
     // from the renderer.
-    ChromiumBridge::ensureFontLoaded(font);
+    PlatformBridge::ensureFontLoaded(font);
 }
 
 bool UniscribeHelperTextRun::nextWinFontData(

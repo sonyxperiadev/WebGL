@@ -149,6 +149,11 @@ WebInspector.ConsoleView.prototype = {
             consoleMessagesCleared: function()
             {
                 console.clearMessages();
+            },
+
+            monitoringXHRStateChanged: function(enabled)
+            {
+                console._monitoringXHREnabled = enabled;
             }
         }
         InspectorBackend.registerDomainDispatcher("Console", dispatcher);
@@ -355,14 +360,11 @@ WebInspector.ConsoleView.prototype = {
         // Collect comma separated object properties for the completion.
 
         var includeInspectorCommandLineAPI = (!dotNotation && !bracketNotation);
-        var callFrameId = WebInspector.panels.scripts.selectedCallFrameId();
         var injectedScriptAccess;
-        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused) {
-            var selectedCallFrame = WebInspector.panels.scripts.sidebarPanes.callstack.selectedCallFrame;
-            injectedScriptAccess = InjectedScriptAccess.get(selectedCallFrame.worldId);
-        } else
-            injectedScriptAccess = InjectedScriptAccess.getDefault();
-        injectedScriptAccess.getCompletions(expressionString, includeInspectorCommandLineAPI, callFrameId, reportCompletions);
+        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
+            InspectorBackend.getCompletionsOnCallFrame(WebInspector.panels.scripts.selectedCallFrameId(), expressionString, includeInspectorCommandLineAPI, reportCompletions);
+        else
+            InspectorBackend.getCompletions(expressionString, includeInspectorCommandLineAPI, reportCompletions);
     },
 
     _reportCompletions: function(bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix, result, isException) {
@@ -416,14 +418,9 @@ WebInspector.ConsoleView.prototype = {
             return;
         }
 
+        var itemAction = InspectorBackend.setMonitoringXHREnabled.bind(InspectorBackend, !this._monitoringXHREnabled);
         var contextMenu = new WebInspector.ContextMenu();
-
-        function monitoringXHRWasChanged(newState)
-        {
-            WebInspector.monitoringXHREnabled = newState;
-        }
-        var itemAction = InspectorBackend.setMonitoringXHREnabled.bind(InspectorBackend, !WebInspector.monitoringXHREnabled, monitoringXHRWasChanged);
-        contextMenu.appendCheckboxItem(WebInspector.UIString("XMLHttpRequest logging"), itemAction, WebInspector.monitoringXHREnabled);
+        contextMenu.appendCheckboxItem(WebInspector.UIString("XMLHttpRequest logging"), itemAction, this._monitoringXHREnabled);
         contextMenu.appendItem(WebInspector.UIString("Clear Console"), this.requestClearMessages.bind(this));
         contextMenu.show(event);
     },
@@ -532,8 +529,8 @@ WebInspector.ConsoleView.prototype = {
         function evalCallback(result)
         {
             callback(WebInspector.RemoteObject.fromPayload(result));
-        };
-        InjectedScriptAccess.getDefault().evaluate(expression, objectGroup, evalCallback);
+        }
+        InspectorBackend.evaluate(expression, objectGroup, evalCallback);
     },
 
     _enterKeyPressed: function(event)
@@ -681,6 +678,15 @@ WebInspector.ConsoleMessage = function(source, type, level, line, url, repeatCou
     this._parameters = parameters;
     this._stackTrace = stackTrace;
     this._requestId = requestId;
+
+    if (stackTrace && stackTrace.length) {
+        var topCallFrame = stackTrace[0];
+        if (!this.url)
+            this.url = topCallFrame.scriptName;
+        if (!this.line)
+            this.line = topCallFrame.lineNumber;
+    }
+
     this._formatMessage();
 }
 
@@ -737,17 +743,8 @@ WebInspector.ConsoleMessage.prototype = {
         this._formattedMessage = document.createElement("span");
         this._formattedMessage.className = "console-message-text source-code";
 
-        if (stackTrace && stackTrace.length) {
-            var topCallFrame = stackTrace[0];
-            var sourceName = topCallFrame.scriptName;
-            var sourceLine = topCallFrame.lineNumber;
-        } else {
-            var sourceName = this.url;
-            var sourceLine = this.line;
-        }
-
-        if (sourceName && sourceName !== "undefined") {
-            var urlElement = WebInspector.linkifyResourceAsNode(sourceName, "scripts", sourceLine, "console-message-url");
+        if (this.url && this.url !== "undefined") {
+            var urlElement = WebInspector.linkifyResourceAsNode(this.url, "scripts", this.line, "console-message-url");
             this._formattedMessage.appendChild(urlElement);
         }
 

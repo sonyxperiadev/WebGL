@@ -40,8 +40,8 @@
 #include <wtf/RefPtr.h>
 
 #if USE(ACCELERATED_COMPOSITING)
+#include <WebCore/CACFLayerTreeHost.h>
 #include <WebCore/PlatformCALayer.h>
-#include <WebCore/WKCACFLayerRenderer.h>
 #endif
 
 class FullscreenVideoController;
@@ -71,7 +71,7 @@ class WebView
     , WebCore::WindowMessageListener
 #if USE(ACCELERATED_COMPOSITING)
     , WebCore::GraphicsLayerClient
-    , WebCore::WKCACFLayerRendererClient
+    , WebCore::CACFLayerTreeHostClient
 #endif
 {
 public:
@@ -905,7 +905,7 @@ public:
     void downloadURL(const WebCore::KURL&);
 
 #if USE(ACCELERATED_COMPOSITING)
-    void scheduleCompositingLayerSync();
+    void flushPendingGraphicsLayerChangesSoon();
     void setRootChildLayer(WebCore::GraphicsLayer*);
 #endif
 
@@ -947,9 +947,8 @@ private:
     virtual bool showDebugBorders() const;
     virtual bool showRepaintCounter() const;
 
-    // WKCACFLayerRendererClient
-    virtual bool shouldRender() const;
-    virtual void syncCompositingState();
+    // CACFLayerTreeHostClient
+    virtual void flushPendingGraphicsLayerChanges();
 #endif
 
 protected:
@@ -1056,7 +1055,7 @@ protected:
     bool isAcceleratedCompositing() const { return m_isAcceleratedCompositing; }
     void setAcceleratedCompositing(bool);
 
-    OwnPtr<WebCore::WKCACFLayerRenderer> m_layerRenderer;
+    RefPtr<WebCore::CACFLayerTreeHost> m_layerTreeHost;
     OwnPtr<WebCore::GraphicsLayer> m_backingLayer;
     bool m_isAcceleratedCompositing;
 #endif

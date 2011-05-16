@@ -30,22 +30,21 @@
 
 #include "config.h"
 #include "InjectedScriptHost.h"
-#include "InjectedScriptSource.h"
-#include "InspectorDatabaseAgent.h"
-#include "InspectorDOMStorageAgent.h"
 
 #if ENABLE(INSPECTOR)
-
 
 #include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLFrameOwnerElement.h"
 #include "InjectedScript.h"
+#include "InjectedScriptSource.h"
 #include "InspectorClient.h"
 #include "InspectorConsoleAgent.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
+#include "InspectorDOMStorageAgent.h"
+#include "InspectorDatabaseAgent.h"
 #include "InspectorFrontend.h"
 #include "Pasteboard.h"
 
@@ -79,6 +78,13 @@ InjectedScriptHost::InjectedScriptHost(InspectorController* inspectorController)
 
 InjectedScriptHost::~InjectedScriptHost()
 {
+}
+
+void InjectedScriptHost::evaluateOnSelf(const String& functionBody, PassRefPtr<InspectorArray> argumentsArray, RefPtr<InspectorValue>* result)
+{
+    InjectedScript injectedScript = injectedScriptForMainFrame();
+    if (!injectedScript.hasNoValue())
+        injectedScript.evaluateOnSelf(functionBody, argumentsArray, result);
 }
 
 void InjectedScriptHost::clearConsoleMessages()
@@ -124,29 +130,43 @@ long InjectedScriptHost::inspectedNode(unsigned long num)
 #if ENABLE(DATABASE)
 Database* InjectedScriptHost::databaseForId(long databaseId)
 {
-    if (m_inspectorController && m_inspectorController->m_databaseAgent)
-        return m_inspectorController->m_databaseAgent->databaseForId(databaseId);
+    if (m_inspectorController && m_inspectorController->databaseAgent())
+        return m_inspectorController->databaseAgent()->databaseForId(databaseId);
     return 0;
 }
 
 void InjectedScriptHost::selectDatabase(Database* database)
 {
-    if (m_inspectorController && m_inspectorController->m_databaseAgent)
-        m_inspectorController->m_databaseAgent->selectDatabase(database);
+    if (m_inspectorController && m_inspectorController->databaseAgent())
+        m_inspectorController->databaseAgent()->selectDatabase(database);
 }
 #endif
 
 #if ENABLE(DOM_STORAGE)
 void InjectedScriptHost::selectDOMStorage(Storage* storage)
 {
-    if (m_inspectorController && m_inspectorController->m_domStorageAgent)
-        m_inspectorController->m_domStorageAgent->selectDOMStorage(storage);
+    if (m_inspectorController && m_inspectorController->domStorageAgent())
+        m_inspectorController->domStorageAgent()->selectDOMStorage(storage);
 }
 #endif
 
 InjectedScript InjectedScriptHost::injectedScriptForId(long id)
 {
     return m_idToInjectedScript.get(id);
+}
+
+InjectedScript InjectedScriptHost::injectedScriptForObjectId(InspectorObject* objectId)
+{
+    long injectedScriptId = 0;
+    bool success = objectId->getNumber("injectedScriptId", &injectedScriptId);
+    if (success)
+        return injectedScriptForId(injectedScriptId);
+    return InjectedScript();
+}
+
+InjectedScript InjectedScriptHost::injectedScriptForMainFrame()
+{
+    return injectedScriptFor(mainWorldScriptState(m_inspectorController->inspectedPage()->mainFrame()));
 }
 
 void InjectedScriptHost::discardInjectedScripts()
@@ -174,14 +194,14 @@ InspectorDOMAgent* InjectedScriptHost::inspectorDOMAgent()
 {
     if (!m_inspectorController)
         return 0;
-    return m_inspectorController->m_domAgent.get();
+    return m_inspectorController->domAgent();
 }
 
 InspectorFrontend* InjectedScriptHost::frontend()
 {
     if (!m_inspectorController)
         return 0;
-    return m_inspectorController->m_frontend.get();
+    return m_inspectorController->frontend();
 }
 
 String InjectedScriptHost::injectedScriptSource()

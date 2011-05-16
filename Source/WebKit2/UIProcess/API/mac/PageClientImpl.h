@@ -51,6 +51,7 @@ private:
     virtual PassOwnPtr<DrawingAreaProxy> createDrawingAreaProxy();
     virtual void setViewNeedsDisplay(const WebCore::IntRect&);
     virtual void displayView();
+    virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
 
     virtual WebCore::IntSize viewSize();
     virtual bool isViewWindowActive();
@@ -69,6 +70,7 @@ private:
     virtual void clearAllEditCommands();
     virtual void setEditCommandState(const String& commandName, bool isEnabled, int state);
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines);
+    virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
@@ -87,6 +89,8 @@ private:
 
     virtual void accessibilityChildTokenReceived(const CoreIPC::DataReference&);    
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled);
+
+    virtual CGContextRef containingWindowGraphicsContext();
 
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
     virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);

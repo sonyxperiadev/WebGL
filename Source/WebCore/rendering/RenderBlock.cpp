@@ -48,6 +48,7 @@
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "TextRun.h"
 #include "TransformState.h"
 #include <wtf/StdLibExtras.h>
 
@@ -5265,9 +5266,8 @@ void RenderBlock::updateFirstLetter()
         if (remainingText->node())
             remainingText->node()->setRenderer(remainingText);
 
-        RenderObject* nextObj = textObj->nextSibling();
+        firstLetterContainer->addChild(remainingText, textObj);
         firstLetterContainer->removeChild(textObj);
-        firstLetterContainer->addChild(remainingText, nextObj);
         remainingText->setFirstLetter(firstLetter);
         
         // construct text fragment for the first letter

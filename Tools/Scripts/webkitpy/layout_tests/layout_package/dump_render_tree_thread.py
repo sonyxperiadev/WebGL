@@ -36,9 +36,6 @@ the output.  When there are no more URLs to process in the shared queue, the
 thread exits.
 """
 
-from __future__ import with_statement
-
-import codecs
 import copy
 import logging
 import os
@@ -86,6 +83,7 @@ def _process_output(port, options, test_input, test_types, test_args,
     Returns: a TestResult object
     """
     failures = []
+    fs = port._filesystem
 
     if test_output.crash:
         failures.append(test_failures.FailureCrash())
@@ -96,11 +94,10 @@ def _process_output(port, options, test_input, test_types, test_args,
     if test_output.crash:
         _log.debug("%s Stacktrace for %s:\n%s" % (worker_name, test_name,
                                                   test_output.error))
-        filename = os.path.join(options.results_directory, test_name)
-        filename = os.path.splitext(filename)[0] + "-stack.txt"
-        port.maybe_make_directory(os.path.split(filename)[0])
-        with codecs.open(filename, "wb", "utf-8") as file:
-            file.write(test_output.error)
+        filename = fs.join(options.results_directory, test_name)
+        filename = fs.splitext(filename)[0] + "-stack.txt"
+        fs.maybe_make_directory(fs.dirname(filename))
+        fs.write_text_file(filename, test_output.error)
     elif test_output.error:
         _log.debug("%s %s output stderr lines:\n%s" % (worker_name, test_name,
                                                        test_output.error))
@@ -385,10 +382,9 @@ class TestShellThread(WatchableThread):
 
         # Append tests we're running to the existing tests_run.txt file.
         # This is created in run_webkit_tests.py:_PrepareListsAndPrintOutput.
-        tests_run_filename = os.path.join(self._options.results_directory,
+        tests_run_filename = self._port._filesystem.join(self._options.results_directory,
                                           "tests_run.txt")
-        tests_run_file = codecs.open(tests_run_filename, "a", "utf-8")
-
+        tests_run_file = self._port._filesystem.open_text_file_for_writing(tests_run_filename, append=False)
         while True:
             if self._canceled:
                 _log.debug('Testing cancelled')

@@ -65,6 +65,10 @@ public:
     virtual bool paint(const WebCore::IntRect&, PlatformDrawingContext) = 0;
 
     virtual void sizeDidChange() = 0;
+
+    // FIXME: visibilityDidChange() should be pure virtual.
+    virtual void visibilityDidChange() { }
+
     virtual void setPageIsVisible(bool isVisible) = 0;
     
 #if USE(ACCELERATED_COMPOSITING)
@@ -89,7 +93,7 @@ private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
     virtual void update(const UpdateInfo&) { }
-    virtual void didSetSize() { }
+    virtual void didSetSize(const UpdateInfo&) { }
 };
 
 } // namespace WebKit

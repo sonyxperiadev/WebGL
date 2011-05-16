@@ -36,18 +36,19 @@
 #include "SpeechInputListener.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
 class IntRect;
+class SecurityOrigin;
 class SpeechInputClient;
 class SpeechInputListener;
 
 // This class connects the input elements requiring speech input with the platform specific
 // speech recognition engine. It provides methods for the input elements to activate speech
 // recognition and methods for the speech recognition engine to return back the results.
-class SpeechInput : public Noncopyable, public SpeechInputListener {
+class SpeechInput : public SpeechInputListener {
+    WTF_MAKE_NONCOPYABLE(SpeechInput);
 public:
     SpeechInput(SpeechInputClient*);
     virtual ~SpeechInput();
@@ -61,7 +62,7 @@ public:
     void unregisterListener(int);
 
     // Methods invoked by the input elements.
-    bool startRecognition(int listenerId, const IntRect& elementRect, const AtomicString& language, const String& grammar);
+    bool startRecognition(int listenerId, const IntRect& elementRect, const AtomicString& language, const String& grammar, SecurityOrigin*);
     void stopRecording(int);
     void cancelRecognition(int);
 

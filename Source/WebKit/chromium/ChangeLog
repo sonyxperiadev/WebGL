@@ -1,3 +1,792 @@
+2011-01-21  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Crash in WebCore::HistoryController::itemsAreClones
+        https://bugs.webkit.org/show_bug.cgi?id=52819
+
+        Adds sanity checks to help diagnose the crash.
+
+        * src/WebFrameImpl.cpp:
+
+2011-01-21  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add run-time enable support for the web audio API
+        https://bugs.webkit.org/show_bug.cgi?id=52741
+
+        * public/WebRuntimeFeatures.h:
+        * public/WebSettings.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableWebAudio):
+        (WebKit::WebRuntimeFeatures::isWebAudioEnabled):
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setWebAudioEnabled):
+        * src/WebSettingsImpl.h:
+
+2011-01-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Unreviewed; another Chromium build fix attempt for r76378.
+
+        * src/WebScrollbarImpl.cpp:
+        (WebKit::WebScrollbar::create):
+        (WebKit::WebScrollbarImpl::WebScrollbarImpl):
+        (WebKit::WebScrollbarImpl::setValue):
+
+2011-01-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Unreviewed Chromium build fix attempt for r76378.
+
+        * src/WebScrollbarImpl.cpp:
+        (WebKit::WebScrollbar::create):
+        (WebKit::WebScrollbarImpl::WebScrollbarImpl):
+
+2011-01-21  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Add chromium bundled audio spatialization resources to WebAudio.grd
+        https://bugs.webkit.org/show_bug.cgi?id=52651
+
+        * WebKit.grd:
+
+2011-01-21  Xiyuan Xia  <xiyuan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Use WebThemeEngine for relevant RenderTheme parts for chromium/linux.
+        https://bugs.webkit.org/show_bug.cgi?id=52826
+
+        * WebKit.gyp:
+        * src/ChromiumBridge.cpp:
+        (WebCore::WebThemePart):
+        (WebCore::GetWebThemeExtraParams):
+
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Part 2 of "Cleanup Scrollbar/ScrollbarClient relationship"
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        Rename ScrollbarClient -> ScrollableArea.
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::createScrollbar):
+        * src/AutoFillPopupMenuClient.h:
+        * src/WebScrollbarImpl.cpp:
+        (WebKit::WebScrollbarImpl::WebScrollbarImpl):
+        (WebKit::WebScrollbarImpl::scroll):
+        (WebKit::WebScrollbarImpl::onMouseWheel):
+        (WebKit::WebScrollbarImpl::onKeyDown):
+        * src/WebScrollbarImpl.h:
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestPopupMenuClient::createScrollbar):
+
+2011-01-21  Sailesh Agrawal  <sail@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        [chromium] Notify WebFrameClient when spellcheck state changes
+        https://bugs.webkit.org/show_bug.cgi?id=52680
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::continuousSpellCheckingEnabledStateChanged):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::toggleContinuousSpellChecking):
+        * src/WebFrameImpl.cpp:
+
+2011-01-21  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, updating chromium DEPS so we can pull in linux theme changes.
+
+        * DEPS:
+
+2011-01-21  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] Rename ChromiumBridge to PlatformBridge
+        https://bugs.webkit.org/show_bug.cgi?id=52471
+
+        * WebKit.gyp:
+        * src/AssertMatchingEnums.cpp:
+        * src/PlatformBridge.cpp:
+        (WebCore::toChromeClientImpl):
+        (WebCore::toWebWidgetClient):
+        (WebCore::getCookieJar):
+        (WebCore::PlatformBridge::cacheMetadata):
+        (WebCore::PlatformBridge::clipboardIsFormatAvailable):
+        (WebCore::PlatformBridge::clipboardReadPlainText):
+        (WebCore::PlatformBridge::clipboardReadHTML):
+        (WebCore::PlatformBridge::clipboardWriteSelection):
+        (WebCore::PlatformBridge::clipboardWritePlainText):
+        (WebCore::PlatformBridge::clipboardWriteURL):
+        (WebCore::PlatformBridge::clipboardWriteImage):
+        (WebCore::PlatformBridge::clipboardWriteData):
+        (WebCore::PlatformBridge::clipboardReadAvailableTypes):
+        (WebCore::PlatformBridge::clipboardReadData):
+        (WebCore::PlatformBridge::clipboardReadFilenames):
+        (WebCore::PlatformBridge::setCookies):
+        (WebCore::PlatformBridge::cookies):
+        (WebCore::PlatformBridge::cookieRequestHeaderFieldValue):
+        (WebCore::PlatformBridge::rawCookies):
+        (WebCore::PlatformBridge::deleteCookie):
+        (WebCore::PlatformBridge::cookiesEnabled):
+        (WebCore::PlatformBridge::prefetchDNS):
+        (WebCore::PlatformBridge::fileExists):
+        (WebCore::PlatformBridge::deleteFile):
+        (WebCore::PlatformBridge::deleteEmptyDirectory):
+        (WebCore::PlatformBridge::getFileSize):
+        (WebCore::PlatformBridge::revealFolderInOS):
+        (WebCore::PlatformBridge::getFileModificationTime):
+        (WebCore::PlatformBridge::directoryName):
+        (WebCore::PlatformBridge::pathByAppendingComponent):
+        (WebCore::PlatformBridge::makeAllDirectories):
+        (WebCore::PlatformBridge::getAbsolutePath):
+        (WebCore::PlatformBridge::isDirectory):
+        (WebCore::PlatformBridge::filePathToURL):
+        (WebCore::PlatformBridge::openFile):
+        (WebCore::PlatformBridge::closeFile):
+        (WebCore::PlatformBridge::seekFile):
+        (WebCore::PlatformBridge::truncateFile):
+        (WebCore::PlatformBridge::readFromFile):
+        (WebCore::PlatformBridge::writeToFile):
+        (WebCore::PlatformBridge::ensureFontLoaded):
+        (WebCore::PlatformBridge::getFontFamilyForCharacters):
+        (WebCore::PlatformBridge::getRenderStyleForStrike):
+        (WebCore::PlatformBridge::loadFont):
+        (WebCore::PlatformBridge::databaseOpenFile):
+        (WebCore::PlatformBridge::databaseDeleteFile):
+        (WebCore::PlatformBridge::databaseGetFileAttributes):
+        (WebCore::PlatformBridge::databaseGetFileSize):
+        (WebCore::PlatformBridge::idbFactory):
+        (WebCore::PlatformBridge::idbShutdown):
+        (WebCore::PlatformBridge::createIDBKeysFromSerializedValuesAndKeyPath):
+        (WebCore::PlatformBridge::signedPublicKeyAndChallengeString):
+        (WebCore::PlatformBridge::computedDefaultLanguage):
+        (WebCore::PlatformBridge::layoutTestMode):
+        (WebCore::PlatformBridge::isSupportedImageMIMEType):
+        (WebCore::PlatformBridge::isSupportedJavaScriptMIMEType):
+        (WebCore::PlatformBridge::isSupportedNonImageMIMEType):
+        (WebCore::PlatformBridge::mimeTypeForExtension):
+        (WebCore::PlatformBridge::mimeTypeFromFile):
+        (WebCore::PlatformBridge::preferredExtensionForMIMEType):
+        (WebCore::PlatformBridge::plugins):
+        (WebCore::PlatformBridge::pluginScriptableObject):
+        (WebCore::PlatformBridge::loadPlatformImageResource):
+        (WebCore::PlatformBridge::loadPlatformAudioResource):
+        (WebCore::PlatformBridge::decodeAudioFileData):
+        (WebCore::PlatformBridge::sandboxEnabled):
+        (WebCore::PlatformBridge::setSharedTimerFiredFunction):
+        (WebCore::PlatformBridge::setSharedTimerFireTime):
+        (WebCore::PlatformBridge::stopSharedTimer):
+        (WebCore::PlatformBridge::decrementStatsCounter):
+        (WebCore::PlatformBridge::incrementStatsCounter):
+        (WebCore::PlatformBridge::histogramCustomCounts):
+        (WebCore::PlatformBridge::histogramEnumeration):
+        (WebCore::PlatformBridge::suddenTerminationChanged):
+        (WebCore::PlatformBridge::currentTime):
+        (WebCore::PlatformBridge::paintButton):
+        (WebCore::PlatformBridge::paintMenuList):
+        (WebCore::PlatformBridge::paintScrollbarArrow):
+        (WebCore::PlatformBridge::paintScrollbarThumb):
+        (WebCore::PlatformBridge::paintScrollbarTrack):
+        (WebCore::PlatformBridge::paintSpinButton):
+        (WebCore::PlatformBridge::paintTextField):
+        (WebCore::PlatformBridge::paintTrackbar):
+        (WebCore::PlatformBridge::paintProgressBar):
+        (WebCore::WebThemePart):
+        (WebCore::WebThemeState):
+        (WebCore::GetWebThemeExtraParams):
+        (WebCore::PlatformBridge::getThemePartSize):
+        (WebCore::PlatformBridge::paintThemePart):
+        (WebCore::PlatformBridge::traceEventBegin):
+        (WebCore::PlatformBridge::traceEventEnd):
+        (WebCore::PlatformBridge::visitedLinkHash):
+        (WebCore::PlatformBridge::isLinkVisited):
+        (WebCore::PlatformBridge::notifyJSOutOfMemory):
+        (WebCore::PlatformBridge::memoryUsageMB):
+        (WebCore::PlatformBridge::actualMemoryUsageMB):
+        (WebCore::PlatformBridge::screenDepth):
+        (WebCore::PlatformBridge::screenDepthPerComponent):
+        (WebCore::PlatformBridge::screenIsMonochrome):
+        (WebCore::PlatformBridge::screenRect):
+        (WebCore::PlatformBridge::screenAvailableRect):
+        (WebCore::PlatformBridge::popupsAllowed):
+        (WebCore::WorkerContextProxy::create):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::cacheMetadata):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::WebFrameImpl):
+        (WebKit::WebFrameImpl::~WebFrameImpl):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+
+2011-01-20  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by Andreas Kling.
+
+        [chromium] Remove deprecated WebKit::nameOfInputElement function
+        https://bugs.webkit.org/show_bug.cgi?id=52824
+
+        * src/DOMUtilitiesPrivate.cpp:
+        * src/DOMUtilitiesPrivate.h:
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dave Hyatt.
+
+        Cleanup Scrollbar/ScrollbarClient relationship
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        * src/WebScrollbarImpl.cpp:
+        (WebKit::WebScrollbarImpl::WebScrollbarImpl):
+        (WebKit::WebScrollbarImpl::value):
+        (WebKit::WebScrollbarImpl::setValue):
+        (WebKit::WebScrollbarImpl::scroll):
+        (WebKit::WebScrollbarImpl::onMouseDown):
+        (WebKit::WebScrollbarImpl::onMouseMove):
+        (WebKit::WebScrollbarImpl::onMouseWheel):
+        (WebKit::WebScrollbarImpl::onKeyDown):
+        (WebKit::WebScrollbarImpl::scrollPosition):
+        (WebKit::WebScrollbarImpl::setScrollOffset):
+        * src/WebScrollbarImpl.h:
+
+2011-01-20  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Implement mozilla's requestAnimationFrame API
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Chromium WebKit API support for window.webkitRequestAnimationFrame()
+
+        * features.gypi:
+        * public/WebWidget.h:
+        * public/WebWidgetClient.h:
+        (WebKit::WebWidgetClient::scheduleAnimation):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::scheduleAnimation):
+        * src/ChromeClientImpl.h:
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::animate):
+        (WebKit::WebPopupMenuImpl::scheduleAnimation):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::animate):
+        * src/WebViewImpl.h:
+
+2010-12-14  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [V8] Get rid of delayed exception reporting in V8ConsoleMessage.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=51044
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::runJavaScriptAlert):
+        * src/WebScriptController.cpp:
+        (WebKit::WebScriptController::flushConsoleMessages):
+
+2010-12-27  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebCore doesn't fire window.onerror event when uncaught JavaScript exceptions are thrown
+        https://bugs.webkit.org/show_bug.cgi?id=8519
+
+        Uncaught exceptions are propagated to window.onerror hander if one is present.
+        The handler is expected to be a function accepting three arguments: error message,
+        resource url and line number where the exception occured.
+
+        It was decided to dispatch ErrorEvent to all listeners/handlers no matter if they
+        were created in the same isolated world where the exception occured or not.
+
+        Tests: fast/events/window-onerror1.html
+               fast/events/window-onerror10.html
+               fast/events/window-onerror11.html
+               fast/events/window-onerror12.html
+               fast/events/window-onerror2.html
+               fast/events/window-onerror3.html
+               fast/events/window-onerror4.html
+               fast/events/window-onerror5.html
+               fast/events/window-onerror6.html
+               fast/events/window-onerror7.html
+               fast/events/window-onerror8.html
+               fast/events/window-onerror9.html
+               http/tests/security/window-onerror-exception-in-iframe.html
+               userscripts/window-onerror-for-isolated-world-1.html
+               userscripts/window-onerror-for-isolated-world-2.html
+
+        * src/WebWorkerClientImpl.cpp:
+        (WebKit::WebWorkerClientImpl::postExceptionToWorkerObject):
+        (WebKit::WebWorkerClientImpl::postConsoleMessageToWorkerObject):
+        (WebKit::WebWorkerClientImpl::postExceptionToWorkerObjectTask):
+        (WebKit::WebWorkerClientImpl::postConsoleMessageToWorkerObjectTask):
+
+2011-01-19  Dmitry Titov  <dimich@chromium.org>
+
+        [Chromium] Unreviewed, build fix.
+
+        During revert of 76203, sheriffbot did not revert "rename+change" correctly.
+
+        * src/ChromiumBridge.cpp: Renamed from Source/WebKit/chromium/src/PlatformBridge.cpp.
+        (WebCore::toChromeClientImpl):
+        (WebCore::toWebWidgetClient):
+        (WebCore::getCookieJar):
+        (WebCore::ChromiumBridge::cacheMetadata):
+        (WebCore::ChromiumBridge::clipboardIsFormatAvailable):
+        (WebCore::ChromiumBridge::clipboardReadPlainText):
+        (WebCore::ChromiumBridge::clipboardReadHTML):
+        (WebCore::ChromiumBridge::clipboardWriteSelection):
+        (WebCore::ChromiumBridge::clipboardWritePlainText):
+        (WebCore::ChromiumBridge::clipboardWriteURL):
+        (WebCore::ChromiumBridge::clipboardWriteImage):
+        (WebCore::ChromiumBridge::clipboardWriteData):
+        (WebCore::ChromiumBridge::clipboardReadAvailableTypes):
+        (WebCore::ChromiumBridge::clipboardReadData):
+        (WebCore::ChromiumBridge::clipboardReadFilenames):
+        (WebCore::ChromiumBridge::setCookies):
+        (WebCore::ChromiumBridge::cookies):
+        (WebCore::ChromiumBridge::cookieRequestHeaderFieldValue):
+        (WebCore::ChromiumBridge::rawCookies):
+        (WebCore::ChromiumBridge::deleteCookie):
+        (WebCore::ChromiumBridge::cookiesEnabled):
+        (WebCore::ChromiumBridge::prefetchDNS):
+        (WebCore::ChromiumBridge::fileExists):
+        (WebCore::ChromiumBridge::deleteFile):
+        (WebCore::ChromiumBridge::deleteEmptyDirectory):
+        (WebCore::ChromiumBridge::getFileSize):
+        (WebCore::ChromiumBridge::revealFolderInOS):
+        (WebCore::ChromiumBridge::getFileModificationTime):
+        (WebCore::ChromiumBridge::directoryName):
+        (WebCore::ChromiumBridge::pathByAppendingComponent):
+        (WebCore::ChromiumBridge::makeAllDirectories):
+        (WebCore::ChromiumBridge::getAbsolutePath):
+        (WebCore::ChromiumBridge::isDirectory):
+        (WebCore::ChromiumBridge::filePathToURL):
+        (WebCore::ChromiumBridge::openFile):
+        (WebCore::ChromiumBridge::closeFile):
+        (WebCore::ChromiumBridge::seekFile):
+        (WebCore::ChromiumBridge::truncateFile):
+        (WebCore::ChromiumBridge::readFromFile):
+        (WebCore::ChromiumBridge::writeToFile):
+        (WebCore::ChromiumBridge::ensureFontLoaded):
+        (WebCore::ChromiumBridge::getFontFamilyForCharacters):
+        (WebCore::ChromiumBridge::getRenderStyleForStrike):
+        (WebCore::ChromiumBridge::loadFont):
+        (WebCore::ChromiumBridge::databaseOpenFile):
+        (WebCore::ChromiumBridge::databaseDeleteFile):
+        (WebCore::ChromiumBridge::databaseGetFileAttributes):
+        (WebCore::ChromiumBridge::databaseGetFileSize):
+        (WebCore::ChromiumBridge::idbFactory):
+        (WebCore::ChromiumBridge::idbShutdown):
+        (WebCore::ChromiumBridge::createIDBKeysFromSerializedValuesAndKeyPath):
+        (WebCore::ChromiumBridge::signedPublicKeyAndChallengeString):
+        (WebCore::ChromiumBridge::computedDefaultLanguage):
+        (WebCore::ChromiumBridge::layoutTestMode):
+        (WebCore::ChromiumBridge::isSupportedImageMIMEType):
+        (WebCore::ChromiumBridge::isSupportedJavaScriptMIMEType):
+        (WebCore::ChromiumBridge::isSupportedNonImageMIMEType):
+        (WebCore::ChromiumBridge::mimeTypeForExtension):
+        (WebCore::ChromiumBridge::mimeTypeFromFile):
+        (WebCore::ChromiumBridge::preferredExtensionForMIMEType):
+        (WebCore::ChromiumBridge::plugins):
+        (WebCore::ChromiumBridge::pluginScriptableObject):
+        (WebCore::ChromiumBridge::loadPlatformImageResource):
+        (WebCore::ChromiumBridge::loadPlatformAudioResource):
+        (WebCore::ChromiumBridge::decodeAudioFileData):
+        (WebCore::ChromiumBridge::sandboxEnabled):
+        (WebCore::ChromiumBridge::setSharedTimerFiredFunction):
+        (WebCore::ChromiumBridge::setSharedTimerFireTime):
+        (WebCore::ChromiumBridge::stopSharedTimer):
+        (WebCore::ChromiumBridge::decrementStatsCounter):
+        (WebCore::ChromiumBridge::incrementStatsCounter):
+        (WebCore::ChromiumBridge::histogramCustomCounts):
+        (WebCore::ChromiumBridge::histogramEnumeration):
+        (WebCore::ChromiumBridge::suddenTerminationChanged):
+        (WebCore::ChromiumBridge::currentTime):
+        (WebCore::ChromiumBridge::paintButton):
+        (WebCore::ChromiumBridge::paintMenuList):
+        (WebCore::ChromiumBridge::paintScrollbarArrow):
+        (WebCore::ChromiumBridge::paintScrollbarThumb):
+        (WebCore::ChromiumBridge::paintScrollbarTrack):
+        (WebCore::ChromiumBridge::paintSpinButton):
+        (WebCore::ChromiumBridge::paintTextField):
+        (WebCore::ChromiumBridge::paintTrackbar):
+        (WebCore::ChromiumBridge::paintProgressBar):
+        (WebCore::WebThemePart):
+        (WebCore::WebThemeState):
+        (WebCore::GetWebThemeExtraParams):
+        (WebCore::ChromiumBridge::getThemePartSize):
+        (WebCore::ChromiumBridge::paintThemePart):
+        (WebCore::ChromiumBridge::traceEventBegin):
+        (WebCore::ChromiumBridge::traceEventEnd):
+        (WebCore::ChromiumBridge::visitedLinkHash):
+        (WebCore::ChromiumBridge::isLinkVisited):
+        (WebCore::ChromiumBridge::notifyJSOutOfMemory):
+        (WebCore::ChromiumBridge::memoryUsageMB):
+        (WebCore::ChromiumBridge::actualMemoryUsageMB):
+        (WebCore::ChromiumBridge::screenDepth):
+        (WebCore::ChromiumBridge::screenDepthPerComponent):
+        (WebCore::ChromiumBridge::screenIsMonochrome):
+        (WebCore::ChromiumBridge::screenRect):
+        (WebCore::ChromiumBridge::screenAvailableRect):
+        (WebCore::ChromiumBridge::popupsAllowed):
+        (WebCore::WorkerContextProxy::create):
+
+2011-01-19  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r76203.
+        http://trac.webkit.org/changeset/76203
+        https://bugs.webkit.org/show_bug.cgi?id=52784
+
+        Broke Win compile on Chromium bots (Requested by dimich on
+        #webkit).
+
+        * WebKit.gyp:
+        * src/AssertMatchingEnums.cpp:
+        * src/ChromiumBridge.cpp: Renamed from Source/WebKit/chromium/src/PlatformBridge.cpp.
+        (WebCore::toChromeClientImpl):
+        (WebCore::toWebWidgetClient):
+        (WebCore::getCookieJar):
+        (WebCore::ChromiumBridge::cacheMetadata):
+        (WebCore::ChromiumBridge::clipboardIsFormatAvailable):
+        (WebCore::ChromiumBridge::clipboardReadPlainText):
+        (WebCore::ChromiumBridge::clipboardReadHTML):
+        (WebCore::ChromiumBridge::clipboardWriteSelection):
+        (WebCore::ChromiumBridge::clipboardWritePlainText):
+        (WebCore::ChromiumBridge::clipboardWriteURL):
+        (WebCore::ChromiumBridge::clipboardWriteImage):
+        (WebCore::ChromiumBridge::clipboardWriteData):
+        (WebCore::ChromiumBridge::clipboardReadAvailableTypes):
+        (WebCore::ChromiumBridge::clipboardReadData):
+        (WebCore::ChromiumBridge::clipboardReadFilenames):
+        (WebCore::ChromiumBridge::setCookies):
+        (WebCore::ChromiumBridge::cookies):
+        (WebCore::ChromiumBridge::cookieRequestHeaderFieldValue):
+        (WebCore::ChromiumBridge::rawCookies):
+        (WebCore::ChromiumBridge::deleteCookie):
+        (WebCore::ChromiumBridge::cookiesEnabled):
+        (WebCore::ChromiumBridge::prefetchDNS):
+        (WebCore::ChromiumBridge::fileExists):
+        (WebCore::ChromiumBridge::deleteFile):
+        (WebCore::ChromiumBridge::deleteEmptyDirectory):
+        (WebCore::ChromiumBridge::getFileSize):
+        (WebCore::ChromiumBridge::revealFolderInOS):
+        (WebCore::ChromiumBridge::getFileModificationTime):
+        (WebCore::ChromiumBridge::directoryName):
+        (WebCore::ChromiumBridge::pathByAppendingComponent):
+        (WebCore::ChromiumBridge::makeAllDirectories):
+        (WebCore::ChromiumBridge::getAbsolutePath):
+        (WebCore::ChromiumBridge::isDirectory):
+        (WebCore::ChromiumBridge::filePathToURL):
+        (WebCore::ChromiumBridge::openFile):
+        (WebCore::ChromiumBridge::closeFile):
+        (WebCore::ChromiumBridge::seekFile):
+        (WebCore::ChromiumBridge::truncateFile):
+        (WebCore::ChromiumBridge::readFromFile):
+        (WebCore::ChromiumBridge::writeToFile):
+        (WebCore::ChromiumBridge::ensureFontLoaded):
+        (WebCore::ChromiumBridge::getFontFamilyForCharacters):
+        (WebCore::ChromiumBridge::getRenderStyleForStrike):
+        (WebCore::ChromiumBridge::loadFont):
+        (WebCore::ChromiumBridge::databaseOpenFile):
+        (WebCore::ChromiumBridge::databaseDeleteFile):
+        (WebCore::ChromiumBridge::databaseGetFileAttributes):
+        (WebCore::ChromiumBridge::databaseGetFileSize):
+        (WebCore::ChromiumBridge::idbFactory):
+        (WebCore::ChromiumBridge::idbShutdown):
+        (WebCore::ChromiumBridge::createIDBKeysFromSerializedValuesAndKeyPath):
+        (WebCore::ChromiumBridge::signedPublicKeyAndChallengeString):
+        (WebCore::ChromiumBridge::computedDefaultLanguage):
+        (WebCore::ChromiumBridge::layoutTestMode):
+        (WebCore::ChromiumBridge::isSupportedImageMIMEType):
+        (WebCore::ChromiumBridge::isSupportedJavaScriptMIMEType):
+        (WebCore::ChromiumBridge::isSupportedNonImageMIMEType):
+        (WebCore::ChromiumBridge::mimeTypeForExtension):
+        (WebCore::ChromiumBridge::mimeTypeFromFile):
+        (WebCore::ChromiumBridge::preferredExtensionForMIMEType):
+        (WebCore::ChromiumBridge::plugins):
+        (WebCore::ChromiumBridge::pluginScriptableObject):
+        (WebCore::ChromiumBridge::loadPlatformImageResource):
+        (WebCore::ChromiumBridge::loadPlatformAudioResource):
+        (WebCore::ChromiumBridge::decodeAudioFileData):
+        (WebCore::ChromiumBridge::sandboxEnabled):
+        (WebCore::ChromiumBridge::setSharedTimerFiredFunction):
+        (WebCore::ChromiumBridge::setSharedTimerFireTime):
+        (WebCore::ChromiumBridge::stopSharedTimer):
+        (WebCore::ChromiumBridge::decrementStatsCounter):
+        (WebCore::ChromiumBridge::incrementStatsCounter):
+        (WebCore::ChromiumBridge::histogramCustomCounts):
+        (WebCore::ChromiumBridge::histogramEnumeration):
+        (WebCore::ChromiumBridge::suddenTerminationChanged):
+        (WebCore::ChromiumBridge::currentTime):
+        (WebCore::ChromiumBridge::paintButton):
+        (WebCore::ChromiumBridge::paintMenuList):
+        (WebCore::ChromiumBridge::paintScrollbarArrow):
+        (WebCore::ChromiumBridge::paintScrollbarThumb):
+        (WebCore::ChromiumBridge::paintScrollbarTrack):
+        (WebCore::ChromiumBridge::paintSpinButton):
+        (WebCore::ChromiumBridge::paintTextField):
+        (WebCore::ChromiumBridge::paintTrackbar):
+        (WebCore::ChromiumBridge::paintProgressBar):
+        (WebCore::WebThemePart):
+        (WebCore::WebThemeState):
+        (WebCore::GetWebThemeExtraParams):
+        (WebCore::ChromiumBridge::getThemePartSize):
+        (WebCore::ChromiumBridge::paintThemePart):
+        (WebCore::ChromiumBridge::traceEventBegin):
+        (WebCore::ChromiumBridge::traceEventEnd):
+        (WebCore::ChromiumBridge::visitedLinkHash):
+        (WebCore::ChromiumBridge::isLinkVisited):
+        (WebCore::ChromiumBridge::notifyJSOutOfMemory):
+        (WebCore::ChromiumBridge::memoryUsageMB):
+        (WebCore::ChromiumBridge::actualMemoryUsageMB):
+        (WebCore::ChromiumBridge::screenDepth):
+        (WebCore::ChromiumBridge::screenDepthPerComponent):
+        (WebCore::ChromiumBridge::screenIsMonochrome):
+        (WebCore::ChromiumBridge::screenRect):
+        (WebCore::ChromiumBridge::screenAvailableRect):
+        (WebCore::ChromiumBridge::popupsAllowed):
+        (WebCore::WorkerContextProxy::create):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::cacheMetadata):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::WebFrameImpl):
+        (WebKit::WebFrameImpl::~WebFrameImpl):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+
+2011-01-19  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Rename ChromiumBridge to PlatformBridge
+        https://bugs.webkit.org/show_bug.cgi?id=52471
+
+        * WebKit.gyp:
+        * src/AssertMatchingEnums.cpp:
+        * src/PlatformBridge.cpp:
+        (WebCore::toChromeClientImpl):
+        (WebCore::toWebWidgetClient):
+        (WebCore::getCookieJar):
+        (WebCore::PlatformBridge::cacheMetadata):
+        (WebCore::PlatformBridge::clipboardIsFormatAvailable):
+        (WebCore::PlatformBridge::clipboardReadPlainText):
+        (WebCore::PlatformBridge::clipboardReadHTML):
+        (WebCore::PlatformBridge::clipboardWriteSelection):
+        (WebCore::PlatformBridge::clipboardWritePlainText):
+        (WebCore::PlatformBridge::clipboardWriteURL):
+        (WebCore::PlatformBridge::clipboardWriteImage):
+        (WebCore::PlatformBridge::clipboardWriteData):
+        (WebCore::PlatformBridge::clipboardReadAvailableTypes):
+        (WebCore::PlatformBridge::clipboardReadData):
+        (WebCore::PlatformBridge::clipboardReadFilenames):
+        (WebCore::PlatformBridge::setCookies):
+        (WebCore::PlatformBridge::cookies):
+        (WebCore::PlatformBridge::cookieRequestHeaderFieldValue):
+        (WebCore::PlatformBridge::rawCookies):
+        (WebCore::PlatformBridge::deleteCookie):
+        (WebCore::PlatformBridge::cookiesEnabled):
+        (WebCore::PlatformBridge::prefetchDNS):
+        (WebCore::PlatformBridge::fileExists):
+        (WebCore::PlatformBridge::deleteFile):
+        (WebCore::PlatformBridge::deleteEmptyDirectory):
+        (WebCore::PlatformBridge::getFileSize):
+        (WebCore::PlatformBridge::revealFolderInOS):
+        (WebCore::PlatformBridge::getFileModificationTime):
+        (WebCore::PlatformBridge::directoryName):
+        (WebCore::PlatformBridge::pathByAppendingComponent):
+        (WebCore::PlatformBridge::makeAllDirectories):
+        (WebCore::PlatformBridge::getAbsolutePath):
+        (WebCore::PlatformBridge::isDirectory):
+        (WebCore::PlatformBridge::filePathToURL):
+        (WebCore::PlatformBridge::openFile):
+        (WebCore::PlatformBridge::closeFile):
+        (WebCore::PlatformBridge::seekFile):
+        (WebCore::PlatformBridge::truncateFile):
+        (WebCore::PlatformBridge::readFromFile):
+        (WebCore::PlatformBridge::writeToFile):
+        (WebCore::PlatformBridge::ensureFontLoaded):
+        (WebCore::PlatformBridge::getFontFamilyForCharacters):
+        (WebCore::PlatformBridge::getRenderStyleForStrike):
+        (WebCore::PlatformBridge::loadFont):
+        (WebCore::PlatformBridge::databaseOpenFile):
+        (WebCore::PlatformBridge::databaseDeleteFile):
+        (WebCore::PlatformBridge::databaseGetFileAttributes):
+        (WebCore::PlatformBridge::databaseGetFileSize):
+        (WebCore::PlatformBridge::idbFactory):
+        (WebCore::PlatformBridge::idbShutdown):
+        (WebCore::PlatformBridge::createIDBKeysFromSerializedValuesAndKeyPath):
+        (WebCore::PlatformBridge::signedPublicKeyAndChallengeString):
+        (WebCore::PlatformBridge::computedDefaultLanguage):
+        (WebCore::PlatformBridge::layoutTestMode):
+        (WebCore::PlatformBridge::isSupportedImageMIMEType):
+        (WebCore::PlatformBridge::isSupportedJavaScriptMIMEType):
+        (WebCore::PlatformBridge::isSupportedNonImageMIMEType):
+        (WebCore::PlatformBridge::mimeTypeForExtension):
+        (WebCore::PlatformBridge::mimeTypeFromFile):
+        (WebCore::PlatformBridge::preferredExtensionForMIMEType):
+        (WebCore::PlatformBridge::plugins):
+        (WebCore::PlatformBridge::pluginScriptableObject):
+        (WebCore::PlatformBridge::loadPlatformImageResource):
+        (WebCore::PlatformBridge::loadPlatformAudioResource):
+        (WebCore::PlatformBridge::decodeAudioFileData):
+        (WebCore::PlatformBridge::sandboxEnabled):
+        (WebCore::PlatformBridge::setSharedTimerFiredFunction):
+        (WebCore::PlatformBridge::setSharedTimerFireTime):
+        (WebCore::PlatformBridge::stopSharedTimer):
+        (WebCore::PlatformBridge::decrementStatsCounter):
+        (WebCore::PlatformBridge::incrementStatsCounter):
+        (WebCore::PlatformBridge::histogramCustomCounts):
+        (WebCore::PlatformBridge::histogramEnumeration):
+        (WebCore::PlatformBridge::suddenTerminationChanged):
+        (WebCore::PlatformBridge::currentTime):
+        (WebCore::PlatformBridge::paintButton):
+        (WebCore::PlatformBridge::paintMenuList):
+        (WebCore::PlatformBridge::paintScrollbarArrow):
+        (WebCore::PlatformBridge::paintScrollbarThumb):
+        (WebCore::PlatformBridge::paintScrollbarTrack):
+        (WebCore::PlatformBridge::paintSpinButton):
+        (WebCore::PlatformBridge::paintTextField):
+        (WebCore::PlatformBridge::paintTrackbar):
+        (WebCore::PlatformBridge::paintProgressBar):
+        (WebCore::WebThemePart):
+        (WebCore::WebThemeState):
+        (WebCore::GetWebThemeExtraParams):
+        (WebCore::PlatformBridge::getThemePartSize):
+        (WebCore::PlatformBridge::paintThemePart):
+        (WebCore::PlatformBridge::traceEventBegin):
+        (WebCore::PlatformBridge::traceEventEnd):
+        (WebCore::PlatformBridge::visitedLinkHash):
+        (WebCore::PlatformBridge::isLinkVisited):
+        (WebCore::PlatformBridge::notifyJSOutOfMemory):
+        (WebCore::PlatformBridge::memoryUsageMB):
+        (WebCore::PlatformBridge::actualMemoryUsageMB):
+        (WebCore::PlatformBridge::screenDepth):
+        (WebCore::PlatformBridge::screenDepthPerComponent):
+        (WebCore::PlatformBridge::screenIsMonochrome):
+        (WebCore::PlatformBridge::screenRect):
+        (WebCore::PlatformBridge::screenAvailableRect):
+        (WebCore::PlatformBridge::popupsAllowed):
+        (WebCore::WorkerContextProxy::create):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::cacheMetadata):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::WebFrameImpl):
+        (WebKit::WebFrameImpl::~WebFrameImpl):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+
+2011-01-19  James Robinson  <jamesr@chromium.org>
+
+        Unreviewed, rolling out r76194.
+        http://trac.webkit.org/changeset/76194
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Caused mysterious compile failure on the chromium win
+        build.webkit.org bots
+
+        * features.gypi:
+        * public/WebWidget.h:
+        * public/WebWidgetClient.h:
+        * src/ChromeClientImpl.cpp:
+        * src/ChromeClientImpl.h:
+        * src/WebPopupMenuImpl.cpp:
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        * src/WebViewImpl.h:
+
+2011-01-19  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Implement mozilla's requestAnimationFrame API
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Chromium WebKit API support for window.webkitRequestAnimationFrame()
+
+        * features.gypi:
+        * public/WebWidget.h:
+        * public/WebWidgetClient.h:
+        (WebKit::WebWidgetClient::scheduleAnimation):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::scheduleAnimation):
+        * src/ChromeClientImpl.h:
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::animate):
+        (WebKit::WebPopupMenuImpl::scheduleAnimation):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::animate):
+        * src/WebViewImpl.h:
+
+2011-01-19  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, roll chromium deps to pick up fixes for the linux build.
+
+        * DEPS:
+
+2011-01-19  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Send origin/url as part of speech input requests to the embedder.
+        https://bugs.webkit.org/show_bug.cgi?id=52718
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition): Updated prototype.
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::startRecognition): Pass up additional origin parameter.
+        * src/SpeechInputClientImpl.h:
+        * src/WebSpeechInputControllerMockImpl.cpp: Updated code to pass additional parameter.
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        * src/WebSpeechInputControllerMockImpl.h: Added new variant of startRecognition method.
+
+2011-01-19  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: updating Chromium devtools sanity tests for downstream use.
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype._checkExecutionLine):
+
+2011-01-18  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: make InjectedScriptAccess API a part of Web Inspector protocol.
+        https://bugs.webkit.org/show_bug.cgi?id=52652
+
+        Calls served by the InjectedScript should be first class protocol
+        citizens, not dispatched via single protocol message.
+
+        * src/js/Tests.js:
+
+2011-01-18  Victoria Kirst  <vrk@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [chromium] Adding support for YV16 video frame formats.
+        https://bugs.webkit.org/show_bug.cgi?id=52345
+
+        * src/VideoFrameChromiumImpl.cpp:
+        (WebKit::VideoFrameChromiumImpl::requiredTextureSize):
+
+2011-01-18  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Replace ChromiumBridge::widgetSetCursor with ChromeClient::setCursor
+        https://bugs.webkit.org/show_bug.cgi?id=42236
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::setCursor):
+        * src/ChromeClientImpl.h:
+        * src/ChromiumBridge.cpp:
+
 2011-01-17  Nico Weber  <thakis@chromium.org>
 
         Unreviewed.

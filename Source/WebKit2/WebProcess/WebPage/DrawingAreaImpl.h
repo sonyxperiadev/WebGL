@@ -36,15 +36,15 @@ struct UpdateInfo;
 
 class DrawingAreaImpl : public DrawingArea {
 public:
-    static PassRefPtr<DrawingAreaImpl> create(DrawingAreaInfo::Identifier, WebPage*);
+    static PassRefPtr<DrawingAreaImpl> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingAreaImpl();
 
 private:
-    DrawingAreaImpl(DrawingAreaInfo::Identifier, WebPage*);
+    DrawingAreaImpl(WebPage*, const WebPageCreationParameters&);
 
     // DrawingArea
     virtual void setNeedsDisplay(const WebCore::IntRect&);
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta);
+    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual void attachCompositingContext();
     virtual void detachCompositingContext();
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
@@ -55,6 +55,8 @@ private:
     // CoreIPC message handlers.
     virtual void setSize(const WebCore::IntSize&);
     virtual void didUpdate();
+    virtual void suspendPainting();
+    virtual void resumePainting();
 
     void scheduleDisplay();
     void display();
@@ -62,12 +64,16 @@ private:
 
     Region m_dirtyRegion;
     WebCore::IntRect m_scrollRect;
-    WebCore::IntSize m_scrollDelta;
+    WebCore::IntSize m_scrollOffset;
     
     // Whether we're waiting for a DidUpdate message. Used for throttling paints so that the 
     // web process won't paint more frequent than the UI process can handle.
     bool m_isWaitingForDidUpdate;
-    
+
+    // Whether painting is suspended. We'll still keep track of the dirty region but we 
+    // won't paint until painting has resumed again.
+    bool m_isPaintingSuspended;
+
     RunLoop::Timer<DrawingAreaImpl> m_displayTimer;
 };
 

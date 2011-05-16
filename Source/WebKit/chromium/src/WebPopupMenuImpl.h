@@ -56,11 +56,13 @@ struct WebRect;
 class WebPopupMenuImpl : public WebPopupMenu,
                          public WebCore::FramelessScrollViewClient,
                          public RefCounted<WebPopupMenuImpl> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     // WebWidget
     virtual void close();
     virtual WebSize size() { return m_size; }
     virtual void resize(const WebSize&);
+    virtual void animate();
     virtual void layout();
     virtual void paint(WebCanvas* canvas, const WebRect& rect);
     virtual void themeChanged();
@@ -105,6 +107,7 @@ public:
     virtual void invalidateWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
+    virtual void scheduleAnimation();
     virtual void scroll(
         const WebCore::IntSize& scrollDelta, const WebCore::IntRect& scrollRect,
         const WebCore::IntRect& clipRect);

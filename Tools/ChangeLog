@@ -1,3 +1,739 @@
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Geoffrey Sean Garen and Mark Rowe.
+
+        WebKitTestRunner needs the HOME environment variable to be set.
+        <rdar://problem/8896573>
+
+        * Scripts/old-run-webkit-tests: Set the HOME environment variable if
+        it exists.
+
+2011-01-21  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Suppress a few remaining integration tests so that none of the
+        layout_test unit tests ever read from the filesystem or launch
+        subprocesses that aren't part of the unit tests.
+
+        Also fix a minor bug in the printing unit tests that was
+        incorrectly relying on sys.argv.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52863
+
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2011-01-21  Darin Adler  <darin@apple.com>
+
+       Fix Mac build.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]): Pass 0 for runModal function.
+
+2011-01-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKit2: Implement showModalDialog
+        https://bugs.webkit.org/show_bug.cgi?id=52855
+
+        This fixes WebKitTestRunner to compile, but more work is probably
+        needed to get it to pass the tests.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::runModal): Added. Calls through to the
+        platform-specific version of runModal.
+        (WTR::TestController::createOtherPage): Changed to be a private
+        static member function so it can refer to runModal, which is
+        a private static member function.
+        (WTR::TestController::initialize): Pass 0 for the runModal
+        function since we don't need to run the main window modal.
+        I suspect this is wrong and will need to change.
+        * WebKitTestRunner/TestController.h: Added declarations for
+        the functions added above.
+        * WebKitTestRunner/mac/TestControllerMac.mm:
+        (WTR::TestController::runModal): Added. Untested implementation.
+        * WebKitTestRunner/qt/TestControllerQt.cpp:
+        (WTR::TestController::runModal): Added.
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::runModal): Added.
+
+2011-01-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Split Host object off from WebKitPatch for easier re-use
+        https://bugs.webkit.org/show_bug.cgi?id=52284
+
+        new-run-webkit-tests and other tools are eventually going to want one of these.
+        Basically you need to inherit from this class if you want to pretend to be a
+        self.tool object for Steps/Commands.
+
+        * Scripts/webkitpy/common/host.py: Added.
+        * Scripts/webkitpy/tool/main.py:
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Disable the tests that start and stop the http server and web
+        server, so that we don't have to worry about port collisions on
+        the bots.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52861
+
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        nrwt: rewrite google_chrome_unittest to use mock filesystem.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=52772
+        
+        * Scripts/webkitpy/layout_tests/port/google_chrome_unittest.py:
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Siedel.
+
+        nrwt: clean up almost all remaining port references, remove
+        unnecessary import clauses. The only remaining references are
+        in places where a mock filesystem makes no sense or can't be
+        used, and in one routine in port/google_chrome_unittest that
+        I'll rewrite in a separate patch.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52771
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_runner.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_gpu.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_gpu_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/google_chrome.py:
+        * Scripts/webkitpy/layout_tests/port/google_chrome_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/gtk.py:
+        * Scripts/webkitpy/layout_tests/port/mac.py:
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/port/win.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        remove fs refs from run_webkit_tests, rebaseline_chromium_webkit_tests
+
+        https://bugs.webkit.org/show_bug.cgi?id=52762
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2011-01-20  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] fix the paths used for the rebaseline tool
+        https://bugs.webkit.org/show_bug.cgi?id=52857
+
+        Some of the bots were renamed so the path to grab the results zip
+        file has changed.
+
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Fix bug introduced in r72688 / bug 52768 that broke the
+        generation of the output filename links in the results.html
+        output. Apparently none of the unit tests actually checked to
+        make sure the generated links were correct :(
+
+        https://bugs.webkit.org/show_bug.cgi?id=52854
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures_unittest.py:
+
+2011-01-20  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52849
+        Make window.print work with WebKit2
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        (WTR::TestController::initialize):
+        Added zeroes to WKPageUIClient structures to avoid build failures.
+
+2011-01-20  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        nrwt: remove fs refs from printing, test_failures, test_expectations, text_diff
+
+        https://bugs.webkit.org/show_bug.cgi?id=52756
+
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+2011-01-20  Mansi Mithal  <mansi.mithal@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        QtTestBrowser should have a seperate menu for Settings
+        https://bugs.webkit.org/show_bug.cgi?id=52817
+        
+        Added a new menu item named "Settings"
+        and moved the "Enable interrupting js scripts" and "Enable js pop up windows" under the "Settings" menu 
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::createChrome):
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by John Sullivan.
+
+        Update update-webkit-localizable-strings with new path to WebKit.
+
+        * Scripts/update-webkit-localizable-strings:
+
+2011-01-20  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Implement mozilla's requestAnimationFrame API
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Chromium DumpRenderTree support for window.webkitRequestAnimationFrame.
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (invokeScheduleComposite):
+        (WebViewHost::scheduleAnimation):
+        (WebViewHost::paintInvalidatedRegion):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2011-01-20  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKitTestRunner needs to support layoutTestController.evaluateScriptInIsolatedWorld
+        https://bugs.webkit.org/show_bug.cgi?id=42327
+
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm: Add support
+        for methods that take their normal arguments but also a JSContextRef.
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl: IDL definition
+        for evaluateScriptInIsolatedWorld.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::didClearWindowForFrame): Set a magic variable only if
+        this call is for an isolated world.
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::worldMap): Helper to create a world map.
+        (WTR::LayoutTestController::worldIDForWorld): Map from an ID to a world.
+        (WTR::LayoutTestController::evaluateScriptInIsolatedWorld): The newly
+        added LayoutTestController API.
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+
+2011-01-19  Adam Roben  <aroben@apple.com>
+
+        Convert paths in environment variables back to msys-style inside commit-log-editor
+
+        When this script gets run from inside git commit, msys-style paths in the environment will
+        have been turned into Windows-style paths with forward slashes. This screws up functions
+        like File::Spec->rel2abs, which seem to rely on $PWD having an msys-style path. We convert
+        the paths back to msys-style before doing anything else.
+
+        Fixes <http://webkit.org/b/48527> commit-log-editor uses full paths for section headers when
+        using msysgit's Perl and multiple ChangeLogs have been edited
+
+        Reviewed by David Kilzer.
+
+        * Scripts/commit-log-editor: Call fixEnvironment before doing anything else.
+        (fixEnvironment): Added. When run in msys in conjunction with git (i.e., when invoked from
+        inside git commit), convert Windows-style paths in the environment back to msys-style paths.
+
+2011-01-20  Zoltan Horvath  <zoltan@webkit.org>
+
+        [Win] Unreviewed build fix after r76248.
+
+        * DumpRenderTree/ForwardingHeaders/wtf/FastAllocBase.h: Added.
+
+2011-01-20  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Refactoring of the custom allocation framework
+        https://bugs.webkit.org/show_bug.cgi?id=49897
+
+        Inheriting from FastAllocBase can result in objects getting larger (bug #33896, #46589).
+        The modification replaces Noncopyable and FastAllocBase classes and these inherits with their
+        equivalent macro implementation at the necessary places.
+2011-01-20  Yi Shen  <yi.4.shen@nokia.com>
+
+        Unreviewed. 
+
+        Adding myself to committers.py.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2011-01-20  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Tony Chang.
+
+        Chromium builders don't delete unversioned directories when DEPS change
+        https://bugs.webkit.org/show_bug.cgi?id=52745
+
+        If we pass this option to gclient sync, gclient will delete directories
+        that are no longer part of DEPS instead of leaving them around to
+        confuse us later.  Apparently, the downstream buildbots use this option
+        already.
+
+        * Scripts/update-webkit-chromium:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix - I pulled this patch in to fix an issue
+        revealed by r76195 running on some new bots). Also fix a couple
+        of other issues revealed in testing.
+
+        nrwt: remove fs refs from layout_package/json*
+
+        https://bugs.webkit.org/show_bug.cgi?id=52754
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_runner.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        Fix a couple of minor bugs discovered while bringing up new bots
+        for testing.
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2011-01-19  James Robinson  <jamesr@chromium.org>
+
+        Unreviewed, rolling out r76194.
+        http://trac.webkit.org/changeset/76194
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Caused mysterious compile failure on the chromium win
+        build.webkit.org bots
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::paintInvalidatedRegion):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        remove fs refs from test_runner, dump_render_tree_thread
+
+        https://bugs.webkit.org/show_bug.cgi?id=52753
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_runner.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_runner_unittest.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2011-01-19  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Implement mozilla's requestAnimationFrame API
+        https://bugs.webkit.org/show_bug.cgi?id=51218
+
+        Chromium DumpRenderTree support for window.webkitRequestAnimationFrame.
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (invokeScheduleComposite):
+        (WebViewHost::scheduleAnimation):
+        (WebViewHost::paintInvalidatedRegion):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        Fix a few incorrect "self._filesystem" references introduced in
+        r76184.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        add a .sep property, abspath(), isabs(), mtime(), and
+        open_text_file_for_writing() to filesystem modules. Some of
+        these properties are not needed in this patch but will be needed
+        in subsequent patches (I'm doing this to avoid having to track
+        multiple versions of a single file).
+
+        Also, change most of the port/* modules to use the filesystem
+        objects instead of referencing the filesystem directly.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52748
+
+        * Scripts/webkitpy/common/system/filesystem.py:
+        * Scripts/webkitpy/common/system/filesystem_mock.py:
+        * Scripts/webkitpy/layout_tests/port/__init__.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/base_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/config.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/port/test_files_unittest.py:
+
+2011-01-19  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        If resetting between tests times out, treat it as a WebProcess crash
+        https://bugs.webkit.org/show_bug.cgi?id=52757
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::runTest):
+
+2011-01-19  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52739
+        Make it possible for a WebKit2 client to print headers and footers
+
+        Added dummy implementations for new printing UIClient calls.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::createOtherPage):
+        (WTR::TestController::initialize):
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Change webkitpy/layout_tests/port/test.py to use the
+        in-memory filesystem for cleaner unit testing. This
+        change allows us to kill a lot of code that was
+        specific to the test port, at the cost of being a
+        little less clear about how things would work if
+        you didn't have a filesystem.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52605
+
+        * Scripts/webkitpy/layout_tests/port/test.py:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        Fix test failure caused by committing attachment 79368 instead
+        of attachment 79461 on bug 52604.
+
+        * Scripts/webkitpy/common/system/filesystem_mock.py:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        new-run-webkit-tests: remove use of os.walk, use mock filesystem for better
+        unit testing. os.walk() is too much of a hassle to implement on
+        top of the in-memory mock filesystem and adding the necessary
+        interface to files_under() gives clients a cleaner API anyway
+        (for this particular usage model).
+
+        https://bugs.webkit.org/show_bug.cgi?id=52691
+
+        * Scripts/webkitpy/common/system/filesystem.py:
+        * Scripts/webkitpy/common/system/filesystem_mock.py:
+        * Scripts/webkitpy/layout_tests/port/test_files.py:
+        * Scripts/webkitpy/layout_tests/port/test_files_unittest.py:
+
+2011-01-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Change more modules in the layout-tests code to use the
+        filesystem wrapper for cleaner unit testing.
+
+        This patch also adds the glob() wrapper to the filesystem
+        abstraction.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=52604
+
+        * Scripts/webkitpy/layout_tests/port/test_files.py:
+        * Scripts/webkitpy/layout_tests/port/test_files_unittest.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/common/system/filesystem.py:
+        * Scripts/webkitpy/common/system/filesystem_mock.py:
+
+2011-01-19  Levi Weintraub  <leviw@chromium.org>
+
+        Unreviewed.
+
+        Updating my email addresses and irc nick.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2011-01-19  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        [chromium] [linux] if check-sys-deps fails, output the failure reason
+        https://bugs.webkit.org/show_bug.cgi?id=52671
+
+        * Scripts/webkitpy/common/system/executive_mock.py: Add support for
+            error handler functions.
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+            output the error text from --check-sys-deps
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+
+2011-01-19  Aparna Nandyal  <aparna.nand@wipro.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] QtTestBrowser crashes when closing if Facebook is opened
+        https://bugs.webkit.org/show_bug.cgi?id=52554
+        
+        QtNetworkAccessManager is created in a thread and set as
+        member variable in QWebPage. When the thread is destroyed
+        the object is still used. So fix will set the object to
+        NULL once the thread is destroyed.
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::~LauncherWindow):
+
+2011-01-18  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Csaba Osztrogonac
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp: Removed unncessary inculde of WKStringCF.h
+
+2011-01-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        new-run-webkit-tests: add a --build-directory command line argument
+
+        Official Google Chrome builds use a non-standard build directory
+        location. This patch adds a --build-directory argument that
+        allows that location to be specified on the command line. Only
+        Chromium-based builds will use this flag for now, but anyone can
+        in the future.
+
+        There are no unit tests for this since it's difficult to test
+        until mock filesystems are fully supported in the code. This was
+        tested by hand for now.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52694
+
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2011-01-18  Maciej Stachowiak  <mjs@apple.com>
+
+        Not reviewed. Bot fix.
+
+        Remove an inadvertently committed debugging print.
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::notifyDone):
+
+2011-01-18  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner should track loading more like DumpRenderTree
+        https://bugs.webkit.org/show_bug.cgi?id=52692
+
+        Change load tracking to track the current top loading frame, in the manner of DumpRenderTree.
+        This makes some tests that call notifyDone multiple times pass.
+        
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::InjectedBundle):
+        (WTR::InjectedBundle::done):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h:
+        (WTR::InjectedBundle::topLoadingFrame):
+        (WTR::InjectedBundle::setTopLoadingFrame):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::stopLoading):
+        (WTR::InjectedBundlePage::didStartProvisionalLoadForFrame):
+        (WTR::InjectedBundlePage::didFailProvisionalLoadWithErrorForFrame):
+        (WTR::InjectedBundlePage::didFinishLoadForFrame):
+        (WTR::InjectedBundlePage::didFailLoadWithErrorForFrame):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::notifyDone):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::didReceiveMessageFromInjectedBundle):
+
+2011-01-18  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] NRWT looking for DRT binary in the wrong path on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=52678
+        
+        Update path now that WebKit is inside Source.
+
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+
+2011-01-18  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] http/tests/incremental/slow-utf8-text.pl fails
+        https://bugs.webkit.org/show_bug.cgi?id=44282
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dump):
+
+2011-01-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Fix a small race condition that could cause the unit tests for
+        new-run-webkit-tests to fail in a multithreaded environment.
+        There was a small window in the code where one thread would
+        check to see if a thread had raised an exception, do something,
+        and then check to see if the thread was alive. If the other
+        thread raised an exception and exited in between these two
+        steps, the exception would be lost. Flipping the order of the
+        two checks fixes the race, since we will now always check for an
+        exception on the thread before exiting.
+
+        https://bugs.webkit.org/show_bug.cgi?id=51579
+
+        * Scripts/webkitpy/layout_tests/layout_package/message_broker.py:
+
+2011-01-18  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        commit-queue dies when test archiving fails
+        https://bugs.webkit.org/show_bug.cgi?id=52617
+
+        I looked at the machine and it had 10 archives already
+        thus find_unused_name was returning None.  I've upped
+        the limit to 100 (per bug) and tested the case where
+        find_unused_name returns None (making archive return None).
+
+        * Scripts/webkitpy/common/system/workspace.py:
+        * Scripts/webkitpy/common/system/workspace_unittest.py:
+        * Scripts/webkitpy/tool/bot/commitqueuetask.py:
+        * Scripts/webkitpy/tool/bot/commitqueuetask_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+
+2011-01-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Update rebaseline-chromium-webkit-tests unit tests to use a mock
+        filesystem. Also fix a couple of "with" statements missed by
+        r76050.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52487
+
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests_unittest.py:
+
+2011-01-18  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] Build fixes for gtk3 build
+        https://bugs.webkit.org/show_bug.cgi?id=52648
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (beginDragWithFilesCallback):
+
+2011-01-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Update rebaseline-chromium-webkit-tests to use filesystem objects
+        instead of direct references to os.path, shutil, tempfile, etc.
+
+        This patch doesn't change anything, but will allow subsequent
+        patches to change the unit tests to no longer use the real
+        filesystem.
+
+        This patch adds a bunch more methods to the filesystem object as
+        well.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52482
+
+        * Scripts/webkitpy/common/system/filesystem.py:
+        * Scripts/webkitpy/common/system/filesystem_mock.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests_unittest.py:
+
+2011-01-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        new-run-webkit-tests shouldn't crash when you try to run a
+        directory containing only skipped files.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52478
+        
+        * Scripts/webkitpy/layout_tests/layout_package/test_runner.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2011-01-18  Adam Bergkvist  <adam.bergkvist@ericsson.com> and Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] The GTK+ EventSender needs support for beginDragWithFiles
+        https://bugs.webkit.org/show_bug.cgi?id=40833
+
+        * DumpRenderTree/gtk/EventSender.cpp: Add a beginDragWithFiles implementation for the
+        GTK+ event sender.
+        (dragWithFilesDragDataGetCallback): Added.
+        (dragWithFilesDragEndCallback): Added.
+        (beginDragWithFilesCallback): Added.
+
+2011-01-18  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Adam Barth.
+
+        ews: Add additional watcher to efl ews
+        https://bugs.webkit.org/show_bug.cgi?id=52613
+
+        Add gyuyoung.kim@samsung.com to watcher list of efl-ews.
+
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+
 2011-01-17  Tony Gentilcore  <tonyg@chromium.org>
 
         Reviewed by Alexey Proskuryakov.

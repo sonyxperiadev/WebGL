@@ -128,6 +128,7 @@ namespace WebCore {
     class GraphicsContextPlatformPrivate;
     class ImageBuffer;
     class IntRect;
+    class RoundedIntRect;
     class KURL;
     class SharedGraphicsContext3D;
     class TextRun;
@@ -213,7 +214,8 @@ namespace WebCore {
         bool shadowsIgnoreTransforms : 1;
     };
 
-    class GraphicsContext : public Noncopyable {
+    class GraphicsContext {
+        WTF_MAKE_NONCOPYABLE(GraphicsContext); WTF_MAKE_FAST_ALLOCATED;
     public:
         GraphicsContext(PlatformGraphicsContext*);
         ~GraphicsContext();
@@ -317,6 +319,7 @@ namespace WebCore {
         void fillRect(const FloatRect&, const Color&, ColorSpace);
         void fillRect(const FloatRect&, Generator&);
         void fillRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color&, ColorSpace);
+        void fillRoundedRect(const RoundedIntRect&, const Color&, ColorSpace);
 
         void clearRect(const FloatRect&);
 
@@ -345,10 +348,10 @@ namespace WebCore {
         InterpolationQuality imageInterpolationQuality() const;
 
         void clip(const FloatRect&);
-        void addRoundedRectClip(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
+        void addRoundedRectClip(const RoundedIntRect&);
         void addInnerRoundedRectClip(const IntRect&, int thickness);
         void clipOut(const IntRect&);
-        void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
+        void clipOutRoundedRect(const RoundedIntRect&);
         void clipPath(const Path&, WindRule);
         void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias = true);
         void clipToImageBuffer(ImageBuffer*, const FloatRect&);
@@ -457,7 +460,8 @@ namespace WebCore {
         void setShouldIncludeChildWindows(bool);
         bool shouldIncludeChildWindows() const;
 
-        class WindowsBitmap : public Noncopyable {
+        class WindowsBitmap {
+            WTF_MAKE_NONCOPYABLE(WindowsBitmap);
         public:
             WindowsBitmap(HDC, IntSize);
             ~WindowsBitmap();

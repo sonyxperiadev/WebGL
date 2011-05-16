@@ -204,12 +204,10 @@ bool Event::isIDBSuccessEvent() const
 }
 #endif
 
-#if ENABLE(WORKERS)
 bool Event::isErrorEvent() const
 {
     return false;
 }
-#endif
 
 #if ENABLE(TOUCH_EVENTS)
 bool Event::isTouchEvent() const
@@ -265,7 +263,7 @@ bool Event::fromUserGesture()
         // other accepted events
         || type == eventNames().selectEvent || type == eventNames().changeEvent
         || type == eventNames().focusEvent || type == eventNames().blurEvent
-        || type == eventNames().submitEvent;
+        || type == eventNames().submitEvent || type == eventNames().formchangeEvent;
 }
 
 bool Event::storesResultAsString() const

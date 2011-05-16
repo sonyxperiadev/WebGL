@@ -24,6 +24,7 @@
 #include "DrawingAreaProxy.h"
 #include "PageClient.h"
 #include "qwkpage.h"
+#include "qgraphicswkview.h"
 #include "WebPageProxy.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
@@ -41,12 +42,13 @@ public:
 
     static QWKPagePrivate* get(QWKPage* page) { return page->d; }
 
-    void init(QGraphicsItem*, WTF::PassOwnPtr<WebKit::DrawingAreaProxy>);
+    void init(QGraphicsItem*, QGraphicsWKView::BackingStoreType);
 
     // PageClient
     virtual PassOwnPtr<WebKit::DrawingAreaProxy> createDrawingAreaProxy();
     virtual void setViewNeedsDisplay(const WebCore::IntRect&);
     virtual void displayView();
+    virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
 
     virtual WebCore::IntSize viewSize();
     virtual bool isViewWindowActive();
@@ -60,7 +62,7 @@ public:
 #endif // USE(ACCELERATED_COMPOSITING)
     virtual void pageDidRequestScroll(const WebCore::IntSize&);
     virtual void processDidCrash() { }
-    virtual void didRelaunchProcess() { }
+    virtual void didRelaunchProcess();
     virtual void didChangeContentsSize(const WebCore::IntSize&);
     virtual void didFindZoomableArea(const WebCore::IntRect&);
     virtual void setCursor(const WebCore::Cursor&);
@@ -119,6 +121,7 @@ public:
 
     QPoint tripleClick;
     QBasicTimer tripleClickTimer;
+    QGraphicsWKView::BackingStoreType backingStoreType;
 };
 
 class QtViewportAttributesPrivate : public QSharedData {

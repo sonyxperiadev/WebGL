@@ -40,6 +40,7 @@ class WebProcessConnection;
 struct PluginProcessCreationParameters;
         
 class PluginProcess : ChildProcess {
+    WTF_MAKE_NONCOPYABLE(PluginProcess);
 public:
     static PluginProcess& shared();
 
@@ -71,6 +72,8 @@ private:
     void createWebProcessConnection();
     
     void shutdownTimerFired();
+
+    void platformInitialize(const PluginProcessCreationParameters&);
 
     // The connection to the UI process.
     RefPtr<CoreIPC::Connection> m_connection;

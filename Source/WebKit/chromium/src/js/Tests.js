@@ -616,7 +616,7 @@ TestSuite.prototype.evaluateInConsole_ = function(code, callback)
  */
 TestSuite.prototype._checkExecutionLine = function(sourceFrame, lineNumber, lineContent)
 {
-    this.assertEquals(lineNumber, sourceFrame.executionLine, "Unexpected execution line number.");
+    this.assertEquals(lineNumber, sourceFrame._executionLine, "Unexpected execution line number.");
     this.assertEquals(lineContent, sourceFrame._textModel.line(lineNumber - 1), "Unexpected execution line text.");
 }
 
@@ -686,7 +686,8 @@ TestSuite.prototype._checkSourceFrameWhenLoaded = function(expectations, callbac
     var test = this;
 
     var frame = WebInspector.currentPanel.visibleView.sourceFrame;
-    if (frame._loaded)
+
+    if (frame._textViewer)
         checkExecLine();
     else {
         setTimeout(function() {
@@ -737,32 +738,6 @@ TestSuite.prototype._waitUntilScriptsAreParsed = function(expectedScripts, callb
     }
 
     waitForAllScripts();
-};
-
-
-/**
- * Executes the 'code' with InjectedScriptAccess.getProperties overriden
- * so that all callbacks passed to InjectedScriptAccess.getProperties are
- * extended with the "hook".
- * @param {Function} hook The hook function.
- * @param {Function} code A code snippet to be executed.
- */
-TestSuite.prototype._hookGetPropertiesCallback = function(hook, code)
-{
-    var accessor = InjectedScriptAccess.prototype;
-    var orig = accessor.getProperties;
-    accessor.getProperties = function(objectProxy, ignoreHasOwnProperty, abbreviate, callback) {
-        orig.call(this, objectProxy, ignoreHasOwnProperty, abbreviate,
-            function() {
-              callback.apply(this, arguments);
-              hook();
-            });
-    };
-    try {
-        code();
-    } finally {
-        accessor.getProperties = orig;
-    }
 };
 
 

@@ -354,6 +354,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSHTMLInputElement.h \
 	DerivedSources/WebCore/JSHTMLIsIndexElement.cpp \
 	DerivedSources/WebCore/JSHTMLIsIndexElement.h \
+	DerivedSources/WebCore/JSHTMLKeygenElement.cpp \
+	DerivedSources/WebCore/JSHTMLKeygenElement.h \
 	DerivedSources/WebCore/JSHTMLLabelElement.cpp \
 	DerivedSources/WebCore/JSHTMLLabelElement.h \
 	DerivedSources/WebCore/JSHTMLLegendElement.cpp \
@@ -480,6 +482,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSNotificationCenter.h \
 	DerivedSources/WebCore/JSNotification.cpp \
 	DerivedSources/WebCore/JSNotification.h \
+	DerivedSources/WebCore/JSOESStandardDerivatives.cpp \
+	DerivedSources/WebCore/JSOESStandardDerivatives.h \
 	DerivedSources/WebCore/JSOESTextureFloat.cpp \
 	DerivedSources/WebCore/JSOESTextureFloat.h \
 	DerivedSources/WebCore/JSOverflowEvent.cpp \
@@ -775,6 +779,8 @@ webcore_sources += \
 	Source/WebCore/bindings/js/JSEventSourceCustom.cpp \
 	Source/WebCore/bindings/js/JSEventTarget.cpp \
 	Source/WebCore/bindings/js/JSEventTarget.h \
+	Source/WebCore/bindings/js/JSErrorHandler.cpp \
+	Source/WebCore/bindings/js/JSErrorHandler.h \
 	Source/WebCore/bindings/js/JSExceptionBase.cpp \
 	Source/WebCore/bindings/js/JSExceptionBase.h \
 	Source/WebCore/bindings/js/JSFileReaderCustom.cpp \
@@ -866,8 +872,6 @@ webcore_sources += \
 	Source/WebCore/bindings/js/JSWorkerContextBase.cpp \
 	Source/WebCore/bindings/js/JSWorkerContextBase.h \
 	Source/WebCore/bindings/js/JSWorkerContextCustom.cpp \
-	Source/WebCore/bindings/js/JSWorkerContextErrorHandler.cpp \
-	Source/WebCore/bindings/js/JSWorkerContextErrorHandler.h \
 	Source/WebCore/bindings/js/JSWorkerCustom.cpp \
 	Source/WebCore/bindings/js/JSXMLHttpRequestCustom.cpp \
 	Source/WebCore/bindings/js/JSXMLHttpRequestUploadCustom.cpp \
@@ -1300,6 +1304,7 @@ webcore_sources += \
 	Source/WebCore/dom/Text.cpp \
 	Source/WebCore/dom/TextEvent.cpp \
 	Source/WebCore/dom/TextEvent.h \
+	Source/WebCore/dom/TextEventInputType.h \
 	Source/WebCore/dom/Text.h \
 	Source/WebCore/dom/TouchList.h \
 	Source/WebCore/dom/TransformSource.h \
@@ -1579,6 +1584,8 @@ webcore_sources += \
 	Source/WebCore/html/canvas/Int8Array.cpp \
 	Source/WebCore/html/canvas/Int8Array.h \
 	Source/WebCore/html/canvas/IntegralTypedArrayBase.h \
+	Source/WebCore/html/canvas/OESStandardDerivatives.cpp \
+	Source/WebCore/html/canvas/OESStandardDerivatives.h \
 	Source/WebCore/html/canvas/OESTextureFloat.cpp \
 	Source/WebCore/html/canvas/OESTextureFloat.h \
 	Source/WebCore/html/canvas/TypedArrayBase.h \
@@ -1981,6 +1988,8 @@ webcore_sources += \
 	Source/WebCore/inspector/InspectorProfilerAgent.h \
 	Source/WebCore/inspector/InspectorResourceAgent.cpp \
 	Source/WebCore/inspector/InspectorResourceAgent.h \
+	Source/WebCore/inspector/InspectorRuntimeAgent.cpp \
+	Source/WebCore/inspector/InspectorRuntimeAgent.h \
 	Source/WebCore/inspector/InspectorSettings.cpp \
 	Source/WebCore/inspector/InspectorSettings.h \
 	Source/WebCore/inspector/InspectorState.cpp \
@@ -2435,6 +2444,8 @@ webcore_sources += \
 	Source/WebCore/platform/graphics/PathTraversalState.h \
 	Source/WebCore/platform/graphics/Pattern.cpp \
 	Source/WebCore/platform/graphics/Pattern.h \
+	Source/WebCore/platform/graphics/RoundedIntRect.cpp \
+	Source/WebCore/platform/graphics/RoundedIntRect.h \
 	Source/WebCore/platform/graphics/SegmentedFontData.cpp \
 	Source/WebCore/platform/graphics/SegmentedFontData.h \
 	Source/WebCore/platform/graphics/SimpleFontData.cpp \
@@ -2563,8 +2574,8 @@ webcore_sources += \
 	Source/WebCore/platform/SchemeRegistry.h \
 	Source/WebCore/platform/ScrollAnimator.cpp \
 	Source/WebCore/platform/ScrollAnimator.h \
-	Source/WebCore/platform/ScrollbarClient.cpp \
-	Source/WebCore/platform/ScrollbarClient.h \
+	Source/WebCore/platform/ScrollableArea.cpp \
+	Source/WebCore/platform/ScrollableArea.h \
 	Source/WebCore/platform/Scrollbar.cpp \
 	Source/WebCore/platform/Scrollbar.h \
 	Source/WebCore/platform/ScrollbarThemeComposite.cpp \

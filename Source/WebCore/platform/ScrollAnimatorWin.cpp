@@ -34,17 +34,18 @@
 
 #include "ScrollAnimatorWin.h"
 
-#include "ScrollbarClient.h"
+#include "FloatPoint.h"
+#include "ScrollableArea.h"
 #include "ScrollbarTheme.h"
 #include <algorithm>
 #include <wtf/CurrentTime.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-// static
-ScrollAnimator* ScrollAnimator::create(ScrollbarClient* client)
+PassOwnPtr<ScrollAnimator> ScrollAnimator::create(ScrollableArea* scrollableArea)
 {
-    return new ScrollAnimatorWin(client);
+    return adoptPtr(new ScrollAnimatorWin(scrollableArea));
 }
 
 const double ScrollAnimatorWin::animationTimerDelay = 0.01;
@@ -60,8 +61,8 @@ ScrollAnimatorWin::PerAxisData::PerAxisData(ScrollAnimatorWin* parent, float* cu
 }
 
 
-ScrollAnimatorWin::ScrollAnimatorWin(ScrollbarClient* client)
-    : ScrollAnimator(client)
+ScrollAnimatorWin::ScrollAnimatorWin(ScrollableArea* scrollableArea)
+    : ScrollAnimator(scrollableArea)
     , m_horizontalData(this, &m_currentPosX)
     , m_verticalData(this, &m_currentPosY)
 {
@@ -81,7 +82,7 @@ bool ScrollAnimatorWin::scroll(ScrollbarOrientation orientation, ScrollGranulari
 
     // This is an animatable scroll.  Calculate the scroll delta.
     PerAxisData* data = (orientation == VerticalScrollbar) ? &m_verticalData : &m_horizontalData;
-    float newPos = std::max(std::min(data->m_desiredPos + (step * multiplier), static_cast<float>(m_client->scrollSize(orientation))), 0.0f);
+    float newPos = std::max(std::min(data->m_desiredPos + (step * multiplier), static_cast<float>(m_scrollableArea->scrollSize(orientation))), 0.0f);
     if (newPos == data->m_desiredPos)
         return false;
     data->m_desiredPos = newPos;
@@ -177,17 +178,24 @@ bool ScrollAnimatorWin::scroll(ScrollbarOrientation orientation, ScrollGranulari
     return true;
 }
 
-void ScrollAnimatorWin::setScrollPositionAndStopAnimation(ScrollbarOrientation orientation, float pos)
+void ScrollAnimatorWin::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
 {
-    PerAxisData* data = (orientation == HorizontalScrollbar) ? &m_horizontalData : &m_verticalData;
-    stopAnimationTimerIfNeeded(data);
-    *data->m_currentPos = pos;
-    data->m_desiredPos = pos;
-    data->m_currentVelocity = 0;
-    data->m_desiredVelocity = 0;
+    stopAnimationTimerIfNeeded(&m_horizontalData);
+    stopAnimationTimerIfNeeded(&m_verticalData);
+
+    *m_horizontalData.m_currentPos = offset.x();
+    m_horizontalData.m_desiredPos = offset.x();
+    m_horizontalData.m_currentVelocity = 0;
+    m_horizontalData.m_desiredVelocity = 0;
+
+    *m_verticalData.m_currentPos = offset.y();
+    m_verticalData.m_desiredPos = offset.y();
+    m_verticalData.m_currentVelocity = 0;
+    m_verticalData.m_desiredVelocity = 0;
+
+    notityPositionChanged();
 }
 
-// static
 double ScrollAnimatorWin::accelerationTime()
 {
     // We elect to use ScrollbarTheme::nativeTheme()->autoscrollTimerDelay() as
@@ -293,7 +301,8 @@ void ScrollAnimatorWin::animateScroll(PerAxisData* data)
         data->m_animationTimer.startOneShot(animationTimerDelay);
         data->m_lastAnimationTime = WTF::currentTime();
     }
-    m_client->setScrollOffsetFromAnimation(IntPoint(*m_horizontalData.m_currentPos, *m_verticalData.m_currentPos));
+
+    notityPositionChanged();
 }
 
 } // namespace WebCore

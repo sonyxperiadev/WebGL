@@ -29,6 +29,7 @@
 #include "ShareableBitmap.h"
 #include "UpdateInfo.h"
 #include "WebPage.h"
+#include "WebPageCreationParameters.h"
 #include "WebProcess.h"
 #include <WebCore/GraphicsContext.h>
 
@@ -40,18 +41,19 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<DrawingAreaImpl> DrawingAreaImpl::create(DrawingAreaInfo::Identifier identifier, WebPage* webPage)
+PassRefPtr<DrawingAreaImpl> DrawingAreaImpl::create(WebPage* webPage, const WebPageCreationParameters& parameters)
 {
-    return adoptRef(new DrawingAreaImpl(identifier, webPage));
+    return adoptRef(new DrawingAreaImpl(webPage, parameters));
 }
 
 DrawingAreaImpl::~DrawingAreaImpl()
 {
 }
 
-DrawingAreaImpl::DrawingAreaImpl(DrawingAreaInfo::Identifier identifier, WebPage* webPage)
-    : DrawingArea(DrawingAreaInfo::Impl, identifier, webPage)
+DrawingAreaImpl::DrawingAreaImpl(WebPage* webPage, const WebPageCreationParameters& parameters)
+    : DrawingArea(DrawingAreaInfo::Impl, parameters.drawingAreaInfo.identifier, webPage)
     , m_isWaitingForDidUpdate(false)
+    , m_isPaintingSuspended(!parameters.isVisible)
     , m_displayTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::display)
 {
 }
@@ -65,7 +67,7 @@ void DrawingAreaImpl::setNeedsDisplay(const IntRect& rect)
     scheduleDisplay();
 }
 
-void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollDelta)
+void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollOffset)
 {
     if (!m_scrollRect.isEmpty() && scrollRect != m_scrollRect) {
         unsigned scrollArea = scrollRect.width() * scrollRect.height();
@@ -81,7 +83,7 @@ void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollDel
         // Just repaint the entire current scroll rect, we'll scroll the new rect instead.
         setNeedsDisplay(m_scrollRect);
         m_scrollRect = IntRect();
-        m_scrollDelta = IntSize();
+        m_scrollOffset = IntSize();
     }
 
     // Get the part of the dirty region that is in the scroll rect.
@@ -92,19 +94,19 @@ void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollDel
         m_dirtyRegion.subtract(scrollRect);
 
         // Move the dirty parts.
-        Region movedDirtyRegionInScrollRect = intersect(translate(dirtyRegionInScrollRect, scrollDelta), scrollRect);
+        Region movedDirtyRegionInScrollRect = intersect(translate(dirtyRegionInScrollRect, scrollOffset), scrollRect);
 
         // And add them back.
         m_dirtyRegion.unite(movedDirtyRegionInScrollRect);
     } 
     
     // Compute the scroll repaint region.
-    Region scrollRepaintRegion = subtract(scrollRect, translate(scrollRect, scrollDelta));
+    Region scrollRepaintRegion = subtract(scrollRect, translate(scrollRect, scrollOffset));
 
     m_dirtyRegion.unite(scrollRepaintRegion);
 
     m_scrollRect = scrollRect;
-    m_scrollDelta += scrollDelta;
+    m_scrollOffset += scrollOffset;
 }
 
 void DrawingAreaImpl::attachCompositingContext()
@@ -139,9 +141,15 @@ void DrawingAreaImpl::setSize(const IntSize& size)
     m_webPage->setSize(size);
     m_webPage->layoutIfNeeded();
 
-    // FIXME: Repaint.
+    UpdateInfo updateInfo;
 
-    m_webPage->send(Messages::DrawingAreaProxy::DidSetSize());
+    if (m_isPaintingSuspended) {
+        updateInfo.timestamp = currentTime();
+        updateInfo.viewSize = m_webPage->size();
+    } else
+        display(updateInfo);
+
+    m_webPage->send(Messages::DrawingAreaProxy::DidSetSize(updateInfo));
 }
 
 void DrawingAreaImpl::didUpdate()
@@ -152,9 +160,29 @@ void DrawingAreaImpl::didUpdate()
     display();
 }
 
+void DrawingAreaImpl::suspendPainting()
+{
+    ASSERT(!m_isPaintingSuspended);
+
+    m_isPaintingSuspended = true;
+    m_displayTimer.stop();
+}
+
+void DrawingAreaImpl::resumePainting()
+{
+    ASSERT(m_isPaintingSuspended);
+
+    m_isPaintingSuspended = false;
+
+    // FIXME: Repaint if needed.
+}
+
 void DrawingAreaImpl::scheduleDisplay()
 {
     if (m_isWaitingForDidUpdate)
+        return;
+
+    if (m_isPaintingSuspended)
         return;
 
     if (m_dirtyRegion.isEmpty())
@@ -168,6 +196,11 @@ void DrawingAreaImpl::scheduleDisplay()
 
 void DrawingAreaImpl::display()
 {
+    ASSERT(!m_isWaitingForDidUpdate);
+
+    if (m_isPaintingSuspended)
+        return;
+
     if (m_dirtyRegion.isEmpty())
         return;
 
@@ -201,6 +234,8 @@ static bool shouldPaintBoundsRect(const IntRect& bounds, const Vector<IntRect>& 
 
 void DrawingAreaImpl::display(UpdateInfo& updateInfo)
 {
+    ASSERT(!m_isPaintingSuspended);
+
     // FIXME: It would be better if we could avoid painting altogether when there is a custom representation.
     if (m_webPage->mainFrameHasCustomRepresentation())
         return;
@@ -214,11 +249,11 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     }
 
     updateInfo.scrollRect = m_scrollRect;
-    updateInfo.scrollDelta = m_scrollDelta;
+    updateInfo.scrollOffset = m_scrollOffset;
 
     m_dirtyRegion = Region();
     m_scrollRect = IntRect();
-    m_scrollDelta = IntSize();
+    m_scrollOffset = IntSize();
     
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(bounds.size());
     if (!bitmap->createHandle(updateInfo.bitmapHandle))
@@ -228,6 +263,7 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
 
     m_webPage->layoutIfNeeded();
     
+    updateInfo.timestamp = currentTime();
     updateInfo.viewSize = m_webPage->size();
     updateInfo.updateRectBounds = bounds;
 

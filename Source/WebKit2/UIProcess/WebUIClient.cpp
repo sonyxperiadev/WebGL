@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -271,6 +271,59 @@ bool WebUIClient::decidePolicyForGeolocationPermissionRequest(WebPageProxy* page
 
     m_client.decidePolicyForGeolocationPermissionRequest(toAPI(page), toAPI(frame), toAPI(origin), toAPI(permissionRequest), m_client.clientInfo);
     return true;
+}
+
+float WebUIClient::headerHeight(WebPageProxy* page, WebFrameProxy* frame)
+{
+    if (!m_client.headerHeight)
+        return 0;
+
+    return m_client.headerHeight(toAPI(page), toAPI(frame), m_client.clientInfo);
+}
+
+float WebUIClient::footerHeight(WebPageProxy* page, WebFrameProxy* frame)
+{
+    if (!m_client.footerHeight)
+        return 0;
+
+    return m_client.footerHeight(toAPI(page), toAPI(frame), m_client.clientInfo);
+}
+
+void WebUIClient::drawHeader(WebPageProxy* page, WebFrameProxy* frame, const WebCore::FloatRect& rect)
+{
+    if (!m_client.drawHeader)
+        return;
+
+    m_client.drawHeader(toAPI(page), toAPI(frame), toAPI(rect), m_client.clientInfo);
+}
+
+void WebUIClient::drawFooter(WebPageProxy* page, WebFrameProxy* frame, const WebCore::FloatRect& rect)
+{
+    if (!m_client.drawFooter)
+        return;
+
+    m_client.drawFooter(toAPI(page), toAPI(frame), toAPI(rect), m_client.clientInfo);
+}
+
+void WebUIClient::printFrame(WebPageProxy* page, WebFrameProxy* frame)
+{
+    if (!m_client.printFrame)
+        return;
+
+    m_client.printFrame(toAPI(page), toAPI(frame), m_client.clientInfo);
+}
+
+bool WebUIClient::canRunModal() const
+{
+    return m_client.runModal;
+}
+
+void WebUIClient::runModal(WebPageProxy* page)
+{
+    if (!m_client.runModal)
+        return;
+
+    m_client.runModal(toAPI(page), m_client.clientInfo);
 }
 
 } // namespace WebKit

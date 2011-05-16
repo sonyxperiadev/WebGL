@@ -89,7 +89,8 @@ namespace JSC {
 
     class JSGlobalObject;
 
-    class RegisterFile : public Noncopyable {
+    class RegisterFile {
+        WTF_MAKE_NONCOPYABLE(RegisterFile);
         friend class JIT;
     public:
         enum CallFrameHeaderEntry {
@@ -131,8 +132,7 @@ namespace JSC {
 
         Register* lastGlobal() const { return m_start - m_numGlobals; }
         
-        void markGlobals(MarkStack& markStack, Heap* heap) { heap->markConservatively(markStack, lastGlobal(), m_start); }
-        void markCallFrames(MarkStack& markStack, Heap* heap) { heap->markConservatively(markStack, m_start, m_end); }
+        void markCallFrames(ConservativeSet& conservativeSet, Heap* heap) { heap->markConservatively(conservativeSet, m_start, m_end); }
 
         static size_t committedByteCount();
         static void initializeThreading();

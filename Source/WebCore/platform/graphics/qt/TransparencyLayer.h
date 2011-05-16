@@ -42,7 +42,9 @@
 
 namespace WebCore {
 
-struct TransparencyLayer : FastAllocBase {
+struct TransparencyLayer {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
     TransparencyLayer(const QPainter* p, const QRect &rect, qreal opacity, QPixmap& alphaMask)
         : pixmap(rect.width(), rect.height())
         , opacity(opacity)
@@ -59,8 +61,7 @@ struct TransparencyLayer : FastAllocBase {
         painter.setTransform(p->transform(), true);
         painter.setOpacity(p->opacity());
         painter.setFont(p->font());
-        if (painter.paintEngine()->hasFeature(QPaintEngine::PorterDuff))
-            painter.setCompositionMode(p->compositionMode());
+        painter.setCompositionMode(p->compositionMode());
     }
 
     TransparencyLayer()

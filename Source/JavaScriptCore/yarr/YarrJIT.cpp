@@ -606,9 +606,9 @@ class YarrGenerator : private MacroAssembler {
                 m_nextBacktrack->setLabel(label);
         }
 
-        void copyBacktrackToLabel(BacktrackDestination& rhs)
+        void propagateBacktrackToLabel(const BacktrackDestination& rhs)
         {
-            if (rhs.m_backtrackToLabel)
+            if (!m_backtrackToLabel && rhs.m_backtrackToLabel)
                 m_backtrackToLabel = rhs.m_backtrackToLabel;
         }
 
@@ -616,6 +616,11 @@ class YarrGenerator : private MacroAssembler {
         {
             if (!m_backtrackToLabel)
                 m_backtrackToLabel = backtrackToLabel;
+        }
+
+        bool hasBacktrackToLabel()
+        {
+            return m_backtrackToLabel;
         }
 
         void setBacktrackJumpList(JumpList* jumpList)
@@ -634,8 +639,10 @@ class YarrGenerator : private MacroAssembler {
             if (m_subDataLabelPtr) {
                 *m_subDataLabelPtr = dp;
                 m_subDataLabelPtr = 0;
-            } else
+            } else {
+                ASSERT(!hasDataLabel());
                 m_dataLabelPtr = dp;
+            }
         }
 
         void clearSubDataLabelPtr()
@@ -746,6 +753,12 @@ class YarrGenerator : private MacroAssembler {
             }
 
             return false;
+        }
+
+        void linkBacktrackToLabel(Label backtrackLabel)
+        {
+            if (m_backtrackToLabel)
+                *m_backtrackToLabel = backtrackLabel;
         }
 
         void linkAlternativeBacktracks(YarrGenerator* generator, bool nextIteration = false)
@@ -919,24 +932,19 @@ class YarrGenerator : private MacroAssembler {
             return m_backtrack.plantJumpToBacktrackIfExists(generator);
         }
 
-        bool linkDataLabelToBacktrackIfExists(YarrGenerator* generator, DataLabelPtr dataLabel)
+        void linkDataLabelToBacktrackIfExists(YarrGenerator* generator, DataLabelPtr dataLabel)
         {
             // If we have a stack offset backtrack destination, use it directly
             if (m_backtrack.isStackOffset()) {
                 generator->m_expressionState.addIndirectJumpEntry(m_backtrack.getStackOffset(), dataLabel);
                 m_backtrack.clearSubDataLabelPtr();
             } else {
-                // Otherwise set the data label (which may be linked)
-                setBacktrackDataLabel(dataLabel);
-
-                if ((m_backtrack.isLabel()) && (m_backtrack.hasDataLabel())) {
-                    generator->m_expressionState.m_backtrackRecords.append(AlternativeBacktrackRecord(m_backtrack.getDataLabel(), m_backtrack.getLabel()));
-                    m_backtrack.clearDataLabel();
-                    return true;
-                }
+                // If we have a backtrack label, connect the datalabel to it directly.
+                if (m_backtrack.isLabel())
+                    generator->m_expressionState.m_backtrackRecords.append(AlternativeBacktrackRecord(dataLabel, m_backtrack.getLabel()));
+                else
+                    setBacktrackDataLabel(dataLabel);
             }
-
-            return false;
         }
 
         void addBacktrackJump(Jump jump)
@@ -990,6 +998,10 @@ class YarrGenerator : private MacroAssembler {
         {
             if (doJump)
                 m_backtrack.jumpToBacktrack(generator, backtrack.getBacktrackJumps());
+
+            if (m_backtrack.isLabel() && backtrack.hasBacktrackToLabel())
+                backtrack.linkBacktrackToLabel(m_backtrack.getLabel());
+
             if (backtrack.hasDestination()) {
                 if (m_backtrack.hasDataLabel())
                     generator->m_expressionState.addDataLabelToNextIteration(m_backtrack.getDataLabel());
@@ -1007,7 +1019,6 @@ class YarrGenerator : private MacroAssembler {
         BacktrackDestination m_backtrack;
         BacktrackDestination* m_linkedBacktrack;
         ParenthesesTail* m_parenthesesTail;
-
     };
 
     struct ParenthesesTail {
@@ -1638,13 +1649,19 @@ class YarrGenerator : private MacroAssembler {
             m_expressionState.incrementParenNestingLevel();
 
             TermGenerationState parenthesesState(disjunction, state.checkedTotal);
+            
+            // Use the current paren Tail to connect the nested parentheses.
+            parenthesesState.setParenthesesTail(state.getParenthesesTail());
+
             generateParenthesesDisjunction(state.term(), parenthesesState, alternativeFrameLocation);
             // this expects that any backtracks back out of the parentheses will be in the
             // parenthesesState's m_backTrackJumps vector, and that if they need backtracking
             // they will have set an entry point on the parenthesesState's m_backtrackLabel.
             BacktrackDestination& parenthesesBacktrack = parenthesesState.getBacktrackDestination();
+            BacktrackDestination& stateBacktrack = state.getBacktrackDestination();
+
             state.propagateBacktrackingFrom(this, parenthesesBacktrack);
-            state.getBacktrackDestination().copyBacktrackToLabel(parenthesesBacktrack);
+            stateBacktrack.propagateBacktrackToLabel(parenthesesBacktrack);
 
             m_expressionState.decrementParenNestingLevel();
         } else {

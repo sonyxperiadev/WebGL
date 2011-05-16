@@ -57,6 +57,7 @@
 #include "Settings.h"
 #include "StrokeStyleApplier.h"
 #include "TextMetrics.h"
+#include "TextRun.h"
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
 #include "Chrome.h"
@@ -170,7 +171,7 @@ void CanvasRenderingContext2D::reset()
     m_path.clear();
 #if ENABLE(ACCELERATED_2D_CANVAS)
     if (GraphicsContext* c = drawingContext()) {
-        if (m_context3D) {
+        if (m_context3D && m_drawingBuffer) {
             m_drawingBuffer->reset(IntSize(canvas()->width(), canvas()->height()));
             c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas()->width(), canvas()->height()));
         }
@@ -537,7 +538,7 @@ void CanvasRenderingContext2D::transform(float m11, float m12, float m21, float 
         return;
 
     AffineTransform transform(m11, m12, m21, m22, dx, dy);
-    AffineTransform newTransform = transform * state().m_transform;
+    AffineTransform newTransform = state().m_transform * transform;
     if (!newTransform.isInvertible()) {
         state().m_invertibleCTM = false;
         return;
@@ -562,7 +563,7 @@ void CanvasRenderingContext2D::setTransform(float m11, float m12, float m21, flo
         return;
     c->concatCTM(c->getCTM().inverse());
     c->concatCTM(canvas()->baseTransform());
-    state().m_transform.multiply(ctm.inverse());
+    state().m_transform = ctm.inverse() * state().m_transform;
     m_path.transform(ctm);
 
     state().m_invertibleCTM = true;
@@ -1895,7 +1896,7 @@ void CanvasRenderingContext2D::paintRenderingResultsToCanvas()
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
 PlatformLayer* CanvasRenderingContext2D::platformLayer() const
 {
-    return m_drawingBuffer->platformLayer();
+    return m_drawingBuffer ? m_drawingBuffer->platformLayer() : 0;
 }
 #endif
 

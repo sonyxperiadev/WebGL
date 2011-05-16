@@ -56,7 +56,7 @@ public:
     virtual ~LayerBackedDrawingArea();
 
     virtual void setNeedsDisplay(const WebCore::IntRect&);
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta);
+    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual void display();
 
     virtual void pageBackgroundTransparencyChanged();
@@ -106,6 +106,7 @@ private:
 
     RunLoop::Timer<LayerBackedDrawingArea> m_syncTimer;
 
+    OwnPtr<WebCore::GraphicsLayer> m_hostingLayer;
     OwnPtr<WebCore::GraphicsLayer> m_backingLayer;
 #if PLATFORM(MAC)
 #if HAVE(HOSTED_CORE_ANIMATION)

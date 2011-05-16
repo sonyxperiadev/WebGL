@@ -46,6 +46,8 @@ messages -> WebPage {
     LoadURLRequest(WebCore::ResourceRequest request, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     Reload(bool reloadFromOrigin)
     StopLoading()
+
+    StopLoadingFrame(uint64_t frameID)
     
     RestoreSessionAndNavigateToCurrentItem(WebKit::SessionState state)
 
@@ -56,6 +58,7 @@ messages -> WebPage {
     # Callbacks.
     GetContentsAsString(uint64_t callbackID)
     GetMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID)
+    GetResourceDataFromFrame(uint64_t frameID, WTF::String resourceURL, uint64_t callbackID)
     GetRenderTreeExternalRepresentation(uint64_t callbackID)
     GetSelectionOrContentsAsString(uint64_t callbackID)
     GetSourceForFrame(uint64_t frameID, uint64_t callbackID)
@@ -98,6 +101,7 @@ messages -> WebPage {
 
     # Drag and drop.
     PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, WTF::String dragStorageName, uint32_t flags)
+    DragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation)
 
     # Popup menu.
     DidChangeSelectedIndexForActivePopupMenu(int32_t newIndex);

@@ -1,3 +1,152 @@
+2011-01-21  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add run-time enable support for the web audio API
+        https://bugs.webkit.org/show_bug.cgi?id=52741
+
+        * WebPreferenceKeysPrivate.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Fix windows build.
+
+        * WebScrollBar.h:
+
+2011-01-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Part 2 of "Cleanup Scrollbar/ScrollbarClient relationship"
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        Rename ScrollbarClient -> ScrollableArea.
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::scroll):
+        * WebScrollBar.h:
+
+2011-01-20  Adam Roben  <aroben@apple.com>
+
+        Update for CACFLayerTreeHost changes
+
+        Fixes <http://webkit.org/b/52852> Flushing layer changes and rendering are intertwined in
+        CACFLayerTreeHost, but shouldn't be
+
+        Reviewed by Simon Fraser.
+
+        * WebView.cpp:
+        (WebView::paint): Changed to flush layer changes via CACFLayerTreeHost, which will call back
+        to our own flushing function if needed.
+
+        * WebView.h: Removed shouldRender, which is no longer used or needed.
+
+2011-01-21  Adam Roben  <aroben@apple.com>
+
+        Update for WKCACFLayerRenderer -> CACFLayerTreeHost rename
+
+        Also renamed WebView::m_layerRenderer to WebView::m_layerTreeHost to match.
+
+        Fixes <http://webkit.org/b/52898> WKCACFLayerRenderer sounds like a render object, but isn't
+
+        Reviewed by Simon Fraser.
+
+        * WebPreferences.cpp:
+        * WebView.cpp:
+        (WebView::setAcceleratedCompositing): Also made sure to remove our HWND from the layer tree
+        host before we get rid of the layer tree host itself.
+        * WebView.h:
+
+2011-01-21  Adam Roben  <aroben@apple.com>
+
+        Replace some "sync compositing state" terminology with "flush pending GraphicsLayer changes"
+
+        This seems to be the direction in which our code is moving. I chose "GraphicsLayer" as
+        opposed to just "layer" because there are cases where we flush changes to CACFLayers that
+        don't have a corresponding GraphicsLayer.
+
+        Fixes <http://webkit.org/b/52894> "Sync compositing state" terminology in
+        WKCACFLayerRenderer and friends is confusing
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::scheduleCompositingLayerSync): Updated for WebView changes.
+
+        * WebView.cpp:
+        (WebView::paint): Updated for rename.
+        (WebView::flushPendingGraphicsLayerChangesSoon): Renamed from scheduleCompositingLayerSync.
+        (WebView::notifySyncRequired): Updated for rename.
+        (WebView::flushPendingGraphicsLayerChanges): Renamed from syncCompositingState.
+
+        * WebView.h: Did the renames.
+
+2011-01-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dave Hyatt.
+
+        Cleanup Scrollbar/ScrollbarClient relationship
+        https://bugs.webkit.org/show_bug.cgi?id=52779
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::WebScrollBar):
+        (WebScrollBar::setValue):
+        (WebScrollBar::value):
+        (WebScrollBar::scroll):
+        (WebScrollBar::scrollPosition):
+        (WebScrollBar::setScrollOffset):
+        * WebScrollBar.h:
+
+2011-01-19  Adam Roben  <aroben@apple.com>
+
+        Update for WKCACFLayerRenderer changes
+
+        Fixes <http://webkit.org/b/52749> WKCACFLayerRenderer should be
+        ref-counted
+
+        Reviewed by Simon Fraser.
+
+        * WebView.cpp:
+        (WebView::~WebView): Added some assertions to make sure we've gotten rid of our
+        compositing-related members. My biggest concern was making sure that m_layerRenderer was
+        gone, which would also mean we had nulled out its client pointer.
+        (WebView::setAcceleratedCompositing): Changed to call WKCACFLayerRenderer::setClient instead
+        of passing the client into create(), and to clear out the client before nulling out
+        m_layerRenderer.
+
+        * WebView.h: Changed m_layerRenderer from an OwnPtr to a RefPtr.
+
+2011-01-19  Adam Roben  <aroben@apple.com>
+
+        Teach WebView::scrollBackingStore about compositing mode
+
+        Test:
+            compositing/scroll-painted-composited-content.html
+
+        Fixes <http://webkit.org/b/52720> REGRESSION (r75987): Assertion failure in
+        WebView::scrollBackingStore when scrolling page with composited content
+
+        Reviewed by Anders Carlsson.
+
+        * WebView.cpp:
+        (WebView::scrollBackingStore): Do something sensible (though naive) when in compositing
+        mode, rather than incorrectly asserting that this function is never called in that case. For
+        now we just repaint the entire scrolled region; someday hopefully we can avoid having to
+        repaint the areas that have just been moved.
+
+2011-01-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        GraphicsLayers in subframes can get sync'd multiple times
+        https://bugs.webkit.org/show_bug.cgi?id=52489
+
+        * WebView.cpp:
+        (WebView::syncCompositingState): syncCompositingStateRecursive()
+        was renamed to syncCompositingStateIncludingSubframes().
+
 2011-01-17  Adam Roben  <aroben@apple.com>
 
         Update for WKCACFLayerRenderer changes

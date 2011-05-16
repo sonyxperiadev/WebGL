@@ -97,9 +97,11 @@ void AccessibilityScrollbar::setValue(float value)
     if (!m_scrollbar)
         return;
     
+    if (!m_scrollbar->scrollableArea())
+        return;
+
     float newValue = value * m_scrollbar->maximum();
-    
-    m_scrollbar->setValue(newValue, Scrollbar::NotFromScrollAnimator);    
+    m_scrollbar->scrollableArea()->scrollToOffsetWithoutAnimation(m_scrollbar->orientation(), newValue);
 }
     
 } // namespace WebCore

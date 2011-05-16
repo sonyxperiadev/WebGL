@@ -13,61 +13,70 @@ my %typeTransform;
 $typeTransform{"ApplicationCache"} = {
     "forward" => "InspectorApplicationCacheAgent",
     "header" => "InspectorApplicationCacheAgent.h",
-    "domainAccessor" => "m_inspectorController->m_applicationCacheAgent",
+    "domainAccessor" => "m_inspectorAgent->applicationCacheAgent()",
 };
 $typeTransform{"CSS"} = {
     "forward" => "InspectorCSSAgent",
     "header" => "InspectorCSSAgent.h",
-    "domainAccessor" => "m_inspectorController->m_cssAgent",
+    "domainAccessor" => "m_inspectorAgent->cssAgent()",
 };
 $typeTransform{"Console"} = {
     "forward" => "InspectorConsoleAgent",
     "header" => "InspectorConsoleAgent.h",
-    "domainAccessor" => "m_inspectorController->m_consoleAgent",
+    "domainAccessor" => "m_inspectorAgent->consoleAgent()",
 };
 $typeTransform{"Debugger"} = {
     "forward" => "InspectorDebuggerAgent",
     "header" => "InspectorDebuggerAgent.h",
-    "domainAccessor" => "m_inspectorController->m_debuggerAgent",
+    "domainAccessor" => "m_inspectorAgent->debuggerAgent()",
 };
 $typeTransform{"BrowserDebugger"} = {
     "forward" => "InspectorBrowserDebuggerAgent",
     "header" => "InspectorBrowserDebuggerAgent.h",
-    "domainAccessor" => "m_inspectorController->m_browserDebuggerAgent",
+    "domainAccessor" => "m_inspectorAgent->browserDebuggerAgent()",
 };
 $typeTransform{"Database"} = {
     "forward" => "InspectorDatabaseAgent",
     "header" => "InspectorDatabaseAgent.h",
-    "domainAccessor" => "m_inspectorController->m_databaseAgent",
+    "domainAccessor" => "m_inspectorAgent->databaseAgent()",
 };
 $typeTransform{"DOM"} = {
     "forward" => "InspectorDOMAgent",
     "header" => "InspectorDOMAgent.h",
-    "domainAccessor" => "m_inspectorController->m_domAgent",
+    "domainAccessor" => "m_inspectorAgent->domAgent()",
 };
 $typeTransform{"DOMStorage"} = {
     "forward" => "InspectorDOMStorageAgent",
     "header" => "InspectorDOMStorageAgent.h",
-    "domainAccessor" => "m_inspectorController->m_domStorageAgent",
+    "domainAccessor" => "m_inspectorAgent->domStorageAgent()",
 };
 $typeTransform{"FileSystem"} = {
     "forward" => "InspectorFileSystemAgent",
     "header" => "InspectorFileSystemAgent.h",
-    "domainAccessor" => "m_inspectorController->m_fileSystemAgent",
+    "domainAccessor" => "m_inspectorAgent->fileSystemAgent()",
+};
+$typeTransform{"InjectedScript"} = {
+    "forwardHeader" => "InjectedScriptHost.h",
+    "domainAccessor" => "m_inspectorAgent->injectedScriptAgent()",
 };
 $typeTransform{"Inspector"} = {
-    "forwardHeader" => "InspectorController.h",
-    "domainAccessor" => "m_inspectorController",
+    "forwardHeader" => "InspectorController.h", # FIXME: Temporary solution until extracting the real InspectorAgent from InspectorController.
+    "domainAccessor" => "m_inspectorAgent",
 };
 $typeTransform{"Network"} = {
     "forward" => "InspectorResourceAgent",
     "header" => "InspectorResourceAgent.h",
-    "domainAccessor" => "m_inspectorController->m_resourceAgent",
+    "domainAccessor" => "m_inspectorAgent->resourceAgent()",
 };
 $typeTransform{"Profiler"} = {
     "forward" => "InspectorProfilerAgent",
     "header" => "InspectorProfilerAgent.h",
-    "domainAccessor" => "m_inspectorController->m_profilerAgent",
+    "domainAccessor" => "m_inspectorAgent->profilerAgent()",
+};
+$typeTransform{"Runtime"} = {
+    "forward" => "InspectorRuntimeAgent",
+    "header" => "InspectorRuntimeAgent.h",
+    "domainAccessor" => "m_inspectorAgent->runtimeAgent()",
 };
 
 $typeTransform{"Frontend"} = {
@@ -87,7 +96,8 @@ $typeTransform{"Object"} = {
     "defaultValue" => "InspectorObject::create()",
     "forward" => "InspectorObject",
     "header" => "InspectorValues.h",
-    "JSONType" => "Object"
+    "JSONType" => "Object",
+    "JSType" => "object"
 };
 $typeTransform{"Array"} = {
     "param" => "PassRefPtr<InspectorArray>",
@@ -95,7 +105,8 @@ $typeTransform{"Array"} = {
     "defaultValue" => "InspectorArray::create()",
     "forward" => "InspectorArray",
     "header" => "InspectorValues.h",
-    "JSONType" => "Array"
+    "JSONType" => "Array",
+    "JSType" => "object"
 };
 $typeTransform{"Value"} = {
     "param" => "PassRefPtr<InspectorValue>",
@@ -103,16 +114,18 @@ $typeTransform{"Value"} = {
     "defaultValue" => "InspectorValue::null()",
     "forward" => "InspectorValue",
     "header" => "InspectorValues.h",
-    "JSONType" => "Value"
+    "JSONType" => "Value",
+    "JSType" => ""
 };
 $typeTransform{"String"} = {
     "param" => "const String&",
     "variable" => "String",
     "return" => "String",
     "defaultValue" => "\"\"",
-    "forwardHeader" => "wtf/Forward.h",
+    "forwardHeader" => "PlatformString.h",
     "header" => "PlatformString.h",
-    "JSONType" => "String"
+    "JSONType" => "String",
+    "JSType" => "string"
 };
 $typeTransform{"long"} = {
     "param" => "long",
@@ -120,7 +133,8 @@ $typeTransform{"long"} = {
     "defaultValue" => "0",
     "forward" => "",
     "header" => "",
-    "JSONType" => "Number"
+    "JSONType" => "Number",
+    "JSType" => "number"
 };
 $typeTransform{"int"} = {
     "param" => "int",
@@ -129,6 +143,7 @@ $typeTransform{"int"} = {
     "forward" => "",
     "header" => "",
     "JSONType" => "Number",
+    "JSType" => "number"
 };
 $typeTransform{"unsigned long"} = {
     "param" => "unsigned long",
@@ -136,7 +151,8 @@ $typeTransform{"unsigned long"} = {
     "defaultValue" => "0u",
     "forward" => "",
     "header" => "",
-    "JSONType" => "Number"
+    "JSONType" => "Number",
+    "JSType" => "number"
 };
 $typeTransform{"unsigned int"} = {
     "param" => "unsigned int",
@@ -144,7 +160,8 @@ $typeTransform{"unsigned int"} = {
     "defaultValue" => "0u",
     "forward" => "",
     "header" => "",
-    "JSONType" => "Number"
+    "JSONType" => "Number",
+    "JSType" => "number"
 };
 $typeTransform{"double"} = {
     "param" => "double",
@@ -152,7 +169,8 @@ $typeTransform{"double"} = {
     "defaultValue" => "0.0",
     "forward" => "",
     "header" => "",
-    "JSONType" => "Number"
+    "JSONType" => "Number",
+    "JSType" => "number"
 };
 $typeTransform{"boolean"} = {
     "param" => "bool",
@@ -160,7 +178,8 @@ $typeTransform{"boolean"} = {
     "defaultValue" => "false",
     "forward" => "",
     "header" => "",
-    "JSONType" => "Boolean"
+    "JSONType" => "Boolean",
+    "JSType" => "boolean"
 };
 $typeTransform{"void"} = {
     "forward" => "",
@@ -250,12 +269,13 @@ sub GenerateInterface
     $backendClassName = $className . "BackendDispatcher";
     $backendJSStubName = $className . "BackendStub";
     my @backendHead;
-    push(@backendHead, "    ${backendClassName}(InspectorController* inspectorController) : m_inspectorController(inspectorController) { }");
+    push(@backendHead, "    typedef InspectorController InspectorAgent;"); # FIXME: Temporary substitution until extracting InspectorAgent from InspectorController.
+    push(@backendHead, "    ${backendClassName}(InspectorAgent* inspectorAgent) : m_inspectorAgent(inspectorAgent) { }");
     push(@backendHead, "    void reportProtocolError(const long callId, const String& errorText) const;");
     push(@backendHead, "    void dispatch(const String& message);");
     push(@backendHead, "    static bool getCommandName(const String& message, String* result);");
     $backendConstructor = join("\n", @backendHead);
-    $backendFooter = "    InspectorController* m_inspectorController;";
+    $backendFooter = "    InspectorAgent* m_inspectorAgent;";
     $backendTypes{"Inspector"} = 1;
     $backendTypes{"InspectorClient"} = 1;
     $backendTypes{"PassRefPtr"} = 1;
@@ -392,7 +412,7 @@ sub generateBackendFunction
     }
 
     push(@function, "    // use InspectorFrontend as a marker of WebInspector availability");
-    push(@function, "    if ((callId || protocolErrors->length()) && m_inspectorController->hasFrontend()) {");
+    push(@function, "    if ((callId || protocolErrors->length()) && m_inspectorAgent->hasFrontend()) {");
     push(@function, "        RefPtr<InspectorObject> responseMessage = InspectorObject::create();");
     push(@function, "        responseMessage->setNumber(\"seq\", callId);");
     push(@function, "        responseMessage->setString(\"domain\", \"$domain\");");
@@ -407,7 +427,7 @@ sub generateBackendFunction
         push(@function, "            responseMessage->setObject(\"data\", responseData);");
         push(@function, "        }");
     }
-    push(@function, "        m_inspectorController->inspectorClient()->sendMessageToFrontend(responseMessage->toJSONString());");
+    push(@function, "        m_inspectorAgent->inspectorClient()->sendMessageToFrontend(responseMessage->toJSONString());");
     push(@function, "    }");
 
 
@@ -428,7 +448,7 @@ void ${backendClassName}::reportProtocolError(const long callId, const String& e
     RefPtr<InspectorArray> errors = InspectorArray::create();
     errors->pushString(errorText);
     message->setArray("errors", errors);
-    m_inspectorController->inspectorClient()->sendMessageToFrontend(message->toJSONString());
+    m_inspectorAgent->inspectorClient()->sendMessageToFrontend(message->toJSONString());
 }
 EOF
     return split("\n", $reportProtocolError);
@@ -567,7 +587,7 @@ sub generateBackendStubJS
     foreach my $function (@backendFunctions) {
         my $name = $function->signature->name;
         my $domain = $function->signature->extendedAttributes->{"domain"};
-        my $argumentNames = join(",", map("\"" . $_->name . "\": \"" . lc($typeTransform{$_->type}->{"JSONType"}) . "\"", grep($_->direction eq "in", @{$function->parameters})));
+        my $argumentNames = join(",", map("\"" . $_->name . "\": \"" . $typeTransform{$_->type}->{"JSType"} . "\"", grep($_->direction eq "in", @{$function->parameters})));
         push(@JSStubs, "    this._registerDelegate('{" .
             "\"seq\": 0, " .
             "\"domain\": \"$domain\", " .
@@ -625,7 +645,7 @@ InspectorBackendStub.prototype = {
                 return;
             }
             var value = args.shift();
-            if (typeof value !== request.arguments[key]) {
+            if (request.arguments[key] && typeof value !== request.arguments[key]) {
                 console.error("Protocol Error: Invalid type of argument '%s' for 'InspectorBackend.%s' call. It should be '%s' but it is '%s'.", key, request.command, request.arguments[key], typeof value);
                 return;
             }

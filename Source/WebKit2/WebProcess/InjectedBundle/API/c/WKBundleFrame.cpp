@@ -85,6 +85,11 @@ JSGlobalContextRef WKBundleFrameGetJavaScriptContext(WKBundleFrameRef frameRef)
     return toImpl(frameRef)->jsContext();
 }
 
+WKBundleFrameRef WKBundleFrameForJavaScriptContext(JSContextRef context)
+{
+    return toAPI(WebFrame::frameForContext(context));
+}
+
 JSGlobalContextRef WKBundleFrameGetJavaScriptContextForWorld(WKBundleFrameRef frameRef, WKBundleScriptWorldRef worldRef)
 {
     return toImpl(frameRef)->jsContextForWorld(toImpl(worldRef));
@@ -196,4 +201,9 @@ WK_EXPORT WKSize WKBundleFrameGetScrollOffset(WKBundleFrameRef frameRef)
         return scrollOffset;
     
     return toAPI(view->scrollOffset());
+}
+
+WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
+{
+    return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string())));
 }

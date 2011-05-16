@@ -23,7 +23,6 @@ CONFIG(standalone_package): DEFINES *= NDEBUG
 JAVASCRIPTCORE_INCLUDEPATH = \
     $$PWD \
     $$PWD/.. \
-    $$PWD/../.. \ # FIXME: Remove this include once we finish moving the source to Source
     $$PWD/assembler \
     $$PWD/bytecode \
     $$PWD/bytecompiler \
@@ -89,7 +88,12 @@ defineTest(addJavaScriptCoreLib) {
         # Make sure jscore will be early in the list of libraries to workaround a bug in MinGW
         # that can't resolve symbols from QtCore if libjscore comes after.
         QMAKE_LIBDIR = $$pathToJavaScriptCoreOutput $$QMAKE_LIBDIR
-        LIBS += -l$$JAVASCRIPTCORE_TARGET
+        webkit2 {
+            # FIXME Workaround for undefined reference linking issues until the build system gets redesigned
+            LIBS += -Wl,-whole-archive -l$$JAVASCRIPTCORE_TARGET -Wl,-no-whole-archive
+        } else {
+            LIBS += -l$$JAVASCRIPTCORE_TARGET
+        }
         POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}lib$${JAVASCRIPTCORE_TARGET}.a
     }
 

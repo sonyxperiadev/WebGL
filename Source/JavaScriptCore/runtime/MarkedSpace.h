@@ -55,15 +55,14 @@ namespace JSC {
         size_t numBlocks;
         size_t usedBlocks;
 
-        bool didShrink;
-
         CollectorBlock* collectorBlock(size_t index) const
         {
             return static_cast<CollectorBlock*>(blocks[index].base());
         }
     };
 
-    class MarkedSpace : public Noncopyable {
+    class MarkedSpace {
+        WTF_MAKE_NONCOPYABLE(MarkedSpace);
     public:
         MarkedSpace(JSGlobalData*);
         void destroy(ProtectCountSet&);
@@ -86,7 +85,7 @@ namespace JSC {
 
         WeakGCHandle* addWeakGCHandle(JSCell*);
 
-        void markConservatively(MarkStack&, void* start, void* end);
+        void markConservatively(ConservativeSet&, void* start, void* end);
 
         static bool isNumber(JSCell*);
         
@@ -114,8 +113,6 @@ namespace JSC {
 
         void markRoots();
 
-        bool didShrink() { return m_heap.didShrink; }
-        
     private:
         CollectorHeap m_heap;
         JSGlobalData* m_globalData;

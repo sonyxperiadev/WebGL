@@ -40,11 +40,11 @@ namespace WebCore {
 
 class ScrollAnimatorWin : public ScrollAnimator {
 public:
-    ScrollAnimatorWin(ScrollbarClient*);
+    ScrollAnimatorWin(ScrollableArea*);
     virtual ~ScrollAnimatorWin();
 
     virtual bool scroll(ScrollbarOrientation, ScrollGranularity, float step, float multiplier);
-    virtual void setScrollPositionAndStopAnimation(ScrollbarOrientation, float);
+    virtual void scrollToOffsetWithoutAnimation(const FloatPoint&);
 
 private:
     struct PerAxisData {
@@ -69,8 +69,8 @@ private:
     PerAxisData m_verticalData;
 };
 
-}
+} // namespace WebCore
 
 #endif // ENABLE(SMOOTH_SCROLLING)
 
-#endif
+#endif // ScrollAnimatorWin_h

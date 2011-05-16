@@ -26,6 +26,7 @@
 #ifndef NetworkStateNotifier_h
 #define NetworkStateNotifier_h
 
+#include <wtf/FastAllocBase.h>
 #include <wtf/Noncopyable.h>
 #if PLATFORM(ANDROID)
 // TODO: Upstream to webkit.org
@@ -65,7 +66,8 @@ namespace WebCore {
 class NetworkStateNotifierPrivate;
 #endif
 
-class NetworkStateNotifier : public Noncopyable {
+class NetworkStateNotifier {
+    WTF_MAKE_NONCOPYABLE(NetworkStateNotifier); WTF_MAKE_FAST_ALLOCATED;
 public:
     NetworkStateNotifier();
     void setNetworkStateChangedFunction(void (*)());

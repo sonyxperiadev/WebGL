@@ -63,6 +63,15 @@ WebInspector.ScriptsPanel = function()
     // FIXME: append the functions select element to the top status bar when it is implemented.
     // this.topStatusBar.appendChild(this.functionsSelectElement);
 
+    this.formatButton = document.createElement("button");
+    this.formatButton.className = "status-bar-item";
+    this.formatButton.id = "format-script";
+    this.formatButton.title = WebInspector.UIString("Format script.");
+    this.formatButton.appendChild(document.createElement("img"));
+    this.formatButton.addEventListener("click", this._formatScript.bind(this), false);
+    if (Preferences.debugMode)
+        this.topStatusBar.appendChild(this.formatButton);
+
     this.sidebarButtonsElement = document.createElement("div");
     this.sidebarButtonsElement.id = "scripts-sidebar-buttons";
     this.topStatusBar.appendChild(this.sidebarButtonsElement);
@@ -131,7 +140,7 @@ WebInspector.ScriptsPanel = function()
     this.sidebarPanes.watchExpressions = new WebInspector.WatchExpressionsSidebarPane();
     this.sidebarPanes.callstack = new WebInspector.CallStackSidebarPane();
     this.sidebarPanes.scopechain = new WebInspector.ScopeChainSidebarPane();
-    this.sidebarPanes.jsBreakpoints = WebInspector.createJSBreakpointsSidebarPane();
+    this.sidebarPanes.jsBreakpoints = new WebInspector.JavaScriptBreakpointsSidebarPane();
     if (Preferences.nativeInstrumentationEnabled) {
         this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
         this.sidebarPanes.xhrBreakpoints = WebInspector.createXHRBreakpointsSidebarPane();
@@ -168,8 +177,6 @@ WebInspector.ScriptsPanel = function()
 
     this._pauseOnExceptionButton = new WebInspector.StatusBarButton("", "scripts-pause-on-exceptions-status-bar-item", 3);
     this._pauseOnExceptionButton.addEventListener("click", this._togglePauseOnExceptions.bind(this), false);
-    this._pauseOnExceptionButton.state = WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions;
-    this._pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.\nClick to Pause on all exceptions.");
 
     this._registerShortcuts();
 
@@ -179,6 +186,7 @@ WebInspector.ScriptsPanel = function()
 
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.ParsedScriptSource, this._parsedScriptSource, this);
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.FailedToParseScriptSource, this._failedToParseScriptSource, this);
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.ScriptSourceChanged, this._scriptSourceChanged, this);
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerPaused, this._debuggerPaused, this);
     WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerResumed, this._debuggerResumed, this);
 }
@@ -244,6 +252,27 @@ WebInspector.ScriptsPanel.prototype = {
         this._addScript(event.data);
     },
 
+    _scriptSourceChanged: function(event)
+    {
+        var sourceID = event.data.sourceID;
+        var oldSource = event.data.oldSource;
+
+        var script = WebInspector.debuggerModel.scriptForSourceID(sourceID);
+        var oldView = script._scriptView;
+        if (oldView) {
+            script._scriptView = new WebInspector.ScriptView(script);
+            this.viewRecreated(oldView, script._scriptView);
+        }
+        if (script.resource) {
+            var revertHandle = WebInspector.debuggerModel.editScriptSource.bind(WebInspector.debuggerModel, sourceID, oldSource);
+            script.resource.setContent(script.source, revertHandle);
+        }
+
+        var callFrames = WebInspector.debuggerModel.callFrames;
+        if (callFrames.length)
+            this._debuggerPaused({ data: { callFrames: callFrames } });
+    },
+
     _addScript: function(script)
     {
         var resource = WebInspector.resourceForURL(script.sourceURL);
@@ -277,52 +306,6 @@ WebInspector.ScriptsPanel.prototype = {
         // Adding first script will add resource.
         this._addScriptToFilesMenu(resource._scriptsPendingResourceLoad[0]);
         delete resource._scriptsPendingResourceLoad;
-    },
-
-    canEditScripts: function()
-    {
-        return Preferences.canEditScriptSource;
-    },
-
-    editScriptSource: function(editData, revertEditingCallback, cancelEditingCallback)
-    {
-        if (!this.canEditScripts())
-            return;
-
-        // Need to clear breakpoints and re-create them later when editing source.
-        var breakpoints = WebInspector.debuggerModel.queryBreakpoints(function(b) { return b.sourceID === editData.sourceID });
-        for (var i = 0; i < breakpoints.length; ++i)
-            breakpoints[i].remove();
-
-        function mycallback(success, newBodyOrErrorMessage, callFrames)
-        {
-            if (success) {
-                var script = WebInspector.debuggerModel.scriptForSourceID(editData.sourceID);
-                script.source = newBodyOrErrorMessage;
-                var oldView = script._scriptView
-                if (oldView) {
-                    script._scriptView = new WebInspector.ScriptView(script);
-                    this.viewRecreated(oldView, script._scriptView);
-                }
-                if (script.resource)
-                    script.resource.setContent(newBodyOrErrorMessage, revertEditingCallback);
-
-                if (callFrames && callFrames.length)
-                    this._debuggerPaused({ data: { callFrames: callFrames } });
-            } else {
-                if (cancelEditingCallback)
-                    cancelEditingCallback();
-                WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Warning);
-            }
-            for (var i = 0; i < breakpoints.length; ++i) {
-                var breakpoint = breakpoints[i];
-                var newLine = breakpoint.line;
-                if (success && breakpoint.line >= editData.line)
-                    newLine += editData.linesCountToShift;
-                WebInspector.debuggerModel.setBreakpoint(editData.sourceID, newLine, breakpoint.enabled, breakpoint.condition);
-            }
-        };
-        InspectorBackend.editScriptSource(editData.sourceID, editData.content, mycallback.bind(this));
     },
 
     selectedCallFrameId: function()
@@ -359,7 +342,7 @@ WebInspector.ScriptsPanel.prototype = {
             if (result)
                 callback(WebInspector.RemoteObject.fromPayload(result));
         }
-        InjectedScriptAccess.get(callFrame.worldId).evaluateInCallFrame(callFrame.id, code, objectGroup, evalCallback);
+        InspectorBackend.evaluateOnCallFrame(callFrame.id, code, objectGroup, evalCallback);
     },
 
     _debuggerPaused: function(event)
@@ -392,9 +375,10 @@ WebInspector.ScriptsPanel.prototype = {
 
     debuggerWasEnabled: function()
     {
+        this._setPauseOnExceptions(WebInspector.settings.pauseOnExceptionState);
+
         if (this._debuggerEnabled)
             return;
-
         this._debuggerEnabled = true;
         this.reset(true);
     },
@@ -677,7 +661,7 @@ WebInspector.ScriptsPanel.prototype = {
     _clearCurrentExecutionLine: function()
     {
         if (this._executionSourceFrame)
-            this._executionSourceFrame.executionLine = 0;
+            this._executionSourceFrame.clearExecutionLine();
         delete this._executionSourceFrame;
     },
 
@@ -699,7 +683,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._executionSourceFrame = this._sourceFrameForScriptOrResource(scriptOrResource);
         if (this._executionSourceFrame)
-            this._executionSourceFrame.executionLine = currentFrame.line;
+            this._executionSourceFrame.setExecutionLine(currentFrame.line);
     },
 
     _changeVisibleFile: function(event)
@@ -744,16 +728,21 @@ WebInspector.ScriptsPanel.prototype = {
         this.resize();
     },
 
-    updatePauseOnExceptionsState: function(pauseOnExceptionsState)
+    _setPauseOnExceptions: function(pauseOnExceptionsState)
     {
-        if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions)
-            this._pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.\nClick to Pause on all exceptions.");
-        else if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnAllExceptions)
-            this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on all exceptions.\nClick to Pause on uncaught exceptions.");
-        else if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions)
-            this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on uncaught exceptions.\nClick to Not pause on exceptions.");
-
-        this._pauseOnExceptionButton.state = pauseOnExceptionsState;
+        function callback(pauseOnExceptionsState)
+        {
+            if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions)
+                this._pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.\nClick to Pause on all exceptions.");
+            else if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnAllExceptions)
+                this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on all exceptions.\nClick to Pause on uncaught exceptions.");
+            else if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions)
+                this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on uncaught exceptions.\nClick to Not pause on exceptions.");
+    
+            this._pauseOnExceptionButton.state = pauseOnExceptionsState;
+            WebInspector.settings.pauseOnExceptionState = pauseOnExceptionsState;
+        }
+        InspectorBackend.setPauseOnExceptionsState(pauseOnExceptionsState, callback.bind(this));
     },
 
     _updateDebuggerButtons: function()
@@ -833,6 +822,12 @@ WebInspector.ScriptsPanel.prototype = {
         this._updateBackAndForwardButtons();
     },
 
+    _formatScript: function()
+    {
+        if (this.visibleView && this.visibleView.sourceFrame)
+            this.visibleView.sourceFrame.formatSource();
+    },
+
     _enableDebugging: function()
     {
         if (this._debuggerEnabled)
@@ -854,7 +849,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _togglePauseOnExceptions: function()
     {
-        InspectorBackend.setPauseOnExceptionsState((this._pauseOnExceptionButton.state + 1) % this._pauseOnExceptionButton.states, this.updatePauseOnExceptionsState.bind(this));
+        this._setPauseOnExceptions((this._pauseOnExceptionButton.state + 1) % this._pauseOnExceptionButton.states);
     },
 
     _togglePause: function()

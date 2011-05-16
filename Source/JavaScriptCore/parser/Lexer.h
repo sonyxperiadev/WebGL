@@ -37,7 +37,8 @@ namespace JSC {
 
     class RegExp;
 
-    class Lexer : public Noncopyable {
+    class Lexer {
+        WTF_MAKE_NONCOPYABLE(Lexer); WTF_MAKE_FAST_ALLOCATED;
     public:
         // Character manipulation functions.
         static bool isWhiteSpace(int character);
@@ -73,7 +74,15 @@ namespace JSC {
             m_current = *m_code;
             m_buffer8.resize(0);
             m_buffer16.resize(0);
+            if (UNLIKELY(m_code == m_codeEnd))
+                m_current = -1;
         }
+        void setLineNumber(int line)
+        {
+            m_lineNumber = line;
+        }
+
+        SourceProvider* sourceProvider() const { return m_source->provider(); }
 
     private:
         friend class JSGlobalData;

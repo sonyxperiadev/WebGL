@@ -35,7 +35,9 @@
 #import "NativeWebKeyboardEvent.h"
 #import "PDFViewController.h"
 #import "PageClientImpl.h"
+#import "PasteboardTypes.h"
 #import "PrintInfo.h"
+#import "Region.h"
 #import "RunLoop.h"
 #import "TextChecker.h"
 #import "TextCheckerState.h"
@@ -95,6 +97,9 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 
 }
 
+NSString* const WebKitOriginalTopPrintingMarginKey = @"WebKitOriginalTopMargin";
+NSString* const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomMargin";
+
 @interface WKViewData : NSObject {
 @public
     OwnPtr<PageClientImpl> _pageClient;
@@ -135,6 +140,9 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 
     bool _inBecomeFirstResponder;
     bool _inResignFirstResponder;
+    NSEvent *_mouseDownEvent;
+    BOOL _ignoringMouseDraggedEvents;
+    BOOL _dragHasStarted;
 }
 @end
 
@@ -195,21 +203,10 @@ static bool useNewDrawingArea()
     return [self initWithFrame:frame contextRef:contextRef pageGroupRef:nil];
 }
 
-static NSString * const WebArchivePboardType = @"Apple Web Archive pasteboard type";
-static NSString * const WebURLsWithTitlesPboardType = @"WebURLsWithTitlesPboardType";
-static NSString * const WebURLPboardType = @"public.url";
-static NSString * const WebURLNamePboardType = @"public.url-name";
-
 - (void)_registerDraggedTypes
 {
-    NSArray *editableTypes = [NSArray arrayWithObjects:WebArchivePboardType, NSHTMLPboardType, NSFilenamesPboardType, NSTIFFPboardType, NSPDFPboardType,
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
-        NSPICTPboardType,
-#endif
-        NSURLPboardType, NSRTFDPboardType, NSRTFPboardType, NSStringPboardType, NSColorPboardType, kUTTypePNG, nil];
-    NSArray *URLTypes = [NSArray arrayWithObjects:WebURLsWithTitlesPboardType, NSURLPboardType, WebURLPboardType,  WebURLNamePboardType, NSStringPboardType, NSFilenamesPboardType, nil];
-    NSMutableSet *types = [[NSMutableSet alloc] initWithArray:editableTypes];
-    [types addObjectsFromArray:URLTypes];
+    NSMutableSet *types = [[NSMutableSet alloc] initWithArray:PasteboardTypes::forEditing()];
+    [types addObjectsFromArray:PasteboardTypes::forURL()];
     [self registerForDraggedTypes:[types allObjects]];
     [types release];
 }
@@ -235,6 +232,8 @@ static NSString * const WebURLNamePboardType = @"public.url-name";
     _data->_pageClient = PageClientImpl::create(self);
     _data->_page = toImpl(contextRef)->createWebPage(_data->_pageClient.get(), toImpl(pageGroupRef));
     _data->_page->initializeWebPage();
+    _data->_mouseDownEvent = nil;
+    _data->_ignoringMouseDraggedEvents = NO;
 
     [self _registerDraggedTypes];
 
@@ -729,6 +728,17 @@ static void speakString(WKStringRef string, WKErrorRef error, void*)
     return YES;
 }
 
+- (void)_setMouseDownEvent:(NSEvent *)event
+{
+    ASSERT(!event || [event type] == NSLeftMouseDown || [event type] == NSRightMouseDown || [event type] == NSOtherMouseDown);
+    
+    if (event == _data->_mouseDownEvent)
+        return;
+    
+    [_data->_mouseDownEvent release];
+    _data->_mouseDownEvent = [event retain];
+}
+
 #define EVENT_HANDLER(Selector, Type) \
     - (void)Selector:(NSEvent *)theEvent \
     { \
@@ -751,21 +761,35 @@ EVENT_HANDLER(scrollWheel, Wheel)
 
 #undef EVENT_HANDLER
 
-#define MOUSE_EVENT_HANDLER(Selector) \
-    - (void)Selector:(NSEvent *)theEvent \
-    { \
-        NSInputManager *currentInputManager = [NSInputManager currentInputManager]; \
-        if ([currentInputManager wantsToHandleMouseEvents] && [currentInputManager handleMouseEvent:theEvent]) \
-            return; \
-        WebMouseEvent webEvent = WebEventFactory::createWebMouseEvent(theEvent, self); \
-        _data->_page->handleMouseEvent(webEvent); \
-    }
+- (void)_mouseHandler:(NSEvent *)event
+{
+    NSInputManager *currentInputManager = [NSInputManager currentInputManager];
+    if ([currentInputManager wantsToHandleMouseEvents] && [currentInputManager handleMouseEvent:event])
+        return;
+    WebMouseEvent webEvent = WebEventFactory::createWebMouseEvent(event, self);
+    _data->_page->handleMouseEvent(webEvent);
+}
 
-MOUSE_EVENT_HANDLER(mouseDown)
-MOUSE_EVENT_HANDLER(mouseDragged)
-MOUSE_EVENT_HANDLER(mouseUp)
+- (void)mouseDown:(NSEvent *)event
+{
+    [self _setMouseDownEvent:event];
+    _data->_ignoringMouseDraggedEvents = NO;
+    _data->_dragHasStarted = NO;
+    [self _mouseHandler:event];
+}
 
-#undef MOUSE_EVENT_HANDLER
+- (void)mouseUp:(NSEvent *)event
+{
+    [self _setMouseDownEvent:nil];
+    [self _mouseHandler:event];
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+    if (_data->_ignoringMouseDraggedEvents)
+        return;
+    [self _mouseHandler:event];
+}
 
 - (void)doCommandBySelector:(SEL)selector
 {
@@ -1039,6 +1063,17 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     return resultRect;
 }
 
+- (void)draggedImage:(NSImage *)anImage endedAt:(NSPoint)aPoint operation:(NSDragOperation)operation
+{
+    NSPoint windowImageLoc = [[self window] convertScreenToBase:aPoint];
+    NSPoint windowMouseLoc = windowImageLoc;
+   
+    // Prevent queued mouseDragged events from coming after the drag and fake mouseUp event.
+    _data->_ignoringMouseDraggedEvents = YES;
+    
+    _data->_page->dragEnded(IntPoint(windowMouseLoc), globalPoint(windowMouseLoc, [self window]), operation);
+}
+
 - (DragApplicationFlags)applicationFlags:(id <NSDraggingInfo>)draggingInfo
 {
     uint32_t flags = 0;
@@ -1058,7 +1093,8 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     IntPoint client([self convertPoint:[draggingInfo draggingLocation] fromView:nil]);
     IntPoint global(globalPoint([draggingInfo draggingLocation], [self window]));
     DragData dragData(draggingInfo, client, global, static_cast<DragOperation>([draggingInfo draggingSourceOperationMask]), [self applicationFlags:draggingInfo]);
-    
+
+    _data->_page->resetDragOperation();
     _data->_page->performDragControllerAction(DragControllerActionEntered, &dragData, [[draggingInfo draggingPasteboard] name]);
     return NSDragOperationCopy;
 }
@@ -1234,7 +1270,15 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if (useNewDrawingArea()) {
         if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(_data->_page->drawingArea())) {
             CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-            drawingArea->paint(context, enclosingIntRect(rect));
+
+            const NSRect *rectsBeingDrawn;
+            NSInteger numRectsBeingDrawn;
+            [self getRectsBeingDrawn:&rectsBeingDrawn count:&numRectsBeingDrawn];
+            for (NSInteger i = 0; i < numRectsBeingDrawn; ++i) {
+                Region unpaintedRegion;
+                IntRect rect = enclosingIntRect(rectsBeingDrawn[i]);
+                drawingArea->paint(context, rect, unpaintedRegion);
+            }
         } else if (_data->_page->drawsBackground()) {
             [_data->_page->drawsTransparentBackground() ? [NSColor clearColor] : [NSColor whiteColor] set];
             NSRectFill(rect);
@@ -1332,6 +1376,44 @@ static WebFrameProxy* frameBeingPrinted()
     return [[[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:PrintedFrameKey] webFrame];
 }
 
+static float currentPrintOperationScale()
+{
+    ASSERT([NSPrintOperation currentOperation]);
+    ASSERT([[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:NSPrintScalingFactor]);
+    return [[[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:NSPrintScalingFactor] floatValue];
+}
+
+- (void)_adjustPrintingMarginsForHeaderAndFooter
+{
+    NSPrintOperation *printOperation = [NSPrintOperation currentOperation];
+    NSPrintInfo *info = [printOperation printInfo];
+    NSMutableDictionary *infoDictionary = [info dictionary];
+
+    // We need to modify the top and bottom margins in the NSPrintInfo to account for the space needed by the
+    // header and footer. Because this method can be called more than once on the same NSPrintInfo (see 5038087),
+    // we stash away the unmodified top and bottom margins the first time this method is called, and we read from
+    // those stashed-away values on subsequent calls.
+    float originalTopMargin;
+    float originalBottomMargin;
+    NSNumber *originalTopMarginNumber = [infoDictionary objectForKey:WebKitOriginalTopPrintingMarginKey];
+    if (!originalTopMarginNumber) {
+        ASSERT(![infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey]);
+        originalTopMargin = [info topMargin];
+        originalBottomMargin = [info bottomMargin];
+        [infoDictionary setObject:[NSNumber numberWithFloat:originalTopMargin] forKey:WebKitOriginalTopPrintingMarginKey];
+        [infoDictionary setObject:[NSNumber numberWithFloat:originalBottomMargin] forKey:WebKitOriginalBottomPrintingMarginKey];
+    } else {
+        ASSERT([originalTopMarginNumber isKindOfClass:[NSNumber class]]);
+        ASSERT([[infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey] isKindOfClass:[NSNumber class]]);
+        originalTopMargin = [originalTopMarginNumber floatValue];
+        originalBottomMargin = [[infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey] floatValue];
+    }
+    
+    float scale = currentPrintOperationScale();
+    [info setTopMargin:originalTopMargin + _data->_page->headerHeight(frameBeingPrinted()) * scale];
+    [info setBottomMargin:originalBottomMargin + _data->_page->footerHeight(frameBeingPrinted()) * scale];
+}
+
 - (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(WKFrameRef)frameRef
 {
     LOG(View, "Creating an NSPrintOperation for frame '%s'", toImpl(frameRef)->url().utf8().data());
@@ -1363,6 +1445,8 @@ static WebFrameProxy* frameBeingPrinted()
 
     if (frame->isMainFrame() && _data->_pdfViewController)
         return [super knowsPageRange:range];
+
+    [self _adjustPrintingMarginsForHeaderAndFooter];
 
     _data->_page->computePagesForPrinting(frame, PrintInfo([[NSPrintOperation currentOperation] printInfo]), _data->_printingPageRects, _data->_totalScaleFactorForPrinting);
 
@@ -1416,6 +1500,34 @@ static WebFrameProxy* frameBeingPrinted()
     CGContextTranslateCTM(context, 0, -rect.size.height);
     CGContextDrawPDFPage(context, pdfPage);
     CGContextRestoreGState(context);
+}
+
+- (void)drawPageBorderWithSize:(NSSize)borderSize
+{
+    ASSERT(NSEqualSizes(borderSize, [[[NSPrintOperation currentOperation] printInfo] paperSize]));    
+
+    // The header and footer rect height scales with the page, but the width is always
+    // all the way across the printed page (inset by printing margins).
+    NSPrintOperation *printOperation = [NSPrintOperation currentOperation];
+    NSPrintInfo *printInfo = [printOperation printInfo];
+    float scale = currentPrintOperationScale();
+    NSSize paperSize = [printInfo paperSize];
+    float headerFooterLeft = [printInfo leftMargin] / scale;
+    float headerFooterWidth = (paperSize.width - ([printInfo leftMargin] + [printInfo rightMargin])) / scale;
+    WebFrameProxy* frame = frameBeingPrinted();
+    NSRect footerRect = NSMakeRect(headerFooterLeft, [printInfo bottomMargin] / scale - _data->_page->footerHeight(frame), headerFooterWidth, _data->_page->footerHeight(frame));
+    NSRect headerRect = NSMakeRect(headerFooterLeft, (paperSize.height - [printInfo topMargin]) / scale, headerFooterWidth, _data->_page->headerHeight(frame));
+
+    NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
+    [currentContext saveGraphicsState];
+    NSRectClip(headerRect);
+    _data->_page->drawHeader(frame, headerRect);
+    [currentContext restoreGraphicsState];
+
+    [currentContext saveGraphicsState];
+    NSRectClip(footerRect);
+    _data->_page->drawFooter(frame, footerRect);
+    [currentContext restoreGraphicsState];
 }
 
 // FIXME 3491344: This is an AppKit-internal method that we need to override in order
@@ -1790,6 +1902,24 @@ static WebFrameProxy* frameBeingPrinted()
         return;
 
     _data->_pdfViewController->setZoomFactor(zoomFactor);
+}
+
+- (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag
+{
+    // We need to prevent re-entering this call to avoid crashing in AppKit.
+    // Given the asynchronous nature of WebKit2 this can now happen.
+    if (_data->_dragHasStarted)
+        return;
+    
+    _data->_dragHasStarted = YES;
+    [super dragImage:image
+                  at:clientPoint
+              offset:NSZeroSize
+               event:(linkDrag) ? [NSApp currentEvent] :_data->_mouseDownEvent
+          pasteboard:[NSPasteboard pasteboardWithName:NSDragPboard]
+              source:self
+           slideBack:YES];
+    _data->_dragHasStarted = NO;
 }
 
 @end

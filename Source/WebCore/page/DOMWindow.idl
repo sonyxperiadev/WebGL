@@ -235,6 +235,12 @@ module window {
         // [Custom] long setInterval(in DOMString code, in long timeout);
         void clearInterval(in long handle);
 
+#if defined(ENABLE_REQUEST_ANIMATION_FRAME)
+        // WebKit animation extensions
+        long webkitRequestAnimationFrame(in [Callback] RequestAnimationFrameCallback callback, in Element element);
+        void webkitCancelRequestAnimationFrame(in long id);
+#endif
+
         // Base64
         DOMString atob(in [ConvertNullToNullString] DOMString string)
             raises(DOMException);
@@ -264,6 +270,8 @@ module window {
         attribute EventListener onended;
         attribute EventListener onerror;
         attribute EventListener onfocus;
+        attribute EventListener onformchange;
+        attribute EventListener onforminput;
         attribute EventListener onhashchange;
         attribute EventListener oninput;
         attribute EventListener oninvalid;
@@ -308,8 +316,6 @@ module window {
         // Not implemented yet.
         // attribute EventListener onafterprint;
         // attribute EventListener onbeforeprint;
-        // attribute EventListener onformchange;
-        // attribute EventListener onforminput;
         // attribute EventListener onreadystatechange;
         // attribute EventListener onredo;
         // attribute EventListener onshow;
@@ -439,6 +445,7 @@ module window {
         attribute HTMLImageElementConstructor HTMLImageElement;
         attribute HTMLInputElementConstructor HTMLInputElement;
         attribute HTMLIsIndexElementConstructor HTMLIsIndexElement;
+        attribute HTMLKeygenElementConstructor HTMLKeygenElement;
         attribute HTMLLIElementConstructor HTMLLIElement;
         attribute HTMLLabelElementConstructor HTMLLabelElement;
         attribute HTMLLegendElementConstructor HTMLLegendElement;
@@ -509,7 +516,7 @@ module window {
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] DataViewConstructor DataView; // Usable with new operator
 
-        attribute [JSCCustomGetter,Conditional=WEB_AUDIO] AudioContextConstructor webkitAudioContext; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=WEB_AUDIO,EnabledAtRuntime] AudioContextConstructor webkitAudioContext; // Usable with new operator
         attribute [Conditional=WEB_AUDIO] AudioPannerNodeConstructor webkitAudioPannerNode; // Needed for panning model constants
 
         attribute EventConstructor Event;

@@ -117,7 +117,10 @@ class Port(object):
 
         self._pretty_patch_path = self.path_from_webkit_base("Websites",
             "bugs.webkit.org", "PrettyPatch", "prettify.rb")
-        self._pretty_patch_available = True
+        # If we're running on a mocked-out filesystem, this file almost
+        # certainly won't be available, so it's a good test to keep us
+        # from erroring out later.
+        self._pretty_patch_available = self._filesystem.exists(self._pretty_patch_path)
         self.set_option_default('configuration', None)
         if self._options.configuration is None:
             self._options.configuration = self.default_configuration()
@@ -244,7 +247,7 @@ class Port(object):
                 tree)
             results_filename - relative path from top of tree to the results
                 file
-            (os.path.join of the two gives you the full path to the file,
+            (port.join() of the two gives you the full path to the file,
                 unless None was returned.)
         Return values will be in the format appropriate for the current
         platform (e.g., "\\" for path separators on Windows). If the results
@@ -255,7 +258,7 @@ class Port(object):
         conjunction with the other baseline and filename routines that are
         platform specific.
         """
-        testname = os.path.splitext(self.relative_test_filename(filename))[0]
+        testname = self._filesystem.splitext(self.relative_test_filename(filename))[0]
 
         baseline_filename = testname + '-expected' + suffix
 
@@ -360,7 +363,7 @@ class Port(object):
                 protocol = "http"
             return "%s://127.0.0.1:%u/%s" % (protocol, port, relative_path)
 
-        return path.abspath_to_uri(os.path.abspath(filename))
+        return path.abspath_to_uri(self._filesystem.abspath(filename))
 
     def tests(self, paths):
         """Return the list of tests found (relative to layout_tests_dir()."""
@@ -702,7 +705,7 @@ class Port(object):
     def pretty_patch_text(self, diff_path):
         if not self._pretty_patch_available:
             return self._pretty_patch_error_html
-        command = ("ruby", "-I", os.path.dirname(self._pretty_patch_path),
+        command = ("ruby", "-I", self._filesystem.dirname(self._pretty_patch_path),
                    self._pretty_patch_path, diff_path)
         try:
             # Diffs are treated as binary (we pass decode_output=False) as they

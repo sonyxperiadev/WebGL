@@ -436,11 +436,6 @@ void ChromeClientImpl::closeWindowSoon()
 void ChromeClientImpl::runJavaScriptAlert(Frame* frame, const String& message)
 {
     if (m_webView->client()) {
-#if USE(V8)
-        // Before showing the JavaScript dialog, we give the proxy implementation
-        // a chance to process any pending console messages.
-        V8Proxy::processConsoleMessages();
-#endif
         m_webView->client()->runModalAlertDialog(
             WebFrameImpl::fromFrame(frame), message);
     }
@@ -531,6 +526,13 @@ void ChromeClientImpl::invalidateContentsForSlowScroll(const IntRect& updateRect
     m_webView->hidePopups();
     invalidateContentsAndWindow(updateRect, immediate);
 }
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+void ChromeClientImpl::scheduleAnimation()
+{
+    m_webView->client()->scheduleAnimation();
+}
+#endif
 
 void ChromeClientImpl::scroll(
     const IntSize& scrollDelta, const IntRect& scrollRect,
@@ -698,6 +700,11 @@ void ChromeClientImpl::popupOpened(PopupContainer* popupContainer,
 void ChromeClientImpl::popupClosed(WebCore::PopupContainer* popupContainer)
 {
     m_webView->popupClosed(popupContainer);
+}
+
+void ChromeClientImpl::setCursor(const WebCore::Cursor& cursor)
+{
+    setCursor(WebCursorInfo(cursor));
 }
 
 void ChromeClientImpl::setCursor(const WebCursorInfo& cursor)

@@ -33,7 +33,8 @@ namespace WebCore {
     class CSSSelectorBag;
 
     // this class represents a selector for a StyleRule
-    class CSSSelector : public Noncopyable {
+    class CSSSelector {
+        WTF_MAKE_NONCOPYABLE(CSSSelector); WTF_MAKE_FAST_ALLOCATED;
     public:
         CSSSelector()
             : m_relation(Descendant)
@@ -278,6 +279,7 @@ namespace WebCore {
             return m_match == PseudoElement;
         }
         bool isUnknownPseudoElement() const;
+        bool isSiblingSelector() const;
 
         Relation relation() const { return static_cast<Relation>(m_relation); }
 
@@ -305,7 +307,9 @@ namespace WebCore {
         unsigned specificityForPage() const;
         void extractPseudoType() const;
 
-        struct RareData : Noncopyable {
+        struct RareData {
+            WTF_MAKE_NONCOPYABLE(RareData); WTF_MAKE_FAST_ALLOCATED;
+        public:
             RareData(PassOwnPtr<CSSSelector> tagHistory)
                 : m_a(0)
                 , m_b(0)
@@ -348,6 +352,24 @@ namespace WebCore {
 inline bool CSSSelector::isUnknownPseudoElement() const
 {
     return m_match == PseudoElement && m_pseudoType == PseudoUnknown;
+}
+
+inline bool CSSSelector::isSiblingSelector() const
+{
+    PseudoType type = pseudoType();
+    return m_relation == DirectAdjacent
+        || m_relation == IndirectAdjacent
+        || type == PseudoEmpty
+        || type == PseudoFirstChild
+        || type == PseudoFirstOfType
+        || type == PseudoLastChild
+        || type == PseudoLastOfType
+        || type == PseudoOnlyChild
+        || type == PseudoOnlyOfType
+        || type == PseudoNthChild
+        || type == PseudoNthOfType
+        || type == PseudoNthLastChild
+        || type == PseudoNthLastOfType;
 }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -173,13 +173,12 @@ void WebChromeClient::show()
 
 bool WebChromeClient::canRunModal()
 {
-    notImplemented();
-    return false;
+    return m_page->canRunModal();
 }
 
 void WebChromeClient::runModal()
 {
-    notImplemented();
+    m_page->runModal();
 }
 
 void WebChromeClient::setToolbarsVisible(bool toolbarsAreVisible)
@@ -364,16 +363,16 @@ void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& rect, bool)
     m_page->drawingArea()->setNeedsDisplay(rect);
 }
 
-void WebChromeClient::scroll(const IntSize& scrollDelta, const IntRect& scrollRect, const IntRect&)
+void WebChromeClient::scroll(const IntSize& scrollOffset, const IntRect& scrollRect, const IntRect& clipRect)
 {
     m_page->pageDidScroll();
-    m_page->drawingArea()->scroll(scrollRect, scrollDelta);
+    m_page->drawingArea()->scroll(intersection(scrollRect, clipRect), scrollOffset);
 }
 
 #if ENABLE(TILED_BACKING_STORE)
-void WebChromeClient::delegatedScrollRequested(const IntSize& scrollDelta)
+void WebChromeClient::delegatedScrollRequested(const IntSize& scrollOffset)
 {
-    m_page->pageDidRequestScroll(scrollDelta);
+    m_page->pageDidRequestScroll(scrollOffset);
 }
 #endif
 
@@ -466,9 +465,10 @@ void WebChromeClient::setToolTip(const String& toolTip, TextDirection)
     m_page->send(Messages::WebPageProxy::SetToolTip(m_cachedToolTip));
 }
 
-void WebChromeClient::print(Frame*)
+void WebChromeClient::print(Frame* frame)
 {
-    notImplemented();
+    WebFrame* webFrame = static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame();
+    m_page->sendSync(Messages::WebPageProxy::PrintFrame(webFrame->frameID()), Messages::WebPageProxy::PrintFrame::Reply());
 }
 
 #if ENABLE(DATABASE)

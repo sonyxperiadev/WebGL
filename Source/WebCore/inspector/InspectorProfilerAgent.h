@@ -47,7 +47,8 @@ class InspectorObject;
 class ScriptHeapSnapshot;
 class ScriptProfile;
 
-class InspectorProfilerAgent : public Noncopyable {
+class InspectorProfilerAgent {
+    WTF_MAKE_NONCOPYABLE(InspectorProfilerAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<InspectorProfilerAgent> create(InspectorController*);
     virtual ~InspectorProfilerAgent();
@@ -65,6 +66,7 @@ public:
     bool isRecordingUserInitiatedProfile() { return m_recordingUserInitiatedProfile; }
     void removeProfile(const String& type, unsigned uid);
     void resetState();
+    void resetFrontendProfiles();
     void setFrontend(InspectorFrontend* frontend) { m_frontend = frontend; }
     void startUserInitiatedProfiling();
     void stopUserInitiatedProfiling(bool ignoreProfile = false);

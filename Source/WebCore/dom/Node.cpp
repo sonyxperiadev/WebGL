@@ -497,6 +497,7 @@ Element* Node::shadowHost() const
 
 void Node::setShadowHost(Element* host)
 {
+    ASSERT(!parentNode());
     if (host)
         setFlag(IsShadowRootFlag);
     else
@@ -3037,6 +3038,16 @@ void Node::dispatchBlurEvent()
     dispatchEvent(Event::create(eventNames().blurEvent, false, false));
 }
 
+void Node::dispatchChangeEvents()
+{
+    dispatchEvent(Event::create(eventNames().changeEvent, true, false));
+}
+
+void Node::dispatchInputEvents()
+{
+    dispatchEvent(Event::create(eventNames().inputEvent, true, false));
+}
+
 bool Node::disabled() const
 {
     return false;
@@ -3094,7 +3105,7 @@ void Node::defaultEventHandler(Event* event)
             if (Frame* frame = document()->frame())
                 frame->eventHandler()->defaultWheelEventHandler(startNode, wheelEvent);
     } else if (event->type() == eventNames().webkitEditableContentChangedEvent) {
-        dispatchEvent(Event::create(eventNames().inputEvent, true, false));
+        dispatchInputEvents();
     }
 }
 

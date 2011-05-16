@@ -62,6 +62,9 @@ public:
     
     virtual void invalidateRect(const IntRect&);
     virtual void setFrameRect(const IntRect&);
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    void scheduleAnimation();
+#endif
 
     Frame* frame() const { return m_frame.get(); }
     void clearFrame();
@@ -97,13 +100,18 @@ public:
 
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     void updatePositionedObjects();
+=======
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    void serviceScriptedAnimations();
+>>>>>>> WebKit.org at r76408
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
     void updateCompositingLayers();
-    void syncCompositingStateForThisFrame();
+    bool syncCompositingStateForThisFrame();
 
     // Called when changes to the GraphicsLayer hierarchy have to be synchronized with
     // content rendered via the normal painting path.
@@ -121,7 +129,7 @@ public:
 
     // Only used with accelerated compositing, but outside the #ifdef to make linkage easier.
     // Returns true if the sync was completed.
-    bool syncCompositingStateRecursive();
+    bool syncCompositingStateIncludingSubframes();
 
     // Returns true when a paint with the PaintBehaviorFlattenCompositingLayers flag set gives
     // a faithful representation of the content.
@@ -294,12 +302,12 @@ private:
     virtual IntPoint convertToContainingView(const IntPoint&) const;
     virtual IntPoint convertFromContainingView(const IntPoint&) const;
 
-    // ScrollBarClient interface
-    virtual void valueChanged(Scrollbar*);
-    virtual void valueChanged(const IntSize&);
+    // ScrollableArea interface
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
     virtual void getTickmarks(Vector<IntRect>&) const;
+
+    virtual void scrollTo(const IntSize&);
 
     void deferredRepaintTimerFired(Timer<FrameView>*);
     void doDeferredRepaints();

@@ -56,7 +56,8 @@ class PageGroup;
 class ScriptDebugListener;
 class JavaScriptCallFrame;
 
-class ScriptDebugServer : JSC::Debugger, public Noncopyable {
+class ScriptDebugServer : JSC::Debugger {
+    WTF_MAKE_NONCOPYABLE(ScriptDebugServer); WTF_MAKE_FAST_ALLOCATED;
 public:
     static ScriptDebugServer& shared();
 
@@ -115,14 +116,16 @@ private:
     void dispatchFunctionToListeners(const ListenerSet& listeners, JavaScriptExecutionCallback callback);
     void dispatchDidPause(ScriptDebugListener*);
     void dispatchDidContinue(ScriptDebugListener*);
-    void dispatchDidParseSource(const ListenerSet& listeners, const JSC::SourceCode& source, enum ScriptWorldType);
-    void dispatchFailedToParseSource(const ListenerSet& listeners, const JSC::SourceCode& source, int errorLine, const String& errorMessage);
+    void dispatchDidParseSource(const ListenerSet& listeners, JSC::SourceProvider*, enum ScriptWorldType);
+    void dispatchFailedToParseSource(const ListenerSet& listeners, JSC::SourceProvider*, int errorLine, const String& errorMessage);
 
+    void createCallFrameAndPauseIfNeeded(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
+    void updateCallFrameAndPauseIfNeeded(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
     void pauseIfNeeded(Page*);
 
     virtual void detach(JSC::JSGlobalObject*);
 
-    virtual void sourceParsed(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMsg);
+    virtual void sourceParsed(JSC::ExecState*, JSC::SourceProvider*, int errorLine, const JSC::UString& errorMsg);
     virtual void callEvent(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
     virtual void atStatement(const JSC::DebuggerCallFrame&, intptr_t sourceID, int firstLine);
     virtual void returnEvent(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);

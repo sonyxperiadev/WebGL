@@ -119,12 +119,6 @@ LayerRendererChromium::LayerRendererChromium(PassRefPtr<GraphicsContext3D> conte
 LayerRendererChromium::~LayerRendererChromium()
 {
     cleanupSharedObjects();
-
-    // Because the tilers need to clean up textures, clean them up explicitly
-    // before the GraphicsContext3D is destroyed.
-    m_rootLayerTiler.clear();
-    m_horizontalScrollbarTiler.clear();
-    m_verticalScrollbarTiler.clear();
 }
 
 GraphicsContext3D* LayerRendererChromium::context()
@@ -268,6 +262,9 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
     m_context->colorMask(true, true, true, false);
 
     updateAndDrawRootLayer(tilePaint, scrollbarPaint, visibleRect, contentRect);
+
+    // Re-enable color writes to layers, which may be partially transparent.
+    m_context->colorMask(true, true, true, true);
 
     // Set the root visible/content rects --- used by subsequent drawLayers calls.
     m_rootVisibleRect = visibleRect;
@@ -794,6 +791,11 @@ void LayerRendererChromium::cleanupSharedObjects()
     m_renderSurfaceSharedValues.clear();
     if (m_offscreenFramebufferId)
         GLC(m_context.get(), m_context->deleteFramebuffer(m_offscreenFramebufferId));
+
+    // Clear tilers before the texture manager, as they have references to textures.
+    m_rootLayerTiler.clear();
+    m_horizontalScrollbarTiler.clear();
+    m_verticalScrollbarTiler.clear();
 
     m_textureManager.clear();
 }

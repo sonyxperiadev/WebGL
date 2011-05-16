@@ -43,6 +43,7 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "NodeRenderStyle.h"
 #include "OptionGroupElement.h"
 #include "OptionElement.h"
 #include "Page.h"
@@ -51,9 +52,10 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "Scrollbar.h"
+#include "ScrollbarTheme.h"
 #include "SelectElement.h"
 #include "SelectionController.h"
-#include "NodeRenderStyle.h"
+#include "TextRun.h"
 #include <math.h>
 
 using namespace std;
@@ -493,9 +495,7 @@ bool RenderListBox::scrollToRevealElementAtListIndex(int index)
     else
         newOffset = index - numVisibleItems() + 1;
 
-    m_indexOffset = newOffset;
-    if (m_vBar)
-        m_vBar->setValue(m_indexOffset, Scrollbar::NotFromScrollAnimator);
+    ScrollableArea::scrollToYOffsetWithoutAnimation(newOffset);
 
     return true;
 }
@@ -507,12 +507,12 @@ bool RenderListBox::listIndexIsVisible(int index)
 
 bool RenderListBox::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier, Node**)
 {
-    return m_vBar && m_vBar->scroll(direction, granularity, multiplier);
+    return ScrollableArea::scroll(direction, granularity, multiplier);
 }
 
 bool RenderListBox::logicalScroll(ScrollLogicalDirection direction, ScrollGranularity granularity, float multiplier, Node**)
 {
-    return m_vBar && m_vBar->scroll(logicalToPhysical(direction, style()->isHorizontalWritingMode(), style()->isFlippedBlocksWritingMode()), granularity, multiplier);
+    return ScrollableArea::scroll(logicalToPhysical(direction, style()->isHorizontalWritingMode(), style()->isFlippedBlocksWritingMode()), granularity, multiplier);
 }
 
 void RenderListBox::valueChanged(unsigned listIndex)
@@ -528,20 +528,24 @@ int RenderListBox::scrollSize(ScrollbarOrientation orientation) const
     return ((orientation == VerticalScrollbar) && m_vBar) ? (m_vBar->totalSize() - m_vBar->visibleSize()) : 0;
 }
 
-void RenderListBox::setScrollOffsetFromAnimation(const IntPoint& offset)
+int RenderListBox::scrollPosition(Scrollbar*) const
 {
-    if (m_vBar)
-        m_vBar->setValue(offset.y(), Scrollbar::FromScrollAnimator);
+    return m_indexOffset;
 }
 
-void RenderListBox::valueChanged(Scrollbar*)
+void RenderListBox::setScrollOffset(const IntPoint& offset)
 {
-    int newOffset = m_vBar->value();
-    if (newOffset != m_indexOffset) {
-        m_indexOffset = newOffset;
-        repaint();
-        node()->document()->eventQueue()->enqueueScrollEvent(node(), EventQueue::ScrollEventElementTarget);
-    }
+    scrollTo(offset.y());
+}
+
+void RenderListBox::scrollTo(int newOffset)
+{
+    if (newOffset == m_indexOffset)
+        return;
+
+    m_indexOffset = newOffset;
+    repaint();
+    node()->document()->eventQueue()->enqueueScrollEvent(node(), EventQueue::ScrollEventElementTarget);
 }
 
 int RenderListBox::itemHeight() const
@@ -551,7 +555,7 @@ int RenderListBox::itemHeight() const
 
 int RenderListBox::verticalScrollbarWidth() const
 {
-    return m_vBar ? m_vBar->width() : 0;
+    return m_vBar && !ScrollbarTheme::nativeTheme()->usesOverlayScrollbars() ? m_vBar->width() : 0;
 }
 
 // FIXME: We ignore padding in the vertical direction as far as these values are concerned, since that's
@@ -587,9 +591,8 @@ void RenderListBox::setScrollTop(int newTop)
     int index = newTop / itemHeight();
     if (index < 0 || index >= numItems() || index == m_indexOffset)
         return;
-    m_indexOffset = index;
-    if (m_vBar)
-        m_vBar->setValue(index, Scrollbar::NotFromScrollAnimator);
+    
+    ScrollableArea::scrollToYOffsetWithoutAnimation(index);
 }
 
 bool RenderListBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
@@ -711,7 +714,7 @@ void RenderListBox::destroyScrollbar()
         return;
     
     m_vBar->removeFromParent();
-    m_vBar->setClient(0);
+    m_vBar->disconnectFromScrollableArea();
     m_vBar = 0;
 }
 

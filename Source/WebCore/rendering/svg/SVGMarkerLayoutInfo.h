@@ -21,6 +21,7 @@
 #define SVGMarkerLayoutInfo_h
 
 #if ENABLE(SVG)
+#include "AffineTransform.h"
 #include "RenderObject.h"
 #include "SVGMarkerData.h"
 #include <wtf/Noncopyable.h>
@@ -42,7 +43,8 @@ struct MarkerLayout {
     AffineTransform matrix;
 };
 
-class SVGMarkerLayoutInfo : public Noncopyable {
+class SVGMarkerLayoutInfo {
+    WTF_MAKE_NONCOPYABLE(SVGMarkerLayoutInfo);
 public:
     SVGMarkerLayoutInfo();
     ~SVGMarkerLayoutInfo();

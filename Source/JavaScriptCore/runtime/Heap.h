@@ -22,6 +22,7 @@
 #ifndef Heap_h
 #define Heap_h
 
+#include "MarkStack.h"
 #include "MarkedSpace.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
@@ -45,7 +46,8 @@ namespace JSC {
 
     enum OperationInProgress { NoOperation, Allocation, Collection };
 
-    class Heap : public Noncopyable {
+    class Heap {
+        WTF_MAKE_NONCOPYABLE(Heap);
     public:
         void destroy();
 
@@ -86,7 +88,7 @@ namespace JSC {
 
         WeakGCHandle* addWeakGCHandle(JSCell*);
 
-        void markConservatively(MarkStack&, void* start, void* end);
+        void markConservatively(ConservativeSet&, void* start, void* end);
 
         void pushTempSortVector(WTF::Vector<ValueStringPair>*);
         void popTempSortVector(WTF::Vector<ValueStringPair>*);        
@@ -130,6 +132,7 @@ namespace JSC {
         JSGlobalData* m_globalData;
         
         MachineStackMarker m_machineStackMarker;
+        MarkStack m_markStack;
         
         size_t m_extraCost;
     };

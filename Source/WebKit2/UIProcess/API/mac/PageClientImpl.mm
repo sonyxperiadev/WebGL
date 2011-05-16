@@ -37,6 +37,7 @@
 #import <WebCore/Cursor.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/FoundationExtras.h>
+#import <WebCore/GraphicsContext.h>
 #import <WebCore/KeyboardEvent.h>
 #import <wtf/PassOwnPtr.h>
 #import <wtf/text/CString.h>
@@ -131,6 +132,14 @@ void PageClientImpl::setViewNeedsDisplay(const WebCore::IntRect& rect)
 void PageClientImpl::displayView()
 {
     [m_wkView displayIfNeeded];
+}
+
+void PageClientImpl::scrollView(const IntRect& scrollRect, const IntSize& scrollOffset)
+{
+    NSRect clippedScrollRect = NSIntersectionRect(scrollRect, NSOffsetRect(scrollRect, -scrollOffset.width(), -scrollOffset.height()));
+
+    [m_wkView translateRectsNeedingDisplayInRect:clippedScrollRect by:scrollOffset];
+    [m_wkView scrollRect:clippedScrollRect by:scrollOffset];
 }
 
 IntSize PageClientImpl::viewSize()
@@ -270,6 +279,14 @@ void PageClientImpl::interceptKeyEvent(const NativeWebKeyboardEvent& event, Vect
     [m_wkView _getTextInputState:selectionStart selectionEnd:selectionEnd underlines:underlines];
 }
 
+void PageClientImpl::setDragImage(const IntPoint& clientPosition, const IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag)
+{
+    OwnPtr<GraphicsContext> graphicsContext = dragImage->createGraphicsContext();
+    RetainPtr<NSImage> dragNSImage(AdoptNS, [[NSImage alloc] initWithCGImage:CGBitmapContextCreateImage(graphicsContext->platformContext()) size:imageSize]);
+    [dragNSImage.get() setFlipped:YES];
+    [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
+}
+    
 FloatRect PageClientImpl::convertToDeviceSpace(const FloatRect& rect)
 {
     return [m_wkView _convertToDeviceSpace:rect];
@@ -325,6 +342,11 @@ void PageClientImpl::pageDidLeaveAcceleratedCompositing()
 void PageClientImpl::setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
 {
     [m_wkView _setComplexTextInputEnabled:complexTextInputEnabled pluginComplexTextInputIdentifier:pluginComplexTextInputIdentifier];
+}
+
+CGContextRef PageClientImpl::containingWindowGraphicsContext()
+{
+    return static_cast<CGContextRef>([[[m_wkView window] graphicsContext] graphicsPort]);
 }
 
 void PageClientImpl::didCommitLoadForMainFrame(bool useCustomRepresentation)
