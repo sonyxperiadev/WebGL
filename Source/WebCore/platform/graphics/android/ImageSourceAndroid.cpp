@@ -378,9 +378,9 @@ SkBitmapRef* ImageSource::createFrameAtIndex(size_t index)
 {
 #ifdef ANDROID_ANIMATED_GIF
     if (m_decoder.m_gifDecoder) {
-        RGBA32Buffer* buffer =
+        ImageFrame* buffer =
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
-        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+        if (!buffer || buffer->status() == ImageFrame::FrameEmpty)
             return 0;
         SkBitmap& bitmap = buffer->bitmap();
         SkPixelRef* pixelRef = bitmap.pixelRef();
@@ -401,9 +401,9 @@ float ImageSource::frameDurationAtIndex(size_t index)
     float duration = 0;
 #ifdef ANDROID_ANIMATED_GIF
     if (m_decoder.m_gifDecoder) {
-        RGBA32Buffer* buffer
+        ImageFrame* buffer
                 = m_decoder.m_gifDecoder->frameBufferAtIndex(index);
-        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+        if (!buffer || buffer->status() == ImageFrame::FrameEmpty)
             return 0;
         duration = buffer->duration() / 1000.0f;
     }
@@ -426,9 +426,9 @@ bool ImageSource::frameHasAlphaAtIndex(size_t index)
         if (!m_decoder.m_gifDecoder->supportsAlpha())
             return false;
 
-        RGBA32Buffer* buffer =
+        ImageFrame* buffer =
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
-        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+        if (!buffer || buffer->status() == ImageFrame::FrameEmpty)
             return false;
 
         return buffer->hasAlpha();
@@ -454,9 +454,9 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
 {
 #ifdef ANDROID_ANIMATED_GIF
     if (m_decoder.m_gifDecoder) {
-        RGBA32Buffer* buffer =
+        ImageFrame* buffer =
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
-        return buffer && buffer->status() == RGBA32Buffer::FrameComplete;
+        return buffer && buffer->status() == ImageFrame::FrameComplete;
     }
 #else
     SkASSERT(0 == index);
