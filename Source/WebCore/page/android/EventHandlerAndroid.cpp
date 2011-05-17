@@ -106,9 +106,6 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return true;
 }
 
-class Clipboard : public RefCounted<Clipboard> {
-};
-
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
     return PassRefPtr<Clipboard>(0);
