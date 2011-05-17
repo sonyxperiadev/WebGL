@@ -69,7 +69,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/V8AbstractEventListener.cpp \
 	bindings/v8/V8Binding.cpp \
 	bindings/v8/V8Collection.cpp \
-	bindings/v8/V8ConsoleMessage.cpp \
 	bindings/v8/V8DOMMap.cpp \
 	bindings/v8/V8DOMWindowShell.cpp \
 	bindings/v8/V8DOMWrapper.cpp \
@@ -87,6 +86,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/V8NodeFilterCondition.cpp \
 	bindings/v8/V8Proxy.cpp \
 	bindings/v8/V8Utilities.cpp \
+	bindings/v8/V8WindowErrorHandler.cpp \
 	bindings/v8/V8WorkerContextEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \

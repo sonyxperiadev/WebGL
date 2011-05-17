@@ -250,6 +250,7 @@ GEN := \
     $(intermediates)/html/JSHTMLImageElement.h \
     $(intermediates)/html/JSHTMLInputElement.h \
     $(intermediates)/html/JSHTMLIsIndexElement.h \
+    $(intermediates)/html/JSHTMLKeygenElement.h \
     $(intermediates)/html/JSHTMLLIElement.h \
     $(intermediates)/html/JSHTMLLabelElement.h \
     $(intermediates)/html/JSHTMLLegendElement.h \

@@ -234,6 +234,7 @@ GEN := \
     $(intermediates)/bindings/V8HTMLImageElement.h \
     $(intermediates)/bindings/V8HTMLInputElement.h \
     $(intermediates)/bindings/V8HTMLIsIndexElement.h \
+    $(intermediates)/bindings/V8HTMLKeygenElement.h \
     $(intermediates)/bindings/V8HTMLLIElement.h \
     $(intermediates)/bindings/V8HTMLLabelElement.h \
     $(intermediates)/bindings/V8HTMLLegendElement.h \

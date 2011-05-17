@@ -530,7 +530,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ScrollAnimator.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
-	platform/ScrollbarClient.cpp \
+	platform/ScrollableArea.cpp \
 	platform/ScrollbarThemeComposite.cpp \
 	platform/SharedBuffer.cpp \
 	platform/Theme.cpp \
