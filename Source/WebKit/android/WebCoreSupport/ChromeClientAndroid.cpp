@@ -65,7 +65,7 @@ WebCore::GraphicsLayer* ChromeClientAndroid::layersSync()
 {
     if (m_rootGraphicsLayer && m_needsLayerSync && m_webFrame) {
         if (FrameView* frameView = m_webFrame->page()->mainFrame()->view())
-            frameView->syncCompositingStateRecursive();
+            frameView->syncCompositingStateIncludingSubframes();
     }
     m_needsLayerSync = false;
     return m_rootGraphicsLayer;
