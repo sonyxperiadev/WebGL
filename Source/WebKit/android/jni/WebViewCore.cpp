@@ -3726,7 +3726,7 @@ void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
         return;
 
     if (owner->stackingContext())
-        owner->scrollToOffset(rect.fLeft, rect.fTop, true, false);
+        owner->scrollToOffset(rect.fLeft, rect.fTop);
 #endif
 }
 

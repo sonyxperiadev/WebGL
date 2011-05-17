@@ -100,7 +100,7 @@ CacheBuilder::LayerTracker::~LayerTracker() {
     if (mRenderLayer && mRenderLayer->stackingContext())
         // Restore the scroll position of the layer.  Does not affect layers
         // without overflow scroll as the layer will not be scrolled.
-        mRenderLayer->scrollToOffset(mScroll.x(), mScroll.y(), false, false);
+        mRenderLayer->scrollToOffset(mScroll.x(), mScroll.y());
 }
 
 #if DUMP_NAV_CACHE
@@ -2930,7 +2930,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
         return;
     // Prevent a crash when scrolling a layer that does not have a parent.
     if (layer->stackingContext())
-        layer->scrollToOffset(0, 0, false, false);
+        layer->scrollToOffset(0, 0);
 #endif
     layerTracker.grow(layerTracker.size() + 1);
     LayerTracker& indexTracker = layerTracker.last();

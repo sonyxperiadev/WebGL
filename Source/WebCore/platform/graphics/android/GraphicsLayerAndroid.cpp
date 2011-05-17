@@ -572,10 +572,10 @@ bool GraphicsLayerAndroid::repaint()
 
             // Paint at 0,0.
             IntSize scroll = layer->scrolledContentOffset();
-            layer->scrollToOffset(0, 0, true, false);
+            layer->scrollToOffset(0, 0);
             // At this point, it doesn't matter if painting failed.
             (void) paintContext(m_foregroundLayer->recordContext(), contentsRect);
-            layer->scrollToOffset(scroll.width(), scroll.height(), true, false);
+            layer->scrollToOffset(scroll.width(), scroll.height());
 
             // Construct the clip layer for masking the contents.
             IntRect clip = layer->renderer()->absoluteBoundingBoxRect();
