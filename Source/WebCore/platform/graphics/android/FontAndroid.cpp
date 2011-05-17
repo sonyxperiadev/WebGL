@@ -42,6 +42,7 @@
 #include "SkTemplates.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
+#include "TextRun.h"
 
 #ifdef SUPPORT_COMPLEX_SCRIPTS
 #include "HarfbuzzSkia.h"
