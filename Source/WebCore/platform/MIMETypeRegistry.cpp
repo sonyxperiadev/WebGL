@@ -27,12 +27,6 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#include "ArchiveFactory.h"
-#endif
-=======
->>>>>>> webkit.org at r78450
 #include "MediaPlayer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -256,11 +250,7 @@ static void initializeSupportedNonImageMimeTypes()
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(types); ++i)
         supportedNonImageMIMETypes->add(types[i]);
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     ArchiveFactory::registerKnownArchiveMIMETypes();
 #endif
 }

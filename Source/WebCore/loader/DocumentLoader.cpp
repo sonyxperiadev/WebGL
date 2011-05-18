@@ -295,11 +295,7 @@ void DocumentLoader::commitLoad(const char* data, int length)
     FrameLoader* frameLoader = DocumentLoader::frameLoader();
     if (!frameLoader)
         return;
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     if (ArchiveFactory::isArchiveMimeType(response().mimeType()))
         return;
 #endif
@@ -359,11 +355,7 @@ void DocumentLoader::setupForReplaceByMIMEType(const String& newMIMEType)
     
     stopLoadingSubresources();
     stopLoadingPlugIns();
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     clearArchiveResources();
 #endif
 }
@@ -453,11 +445,7 @@ bool DocumentLoader::isLoadingInAPISense() const
     return frameLoader()->subframeIsLoading();
 }
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 void DocumentLoader::addAllArchiveResources(Archive* archive)
 {
     if (!m_archiveResourceCollection)
@@ -564,7 +552,6 @@ void DocumentLoader::getSubresources(Vector<PassRefPtr<ArchiveResource> >& subre
 
     return;
 }
-#endif
 
 void DocumentLoader::deliverSubstituteResourcesAfterDelay()
 {
@@ -623,11 +610,7 @@ void DocumentLoader::cancelPendingSubstituteLoad(ResourceLoader* loader)
         m_substituteResourceDeliveryTimer.stop();
 }
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 bool DocumentLoader::scheduleArchiveLoad(ResourceLoader* loader, const ResourceRequest& request, const KURL& originalURL)
 {
     ArchiveResource* resource = 0;
@@ -648,11 +631,7 @@ bool DocumentLoader::scheduleArchiveLoad(ResourceLoader* loader, const ResourceR
     
     return true;
 }
-<<<<<<< HEAD
-#endif
-=======
 #endif // ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 
 void DocumentLoader::addResponse(const ResourceResponse& r)
 {

@@ -78,6 +78,7 @@
 #include "SubstituteData.h"
 #include "UrlInterceptResponse.h"
 #include "UserGestureIndicator.h"
+#include "WebArchiveAndroid.h"
 #include "WebCache.h"
 #include "WebCoreJni.h"
 #include "WebCoreResourceLoader.h"
@@ -117,10 +118,6 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
-#endif
-
-#if ENABLE(ARCHIVE)
-#include "WebArchiveAndroid.h"
 #endif
 
 #if ENABLE(WEB_AUTOFILL)
@@ -1422,7 +1419,7 @@ static void StopLoading(JNIEnv *env, jobject obj)
     pFrame->loader()->stopForUserCancel();
 }
 
-#if ENABLE(ARCHIVE)
+#if ENABLE(WEB_ARCHIVE)
 static String saveArchiveAutoname(String basename, String name, String extension) {
     if (name.isNull() || name.isEmpty()) {
         name = String("index");
@@ -1458,11 +1455,11 @@ static String saveArchiveAutoname(String basename, String name, String extension
 
     return String();
 }
-#endif
+#endif // ENABLE(WEB_ARCHIVE)
 
 static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboolean autoname)
 {
-#if ENABLE(ARCHIVE)
+#if ENABLE(WEB_ARCHIVE)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeSaveWebArchive must take a valid frame pointer!");
     String mimeType = pFrame->loader()->documentLoader()->mainResource()->mimeType();
@@ -1504,7 +1501,7 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
 
     if (result)
         return wtfStringToJstring(env, filename);
-#endif
+#endif // ENABLE(WEB_ARCHIVE)
 
     return NULL;
 }

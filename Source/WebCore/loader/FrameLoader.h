@@ -116,13 +116,8 @@ public:
     void load(const ResourceRequest&, bool lockHistory);                                        // Called by WebFrame, calls load(ResourceRequest, SubstituteData).
     void load(const ResourceRequest&, const SubstituteData&, bool lockHistory);                 // Called both by WebFrame and internally, calls load(DocumentLoader*).
     void load(const ResourceRequest&, const String& frameName, bool lockHistory);               // Called by WebPluginController.
-<<<<<<< HEAD
-    
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     void loadArchive(PassRefPtr<Archive>);
 #endif
 

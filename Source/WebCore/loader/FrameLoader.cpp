@@ -34,13 +34,6 @@
 #include "FrameLoader.h"
 
 #include "ApplicationCacheHost.h"
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#include "Archive.h"
-#include "ArchiveFactory.h"
-#endif
-=======
->>>>>>> webkit.org at r78450
 #include "BackForwardController.h"
 #include "BeforeUnloadEvent.h"
 #include "MemoryCache.h"
@@ -118,15 +111,14 @@
 #include "SVGViewSpec.h"
 #endif
 
-<<<<<<< HEAD
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#include "RenderArena.h"
-=======
 #if ENABLE(WEB_ARCHIVE)
 #include "Archive.h"
 #include "ArchiveFactory.h"
->>>>>>> webkit.org at r78450
+#endif
+
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#include "RenderArena.h"
 #endif
 
 namespace WebCore {
@@ -930,21 +922,13 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
 {
     ASSERT(childFrame);
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());    
     if (subframeArchive) {
         childFrame->loader()->loadArchive(subframeArchive.release());
         return;
     }
-<<<<<<< HEAD
-#endif
-=======
 #endif // ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 
     HistoryItem* parentItem = history()->currentItem();
     // If we're moving in the back/forward list, we might want to replace the content
@@ -960,11 +944,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
     childFrame->loader()->loadURL(url, referer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
 }
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
 {
     RefPtr<Archive> archive = prpArchive;
@@ -985,11 +965,7 @@ void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
     documentLoader->addAllArchiveResources(archive.get());
     load(documentLoader.get());
 }
-<<<<<<< HEAD
-#endif
-=======
 #endif // ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 
 ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn)
 {
@@ -1754,11 +1730,7 @@ void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy, ClearProvisional
 
     setProvisionalDocumentLoader(0);
     
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     if (m_documentLoader)
         m_documentLoader->clearArchiveResources();
 #endif
@@ -2277,8 +2249,6 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
         return;
 #endif
     
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-
 #if !ENABLE(WEB_ARCHIVE)
     m_client->finishedLoading(loader);
 #else
@@ -2304,17 +2274,9 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     ASSERT(m_frame->document());
     String userChosenEncoding = documentLoader()->overrideEncoding();
     bool encodingIsUserChosen = !userChosenEncoding.isNull();
-<<<<<<< HEAD
-    writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
-    writer()->addData(mainResource->data()->data(), mainResource->data()->size());
-#else
-    m_client->finishedLoading(loader);
-#endif // ARCHIVE
-=======
     loader->writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
     loader->writer()->addData(mainResource->data()->data(), mainResource->data()->size());
 #endif // ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
 }
 
 bool FrameLoader::isReplacing() const

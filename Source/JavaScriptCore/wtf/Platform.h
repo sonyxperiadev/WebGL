@@ -684,6 +684,7 @@
 #if !defined(ENABLE_JIT) && !ENABLE(ANDROID_JSC_JIT)
 #define ENABLE_JIT 0
 #endif
+#define ENABLE_WEB_ARCHIVE 1
 #endif
 
 #if PLATFORM(WIN) && !OS(WINCE)
@@ -960,13 +961,6 @@
 
 #if !defined(ENABLE_COMPOSITED_FIXED_ELEMENTS)
 #define ENABLE_COMPOSITED_FIXED_ELEMENTS 0
-#endif
-
-// ENABLE_ARCHIVE is an Android addition. We need this default value to allow
-// us to build on Mac.
-// FIXME: Upstream to webkit.org.
-#if !defined(ENABLE_ARCHIVE)
-#define ENABLE_ARCHIVE 1
 #endif
 
 #if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)

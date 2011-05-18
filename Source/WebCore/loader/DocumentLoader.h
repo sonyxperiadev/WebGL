@@ -44,16 +44,11 @@
 namespace WebCore {
 
     class ApplicationCacheHost;
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
     class Archive;
 #endif
     class ArchiveResource;
     class ArchiveResourceCollection;
-#endif
     class Frame;
     class FrameLoader;
     class MainResourceLoader;
@@ -134,11 +129,7 @@ namespace WebCore {
         void unschedule(SchedulePair*);
 #endif
 
-<<<<<<< HEAD
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 #if ENABLE(WEB_ARCHIVE)
->>>>>>> webkit.org at r78450
         void addAllArchiveResources(Archive*);
         void addArchiveResource(PassRefPtr<ArchiveResource>);
         
@@ -159,14 +150,8 @@ namespace WebCore {
         // pulling from the ArchiveResourceCollection
         PassRefPtr<ArchiveResource> subresource(const KURL&) const;
         void getSubresources(Vector<PassRefPtr<ArchiveResource> >&) const;
-<<<<<<< HEAD
-        
-        bool scheduleArchiveLoad(ResourceLoader*, const ResourceRequest&, const KURL&);
-#endif
-=======
 
 
->>>>>>> webkit.org at r78450
 #ifndef NDEBUG
         bool isSubstituteLoadPending(ResourceLoader*) const;
 #endif
@@ -328,12 +313,7 @@ namespace WebCore {
         typedef HashMap<RefPtr<ResourceLoader>, RefPtr<SubstituteResource> > SubstituteResourceMap;
         SubstituteResourceMap m_pendingSubstituteResources;
         Timer<DocumentLoader> m_substituteResourceDeliveryTimer;
-<<<<<<< HEAD
-                
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-=======
 
->>>>>>> webkit.org at r78450
         OwnPtr<ArchiveResourceCollection> m_archiveResourceCollection;
 #if ENABLE(WEB_ARCHIVE)
         RefPtr<SharedBuffer> m_parsedArchiveData;
