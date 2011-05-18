@@ -70,7 +70,7 @@ bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& best
 {
     int left, top, width, height;
     if (direction & UP_DOWN) {
-        top = direction == UP ? bestRect.bottom() : prior.bottom();
+        top = direction == UP ? bestRect.maxY() : prior.maxY();
         int bottom = direction == UP ? prior.y() : bestRect.y();
         height = bottom - top;
         if (height < 0)
@@ -79,13 +79,13 @@ bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& best
         int testLeft = bestRect.x();
         if (left > testLeft)
             left = testLeft;
-        int right = prior.right();
-        int testRight = bestRect.right();
+        int right = prior.maxX();
+        int testRight = bestRect.maxX();
         if (right < testRight)
             right = testRight;
         width = right - left;
     } else {
-        left = direction == LEFT ? bestRect.right() : prior.right();
+        left = direction == LEFT ? bestRect.maxX() : prior.maxX();
         int right = direction == LEFT ? prior.x() : bestRect.x();
         width = right - left;
         if (width < 0)
@@ -94,8 +94,8 @@ bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& best
         int testTop = bestRect.y();
         if (top > testTop)
             top = testTop;
-        int bottom = prior.bottom();
-        int testBottom = bestRect.bottom();
+        int bottom = prior.maxY();
+        int testBottom = bestRect.maxY();
         if (bottom < testBottom)
             bottom = testBottom;
         height = bottom - top;
@@ -590,18 +590,35 @@ void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
             // clip bottom' -- keep the old code but try this instead
             switch (direction) {
 #if 0
-                case LEFT: distance = testBounds.x() - clip->x(); break;
-                case RIGHT: distance = clip->right() - testBounds.right(); break;
-                case UP: distance = testBounds.y() - clip->y(); break;
-                case DOWN: distance = clip->bottom() - testBounds.bottom(); break;
+            case LEFT:
+                distance = testBounds.x() - clip->x();
+                break;
+            case RIGHT:
+                distance = clip->right() - testBounds.right();
+                break;
+            case UP:
+                distance = testBounds.y() - clip->y();
+                break;
+            case DOWN:
+                distance = clip->bottom() - testBounds.bottom();
+                break;
 #else
-                case LEFT: distance = clip->right() - testBounds.x(); break;
-                case RIGHT: distance = testBounds.right()  - clip->x(); break;
-                case UP: distance = clip->bottom() - testBounds.y(); break;
-                case DOWN: distance = testBounds.bottom() - clip->y(); break;
+            case LEFT:
+                distance = clip->maxX() - testBounds.x();
+                break;
+            case RIGHT:
+                distance = testBounds.maxX() - clip->x();
+                break;
+            case UP:
+                distance = clip->maxY() - testBounds.y();
+                break;
+            case DOWN:
+                distance = testBounds.maxY() - clip->y();
+                break;
 #endif
-                default:
-                    distance = 0; ASSERT(0);
+            default:
+                distance = 0;
+                ASSERT(false);
             }
             if (distance < bestData->mDistance) {
                 bestData->mNode = test;
@@ -1227,10 +1244,10 @@ void CachedFrame::BestData::setDistances()
 bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
 {
     const WebCore::IntRect& navBounds = history->navBounds();
-    mMajorButt = mNodeBounds.y() - navBounds.bottom();
+    mMajorButt = mNodeBounds.y() - navBounds.maxY();
     int testX = mNodeBounds.x();
-    int testRight = mNodeBounds.right();
-    setNavOverlap(navBounds.width(), navBounds.right() - testX,
+    int testRight = mNodeBounds.maxX();
+    setNavOverlap(navBounds.width(), navBounds.maxX() - testX,
         testRight - navBounds.x());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1244,8 +1261,8 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move up or sideways
         return REJECT_TEST;
     }
-    int inNavBottom = navBounds.bottom() - mNodeBounds.bottom();
-    setNavInclusion(testRight - navBounds.right(), navBounds.x() - testX);
+    int inNavBottom = navBounds.maxY() - mNodeBounds.maxY();
+    setNavInclusion(testRight - navBounds.maxX(), navBounds.x() - testX);
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
     if (inNavTop <= 0 && inNavBottom <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
@@ -1267,16 +1284,16 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
 bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
 {
     const WebCore::IntRect& navBounds = history->navBounds();
-    mMajorButt = navBounds.x() - mNodeBounds.right();
+    mMajorButt = navBounds.x() - mNodeBounds.maxX();
     int testY = mNodeBounds.y();
-    int testBottom = mNodeBounds.bottom();
-    setNavOverlap(navBounds.height(), navBounds.bottom() - testY,
+    int testBottom = mNodeBounds.maxY();
+    setNavOverlap(navBounds.height(), navBounds.maxY() - testY,
         testBottom - navBounds.y());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
         return REJECT_TEST;
     }
-    int inNavRight = navBounds.right() - mNodeBounds.right();
+    int inNavRight = navBounds.maxX() - mNodeBounds.maxX();
     mMajorDelta2 = inNavRight;
     mMajorDelta = mMajorDelta2 - ((navBounds.width() -
         mNodeBounds.width()) >> 1);
@@ -1285,7 +1302,7 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
         return REJECT_TEST;
     }
     int inNavLeft = mNodeBounds.x() - navBounds.x();
-    setNavInclusion(navBounds.y() - testY, testBottom - navBounds.bottom());
+    setNavInclusion(navBounds.y() - testY, testBottom - navBounds.maxY());
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
     if (inNavLeft <= 0 && inNavRight <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
@@ -1307,10 +1324,10 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
 bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
 {
     const WebCore::IntRect& navBounds = history->navBounds();
-    mMajorButt = mNodeBounds.x() - navBounds.right();
+    mMajorButt = mNodeBounds.x() - navBounds.maxX();
     int testY = mNodeBounds.y();
-    int testBottom = mNodeBounds.bottom();
-    setNavOverlap(navBounds.height(), navBounds.bottom() - testY,
+    int testBottom = mNodeBounds.maxY();
+    setNavOverlap(navBounds.height(), navBounds.maxY() - testY,
         testBottom - navBounds.y());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1324,8 +1341,8 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move left or sideways
         return REJECT_TEST;
     }
-    int inNavRight = navBounds.right() - mNodeBounds.right();
-    setNavInclusion(testBottom - navBounds.bottom(), navBounds.y() - testY);
+    int inNavRight = navBounds.maxX() - mNodeBounds.maxX();
+    setNavInclusion(testBottom - navBounds.maxY(), navBounds.y() - testY);
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
     if (inNavLeft <= 0 && inNavRight <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
@@ -1347,16 +1364,16 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
 bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
 {
     const WebCore::IntRect& navBounds = history->navBounds();
-    mMajorButt = navBounds.y() - mNodeBounds.bottom();
+    mMajorButt = navBounds.y() - mNodeBounds.maxY();
     int testX = mNodeBounds.x();
-    int testRight = mNodeBounds.right();
-    setNavOverlap(navBounds.width(), navBounds.right() - testX,
+    int testRight = mNodeBounds.maxX();
+    setNavOverlap(navBounds.width(), navBounds.maxX() - testX,
         testRight - navBounds.x());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
         return REJECT_TEST;
     }
-    int inNavBottom = navBounds.bottom() - mNodeBounds.bottom();
+    int inNavBottom = navBounds.maxY() - mNodeBounds.maxY();
     mMajorDelta2 = inNavBottom;
     mMajorDelta = mMajorDelta2 - ((navBounds.height() -
         mNodeBounds.height()) >> 1);
@@ -1365,7 +1382,7 @@ bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
         return REJECT_TEST;
     }
     int inNavTop = mNodeBounds.y() - navBounds.y();
-    setNavInclusion(navBounds.x() - testX, testRight - navBounds.right());
+    setNavInclusion(navBounds.x() - testX, testRight - navBounds.maxX());
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
     if (inNavTop <= 0 && inNavBottom <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);

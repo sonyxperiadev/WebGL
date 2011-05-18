@@ -1259,7 +1259,7 @@ int InlineTextBox::positionForOffset(int offset) const
     TextRun textRun = TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride);
     if (m_disableRoundingHacks)
         textRun.disableRoundingHacks();
-    return enclosingIntRect(f.selectionRectForText(textRun, IntPoint(logicalLeft(), 0), 0, from, to)).right();
+    return enclosingIntRect(f.selectionRectForText(textRun, IntPoint(logicalLeft(), 0), 0, from, to)).maxX();
 #else
     return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
                                                    IntPoint(logicalLeft(), 0), 0, from, to)).maxX();

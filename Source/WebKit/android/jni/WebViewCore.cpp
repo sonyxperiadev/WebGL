@@ -974,7 +974,7 @@ void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_sendViewInvalidate,
-                        rect.x(), rect.y(), rect.right(), rect.bottom());
+                        rect.x(), rect.y(), rect.maxX(), rect.maxY());
     checkException(env);
 }
 
@@ -1767,32 +1767,32 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
                     inside = true;
                     continue;
                 }
-                if (x >= rects[i].x() && x < rects[i].right()) {
+                if (x >= rects[i].x() && x < rects[i].maxX()) {
                     if (y < rects[i].y()) {
                         if (rects[i].y() - y < distance) {
                             newx = x;
                             newy = rects[i].y();
                             distance = rects[i].y() - y;
                         }
-                    } else if (y >= rects[i].bottom()) {
-                        if (y - rects[i].bottom() + 1 < distance) {
+                    } else if (y >= rects[i].maxY()) {
+                        if (y - rects[i].maxY() + 1 < distance) {
                             newx = x;
-                            newy = rects[i].bottom() - 1;
-                            distance = y - rects[i].bottom() + 1;
+                            newy = rects[i].maxY() - 1;
+                            distance = y - rects[i].maxY() + 1;
                         }
                     }
-                } else if (y >= rects[i].y() && y < rects[i].bottom()) {
+                } else if (y >= rects[i].y() && y < rects[i].maxY()) {
                     if (x < rects[i].x()) {
                         if (rects[i].x() - x < distance) {
                             newx = rects[i].x();
                             newy = y;
                             distance = rects[i].x() - x;
                         }
-                    } else if (x >= rects[i].right()) {
-                        if (x - rects[i].right() + 1 < distance) {
-                            newx = rects[i].right() - 1;
+                    } else if (x >= rects[i].maxX()) {
+                        if (x - rects[i].maxX() + 1 < distance) {
+                            newx = rects[i].maxX() - 1;
                             newy = y;
-                            distance = x - rects[i].right() + 1;
+                            distance = x - rects[i].maxX() + 1;
                         }
                     }
                 }
@@ -4387,7 +4387,7 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
 
     for (size_t i = 0; i < rects.size(); i++) {
         jobject rect = env->NewObject(rectClass, rectinit, rects[i].x(),
-                rects[i].y(), rects[i].right(), rects[i].bottom());
+                rects[i].y(), rects[i].maxX(), rects[i].maxY());
         if (rect) {
             env->CallBooleanMethod(array, add, rect);
             env->DeleteLocalRef(rect);

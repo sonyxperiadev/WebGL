@@ -2998,7 +2998,7 @@ bool CacheBuilder::AddPartRect(IntRect& bounds, int x, int y,
     if (bounds.isEmpty())
         return true;
     bounds.move(x, y);
-    if (bounds.right() <= 0 || bounds.bottom() <= 0)
+    if (bounds.maxX() <= 0 || bounds.maxY() <= 0)
         return true;
     IntRect* work = result->begin() - 1; 
     IntRect* end = result->end();
@@ -3090,14 +3090,11 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             if (hasClip == false) {
                 if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
                     IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
-                    int left = bounds.x() + ((RenderBox*)renderer)->paddingLeft() 
-                        + ((RenderBox*)renderer)->borderLeft();
-                    int top = bounds.y() + ((RenderBox*)renderer)->paddingTop() 
-                        + ((RenderBox*)renderer)->borderTop();
-                    int right = bounds.right() - ((RenderBox*)renderer)->paddingRight() 
-                        - ((RenderBox*)renderer)->borderRight();
-                    int bottom = bounds.bottom() - ((RenderBox*)renderer)->paddingBottom() 
-                        - ((RenderBox*)renderer)->borderBottom();
+                    RenderBox* renderBox = static_cast<RenderBox*>(renderer);
+                    int left = bounds.x() + renderBox->paddingLeft() + renderBox->borderLeft();
+                    int top = bounds.y() + renderBox->paddingTop() + renderBox->borderTop();
+                    int right = bounds.maxX() - renderBox->paddingRight() - renderBox->borderRight();
+                    int bottom = bounds.maxY() - renderBox->paddingBottom() - renderBox->borderBottom();
                     if (left >= right || top >= bottom)
                         continue;
                     bounds = IntRect(left, top, right - left, bottom - top);

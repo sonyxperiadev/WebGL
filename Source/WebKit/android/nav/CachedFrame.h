@@ -173,7 +173,7 @@ protected:
         bool mInNav;
         bool mNavOutside;
         bool mWorkingOutside;
-        int bottom() const { return bounds().bottom(); }
+        int bottom() const { return bounds().maxY(); }
         const WebCore::IntRect& bounds() const { return mNodeBounds; }
         bool canBeReachedByAnotherDirection();
         int height() const { return bounds().height(); }
@@ -183,7 +183,7 @@ protected:
         const WebCore::IntRect& mouseBounds() const { return mMouseBounds; }
         static SkFixed Overlap(int span, int left, int right);
         void reset() { mNode = NULL; }
-        int right() const { return bounds().right(); }
+        int right() const { return bounds().maxX(); }
         void setMouseBounds(const WebCore::IntRect& b) { mMouseBounds = b; }
         void setNodeBounds(const WebCore::IntRect& b) { mNodeBounds = b; }
         void setDistances();

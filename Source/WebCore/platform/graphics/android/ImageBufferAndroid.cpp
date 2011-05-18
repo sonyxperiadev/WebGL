@@ -120,7 +120,7 @@ PassRefPtr<ByteArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     RefPtr<ByteArray> result = ByteArray::create(rect.width() * rect.height() * 4);
     unsigned char* data = result->data();
 
-    if (rect.x() < 0 || rect.y() < 0 || rect.right() > m_size.width() || rect.bottom() > m_size.height())
+    if (rect.x() < 0 || rect.y() < 0 || rect.maxX() > m_size.width() || rect.maxY() > m_size.height())
         memset(data, 0, result->length());
 
     int originx = rect.x();
@@ -189,7 +189,7 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     ASSERT(originx >= 0);
     ASSERT(originx <= sourceRect.right());
 
-    int endx = destPoint.x() + sourceRect.right();
+    int endx = destPoint.x() + sourceRect.maxX();
     ASSERT(endx <= m_size.width());
 
     int numColumns = endx - destx;
@@ -201,7 +201,7 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     ASSERT(originy >= 0);
     ASSERT(originy <= sourceRect.bottom());
 
-    int endy = destPoint.y() + sourceRect.bottom();
+    int endy = destPoint.y() + sourceRect.maxY();
     ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
 
