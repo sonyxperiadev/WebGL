@@ -42,7 +42,13 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
-<<<<<<< HEAD
+#include <wtf/unicode/CharacterNames.h>
+
+#if ENABLE(SVG)
+#include "RenderSVGInlineText.h"
+#include "SVGRootInlineBox.h"
+#endif
+
 #ifdef ANDROID_LAYOUT
 #include "Frame.h"
 #include "FrameTree.h"
@@ -50,14 +56,6 @@
 #include "Text.h"
 #include "HTMLNames.h"
 #endif // ANDROID_LAYOUT
-=======
-#include <wtf/unicode/CharacterNames.h>
->>>>>>> webkit.org at r78450
-
-#if ENABLE(SVG)
-#include "RenderSVGInlineText.h"
-#include "SVGRootInlineBox.h"
-#endif
 
 using namespace std;
 using namespace WTF;

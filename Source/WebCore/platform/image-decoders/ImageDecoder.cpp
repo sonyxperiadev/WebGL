@@ -55,12 +55,6 @@ unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const SharedB
     return bytesExtracted;
 }
 
-<<<<<<< HEAD
-#if !OS(ANDROID)
-// This method requires BMPImageDecoder, PNGImageDecoder, ICOImageDecoder and
-// JPEGDecoder, which aren't used on Android, and which don't all compile.
-// TODO: Find a better fix.
-=======
 bool matchesGIFSignature(char* contents)
 {
     return !memcmp(contents, "GIF8", 4);
@@ -100,7 +94,10 @@ bool matchesCURSignature(char* contents)
 
 }
 
->>>>>>> webkit.org at r78450
+#if !OS(ANDROID)
+// This method requires BMPImageDecoder, PNGImageDecoder, ICOImageDecoder and
+// JPEGDecoder, which aren't used on Android, and which don't all compile.
+// TODO: Find a better fix.
 ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
 {
     static const unsigned lengthOfLongestSignature = 14; // To wit: "RIFF????WEBPVP"

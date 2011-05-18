@@ -304,13 +304,11 @@ namespace WebCore {
 
         virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
 
-<<<<<<< HEAD
+        virtual void didCompleteRubberBandForMainFrame(const IntSize&) const { }
+
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;
 #endif
-=======
-        virtual void didCompleteRubberBandForMainFrame(const IntSize&) const { }
->>>>>>> webkit.org at r78450
 
     protected:
         virtual ~ChromeClient() { }

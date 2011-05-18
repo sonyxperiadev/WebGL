@@ -150,12 +150,12 @@ private:
     Timer<CachedResourceLoader> m_loadDoneActionTimer;
     
     //29 bits left
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    bool m_blockNetworkImage : 1;
-#endif
     bool m_autoLoadImages : 1;
     bool m_loadFinishing : 1;
     bool m_allowStaleResources : 1;
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    bool m_blockNetworkImage : 1;
+#endif
 };
 
 }

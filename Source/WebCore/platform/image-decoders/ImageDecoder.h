@@ -180,11 +180,7 @@ namespace WebCore {
                     g = static_cast<unsigned>(g * alphaPercent);
                     b = static_cast<unsigned>(b * alphaPercent);
                 }
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-=======
 #if PLATFORM(SKIA)
->>>>>>> webkit.org at r78450
                 *dest = SkPackARGB32(a, r, g, b);
 #else
                 *dest = (a << 24 | r << 16 | g << 8 | b);

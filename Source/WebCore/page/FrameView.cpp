@@ -1134,7 +1134,6 @@ void FrameView::removeFixedObject()
         updateCanBlitOnScrollRecursively();
 }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // When the screen size change, fixed positioned element should be updated.
 void FrameView::updatePositionedObjects()
@@ -1157,12 +1156,11 @@ void FrameView::updatePositionedObjects()
     }
 }
 #endif
-=======
+
 IntPoint FrameView::currentMousePosition() const
 {
     return m_frame ? m_frame->eventHandler()->currentMousePosition() : IntPoint();
 }
->>>>>>> webkit.org at r78450
 
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {

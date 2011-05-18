@@ -80,16 +80,13 @@ static CachedResource* createResource(CachedResource::Type type, const KURL& url
 CachedResourceLoader::CachedResourceLoader(Document* document)
     : m_document(document)
     , m_requestCount(0)
-<<<<<<< HEAD
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    , m_blockNetworkImage(false)
-#endif
-=======
     , m_loadDoneActionTimer(this, &CachedResourceLoader::loadDoneActionTimerFired)
->>>>>>> webkit.org at r78450
     , m_autoLoadImages(true)
     , m_loadFinishing(false)
     , m_allowStaleResources(false)
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    , m_blockNetworkImage(false)
+#endif
 {
 }
 
