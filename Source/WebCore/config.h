@@ -119,8 +119,6 @@
 #define ENABLE_XHTMLMP 0
 #define ENABLE_XPATH 1
 #define ENABLE_XSLT 1
-#undef ENABLE_ARCHIVE // Enabled by default in Platform.h
-#define ENABLE_ARCHIVE 1
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
 #undef ENABLE_GEOLOCATION  // Disabled by default in Platform.h

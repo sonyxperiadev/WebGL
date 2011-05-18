@@ -28,6 +28,8 @@
 #include "config.h"
 #include "WebArchiveAndroid.h"
 
+#if ENABLE(ARCHIVE)
+
 #include "Base64.h"
 #include <libxml/encoding.h>
 #include <libxml/parser.h>
@@ -467,3 +469,5 @@ bool WebArchiveAndroid::saveWebArchive(xmlTextWriterPtr writer)
 }
 
 }
+
+#endif //  ENABLE(ARCHIVE)

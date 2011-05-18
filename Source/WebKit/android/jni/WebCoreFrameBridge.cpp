@@ -1504,9 +1504,9 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
 
     if (result)
         return wtfStringToJstring(env, filename);
+#endif
 
     return NULL;
-#endif
 }
 
 static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
