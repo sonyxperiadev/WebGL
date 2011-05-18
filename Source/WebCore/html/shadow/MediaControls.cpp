@@ -40,6 +40,11 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 
+#if PLATFORM(ANDROID)
+#include "TouchEvent.h"
+#define TOUCH_DELAY 4
+#endif
+
 
 using namespace std;
 
@@ -59,6 +64,9 @@ MediaControls::MediaControls(HTMLMediaElement* mediaElement)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
     , m_mouseOver(false)
+#if PLATFORM(ANDROID)
+    , m_lastTouch(0)
+#endif
 {
 }
 
@@ -404,6 +412,13 @@ void MediaControls::updateControlVisibility()
     // Don't fade if the media element is not visible
     if (media->renderer()->style()->visibility() != VISIBLE)
         return;
+
+#if PLATFORM(ANDROID)
+    if (WTF::currentTime() - m_lastTouch > TOUCH_DELAY)
+        m_mouseOver = false;
+    else
+        m_mouseOver = true;
+#endif
     
     bool shouldHideController = !m_mouseOver && !media->canPlay();
 
@@ -483,6 +498,15 @@ void MediaControls::updateVolumeSliderContainer(bool visible)
 
 void MediaControls::forwardEvent(Event* event)
 {
+#if PLATFORM(ANDROID)
+    if (event->isMouseEvent())
+        updateLastTouch();
+#if ENABLE(TOUCH_EVENTS)
+    if (event->isTouchEvent())
+        updateLastTouch();
+#endif
+#endif
+
     ASSERT(m_mediaElement->renderer());
 
     if (event->isMouseEvent() && m_controlsShadowRoot) {
@@ -548,6 +572,20 @@ void MediaControls::forwardEvent(Event* event)
             updateControlVisibility();
         }
     }
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    // We want to process touch events landing on the timeline so that the user
+    // can drag the scrollbar thumb with their finger.
+    else if (event->isTouchEvent() && m_controlsShadowRoot) {
+        TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
+        if (touchEvent->touches() && touchEvent->touches()->item(0)) {
+            IntPoint point;
+            point.setX(touchEvent->touches()->item(0)->pageX());
+            point.setY(touchEvent->touches()->item(0)->pageY());
+            if (m_timeline && m_timeline->hitTest(point))
+                m_timeline->defaultEventHandler(event);
+        }
+    }
+#endif
 }
 
 // We want the timeline slider to be at least 100 pixels wide.
@@ -566,6 +604,13 @@ void MediaControls::updateTimeDisplayVisibility()
     m_currentTimeDisplay->setVisible(shouldShowTimeDisplays);
     m_timeRemainingDisplay->setVisible(shouldShowTimeDisplays);
 }
+
+#if PLATFORM(ANDROID)
+void MediaControls::updateLastTouch()
+{
+    m_lastTouch = WTF::currentTime();
+}
+#endif
 
 }
 

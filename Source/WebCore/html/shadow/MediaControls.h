@@ -73,6 +73,10 @@ public:
     // Once shadow DOM refactoring is complete, the tweaking will be in MediaControlsShadowRoot and this accessor will no longer be necessary.
     RenderBox* renderBox();
 
+#if PLATFORM(ANDROID)
+    void updateLastTouch();
+#endif
+
 private:
     void createControlsShadowRoot();
     void destroyControlsShadowRoot();
@@ -132,6 +136,10 @@ private:
     float m_opacityAnimationTo;
 
     bool m_mouseOver;
+
+#if PLATFORM(ANDROID)
+    double m_lastTouch;
+#endif
 };
 
 

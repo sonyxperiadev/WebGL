@@ -794,17 +794,12 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     }
 
     RenderSlider* slider = toRenderSlider(renderer());
-<<<<<<< HEAD
     if (slider && slider->inDragMode()) {
-        toRenderMedia(mediaElement()->renderer())->updateTimeDisplay();
+        toRenderMedia(mediaElement()->renderer())->controls()->updateTimeDisplay();
 #if PLATFORM(ANDROID)
-        toRenderMedia(mediaElement()->renderer())->updateLastTouch();
+        toRenderMedia(mediaElement()->renderer())->controls()->updateLastTouch();
 #endif
     }
-=======
-    if (slider && slider->inDragMode())
-        toRenderMedia(mediaElement()->renderer())->controls()->updateTimeDisplay();
->>>>>>> webkit.org at r78450
 
     if (event->type() == eventNames().mouseupEvent)
         mediaElement()->endScrubbing();

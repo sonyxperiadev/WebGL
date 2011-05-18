@@ -47,19 +47,7 @@ public:
     HTMLMediaElement* mediaElement() const;
     MediaControls* controls() const;
 
-<<<<<<< HEAD
-    void updateFromElement();
-    void updatePlayer();
-    void updateControls();
-    void updateTimeDisplay();
-    
-    void forwardEvent(Event*);
-#if PLATFORM(ANDROID)
-    void updateLastTouch();
-#endif
-=======
     virtual void updateFromElement();
->>>>>>> webkit.org at r78450
 
 protected:
     virtual void layout();
@@ -81,22 +69,6 @@ private:
 
     OwnPtr<MediaControls> m_controls;
     RenderObjectChildList m_children;
-<<<<<<< HEAD
-    Node* m_lastUnderNode;
-    Node* m_nodeUnderMouse;
-    
-    Timer<RenderMedia> m_timeUpdateTimer;
-    Timer<RenderMedia> m_opacityAnimationTimer;
-    bool m_mouseOver;
-    double m_opacityAnimationStartTime;
-    double m_opacityAnimationDuration;
-    float m_opacityAnimationFrom;
-    float m_opacityAnimationTo;
-#if PLATFORM(ANDROID)
-    double m_lastTouch;
-#endif
-=======
->>>>>>> webkit.org at r78450
 };
 
 inline RenderMedia* toRenderMedia(RenderObject* object)
