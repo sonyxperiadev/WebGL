@@ -23,7 +23,6 @@
 #include "config.h"
 #include "Font.h"
 
-#include "CharacterNames.h"
 #include "FloatRect.h"
 #include "FontCache.h"
 #include "FontFallbackList.h"
@@ -32,8 +31,8 @@
 #include "SimpleFontData.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
-
 #include <wtf/MathExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 #include <wtf/unicode/Unicode.h>
 
 using namespace WTF;
@@ -252,7 +251,7 @@ int Font::emphasisMarkAscent(const AtomicString& mark) const
     if (!markFontData)
         return 0;
 
-    return markFontData->ascent();
+    return markFontData->fontMetrics().ascent();
 }
 
 int Font::emphasisMarkDescent(const AtomicString& mark) const
@@ -266,7 +265,7 @@ int Font::emphasisMarkDescent(const AtomicString& mark) const
     if (!markFontData)
         return 0;
 
-    return markFontData->descent();
+    return markFontData->fontMetrics().descent();
 }
 
 int Font::emphasisMarkHeight(const AtomicString& mark) const
@@ -280,7 +279,7 @@ int Font::emphasisMarkHeight(const AtomicString& mark) const
     if (!markFontData)
         return 0;
 
-    return markFontData->height();
+    return markFontData->fontMetrics().height();
 }
 
 float Font::getGlyphsAndAdvancesForSimpleText(const TextRun& run, int from, int to, GlyphBuffer& glyphBuffer, ForTextEmphasisOrNot forTextEmphasis) const
@@ -414,8 +413,8 @@ float Font::floatWidthForSimpleText(const TextRun& run, GlyphBuffer* glyphBuffer
     it.advance(run.length(), glyphBuffer);
 
     if (glyphOverflow) {
-        glyphOverflow->top = max<int>(glyphOverflow->top, ceilf(-it.minGlyphBoundingBoxY()) - ascent());
-        glyphOverflow->bottom = max<int>(glyphOverflow->bottom, ceilf(it.maxGlyphBoundingBoxY()) - descent());
+        glyphOverflow->top = max<int>(glyphOverflow->top, ceilf(-it.minGlyphBoundingBoxY()) - fontMetrics().ascent());
+        glyphOverflow->bottom = max<int>(glyphOverflow->bottom, ceilf(it.maxGlyphBoundingBoxY()) - fontMetrics().descent());
         glyphOverflow->left = ceilf(it.firstGlyphOverflow());
         glyphOverflow->right = ceilf(it.lastGlyphOverflow());
     }

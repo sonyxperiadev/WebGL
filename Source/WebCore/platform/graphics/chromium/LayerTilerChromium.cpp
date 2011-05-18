@@ -145,8 +145,8 @@ void LayerTilerChromium::contentRectToTileIndices(const IntRect& contentRect, in
 
     left = layerRect.x() / m_tileSize.width();
     top = layerRect.y() / m_tileSize.height();
-    right = (layerRect.right() - 1) / m_tileSize.width();
-    bottom = (layerRect.bottom() - 1) / m_tileSize.height();
+    right = (layerRect.maxX() - 1) / m_tileSize.width();
+    bottom = (layerRect.maxY() - 1) / m_tileSize.height();
 }
 
 IntRect LayerTilerChromium::contentRectToLayerRect(const IntRect& contentRect) const
@@ -272,7 +272,11 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
     // Get the contents of the updated rect.
     const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
     ASSERT(bitmap.width() == paintRect.width() && bitmap.height() == paintRect.height());
+    if (bitmap.width() != paintRect.width() || bitmap.height() != paintRect.height())
+        CRASH();
     uint8_t* paintPixels = static_cast<uint8_t*>(bitmap.getPixels());
+    if (!paintPixels)
+        CRASH();
 #elif PLATFORM(CG)
     Vector<uint8_t> canvasPixels;
     int rowBytes = 4 * paintRect.width();
@@ -299,9 +303,15 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
 #error "Need to implement for your platform."
 #endif
 
+    // Painting could cause compositing to get turned off, which may cause the tiler to become invalidated mid-update.
+    if (!m_tiles.size())
+        return;
+
     for (int j = top; j <= bottom; ++j) {
         for (int i = left; i <= right; ++i) {
             Tile* tile = m_tiles[tileIndex(i, j)].get();
+            if (!tile)
+                CRASH();
             if (!tile->dirty())
                 continue;
 
@@ -320,13 +330,21 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
 
             // Calculate tile-space rectangle to upload into.
             IntRect destRect(IntPoint(sourceRect.x() - anchor.x(), sourceRect.y() - anchor.y()), sourceRect.size());
-            ASSERT(destRect.x() >= 0);
-            ASSERT(destRect.y() >= 0);
+            if (destRect.x() < 0)
+                CRASH();
+            if (destRect.y() < 0)
+                CRASH();
 
             // Offset from paint rectangle to this tile's dirty rectangle.
             IntPoint paintOffset(sourceRect.x() - paintRect.x(), sourceRect.y() - paintRect.y());
-            ASSERT(paintOffset.x() >= 0);
-            ASSERT(paintOffset.y() >= 0);
+            if (paintOffset.x() < 0)
+                CRASH();
+            if (paintOffset.y() < 0)
+                CRASH();
+            if (paintOffset.x() + destRect.width() > paintRect.width())
+                CRASH();
+            if (paintOffset.y() + destRect.height() > paintRect.height())
+                CRASH();
 
             uint8_t* pixelSource;
             if (paintRect.width() == sourceRect.width() && !paintOffset.x())
@@ -357,7 +375,7 @@ void LayerTilerChromium::setLayerPosition(const IntPoint& layerPosition)
 
 void LayerTilerChromium::draw(const IntRect& contentRect)
 {
-    if (m_skipsDraw)
+    if (m_skipsDraw || !m_tiles.size())
         return;
 
     // We reuse the shader program used by ContentLayerChromium.
@@ -394,6 +412,9 @@ void LayerTilerChromium::resizeLayer(const IntSize& size)
     int width = (size.width() + m_tileSize.width() - 1) / m_tileSize.width();
     int height = (size.height() + m_tileSize.height() - 1) / m_tileSize.height();
 
+    if (height && (width > INT_MAX / height))
+        CRASH();
+
     Vector<OwnPtr<Tile> > newTiles;
     newTiles.resize(width * height);
     for (int j = 0; j < m_layerTileSize.height(); ++j)
@@ -409,7 +430,7 @@ void LayerTilerChromium::growLayerToContain(const IntRect& contentRect)
 {
     // Grow the tile array to contain this content rect.
     IntRect layerRect = contentRectToLayerRect(contentRect);
-    IntSize layerSize = IntSize(layerRect.right(), layerRect.bottom());
+    IntSize layerSize = IntSize(layerRect.maxX(), layerRect.maxY());
 
     IntSize newSize = layerSize.expandedTo(m_layerSize);
     resizeLayer(newSize);

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003, 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All right reserved.
+ * Copyright (C) 2003, 2004, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All right reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -23,12 +23,12 @@
 #include "config.h"
 
 #include "BidiResolver.h"
-#include "CharacterNames.h"
 #include "Hyphenation.h"
 #include "InlineIterator.h"
 #include "InlineTextBox.h"
 #include "Logging.h"
 #include "RenderArena.h"
+#include "RenderCombineText.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderListMarker.h"
@@ -42,6 +42,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
 #include "Frame.h"
 #include "FrameTree.h"
@@ -49,6 +50,9 @@
 #include "Text.h"
 #include "HTMLNames.h"
 #endif // ANDROID_LAYOUT
+=======
+#include <wtf/unicode/CharacterNames.h>
+>>>>>>> webkit.org at r78450
 
 #if ENABLE(SVG)
 #include "RenderSVGInlineText.h"
@@ -190,6 +194,16 @@ static inline void dirtyLineBoxesForRenderer(RenderObject* o, bool fullLayout)
         toRenderInline(o)->dirtyLineBoxes(fullLayout);
 }
 
+static bool parentIsConstructedOrHaveNext(InlineFlowBox* parentBox)
+{
+    do {
+        if (parentBox->isConstructed() || parentBox->nextOnLine())
+            return true;
+        parentBox = parentBox->parent();
+    } while (parentBox);
+    return false;
+}
+
 InlineFlowBox* RenderBlock::createLineBoxes(RenderObject* obj, bool firstLine)
 {
     // See if we have an unconstructed line box for this object that is also
@@ -204,13 +218,13 @@ InlineFlowBox* RenderBlock::createLineBoxes(RenderObject* obj, bool firstLine)
         // Get the last box we made for this render object.
         parentBox = obj->isRenderInline() ? toRenderInline(obj)->lastLineBox() : toRenderBlock(obj)->lastLineBox();
 
-        // If this box is constructed then it is from a previous line, and we need
-        // to make a new box for our line.  If this box is unconstructed but it has
+        // If this box or its ancestor is constructed then it is from a previous line, and we need
+        // to make a new box for our line.  If this box or its ancestor is unconstructed but it has
         // something following it on the line, then we know we have to make a new box
         // as well.  In this situation our inline has actually been split in two on
         // the same line (this can happen with very fancy language mixtures).
         bool constructedNewBox = false;
-        if (!parentBox || parentBox->isConstructed() || parentBox->nextOnLine()) {
+        if (!parentBox || parentIsConstructedOrHaveNext(parentBox)) {
             // We need to make a new box for this render object.  Once
             // made, we need to place it at the end of the current line.
             InlineBox* newBox = createInlineBoxForRenderer(obj, obj == this);
@@ -317,7 +331,9 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
     int availableLogicalWidth = availableLogicalWidthForLine(logicalHeight(), firstLine);
     int totalLogicalWidth = lineBox->getFlowSpacingLogicalWidth();
     bool needsWordSpacing = false;
-    unsigned numSpaces = 0;
+    unsigned expansionOpportunityCount = 0;
+    bool isAfterExpansion = true;
+    Vector<unsigned, 16> expansionOpportunities;
     ETextAlign textAlign = style()->textAlign();
 
     for (BidiRun* r = firstRun; r; r = r->next()) {
@@ -329,12 +345,9 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
             RenderText* rt = toRenderText(r->m_object);
 
             if (textAlign == JUSTIFY && r != trailingSpaceRun) {
-                const UChar* characters = rt->characters();
-                for (int i = r->m_start; i < r->m_stop; i++) {
-                    UChar c = characters[i];
-                    if (c == ' ' || c == '\n' || c == '\t')
-                        numSpaces++;
-                }
+                unsigned opportunitiesInRun = Font::expansionOpportunityCount(rt->characters() + r->m_start, r->m_stop - r->m_start, r->m_box->direction(), isAfterExpansion);
+                expansionOpportunities.append(opportunitiesInRun);
+                expansionOpportunityCount += opportunitiesInRun;
             }
 
             if (int length = rt->textLength()) {
@@ -361,14 +374,22 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
                 GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.add(static_cast<InlineTextBox*>(r->m_box), make_pair(Vector<const SimpleFontData*>(), GlyphOverflow())).first;
                 it->second.second = glyphOverflow;
             }
-        } else if (!r->m_object->isRenderInline()) {
-            RenderBox* renderBox = toRenderBox(r->m_object);
-            renderBox->computeLogicalWidth();
-            r->m_box->setLogicalWidth(logicalWidthForChild(renderBox));
-            totalLogicalWidth += marginStartForChild(renderBox) + marginEndForChild(renderBox);
+        } else {
+            isAfterExpansion = false;
+            if (!r->m_object->isRenderInline()) {
+                RenderBox* renderBox = toRenderBox(r->m_object);
+                renderBox->computeLogicalWidth();
+                r->m_box->setLogicalWidth(logicalWidthForChild(renderBox));
+                totalLogicalWidth += marginStartForChild(renderBox) + marginEndForChild(renderBox);
+            }
         }
 
         totalLogicalWidth += r->m_box->logicalWidth();
+    }
+
+    if (isAfterExpansion && !expansionOpportunities.isEmpty()) {
+        expansionOpportunities.last()--;
+        expansionOpportunityCount--;
     }
 
     // Armed with the total width of the line (without justification),
@@ -392,7 +413,7 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
             }
             break;
         case JUSTIFY:
-            if (numSpaces && !reachedEnd && !lineBox->endsWithBreak()) {
+            if (expansionOpportunityCount && !reachedEnd && !lineBox->endsWithBreak()) {
                 if (trailingSpaceRun) {
                     totalLogicalWidth -= trailingSpaceRun->m_box->logicalWidth();
                     trailingSpaceRun->m_box->setLogicalWidth(0);
@@ -401,7 +422,7 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
             }
             // fall through
         case TAAUTO:
-            numSpaces = 0;
+            expansionOpportunityCount = 0;
             // for right to left fall through to right aligned
             if (style()->isLeftToRightDirection()) {
                 if (totalLogicalWidth > availableLogicalWidth && trailingSpaceRun)
@@ -443,31 +464,26 @@ void RenderBlock::computeInlineDirectionPositionsForLine(RootInlineBox* lineBox,
             break;
     }
 
-    if (numSpaces) {
+    if (expansionOpportunityCount) {
+        size_t i = 0;
         for (BidiRun* r = firstRun; r; r = r->next()) {
             if (!r->m_box || r == trailingSpaceRun)
                 continue;
 
-            int spaceAdd = 0;
             if (r->m_object->isText()) {
-                unsigned spaces = 0;
-                const UChar* characters = toRenderText(r->m_object)->characters();
-                for (int i = r->m_start; i < r->m_stop; i++) {
-                    UChar c = characters[i];
-                    if (c == ' ' || c == '\n' || c == '\t')
-                        spaces++;
-                }
+                unsigned opportunitiesInRun = expansionOpportunities[i++];
 
-                ASSERT(spaces <= numSpaces);
+                ASSERT(opportunitiesInRun <= expansionOpportunityCount);
 
                 // Only justify text if whitespace is collapsed.
                 if (r->m_object->style()->collapseWhiteSpace()) {
-                    spaceAdd = (availableLogicalWidth - totalLogicalWidth) * spaces / numSpaces;
-                    static_cast<InlineTextBox*>(r->m_box)->setSpaceAdd(spaceAdd);
-                    totalLogicalWidth += spaceAdd;
+                    InlineTextBox* textBox = static_cast<InlineTextBox*>(r->m_box);
+                    int expansion = (availableLogicalWidth - totalLogicalWidth) * opportunitiesInRun / expansionOpportunityCount;
+                    textBox->setExpansion(expansion);
+                    totalLogicalWidth += expansion;
                 }
-                numSpaces -= spaces;
-                if (!numSpaces)
+                expansionOpportunityCount -= opportunitiesInRun;
+                if (!expansionOpportunityCount)
                     break;
             }
         }
@@ -909,7 +925,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                         adjustLinePositionForPagination(lineBox, adjustment);
                         if (adjustment) {
                             int oldLineWidth = availableLogicalWidthForLine(oldLogicalHeight, firstLine);
-                            lineBox->adjustPosition(0, adjustment);
+                            lineBox->adjustBlockDirectionPosition(adjustment);
                             if (useRepaintBounds) // This can only be a positive adjustment, so no need to update repaintTop.
                                 repaintLogicalBottom = max(repaintLogicalBottom, afterSideVisualOverflowForLine(lineBox));
                                 
@@ -967,7 +983,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                     if (delta) {
                         repaintLogicalTop = min(repaintLogicalTop, beforeSideVisualOverflowForLine(line) + min(delta, 0));
                         repaintLogicalBottom = max(repaintLogicalBottom, afterSideVisualOverflowForLine(line) + max(delta, 0));
-                        line->adjustPosition(0, delta);
+                        line->adjustBlockDirectionPosition(delta);
                     }
                     if (Vector<RenderBox*>* cleanLineFloats = line->floatsPtr()) {
                         Vector<RenderBox*>::iterator end = cleanLineFloats->end();
@@ -1084,7 +1100,7 @@ RootInlineBox* RenderBlock::determineStartPosition(bool& firstLine, bool& fullLa
                         
                     repaintLogicalTop = min(repaintLogicalTop, beforeSideVisualOverflowForLine(curr) + min(paginationDelta, 0));
                     repaintLogicalBottom = max(repaintLogicalBottom, afterSideVisualOverflowForLine(curr) + max(paginationDelta, 0));
-                    curr->adjustPosition(0, paginationDelta);
+                    curr->adjustBlockDirectionPosition(paginationDelta);
                 }                
             }
             
@@ -1500,7 +1516,7 @@ void RenderBlock::fitBelowFloats(int widthToFit, bool firstLine, int& availableW
 
 static inline unsigned textWidth(RenderText* text, unsigned from, unsigned len, const Font& font, int xPos, bool isFixedPitch, bool collapseWhiteSpace)
 {
-    if (isFixedPitch || (!from && len == text->textLength()))
+    if (isFixedPitch || (!from && len == text->textLength()) || text->style()->hasTextCombine())
         return text->width(from, len, font, xPos);
     return font.width(TextRun(text->characters() + from, len, !collapseWhiteSpace, xPos));
 }
@@ -1752,11 +1768,14 @@ InlineIterator RenderBlock::findNextLineBreak(InlineBidiResolver& resolver, bool
             bool isSVGText = t->isSVGInlineText();
 #endif
 
+            RenderStyle* style = t->style(firstLine);
+            if (style->hasTextCombine())
+                toRenderCombineText(o)->combineText();
+
             int strlen = t->textLength();
             int len = strlen - pos;
             const UChar* str = t->characters();
 
-            RenderStyle* style = t->style(firstLine);
             const Font& f = style->font();
             bool isFixedPitch = f.isFixedPitch();
             bool canHyphenate = style->hyphens() == HyphensAuto && WebCore::canHyphenate(style->hyphenationLocale());
@@ -2169,38 +2188,34 @@ void RenderBlock::addOverflowFromInlineChildren()
 
 int RenderBlock::beforeSideVisualOverflowForLine(RootInlineBox* line) const
 {
-    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
-    // we continue to use top and left overflow even though physically it's bottom and right.
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.
     if (style()->isHorizontalWritingMode())
-        return line->topVisualOverflow();
-    return line->leftVisualOverflow();
+        return line->minYVisualOverflow();
+    return line->minXVisualOverflow();
 }
 
 int RenderBlock::afterSideVisualOverflowForLine(RootInlineBox* line) const
 {
-    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
-    // we continue to use bottom and right overflow even though physically it's top and left.
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.
     if (style()->isHorizontalWritingMode())
-        return line->bottomVisualOverflow();
-    return line->rightVisualOverflow();
+        return line->maxYVisualOverflow();
+    return line->maxXVisualOverflow();
 }
 
 int RenderBlock::beforeSideLayoutOverflowForLine(RootInlineBox* line) const
 {
-    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
-    // we continue to use top and left overflow even though physically it's bottom and right.
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.
     if (style()->isHorizontalWritingMode())
-        return line->topLayoutOverflow();
-    return line->leftLayoutOverflow();
+        return line->minYLayoutOverflow();
+    return line->minXLayoutOverflow();
 }
 
 int RenderBlock::afterSideLayoutOverflowForLine(RootInlineBox* line) const
 {
-    // Overflow is in the block's coordinate space, which means it isn't purely physical.  For flipped blocks (rl and bt),
-    // we continue to use bottom and right overflow even though physically it's top and left.
+    // Overflow is in the block's coordinate space, which means it isn't purely physical.
     if (style()->isHorizontalWritingMode())
-        return line->bottomLayoutOverflow();
-    return line->rightLayoutOverflow();
+        return line->maxYLayoutOverflow();
+    return line->maxXLayoutOverflow();
 }
 
 void RenderBlock::deleteEllipsisLineBoxes()

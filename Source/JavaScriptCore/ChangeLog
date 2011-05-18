@@ -1,3 +1,4130 @@
+2011-02-13  Jeremy Moskovich  <jeremy@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add a compile-time option to completely disable WebArchive support.
+        https://bugs.webkit.org/show_bug.cgi?id=52712
+
+        Add an ENABLE(WEB_ARCHIVE) compile-time setting and use it for all WebArchive code.
+        Ports Affected:
+            WebArchive support is currently enabled for all ports that define PLATFORM(CF) apart from Qt.
+            This patch preserves this behavior except that it also disables support in the Chromium port.
+
+        * wtf/Platform.h: Add ENABLE_WEB_ARCHIVE definition and turn it off explicitly for Qt & Chromium ports.
+
+2011-02-13  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Bug 53760 - JSC fails to build with TOT Clang
+        https://bugs.webkit.org/show_bug.cgi?id=53760
+
+        Fix -Woverloaded-virtual warnings. This is also a 6% speedup on the v8 raytrace
+        benchmark; it is nothing-to-noise on everything else.
+
+        * API/JSCallbackObject.h: Remove pointlessly overloaded method.
+        * API/JSCallbackObjectFunctions.h: Ditto.
+        * runtime/Arguments.cpp: 
+        (JSC::Arguments::put): Change signature to match the base class. This implementation
+        was no longer being called by anyone. This wasn't noticed because it is merely an
+        optimization of the base class' implementation.
+        * runtime/Arguments.h: Ditto.
+
+2011-02-12  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Use /dev/urandom as the OSRandomSource on OS(DARWIN)
+        https://bugs.webkit.org/show_bug.cgi?id=54279
+
+        I'm not sure it makes much of a difference whether we use arc4random or
+        /dev/urandom on Mac.  However, there's some aesthetic benefit to using
+        the same underlying API on as many platforms as reasonable.
+
+        * config.h:
+        * wtf/OSRandomSource.cpp:
+        (WTF::cryptographicallyRandomValuesFromOS):
+
+2011-02-12  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Kenneth Russell.
+
+        Enable ArrayBuffers by default
+        https://bugs.webkit.org/show_bug.cgi?id=54310
+
+        Export the required functions.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2011-02-11  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Remove explicit disable ENABLE_ASSEMBLER_WX_EXCLUSIVE on non-iOS ports
+        https://bugs.webkit.org/show_bug.cgi?id=54107
+        
+        It is unnecessary to explicitly disable ENABLE_ASSEMBLER_WX_EXCLUSIVE
+        by the definition of ENABLE().
+
+        * wtf/Platform.h:
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+
+        Randomly touch some build files in the hopes of fixing the Qt build.
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pri:
+        * JavaScriptCore.pro:
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Garbage collection timer cycles forever, even when nothing is happening
+        https://bugs.webkit.org/show_bug.cgi?id=54320
+        
+        (Rolling back in r78386 with the build fixed.)
+
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallbackPlatformData::trigger): Be sure to make
+        our timer inert after forcing a GC, to avoid GC'ing repeatedly.
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+        
+        Used svn merge -r78386:78385 to roll out r78386 because it broke the build.
+
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallbackPlatformData::trigger):
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Garbage collection timer cycles forever, even when nothing is happening
+        https://bugs.webkit.org/show_bug.cgi?id=54320
+
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallbackPlatformData::trigger): Be sure to make
+        our timer inert after forcing a GC, to avoid GC'ing repeatedly.
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Windows build: added an exported symbol.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A little more encapsulation for the heap: Removed CollectorHeapIterator
+        https://bugs.webkit.org/show_bug.cgi?id=54298
+        
+        CollectorHeapIterator is a God object that knows the internals of each
+        of the pieces of the heap. This undermines the encapsulation I'm trying
+        to achieve by splitting concepts into different classes.
+        
+        As an alternative, I've given each class a forEach iteration function,
+        which takes a functor as an argument. Now, each class just needs to
+        know how to iterate the things it knows about.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj: Removed CollectorHeapIterator.
+
+        * debugger/Debugger.cpp:
+        (JSC::Recompiler::Recompiler):
+        (JSC::Recompiler::~Recompiler):
+        (JSC::Recompiler::operator()):
+        (JSC::Debugger::recompileAllJSFunctions): Updated to use forEach interface
+        instead of an iterator.
+
+        * runtime/CollectorHeapIterator.h: Removed.
+
+        * runtime/Heap.cpp:
+        (JSC::TypeCounter::TypeCounter):
+        (JSC::TypeCounter::typeName):
+        (JSC::TypeCounter::operator()):
+        (JSC::TypeCounter::take):
+        (JSC::Heap::protectedObjectTypeCounts):
+        (JSC::Heap::objectTypeCounts): Added forEach and removed iterator.
+
+        * runtime/Heap.h:
+        (JSC::Heap::forEach):
+        * runtime/JSGlobalData.cpp:
+        (JSC::Recompiler::operator()):
+        (JSC::JSGlobalData::recompileAllJSFunctions):
+
+        * runtime/MarkedBlock.h:
+        (JSC::MarkedBlock::forEach): Added forEach. Removed friend declaration
+        for CollectorHeapIterator. Now, we can make all our data private and
+        change it without breaking any other classes.
+
+        * runtime/MarkedSpace.cpp:
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::forEach): Added forEach and removed iterator.
+
+2011-02-11  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        CryptographicRandomNumber has its threading ifdefs backwards
+        https://bugs.webkit.org/show_bug.cgi?id=54280
+
+        Turns out we want the mutex when thread is enabled.  :)
+
+        * wtf/CryptographicallyRandomNumber.cpp:
+        (WTF::ARC4Stream::ARC4RandomNumberGenerator::randomNumber):
+        (WTF::ARC4Stream::ARC4RandomNumberGenerator::randomValues):
+
+2011-02-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        WebKit should have a cryptographic RNG
+        https://bugs.webkit.org/show_bug.cgi?id=22049
+
+        Teach JavaScriptCore how to export this function.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        A little more encapsulation for MarkedBlock: Made all constants private
+        so clients don't know whether allocations are fixed-sized or not
+        https://bugs.webkit.org/show_bug.cgi?id=54270
+        
+        SunSpider reports no change.
+
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::advance): Updated for removal of HeapConstants.
+
+        * runtime/Error.cpp: Switched to using ASSERT_CLASS_FITS_IN_CELL, like
+        all other classes.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::allocate): Updated for removal of HeapConstants.
+        (JSC::Heap::reset): Updated to use size(), instead of calculating size
+        on our own.
+
+        * runtime/Heap.h: Moved the ASSERT here to MarkedBlock, since it enforces
+        on special knowledge of fixed-sizery, which only MarkedBlock is supposed
+        to know about.
+
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkedBlock::allocate): Updated for removal of HeapConstants.
+        Also changed to reset nextCell to 0 at the end of a block, since that
+        seems more consistent.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::storeVPtrs): Changed to use a fixed array of char.
+        This hard-coded size is a little wonky, but the compiler will tell us
+        if it's ever wrong, so I think it's OK.
+
+        * runtime/MarkedBlock.cpp:
+        (JSC::MarkedBlock::destroy):
+        (JSC::MarkedBlock::MarkedBlock):
+        (JSC::MarkedBlock::sweep): Updated for removal of HeapConstants.
+
+        * runtime/MarkedBlock.h:
+        (JSC::MarkedBlock::isEmpty):
+        (JSC::MarkedBlock::clearMarks):
+        (JSC::MarkedBlock::size):
+        (JSC::MarkedBlock::capacity): Made constants private to this class.
+        Removed HeapConstants. Added size() and capacity() functions.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::objectCount):
+        (JSC::MarkedSpace::size):
+        (JSC::MarkedSpace::capacity):
+        * runtime/MarkedSpace.h: Use MarkedBlock helper functions instead of
+        direct knowledge of MarkedBlock internals.
+
+2011-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        A little more encapsulation for MarkedBlock: Made mark bits private
+        https://bugs.webkit.org/show_bug.cgi?id=54264
+        
+        SunSpider reports no change.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::markRoots):
+        (JSC::Heap::reset): Renamed clearMarkBits => clearMarks, since clients
+        don't need to know that marks are represented as bits. Renamed
+        markedCells => markCount, since clients don't need to know that blocks
+        are split into cells.
+
+        * runtime/MarkedBlock.h:
+        (JSC::MarkedBlock::isEmpty):
+        (JSC::MarkedBlock::clearMarks):
+        (JSC::MarkedBlock::markCount): New helper functions for encapsulating
+        the information clients actually need.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::destroy):
+        (JSC::MarkedSpace::shrink):
+        (JSC::MarkedSpace::clearMarks):
+        (JSC::MarkedSpace::markCount):
+        (JSC::MarkedSpace::objectCount):
+        * runtime/MarkedSpace.h: Use new helper functions instead of accessing
+        MarkedBlock data directly.
+
+2011-02-10  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Cached JavaScript Parser Data Being Left in Memory Cache
+        https://bugs.webkit.org/show_bug.cgi?id=54245
+
+        Added clear method which removes SourceProviderCache items.
+        Cleaned up extraneous whitespace.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * parser/SourceProviderCache.cpp:
+        (JSC::SourceProviderCache::~SourceProviderCache):
+        (JSC::SourceProviderCache::clear):
+        (JSC::SourceProviderCache::byteSize):
+        (JSC::SourceProviderCache::add):
+        * parser/SourceProviderCache.h:
+
+2011-02-10  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Follow-up fix to r78291. I should pass (int) 0, not '0' to memset. 
+
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallback::commonConstructor): fix mistaken post-review change.
+
+2011-02-10  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Make DefaultGCActivityCallback for PLATFORM(CF) Easier to Subclass
+        https://bugs.webkit.org/show_bug.cgi?id=54257
+
+        A subclass may want to specify the CFRunLoop that the Garbage Collection
+        will happen on. It was difficult to manipulate this in a subclass because
+        the current DefaultGCActivityCallback class does this in its constructor.
+        This patch generalizes things a bit more so that a specific run loop can
+        be passed in to the constructor. This makes it so all run loop management
+        can stay in DefaultGCActivityCallback and a subclass can specify any runloop.
+
+        * runtime/GCActivityCallback.h: expose a PLATFORM(CF) constructor that can
+        specify the runloop GC can be scheduled on.
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallback::DefaultGCActivityCallback): two constructors,
+        one that specifies the run loop and passes that on to commonConstructor and
+        the old constructor defaults to the current run loop.
+        (JSC::DefaultGCActivityCallback::commonConstructor): do normal construction,
+        adding the timer to the given runloop.
+
+2011-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A little more encapsulation for MarkedBlock: Moved allocate() and sweep() into MarkedBlock
+        https://bugs.webkit.org/show_bug.cgi?id=54253
+        
+        SunSpider reports no change.
+
+        * runtime/CollectorHeapIterator.h: Removed DeadObjectIterator, since it
+        is now unused.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::reset): Moved the call to shrink() here, since it seems a
+        little more clear for MarkedSpace's client to tell it explicitly when to
+        shrink.
+
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkedBlock::allocate): Split out from MarkedSpace::allocate.
+
+        * runtime/MarkedBlock.cpp:
+        (JSC::MarkedBlock::sweep): Split out from MarkedSpace::sweep, and
+        converted to more directly iterate a MarkedBlock based on knowing its
+        internal structure.
+
+        * runtime/MarkedBlock.h:
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::sweep):
+        * runtime/MarkedSpace.h: Split out the code mentioned above.
+
+2011-02-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Fix compilation error on OpenBSD
+        https://bugs.webkit.org/show_bug.cgi?id=53766
+
+        Add a HAVE_STRNSTR in Platform.h and define it only on Darwin and FreeBSD.
+
+        * wtf/Platform.h:
+        * wtf/StringExtras.h: Use HAVE(STRNSTR) now.
+
+2011-02-10  Adam Roben  <aroben@apple.com>
+
+        Print locations of assertions and logs in a way that Visual Studio understands
+
+        With this change, double-clicking one of these locations in Visual Studio's Output Window
+        will focus that line of code in the editor.
+
+        Fixes <http://webkit.org/b/54208> Double-clicking locations of assertions/logs in Visual
+        Studio's Output Window does nothing
+
+        Reviewed by Alexey Proskuryakov.
+
+        * wtf/Assertions.cpp:
+        (printCallSite): Use OS(WINDOWS) instead of the meaningless OS(WIN). When we aren't using
+        the debug CRT (and thus can't call _CrtDbgReport), print the file and line number using the
+        same format that cl.exe uses when it prints compiler errors.
+
+2011-02-10  Dan Bernstein  <mitz@apple.com>
+
+        LLVM Compiler build fix.
+
+        * runtime/MarkedBlock.cpp:
+        (JSC::MarkedBlock::create):
+
+2011-02-10  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Remove PCRE source from trunk
+        https://bugs.webkit.org/show_bug.cgi?id=54188
+
+        * Android.mk:
+        * Android.v8.wtf.mk:
+        * CMakeLists.txt:
+        * DerivedSources.make:
+        * DerivedSources.pro:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.order:
+        * JavaScriptCore.pri:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+        * JavaScriptCore.vcproj/WTF/WTFCommon.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * pcre/AUTHORS: Removed.
+        * pcre/COPYING: Removed.
+        * pcre/dftables: Removed.
+        * pcre/pcre.h: Removed.
+        * pcre/pcre.pri: Removed.
+        * pcre/pcre_compile.cpp: Removed.
+        * pcre/pcre_exec.cpp: Removed.
+        * pcre/pcre_internal.h: Removed.
+        * pcre/pcre_tables.cpp: Removed.
+        * pcre/pcre_ucp_searchfuncs.cpp: Removed.
+        * pcre/pcre_xclass.cpp: Removed.
+        * pcre/ucpinternal.h: Removed.
+        * pcre/ucptable.cpp: Removed.
+        * wscript:
+
+2011-02-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add randomValuesFromOS for OS(WINDOWS)
+        https://bugs.webkit.org/show_bug.cgi?id=54155
+
+        Use CryptGenRandom for generating cryptographically secure random numbers.
+        This will work on WinCE and MinGW too.
+
+        * config.h:
+        * wtf/OSRandomSource.cpp:
+        (WTF::randomValuesFromOS):
+
+2011-02-10  Jarred Nicholls  <jarred@sencha.com>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION(r78149): Return value of read() shouldn't be ignored.
+        https://bugs.webkit.org/show_bug.cgi?id=54167
+        
+        stdio read should have its return value handled. Build error in gcc 4.4.5.
+
+        * wtf/OSRandomSource.cpp:
+        (WTF::randomValuesFromOS):
+
+2011-02-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename randomValuesFromOS to cryptographicallyRandomValuesFromOS
+        https://bugs.webkit.org/show_bug.cgi?id=54156
+
+        randomValuesFromOS generates random numbers of cryptographic quality.
+        Make this clear by adding "cryptographically" to the function name.
+
+        * wtf/CryptographicallyRandomNumber.cpp:
+        (WTF::ARC4Stream::ARC4RandomNumberGenerator::stir):
+        * wtf/OSRandomSource.cpp:
+        (WTF::cryptographicallyRandomValuesFromOS):
+        * wtf/OSRandomSource.h:
+
+2011-02-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/8805364> Malloc zone enumeration code should be safe in the face of errors from the memory reader.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::PageHeapAllocator::recordAdministrativeRegions): Use the new helper function to walk the linked list safely.
+        (WTF::TCMalloc_ThreadCache_FreeList::enumerateFreeObjects): Ditto.
+        (WTF::TCMalloc_Central_FreeList::enumerateFreeObjects): Ditto.
+        (WTF::TCMallocStats::PageMapFreeObjectFinder::visit): Bail out if the span could not be read.
+        (WTF::TCMallocStats::PageMapMemoryUsageRecorder::visit): Ditto.
+        * wtf/MallocZoneSupport.h:
+        (WTF::RemoteMemoryReader::operator()): Remove an assert that is not valid.
+        (WTF::RemoteMemoryReader::nextEntryInLinkedList): Add a helper function for retrieving the next entry in
+        a linked list. It maps a failed read of the remote memory in to a null pointer, which all callers can
+        handle gracefully.
+
+2011-02-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 54164 - Optimize global_var accesses on JSVALUE64
+
+        Directly embed the pointer to d->registers, optimize out the load
+        from the variable object, as we do already in JSVALUE32_64.
+
+        This is a ~1.5% win on sunspidey.
+
+        * jit/JIT.cpp:
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_get_global_var):
+        (JSC::JIT::emit_op_put_global_var):
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+
+2011-02-09  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A little more encapsulation for MarkedBlock: Made MarkedBlock responsible
+        for its own initialization and destruction
+        https://bugs.webkit.org/show_bug.cgi?id=54137
+
+        * runtime/CollectorHeapIterator.h: Removed ObjectIterator since it is
+        now unused.
+
+        * runtime/JSCell.h: Maded MarkedBlock a friend so it can construct and
+        destruct JSCells.
+
+        * runtime/MarkedBlock.cpp:
+        (JSC::MarkedBlock::create):
+        (JSC::MarkedBlock::destroy):
+        (JSC::MarkedBlock::MarkedBlock): Migrated initialization and destruction
+        code from MarkedSpace, updating it not to use ObjectIterator. We don't
+        want to use an abstract iterator since iteration will be unique to each
+        block in the future.
+
+        * runtime/MarkedBlock.h: Made the consructor private and moved it into
+        the .cpp file because it's big now.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocateBlock):
+        (JSC::MarkedSpace::freeBlock): Migrated code.
+
+        * runtime/MarkedSpace.h:
+        (JSC::CollectorHeap::collectorBlock): Keep a vector of MarkedBlock
+        pointers instead of aligned allocations -- how MarkedBlocks are allocated
+        is now an implementation detail of MarkedBlock.
+
+2011-02-09  Adam Barth  <abarth@webkit.org>
+
+        Another attempt to fix the Qt Windows build.
+
+        * config.h:
+        * wtf/OSRandomSource.cpp:
+        (WTF::randomValuesFromOS):
+
+2011-02-09  Adam Barth  <abarth@webkit.org>
+
+        Attempt to fix the Qt Windows build.
+
+        * wtf/OSRandomSource.cpp:
+        (WTF::randomValuesFromOS):
+
+2011-02-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add WTF::cryptographicallyRandomNumber
+        https://bugs.webkit.org/show_bug.cgi?id=54083
+
+        Introduce a cryptographically strong random number generator to WTF.
+        The random number generator is based on arc4random as found in:
+
+        http://www.openbsd.org/cgi-bin/cvsweb/src/lib/libc/crypt/arc4random.c?rev=1.22
+
+        I've changed to source to WebKit style and abstracted the operating
+        system interaction to OSRandomSource.  We'll use this functionality to
+        expose a cryptographically strong random number generator to
+        JavaScript.
+
+        * Android.mk:
+        * Android.v8.wtf.mk:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * config.h:
+        * wtf/CMakeLists.txt:
+        * wtf/CryptographicallyRandomNumber.cpp: Added.
+        (WTF::initMutexIfNeeded):
+        (WTF::init):
+        (WTF::addRandomData):
+        (WTF::stir):
+        (WTF::stirIfNeeded):
+        (WTF::getByte):
+        (WTF::getWord):
+        (WTF::cryptographicallyRandomNumber):
+        (WTF::cryptographicallyRandomValues):
+        * wtf/CryptographicallyRandomNumber.h: Added.
+        * wtf/OSRandomSource.cpp: Added.
+        (WTF::randomValuesFromOS):
+        * wtf/OSRandomSource.h: Added.
+        * wtf/wtf.pri:
+
+2011-02-09  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the build.
+
+        * wtf/Bitmap.h: Include string.h for memset. Not sure why this started
+        failing now.
+
+2011-02-09  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        A tiny bit of encapsulation for MarkedBlock: made its heap data member private
+        https://bugs.webkit.org/show_bug.cgi?id=54129
+
+        * runtime/MarkedBlock.h:
+        (JSC::MarkedBlock::isCellAligned):
+        (JSC::MarkedBlock::MarkedBlock):
+        (JSC::MarkedBlock::heap): Made the heap data member private, and provided
+        a constructor and an accessor.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocateBlock):
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::heap): Use the constructor and accessor.
+
+2011-02-09  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Replace PCRE with Yarr in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=53496
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * create_regex_tables:
+        * runtime/RegExp.cpp:
+        * wtf/Platform.h:
+        * yarr/Yarr.h:
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrJIT.h:
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.h:
+        * yarr/YarrSyntaxChecker.h:
+        * yarr/yarr.pri: Added.
+
+2011-02-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Removed some dead code from Heap
+        https://bugs.webkit.org/show_bug.cgi?id=54064
+
+        * runtime/MarkedSpace.cpp: Removed some now-unused constants and
+        declarations.
+
+        (JSC::MarkedSpace::allocate): Removed some ASSERTs that are also ASSERTed
+        by our caller. Removed redundant typedefs.
+
+2011-02-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Use a vector to track blocks in the Heap, instead of hand-rolled vector-like code
+        https://bugs.webkit.org/show_bug.cgi?id=54062
+        
+        SunSpider reports no change.
+
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::isValid):
+        (JSC::CollectorHeapIterator::isLive): Updated for new mark invariant: To
+        know if an object is live, you just need to test its mark bit.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::MarkedSpace): Moved waterMark and highWaterMark from
+        CollectorHeap into MarkedSpace, since they're global state. Removed call
+        to memset since CollectorHeap is a true class with its own constructor now.
+
+        (JSC::MarkedSpace::destroy): Change uses of m_heap.usedBlocks to
+        m_heap.blocks.size(), and m_heap.numBlocks to m_heap.blocks.capacity().
+
+        (JSC::MarkedSpace::allocateBlock):
+        (JSC::MarkedSpace::freeBlock): No need to manage our vector manually anymore.
+
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::shrink):
+        (JSC::MarkedSpace::clearMarkBits):
+        (JSC::MarkedSpace::markedCells):
+        (JSC::MarkedSpace::sweep):
+        (JSC::MarkedSpace::objectCount):
+        (JSC::MarkedSpace::capacity):
+        (JSC::MarkedSpace::reset):
+        (JSC::MarkedSpace::primaryHeapEnd):
+        * runtime/MarkedSpace.h:
+        (JSC::CollectorHeap::CollectorHeap):
+        (JSC::MarkedSpace::highWaterMark):
+        (JSC::MarkedSpace::setHighWaterMark):
+        (JSC::MarkedSpace::contains): Same as above.
+
+2011-02-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Give each MarkedBlock enough mark bits to cover the whole block
+        https://bugs.webkit.org/show_bug.cgi?id=54029
+        
+        SunSpider reports no change.
+
+        This simplifies access to mark bits, since any cell-aligned pointer
+        into a block now has a valid mark bit to test.
+        
+        * runtime/MarkedBlock.h: Changed CELLS_PER_BLOCK to account for the extra
+        mark bits. This happens not to change its actual value.
+        (JSC::MarkedBlock::cellNumber):
+        (JSC::MarkedBlock::isMarked):
+        (JSC::MarkedBlock::testAndSetMarked):
+        (JSC::MarkedBlock::setMarked): Changed const JSCell* to const void* to
+        remove a cast from our caller, and to more accurately reflect the fact
+        that MarkedBlock is agnostic about the types pointed to by the pointers
+        you pass to it.
+
+        (JSC::MarkedBlock::isPossibleCell): Removed a null check. We now consider
+        the null pointer to be a possible cell with a 0 (impossible) block. This
+        removes a null check from marking.
+
+        * runtime/MarkedSpace.cpp:
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::contains): Simplified the contains check, and inlined
+        the whole thing, now that it's so simple.
+
+2011-02-08  Daniel Bates  <dbates@rim.com>
+
+        Rubber-stamped by Martin Robinson.
+
+        Rename enum ProtectionSeting [sic] to ProtectionSetting.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::reprotectRegion):
+        * jit/ExecutableAllocator.h:
+
+2011-02-08  Balazs Kelemen  <kbalazs@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Should not always define USE_SYSTEM_MALLOC
+        https://bugs.webkit.org/show_bug.cgi?id=54007
+
+        * wtf/Platform.h:
+
+2011-02-08  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        LLVM Compiler build fix.
+
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrier::WriteBarrier):
+
+2011-02-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        JSVariableObject::setRegisters should take PassOwnArrayPtr for registersArray.
+        https://bugs.webkit.org/show_bug.cgi?id=53902
+
+        * runtime/Arguments.h:
+        (JSC::JSActivation::copyRegisters): Uses OwnArrayPtr<Register> instead of Register*.
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::copyGlobalsFrom): Ditto.
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::setRegisters): Takes PassOwnArrayPtr<Register> instead of Register*
+        for registerArray.
+        * runtime/JSVariableObject.h:
+        (JSC::JSVariableObject::copyRegisterArray): Returns PassOwnArrayPtr<Register> instead of Register*.
+        (JSC::JSVariableObject::setRegisters): Takes PassOwnArrayPtr<Register> instead of Register*
+        for registerArray.
+
+2011-02-07  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Removed some dead code from Heap
+        https://bugs.webkit.org/show_bug.cgi?id=53969
+        
+        SunSpider reports no change.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::shrink):
+        (JSC::MarkedSpace::sweep):
+        * runtime/MarkedSpace.h: Removed resizeBlocks and growBlocks, and
+        renamed shrinkBlocks to shrink, making it unconditionally shrink as
+        much as possible.
+
+2011-02-07  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Simplified the marked space's mark invariant
+        https://bugs.webkit.org/show_bug.cgi?id=53968
+        
+        SunSpider reports no change.
+        
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate): Mark objects when allocating them. This
+        means that, at all times other than the mark phase, an object is live
+        if and only if it is marked.
+
+        (JSC::MarkedSpace::containsSlowCase): Use the new mark invariant to
+        simplify testing whether an object is live.
+
+2011-02-07  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=53950
+        USE_WK_SCROLLBAR_PAINTER in ScrollbarThemeMac should be in
+        Platform.h instead
+
+        * wtf/Platform.h:
+
+2011-02-07  Darin Adler  <darin@apple.com>
+
+        Reviewed by Antti Koivisto.
+
+        Add built-in decoder for UTF-8 for improved performance
+        https://bugs.webkit.org/show_bug.cgi?id=53898
+
+        * wtf/unicode/UnicodeMacrosFromICU.h: Added U8_MAX_LENGTH and
+        U8_APPEND_UNSAFE. Also fixed header.
+
+2011-02-07  Adam Roben  <aroben@apple.com>
+
+        Delete precompiled headers whenever any .vsprops file changes
+
+        Precompiled headers need to be rebuilt if, e.g., an ENABLE_* macro is changed in one of our
+        .vsprops files. Unfortunately, Visual Studio isn't smart enough to figure this out, so we
+        give it some assistance by deleting the precompiled headers whenever any .vsprops file
+        changes.
+
+        I also made some drive-by fixes while I was in the area.
+
+        Fixes <http://webkit.org/b/53826> react-to-vsprops-changes.py doesn't force precompiled
+        headers to be rebuilt, but should
+
+        Reviewed by David Kilzer.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make: Stop ignoring the
+        return code from react-to-vsprops-changes.py so we will notice when errors are introduced.
+        But skip the script entirely in production builds, where it is both unnecessary and can't
+        function correctly (due to not having the entire source tree available to it).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/react-to-vsprops-changes.py:
+        (main): Removed an extra '*' in the glob for finding manifest files. The extra '*' was
+        leftover from before we rearranged WebKitBuild in r75138. Moved code to delete an old file
+        to the new delete_if_older_than function. Added code to delete any precompiled headers older
+        than the newest .vsprops file.
+        (delete_if_older_than): Added. Code came from main.
+
+2011-02-07  Antti Koivisto  <antti@apple.com>
+
+        Not reviewed.
+        
+        ASSERTS_DISABLED -> ASSERT_DISABLED
+
+        * wtf/BloomFilter.h:
+
+2011-02-06  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Unreviewed; speculative Qt build fix.
+
+        * JavaScriptCore.pro:
+
+2011-02-06  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        OwnArraryPtr.h uses deleteOwnedPtr but doesn’t include OwnPtrCommon.h
+        https://bugs.webkit.org/show_bug.cgi?id=52867
+
+        Removed LOOSE_OWN_ARRAY_PTR and OwnArrayPtr<T>::set. Replaced all calls to OwnArrayPtr::set
+        and loose instantiation of OwnArrayPtr by calls to operator= and adoptArrayPtr. Also removed
+        OwnArrayPtrCommon.h since PassOwnArrayPtr.h needs to include OwnArrayPtr.h and there is
+        no point in putting deleteOwnedArrayPtr into a separate header.
+        
+        Note: if this patch breaks build, the code is either instiantiating OwnArrayPtr
+        without calling adoptArrayPtr or calling set on ArrayOwnPtr instead of operator=.
+
+        No tests are added since this is a refactoring.
+
+        * API/JSStringRefCF.cpp:
+        (JSStringCreateWithCFString): Calls adoptArrayPtr.
+        * GNUmakefile.am: Removed OwnArrayPtrCommon.h
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj: Ditto.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Ditto.
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::deleteProperty): Calls adoptArrayPtr.
+        * runtime/Arguments.h:
+        (JSC::Arguments::copyRegisters): Ditto.
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator): Ditto.
+        * runtime/JSVariableObject.h:
+        (JSC::JSVariableObject::setRegisters): Calls operator= instead of set.
+        * runtime/StructureChain.cpp:
+        (JSC::StructureChain::StructureChain): Ditto.
+        * wtf/CMakeLists.txt:
+        * wtf/DateMath.h:
+        (JSC::GregorianDateTime::GregorianDateTime): No longer instnatiates OwnArrayPtr
+        with a null pointer.
+        * wtf/OwnArrayPtr.h:
+        * wtf/OwnArrayPtrCommon.h: Removed.
+        * wtf/PassOwnArrayPtr.h: No longer includes OwnArrayCommon.h
+        (WTF::deleteOwnedArrayPtr): Moved from OwnArrayPtrCommon.h
+
+2011-02-06  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Use bloom filter for descendant selector filtering
+        https://bugs.webkit.org/show_bug.cgi?id=53880
+        
+        Implement a bloom filter with k=2 and 8 bit counting.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/BloomFilter.h: Added.
+        (WTF::BloomFilter::maximumCount):
+        (WTF::BloomFilter::BloomFilter):
+        (WTF::BloomFilter::mayContain):
+        (WTF::BloomFilter::add):
+        (WTF::BloomFilter::remove):
+        (WTF::BloomFilter::firstSlot):
+        (WTF::BloomFilter::secondSlot):
+        (WTF::::add):
+        (WTF::::remove):
+        (WTF::::clear):
+        (WTF::::likelyEmpty):
+        (WTF::::isClear):
+
+2011-02-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Rolled back in r77612 with ASSERT/crash fixed.
+        https://bugs.webkit.org/show_bug.cgi?id=53759
+        
+        Don't shrink the heap to 0 unconditionally. Instead, shrink to 1 if
+        necessary. For now, the heap assumes that it always has at least one
+        block live.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::reset):
+        * runtime/Heap.h:
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::shrinkBlocks):
+        (JSC::MarkedSpace::sweep):
+        (JSC::MarkedSpace::reset):
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::highWaterMark):
+        (JSC::MarkedSpace::setHighWaterMark):
+
+2011-02-04  David Kilzer  <ddkilzer@apple.com>
+
+        BUILD FIX: REALLY remove the last vestiges of JSVALUE32!
+
+        <rdar://problem/8957409> Remove last vestiges of JSVALUE32
+        <http://webkit.org/b/53779>
+
+        * DerivedSources.make: Removed dependency on
+        JavaScriptCore.JSVALUE32.exp.
+
+2011-02-04  David Kilzer  <ddkilzer@apple.com>
+
+        <rdar://problem/8957409> Remove last vestiges of JSVALUE32
+        <http://webkit.org/b/53779>
+
+        Reviewed by Darin Adler.
+
+        Support for JSVALUE32 was originaly removed in r70111.
+
+        * Configurations/JavaScriptCore.xcconfig: Changed armv6 to use
+        JavaScriptCore.JSVALUE32_64.exp and ppc64 to use
+        JavaScriptCore.JSVALUE64.exp to match Platform.h.
+        * DerivedSources.make: Removed rule for
+        JavaScriptCore.JSVALUE32.exp.
+        * JavaScriptCore.JSVALUE32only.exp: Removed.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Removed references
+        to JavaScriptCore.JSVALUE32only.exp.
+
+2011-02-04  David Kilzer  <ddkilzer@apple.com>
+
+        Use static_cast and other style cleanup in YarrInterpreter.cpp
+        <http://webkit.org/b/53772>
+
+        Reviewed by John Sullivan.
+
+        * yarr/YarrInterpreter.cpp:
+        (JSC::Yarr::Interpreter::InputStream::readChecked): Use
+        static_cast.
+        (JSC::Yarr::Interpreter::InputStream::checkInput): Remove
+        unnecessary else block.
+        (JSC::Yarr::Interpreter::matchAssertionEOL): Ditto.
+        (JSC::Yarr::Interpreter::backtrackBackReference): Ditto.
+        (JSC::Yarr::ByteCompiler::emitDisjunction): Use static_cast.
+
+2011-02-04  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77625 and r77626.
+        http://trac.webkit.org/changeset/77625
+        http://trac.webkit.org/changeset/77626
+        https://bugs.webkit.org/show_bug.cgi?id=53765
+
+        It broke Windows builds (Requested by Ossy_ on #webkit).
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * create_regex_tables:
+        * runtime/RegExp.cpp:
+        * wtf/Platform.h:
+        * yarr/Yarr.h:
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrJIT.h:
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.h:
+        * yarr/YarrSyntaxChecker.h:
+        * yarr/yarr.pri: Removed.
+
+2011-02-04  Jessie Berlin  <jberlin@apple.com>
+
+        Windows build fix. Unreviewed.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2011-02-04  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Replace PCRE with Yarr in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=53496
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * create_regex_tables:
+        * runtime/RegExp.cpp:
+        * wtf/Platform.h:
+        * yarr/Yarr.h:
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrJIT.h:
+        * yarr/YarrParser.h:
+        * yarr/YarrPattern.h:
+        * yarr/YarrSyntaxChecker.h:
+        * yarr/yarr.pri: Added.
+
+2011-02-04  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Unreviewed rollout two patches r77614 and r77612.
+
+        REGRESSION: Snow Leopard Intel Release anumber of failing tests.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::reset):
+        * runtime/Heap.h:
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::sweep):
+        (JSC::MarkedSpace::reset):
+        * runtime/MarkedSpace.h:
+
+2011-02-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix 32bit build.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::reset): Use an explicit cast to avoid shortening warnings,
+        since 1.5 is double (64bit), and the result is size_t (32bit).
+
+2011-02-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Changed MarkedSpace to delegate grow/shrink decisions to Heap
+        https://bugs.webkit.org/show_bug.cgi?id=53759
+        
+        SunSpider reports no change.
+        
+        * runtime/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::reset):
+        * runtime/Heap.h: Reorganized a few data members for better cache locality.
+        Added a grow policy.
+        
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate):
+        (JSC::MarkedSpace::sweep):
+        (JSC::MarkedSpace::reset): Don't shrink automatically. Instead, wait for
+        the heap to make an explicit sweep call.
+
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::highWaterMark):
+        (JSC::MarkedSpace::setHighWaterMark): Use a watermark to determine how
+        many bytes to allocate before failing and giving the heap an opportunity
+        to collect garbage. This also means that we allocate blocks on demand,
+        instead of ahead of time.
+
+2011-02-03  James Kozianski  <koz@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add navigator.registerProtocolHandler behind a flag.
+        https://bugs.webkit.org/show_bug.cgi?id=52609
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-02-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Not all blocks are freed when the heap is freed (counting is hard!)
+        https://bugs.webkit.org/show_bug.cgi?id=53732
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::destroy): Freeing a block compacts the list, so just
+        keep freeing block 0 until there are no blocks left.
+
+2011-02-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Mac build.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: The new MarkedBlock.h header
+        needs to be private, not project, so other projects can include headers
+        that depend on it.
+
+2011-02-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Start using MarkedBlock instead of CollectorBlock
+        https://bugs.webkit.org/show_bug.cgi?id=53693
+        
+        SunSpider reports no change.
+        
+        * runtime/MarkedBlock.h:
+        (JSC::MarkedBlock::blockFor):
+        (JSC::MarkedBlock::setMarked):
+        (JSC::MarkedBlock::isCellAligned):
+        (JSC::MarkedBlock::isPossibleCell): Updated for const-ness.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocateBlock):
+        (JSC::MarkedSpace::containsSlowCase):
+        (JSC::MarkedSpace::clearMarkBits): Updated for const-ness.
+
+        * runtime/MarkedSpace.h:
+        (JSC::CollectorHeap::collectorBlock):
+        (JSC::MarkedSpace::heap):
+        (JSC::MarkedSpace::isMarked):
+        (JSC::MarkedSpace::testAndSetMarked):
+        (JSC::MarkedSpace::setMarked):
+        (JSC::MarkedSpace::contains): Switched from CollectorBlock to MarkedBlock,
+        and deleted dead CollectorBlock-related code.
+
+2011-02-03  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Avoid strlen() in AtomicString::fromUTF8
+        https://bugs.webkit.org/show_bug.cgi?id=50516
+
+        Add an overload to calculateStringHashFromUTF8 to get
+        strlen() of the input data with only one call.
+
+        This change shows about 3% performance win on the xml-parser benchmark.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/text/AtomicString.cpp:
+        (WTF::AtomicString::fromUTF8):
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::calculateStringHashAndLengthFromUTF8Internal):
+        (WTF::Unicode::calculateStringHashFromUTF8):
+        (WTF::Unicode::calculateStringHashAndLengthFromUTF8):
+        * wtf/unicode/UTF8.h:
+
+2011-02-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2011-02-02  Gavin Barraclough  <barraclough@apple.com>
+
+        oops, build fix!
+
+        * wtf/Assertions.cpp:
+
+2011-02-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 53650 - Add a BACKTRACE macro to Assertions.h
+
+        Add a BACKTRACE macro to Assertions.h, which will print a backtrace on
+        debug Mac builds, make CRASH (and thus ASSERT) automatically call this.
+
+        * JavaScriptCore.exp:
+        * wtf/Assertions.cpp:
+        * wtf/Assertions.h:
+
+2011-02-02  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Improper backtrack of nested non-capturing greedy paren to prior paren
+        https://bugs.webkit.org/show_bug.cgi?id=53261
+
+        A paren that follows a non-capturing greedy paren nested within a 
+        non-capturing fixed paren was back tracking to the last paren 
+        processed instead of the immediately prior paren.
+        Refactored default backtracking of parens to prior paren to work for
+        both nested (within) and immediately prior (after) parens.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::YarrGenerator::GenerationState::addParenthesesTail):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::TermGenerationState):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::setJumpListToPriorParen):
+        (JSC::Yarr::YarrGenerator::TermGenerationState::getJumpListToPriorParen):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::ParenthesesTail):
+        (JSC::Yarr::YarrGenerator::ParenthesesTail::generateCode):
+        (JSC::Yarr::YarrGenerator::generateParenthesesDisjunction):
+        (JSC::Yarr::YarrGenerator::generateParenthesesSingle):
+        (JSC::Yarr::YarrGenerator::generateDisjunction):
+
+2011-02-02  Jeff Miller  <jeffm@apple.com>
+
+        Reviewed by Darin Adler and Steve Falkenburg.
+
+        Add DerivedSources.make to some Visual Studio projects
+        https://bugs.webkit.org/show_bug.cgi?id=53607
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj: Add DerivedSources.make.
+
+2011-02-02  Steve Lacey  <sjl@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Implement basic media statistics on media elements.
+        https://bugs.webkit.org/show_bug.cgi?id=53322
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-02-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fixes for wxWebKit.
+
+        * wtf/wx/StringWx.cpp:
+        (WTF::String::String):
+
+2011-02-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        A little more Heap refactoring
+        https://bugs.webkit.org/show_bug.cgi?id=53577
+        
+        SunSpider reports no change.
+        
+        Split out MarkedBlock into its own file / class.
+        
+        Did the following renames:
+            isCellMarked => isMarked
+            checkMarkCell => testAndSetMarked
+            markCell => setMarked
+            cellOffset => cellNumber
+            collectorBlock => blockFor
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/Heap.cpp:
+        (JSC::WeakGCHandlePool::update):
+        * runtime/Heap.h:
+        (JSC::Heap::isMarked):
+        (JSC::Heap::testAndSetMarked):
+        (JSC::Heap::setMarked):
+        * runtime/JSArray.h:
+        (JSC::MarkStack::markChildren):
+        (JSC::MarkStack::drain):
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkStack::internalAppend):
+        * runtime/MarkedBlock.cpp: Added.
+        * runtime/MarkedBlock.h: Added.
+        (JSC::MarkedBlock::blockFor):
+        (JSC::MarkedBlock::cellNumber):
+        (JSC::MarkedBlock::isMarked):
+        (JSC::MarkedBlock::testAndSetMarked):
+        (JSC::MarkedBlock::setMarked):
+        (JSC::MarkedBlock::isCellAligned):
+        (JSC::MarkedBlock::isPossibleCell):
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::isMarked):
+        (JSC::MarkedSpace::testAndSetMarked):
+        (JSC::MarkedSpace::setMarked):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::isValid):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+
+2011-02-02  Sam Weinig  <sam@webkit.org>
+
+        Fix windows clean build.
+
+        * DerivedSources.make:
+
+2011-02-02  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Fix dist compilation
+        https://bugs.webkit.org/show_bug.cgi?id=53579
+
+        * GNUmakefile.am: Added WriteBarrier.h to the sources, it was
+        added in r77151
+
+2011-02-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77297.
+        http://trac.webkit.org/changeset/77297
+        https://bugs.webkit.org/show_bug.cgi?id=53538
+
+        caused leopard crashes (Requested by paroga on #webkit).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/text/AtomicString.cpp:
+        (WTF::AtomicString::fromUTF8):
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::calculateStringHashFromUTF8):
+        * wtf/unicode/UTF8.h:
+
+2011-02-01  Sam Weinig  <sam@webkit.org>
+
+        Fix Mac production builds.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-02-01  Sam Weinig  <sam@webkit.org>
+
+        Try to fix the windows build.
+
+        * DerivedSources.make:
+
+2011-02-01  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Avoid strlen() in AtomicString::fromUTF8
+        https://bugs.webkit.org/show_bug.cgi?id=50516
+
+        Add an overload to calculateStringHashFromUTF8 to get
+        strlen() of the input data with only one call.
+
+        This change shows about 3% performance win on the xml-parser benchmark.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/text/AtomicString.cpp:
+        (WTF::AtomicString::fromUTF8):
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::calculateStringHashAndLengthFromUTF8Internal):
+        (WTF::Unicode::calculateStringHashFromUTF8):
+        (WTF::Unicode::calculateStringHashAndLengthFromUTF8):
+        * wtf/unicode/UTF8.h:
+
+2011-02-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Beth Dakin.
+
+        Part 2 for <rdar://problem/8492788>
+        Adopt WKScrollbarPainterController
+
+        Use header detection to define scrollbar painting controller #define.
+
+        * DerivedSources.make:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-02-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Refactor JSGlobalObject-related tear-down
+        https://bugs.webkit.org/show_bug.cgi?id=53478
+        
+        While investigating crashes caused by r77082, I noticed some strange
+        destructor-time behaviors. This patch makes them less strange.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::CodeBlock):
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        (JSC::GlobalCodeBlock::GlobalCodeBlock):
+        (JSC::GlobalCodeBlock::~GlobalCodeBlock): Store the set of global code
+        blocks on the Heap, instead of on independent global objects. The heap
+        is guaranteed to outlast any GC-owned data structure. The heap is also
+        a natural place to store objects that needs out-of-band marking, since
+        the heap is responsible for marking all roots.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::markRoots):
+        (JSC::Heap::globalObjectCount):
+        (JSC::Heap::protectedGlobalObjectCount):
+        * runtime/Heap.h:
+        (JSC::Heap::codeBlocks):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::~JSGlobalObject):
+        (JSC::JSGlobalObject::init):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        * runtime/MarkedSpace.cpp: Store the set of global objects in a weak map
+        owned by JSGlobalData, instead of an instrusive circular linked list.
+        This is simpler, and it avoids destructor-time access between garbage
+        collected objects, which is hard to get right.
+
+        (JSC::MarkedSpace::destroy): Make sure to clear mark bits before tearing
+        everything down. Otherwise, weak data structures will incorrectly report
+        that objects pending destruction are still alive.
+
+2011-02-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        REGRESSION(77082): GC-related crashes seen: on WebKit2 bot; on GTK 32bit
+        bot; loading trac pages; typing in search field
+        https://bugs.webkit.org/show_bug.cgi?id=53519
+        
+        The crashes were all caused by failure to run an object's destructor.
+
+        * runtime/CollectorHeapIterator.h:
+        (JSC::ObjectIterator::ObjectIterator): Don't skip forward upon
+        construction. The iterator class used to do that when it was designed
+        for prior-to-beginning initialization. I forgot to remove this line
+        of code when I changed the iterator to normal initialization.
+        
+        Skipping forward upon construction was causing the heap to skip running
+        the destructor for the very first object in a block when destroying the
+        block. This usually did not crash, since block destruction is rare and
+        most objects have pretty trivial destructors. However, in the rare case
+        when the heap would destroy a block whose first object was a global
+        object or a DOM node, BOOM.
+
+2011-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Update JSObject storage for new marking API
+        https://bugs.webkit.org/show_bug.cgi?id=53467
+
+        JSObject no longer uses EncodedJSValue for its property storage.
+        This produces a stream of mechanical changes to PropertySlot and
+        anonymous storage APIs.
+
+        * JavaScriptCore.exp:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::ArrayPrototype::ArrayPrototype):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanObject.cpp:
+        (JSC::BooleanObject::BooleanObject):
+        * runtime/BooleanObject.h:
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::DatePrototype::DatePrototype):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::getOwnPropertySlot):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObject):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::fillGetterPropertySlot):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirectLocation):
+        (JSC::JSObject::offsetForLocation):
+        (JSC::JSObject::putAnonymousValue):
+        (JSC::JSObject::clearAnonymousValue):
+        (JSC::JSObject::getAnonymousValue):
+        (JSC::JSObject::putThisToAnonymousValue):
+        (JSC::JSObject::locationForOffset):
+        (JSC::JSObject::inlineGetOwnPropertySlot):
+        * runtime/JSObjectWithGlobalObject.cpp:
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::JSWrapperObject):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/NumberConstructor.cpp:
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::NumberObject::NumberObject):
+        (JSC::constructNumber):
+        * runtime/NumberObject.h:
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/PropertySlot.h:
+        (JSC::PropertySlot::getValue):
+        (JSC::PropertySlot::setValue):
+        (JSC::PropertySlot::setRegisterSlot):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrierBase::setWithoutWriteBarrier):
+
+2011-02-01  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Antonio Gomes.
+
+        Modify RandomNumberSeed.h to use USE(MERSENNE_TWISTER_19937)
+        https://bugs.webkit.org/show_bug.cgi?id=53506
+
+        Currently, use of the Mersenne Twister pseudorandom number generator
+        is hardcoded to the Windows CE port. With the passing of bug #53253,
+        we can generalize support for this PRNG to all ports that use srand(3)
+        and rand(3), including Windows CE.
+
+        * wtf/RandomNumberSeed.h:
+        (WTF::initializeRandomNumberGenerator):
+
+2011-02-01  Dave Tapuska  <dtapuska@rim.com>
+
+        Reviewed by Gavin Barraclough.
+
+        MacroAssemblerARM would generate code that did 32bit loads
+        on addresses that were not aligned. More specifically it would
+        generate a ldr r8,[r1, #7] which isn't valid on ARMv5 and lower.
+        The intended instruction really is ldrb r8,[r1, #7]; ensure we
+        call load8 instead of load32.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46095
+
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::set32Test32):
+        (JSC::MacroAssemblerARM::set32Test8):
+
+2011-02-01  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Fix some Visual Studio compiler warnings.
+        https://bugs.webkit.org/show_bug.cgi?id=53476
+
+        * wtf/MathExtras.h:
+        (clampToInteger):
+        (clampToPositiveInteger):
+        * wtf/ThreadingWin.cpp:
+        (WTF::absoluteTimeToWaitTimeoutInterval):
+
+2011-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bogus callframe during stack unwinding
+        https://bugs.webkit.org/show_bug.cgi?id=53454
+
+        Trying to access a callframe's globalData after destroying its
+        ScopeChain is not a good thing.  While we could access the
+        globalData directly through the (known valid) scopechain we're
+        holding on to, it feels fragile.  Instead we push the valid
+        ScopeChain onto the callframe again to ensure that the callframe
+        itself remains valid.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::unwindCallFrame):
+
+2011-01-31  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Potentially Unsafe HashSet of RuntimeObject* in RootObject definition
+        https://bugs.webkit.org/show_bug.cgi?id=53271
+
+        Reapplying this change again.
+        Changed isValid() to use .get() as a result of change r77151.
+
+        Added new isValid() methods to check if a contained object in
+        a WeakGCMap is valid when using an unchecked iterator.
+
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::isValid):
+
+2011-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        rolling r77098, r77099, r77100, r77109, and
+        r77111 back in, along with a few more Qt fix attempts.
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::markChildren):
+        (JSC::JSCallbackObject::setPrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::put):
+        (JSC::::staticFunctionGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeConstructor):
+        (JSObjectSetPrivateProperty):
+        * API/JSWeakObjectMapRefInternal.h:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        (JSC::DebuggerActivation::markChildren):
+        * debugger/DebuggerActivation.h:
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::exception):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/ArgList.cpp:
+        (JSC::MarkedArgumentBuffer::markLists):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::markChildren):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        * runtime/Arguments.h:
+        (JSC::Arguments::setActivation):
+        (JSC::Arguments::Arguments):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        (JSC::BatchedTransitionOptimizer::~BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/ConservativeSet.cpp:
+        (JSC::ConservativeSet::grow):
+        * runtime/ConservativeSet.h:
+        (JSC::ConservativeSet::~ConservativeSet):
+        (JSC::ConservativeSet::mark):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/GetterSetter.cpp:
+        (JSC::GetterSetter::markChildren):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::getter):
+        (JSC::GetterSetter::setGetter):
+        (JSC::GetterSetter::setter):
+        (JSC::GetterSetter::setSetter):
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        (JSC::GlobalEvalFunction::markChildren):
+        * runtime/GlobalEvalFunction.h:
+        (JSC::GlobalEvalFunction::cachedGlobalObject):
+        * runtime/Heap.cpp:
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::value):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        (JSC::JSActivation::put):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkStack::append):
+        (JSC::JSCell::MarkStack::internalAppend):
+        (JSC::JSCell::MarkStack::deprecatedAppend):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::regExpConstructor):
+        (JSC::JSGlobalObject::errorConstructor):
+        (JSC::JSGlobalObject::evalErrorConstructor):
+        (JSC::JSGlobalObject::rangeErrorConstructor):
+        (JSC::JSGlobalObject::referenceErrorConstructor):
+        (JSC::JSGlobalObject::syntaxErrorConstructor):
+        (JSC::JSGlobalObject::typeErrorConstructor):
+        (JSC::JSGlobalObject::URIErrorConstructor):
+        (JSC::JSGlobalObject::evalFunction):
+        (JSC::JSGlobalObject::objectPrototype):
+        (JSC::JSGlobalObject::functionPrototype):
+        (JSC::JSGlobalObject::arrayPrototype):
+        (JSC::JSGlobalObject::booleanPrototype):
+        (JSC::JSGlobalObject::stringPrototype):
+        (JSC::JSGlobalObject::numberPrototype):
+        (JSC::JSGlobalObject::datePrototype):
+        (JSC::JSGlobalObject::regExpPrototype):
+        (JSC::JSGlobalObject::methodCallDummy):
+        (JSC::Structure::prototypeForLookup):
+        (JSC::constructArray):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        (JSC::Stringifier::Holder::objectSlot):
+        (JSC::Stringifier::markAggregate):
+        (JSC::Stringifier::stringify):
+        (JSC::Stringifier::Holder::appendNextProperty):
+        (JSC::Walker::callReviver):
+        (JSC::Walker::walk):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirectOffset):
+        (JSC::JSObject::putDirectOffset):
+        (JSC::JSObject::putUndefinedAtDirectOffset):
+        (JSC::JSObject::flattenDictionaryObject):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::JSValue::putDirect):
+        (JSC::JSObject::allocatePropertyStorageInline):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator):
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSString.cpp:
+        (JSC::StringObject::create):
+        * runtime/JSValue.h:
+        * runtime/JSWrapperObject.cpp:
+        (JSC::JSWrapperObject::markChildren):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::internalValue):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::lookupPut):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::MarkStack):
+        (JSC::MarkStack::deprecatedAppendValues):
+        (JSC::MarkStack::appendValues):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::constructNumber):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        (JSC::resolveBase):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::setExistingProperty):
+        (JSC::PutPropertySlot::setNewProperty):
+        (JSC::PutPropertySlot::base):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::~ScopeChainNode):
+        (JSC::ScopeChainIterator::operator*):
+        (JSC::ScopeChainIterator::operator->):
+        (JSC::ScopeChain::top):
+        * runtime/ScopeChainMark.h:
+        (JSC::ScopeChain::markAggregate):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren):
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::emptyString):
+        (JSC::SmallStrings::singleCharacterString):
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+        (JSC::Structure::storedPrototypeSlot):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::uncheckedGet):
+        (JSC::WeakGCMap::uncheckedGetSlot):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+        (JSC::::uncheckedRemove):
+        * runtime/WriteBarrier.h: Added.
+        (JSC::DeprecatedPtr::DeprecatedPtr):
+        (JSC::DeprecatedPtr::get):
+        (JSC::DeprecatedPtr::operator*):
+        (JSC::DeprecatedPtr::operator->):
+        (JSC::DeprecatedPtr::slot):
+        (JSC::DeprecatedPtr::operator UnspecifiedBoolType*):
+        (JSC::DeprecatedPtr::operator!):
+        (JSC::WriteBarrierBase::set):
+        (JSC::WriteBarrierBase::get):
+        (JSC::WriteBarrierBase::operator*):
+        (JSC::WriteBarrierBase::operator->):
+        (JSC::WriteBarrierBase::clear):
+        (JSC::WriteBarrierBase::slot):
+        (JSC::WriteBarrierBase::operator UnspecifiedBoolType*):
+        (JSC::WriteBarrierBase::operator!):
+        (JSC::WriteBarrier::WriteBarrier):
+        (JSC::operator==):
+
+2011-01-31  Dan Winship  <danw@gnome.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        wss (websockets ssl) support for gtk via new gio TLS support
+        https://bugs.webkit.org/show_bug.cgi?id=50344
+
+        Add a GPollableOutputStream typedef for TLS WebSockets support
+
+        * wtf/gobject/GTypedefs.h:
+
+2011-01-31  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53352
+        Heavy external fragmentation in FixedVMPoolAllocator can lead to a CRASH().
+
+        The FixedVMPoolAllocator currently uses a best fix policy -
+        switch to first fit, this is less prone to external fragmentation.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::AllocationTableSizeClass::AllocationTableSizeClass):
+        (JSC::AllocationTableSizeClass::blockSize):
+        (JSC::AllocationTableSizeClass::blockCount):
+        (JSC::AllocationTableSizeClass::blockAlignment):
+        (JSC::AllocationTableSizeClass::size):
+        (JSC::AllocationTableLeaf::AllocationTableLeaf):
+        (JSC::AllocationTableLeaf::~AllocationTableLeaf):
+        (JSC::AllocationTableLeaf::allocate):
+        (JSC::AllocationTableLeaf::free):
+        (JSC::AllocationTableLeaf::isEmpty):
+        (JSC::AllocationTableLeaf::isFull):
+        (JSC::AllocationTableLeaf::size):
+        (JSC::AllocationTableLeaf::classForSize):
+        (JSC::AllocationTableLeaf::dump):
+        (JSC::LazyAllocationTable::LazyAllocationTable):
+        (JSC::LazyAllocationTable::~LazyAllocationTable):
+        (JSC::LazyAllocationTable::allocate):
+        (JSC::LazyAllocationTable::free):
+        (JSC::LazyAllocationTable::isEmpty):
+        (JSC::LazyAllocationTable::isFull):
+        (JSC::LazyAllocationTable::size):
+        (JSC::LazyAllocationTable::dump):
+        (JSC::LazyAllocationTable::classForSize):
+        (JSC::AllocationTableDirectory::AllocationTableDirectory):
+        (JSC::AllocationTableDirectory::~AllocationTableDirectory):
+        (JSC::AllocationTableDirectory::allocate):
+        (JSC::AllocationTableDirectory::free):
+        (JSC::AllocationTableDirectory::isEmpty):
+        (JSC::AllocationTableDirectory::isFull):
+        (JSC::AllocationTableDirectory::size):
+        (JSC::AllocationTableDirectory::classForSize):
+        (JSC::AllocationTableDirectory::dump):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::allocated):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::classForSize):
+        (JSC::FixedVMPoolAllocator::offsetToPointer):
+        (JSC::FixedVMPoolAllocator::pointerToOffset):
+        (JSC::ExecutableAllocator::committedByteCount):
+        (JSC::ExecutableAllocator::isValid):
+        (JSC::ExecutableAllocator::underMemoryPressure):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::PageReservation):
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::committed):
+
+2011-01-31  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r76969.
+        http://trac.webkit.org/changeset/76969
+        https://bugs.webkit.org/show_bug.cgi?id=53418
+
+        "It is causing crashes in GTK+ and Leopard bots" (Requested by
+        alexg__ on #webkit).
+
+        * runtime/WeakGCMap.h:
+
+2011-01-30  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Unreviewed, rolling out r77098, r77099, r77100, r77109, and
+        r77111.
+        http://trac.webkit.org/changeset/77098
+        http://trac.webkit.org/changeset/77099
+        http://trac.webkit.org/changeset/77100
+        http://trac.webkit.org/changeset/77109
+        http://trac.webkit.org/changeset/77111
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        Qt build is broken
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::markChildren):
+        (JSC::JSCallbackObject::setPrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::put):
+        (JSC::::staticFunctionGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeConstructor):
+        (JSObjectSetPrivateProperty):
+        * API/JSWeakObjectMapRefInternal.h:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        (JSC::DebuggerActivation::markChildren):
+        * debugger/DebuggerActivation.h:
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::exception):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/ArgList.cpp:
+        (JSC::MarkedArgumentBuffer::markLists):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::markChildren):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        * runtime/Arguments.h:
+        (JSC::Arguments::setActivation):
+        (JSC::Arguments::Arguments):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        (JSC::BatchedTransitionOptimizer::~BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/ConservativeSet.cpp:
+        (JSC::ConservativeSet::grow):
+        * runtime/ConservativeSet.h:
+        (JSC::ConservativeSet::~ConservativeSet):
+        (JSC::ConservativeSet::mark):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/GetterSetter.cpp:
+        (JSC::GetterSetter::markChildren):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::getter):
+        (JSC::GetterSetter::setGetter):
+        (JSC::GetterSetter::setter):
+        (JSC::GetterSetter::setSetter):
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        (JSC::GlobalEvalFunction::markChildren):
+        * runtime/GlobalEvalFunction.h:
+        (JSC::GlobalEvalFunction::cachedGlobalObject):
+        * runtime/Heap.cpp:
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::value):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        (JSC::JSActivation::put):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::JSValue::toThisObject):
+        (JSC::JSCell::MarkStack::append):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::regExpConstructor):
+        (JSC::JSGlobalObject::errorConstructor):
+        (JSC::JSGlobalObject::evalErrorConstructor):
+        (JSC::JSGlobalObject::rangeErrorConstructor):
+        (JSC::JSGlobalObject::referenceErrorConstructor):
+        (JSC::JSGlobalObject::syntaxErrorConstructor):
+        (JSC::JSGlobalObject::typeErrorConstructor):
+        (JSC::JSGlobalObject::URIErrorConstructor):
+        (JSC::JSGlobalObject::evalFunction):
+        (JSC::JSGlobalObject::objectPrototype):
+        (JSC::JSGlobalObject::functionPrototype):
+        (JSC::JSGlobalObject::arrayPrototype):
+        (JSC::JSGlobalObject::booleanPrototype):
+        (JSC::JSGlobalObject::stringPrototype):
+        (JSC::JSGlobalObject::numberPrototype):
+        (JSC::JSGlobalObject::datePrototype):
+        (JSC::JSGlobalObject::regExpPrototype):
+        (JSC::JSGlobalObject::methodCallDummy):
+        (JSC::Structure::prototypeForLookup):
+        (JSC::constructArray):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        (JSC::Stringifier::markAggregate):
+        (JSC::Stringifier::stringify):
+        (JSC::Stringifier::Holder::appendNextProperty):
+        (JSC::Walker::callReviver):
+        (JSC::Walker::walk):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirectOffset):
+        (JSC::JSObject::putDirectOffset):
+        (JSC::JSObject::flattenDictionaryObject):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::JSValue::putDirect):
+        (JSC::JSObject::allocatePropertyStorageInline):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator):
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSString.cpp:
+        (JSC::StringObject::create):
+        * runtime/JSValue.h:
+        * runtime/JSWrapperObject.cpp:
+        (JSC::JSWrapperObject::markChildren):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::internalValue):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::lookupPut):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::appendValues):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::constructNumber):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        (JSC::resolveBase):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::setExistingProperty):
+        (JSC::PutPropertySlot::setNewProperty):
+        (JSC::PutPropertySlot::base):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::~ScopeChainNode):
+        (JSC::ScopeChainIterator::operator*):
+        (JSC::ScopeChainIterator::operator->):
+        (JSC::ScopeChain::top):
+        * runtime/ScopeChainMark.h:
+        (JSC::ScopeChain::markAggregate):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren):
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::emptyString):
+        (JSC::SmallStrings::singleCharacterString):
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::uncheckedGet):
+        (JSC::WeakGCMap::isValid):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+        (JSC::::uncheckedRemove):
+        * runtime/WriteBarrier.h: Removed.
+
+2011-01-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Build fix the build fix. I assume Oliver meant m_cell, not m_value.
+
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrierBase::clear):
+
+2011-01-30  Oliver Hunt  <oliver@apple.com>
+
+        More Qt build fixes
+
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrierBase::clear):
+
+2011-01-30  Oliver Hunt  <oliver@apple.com>
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        rolling r77006 and r77020 back in.
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::markChildren):
+        (JSC::JSCallbackObject::setPrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::put):
+        (JSC::::staticFunctionGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeConstructor):
+        (JSObjectSetPrivateProperty):
+        * API/JSWeakObjectMapRefInternal.h:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        (JSC::DebuggerActivation::markChildren):
+        * debugger/DebuggerActivation.h:
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::exception):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/ArgList.cpp:
+        (JSC::MarkedArgumentBuffer::markLists):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::markChildren):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        * runtime/Arguments.h:
+        (JSC::Arguments::setActivation):
+        (JSC::Arguments::Arguments):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        (JSC::BatchedTransitionOptimizer::~BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/ConservativeSet.cpp:
+        (JSC::ConservativeSet::grow):
+        * runtime/ConservativeSet.h:
+        (JSC::ConservativeSet::~ConservativeSet):
+        (JSC::ConservativeSet::mark):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/GetterSetter.cpp:
+        (JSC::GetterSetter::markChildren):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::getter):
+        (JSC::GetterSetter::setGetter):
+        (JSC::GetterSetter::setter):
+        (JSC::GetterSetter::setSetter):
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        (JSC::GlobalEvalFunction::markChildren):
+        * runtime/GlobalEvalFunction.h:
+        (JSC::GlobalEvalFunction::cachedGlobalObject):
+        * runtime/Heap.cpp:
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::value):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        (JSC::JSActivation::put):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkStack::append):
+        (JSC::JSCell::MarkStack::internalAppend):
+        (JSC::JSCell::MarkStack::deprecatedAppend):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::regExpConstructor):
+        (JSC::JSGlobalObject::errorConstructor):
+        (JSC::JSGlobalObject::evalErrorConstructor):
+        (JSC::JSGlobalObject::rangeErrorConstructor):
+        (JSC::JSGlobalObject::referenceErrorConstructor):
+        (JSC::JSGlobalObject::syntaxErrorConstructor):
+        (JSC::JSGlobalObject::typeErrorConstructor):
+        (JSC::JSGlobalObject::URIErrorConstructor):
+        (JSC::JSGlobalObject::evalFunction):
+        (JSC::JSGlobalObject::objectPrototype):
+        (JSC::JSGlobalObject::functionPrototype):
+        (JSC::JSGlobalObject::arrayPrototype):
+        (JSC::JSGlobalObject::booleanPrototype):
+        (JSC::JSGlobalObject::stringPrototype):
+        (JSC::JSGlobalObject::numberPrototype):
+        (JSC::JSGlobalObject::datePrototype):
+        (JSC::JSGlobalObject::regExpPrototype):
+        (JSC::JSGlobalObject::methodCallDummy):
+        (JSC::Structure::prototypeForLookup):
+        (JSC::constructArray):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        (JSC::Stringifier::Holder::objectSlot):
+        (JSC::Stringifier::markAggregate):
+        (JSC::Stringifier::stringify):
+        (JSC::Stringifier::Holder::appendNextProperty):
+        (JSC::Walker::callReviver):
+        (JSC::Walker::walk):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirectOffset):
+        (JSC::JSObject::putDirectOffset):
+        (JSC::JSObject::putUndefinedAtDirectOffset):
+        (JSC::JSObject::flattenDictionaryObject):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::JSValue::putDirect):
+        (JSC::JSObject::allocatePropertyStorageInline):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator):
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSString.cpp:
+        (JSC::StringObject::create):
+        * runtime/JSValue.h:
+        * runtime/JSWrapperObject.cpp:
+        (JSC::JSWrapperObject::markChildren):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::internalValue):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::lookupPut):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::MarkStack):
+        (JSC::MarkStack::deprecatedAppendValues):
+        (JSC::MarkStack::appendValues):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::constructNumber):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        (JSC::resolveBase):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::setExistingProperty):
+        (JSC::PutPropertySlot::setNewProperty):
+        (JSC::PutPropertySlot::base):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::~ScopeChainNode):
+        (JSC::ScopeChainIterator::operator*):
+        (JSC::ScopeChainIterator::operator->):
+        (JSC::ScopeChain::top):
+        * runtime/ScopeChainMark.h:
+        (JSC::ScopeChain::markAggregate):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren):
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::emptyString):
+        (JSC::SmallStrings::singleCharacterString):
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+        (JSC::Structure::storedPrototypeSlot):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::uncheckedGet):
+        (JSC::WeakGCMap::uncheckedGetSlot):
+        (JSC::WeakGCMap::isValid):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+        (JSC::::uncheckedRemove):
+        * runtime/WriteBarrier.h: Added.
+        (JSC::DeprecatedPtr::DeprecatedPtr):
+        (JSC::DeprecatedPtr::get):
+        (JSC::DeprecatedPtr::operator*):
+        (JSC::DeprecatedPtr::operator->):
+        (JSC::DeprecatedPtr::slot):
+        (JSC::DeprecatedPtr::operator UnspecifiedBoolType*):
+        (JSC::DeprecatedPtr::operator!):
+        (JSC::WriteBarrierBase::set):
+        (JSC::WriteBarrierBase::get):
+        (JSC::WriteBarrierBase::operator*):
+        (JSC::WriteBarrierBase::operator->):
+        (JSC::WriteBarrierBase::slot):
+        (JSC::WriteBarrierBase::operator UnspecifiedBoolType*):
+        (JSC::WriteBarrierBase::operator!):
+        (JSC::WriteBarrier::WriteBarrier):
+        (JSC::operator==):
+
+2011-01-30  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Filter all Heap collection through a common reset function, in
+        preparation for adding features triggered by collection.
+        https://bugs.webkit.org/show_bug.cgi?id=53396
+        
+        SunSpider reports no change.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::reportExtraMemoryCostSlowCase): When we're over the extraCost
+        limit, just call collectAllGarbage() instead of rolling our own special
+        way of resetting the heap. In theory, this may be slower in some cases,
+        but it also fixes cases of pathological heap growth that we've seen,
+        where the only objects being allocated are temporary and huge
+        (<rdar://problem/8885843>).
+
+        (JSC::Heap::allocate):
+        (JSC::Heap::collectAllGarbage): Use the shared reset function.
+
+        (JSC::Heap::reset):
+        * runtime/Heap.h: Carved a new shared reset function out of the old
+        collectAllGarbage.
+
+2011-01-30  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77025.
+        http://trac.webkit.org/changeset/77025
+        https://bugs.webkit.org/show_bug.cgi?id=53401
+
+        It made js1_5/Regress/regress-159334.js fail on 64 bit Linux
+        (Requested by Ossy on #webkit).
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FreeListEntry::FreeListEntry):
+        (JSC::AVLTreeAbstractorForFreeList::get_less):
+        (JSC::AVLTreeAbstractorForFreeList::set_less):
+        (JSC::AVLTreeAbstractorForFreeList::get_greater):
+        (JSC::AVLTreeAbstractorForFreeList::set_greater):
+        (JSC::AVLTreeAbstractorForFreeList::get_balance_factor):
+        (JSC::AVLTreeAbstractorForFreeList::set_balance_factor):
+        (JSC::AVLTreeAbstractorForFreeList::null):
+        (JSC::AVLTreeAbstractorForFreeList::compare_key_key):
+        (JSC::AVLTreeAbstractorForFreeList::compare_key_node):
+        (JSC::AVLTreeAbstractorForFreeList::compare_node_node):
+        (JSC::reverseSortFreeListEntriesByPointer):
+        (JSC::reverseSortCommonSizedAllocations):
+        (JSC::FixedVMPoolAllocator::release):
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::addToFreeList):
+        (JSC::FixedVMPoolAllocator::coalesceFreeSpace):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::allocInternal):
+        (JSC::FixedVMPoolAllocator::isWithinVMPool):
+        (JSC::FixedVMPoolAllocator::addToCommittedByteCount):
+        (JSC::ExecutableAllocator::committedByteCount):
+        (JSC::maybeModifyVMPoolSize):
+        (JSC::ExecutableAllocator::isValid):
+        (JSC::ExecutableAllocator::underMemoryPressure):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::PageReservation):
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+
+2011-01-30  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        Reviewed by Daniel Bates.
+
+        Code style issue in JavaScriptCore/wtf/CurrentTime.h
+        https://bugs.webkit.org/show_bug.cgi?id=53394
+
+        According to rule #3 at http://webkit.org/coding/coding-style.html,
+        This patch fix style issue in CurrentTime.h.
+
+        No functionality change, no new tests.
+
+        * wtf/CurrentTime.h:
+        (WTF::currentTimeMS):
+        (WTF::getLocalTime):
+
+2011-01-30  Benjamin Poulain  <ikipou@gmail.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] JavaScriptCore does not link on Mac if building WebKit 2
+        https://bugs.webkit.org/show_bug.cgi?id=53377
+
+        The option "-whole-archive" is not availabe with the libtool of Mac OS X,
+        instead, we can use "-all_load" on Mac.
+
+        * JavaScriptCore.pri:
+
+2011-01-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Sorry Leopard bot -- I committed a change by accident.
+
+        * JavaScriptCore.exp: You may have your symbols back now.
+
+2011-01-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Simplified Heap iteration
+        https://bugs.webkit.org/show_bug.cgi?id=53393
+
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::isValid):
+        (JSC::CollectorHeapIterator::isLive):
+        (JSC::CollectorHeapIterator::advance): Removed "max" argument to
+        advance because it's a constant.
+        (JSC::LiveObjectIterator::LiveObjectIterator):
+        (JSC::LiveObjectIterator::operator++):
+        (JSC::DeadObjectIterator::DeadObjectIterator):
+        (JSC::DeadObjectIterator::operator++):
+        (JSC::ObjectIterator::ObjectIterator):
+        (JSC::ObjectIterator::operator++): Factored out common checks into
+        two helper functions -- isValid() for "Am I past the end?" and isLive()
+        for "Is the cell I'm pointing to live?".
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::freeBlock):
+        (JSC::MarkedSpace::sweep): Always sweep from the beginning of the heap
+        to the end, to avoid making sweep subtly reliant on internal Heap state.
+        (JSC::MarkedSpace::primaryHeapBegin):
+        (JSC::MarkedSpace::primaryHeapEnd): Always be explicit about where
+        iteration begins.
+
+2011-01-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Simplified heap destruction
+        https://bugs.webkit.org/show_bug.cgi?id=53392
+
+        * JavaScriptCore.exp:
+        * runtime/Heap.cpp:
+        (JSC::Heap::destroy):
+        * runtime/Heap.h:
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::destroy):
+        * runtime/MarkedSpace.h: Don't go out of our way to destroy GC-protected
+        cells last -- the difficult contortions required to do so just don't seem
+        justified. We make no guarantees about GC protection after the client
+        throws away JSGlobalData, and it doesn't seem like any meaningful
+        guarantee is even possible.
+
+2011-01-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Switched heap to use the Bitmap class and removed CollectorBitmap
+        https://bugs.webkit.org/show_bug.cgi?id=53391
+        
+        SunSpider says 1.005x as fast. Seems like a fluke.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::allocate): Updated for rename and returning a value
+        rather than taking a value by reference.
+
+        * runtime/MarkedSpace.h: Code reuse is good.
+
+        * wtf/Bitmap.h:
+        (WTF::::testAndSet): Added, since this is the one thing Bitmap was missing
+        which CollectorBitmap had. (Renamed from the less conventional "getset".)
+
+        (WTF::::nextPossiblyUnset): Renamed and changed to return a value for
+        clarity. It's all the same with inlining.
+
+2011-01-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Some more Heap cleanup.
+        https://bugs.webkit.org/show_bug.cgi?id=53357
+        
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Updated exported symbols.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::reportExtraMemoryCostSlowCase): Renamed recordExtraCost to 
+        reportExtraMemoryCostSlowCase to match our naming conventions.
+
+        (JSC::Heap::capacity): Renamed size to capacity because this function
+        returns the capacity of the heap, including unused portions.
+
+        * runtime/Heap.h:
+        (JSC::Heap::globalData):
+        (JSC::Heap::markedSpace):
+        (JSC::Heap::machineStackMarker):
+        (JSC::Heap::reportExtraMemoryCost): Moved statics to the top of the file.
+        Moved ctor and dtor to the beginning of the class definition. Grouped
+        functions by purpose.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::capacity): Renamed size to capacity because this
+        function returns the capacity of the heap, including unused portions.
+
+        * runtime/MarkedSpace.h: Removed statistics and the Statistics class because
+        the same information can be gotten just by calling size() and capacity().
+
+        * runtime/MemoryStatistics.cpp:
+        * runtime/MemoryStatistics.h: Ditto.
+
+2011-01-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        Move wince/mt19937ar.c to ThirdParty and make it a policy choice
+        https://bugs.webkit.org/show_bug.cgi?id=53253
+
+        Make inclusion of MT19937 a policy decision.
+
+        Currently, we hardcoded to  use MT19937 when building for
+        Windows CE. Instead, we should make this a policy decision
+        with the Windows CE port using this by default.
+
+        * JavaScriptCore.pri: Append Source/ThirdParty to the end
+        of the list include directories.
+        * wtf/CMakeLists.txt: Ditto.
+        * wtf/Platform.h: Defined WTF_USE_MERSENNE_TWISTER_19937 when
+        building for Windows CE.
+        * wtf/RandomNumber.cpp:
+        (WTF::randomNumber): Substituted USE(MERSENNE_TWISTER_19937) for OS(WINCE).
+
+2011-01-29  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Bug 53374 - Remove uses of unsafe string functions in debugging code
+        https://bugs.webkit.org/show_bug.cgi?id=53374
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::printTraceData):
+
+2011-01-29  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        JavaScriptCoreUseJIT environment variable broken
+        https://bugs.webkit.org/show_bug.cgi?id=53372
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData): Check the actual value in the string returned
+        by getenv() rather than just doing a NULL check on the return value.
+
+2011-01-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Move CharacterNames.h into WTF directory
+        https://bugs.webkit.org/show_bug.cgi?id=49618
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/unicode/CharacterNames.h: Renamed from WebCore/platform/text/CharacterNames.h.
+        * wtf/unicode/UTF8.cpp:
+
+2011-01-28  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add various clampToInt() methods to MathExtras.h
+        https://bugs.webkit.org/show_bug.cgi?id=52910
+        
+        Add functions for clamping doubles and floats to valid int
+        ranges, for signed and positive integers.
+
+        * wtf/MathExtras.h:
+        (clampToInteger):
+        (clampToPositiveInteger):
+
+2011-01-28  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77006 and r77020.
+        http://trac.webkit.org/changeset/77006
+        http://trac.webkit.org/changeset/77020
+        https://bugs.webkit.org/show_bug.cgi?id=53360
+
+        "Broke Windows tests" (Requested by rniwa on #webkit).
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::markChildren):
+        (JSC::JSCallbackObject::setPrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::put):
+        (JSC::::staticFunctionGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeConstructor):
+        (JSObjectSetPrivateProperty):
+        * API/JSWeakObjectMapRefInternal.h:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * debugger/Debugger.cpp:
+        (JSC::evaluateInGlobalCallFrame):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        (JSC::DebuggerActivation::markChildren):
+        * debugger/DebuggerActivation.h:
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::evaluate):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::exception):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/ArgList.cpp:
+        (JSC::MarkedArgumentBuffer::markLists):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::markChildren):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        * runtime/Arguments.h:
+        (JSC::Arguments::setActivation):
+        (JSC::Arguments::Arguments):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        (JSC::BatchedTransitionOptimizer::~BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/ConservativeSet.cpp:
+        (JSC::ConservativeSet::grow):
+        * runtime/ConservativeSet.h:
+        (JSC::ConservativeSet::~ConservativeSet):
+        (JSC::ConservativeSet::mark):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/GetterSetter.cpp:
+        (JSC::GetterSetter::markChildren):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::getter):
+        (JSC::GetterSetter::setGetter):
+        (JSC::GetterSetter::setter):
+        (JSC::GetterSetter::setSetter):
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        (JSC::GlobalEvalFunction::markChildren):
+        * runtime/GlobalEvalFunction.h:
+        (JSC::GlobalEvalFunction::cachedGlobalObject):
+        * runtime/Heap.cpp:
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::value):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        (JSC::JSActivation::put):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::JSValue::toThisObject):
+        (JSC::JSCell::MarkStack::append):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::regExpConstructor):
+        (JSC::JSGlobalObject::errorConstructor):
+        (JSC::JSGlobalObject::evalErrorConstructor):
+        (JSC::JSGlobalObject::rangeErrorConstructor):
+        (JSC::JSGlobalObject::referenceErrorConstructor):
+        (JSC::JSGlobalObject::syntaxErrorConstructor):
+        (JSC::JSGlobalObject::typeErrorConstructor):
+        (JSC::JSGlobalObject::URIErrorConstructor):
+        (JSC::JSGlobalObject::evalFunction):
+        (JSC::JSGlobalObject::objectPrototype):
+        (JSC::JSGlobalObject::functionPrototype):
+        (JSC::JSGlobalObject::arrayPrototype):
+        (JSC::JSGlobalObject::booleanPrototype):
+        (JSC::JSGlobalObject::stringPrototype):
+        (JSC::JSGlobalObject::numberPrototype):
+        (JSC::JSGlobalObject::datePrototype):
+        (JSC::JSGlobalObject::regExpPrototype):
+        (JSC::JSGlobalObject::methodCallDummy):
+        (JSC::Structure::prototypeForLookup):
+        (JSC::constructArray):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        (JSC::Stringifier::markAggregate):
+        (JSC::Stringifier::stringify):
+        (JSC::Stringifier::Holder::appendNextProperty):
+        (JSC::Walker::callReviver):
+        (JSC::Walker::walk):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirectOffset):
+        (JSC::JSObject::putDirectOffset):
+        (JSC::JSObject::flattenDictionaryObject):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::JSValue::putDirect):
+        (JSC::JSObject::allocatePropertyStorageInline):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator):
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSString.cpp:
+        (JSC::StringObject::create):
+        * runtime/JSValue.h:
+        * runtime/JSWrapperObject.cpp:
+        (JSC::JSWrapperObject::markChildren):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::internalValue):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::lookupPut):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::appendValues):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::constructNumber):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        (JSC::resolveBase):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::setExistingProperty):
+        (JSC::PutPropertySlot::setNewProperty):
+        (JSC::PutPropertySlot::base):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::~ScopeChainNode):
+        (JSC::ScopeChainIterator::operator*):
+        (JSC::ScopeChainIterator::operator->):
+        (JSC::ScopeChain::top):
+        * runtime/ScopeChainMark.h:
+        (JSC::ScopeChain::markAggregate):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren):
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::emptyString):
+        (JSC::SmallStrings::singleCharacterString):
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::uncheckedGet):
+        (JSC::WeakGCMap::isValid):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+        (JSC::::uncheckedRemove):
+        * runtime/WriteBarrier.h: Removed.
+
+2011-01-28  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53352
+        Heavy external fragmentation in FixedVMPoolAllocator can lead to a CRASH().
+
+        The FixedVMPoolAllocator currently uses a best fix policy -
+        switch to first fit, this is less prone to external fragmentation.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::AllocationTableSizeClass::AllocationTableSizeClass):
+        (JSC::AllocationTableSizeClass::blockSize):
+        (JSC::AllocationTableSizeClass::blockCount):
+        (JSC::AllocationTableSizeClass::blockAlignment):
+        (JSC::AllocationTableSizeClass::size):
+        (JSC::AllocationTableLeaf::AllocationTableLeaf):
+        (JSC::AllocationTableLeaf::~AllocationTableLeaf):
+        (JSC::AllocationTableLeaf::allocate):
+        (JSC::AllocationTableLeaf::free):
+        (JSC::AllocationTableLeaf::isEmpty):
+        (JSC::AllocationTableLeaf::isFull):
+        (JSC::AllocationTableLeaf::size):
+        (JSC::AllocationTableLeaf::classForSize):
+        (JSC::AllocationTableLeaf::dump):
+        (JSC::LazyAllocationTable::LazyAllocationTable):
+        (JSC::LazyAllocationTable::~LazyAllocationTable):
+        (JSC::LazyAllocationTable::allocate):
+        (JSC::LazyAllocationTable::free):
+        (JSC::LazyAllocationTable::isEmpty):
+        (JSC::LazyAllocationTable::isFull):
+        (JSC::LazyAllocationTable::size):
+        (JSC::LazyAllocationTable::dump):
+        (JSC::LazyAllocationTable::classForSize):
+        (JSC::AllocationTableDirectory::AllocationTableDirectory):
+        (JSC::AllocationTableDirectory::~AllocationTableDirectory):
+        (JSC::AllocationTableDirectory::allocate):
+        (JSC::AllocationTableDirectory::free):
+        (JSC::AllocationTableDirectory::isEmpty):
+        (JSC::AllocationTableDirectory::isFull):
+        (JSC::AllocationTableDirectory::size):
+        (JSC::AllocationTableDirectory::classForSize):
+        (JSC::AllocationTableDirectory::dump):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::allocated):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::classForSize):
+        (JSC::FixedVMPoolAllocator::offsetToPointer):
+        (JSC::FixedVMPoolAllocator::pointerToOffset):
+        (JSC::ExecutableAllocator::committedByteCount):
+        (JSC::ExecutableAllocator::isValid):
+        (JSC::ExecutableAllocator::underMemoryPressure):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::PageReservation):
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::committed):
+
+2011-01-27  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        Move the MarkStack over to a slot based marking API.
+
+        In order to avoiding aliasing concerns there are two new types
+        that need to be used when holding on to JSValues and JSCell that
+        need to be marked: WriteBarrier and DeprecatedPtr.  WriteBarrier
+        is expected to be used for any JSValue or Cell that's lifetime and
+        marking is controlled by another GC object.  DeprecatedPtr is used
+        for any value that we need to rework ownership for.
+
+        The change over to this model has produced a large amount of
+        code changes, but they are mostly mechanical (forwarding JSGlobalData,
+        etc).
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::markChildren):
+        (JSC::JSCallbackObject::setPrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::put):
+        (JSC::::staticFunctionGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeConstructor):
+        (JSObjectSetPrivateProperty):
+        * API/JSWeakObjectMapRefInternal.h:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        (JSC::DebuggerActivation::markChildren):
+        * debugger/DebuggerActivation.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolve):
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::resolveBaseAndProperty):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::privateExecute):
+        * interpreter/Register.h:
+        (JSC::Register::jsValueSlot):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::markChildren):
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        * runtime/Arguments.h:
+        (JSC::Arguments::setActivation):
+        (JSC::Arguments::Arguments):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        (JSC::BatchedTransitionOptimizer::~BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        (JSC::constructBoolean):
+        (JSC::constructBooleanFromImmediateBoolean):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/ConservativeSet.h:
+        (JSC::ConservativeSet::mark):
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/GetterSetter.cpp:
+        (JSC::GetterSetter::markChildren):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::getter):
+        (JSC::GetterSetter::setGetter):
+        (JSC::GetterSetter::setter):
+        (JSC::GetterSetter::setSetter):
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        (JSC::GlobalEvalFunction::markChildren):
+        * runtime/GlobalEvalFunction.h:
+        (JSC::GlobalEvalFunction::cachedGlobalObject):
+        * runtime/Heap.cpp:
+        (JSC::Heap::markProtectedObjects):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::value):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::put):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        * runtime/JSArray.h:
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.h:
+        (JSC::JSCell::MarkStack::append):
+        (JSC::JSCell::MarkStack::appendCell):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        (JSC::JSGlobalObject::markChildren):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::regExpConstructor):
+        (JSC::JSGlobalObject::errorConstructor):
+        (JSC::JSGlobalObject::evalErrorConstructor):
+        (JSC::JSGlobalObject::rangeErrorConstructor):
+        (JSC::JSGlobalObject::referenceErrorConstructor):
+        (JSC::JSGlobalObject::syntaxErrorConstructor):
+        (JSC::JSGlobalObject::typeErrorConstructor):
+        (JSC::JSGlobalObject::URIErrorConstructor):
+        (JSC::JSGlobalObject::evalFunction):
+        (JSC::JSGlobalObject::objectPrototype):
+        (JSC::JSGlobalObject::functionPrototype):
+        (JSC::JSGlobalObject::arrayPrototype):
+        (JSC::JSGlobalObject::booleanPrototype):
+        (JSC::JSGlobalObject::stringPrototype):
+        (JSC::JSGlobalObject::numberPrototype):
+        (JSC::JSGlobalObject::datePrototype):
+        (JSC::JSGlobalObject::regExpPrototype):
+        (JSC::JSGlobalObject::methodCallDummy):
+        (JSC::constructArray):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        (JSC::Stringifier::Holder::objectSlot):
+        (JSC::Stringifier::markAggregate):
+        (JSC::Stringifier::stringify):
+        (JSC::Stringifier::Holder::appendNextProperty):
+        (JSC::Walker::callReviver):
+        (JSC::Walker::walk):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::putDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::putDirectOffset):
+        (JSC::JSObject::putUndefinedAtDirectOffset):
+        (JSC::JSObject::flattenDictionaryObject):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirect):
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        (JSC::JSValue::putDirect):
+        (JSC::JSObject::allocatePropertyStorageInline):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSString.cpp:
+        (JSC::StringObject::create):
+        * runtime/JSValue.h:
+        * runtime/JSWrapperObject.cpp:
+        (JSC::JSWrapperObject::markChildren):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::internalValue):
+        (JSC::JSWrapperObject::setInternalValue):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::parse):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::lookupPut):
+        * runtime/MarkStack.h:
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        (JSC::constructWithNumberConstructor):
+        * runtime/NumberObject.cpp:
+        (JSC::constructNumber):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        (JSC::resolveBase):
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PutPropertySlot.h:
+        (JSC::PutPropertySlot::setExistingProperty):
+        (JSC::PutPropertySlot::setNewProperty):
+        (JSC::PutPropertySlot::base):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::~ScopeChainNode):
+        (JSC::ScopeChainIterator::operator*):
+        (JSC::ScopeChainIterator::operator->):
+        (JSC::ScopeChain::top):
+        * runtime/ScopeChainMark.h:
+        (JSC::ScopeChain::markAggregate):
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren):
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::emptyString):
+        (JSC::SmallStrings::singleCharacterString):
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/Structure.cpp:
+        (JSC::Structure::flattenDictionaryStructure):
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototypeSlot):
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::uncheckedGet):
+        (JSC::WeakGCMap::uncheckedGetSlot):
+        (JSC::::get):
+        (JSC::::take):
+        (JSC::::set):
+        (JSC::::uncheckedRemove):
+        * runtime/WriteBarrier.h: Added.
+        (JSC::DeprecatedPtr::DeprecatedPtr):
+        (JSC::DeprecatedPtr::get):
+        (JSC::DeprecatedPtr::operator*):
+        (JSC::DeprecatedPtr::operator->):
+        (JSC::DeprecatedPtr::slot):
+        (JSC::DeprecatedPtr::operator UnspecifiedBoolType*):
+        (JSC::DeprecatedPtr::operator!):
+        (JSC::WriteBarrierBase::set):
+        (JSC::WriteBarrierBase::get):
+        (JSC::WriteBarrierBase::operator*):
+        (JSC::WriteBarrierBase::operator->):
+        (JSC::WriteBarrierBase::slot):
+        (JSC::WriteBarrierBase::operator UnspecifiedBoolType*):
+        (JSC::WriteBarrierBase::operator!):
+        (JSC::WriteBarrier::WriteBarrier):
+        (JSC::operator==):
+
+2011-01-28  Adam Roben  <aroben@apple.com>
+
+        Chromium build fix after r76967
+
+        * wtf/ThreadingPrimitives.h: Use OS(WINDOWS) instead of PLATFORM(WIN), to match other
+        similar macros in this file.
+
+2011-01-28  Michael Saboff  <msaboff@apple.com>
+
+        Potentially Unsafe HashSet of RuntimeObject* in RootObject definition
+        https://bugs.webkit.org/show_bug.cgi?id=53271
+
+        Reapplying this this change.  No change from prior patch in
+        JavaScriptCore.
+
+        Added new isValid() methods to check if a contained object in
+        a WeakGCMap is valid when using an unchecked iterator.
+
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::isValid):
+
+2011-01-27  Adam Roben  <aroben@apple.com>
+
+        Extract code to convert a WTF absolute time to a Win32 wait interval into a separate
+        function
+
+        Fixes <http://webkit.org/b/53208> <rdar://problem/8922490> BinarySemaphore should wrap a
+        Win32 event
+
+        Reviewed by Dave Hyatt.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Export the new function.
+
+        * wtf/ThreadingPrimitives.h: Declare the new function.
+
+        * wtf/ThreadingWin.cpp:
+        (WTF::ThreadCondition::timedWait): Moved code to convert the absolute time to a wait
+        interval from here...
+        (WTF::absoluteTimeToWaitTimeoutInterval): ...to here.
+
+2011-01-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add basic rubber banding support
+        <rdar://problem/8219429>
+        https://bugs.webkit.org/show_bug.cgi?id=53277
+
+        * wtf/Platform.h: Add ENABLE for rubber banding.
+
+2011-01-28  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r76893.
+        http://trac.webkit.org/changeset/76893
+        https://bugs.webkit.org/show_bug.cgi?id=53287
+
+        It made some tests crash on GTK and Qt debug bots (Requested
+        by Ossy on #webkit).
+
+        * runtime/WeakGCMap.h:
+
+2011-01-27  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add WTFString method to compare equality with Vector<UChar>
+        https://bugs.webkit.org/show_bug.cgi?id=53266
+
+        I'm planning to use this method in the new XSS filter implementation,
+        but it seems generally useful.
+
+        * wtf/text/StringImpl.h:
+        (WTF::equalIgnoringNullity):
+        * wtf/text/WTFString.h:
+        (WTF::equalIgnoringNullity):
+
+2011-01-27  Michael Saboff  <msaboff@apple.com>
+
+        Potentially Unsafe HashSet of RuntimeObject* in RootObject definition
+        https://bugs.webkit.org/show_bug.cgi?id=53271
+
+        Added new isValid() methods to check if a contained object in
+        a WeakGCMap is valid when using an unchecked iterator.
+
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::isValid):
+
+2011-01-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add events to represent the start/end of a gesture scroll
+        https://bugs.webkit.org/show_bug.cgi?id=53215
+
+        * wtf/Platform.h: Add ENABLE for gesture events. 
+
+2011-01-26  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][Symbian] Fix --minimal build
+        https://bugs.webkit.org/show_bug.cgi?id=52839
+
+        Move definition of USE_SYSTEM_MALLOC out of pri file.
+        Put it in platform.h instead.
+
+        * wtf/Platform.h:
+        * wtf/TCSystemAlloc.cpp:
+        * wtf/wtf.pri:
+
+2011-01-26  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [WINCE] Add JIT support to build system
+        https://bugs.webkit.org/show_bug.cgi?id=53079
+
+        * CMakeListsWinCE.txt:
+
+2011-01-25  Adam Roben  <aroben@apple.com>
+
+        Windows Production build fix
+
+        Reviewed by Steve Falkenburg.
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make: Set BUILDSTYLE to Release_PGO at the very start
+        of the file so that ConfigurationBuildDir takes that into account. Also set it the right way
+        (by redefining the macro) rather than the wrong way (by modifying the environment variable).
+
+2011-01-25  Steve Falkenburg  <sfalken@apple.com>
+
+        Rubber-stamped by Adam Roben.
+
+        Windows production build fix.
+        Use correct environment variable escaping
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2011-01-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        JSON.stringify processing time exponentially grows with size of object
+        https://bugs.webkit.org/show_bug.cgi?id=51922
+
+        Remove last use of reserveCapacity from JSON stringification, as it results
+        in appalling append behaviour when there are a large number of property names
+        and nothing else.
+
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::appendQuotedString):
+
+2011-01-25  Antti Koivisto  <antti@apple.com>
+
+        Not reviewed.
+        
+        Try to fix windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2011-01-25  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        REGRESSION: Leak in JSParser::Scope::copyCapturedVariablesToVector()
+        https://bugs.webkit.org/show_bug.cgi?id=53061
+         
+        Cache did not know about the subclass so failed to fully delete the items. 
+        Got rid of the subclass and moved the classes to separate files.
+
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::saveFunctionInfo):
+        (JSC::JSParser::Scope::restoreFunctionInfo):
+        (JSC::JSParser::findCachedFunctionInfo):
+        (JSC::JSParser::parseFunctionInfo):
+        * parser/SourceProvider.h:
+        * parser/SourceProviderCache.cpp: Added.
+        (JSC::SourceProviderCache::~SourceProviderCache):
+        (JSC::SourceProviderCache::byteSize):
+        * parser/SourceProviderCache.h: Added.
+        (JSC::SourceProviderCache::SourceProviderCache):
+        (JSC::SourceProviderCache::add):
+        (JSC::SourceProviderCache::get):
+        * parser/SourceProviderCacheItem.h: Added.
+        (JSC::SourceProviderCacheItem::SourceProviderCacheItem):
+        (JSC::SourceProviderCacheItem::approximateByteSize):
+        (JSC::SourceProviderCacheItem::closeBraceToken):
+
+2011-01-25  Marcilio Mendonca  <mamendonca@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 53087: Refactoring: replaced a hanging "else" with a "return"
+        statement
+        https://bugs.webkit.org/show_bug.cgi?id=53087.
+
+        Refactoring work: Replaced a hanging "else" within an #if PLATFORM(M
+        with a "return" so that the code is more readable and less error pro
+        (e.g., "else" doesn't use braces so adding extra lines to the else
+        block won't have any effect; even worse, code still compiles
+        successfully.
+
+        * wtf/Assertions.cpp:
+
+2011-01-24  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Change ENABLE_3D_CANVAS to ENABLE_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=53041
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-01-25  Adam Roben  <aroben@apple.com>
+
+        Windows Production build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make: Added a missing "set".
+
+2011-01-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add missing defines for COMPILER(RVCT) && CPU(ARM_THUMB2)
+        https://bugs.webkit.org/show_bug.cgi?id=52949
+
+        * jit/JITStubs.cpp:
+
+2011-01-24  Adam Roben  <aroben@apple.com>
+
+        Windows Production build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make: Update for move of JavaScriptCore into Source.
+
+2011-01-24  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Optimize regex patterns which contain empty alternatives
+        https://bugs.webkit.org/show_bug.cgi?id=51395
+
+        Eliminate the empty alternatives from the regex pattern and convert it to do
+        the matching in an easier way.
+
+        * yarr/YarrPattern.cpp:
+        (JSC::Yarr::YarrPatternConstructor::atomParenthesesEnd):
+
+2011-01-24  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [Qt] Move project files into Source
+        https://bugs.webkit.org/show_bug.cgi?id=52891
+
+        * JavaScriptCore.pri:
+        * JavaScriptCore.pro:
+        * jsc.pro:
+
+2011-01-23  Mark Rowe  <mrowe@apple.com>
+
+        Follow-up to r76477.
+
+        Fix the scripts that detect problematic code such as static initializers
+        and destructors, weak vtables, inappropriate files in the framework wrappers,
+        and public headers including private headers. These had all been broken
+        since the projects were moved in to the Source directory as the paths to the
+        scripts were not updated at that time.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-01-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Use WTF::StringHasher in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=52934
+
+        Add an additional function to calculate the hash
+        of data with a runtimedependent size.
+
+        * wtf/StringHasher.h:
+        (WTF::StringHasher::createBlobHash):
+
+2011-01-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Fix comment in String::ascii()
+        https://bugs.webkit.org/show_bug.cgi?id=52980
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::ascii):
+
+2011-01-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Add String::containsOnlyLatin1()
+        https://bugs.webkit.org/show_bug.cgi?id=52979
+
+        * wtf/text/WTFString.h:
+        (WTF::String::containsOnlyLatin1):
+        (WTF::charactersAreAllLatin1):
+
+2011-01-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Remove obsolete JSVALUE32 code
+        https://bugs.webkit.org/show_bug.cgi?id=52948
+
+        r70111 removed support for JSVALUE32.
+        ARM, MIPS and X86 support JSVALUE32_64 only.
+
+        * jit/JITStubs.cpp:
+
+2011-01-22  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        ASSERT running run-webkit-tests --threaded.
+        https://bugs.webkit.org/show_bug.cgi?id=52971
+        
+        SunSpider and v8 report no change.
+
+        * runtime/ConservativeSet.cpp:
+        (JSC::ConservativeSet::grow):
+        (JSC::ConservativeSet::add):
+        * runtime/ConservativeSet.h: Tweaked the inline capacity to 128, and
+        the growth policy to 2X, to make SunSpider and v8 happy.
+        (JSC::ConservativeSet::ConservativeSet):
+        (JSC::ConservativeSet::~ConservativeSet):
+        (JSC::ConservativeSet::mark): Use OSAllocator directly, instead of malloc.
+        Malloc is forbidden during a multi-threaded mark phase because it can
+        cause deadlock.
+
+2011-01-22  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Rubber-stamped by Maciej Stachowiak.
+
+        A few of Maciej's review suggestions for my last patch.
+        https://bugs.webkit.org/show_bug.cgi?id=52946        
+
+        SunSpider reports no change.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj: Updated build systems.
+
+        * runtime/ConservativeSet.cpp: Added.
+        (JSC::isPointerAligned):
+        (JSC::ConservativeSet::add):
+        * runtime/ConservativeSet.h: Added.
+        (JSC::ConservativeSet::ConservativeSet):
+        (JSC::ConservativeSet::mark): Split ConservativeSet out into its own
+        file, and moved the conservative check into ConservativeSet::add, making
+        ConservativeSet's responsibility clearer.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::markRoots):
+        * runtime/MachineStackMarker.cpp:
+        (JSC::MachineStackMarker::markCurrentThreadConservativelyInternal):
+        (JSC::MachineStackMarker::markOtherThreadConservatively):
+        * runtime/MachineStackMarker.h:
+        * runtime/MarkStack.h: Updated for changes above.
+
+2011-01-22  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed WinCE build fix for r76430.
+
+        * runtime/MachineStackMarker.cpp:
+        (JSC::swapIfBackwards):
+
+2011-01-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Reorganized MarkedSpace, making many of its functions private.
+
+        * runtime/JSCell.h:
+        (JSC::JSCell::Heap::heap):
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::globalData):
+        (JSC::MarkedSpace::heap):
+
+2011-01-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix build: moved helper function out of #ifdef.
+
+        * runtime/MachineStackMarker.cpp:
+        (JSC::swapIfBackwards):
+
+2011-01-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Rubber-stamped by Maciej Stachowiak.
+
+        A few of Maciej's review suggestions for my last patch.
+        https://bugs.webkit.org/show_bug.cgi?id=52946        
+
+        SunSpider reports no change.
+
+        * runtime/MachineStackMarker.cpp:
+        (JSC::swapIfBackwards): Added a helper function for handling platforms
+        where the stack can grow in any direction.
+
+        (JSC::MachineStackMarker::markCurrentThreadConservativelyInternal):
+        (JSC::MachineStackMarker::markOtherThreadConservatively): Use the helper
+        function.
+
+        (JSC::isPointerAligned): Use "!" instead of "==0" because a robot told me to.
+
+        (JSC::MachineStackMarker::markConservatively): Changed to use a more
+        standard looping idiom, and to use the helper function above.
+
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::isCellAligned): Use "!" instead of "==0" because a robot told me to.
+
+2011-01-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Cleaned up some conservative marking code.
+        https://bugs.webkit.org/show_bug.cgi?id=52946
+        
+        SunSpider reports no change.
+
+        * interpreter/RegisterFile.h: No need for a special marking function,
+        since we already expose a start() and end().
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::registerFile):
+        (JSC::Heap::markRoots):
+        * runtime/Heap.h:
+        (JSC::Heap::contains): Migrated markConservatively() to the machine stack
+        marker class. Now, Heap just provides a contains() function, which the
+        machine stack marker uses for checking whether a pointer points into the heap.
+
+        * runtime/MachineStackMarker.cpp:
+        (JSC::MachineStackMarker::markCurrentThreadConservativelyInternal):
+        (JSC::MachineStackMarker::markOtherThreadConservatively):
+        (JSC::isPointerAligned):
+        (JSC::MachineStackMarker::markConservatively):
+        * runtime/MachineStackMarker.h: Move the conservative marking code here.
+
+        * runtime/MarkStack.h:
+        (JSC::ConservativeSet::add):
+        (JSC::ConservativeSet::mark): Changed to using a vector instead of hash
+        set. Vector seems to be a bit faster, and it generates smaller code.
+
+        * runtime/MarkedSpace.cpp:
+        (JSC::MarkedSpace::containsSlowCase):
+        * runtime/MarkedSpace.h:
+        (JSC::MarkedSpace::isCellAligned):
+        (JSC::MarkedSpace::isPossibleCell):
+        (JSC::MarkedSpace::contains): Kept the code for determining whether a
+        pointer pointed into marked space, and moved the code for marking
+        a set of conservative pointers into the machine stack marker.
+
+        * wtf/HashSet.h:
+        (WTF::::add): Added two missing inlines that I noticed while testing
+        vector vs hash set.
+
+2011-01-21  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Work around a Clang bug <rdar://problem/8876150> that leads to it incorrectly emitting an access
+        control warning when a client tries to use operator bool exposed above via "using PageBlock::operator bool".
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::operator bool):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::operator bool):
+
 2011-01-21  Michael Saboff  <msaboff@apple.com>
 
         Reviewed by Oliver Hunt.

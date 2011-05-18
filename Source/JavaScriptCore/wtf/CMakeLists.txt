@@ -9,6 +9,7 @@ SET(WTF_HEADERS
     ByteArray.h
     Complex.h
     CrossThreadRefCounted.h
+    CryptographicallyRandomNumber.h
     CurrentTime.h
     DateMath.h
     DecimalNumber.h
@@ -41,8 +42,8 @@ SET(WTF_HEADERS
     NotFound.h
     NullPtr.h
     OSAllocator.h
+    OSRandomSource.h
     OwnArrayPtr.h
-    OwnArrayPtrCommon.h
     OwnFastMallocPtr.h
     OwnPtr.h
     OwnPtrCommon.h
@@ -95,6 +96,7 @@ SET(WTF_HEADERS
     text/StringImplBase.h
     text/WTFString.h
 
+    unicode/CharacterNames.h
     unicode/Collator.h
     unicode/UTF8.h
     unicode/Unicode.h
@@ -103,12 +105,14 @@ SET(WTF_HEADERS
 SET(WTF_SOURCES
     Assertions.cpp
     ByteArray.cpp
+    CryptographicallyRandomNumber.cpp
     CurrentTime.cpp
     DecimalNumber.cpp
     FastMalloc.cpp
     HashTable.cpp
     MainThread.cpp
     MD5.cpp
+    OSRandomSource.cpp
     RandomNumber.cpp
     RefCountedLeakCounter.cpp
     StackBounds.cpp
@@ -136,6 +140,7 @@ INCLUDE_IF_EXISTS(${JAVASCRIPTCORE_DIR}/wtf/CMakeLists${PORT}.txt)
 
 LIST(APPEND WTF_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
+    "${CMAKE_SOURCE_DIR}/ThirdParty"
 )
 
 WEBKIT_WRAP_SOURCELIST(${WTF_SOURCES})

@@ -35,7 +35,7 @@
 #if ENABLE(INSPECTOR) && ENABLE(JAVASCRIPT_DEBUGGER)
 
 #include "HTMLElement.h"
-#include "InspectorController.h"
+#include "InspectorAgent.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDebuggerAgent.h"
 #include "InspectorState.h"
@@ -61,26 +61,41 @@ const int domBreakpointDerivedTypeShift = 16;
 
 namespace WebCore {
 
-InspectorBrowserDebuggerAgent::InspectorBrowserDebuggerAgent(InspectorController* inspectorController)
-    : m_inspectorController(inspectorController)
+namespace BrowserDebuggerAgentState {
+static const char browserBreakpoints[] = "browserBreakpoints";
+}
+
+PassOwnPtr<InspectorBrowserDebuggerAgent> InspectorBrowserDebuggerAgent::create(InspectorAgent* inspectorAgent, bool eraseStickyBreakpoints)
+{
+    return adoptPtr(new InspectorBrowserDebuggerAgent(inspectorAgent, eraseStickyBreakpoints));
+}
+
+InspectorBrowserDebuggerAgent::InspectorBrowserDebuggerAgent(InspectorAgent* inspectorAgent, bool eraseStickyBreakpoints)
+    : m_inspectorAgent(inspectorAgent)
     , m_hasXHRBreakpointWithEmptyURL(false)
 {
+    if (eraseStickyBreakpoints)
+        inspectorAgent->state()->setObject(BrowserDebuggerAgentState::browserBreakpoints, InspectorObject::create());
 }
 
 InspectorBrowserDebuggerAgent::~InspectorBrowserDebuggerAgent()
 {
 }
 
-void InspectorBrowserDebuggerAgent::inspectedURLChanged(const KURL& url)
+void InspectorBrowserDebuggerAgent::setAllBrowserBreakpoints(PassRefPtr<InspectorObject> breakpoints)
+{
+    m_inspectorAgent->state()->setObject(BrowserDebuggerAgentState::browserBreakpoints, breakpoints);
+    inspectedURLChanged(m_inspectorAgent->inspectedURLWithoutFragment());
+}
+
+void InspectorBrowserDebuggerAgent::inspectedURLChanged(const String& url)
 {
     m_eventListenerBreakpoints.clear();
     m_XHRBreakpoints.clear();
     m_hasXHRBreakpointWithEmptyURL = false;
 
-    RefPtr<InspectorObject> allBreakpoints = m_inspectorController->state()->getObject(InspectorState::browserBreakpoints);
-    KURL urlCopy = url;
-    urlCopy.removeFragmentIdentifier();
-    RefPtr<InspectorArray> breakpoints = allBreakpoints->getArray(urlCopy);
+    RefPtr<InspectorObject> allBreakpoints = m_inspectorAgent->state()->getObject(BrowserDebuggerAgentState::browserBreakpoints);
+    RefPtr<InspectorArray> breakpoints = allBreakpoints->getArray(url);
     if (!breakpoints)
         return;
     for (unsigned i = 0; i < breakpoints->length(); ++i)
@@ -89,10 +104,6 @@ void InspectorBrowserDebuggerAgent::inspectedURLChanged(const KURL& url)
 
 void InspectorBrowserDebuggerAgent::restoreStickyBreakpoint(PassRefPtr<InspectorObject> breakpoint)
 {
-    DEFINE_STATIC_LOCAL(String, eventListenerBreakpointType, ("EventListener"));
-    DEFINE_STATIC_LOCAL(String, javaScriptBreakpointType, ("JS"));
-    DEFINE_STATIC_LOCAL(String, xhrBreakpointType, ("XHR"));
-
     if (!breakpoint)
         return;
     String type;
@@ -105,25 +116,14 @@ void InspectorBrowserDebuggerAgent::restoreStickyBreakpoint(PassRefPtr<Inspector
     if (!condition)
         return;
 
-    if (type == eventListenerBreakpointType) {
+    if (type == eventListenerNativeBreakpointType) {
         if (!enabled)
             return;
         String eventName;
         if (!condition->getString("eventName", &eventName))
             return;
         setEventListenerBreakpoint(eventName);
-    } else if (type == javaScriptBreakpointType && m_inspectorController->debuggerAgent()) {
-        String url;
-        if (!condition->getString("url", &url))
-            return;
-        double lineNumber;
-        if (!condition->getNumber("lineNumber", &lineNumber))
-            return;
-        String javaScriptCondition;
-        if (!condition->getString("condition", &javaScriptCondition))
-            return;
-        m_inspectorController->debuggerAgent()->setStickyBreakpoint(url, static_cast<unsigned>(lineNumber), javaScriptCondition, enabled);
-    } else if (type == xhrBreakpointType) {
+    } else if (type == xhrNativeBreakpointType) {
         if (!enabled)
             return;
         String url;
@@ -178,7 +178,7 @@ void InspectorBrowserDebuggerAgent::didRemoveDOMNode(Node* node)
 
 void InspectorBrowserDebuggerAgent::setDOMBreakpoint(long nodeId, long type)
 {
-    Node* node = m_inspectorController->domAgent()->nodeForId(nodeId);
+    Node* node = m_inspectorAgent->domAgent()->nodeForId(nodeId);
     if (!node)
         return;
 
@@ -192,7 +192,7 @@ void InspectorBrowserDebuggerAgent::setDOMBreakpoint(long nodeId, long type)
 
 void InspectorBrowserDebuggerAgent::removeDOMBreakpoint(long nodeId, long type)
 {
-    Node* node = m_inspectorController->domAgent()->nodeForId(nodeId);
+    Node* node = m_inspectorAgent->domAgent()->nodeForId(nodeId);
     if (!node)
         return;
 
@@ -211,7 +211,7 @@ void InspectorBrowserDebuggerAgent::removeDOMBreakpoint(long nodeId, long type)
 
 void InspectorBrowserDebuggerAgent::willInsertDOMNode(Node*, Node* parent)
 {
-    InspectorDebuggerAgent* debuggerAgent = m_inspectorController->debuggerAgent();
+    InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent();
     if (!debuggerAgent)
         return;
 
@@ -225,7 +225,7 @@ void InspectorBrowserDebuggerAgent::willInsertDOMNode(Node*, Node* parent)
 
 void InspectorBrowserDebuggerAgent::willRemoveDOMNode(Node* node)
 {
-    InspectorDebuggerAgent* debuggerAgent = m_inspectorController->debuggerAgent();
+    InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent();
     if (!debuggerAgent)
         return;
 
@@ -244,7 +244,7 @@ void InspectorBrowserDebuggerAgent::willRemoveDOMNode(Node* node)
 
 void InspectorBrowserDebuggerAgent::willModifyDOMAttr(Element* element)
 {
-    InspectorDebuggerAgent* debuggerAgent = m_inspectorController->debuggerAgent();
+    InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent();
     if (!debuggerAgent)
         return;
 
@@ -264,7 +264,7 @@ void InspectorBrowserDebuggerAgent::descriptionForDOMEvent(Node* target, long br
     if ((1 << breakpointType) & inheritableDOMBreakpointTypesMask) {
         // For inheritable breakpoint types, target node isn't always the same as the node that owns a breakpoint.
         // Target node may be unknown to frontend, so we need to push it first.
-        long targetNodeId = m_inspectorController->domAgent()->pushNodePathToFrontend(target);
+        long targetNodeId = m_inspectorAgent->domAgent()->pushNodePathToFrontend(target);
         ASSERT(targetNodeId);
         description->setNumber("targetNodeId", targetNodeId);
 
@@ -281,7 +281,7 @@ void InspectorBrowserDebuggerAgent::descriptionForDOMEvent(Node* target, long br
             description->setBoolean("insertion", insertion);
     }
 
-    long breakpointOwnerNodeId = m_inspectorController->domAgent()->pushNodePathToFrontend(breakpointOwner);
+    long breakpointOwnerNodeId = m_inspectorAgent->domAgent()->pushNodePathToFrontend(breakpointOwner);
     ASSERT(breakpointOwnerNodeId);
     description->setNumber("nodeId", breakpointOwnerNodeId);
     description->setNumber("type", breakpointType);
@@ -314,7 +314,7 @@ void InspectorBrowserDebuggerAgent::updateSubtreeBreakpoints(Node* node, uint32_
 
 void InspectorBrowserDebuggerAgent::pauseOnNativeEventIfNeeded(const String& categoryType, const String& eventName, bool synchronous)
 {
-    InspectorDebuggerAgent* debuggerAgent = m_inspectorController->debuggerAgent();
+    InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent();
     if (!debuggerAgent)
         return;
 
@@ -349,7 +349,7 @@ void InspectorBrowserDebuggerAgent::removeXHRBreakpoint(const String& url)
 
 void InspectorBrowserDebuggerAgent::willSendXMLHttpRequest(const String& url)
 {
-    InspectorDebuggerAgent* debuggerAgent = m_inspectorController->debuggerAgent();
+    InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent();
     if (!debuggerAgent)
         return;
 

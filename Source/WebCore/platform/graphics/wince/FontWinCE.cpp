@@ -86,6 +86,7 @@ public:
 
 TextRunComponent::TextRunComponent(const UChar *start, int length, const TextRun& parentTextRun, const Font &font, int o)
     : m_textRun(start, length, parentTextRun.allowTabs(), 0, 0
+        , parentTextRun.allowsTrailingExpansion() ? TextRun::AllowTrailingExpansion : TextRun::ForbidTrailingExpansion
         , parentTextRun.rtl()
         , parentTextRun.directionalOverride()
         , parentTextRun.applyRunRounding()
@@ -112,7 +113,7 @@ static int generateComponents(TextRunComponents* components, const Font &font, c
 {
     int letterSpacing = font.letterSpacing();
     int wordSpacing = font.wordSpacing();
-    int padding = run.padding();
+    int padding = run.expansion();
     int numSpaces = 0;
     if (padding) {
         for (int i = 0; i < run.length(); i++)
@@ -336,6 +337,11 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint
 }
 
 bool Font::canReturnFallbackFontsForComplexText()
+{
+    return false;
+}
+
+bool Font::canExpandAroundIdeographsInComplexText()
 {
     return false;
 }

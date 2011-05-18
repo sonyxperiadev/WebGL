@@ -29,27 +29,11 @@
 #if ENABLE(VIDEO)
 
 #include "RenderImage.h"
-#include "Timer.h"
 
 namespace WebCore {
-    
-class HTMLInputElement;
+
 class HTMLMediaElement;
-class MediaControlMuteButtonElement;
-class MediaControlPlayButtonElement;
-class MediaControlSeekButtonElement;
-class MediaControlRewindButtonElement;
-class MediaControlReturnToRealtimeButtonElement;
-class MediaControlToggleClosedCaptionsButtonElement;
-class MediaControlTimelineElement;
-class MediaControlVolumeSliderElement;
-class MediaControlFullscreenButtonElement;
-class MediaControlTimeDisplayElement;
-class MediaControlStatusDisplayElement;
-class MediaControlTimelineContainerElement;
-class MediaControlVolumeSliderContainerElement;
-class MediaControlElement;
-class MediaPlayer;
+class MediaControls;
 
 class RenderMedia : public RenderImage {
 public:
@@ -61,10 +45,9 @@ public:
     RenderObjectChildList* children() { return &m_children; }
 
     HTMLMediaElement* mediaElement() const;
-    MediaPlayer* player() const;
+    MediaControls* controls() const;
 
-    bool shouldShowTimeDisplayControls() const;
-
+<<<<<<< HEAD
     void updateFromElement();
     void updatePlayer();
     void updateControls();
@@ -74,6 +57,9 @@ public:
 #if PLATFORM(ANDROID)
     void updateLastTouch();
 #endif
+=======
+    virtual void updateFromElement();
+>>>>>>> webkit.org at r78450
 
 protected:
     virtual void layout();
@@ -88,57 +74,14 @@ private:
     virtual bool isMedia() const { return true; }
     virtual bool isImage() const { return false; }
 
-    void createControlsShadowRoot();
-    void destroyControlsShadowRoot();
-    void createPanel();
-    void createMuteButton();
-    void createPlayButton();
-    void createSeekBackButton();
-    void createSeekForwardButton();
-    void createRewindButton();
-    void createReturnToRealtimeButton();
-    void createToggleClosedCaptionsButton();
-    void createStatusDisplay();
-    void createTimelineContainer();
-    void createTimeline();
-    void createVolumeSliderContainer();
-    void createVolumeSlider();
-    void createVolumeSliderMuteButton();
-    void createCurrentTimeDisplay();
-    void createTimeRemainingDisplay();
-    void createFullscreenButton();
-    
-    void timeUpdateTimerFired(Timer<RenderMedia>*);
-    
-    void updateControlVisibility();
-    void changeOpacity(HTMLElement*, float opacity);
-    void opacityAnimationTimerFired(Timer<RenderMedia>*);
-
-    void updateVolumeSliderContainer(bool visible);
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
 
-    RefPtr<HTMLElement> m_controlsShadowRoot;
-    RefPtr<MediaControlElement> m_panel;
-    RefPtr<MediaControlMuteButtonElement> m_muteButton;
-    RefPtr<MediaControlPlayButtonElement> m_playButton;
-    RefPtr<MediaControlSeekButtonElement> m_seekBackButton;
-    RefPtr<MediaControlSeekButtonElement> m_seekForwardButton;
-    RefPtr<MediaControlRewindButtonElement> m_rewindButton;
-    RefPtr<MediaControlReturnToRealtimeButtonElement> m_returnToRealtimeButton;
-    RefPtr<MediaControlToggleClosedCaptionsButtonElement> m_toggleClosedCaptionsButton;
-    RefPtr<MediaControlTimelineElement> m_timeline;
-    RefPtr<MediaControlVolumeSliderElement> m_volumeSlider;
-    RefPtr<MediaControlMuteButtonElement> m_volumeSliderMuteButton;
-    RefPtr<MediaControlFullscreenButtonElement> m_fullscreenButton;
-    RefPtr<MediaControlTimelineContainerElement> m_timelineContainer;
-    RefPtr<MediaControlVolumeSliderContainerElement> m_volumeSliderContainer;
-    RefPtr<MediaControlTimeDisplayElement> m_currentTimeDisplay;
-    RefPtr<MediaControlTimeDisplayElement> m_timeRemainingDisplay;
-    RefPtr<MediaControlStatusDisplayElement> m_statusDisplay;
+    OwnPtr<MediaControls> m_controls;
     RenderObjectChildList m_children;
+<<<<<<< HEAD
     Node* m_lastUnderNode;
     Node* m_nodeUnderMouse;
     
@@ -152,12 +95,19 @@ private:
 #if PLATFORM(ANDROID)
     double m_lastTouch;
 #endif
+=======
+>>>>>>> webkit.org at r78450
 };
 
 inline RenderMedia* toRenderMedia(RenderObject* object)
 {
     ASSERT(!object || object->isMedia());
     return static_cast<RenderMedia*>(object);
+}
+
+inline MediaControls* RenderMedia::controls() const
+{
+    return m_controls.get();
 }
 
 // This will catch anyone doing an unnecessary cast.

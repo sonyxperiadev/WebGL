@@ -78,6 +78,7 @@ private slots:
     void initTestCase();
     void cleanupTestCase();
 
+    void contextMenuCopy();
     void acceptNavigationRequest();
     void geolocationRequestJS();
     void loadFinished();
@@ -85,6 +86,7 @@ private slots:
     void userStyleSheet();
     void modified();
     void contextMenuCrash();
+    void updatePositionDependentActionsCrash();
     void database();
     void createPluginWithPluginsEnabled();
     void createPluginWithPluginsDisabled();
@@ -133,6 +135,7 @@ private slots:
     void infiniteLoopJS();
     void networkAccessManagerOnDifferentThread();
     void navigatorCookieEnabled();
+    void navigatorCookieEnabledForNetworkAccessManagerOnDifferentThread();
 
 #ifdef Q_OS_MAC
     void macCopyUnicodeToClipboard();
@@ -495,11 +498,31 @@ void tst_QWebPage::modified()
     QVERIFY(::waitForSignal(m_page, SIGNAL(saveFrameStateRequested(QWebFrame*,QWebHistoryItem*))));
 }
 
+// https://bugs.webkit.org/show_bug.cgi?id=51331
+void tst_QWebPage::updatePositionDependentActionsCrash()
+{
+    QWebView view;
+    view.setHtml("<p>test");
+    QPoint pos(0, 0);
+    view.page()->updatePositionDependentActions(pos);
+    QMenu* contextMenu = 0;
+    foreach (QObject* child, view.children()) {
+        contextMenu = qobject_cast<QMenu*>(child);
+        if (contextMenu)
+            break;
+    }
+    QVERIFY(!contextMenu);
+}
+
+// https://bugs.webkit.org/show_bug.cgi?id=20357
 void tst_QWebPage::contextMenuCrash()
 {
     QWebView view;
     view.setHtml("<p>test");
-    view.page()->updatePositionDependentActions(QPoint(0, 0));
+    QPoint pos(0, 0);
+    QContextMenuEvent event(QContextMenuEvent::Mouse, pos);
+    view.page()->swallowContextMenuEvent(&event);
+    view.page()->updatePositionDependentActions(pos);
     QMenu* contextMenu = 0;
     foreach (QObject* child, view.children()) {
         contextMenu = qobject_cast<QMenu*>(child);
@@ -2740,6 +2763,19 @@ void tst_QWebPage::navigatorCookieEnabled()
     QVERIFY(m_page->mainFrame()->evaluateJavaScript("navigator.cookieEnabled").toBool());
 }
 
+void tst_QWebPage::navigatorCookieEnabledForNetworkAccessManagerOnDifferentThread()
+{
+    QtNAMThread qnamThread;
+    qnamThread.start();
+    m_page->setNetworkAccessManager(qnamThread.networkAccessManager());
+
+    // This call access the cookie jar, the cookie jar must be in the same thread as
+    // the network access manager.
+    QVERIFY(m_page->mainFrame()->evaluateJavaScript("navigator.cookieEnabled").toBool());
+
+    QCOMPARE(qnamThread.networkAccessManager()->cookieJar()->thread(), &qnamThread);
+}
+
 #ifdef Q_OS_MAC
 void tst_QWebPage::macCopyUnicodeToClipboard()
 {
@@ -2755,5 +2791,29 @@ void tst_QWebPage::macCopyUnicodeToClipboard()
 }
 #endif
 
+void tst_QWebPage::contextMenuCopy()
+{
+    QWebView view;
+
+    view.setHtml("<a href=\"http://www.google.com\">You cant miss this</a>");
+
+    view.page()->triggerAction(QWebPage::SelectAll);
+    QVERIFY(!view.page()->selectedText().isEmpty());
+
+    QWebElement link = view.page()->mainFrame()->findFirstElement("a");
+    QPoint pos(link.geometry().center());
+    QContextMenuEvent event(QContextMenuEvent::Mouse, pos);
+    view.page()->swallowContextMenuEvent(&event);
+    view.page()->updatePositionDependentActions(pos);
+
+    QList<QMenu*> contextMenus = view.findChildren<QMenu*>();
+    QVERIFY(!contextMenus.isEmpty());
+    QMenu* contextMenu = contextMenus.first();
+    QVERIFY(contextMenu);
+    
+    QList<QAction *> list = contextMenu->actions();
+    int index = list.indexOf(view.page()->action(QWebPage::Copy));
+    QVERIFY(index != -1);
+}
 QTEST_MAIN(tst_QWebPage)
 #include "tst_qwebpage.moc"

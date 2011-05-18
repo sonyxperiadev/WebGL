@@ -305,7 +305,7 @@ public:
         }
     } m_state;
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     const GraphicsContext3D* m_gc3D;
 #endif
 
@@ -335,7 +335,7 @@ GraphicsLayerQtImpl::GraphicsLayerQtImpl(GraphicsLayerQt* newLayer)
 #if ENABLE(TILED_BACKING_STORE)
     , m_tiledBackingStore(0)
 #endif
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     , m_gc3D(0)
 #endif
 {
@@ -529,12 +529,12 @@ void GraphicsLayerQtImpl::updateTransform()
     // have to maintain that ourselves for 3D.
     localTransform
             .translate3d(originX + m_state.pos.x(), originY + m_state.pos.y(), m_state.anchorPoint.z())
-            .multLeft(m_baseTransform)
+            .multiply(m_baseTransform)
             .translate3d(-originX, -originY, -m_state.anchorPoint.z());
 
     // This is the actual 3D transform of this item, with the ancestors' transform baked in.
     m_transformRelativeToRootLayer = TransformationMatrix(parent ? parent->m_transformRelativeToRootLayer : TransformationMatrix())
-                                         .multLeft(localTransform);
+                                         .multiply(localTransform);
 
     // Now we have enough information to determine if the layer is facing backwards.
     if (!m_state.backfaceVisibility && m_transformRelativeToRootLayer.inverse().m33() < 0) {
@@ -562,7 +562,7 @@ void GraphicsLayerQtImpl::updateTransform()
     if (!m_state.childrenTransform.isIdentity()) {
         m_transformRelativeToRootLayer
             .translate(m_size.width() / 2, m_size.height() /2)
-            .multLeft(m_state.childrenTransform)
+            .multiply(m_state.childrenTransform)
             .translate(-m_size.width() / 2, -m_size.height() /2);
     }
 
@@ -647,7 +647,7 @@ void GraphicsLayerQtImpl::paint(QPainter* painter, const QStyleOptionGraphicsIte
     case MediaContentType:
         // we don't need to paint anything: we have a QGraphicsItem from the media element
         break;
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     case Canvas3DContentType:
         m_gc3D->paint(painter, option->rect);
         break;
@@ -791,7 +791,7 @@ void GraphicsLayerQtImpl::flushChanges(bool recursive, bool forceUpdateTransform
             setFlag(ItemHasNoContents, !m_layer->drawsContent());
             break;
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
         case Canvas3DContentType:
             if (m_pendingContent.contentType != m_currentContent.contentType)
                 update();
@@ -1250,7 +1250,7 @@ void GraphicsLayerQt::setContentsBackgroundColor(const Color& color)
     GraphicsLayer::setContentsBackgroundColor(color);
 }
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 void GraphicsLayerQt::setContentsToGraphicsContext3D(const GraphicsContext3D* ctx)
 {
     if (ctx == m_impl->m_gc3D)

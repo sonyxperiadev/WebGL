@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,7 @@
 #include "RenderTextControlSingleLine.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "ScrollAnimator.h"
 #include "Scrollbar.h"
 #include "SelectionController.h"
 #include "Settings.h"
@@ -80,6 +81,10 @@
 #include "htmlediting.h" // for comparePositions()
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
+
+#if ENABLE(GESTURE_EVENTS)
+#include "PlatformGestureEvent.h"
+#endif
 
 #if ENABLE(SVG)
 #include "SVGDocument.h"
@@ -1439,7 +1444,7 @@ bool EventHandler::handleMouseDoubleClickEvent(const PlatformMouseEvent& mouseEv
     m_clickCount = mouseEvent.clickCount();
     bool swallowMouseUpEvent = dispatchMouseEvent(eventNames().mouseupEvent, mev.targetNode(), true, m_clickCount, mouseEvent, false);
 
-    bool swallowClickEvent = mouseEvent.button() == LeftButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
+    bool swallowClickEvent = mouseEvent.button() != RightButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
 
     if (m_lastScrollbarUnderMouse)
         swallowMouseUpEvent = m_lastScrollbarUnderMouse->mouseUp();
@@ -1459,6 +1464,9 @@ bool EventHandler::mouseMoved(const PlatformMouseEvent& event)
     Page* page = m_frame->page();
     if (!page)
         return result;
+
+    if (FrameView* frameView = m_frame->view())
+        frameView->scrollAnimator()->mouseMovedInContentArea();  
 
     hoveredNode.setToNonShadowAncestor();
     page->chrome()->mouseDidMoveOverElement(hoveredNode, event.modifierFlags());
@@ -1557,7 +1565,7 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
                 // effect on plugins (which matches Firefox).
                 bool overPluginElement = false;
                 if (mev.targetNode() && mev.targetNode()->isHTMLElement()) {
-                    HTMLElement* el = static_cast<HTMLElement*>(mev.targetNode());
+                    HTMLElement* el = toHTMLElement(mev.targetNode());
                     overPluginElement = el->hasTagName(appletTag) || el->hasTagName(objectTag) || el->hasTagName(embedTag);
                 }
                 if (!overPluginElement) {
@@ -1637,7 +1645,7 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
 
     bool swallowMouseUpEvent = dispatchMouseEvent(eventNames().mouseupEvent, mev.targetNode(), true, m_clickCount, mouseEvent, false);
 
-    bool swallowClickEvent = m_clickCount > 0 && mouseEvent.button() == LeftButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
+    bool swallowClickEvent = m_clickCount > 0 && mouseEvent.button() != RightButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
 
     if (m_resizeLayer) {
         m_resizeLayer->setInResizeMode(false);
@@ -1881,6 +1889,23 @@ void EventHandler::updateMouseEventTargetNode(Node* targetNode, const PlatformMo
 
     // Fire mouseout/mouseover if the mouse has shifted to a different node.
     if (fireMouseOverOut) {
+        // FIXME: This code will only correctly handle transitions between frames with scrollbars,
+        // not transitions between overflow regions, or transitions between two frames
+        // that don't have scrollbars contained within a frame that does.
+        if (m_lastNodeUnderMouse && (!m_nodeUnderMouse || m_nodeUnderMouse->document() != m_frame->document())) {
+            if (Frame* frame = m_lastNodeUnderMouse->document()->frame()) {
+                if (FrameView* frameView = frame->view())
+                    frameView->scrollAnimator()->mouseExitedContentArea();
+            }
+        }
+        
+        if (m_nodeUnderMouse && (!m_lastNodeUnderMouse || m_lastNodeUnderMouse->document() != m_frame->document())) {
+            if (Frame* frame = m_nodeUnderMouse->document()->frame()) {
+                if (FrameView* frameView = frame->view())
+                    frameView->scrollAnimator()->mouseEnteredContentArea();
+            }
+        }
+        
         if (m_lastNodeUnderMouse && m_lastNodeUnderMouse->document() != m_frame->document()) {
             m_lastNodeUnderMouse = 0;
             m_lastScrollbarUnderMouse = 0;
@@ -2066,6 +2091,23 @@ void EventHandler::defaultWheelEventHandler(Node* startNode, WheelEvent* wheelEv
         m_previousWheelScrolledNode = stopNode;
 }
 
+#if ENABLE(GESTURE_EVENTS)
+bool EventHandler::handleGestureEvent(const PlatformGestureEvent& gestureEvent)
+{
+    // FIXME: This should hit test and go to the correct subframe rather than 
+    // always sending gestures to the main frame only. We should also ensure
+    // that if a frame gets a gesture begin gesture, it gets the corresponding
+    // end gesture as well.
+
+    FrameView* view = m_frame->view();
+    if (!view)
+        return false;
+
+    view->handleGestureEvent(gestureEvent);
+    return true;
+}
+#endif
+
 #if ENABLE(CONTEXT_MENUS)
 bool EventHandler::sendContextMenuEvent(const PlatformMouseEvent& event)
 {
@@ -2121,12 +2163,12 @@ bool EventHandler::sendContextMenuEventForKey()
         RefPtr<Range> selection = selectionController->toNormalizedRange();
         IntRect firstRect = m_frame->editor()->firstRectForRange(selection.get());
 
-        int x = rightAligned ? firstRect.right() : firstRect.x();
-        location = IntPoint(x, firstRect.bottom());
+        int x = rightAligned ? firstRect.maxX() : firstRect.x();
+        location = IntPoint(x, firstRect.maxY());
     } else if (focusedNode) {
         RenderBoxModelObject* box = focusedNode->renderBoxModelObject();
         IntRect clippedRect = box->absoluteClippedOverflowRect();
-        location = clippedRect.bottomLeft();
+        location = IntPoint(clippedRect.x(), clippedRect.maxY() - 1);
     } else {
         location = IntPoint(
             rightAligned ? view->contentsWidth() - kContextMenuMargin : kContextMenuMargin,
@@ -2169,6 +2211,15 @@ void EventHandler::scheduleHoverStateUpdate()
 {
     if (!m_hoverTimer.isActive())
         m_hoverTimer.startOneShot(0);
+}
+
+void EventHandler::dispatchFakeMouseMoveEventSoon()
+{
+    if (m_mousePressed)
+        return;
+
+    if (!m_fakeMouseMoveEventTimer.isActive())
+        m_fakeMouseMoveEventTimer.startOneShot(fakeMouseMoveInterval);
 }
 
 void EventHandler::dispatchFakeMouseMoveEventSoonInQuad(const FloatQuad& quad)

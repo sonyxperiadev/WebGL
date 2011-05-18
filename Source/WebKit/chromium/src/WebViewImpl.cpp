@@ -121,6 +121,7 @@
 #include "WebVector.h"
 #include "WebViewClient.h"
 #include <wtf/ByteArray.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(CG)
@@ -200,13 +201,9 @@ COMPILE_ASSERT_MATCHING_ENUM(DragOperationEvery);
 static const PopupContainerSettings autoFillPopupSettings = {
     false, // setTextOnIndexChange
     false, // acceptOnAbandon
-    true,  // loopSelectionNavigation
-    false, // restrictWidthOfListBox (For security reasons show the entire entry
-           // so the user doesn't enter information he did not intend to.)
-    // For suggestions, we use the direction of the input field as the direction
-    // of the popup items. The main reason is to keep the display of items in
-    // drop-down the same as the items in the input field.
-    PopupContainerSettings::DOMElementDirection,
+    true, // loopSelectionNavigation
+    false // restrictWidthOfListBox (For security reasons show the entire entry
+          // so the user doesn't enter information he did not intend to.)
 };
 
 static bool shouldUseExternalPopupMenus = false;
@@ -979,7 +976,7 @@ void WebViewImpl::animate()
     if (webframe) {
         FrameView* view = webframe->frameView();
         if (view)
-            view->serviceScriptedAnimations();
+            view->serviceScriptedAnimations(convertSecondsToDOMTimeStamp(currentTime()));
     }
 #endif
 }
@@ -1008,8 +1005,8 @@ void WebViewImpl::layout()
 #if USE(ACCELERATED_COMPOSITING)
 void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect)
 {
-    ASSERT(rect.right() <= m_layerRenderer->rootLayerTextureSize().width()
-           && rect.bottom() <= m_layerRenderer->rootLayerTextureSize().height());
+    ASSERT(rect.maxX() <= m_layerRenderer->rootLayerTextureSize().width()
+           && rect.maxY() <= m_layerRenderer->rootLayerTextureSize().height());
 
 #if PLATFORM(SKIA)
     PlatformContextSkia context(canvas);
@@ -1024,7 +1021,7 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
     notImplemented();
 #endif
     // Compute rect to sample from inverted GPU buffer.
-    IntRect invertRect(rect.x(), bitmapHeight - rect.bottom(), rect.width(), rect.height());
+    IntRect invertRect(rect.x(), bitmapHeight - rect.maxY(), rect.width(), rect.height());
 
     OwnPtr<ImageBuffer> imageBuffer(ImageBuffer::create(rect.size()));
     RefPtr<ByteArray> pixelArray(ByteArray::create(rect.width() * rect.height() * 4));
@@ -1032,7 +1029,7 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
         m_layerRenderer->getFramebufferPixels(pixelArray->data(), invertRect);
         imageBuffer->putPremultipliedImageData(pixelArray.get(), rect.size(), IntRect(IntPoint(), rect.size()), IntPoint());
         gc.save();
-        gc.translate(FloatSize(0.0f, bitmapHeight));
+        gc.translate(IntSize(0, bitmapHeight));
         gc.scale(FloatSize(1.0f, -1.0f));
         // Use invertRect in next line, so that transform above inverts it back to
         // desired destination rect.
@@ -1461,7 +1458,7 @@ WebString WebViewImpl::pageEncoding() const
     if (!m_page.get())
         return WebString();
 
-    return m_page->mainFrame()->loader()->writer()->encoding();
+    return m_page->mainFrame()->document()->loader()->writer()->encoding();
 }
 
 void WebViewImpl::setPageEncoding(const WebString& encodingName)
@@ -1615,7 +1612,7 @@ double WebViewImpl::setZoomLevel(bool textOnly, double zoomLevel)
     if (pluginContainer)
         pluginContainer->plugin()->setZoomLevel(m_zoomLevel, textOnly);
     else {
-        double zoomFactor = zoomLevelToZoomFactor(m_zoomLevel);
+        float zoomFactor = static_cast<float>(zoomLevelToZoomFactor(m_zoomLevel));
         if (textOnly)
             frame->setPageAndTextZoomFactors(1, zoomFactor);
         else
@@ -1760,7 +1757,7 @@ WebDragOperation WebViewImpl::dragTargetDragEnterNew(
 {
     ASSERT(!m_currentDragData.get());
 
-    m_currentDragData = ChromiumDataObject::createReadable(Clipboard::DragAndDrop);
+    m_currentDragData = ChromiumDataObject::createReadable(m_page->mainFrame(), Clipboard::DragAndDrop);
     m_dragIdentity = identity;
     m_operationsAllowed = operationsAllowed;
 
@@ -2372,7 +2369,7 @@ public:
             return;
         FrameView* view = page->mainFrame()->view();
 
-        context.translate(view->scrollX(), view->scrollY());
+        context.translate(static_cast<float>(view->scrollX()), static_cast<float>(view->scrollY()));
         IntRect windowRect = view->contentsToWindow(contentRect);
         view->paintScrollbars(&context, windowRect);
     }

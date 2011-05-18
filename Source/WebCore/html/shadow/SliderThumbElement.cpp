@@ -163,6 +163,8 @@ void SliderThumbElement::stopDragging()
         frame->page()->mainFrame()->eventHandler()->setCapturingTouchEventsNode(0);
 #endif
     m_inDragMode = false;
+    if (renderer())
+        renderer()->setNeedsLayout(true);
 }
 
 void SliderThumbElement::defaultEventHandler(Event* event)
@@ -244,6 +246,12 @@ void SliderThumbElement::detach()
             frame->eventHandler()->setCapturingMouseEventsNode(0);      
     }
     HTMLDivElement::detach();
+}
+
+const AtomicString& SliderThumbElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, sliderThumb, ("-webkit-slider-thumb"));
+    return sliderThumb;
 }
 
 }

@@ -23,14 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ChunkedUpdateDrawingAreaProxy.h"
+#import "config.h"
+#import "ChunkedUpdateDrawingAreaProxy.h"
 
-#include "DrawingAreaMessageKinds.h"
-#include "DrawingAreaProxyMessageKinds.h"
-#include "UpdateChunk.h"
-#include "WKAPICast.h"
-#include "WKView.h"
-#include "WebPageProxy.h"
+#import "DrawingAreaMessageKinds.h"
+#import "DrawingAreaProxyMessageKinds.h"
+#import "UpdateChunk.h"
+#import "WKAPICast.h"
+#import "WKView.h"
+#import "WebPageProxy.h"
 
 using namespace WebCore;
 
@@ -96,7 +97,7 @@ void ChunkedUpdateDrawingAreaProxy::drawUpdateChunkIntoBackingStore(UpdateChunk*
 
     // Flip the destination.
     CGContextScaleCTM(m_bitmapContext.get(), 1, -1);
-    CGContextTranslateCTM(m_bitmapContext.get(), 0, -(updateChunkRect.y() + updateChunkRect.bottom()));
+    CGContextTranslateCTM(m_bitmapContext.get(), 0, -(updateChunkRect.y() + updateChunkRect.maxY()));
 
     CGContextDrawImage(m_bitmapContext.get(), updateChunkRect, image.get());
 

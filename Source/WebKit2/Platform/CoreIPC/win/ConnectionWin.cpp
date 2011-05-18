@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "Connection.h"
 
 #include "ArgumentEncoder.h"
@@ -88,15 +89,14 @@ void Connection::platformInitialize(Identifier identifier)
     m_writeState.hEvent = ::CreateEventW(0, FALSE, FALSE, 0);
 
     m_connectionPipe = identifier;
-
-    // We connected the two ends of the pipe in createServerAndClientIdentifiers.
-    m_isConnected = true;
 }
 
 void Connection::platformInvalidate()
 {
     if (m_connectionPipe == INVALID_HANDLE_VALUE)
         return;
+
+    m_isConnected = false;
 
     m_connectionQueue.unregisterAndCloseHandle(m_readState.hEvent);
     m_readState.hEvent = 0;
@@ -242,6 +242,10 @@ void Connection::writeEventHandler()
             // FIXME: We should figure out why we're getting this error.
             return;
         }
+        if (error == ERROR_BROKEN_PIPE) {
+            connectionDidClose();
+            return;
+        }
         ASSERT_NOT_REACHED();
     }
 
@@ -255,6 +259,9 @@ void Connection::writeEventHandler()
 
 bool Connection::open()
 {
+    // We connected the two ends of the pipe in createServerAndClientIdentifiers.
+    m_isConnected = true;
+
     // Start listening for read and write state events.
     m_connectionQueue.registerHandle(m_readState.hEvent, WorkItem::create(this, &Connection::readEventHandler));
     m_connectionQueue.registerHandle(m_writeState.hEvent, WorkItem::create(this, &Connection::writeEventHandler));

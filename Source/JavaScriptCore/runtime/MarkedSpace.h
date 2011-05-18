@@ -23,7 +23,9 @@
 #define MarkedSpace_h
 
 #include "MachineStackMarker.h"
+#include "MarkedBlock.h"
 #include "PageAllocationAligned.h"
+#include <wtf/Bitmap.h>
 #include <wtf/FixedArray.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/Noncopyable.h>
@@ -31,7 +33,6 @@
 
 namespace JSC {
 
-    class CollectorBlock;
     class Heap;
     class JSCell;
     class JSGlobalData;
@@ -39,182 +40,115 @@ namespace JSC {
     class MarkStack;
     class WeakGCHandle;
 
-#if OS(WINCE) || OS(SYMBIAN) || PLATFORM(BREWMP)
-    const size_t BLOCK_SIZE = 64 * 1024; // 64k
-#else
-    const size_t BLOCK_SIZE = 256 * 1024; // 256k
-#endif
-
-    typedef HashCountedSet<JSCell*> ProtectCountSet;
-
     struct CollectorHeap {
+        CollectorHeap()
+            : nextBlock(0)
+            , nextCell(0)
+        {
+        }
+        
+        MarkedBlock* collectorBlock(size_t index) const
+        {
+            return blocks[index];
+        }
+
         size_t nextBlock;
         size_t nextCell;
-        PageAllocationAligned* blocks;
-        
-        size_t numBlocks;
-        size_t usedBlocks;
-
-        CollectorBlock* collectorBlock(size_t index) const
-        {
-            return static_cast<CollectorBlock*>(blocks[index].base());
-        }
+        Vector<MarkedBlock*> blocks;
     };
 
     class MarkedSpace {
         WTF_MAKE_NONCOPYABLE(MarkedSpace);
     public:
-        MarkedSpace(JSGlobalData*);
-        void destroy(ProtectCountSet&);
-
-        void* allocate(size_t);
-
-        size_t objectCount() const;
-        struct Statistics {
-            size_t size;
-            size_t free;
-        };
-        Statistics statistics() const;
-        size_t size() const;
-
         static Heap* heap(JSCell*);
 
-        static bool isCellMarked(const JSCell*);
-        static bool checkMarkCell(const JSCell*);
-        static void markCell(JSCell*);
+        static bool isMarked(const JSCell*);
+        static bool testAndSetMarked(const JSCell*);
+        static void setMarked(const JSCell*);
 
-        WeakGCHandle* addWeakGCHandle(JSCell*);
-
-        void markConservatively(ConservativeSet&, void* start, void* end);
-
-        static bool isNumber(JSCell*);
-        
-        LiveObjectIterator primaryHeapBegin();
-        LiveObjectIterator primaryHeapEnd();
+        MarkedSpace(JSGlobalData*);
+        void destroy();
 
         JSGlobalData* globalData() { return m_globalData; }
 
-        static CollectorBlock* cellBlock(const JSCell*);
-        static size_t cellOffset(const JSCell*);
+        size_t highWaterMark() { return m_highWaterMark; }
+        void setHighWaterMark(size_t highWaterMark) { m_highWaterMark = highWaterMark; }
 
+        void* allocate(size_t);
+
+        void clearMarks();
+        void markRoots();
         void reset();
         void sweep();
+        void shrink();
 
-        NEVER_INLINE CollectorBlock* allocateBlock();
-        NEVER_INLINE void freeBlock(size_t);
-        void resizeBlocks();
-        void growBlocks(size_t neededBlocks);
-        void shrinkBlocks(size_t neededBlocks);
-        void clearMarkBits();
-        void clearMarkBits(CollectorBlock*);
-        size_t markedCells(size_t startBlock = 0, size_t startCell = 0) const;
+        size_t size() const;
+        size_t capacity() const;
+        size_t objectCount() const;
 
-        void addToStatistics(Statistics&) const;
+        bool contains(const void*);
 
-        void markRoots();
+        template<typename Functor> void forEach(Functor&);
 
     private:
+        NEVER_INLINE MarkedBlock* allocateBlock();
+        NEVER_INLINE void freeBlock(size_t);
+
+        void clearMarks(MarkedBlock*);
+
         CollectorHeap m_heap;
+        size_t m_waterMark;
+        size_t m_highWaterMark;
         JSGlobalData* m_globalData;
     };
 
-    // tunable parameters
-    // derived constants
-    const size_t BLOCK_OFFSET_MASK = BLOCK_SIZE - 1;
-    const size_t BLOCK_MASK = ~BLOCK_OFFSET_MASK;
-    const size_t MINIMUM_CELL_SIZE = 64;
-    const size_t CELL_ARRAY_LENGTH = (MINIMUM_CELL_SIZE / sizeof(double)) + (MINIMUM_CELL_SIZE % sizeof(double) != 0 ? sizeof(double) : 0);
-    const size_t CELL_SIZE = CELL_ARRAY_LENGTH * sizeof(double);
-    const size_t SMALL_CELL_SIZE = CELL_SIZE / 2;
-    const size_t CELL_MASK = CELL_SIZE - 1;
-    const size_t CELL_ALIGN_MASK = ~CELL_MASK;
-    const size_t CELLS_PER_BLOCK = (BLOCK_SIZE - sizeof(MarkedSpace*)) * 8 * CELL_SIZE / (8 * CELL_SIZE + 1) / CELL_SIZE; // one bitmap byte can represent 8 cells.
-    
-    const size_t BITMAP_SIZE = (CELLS_PER_BLOCK + 7) / 8;
-    const size_t BITMAP_WORDS = (BITMAP_SIZE + 3) / sizeof(uint32_t);
+    inline Heap* MarkedSpace::heap(JSCell* cell)
+    {
+        return MarkedBlock::blockFor(cell)->heap();
+    }
 
-    struct CollectorBitmap {
-        FixedArray<uint32_t, BITMAP_WORDS> bits;
-        bool get(size_t n) const { return !!(bits[n >> 5] & (1 << (n & 0x1F))); } 
-        void set(size_t n) { bits[n >> 5] |= (1 << (n & 0x1F)); } 
-        bool getset(size_t n)
-        {
-            unsigned i = (1 << (n & 0x1F));
-            uint32_t& b = bits[n >> 5];
-            bool r = !!(b & i);
-            b |= i;
-            return r;
-        } 
-        void clear(size_t n) { bits[n >> 5] &= ~(1 << (n & 0x1F)); } 
-        void clearAll() { memset(bits.data(), 0, sizeof(bits)); }
-        ALWAYS_INLINE void advanceToNextPossibleFreeCell(size_t& startCell)
-        {
-            if (!~bits[startCell >> 5])
-                startCell = (startCell & (~0x1F)) + 32;
-            else
-                ++startCell;
+    inline bool MarkedSpace::isMarked(const JSCell* cell)
+    {
+        return MarkedBlock::blockFor(cell)->isMarked(cell);
+    }
+
+    inline bool MarkedSpace::testAndSetMarked(const JSCell* cell)
+    {
+        return MarkedBlock::blockFor(cell)->testAndSetMarked(cell);
+    }
+
+    inline void MarkedSpace::setMarked(const JSCell* cell)
+    {
+        MarkedBlock::blockFor(cell)->setMarked(cell);
+    }
+
+    inline bool MarkedSpace::contains(const void* x)
+    {
+        if (!MarkedBlock::isCellAligned(x))
+            return false;
+
+        MarkedBlock* block = MarkedBlock::blockFor(x);
+        if (!block)
+            return false;
+
+        size_t size = m_heap.blocks.size();
+        for (size_t i = 0; i < size; i++) {
+            if (block != m_heap.collectorBlock(i))
+                continue;
+
+            // x is a pointer into the heap. Now, verify that the cell it
+            // points to is live. (If the cell is dead, we must not mark it,
+            // since that would revive it in a zombie state.)
+            return block->isMarked(x);
         }
-        size_t count(size_t startCell = 0)
-        {
-            size_t result = 0;
-            for ( ; (startCell & 0x1F) != 0; ++startCell) {
-                if (get(startCell))
-                    ++result;
-            }
-            for (size_t i = startCell >> 5; i < BITMAP_WORDS; ++i)
-                result += WTF::bitCount(bits[i]);
-            return result;
-        }
-        size_t isEmpty() // Much more efficient than testing count() == 0.
-        {
-            for (size_t i = 0; i < BITMAP_WORDS; ++i)
-                if (bits[i] != 0)
-                    return false;
-            return true;
-        }
-    };
-  
-    struct CollectorCell {
-        FixedArray<double, CELL_ARRAY_LENGTH> memory;
-    };
-
-    class CollectorBlock {
-    public:
-        FixedArray<CollectorCell, CELLS_PER_BLOCK> cells;
-        CollectorBitmap marked;
-        Heap* heap;
-    };
-
-    struct HeapConstants {
-        static const size_t cellSize = CELL_SIZE;
-        static const size_t cellsPerBlock = CELLS_PER_BLOCK;
-        typedef CollectorCell Cell;
-        typedef CollectorBlock Block;
-    };
-
-    inline CollectorBlock* MarkedSpace::cellBlock(const JSCell* cell)
-    {
-        return reinterpret_cast<CollectorBlock*>(reinterpret_cast<uintptr_t>(cell) & BLOCK_MASK);
+        
+        return false;
     }
 
-    inline size_t MarkedSpace::cellOffset(const JSCell* cell)
+    template <typename Functor> inline void MarkedSpace::forEach(Functor& functor)
     {
-        return (reinterpret_cast<uintptr_t>(cell) & BLOCK_OFFSET_MASK) / CELL_SIZE;
-    }
-
-    inline bool MarkedSpace::isCellMarked(const JSCell* cell)
-    {
-        return cellBlock(cell)->marked.get(cellOffset(cell));
-    }
-
-    inline bool MarkedSpace::checkMarkCell(const JSCell* cell)
-    {
-        return cellBlock(cell)->marked.getset(cellOffset(cell));
-    }
-
-    inline void MarkedSpace::markCell(JSCell* cell)
-    {
-        cellBlock(cell)->marked.set(cellOffset(cell));
+        for (size_t i = 0; i < m_heap.blocks.size(); ++i)
+            m_heap.collectorBlock(i)->forEach(functor);
     }
 
 } // namespace JSC

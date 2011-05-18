@@ -32,7 +32,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "InspectorController.h"
+#include "InspectorAgent.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "NetworkStateNotifier.h"
@@ -41,10 +41,15 @@
 
 namespace WebCore {
 
-InspectorApplicationCacheAgent::InspectorApplicationCacheAgent(InspectorController* inspectorController, InspectorFrontend* frontend)
-    : m_inspectorController(inspectorController)
+InspectorApplicationCacheAgent::InspectorApplicationCacheAgent(DocumentLoader* documentLoader, InspectorFrontend* frontend)
+    : m_documentLoader(documentLoader)
     , m_frontend(frontend)
 {
+}
+
+void InspectorApplicationCacheAgent::didCommitLoad(DocumentLoader* documentLoader)
+{
+    m_documentLoader = documentLoader;
 }
 
 void InspectorApplicationCacheAgent::updateApplicationCacheStatus(Frame* frame)
@@ -61,9 +66,8 @@ void InspectorApplicationCacheAgent::networkStateChanged()
 
 void InspectorApplicationCacheAgent::getApplicationCaches(RefPtr<InspectorValue>* applicationCaches)
 {
-    DocumentLoader* documentLoader = m_inspectorController->inspectedPage()->mainFrame()->loader()->documentLoader();
-    if (documentLoader) {
-        ApplicationCacheHost* host = documentLoader->applicationCacheHost();
+    if (m_documentLoader) {
+        ApplicationCacheHost* host = m_documentLoader->applicationCacheHost();
         ApplicationCacheHost::CacheInfo info = host->applicationCacheInfo();
 
         ApplicationCacheHost::ResourceInfoList resources;

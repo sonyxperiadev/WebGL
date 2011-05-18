@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "WKView.h"
 
 #import "ChunkedUpdateDrawingAreaProxy.h"
@@ -31,19 +32,22 @@
 #import "FindIndicator.h"
 #import "FindIndicatorWindow.h"
 #import "LayerBackedDrawingAreaProxy.h"
+#import "LayerTreeContext.h"
 #import "Logging.h"
 #import "NativeWebKeyboardEvent.h"
 #import "PDFViewController.h"
 #import "PageClientImpl.h"
 #import "PasteboardTypes.h"
-#import "PrintInfo.h"
 #import "Region.h"
 #import "RunLoop.h"
 #import "TextChecker.h"
 #import "TextCheckerState.h"
 #import "WKAPICast.h"
+#import "WKPrintingView.h"
 #import "WKStringCF.h"
 #import "WKTextInputWindowController.h"
+#import "WKViewInternal.h"
+#import "WKViewPrivate.h"
 #import "WebContext.h"
 #import "WebEventFactory.h"
 #import "WebPage.h"
@@ -71,12 +75,9 @@
 - (void)speakString:(NSString *)string;
 @end
 
-@interface NSView (Details)
-- (void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)isVisibleRect rectIsVisibleRectForView:(NSView *)visibleView topView:(BOOL)topView;
-@end
-
 @interface NSWindow (Details)
 - (NSRect)_growBoxRect;
+- (void)_setShowOpaqueGrowBoxForOwner:(id)owner;
 - (BOOL)_updateGrowBoxForWindowFrameChange;
 @end
 
@@ -97,9 +98,6 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 
 }
 
-NSString* const WebKitOriginalTopPrintingMarginKey = @"WebKitOriginalTopMargin";
-NSString* const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomMargin";
-
 @interface WKViewData : NSObject {
 @public
     OwnPtr<PageClientImpl> _pageClient;
@@ -110,8 +108,11 @@ NSString* const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomMa
     id _trackingRectOwner;
     void* _trackingRectUserData;
 
+    RetainPtr<NSView> _layerHostingView;
+
+    // FIXME: Remove _oldLayerHostingView.
 #if USE(ACCELERATED_COMPOSITING)
-    NSView *_layerHostingView;
+    NSView *_oldLayerHostingView;
 #endif
 
     RetainPtr<id> _remoteAccessibilityChild;
@@ -128,6 +129,8 @@ NSString* const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomMa
     NSEvent *_keyDownEventBeingResent;
     Vector<KeypressCommand> _commandsList;
 
+    NSSize _resizeScrollOffset;
+
     // The identifier of the plug-in we want to send complex text input to, or 0 if there is none.
     uint64_t _pluginComplexTextInputIdentifier;
 
@@ -135,49 +138,20 @@ NSString* const WebKitOriginalBottomPrintingMarginKey = @"WebKitOriginalBottomMa
     unsigned _selectionStart;
     unsigned _selectionEnd;
 
-    Vector<IntRect> _printingPageRects;
-    double _totalScaleFactorForPrinting;
-
     bool _inBecomeFirstResponder;
     bool _inResignFirstResponder;
     NSEvent *_mouseDownEvent;
     BOOL _ignoringMouseDraggedEvents;
     BOOL _dragHasStarted;
+
+#if ENABLE(GESTURE_EVENTS)
+    id _endGestureMonitor;
+#endif
 }
 @end
 
 @implementation WKViewData
 @end
-
-@interface WebFrameWrapper : NSObject {
-@public
-    RefPtr<WebFrameProxy> _frame;
-}
-
-- (id)initWithFrameProxy:(WebFrameProxy*)frame;
-- (WebFrameProxy*)webFrame;
-@end
-
-@implementation WebFrameWrapper
-
-- (id)initWithFrameProxy:(WebFrameProxy*)frame
-{
-    self = [super init];
-    if (!self)
-        return nil;
-
-    _frame = frame;
-    return self;
-}
-
-- (WebFrameProxy*)webFrame
-{
-    return _frame.get();
-}
-
-@end
-
-NSString * const PrintedFrameKey = @"WebKitPrintedFrameKey";
 
 @interface NSObject (NSTextInputContextDetails)
 - (BOOL)wantsToHandleMouseEvents;
@@ -186,11 +160,10 @@ NSString * const PrintedFrameKey = @"WebKitPrintedFrameKey";
 
 @implementation WKView
 
+// FIXME: Remove this once we no longer want to be able to go back to the old drawing area.
 static bool useNewDrawingArea()
 {
-    static bool useNewDrawingArea = getenv("USE_NEW_DRAWING_AREA");
-
-    return useNewDrawingArea;
+    return true;
 }
 
 - (id)initWithFrame:(NSRect)frame
@@ -209,6 +182,24 @@ static bool useNewDrawingArea()
     [types addObjectsFromArray:PasteboardTypes::forURL()];
     [self registerForDraggedTypes:[types allObjects]];
     [types release];
+}
+
+- (void)_updateRemoteAccessibilityRegistration:(BOOL)registerProcess
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    // When the tree is connected/disconnected, the remote accessibility registration
+    // needs to be updated with the pid of the remote process. If the process is going
+    // away, that information is not present in WebProcess
+    pid_t pid = 0;
+    if (registerProcess && _data->_page->process())
+        pid = _data->_page->process()->processIdentifier();
+    else if (!registerProcess) {
+        pid = WKAXRemoteProcessIdentifier(_data->_remoteAccessibilityChild.get());
+        _data->_remoteAccessibilityChild = nil;
+    }
+    if (pid)
+        WKAXRegisterRemoteProcess(registerProcess, pid); 
+#endif
 }
 
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef
@@ -239,12 +230,6 @@ static bool useNewDrawingArea()
 
     WebContext::statistics().wkViewCount++;
 
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
-    NSData *remoteToken = (NSData *)WKAXRemoteTokenForElement(self);
-    CoreIPC::DataReference dataToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteToken bytes]), [remoteToken length]);
-    _data->_page->sendAccessibilityPresenterToken(dataToken);
-#endif
-    
     return self;
 }
 
@@ -312,19 +297,35 @@ static bool useNewDrawingArea()
     return YES;
 }
 
+- (void)viewWillStartLiveResize
+{
+    _data->_page->viewWillStartLiveResize();
+}
+
+- (void)viewDidEndLiveResize
+{
+    _data->_page->viewWillEndLiveResize();
+}
+
 - (BOOL)isFlipped
 {
     return YES;
 }
 
+- (void)setFrame:(NSRect)rect andScrollBy:(NSSize)offset
+{
+    ASSERT(NSEqualSizes(_data->_resizeScrollOffset, NSZeroSize));
+
+    _data->_resizeScrollOffset = offset;
+    [self setFrame:rect];
+}
+
 - (void)setFrameSize:(NSSize)size
 {
     [super setFrameSize:size];
-
-    if (!_data->_page->drawingArea())
-        return;
     
-    _data->_page->drawingArea()->setSize(IntSize(size));
+    if (![self frameSizeUpdatesDisabled])
+        [self _setDrawingAreaSize:size];
 }
 
 - (void)_updateWindowAndViewFrames
@@ -366,6 +367,8 @@ static const SelectorNameMap* createSelectorExceptionMap()
     map->add(@selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection");
     map->add(@selector(pageUp:), "MovePageUp");
     map->add(@selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection");
+    map->add(@selector(scrollPageDown:), "ScrollPageForward");
+    map->add(@selector(scrollPageUp:), "ScrollPageBackward");
     
     return map;
 }
@@ -392,15 +395,142 @@ static String commandNameForSelector(SEL selector)
 
 #define WEBCORE_COMMAND(command) - (void)command:(id)sender { _data->_page->executeEditCommand(commandNameForSelector(_cmd)); }
 
+WEBCORE_COMMAND(alignCenter)
+WEBCORE_COMMAND(alignJustified)
+WEBCORE_COMMAND(alignLeft)
+WEBCORE_COMMAND(alignRight)
 WEBCORE_COMMAND(copy)
 WEBCORE_COMMAND(cut)
-WEBCORE_COMMAND(paste)
 WEBCORE_COMMAND(delete)
+WEBCORE_COMMAND(deleteBackward)
+WEBCORE_COMMAND(deleteBackwardByDecomposingPreviousCharacter)
+WEBCORE_COMMAND(deleteForward)
+WEBCORE_COMMAND(deleteToBeginningOfLine)
+WEBCORE_COMMAND(deleteToBeginningOfParagraph)
+WEBCORE_COMMAND(deleteToEndOfLine)
+WEBCORE_COMMAND(deleteToEndOfParagraph)
+WEBCORE_COMMAND(deleteToMark)
+WEBCORE_COMMAND(deleteWordBackward)
+WEBCORE_COMMAND(deleteWordForward)
+WEBCORE_COMMAND(ignoreSpelling)
+WEBCORE_COMMAND(indent)
+WEBCORE_COMMAND(insertBacktab)
+WEBCORE_COMMAND(insertLineBreak)
+WEBCORE_COMMAND(insertNewline)
+WEBCORE_COMMAND(insertNewlineIgnoringFieldEditor)
+WEBCORE_COMMAND(insertParagraphSeparator)
+WEBCORE_COMMAND(insertTab)
+WEBCORE_COMMAND(insertTabIgnoringFieldEditor)
+WEBCORE_COMMAND(makeTextWritingDirectionLeftToRight)
+WEBCORE_COMMAND(makeTextWritingDirectionNatural)
+WEBCORE_COMMAND(makeTextWritingDirectionRightToLeft)
+WEBCORE_COMMAND(moveBackward)
+WEBCORE_COMMAND(moveBackwardAndModifySelection)
+WEBCORE_COMMAND(moveDown)
+WEBCORE_COMMAND(moveDownAndModifySelection)
+WEBCORE_COMMAND(moveForward)
+WEBCORE_COMMAND(moveForwardAndModifySelection)
+WEBCORE_COMMAND(moveLeft)
+WEBCORE_COMMAND(moveLeftAndModifySelection)
+WEBCORE_COMMAND(moveParagraphBackwardAndModifySelection)
+WEBCORE_COMMAND(moveParagraphForwardAndModifySelection)
+WEBCORE_COMMAND(moveRight)
+WEBCORE_COMMAND(moveRightAndModifySelection)
+WEBCORE_COMMAND(moveToBeginningOfDocument)
+WEBCORE_COMMAND(moveToBeginningOfDocumentAndModifySelection)
+WEBCORE_COMMAND(moveToBeginningOfLine)
+WEBCORE_COMMAND(moveToBeginningOfLineAndModifySelection)
+WEBCORE_COMMAND(moveToBeginningOfParagraph)
+WEBCORE_COMMAND(moveToBeginningOfParagraphAndModifySelection)
+WEBCORE_COMMAND(moveToBeginningOfSentence)
+WEBCORE_COMMAND(moveToBeginningOfSentenceAndModifySelection)
+WEBCORE_COMMAND(moveToEndOfDocument)
+WEBCORE_COMMAND(moveToEndOfDocumentAndModifySelection)
+WEBCORE_COMMAND(moveToEndOfLine)
+WEBCORE_COMMAND(moveToEndOfLineAndModifySelection)
+WEBCORE_COMMAND(moveToEndOfParagraph)
+WEBCORE_COMMAND(moveToEndOfParagraphAndModifySelection)
+WEBCORE_COMMAND(moveToEndOfSentence)
+WEBCORE_COMMAND(moveToEndOfSentenceAndModifySelection)
+WEBCORE_COMMAND(moveToLeftEndOfLine)
+WEBCORE_COMMAND(moveToLeftEndOfLineAndModifySelection)
+WEBCORE_COMMAND(moveToRightEndOfLine)
+WEBCORE_COMMAND(moveToRightEndOfLineAndModifySelection)
+WEBCORE_COMMAND(moveUp)
+WEBCORE_COMMAND(moveUpAndModifySelection)
+WEBCORE_COMMAND(moveWordBackward)
+WEBCORE_COMMAND(moveWordBackwardAndModifySelection)
+WEBCORE_COMMAND(moveWordForward)
+WEBCORE_COMMAND(moveWordForwardAndModifySelection)
+WEBCORE_COMMAND(moveWordLeft)
+WEBCORE_COMMAND(moveWordLeftAndModifySelection)
+WEBCORE_COMMAND(moveWordRight)
+WEBCORE_COMMAND(moveWordRightAndModifySelection)
+WEBCORE_COMMAND(outdent)
+WEBCORE_COMMAND(pageDown)
+WEBCORE_COMMAND(pageDownAndModifySelection)
+WEBCORE_COMMAND(pageUp)
+WEBCORE_COMMAND(pageUpAndModifySelection)
+WEBCORE_COMMAND(paste)
 WEBCORE_COMMAND(pasteAsPlainText)
+WEBCORE_COMMAND(scrollPageDown)
+WEBCORE_COMMAND(scrollPageUp)
+WEBCORE_COMMAND(scrollToBeginningOfDocument)
+WEBCORE_COMMAND(scrollToEndOfDocument)
 WEBCORE_COMMAND(selectAll)
+WEBCORE_COMMAND(selectLine)
+WEBCORE_COMMAND(selectParagraph)
+WEBCORE_COMMAND(selectSentence)
+WEBCORE_COMMAND(selectToMark)
+WEBCORE_COMMAND(selectWord)
+WEBCORE_COMMAND(setMark)
+WEBCORE_COMMAND(subscript)
+WEBCORE_COMMAND(superscript)
+WEBCORE_COMMAND(swapWithMark)
 WEBCORE_COMMAND(takeFindStringFromSelection)
+WEBCORE_COMMAND(transpose)
+WEBCORE_COMMAND(underline)
+WEBCORE_COMMAND(unscript)
+WEBCORE_COMMAND(yank)
+WEBCORE_COMMAND(yankAndSelect)
 
 #undef WEBCORE_COMMAND
+
+/*
+
+When possible, editing-related methods should be implemented in WebCore with the
+EditorCommand mechanism and invoked via WEBCORE_COMMAND, rather than implementing
+individual methods here with Mac-specific code.
+
+Editing-related methods still unimplemented that are implemented in WebKit1:
+
+- (void)capitalizeWord:(id)sender;
+- (void)centerSelectionInVisibleArea:(id)sender;
+- (void)changeFont:(id)sender;
+- (void)complete:(id)sender;
+- (void)copyFont:(id)sender;
+- (void)lowercaseWord:(id)sender;
+- (void)makeBaseWritingDirectionLeftToRight:(id)sender;
+- (void)makeBaseWritingDirectionNatural:(id)sender;
+- (void)makeBaseWritingDirectionRightToLeft:(id)sender;
+- (void)pasteFont:(id)sender;
+- (void)scrollLineDown:(id)sender;
+- (void)scrollLineUp:(id)sender;
+- (void)showGuessPanel:(id)sender;
+- (void)uppercaseWord:(id)sender;
+
+Some other editing-related methods still unimplemented:
+
+- (void)changeCaseOfLetter:(id)sender;
+- (void)copyRuler:(id)sender;
+- (void)insertContainerBreak:(id)sender;
+- (void)insertDoubleQuoteIgnoringSubstitution:(id)sender;
+- (void)insertSingleQuoteIgnoringSubstitution:(id)sender;
+- (void)pasteRuler:(id)sender;
+- (void)toggleRuler:(id)sender;
+- (void)transposeWords:(id)sender;
+
+*/
 
 // Menu items validation
 
@@ -791,6 +921,41 @@ EVENT_HANDLER(scrollWheel, Wheel)
     [self _mouseHandler:event];
 }
 
+#if ENABLE(GESTURE_EVENTS)
+
+static const short kIOHIDEventTypeScroll = 6;
+
+- (void)shortCircuitedEndGestureWithEvent:(NSEvent *)event
+{
+    if ([event subtype] != kIOHIDEventTypeScroll)
+        return;
+
+    WebGestureEvent webEvent = WebEventFactory::createWebGestureEvent(event, self);
+    _data->_page->handleGestureEvent(webEvent);
+
+    if (_data->_endGestureMonitor) {
+        [NSEvent removeMonitor:_data->_endGestureMonitor];
+        _data->_endGestureMonitor = nil;
+    }
+}
+
+- (void)beginGestureWithEvent:(NSEvent *)event
+{
+    if ([event subtype] != kIOHIDEventTypeScroll)
+        return;
+
+    WebGestureEvent webEvent = WebEventFactory::createWebGestureEvent(event, self);
+    _data->_page->handleGestureEvent(webEvent);
+
+    if (!_data->_endGestureMonitor) {
+        _data->_endGestureMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskEndGesture handler:^(NSEvent *blockEvent) {
+            [self shortCircuitedEndGestureWithEvent:blockEvent];
+            return blockEvent;
+        }];
+    }
+}
+#endif
+
 - (void)doCommandBySelector:(SEL)selector
 {
     if (selector != @selector(noop:))
@@ -830,6 +995,9 @@ EVENT_HANDLER(scrollWheel, Wheel)
 
 - (BOOL)_handleStyleKeyEquivalent:(NSEvent *)event
 {
+    if (!_data->_page->selectionState().isContentEditable)
+        return NO;
+
     if (([event modifierFlags] & NSDeviceIndependentModifierFlagsMask) != NSCommandKeyMask)
         return NO;
     
@@ -873,27 +1041,6 @@ EVENT_HANDLER(scrollWheel, Wheel)
     }
     
     return [self _handleStyleKeyEquivalent:event] || [super performKeyEquivalent:event];
-}
-
-- (void)_setEventBeingResent:(NSEvent *)event
-{
-    _data->_keyDownEventBeingResent = [event retain];
-}
-
-- (Vector<KeypressCommand>&)_interceptKeyEvent:(NSEvent *)theEvent 
-{
-    _data->_commandsList.clear();
-    // interpretKeyEvents will trigger one or more calls to doCommandBySelector or setText
-    // that will populate the commandsList vector.
-    [self interpretKeyEvents:[NSArray arrayWithObject:theEvent]];
-    return _data->_commandsList;
-}
-
-- (void)_getTextInputState:(unsigned)start selectionEnd:(unsigned)end underlines:(Vector<WebCore::CompositionUnderline>&)lines
-{
-    start = _data->_selectionStart;
-    end = _data->_selectionEnd;
-    lines = _data->_underlines;
 }
 
 - (void)keyUp:(NSEvent *)theEvent
@@ -1165,15 +1312,22 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 {
     // Temporarily enable the resize indicator to make a the _ownsWindowGrowBox calculation work.
     BOOL wasShowingIndicator = [[self window] showsResizeIndicator];
-    [[self window] setShowsResizeIndicator:YES];
+    if (!wasShowingIndicator)
+        [[self window] setShowsResizeIndicator:YES];
 
     BOOL ownsGrowBox = [self _ownsWindowGrowBox];
     _data->_page->setWindowResizerSize(ownsGrowBox ? enclosingIntRect([[self window] _growBoxRect]).size() : IntSize());
-    
+
+    if (ownsGrowBox)
+        [[self window] _setShowOpaqueGrowBoxForOwner:(_data->_page->hasHorizontalScrollbar() || _data->_page->hasVerticalScrollbar() ? self : nil)];
+    else
+        [[self window] _setShowOpaqueGrowBoxForOwner:nil];
+
     // Once WebCore can draw the window resizer, this should read:
     // if (wasShowingIndicator)
     //     [[self window] setShowsResizeIndicator:!ownsGrowBox];
-    [[self window] setShowsResizeIndicator:wasShowingIndicator];
+    if (!wasShowingIndicator)
+        [[self window] setShowsResizeIndicator:NO];
 
     return ownsGrowBox;
 }
@@ -1228,11 +1382,27 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         _data->_page->viewStateDidChange(WebPageProxy::ViewIsVisible | WebPageProxy::ViewIsInWindow);
         [self _updateWindowVisibility];
         [self _updateWindowAndViewFrames];
+        
+        // Initialize remote accessibility when the window connection has been established.
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+        NSData *remoteElementToken = WKAXRemoteTokenForElement(self);
+        NSData *remoteWindowToken = WKAXRemoteTokenForElement([self window]);
+        CoreIPC::DataReference elementToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
+        CoreIPC::DataReference windowToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteWindowToken bytes]), [remoteWindowToken length]);
+        _data->_page->registerUIProcessAccessibilityTokens(elementToken, windowToken);
+#endif    
+            
     } else {
         _data->_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
         _data->_page->viewStateDidChange(WebPageProxy::ViewWindowIsActive | WebPageProxy::ViewIsInWindow);
-    }
 
+#if ENABLE(GESTURE_EVENTS)
+        if (_data->_endGestureMonitor) {
+            [NSEvent removeMonitor:_data->_endGestureMonitor];
+            _data->_endGestureMonitor = nil;
+        }
+#endif
+    }
 }
 
 - (void)_windowDidBecomeKey:(NSNotification *)notification
@@ -1264,13 +1434,34 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     [self _updateWindowAndViewFrames];
 }
 
+static void drawPageBackground(CGContextRef context, WebPageProxy* page, const IntRect& rect)
+{
+    if (!page->drawsBackground())
+        return;
+
+    CGContextSaveGState(context);
+    CGContextSetBlendMode(context, kCGBlendModeCopy);
+
+    CGColorRef backgroundColor;
+    if (page->drawsTransparentBackground())
+        backgroundColor = CGColorGetConstantColor(kCGColorClear);
+    else
+        backgroundColor = CGColorGetConstantColor(kCGColorWhite);
+
+    CGContextSetFillColorWithColor(context, backgroundColor);
+    CGContextFillRect(context, rect);
+
+    CGContextRestoreGState(context);
+}
+
 - (void)drawRect:(NSRect)rect
 {
     LOG(View, "drawRect: x:%g, y:%g, width:%g, height:%g", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+    _data->_page->endPrinting();
     if (useNewDrawingArea()) {
-        if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(_data->_page->drawingArea())) {
-            CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
+        CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
 
+        if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(_data->_page->drawingArea())) {
             const NSRect *rectsBeingDrawn;
             NSInteger numRectsBeingDrawn;
             [self getRectsBeingDrawn:&rectsBeingDrawn count:&numRectsBeingDrawn];
@@ -1278,11 +1469,13 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
                 Region unpaintedRegion;
                 IntRect rect = enclosingIntRect(rectsBeingDrawn[i]);
                 drawingArea->paint(context, rect, unpaintedRegion);
+
+                Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
+                for (size_t i = 0; i < unpaintedRects.size(); ++i)
+                    drawPageBackground(context, _data->_page.get(), unpaintedRects[i]);
             }
-        } else if (_data->_page->drawsBackground()) {
-            [_data->_page->drawsTransparentBackground() ? [NSColor clearColor] : [NSColor whiteColor] set];
-            NSRectFill(rect);
-        }
+        } else 
+            drawPageBackground(context, _data->_page.get(), enclosingIntRect(rect));
 
         _data->_page->didDraw();
         return;
@@ -1311,14 +1504,6 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 - (void)viewDidUnhide
 {
     _data->_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
-}
-
-- (void)_setAccessibilityChildToken:(NSData *)data
-{
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
-    _data->_remoteAccessibilityChild = WKAXRemoteElementForToken((CFDataRef)data);
-    WKAXInitializeRemoteElementWithWindow(_data->_remoteAccessibilityChild.get(), [self window]);
-#endif
 }
 
 - (BOOL)accessibilityIsIgnored
@@ -1353,8 +1538,11 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 - (NSView *)hitTest:(NSPoint)point
 {
     NSView *hitView = [super hitTest:point];
-#if USE(ACCELERATED_COMPOSITING)
     if (hitView && _data && hitView == _data->_layerHostingView)
+        hitView = self;
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (hitView && _data && hitView == _data->_oldLayerHostingView)
         hitView = self;
 #endif
     return hitView;
@@ -1365,70 +1553,6 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     return (NSInteger)self;
 }
 
-static void setFrameBeingPrinted(NSPrintOperation *printOperation, WebFrameProxy* frame)
-{
-    RetainPtr<WebFrameWrapper> frameWrapper(AdoptNS, [[WebFrameWrapper alloc] initWithFrameProxy:frame]);
-    [[[printOperation printInfo] dictionary] setObject:frameWrapper.get() forKey:PrintedFrameKey];
-}
-
-static WebFrameProxy* frameBeingPrinted()
-{
-    return [[[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:PrintedFrameKey] webFrame];
-}
-
-static float currentPrintOperationScale()
-{
-    ASSERT([NSPrintOperation currentOperation]);
-    ASSERT([[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:NSPrintScalingFactor]);
-    return [[[[[NSPrintOperation currentOperation] printInfo] dictionary] objectForKey:NSPrintScalingFactor] floatValue];
-}
-
-- (void)_adjustPrintingMarginsForHeaderAndFooter
-{
-    NSPrintOperation *printOperation = [NSPrintOperation currentOperation];
-    NSPrintInfo *info = [printOperation printInfo];
-    NSMutableDictionary *infoDictionary = [info dictionary];
-
-    // We need to modify the top and bottom margins in the NSPrintInfo to account for the space needed by the
-    // header and footer. Because this method can be called more than once on the same NSPrintInfo (see 5038087),
-    // we stash away the unmodified top and bottom margins the first time this method is called, and we read from
-    // those stashed-away values on subsequent calls.
-    float originalTopMargin;
-    float originalBottomMargin;
-    NSNumber *originalTopMarginNumber = [infoDictionary objectForKey:WebKitOriginalTopPrintingMarginKey];
-    if (!originalTopMarginNumber) {
-        ASSERT(![infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey]);
-        originalTopMargin = [info topMargin];
-        originalBottomMargin = [info bottomMargin];
-        [infoDictionary setObject:[NSNumber numberWithFloat:originalTopMargin] forKey:WebKitOriginalTopPrintingMarginKey];
-        [infoDictionary setObject:[NSNumber numberWithFloat:originalBottomMargin] forKey:WebKitOriginalBottomPrintingMarginKey];
-    } else {
-        ASSERT([originalTopMarginNumber isKindOfClass:[NSNumber class]]);
-        ASSERT([[infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey] isKindOfClass:[NSNumber class]]);
-        originalTopMargin = [originalTopMarginNumber floatValue];
-        originalBottomMargin = [[infoDictionary objectForKey:WebKitOriginalBottomPrintingMarginKey] floatValue];
-    }
-    
-    float scale = currentPrintOperationScale();
-    [info setTopMargin:originalTopMargin + _data->_page->headerHeight(frameBeingPrinted()) * scale];
-    [info setBottomMargin:originalBottomMargin + _data->_page->footerHeight(frameBeingPrinted()) * scale];
-}
-
-- (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(WKFrameRef)frameRef
-{
-    LOG(View, "Creating an NSPrintOperation for frame '%s'", toImpl(frameRef)->url().utf8().data());
-    NSPrintOperation *printOperation;
-
-    // Only the top frame can currently contain a PDF view.
-    if (_data->_pdfViewController) {
-        ASSERT(toImpl(frameRef)->isMainFrame());
-        printOperation = _data->_pdfViewController->makePrintOperation(printInfo);
-    } else
-        printOperation = [NSPrintOperation printOperationWithView:self printInfo:printInfo];
-
-    setFrameBeingPrinted(printOperation, toImpl(frameRef));
-    return printOperation;
-}
 
 - (BOOL)canChangeFrameLayout:(WKFrameRef)frameRef
 {
@@ -1436,119 +1560,23 @@ static float currentPrintOperationScale()
     return !toImpl(frameRef)->isMainFrame() || !_data->_pdfViewController;
 }
 
-// Return the number of pages available for printing
-- (BOOL)knowsPageRange:(NSRangePointer)range
+- (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(WKFrameRef)frameRef
 {
-    LOG(View, "knowsPageRange:");
-    WebFrameProxy* frame = frameBeingPrinted();
-    ASSERT(frame);
+    LOG(View, "Creating an NSPrintOperation for frame '%s'", toImpl(frameRef)->url().utf8().data());
 
-    if (frame->isMainFrame() && _data->_pdfViewController)
-        return [super knowsPageRange:range];
-
-    [self _adjustPrintingMarginsForHeaderAndFooter];
-
-    _data->_page->computePagesForPrinting(frame, PrintInfo([[NSPrintOperation currentOperation] printInfo]), _data->_printingPageRects, _data->_totalScaleFactorForPrinting);
-
-    *range = NSMakeRange(1, _data->_printingPageRects.size());
-    return YES;
-}
-
-// Take over printing. AppKit applies incorrect clipping, and doesn't print pages beyond the first one.
-- (void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)isVisibleRect rectIsVisibleRectForView:(NSView *)visibleView topView:(BOOL)topView
-{
-    // FIXME: This check isn't right for some non-printing cases, such as capturing into a buffer using cacheDisplayInRect:toBitmapImageRep:.
-    if ([NSGraphicsContext currentContextDrawingToScreen]) {
-        _data->_page->endPrinting();
-        [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:isVisibleRect rectIsVisibleRectForView:visibleView topView:topView];
-        return;
+    // Only the top frame can currently contain a PDF view.
+    if (_data->_pdfViewController) {
+        if (!toImpl(frameRef)->isMainFrame())
+            return 0;
+        return _data->_pdfViewController->makePrintOperation(printInfo);
+    } else {
+        RetainPtr<WKPrintingView> printingView(AdoptNS, [[WKPrintingView alloc] initWithFrameProxy:toImpl(frameRef)]);
+        // NSPrintOperation takes ownership of the view.
+        NSPrintOperation *printOperation = [NSPrintOperation printOperationWithView:printingView.get()];
+        [printOperation setCanSpawnSeparateThread:YES];
+        printingView->_printOperation = printOperation;
+        return printOperation;
     }
-
-    LOG(View, "Printing rect x:%g, y:%g, width:%g, height:%g", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
-
-    ASSERT(self == visibleView);
-    ASSERT(frameBeingPrinted());
-
-    WebFrameProxy* frame = frameBeingPrinted();
-    ASSERT(frame);
-
-    _data->_page->beginPrinting(frame, PrintInfo([[NSPrintOperation currentOperation] printInfo]));
-
-    // FIXME: This is optimized for print preview. Get the whole document at once when actually printing.
-    Vector<uint8_t> pdfData;
-    _data->_page->drawRectToPDF(frame, IntRect(rect), pdfData);
-
-    RetainPtr<CGDataProviderRef> pdfDataProvider(AdoptCF, CGDataProviderCreateWithData(0, pdfData.data(), pdfData.size(), 0));
-    RetainPtr<CGPDFDocumentRef> pdfDocument(AdoptCF, CGPDFDocumentCreateWithProvider(pdfDataProvider.get()));
-    if (!pdfDocument) {
-        LOG_ERROR("Couldn't create a PDF document with data passed for printing");
-        return;
-    }
-
-    CGPDFPageRef pdfPage = CGPDFDocumentGetPage(pdfDocument.get(), 1);
-    if (!pdfPage) {
-        LOG_ERROR("Printing data doesn't have page 1");
-        return;
-    }
-
-    NSGraphicsContext *nsGraphicsContext = [NSGraphicsContext currentContext];
-    CGContextRef context = static_cast<CGContextRef>([nsGraphicsContext graphicsPort]);
-
-    CGContextSaveGState(context);
-    // Flip the destination.
-    CGContextScaleCTM(context, 1, -1);
-    CGContextTranslateCTM(context, 0, -rect.size.height);
-    CGContextDrawPDFPage(context, pdfPage);
-    CGContextRestoreGState(context);
-}
-
-- (void)drawPageBorderWithSize:(NSSize)borderSize
-{
-    ASSERT(NSEqualSizes(borderSize, [[[NSPrintOperation currentOperation] printInfo] paperSize]));    
-
-    // The header and footer rect height scales with the page, but the width is always
-    // all the way across the printed page (inset by printing margins).
-    NSPrintOperation *printOperation = [NSPrintOperation currentOperation];
-    NSPrintInfo *printInfo = [printOperation printInfo];
-    float scale = currentPrintOperationScale();
-    NSSize paperSize = [printInfo paperSize];
-    float headerFooterLeft = [printInfo leftMargin] / scale;
-    float headerFooterWidth = (paperSize.width - ([printInfo leftMargin] + [printInfo rightMargin])) / scale;
-    WebFrameProxy* frame = frameBeingPrinted();
-    NSRect footerRect = NSMakeRect(headerFooterLeft, [printInfo bottomMargin] / scale - _data->_page->footerHeight(frame), headerFooterWidth, _data->_page->footerHeight(frame));
-    NSRect headerRect = NSMakeRect(headerFooterLeft, (paperSize.height - [printInfo topMargin]) / scale, headerFooterWidth, _data->_page->headerHeight(frame));
-
-    NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
-    [currentContext saveGraphicsState];
-    NSRectClip(headerRect);
-    _data->_page->drawHeader(frame, headerRect);
-    [currentContext restoreGraphicsState];
-
-    [currentContext saveGraphicsState];
-    NSRectClip(footerRect);
-    _data->_page->drawFooter(frame, footerRect);
-    [currentContext restoreGraphicsState];
-}
-
-// FIXME 3491344: This is an AppKit-internal method that we need to override in order
-// to get our shrink-to-fit to work with a custom pagination scheme. We can do this better
-// if AppKit makes it SPI/API.
-- (CGFloat)_provideTotalScaleFactorForPrintOperation:(NSPrintOperation *)printOperation 
-{
-    return _data->_totalScaleFactorForPrinting;
-}
-
-// Return the drawing rectangle for a particular page number
-- (NSRect)rectForPage:(NSInteger)page
-{
-    WebFrameProxy* frame = frameBeingPrinted();
-    ASSERT(frame);
-
-    if (frame->isMainFrame() && _data->_pdfViewController)
-        return [super rectForPage:page];
-
-    LOG(View, "rectForPage:%d -> x %d, y %d, width %d, height %d\n", (int)page, _data->_printingPageRects[page - 1].x(), _data->_printingPageRects[page - 1].y(), _data->_printingPageRects[page - 1].width(), _data->_printingPageRects[page - 1].height());
-    return _data->_printingPageRects[page - 1];
 }
 
 @end
@@ -1575,6 +1603,12 @@ static float currentPrintOperationScale()
 - (void)_processDidCrash
 {
     [self setNeedsDisplay:YES];
+    [self _updateRemoteAccessibilityRegistration:NO];
+}
+
+- (void)_pageClosed
+{
+    [self _updateRemoteAccessibilityRegistration:NO];
 }
 
 - (void)_didRelaunchProcess
@@ -1608,6 +1642,27 @@ static float currentPrintOperationScale()
         [toolbarItem(item) setEnabled:isEnabled];
         // FIXME <rdar://problem/8803392>: If the item is neither a menu nor toolbar item, it will be left enabled.
     }
+}
+
+- (void)_setEventBeingResent:(NSEvent *)event
+{
+    _data->_keyDownEventBeingResent = [event retain];
+}
+
+- (Vector<KeypressCommand>&)_interceptKeyEvent:(NSEvent *)theEvent 
+{
+    _data->_commandsList.clear();
+    // interpretKeyEvents will trigger one or more calls to doCommandBySelector or setText
+    // that will populate the commandsList vector.
+    [self interpretKeyEvents:[NSArray arrayWithObject:theEvent]];
+    return _data->_commandsList;
+}
+
+- (void)_getTextInputState:(unsigned)start selectionEnd:(unsigned)end underlines:(Vector<WebCore::CompositionUnderline>&)lines
+{
+    start = _data->_selectionStart;
+    end = _data->_selectionEnd;
+    lines = _data->_underlines;
 }
 
 - (NSRect)_convertToDeviceSpace:(NSRect)rect
@@ -1750,7 +1805,7 @@ static float currentPrintOperationScale()
 #if USE(ACCELERATED_COMPOSITING)
 - (void)_startAcceleratedCompositing:(CALayer *)rootLayer
 {
-    if (!_data->_layerHostingView) {
+    if (!_data->_oldLayerHostingView) {
         NSView *hostingView = [[NSView alloc] initWithFrame:[self bounds]];
 #if !defined(BUILDING_ON_LEOPARD)
         [hostingView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
@@ -1758,7 +1813,7 @@ static float currentPrintOperationScale()
         
         [self addSubview:hostingView];
         [hostingView release];
-        _data->_layerHostingView = hostingView;
+        _data->_oldLayerHostingView = hostingView;
     }
 
     // Make a container layer, which will get sized/positioned by AppKit and CA.
@@ -1792,8 +1847,8 @@ static float currentPrintOperationScale()
     [viewLayer setTransform:CATransform3DMakeScale(scaleFactor, scaleFactor, 1)];
 #endif
 
-    [_data->_layerHostingView setLayer:viewLayer];
-    [_data->_layerHostingView setWantsLayer:YES];
+    [_data->_oldLayerHostingView setLayer:viewLayer];
+    [_data->_oldLayerHostingView setWantsLayer:YES];
     
     // Parent our root layer in the container layer
     [viewLayer addSublayer:rootLayer];
@@ -1801,11 +1856,11 @@ static float currentPrintOperationScale()
 
 - (void)_stopAcceleratedCompositing
 {
-    if (_data->_layerHostingView) {
-        [_data->_layerHostingView setLayer:nil];
-        [_data->_layerHostingView setWantsLayer:NO];
-        [_data->_layerHostingView removeFromSuperview];
-        _data->_layerHostingView = nil;
+    if (_data->_oldLayerHostingView) {
+        [_data->_oldLayerHostingView setLayer:nil];
+        [_data->_oldLayerHostingView setWantsLayer:NO];
+        [_data->_oldLayerHostingView removeFromSuperview];
+        _data->_oldLayerHostingView = nil;
     }
 }
 
@@ -1830,10 +1885,44 @@ static float currentPrintOperationScale()
         }
     }
 
-    newDrawingArea->setSize(IntSize([self frame].size));
+    newDrawingArea->setSize(IntSize([self frame].size), IntSize());
 
     _data->_page->drawingArea()->detachCompositingContext();
     _data->_page->setDrawingArea(newDrawingArea.release());
+}
+
+- (void)_enterAcceleratedCompositingMode:(const LayerTreeContext&)layerTreeContext
+{
+    ASSERT(!_data->_layerHostingView);
+    ASSERT(!layerTreeContext.isEmpty());
+
+    // Create an NSView that will host our layer tree.
+    _data->_layerHostingView.adoptNS([[NSView alloc] initWithFrame:[self bounds]]);
+    [_data->_layerHostingView.get() setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [self addSubview:_data->_layerHostingView.get()];
+
+    // Create a root layer that will back the NSView.
+    RetainPtr<CALayer> rootLayer(AdoptNS, [[CALayer alloc] init]);
+#ifndef NDEBUG
+    [rootLayer.get() setName:@"Hosting root layer"];
+#endif
+
+    CALayer *renderLayer = WKMakeRenderLayer(layerTreeContext.contextID);
+    [rootLayer.get() addSublayer:renderLayer];
+
+    [_data->_layerHostingView.get() setLayer:rootLayer.get()];
+    [_data->_layerHostingView.get() setWantsLayer:YES];
+}
+
+- (void)_exitAcceleratedCompositingMode
+{
+    ASSERT(_data->_layerHostingView);
+
+    [_data->_layerHostingView.get() setLayer:nil];
+    [_data->_layerHostingView.get() setWantsLayer:NO];
+    [_data->_layerHostingView.get() removeFromSuperview];
+    
+    _data->_layerHostingView = nullptr;
 }
 
 - (void)_pageDidEnterAcceleratedCompositing
@@ -1847,6 +1936,14 @@ static float currentPrintOperationScale()
     [self _switchToDrawingAreaTypeIfNecessary:DrawingAreaInfo::ChunkedUpdate];
 }
 #endif // USE(ACCELERATED_COMPOSITING)
+
+- (void)_setAccessibilityWebProcessToken:(NSData *)data
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    _data->_remoteAccessibilityChild = WKAXRemoteElementForToken(data);
+    [self _updateRemoteAccessibilityRegistration:YES];
+#endif
+}
 
 - (void)_setComplexTextInputEnabled:(BOOL)complexTextInputEnabled pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier
 {
@@ -1922,4 +2019,42 @@ static float currentPrintOperationScale()
     _data->_dragHasStarted = NO;
 }
 
+- (void)_setDrawingAreaSize:(NSSize)size
+{
+    if (!_data->_page->drawingArea())
+        return;
+    
+    _data->_page->drawingArea()->setSize(IntSize(size), IntSize(_data->_resizeScrollOffset));
+    _data->_resizeScrollOffset = NSZeroSize;
+}
+
+- (void)_didChangeScrollbarsForMainFrame
+{
+    [self _updateGrowBoxForWindowFrameChange];
+}
+
 @end
+
+@implementation WKView (Private)
+
+- (void)disableFrameSizeUpdates
+{
+    _frameSizeUpdatesDisabledCount++;
+}
+
+- (void)enableFrameSizeUpdates
+{
+    if (!_frameSizeUpdatesDisabledCount)
+        return;
+    
+    if (!(--_frameSizeUpdatesDisabledCount))
+        [self _setDrawingAreaSize:[self frame].size];
+}
+
+- (BOOL)frameSizeUpdatesDisabled
+{
+    return _frameSizeUpdatesDisabledCount > 0;
+}
+
+@end
+

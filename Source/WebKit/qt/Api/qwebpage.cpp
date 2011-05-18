@@ -162,6 +162,7 @@ static const char* editorCommandWebActions[] =
     0, // OpenImageInNewWindow,
     0, // DownloadImageToDisk,
     0, // CopyImageToClipboard,
+    0, // CopyImageUrlToClipboard,
 
     0, // Back,
     0, // Forward,
@@ -404,6 +405,7 @@ static QWebPage::WebAction webActionForContextMenuAction(WebCore::ContextMenuAct
         case WebCore::ContextMenuItemTagOpenImageInNewWindow: return QWebPage::OpenImageInNewWindow;
         case WebCore::ContextMenuItemTagDownloadImageToDisk: return QWebPage::DownloadImageToDisk;
         case WebCore::ContextMenuItemTagCopyImageToClipboard: return QWebPage::CopyImageToClipboard;
+        case WebCore::ContextMenuItemTagCopyImageUrlToClipboard: return QWebPage::CopyImageUrlToClipboard;
         case WebCore::ContextMenuItemTagOpenFrameInNewWindow: return QWebPage::OpenFrameInNewWindow;
         case WebCore::ContextMenuItemTagCopy: return QWebPage::Copy;
         case WebCore::ContextMenuItemTagGoBack: return QWebPage::Back;
@@ -431,7 +433,7 @@ static QWebPage::WebAction webActionForContextMenuAction(WebCore::ContextMenuAct
 QMenu *QWebPagePrivate::createContextMenu(const WebCore::ContextMenu *webcoreMenu,
         const QList<WebCore::ContextMenuItem> *items, QBitArray *visitedWebActions)
 {
-    if (!client)
+    if (!client || !webcoreMenu)
         return 0;
 
     QMenu* menu = new QMenu(client->ownerWidget());
@@ -1680,6 +1682,7 @@ IntPoint QWebPagePrivate::TouchAdjuster::findCandidatePointForTouch(const IntPoi
     \value OpenImageInNewWindow Open the highlighted image in a new window.
     \value DownloadImageToDisk Download the highlighted image to the disk.
     \value CopyImageToClipboard Copy the highlighted image to the clipboard.
+    \value CopyImageUrlToClipboard Copy the highlighted image's URL to the clipboard.
     \value Back Navigate back in the history of navigated links.
     \value Forward Navigate forward in the history of navigated links.
     \value Stop Stop loading the current page.
@@ -1883,9 +1886,10 @@ QWebPage::ViewportAttributes& QWebPage::ViewportAttributes::operator=(const QWeb
     The loadStarted() signal is emitted when the page begins to load.The
     loadProgress() signal, on the other hand, is emitted whenever an element
     of the web page completes loading, such as an embedded image, a script,
-    etc. Finally, the loadFinished() signal is emitted when the page has
-    loaded completely. Its argument, either true or false, indicates whether
-    or not the load operation succeeded.
+    etc. Finally, the loadFinished() signal is emitted when the page contents
+    are loaded completely, independent of script execution or page rendering.
+    Its argument, either true or false, indicates whether or not the load
+    operation succeeded.
 
     \section1 Using QWebPage in a Widget-less Environment
 
@@ -2342,6 +2346,9 @@ void QWebPage::triggerAction(WebAction action, bool)
         case CopyImageToClipboard:
             QApplication::clipboard()->setPixmap(d->hitTestResult.pixmap());
             break;
+        case CopyImageUrlToClipboard:
+            QApplication::clipboard()->setText(d->hitTestResult.imageUrl().toString());
+            break;
 #endif
         case Back:
             d->page->goBack();
@@ -2729,6 +2736,9 @@ QAction *QWebPage::action(WebAction action) const
             break;
         case CopyImageToClipboard:
             text = contextMenuItemTagCopyImageToClipboard();
+            break;
+        case CopyImageUrlToClipboard:
+            text = contextMenuItemTagCopyImageUrlToClipboard();
             break;
 
         case Back:
@@ -3979,7 +3989,7 @@ quint64 QWebPage::bytesReceived() const
 /*!
     \fn void QWebPage::loadStarted()
 
-    This signal is emitted when a new load of the page is started.
+    This signal is emitted when a page starts loading content.
 
     \sa loadFinished()
 */
@@ -3998,7 +4008,8 @@ quint64 QWebPage::bytesReceived() const
 /*!
     \fn void QWebPage::loadFinished(bool ok)
 
-    This signal is emitted when a load of the page is finished.
+    This signal is emitted when the page finishes loading content. This signal
+    is independant of script execution or page rendering.
     \a ok will indicate whether the load was successful or any error occurred.
 
     \sa loadStarted(), ErrorPageExtension

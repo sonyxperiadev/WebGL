@@ -142,6 +142,18 @@ void GraphicsContext::setShadow(const FloatSize& offset, float blur, const Color
     setPlatformShadow(offset, blur, color, colorSpace);
 }
 
+void GraphicsContext::setLegacyShadow(const FloatSize& offset, float blur, const Color& color, ColorSpace colorSpace)
+{
+    m_state.shadowOffset = offset;
+    m_state.shadowBlur = blur;
+    m_state.shadowColor = color;
+    m_state.shadowColorSpace = colorSpace;
+#if PLATFORM(CG)
+    m_state.shadowsUseLegacyRadius = true;
+#endif
+    setPlatformShadow(offset, blur, color, colorSpace);
+}
+
 void GraphicsContext::clearShadow()
 {
     m_state.shadowOffset = FloatSize();
@@ -532,10 +544,10 @@ void GraphicsContext::drawImageBuffer(ImageBuffer* image, ColorSpace styleColorS
         InterpolationQuality previousInterpolationQuality = imageInterpolationQuality();
         // FIXME: Should be InterpolationLow
         setImageInterpolationQuality(InterpolationNone);
-        image->draw(this, styleColorSpace, dest, src, op, useLowQualityScale);
+        image->draw(this, styleColorSpace, FloatRect(dest.location(), FloatSize(tw, th)), FloatRect(src.location(), FloatSize(tsw, tsh)), op, useLowQualityScale);
         setImageInterpolationQuality(previousInterpolationQuality);
     } else
-        image->draw(this, styleColorSpace, dest, src, op, useLowQualityScale);
+        image->draw(this, styleColorSpace, FloatRect(dest.location(), FloatSize(tw, th)), FloatRect(src.location(), FloatSize(tsw, tsh)), op, useLowQualityScale);
 }
 
 void GraphicsContext::addRoundedRectClip(const RoundedIntRect& rect)
@@ -565,6 +577,14 @@ void GraphicsContext::clipToImageBuffer(ImageBuffer* buffer, const FloatRect& re
     buffer->clip(this, rect);
 }
 
+#if !PLATFORM(CG)
+IntRect GraphicsContext::clipBounds() const
+{
+    ASSERT_NOT_REACHED();
+    return IntRect();
+}
+#endif
+
 TextDrawingModeFlags GraphicsContext::textDrawingMode() const
 {
     return m_state.textDrawingMode;
@@ -589,6 +609,34 @@ void GraphicsContext::fillRoundedRect(const RoundedIntRect& rect, const Color& c
 {
     fillRoundedRect(rect.rect(), rect.radii().topLeft(), rect.radii().topRight(), rect.radii().bottomLeft(), rect.radii().bottomRight(), color, colorSpace);
 }
+
+#if !PLATFORM(CG)
+void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const RoundedIntRect& roundedHoleRect, const Color& color, ColorSpace colorSpace)
+{
+    if (paintingDisabled())
+        return;
+
+    Path path;
+    path.addRect(rect);
+
+    if (!roundedHoleRect.radii().isZero())
+        path.addRoundedRect(roundedHoleRect.rect(), roundedHoleRect.radii().topLeft(), roundedHoleRect.radii().topRight(), roundedHoleRect.radii().bottomLeft(), roundedHoleRect.radii().bottomRight());
+    else
+        path.addRect(roundedHoleRect.rect());
+
+    WindRule oldFillRule = fillRule();
+    Color oldFillColor = fillColor();
+    ColorSpace oldFillColorSpace = fillColorSpace();
+    
+    setFillRule(RULE_EVENODD);
+    setFillColor(color, colorSpace);
+
+    fillPath(path);
+    
+    setFillRule(oldFillRule);
+    setFillColor(oldFillColor, oldFillColorSpace);
+}
+#endif
 
 void GraphicsContext::setCompositeOperation(CompositeOperator compositeOperation)
 {

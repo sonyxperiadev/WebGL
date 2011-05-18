@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "InjectedBundlePageLoaderClient.h"
 
 #include "InjectedBundleScriptWorld.h"
@@ -173,14 +174,6 @@ void InjectedBundlePageLoaderClient::didRunInsecureContentForFrame(WebPage* page
     WKTypeRef userDataToPass = 0;
     m_client.didRunInsecureContentForFrame(toAPI(page), toAPI(frame), &userDataToPass, m_client.clientInfo);
     userData = adoptRef(toImpl(userDataToPass));
-}
-
-bool InjectedBundlePageLoaderClient::shouldLoadResourceForFrame(WebPage* page, WebFrame* frame, const String& resourceURL)
-{
-    if (!m_client.shouldLoadResourceForFrame)
-        return true;
-
-    return m_client.shouldLoadResourceForFrame(toAPI(page), toAPI(frame), toAPI(resourceURL.impl()), m_client.clientInfo);
 }
 
 void InjectedBundlePageLoaderClient::didClearWindowObjectForFrame(WebPage* page, WebFrame* frame, DOMWrapperWorld* world)

@@ -41,6 +41,7 @@
 #include "FrameLoader.h"
 #include "HitTestResult.h"
 #include "HTMLFrameOwnerElement.h"
+#include "InspectorAgent.h"
 #include "InspectorController.h"
 #include "InspectorFrontendClient.h"
 #include "Page.h"
@@ -200,8 +201,8 @@ void InspectorFrontendHost::moveWindowBy(float x, float y) const
 
 void InspectorFrontendHost::setExtensionAPI(const String& script)
 {
-    InspectorController* inspector = m_frontendPage->inspectorController();
-    inspector->setInspectorExtensionAPI(script);
+    ASSERT(m_frontendPage->inspectorController());
+    m_frontendPage->inspectorController()->setInspectorExtensionAPI(script);
 }
 
 String InspectorFrontendHost::localizedStringsURL()

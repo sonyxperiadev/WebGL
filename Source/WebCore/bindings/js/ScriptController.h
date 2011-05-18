@@ -59,7 +59,6 @@ class Node;
 class ScriptSourceCode;
 class ScriptValue;
 class Widget;
-class XSSAuditor;
 
 typedef HashMap<void*, RefPtr<JSC::Bindings::RootObject> > RootObjectMap;
 
@@ -93,9 +92,9 @@ public:
 
     static void getAllWorlds(Vector<DOMWrapperWorld*>&);
 
-    ScriptValue executeScript(const ScriptSourceCode&, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
-    ScriptValue executeScript(const String& script, bool forceUserGesture = false, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
-    ScriptValue executeScriptInWorld(DOMWrapperWorld* world, const String& script, bool forceUserGesture = false, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
+    ScriptValue executeScript(const ScriptSourceCode&);
+    ScriptValue executeScript(const String& script, bool forceUserGesture = false);
+    ScriptValue executeScriptInWorld(DOMWrapperWorld*, const String& script, bool forceUserGesture = false);
 
     // Returns true if argument is a JavaScript URL.
     bool executeIfJavaScriptURL(const KURL&, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
@@ -104,8 +103,8 @@ public:
     // Darwin is an exception to this rule: it is OK to call this function from any thread, even reentrantly.
     static void initializeThreading();
 
-    ScriptValue evaluate(const ScriptSourceCode&, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
-    ScriptValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld*, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
+    ScriptValue evaluate(const ScriptSourceCode&);
+    ScriptValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld*);
 
     int eventHandlerLineNumber() const;
     
@@ -168,8 +167,6 @@ public:
     NPObject* createScriptObjectForPluginElement(HTMLPlugInElement*);
     NPObject* windowScriptNPObject();
 #endif
-    
-    XSSAuditor* xssAuditor() { return m_XSSAuditor.get(); }
 
 private:
     JSDOMWindowShell* initScript(DOMWrapperWorld* world);
@@ -202,9 +199,6 @@ private:
 #if PLATFORM(MAC)
     RetainPtr<WebScriptObject> m_windowScriptObject;
 #endif
-    
-    // The XSSAuditor associated with this ScriptController.
-    OwnPtr<XSSAuditor> m_XSSAuditor;
 };
 
 } // namespace WebCore

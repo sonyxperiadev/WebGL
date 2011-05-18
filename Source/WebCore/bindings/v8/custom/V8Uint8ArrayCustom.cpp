@@ -29,9 +29,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
-
 #include "ArrayBuffer.h"
 #include "Uint8Array.h"
 
@@ -67,5 +64,3 @@ v8::Handle<v8::Value> toV8(Uint8Array* impl)
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(3D_CANVAS) || ENABLE(BLOB)

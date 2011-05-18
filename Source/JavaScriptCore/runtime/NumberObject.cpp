@@ -31,8 +31,8 @@ ASSERT_CLASS_FITS_IN_CELL(NumberObject);
 
 const ClassInfo NumberObject::info = { "Number", 0, 0, 0 };
 
-NumberObject::NumberObject(NonNullPassRefPtr<Structure> structure)
-    : JSWrapperObject(structure)
+NumberObject::NumberObject(JSGlobalData& globalData, NonNullPassRefPtr<Structure> structure)
+    : JSWrapperObject(globalData, structure)
 {
 }
 
@@ -43,8 +43,8 @@ JSValue NumberObject::getJSNumber()
 
 NumberObject* constructNumber(ExecState* exec, JSValue number)
 {
-    NumberObject* object = new (exec) NumberObject(exec->lexicalGlobalObject()->numberObjectStructure());
-    object->setInternalValue(number);
+    NumberObject* object = new (exec) NumberObject(exec->globalData(), exec->lexicalGlobalObject()->numberObjectStructure());
+    object->setInternalValue(exec->globalData(), number);
     return object;
 }
 

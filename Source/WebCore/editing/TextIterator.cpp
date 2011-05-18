@@ -27,7 +27,6 @@
 #include "config.h"
 #include "TextIterator.h"
 
-#include "CharacterNames.h"
 #include "Document.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
@@ -42,6 +41,7 @@
 #include "TextBreakIterator.h"
 #include "VisiblePosition.h"
 #include "visible_units.h"
+#include <wtf/unicode/CharacterNames.h>
 
 #if USE(ICU_UNICODE) && !UCONFIG_NO_COLLATION
 #include "TextBreakIteratorInternalICU.h"
@@ -543,7 +543,7 @@ void TextIterator::handleTextBox()
         unsigned runStart = max(textBoxStart, start);
 
         // Check for collapsed space at the start of this run.
-        InlineTextBox* firstTextBox = renderer->containsReversedText() ? m_sortedTextBoxes[0] : renderer->firstTextBox();
+        InlineTextBox* firstTextBox = renderer->containsReversedText() ? (m_sortedTextBoxes.isEmpty() ? 0 : m_sortedTextBoxes[0]) : renderer->firstTextBox();
         bool needSpace = m_lastTextNodeEndedWithCollapsedSpace
             || (m_textBox == firstTextBox && textBoxStart == runStart && runStart > 0);
         if (needSpace && !isCollapsibleWhitespace(m_lastCharacter) && m_lastCharacter) {
@@ -551,7 +551,7 @@ void TextIterator::handleTextBox()
                 unsigned spaceRunStart = runStart - 1;
                 while (spaceRunStart > 0 && str[spaceRunStart - 1] == ' ')
                     --spaceRunStart;
-                emitText(m_node, spaceRunStart, spaceRunStart + 1);
+                emitText(m_node, renderer, spaceRunStart, spaceRunStart + 1);
             } else
                 emitCharacter(' ', m_node, 0, runStart, runStart);
             return;
@@ -1922,6 +1922,11 @@ inline SearchBuffer::SearchBuffer(const String& target, FindOptions options)
 
 inline SearchBuffer::~SearchBuffer()
 {
+    // Leave the static object pointing to a valid string.
+    UErrorCode status = U_ZERO_ERROR;
+    usearch_setPattern(WebCore::searcher(), &newlineCharacter, 1, &status);
+    ASSERT(status == U_ZERO_ERROR);
+
     unlockSearcher();
 }
 

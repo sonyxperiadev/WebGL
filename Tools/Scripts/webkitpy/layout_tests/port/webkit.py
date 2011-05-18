@@ -40,10 +40,9 @@ import sys
 import time
 import webbrowser
 
-import webkitpy.common.system.ospath as ospath
-import webkitpy.layout_tests.layout_package.test_output as test_output
-import webkitpy.layout_tests.port.base as base
-import webkitpy.layout_tests.port.server_process as server_process
+from webkitpy.common.system import ospath
+from webkitpy.layout_tests.port import base
+from webkitpy.layout_tests.port import server_process
 
 _log = logging.getLogger("webkitpy.layout_tests.port.webkit")
 
@@ -57,7 +56,8 @@ class WebKitPort(base.Port):
 
         # FIXME: disable pixel tests until they are run by default on the
         # build machines.
-        self.set_option_default('pixel_tests', False)
+        if not hasattr(self._options, "pixel_tests") or self._options.pixel_tests == None:
+            self._options.pixel_tests = False
 
     def baseline_path(self):
         return self._webkit_baseline_path(self._name)
@@ -120,9 +120,9 @@ class WebKitPort(base.Port):
         return self._diff_image_reply(sp, diff_filename)
 
     def _diff_image_request(self, expected_contents, actual_contents):
-        # FIXME: use self.get_option('tolerance') and
-        # self.set_option_default('tolerance', 0.1) once that behaves correctly
-        # with default values.
+        # FIXME: There needs to be a more sane way of handling default
+        # values for options so that you can distinguish between a default
+        # value of None and a default value that wasn't set.
         if self.get_option('tolerance') is not None:
             tolerance = self.get_option('tolerance')
         else:
@@ -159,7 +159,7 @@ class WebKitPort(base.Port):
             if m.group(2) == 'passed':
                 result = False
         elif output and diff_filename:
-            self._filesystem.write_text_file(diff_filename, output)
+            self._filesystem.write_binary_file(diff_filename, output)
         elif sp.timed_out:
             _log.error("ImageDiff timed out")
         elif sp.crashed:
@@ -178,11 +178,6 @@ class WebKitPort(base.Port):
 
     def create_driver(self, worker_number):
         return WebKitDriver(self, worker_number)
-
-    def test_base_platform_names(self):
-        # At the moment we don't use test platform names, but we have
-        # to return something.
-        return ('mac', 'win')
 
     def _tests_for_other_platforms(self):
         raise NotImplementedError('WebKitPort._tests_for_other_platforms')
@@ -283,9 +278,9 @@ class WebKitPort(base.Port):
         unsupported_feature_tests = self._skipped_tests_for_unsupported_features()
         return disabled_feature_tests + webarchive_tests + unsupported_feature_tests
 
-    def _tests_from_skipped_file(self, skipped_file):
+    def _tests_from_skipped_file_contents(self, skipped_file_contents):
         tests_to_skip = []
-        for line in skipped_file.readlines():
+        for line in skipped_file_contents.split('\n'):
             line = line.strip()
             if line.startswith('#') or not len(line):
                 continue
@@ -301,7 +296,8 @@ class WebKitPort(base.Port):
             if not self._filesystem.exists(filename):
                 _log.warn("Failed to open Skipped file: %s" % filename)
                 continue
-            skipped_file = self._filesystem.read_text_file(filename)
+            skipped_file_contents = self._filesystem.read_text_file(filename)
+            tests_to_skip.extend(self._tests_from_skipped_file_contents(skipped_file_contents))
         return tests_to_skip
 
     def test_expectations(self):
@@ -335,8 +331,7 @@ class WebKitPort(base.Port):
         return self._name + self.version()
 
     def test_platform_names(self):
-        return self.test_base_platform_names() + (
-            'mac-tiger', 'mac-leopard', 'mac-snowleopard')
+        return ('mac', 'win', 'mac-tiger', 'mac-leopard', 'mac-snowleopard')
 
     def _build_path(self, *comps):
         return self._filesystem.join(self._config.build_directory(
@@ -409,15 +404,15 @@ class WebKitDriver(base.Driver):
         return
 
     # FIXME: This function is huge.
-    def run_test(self, test_input):
-        uri = self._port.filename_to_uri(test_input.filename)
+    def run_test(self, driver_input):
+        uri = self._port.filename_to_uri(driver_input.filename)
         if uri.startswith("file:///"):
             command = uri[7:]
         else:
             command = uri
 
-        if test_input.image_hash:
-            command += "'" + test_input.image_hash
+        if driver_input.image_hash:
+            command += "'" + driver_input.image_hash
         command += "\n"
 
         start_time = time.time()
@@ -428,7 +423,7 @@ class WebKitDriver(base.Driver):
         output = str()  # Use a byte array for output, even though it should be UTF-8.
         image = str()
 
-        timeout = int(test_input.timeout) / 1000.0
+        timeout = int(driver_input.timeout) / 1000.0
         deadline = time.time() + timeout
         line = self._server_process.read_line(timeout)
         while (not self._server_process.timed_out
@@ -475,11 +470,11 @@ class WebKitDriver(base.Driver):
         # FIXME: This seems like the wrong section of code to be doing
         # this reset in.
         self._server_process.error = ""
-        return test_output.TestOutput(output, image, actual_image_hash,
-                                      self._server_process.crashed,
-                                      time.time() - start_time,
-                                      self._server_process.timed_out,
-                                      error)
+        return base.DriverOutput(output, image, actual_image_hash,
+                                 self._server_process.crashed,
+                                 time.time() - start_time,
+                                 self._server_process.timed_out,
+                                 error)
 
     def stop(self):
         if self._server_process:

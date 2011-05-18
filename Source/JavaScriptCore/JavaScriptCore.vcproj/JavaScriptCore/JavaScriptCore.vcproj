@@ -594,15 +594,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\MarkedBlock.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkedBlock.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\MarkedSpace.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\runtime\MarkedSpace.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\CollectorHeapIntrospector.h"
 				>
 			</File>
 			<File
@@ -1002,6 +1006,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\ConservativeSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\ConservativeSet.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\MarkStack.cpp"
 				>
 			</File>
@@ -1319,42 +1331,6 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\WeakRandom.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="pcre"
-			>
-			<File
-				RelativePath="..\..\pcre\pcre.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_compile.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_exec.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_internal.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_tables.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_ucp_searchfuncs.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\pcre_xclass.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\pcre\ucpinternal.h"
 				>
 			</File>
 		</Filter>
@@ -1943,6 +1919,18 @@
 			</File>
 			<File
 				RelativePath="..\..\parser\SourceProvider.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\SourceProviderCache.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\SourceProviderCache.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\SourceProviderCacheItem.h"
 				>
 			</File>
 			<File

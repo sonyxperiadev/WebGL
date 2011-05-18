@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2006, 2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -25,14 +25,15 @@
 #ifndef Font_h
 #define Font_h
 
-#include "CharacterNames.h"
 #include "FontDescription.h"
 #include "FontFallbackList.h"
 #include "SimpleFontData.h"
+#include "TextDirection.h"
 #include "TypesettingFeatures.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/MathExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if PLATFORM(QT)
 #include <QFont>
@@ -43,7 +44,7 @@ namespace WebCore {
 class FloatPoint;
 class FloatRect;
 class FontData;
-class FontFallbackList;
+class FontMetrics;
 class FontPlatformData;
 class FontSelector;
 class GlyphBuffer;
@@ -53,8 +54,6 @@ class SVGFontElement;
 class TextRun;
 
 struct GlyphData;
-
-const unsigned defaultUnitsPerEm = 1000;
 
 struct GlyphOverflow {
     GlyphOverflow()
@@ -124,17 +123,12 @@ public:
 
     bool italic() const { return m_fontDescription.italic(); }
     FontWeight weight() const { return m_fontDescription.weight(); }
+    FontWidthVariant widthVariant() const { return m_fontDescription.widthVariant(); }
 
     bool isPlatformFont() const { return m_isPlatformFont; }
 
     // Metrics that we query the FontFallbackList for.
-    int ascent(FontBaseline baselineType = AlphabeticBaseline) const { return primaryFont()->ascent(baselineType); }
-    int descent(FontBaseline baselineType = AlphabeticBaseline) const { return primaryFont()->descent(baselineType); }
-    int height() const { return ascent() + descent(); }
-    int lineSpacing() const { return primaryFont()->lineSpacing(); }
-    int lineGap() const { return primaryFont()->lineGap(); }
-    float xHeight() const { return primaryFont()->xHeight(); }
-    unsigned unitsPerEm() const { return primaryFont()->unitsPerEm(); }
+    const FontMetrics& fontMetrics() const { return primaryFont()->fontMetrics(); }
     int spaceWidth() const { return (int)ceilf(primaryFont()->adjustedSpaceWidth() + m_letterSpacing); }
     float tabWidth(const SimpleFontData& fontData) const { return 8 * ceilf(fontData.adjustedSpaceWidth() + letterSpacing()); }
     int emphasisMarkAscent(const AtomicString&) const;
@@ -150,7 +144,9 @@ public:
 
     static bool isCJKIdeograph(UChar32);
     static bool isCJKIdeographOrSymbol(UChar32);
-    
+
+    static unsigned expansionOpportunityCount(const UChar*, size_t length, TextDirection, bool& isAfterExpansion);
+
 #if PLATFORM(QT)
     QFont font() const;
 #endif
@@ -185,6 +181,7 @@ private:
     bool getEmphasisMarkGlyphData(const AtomicString&, GlyphData&) const;
 
     static bool canReturnFallbackFontsForComplexText();
+    static bool canExpandAroundIdeographsInComplexText();
 
     CodePath codePath(const TextRun&) const;
 
@@ -226,7 +223,7 @@ public:
         return character;
     }
 
-    static String normalizeSpaces(const String&);
+    static String normalizeSpaces(const UChar*, unsigned length);
 
 #if ENABLE(SVG_FONTS)
     bool isSVGFont() const;

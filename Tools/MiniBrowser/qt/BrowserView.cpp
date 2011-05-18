@@ -33,17 +33,14 @@
 BrowserView::BrowserView(QGraphicsWKView::BackingStoreType backingStoreType, QWKContext* context, QWidget* parent)
     : QGraphicsView(parent)
     , m_item(0)
-    , m_context(context ? context : new QWKContext(this))
 {
-    m_item = new QGraphicsWKView(m_context, backingStoreType, 0);
+    m_item = new QGraphicsWKView(context, backingStoreType, 0);
     setScene(new QGraphicsScene(this));
     scene()->addItem(m_item);
 
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-    connect(m_item, SIGNAL(titleChanged(QString)), this, SLOT(setWindowTitle(QString)));
 }
 
 void BrowserView::resizeEvent(QResizeEvent* event)

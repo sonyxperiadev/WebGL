@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2006, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -247,21 +247,15 @@ bool Font::isSVGFont() const
 }
 #endif
 
-String Font::normalizeSpaces(const String& string)
+String Font::normalizeSpaces(const UChar* characters, unsigned length)
 {
-    const UChar* characters = string.characters();
-    unsigned length = string.length();
-    Vector<UChar, 256> buffer(length);
-    bool didReplacement = false;
+    UChar* buffer;
+    String normalized = String::createUninitialized(length, buffer);
 
-    for (unsigned i = 0; i < length; ++i) {
-        UChar originalCharacter = characters[i];
-        buffer[i] = normalizeSpaces(originalCharacter);
-        if (buffer[i] != originalCharacter)
-            didReplacement = true;
-    }
+    for (unsigned i = 0; i < length; ++i)
+        buffer[i] = normalizeSpaces(characters[i]);
 
-    return didReplacement ? String(buffer.data(), length) : string;
+    return normalized;
 }
 
 static bool shouldUseFontSmoothing = true;
@@ -293,7 +287,7 @@ Font::CodePath Font::codePath(const TextRun& run) const
         return s_codePath;
 
 #if PLATFORM(QT)
-    if (run.padding() || run.rtl() || isSmallCaps() || wordSpacing() || letterSpacing())
+    if (run.expansion() || run.rtl() || isSmallCaps() || wordSpacing() || letterSpacing())
         return Complex;
 #endif
 
@@ -456,6 +450,56 @@ bool Font::isCJKIdeographOrSymbol(UChar32 c)
         return true;
 
     return isCJKIdeograph(c);
+}
+
+unsigned Font::expansionOpportunityCount(const UChar* characters, size_t length, TextDirection direction, bool& isAfterExpansion)
+{
+    static bool expandAroundIdeographs = canExpandAroundIdeographsInComplexText();
+    unsigned count = 0;
+    if (direction == LTR) {
+        for (size_t i = 0; i < length; ++i) {
+            UChar32 character = characters[i];
+            if (treatAsSpace(character)) {
+                count++;
+                isAfterExpansion = true;
+                continue;
+            }
+            if (U16_IS_LEAD(character) && i + 1 < length && U16_IS_TRAIL(characters[i + 1])) {
+                character = U16_GET_SUPPLEMENTARY(character, characters[i + 1]);
+                i++;
+            }
+            if (expandAroundIdeographs && isCJKIdeographOrSymbol(character)) {
+                if (!isAfterExpansion)
+                    count++;
+                count++;
+                isAfterExpansion = true;
+                continue;
+            }
+            isAfterExpansion = false;
+        }
+    } else {
+        for (size_t i = length; i > 0; --i) {
+            UChar32 character = characters[i - 1];
+            if (treatAsSpace(character)) {
+                count++;
+                isAfterExpansion = true;
+                continue;
+            }
+            if (U16_IS_TRAIL(character) && i > 1 && U16_IS_LEAD(characters[i - 2])) {
+                character = U16_GET_SUPPLEMENTARY(characters[i - 2], character);
+                i--;
+            }
+            if (expandAroundIdeographs && isCJKIdeographOrSymbol(character)) {
+                if (!isAfterExpansion)
+                    count++;
+                count++;
+                isAfterExpansion = true;
+                continue;
+            }
+            isAfterExpansion = false;
+        }
+    }
+    return count;
 }
 
 bool Font::canReceiveTextEmphasis(UChar32 c)

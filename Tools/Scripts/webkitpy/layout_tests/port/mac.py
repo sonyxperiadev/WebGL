@@ -33,9 +33,7 @@ import os
 import platform
 import signal
 
-import webkitpy.common.system.ospath as ospath
-import webkitpy.layout_tests.port.server_process as server_process
-from webkitpy.layout_tests.port.webkit import WebKitPort, WebKitDriver
+from webkitpy.layout_tests.port.webkit import WebKitPort
 
 _log = logging.getLogger("webkitpy.layout_tests.port.mac")
 
@@ -52,7 +50,7 @@ class MacPort(WebKitPort):
         # four threads in parallel.
         # See https://bugs.webkit.org/show_bug.cgi?id=36622
         child_processes = WebKitPort.default_child_processes(self)
-        if child_processes > 4:
+        if self.get_option('worker_model') == 'old-threads' and child_processes > 4:
             return 4
         return child_processes
 

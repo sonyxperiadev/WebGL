@@ -40,7 +40,7 @@ namespace WebCore {
 namespace WebKit {
 
 class WebPage;
-class WebPageCreationParameters;
+struct WebPageCreationParameters;
 
 class DrawingArea : public RefCounted<DrawingArea> {
 public:
@@ -48,17 +48,22 @@ public:
     static PassRefPtr<DrawingArea> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingArea();
     
-#ifdef __APPLE__
+#if PLATFORM(MAC) || PLATFORM(WIN)
     void didReceiveDrawingAreaMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 #endif
 
     virtual void setNeedsDisplay(const WebCore::IntRect&) = 0;
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
 
+    // FIXME: These should be pure virtual.
     virtual void pageBackgroundTransparencyChanged() { }
-
     virtual void onPageClose() { }
-    
+    virtual void forceRepaint() { }
+
+    virtual void didInstallPageOverlay() { }
+    virtual void didUninstallPageOverlay() { }
+    virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) { }
+
 #if USE(ACCELERATED_COMPOSITING)
     virtual void attachCompositingContext() = 0;
     virtual void detachCompositingContext() = 0;
@@ -80,7 +85,7 @@ protected:
 private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
-    virtual void setSize(const WebCore::IntSize&) { }
+    virtual void setSize(const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset) { }
     virtual void didUpdate() { }
     virtual void suspendPainting() { }
     virtual void resumePainting() { }

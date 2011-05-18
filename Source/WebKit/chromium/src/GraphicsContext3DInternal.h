@@ -44,6 +44,7 @@ class Extensions3DChromium;
 #if USE(ACCELERATED_COMPOSITING)
 class WebGLLayerChromium;
 #endif
+class GraphicsContextLostCallbackAdapter;
 
 class GraphicsContext3DInternal {
 public:
@@ -61,8 +62,6 @@ public:
     Platform3DObject platformTexture() const;
 
     bool makeContextCurrent();
-
-    unsigned int sizeInBytes(GC3Denum type);
 
     void reshape(int width, int height);
     IntSize getInternalFramebufferSize();
@@ -241,6 +240,8 @@ public:
 
     void synthesizeGLError(GC3Denum error);
 
+    void setContextLostCallback(PassOwnPtr<GraphicsContext3D::ContextLostCallback>);
+
     // Extensions3D support.
     Extensions3D* getExtensions();
     bool supportsExtension(const String& name);
@@ -260,9 +261,14 @@ public:
     bool supportsCopyTextureToParentTextureCHROMIUM();
     void copyTextureToParentTextureCHROMIUM(Platform3DObject texture, Platform3DObject parentTexture);
 
+    // GL_CHROMIUM_framebuffer_multisample
+    void blitFramebufferCHROMIUM(GC3Dint srcX0, GC3Dint srcY0, GC3Dint srcX1, GC3Dint srcY1, GC3Dint dstX0, GC3Dint dstY0, GC3Dint dstX1, GC3Dint dstY1, GC3Dbitfield mask, GC3Denum filter);
+    void renderbufferStorageMultisampleCHROMIUM(GC3Denum target, GC3Dsizei samples, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height);
+
 private:
     OwnPtr<WebKit::WebGraphicsContext3D> m_impl;
     OwnPtr<Extensions3DChromium> m_extensions;
+    OwnPtr<GraphicsContextLostCallbackAdapter> m_contextLostCallbackAdapter;
     WebKit::WebViewImpl* m_webViewImpl;
     bool m_initializedAvailableExtensions;
     HashSet<String> m_enabledExtensions;

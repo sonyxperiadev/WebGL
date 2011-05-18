@@ -26,9 +26,11 @@
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FormDataList.h"
+#include "HTMLDivElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "ProgressBarValueElement.h"
 #include "RenderProgress.h"
 #include <wtf/StdLibExtras.h>
 
@@ -60,21 +62,19 @@ const AtomicString& HTMLProgressElement::formControlType() const
 
 void HTMLProgressElement::parseMappedAttribute(Attribute* attribute)
 {
-    if (attribute->name() == valueAttr) {
-        if (renderer())
-            renderer()->updateFromElement();
-    } else if (attribute->name() == maxAttr) {
-        if (renderer())
-            renderer()->updateFromElement();
-    } else
+    if (attribute->name() == valueAttr)
+        didElementStateChange();
+    else if (attribute->name() == maxAttr)
+        didElementStateChange();
+    else
         HTMLFormControlElement::parseMappedAttribute(attribute);
 }
 
 void HTMLProgressElement::attach()
 {
+    createShadowSubtreeIfNeeded();
     HTMLFormControlElement::attach();
-    if (renderer())
-        renderer()->updateFromElement();
+    didElementStateChange();
 }
 
 double HTMLProgressElement::value() const
@@ -119,6 +119,19 @@ double HTMLProgressElement::position() const
     if (!hasAttribute(valueAttr))
         return -1;
     return value() / max();
+}
+
+void HTMLProgressElement::didElementStateChange()
+{
+    if (renderer())
+        renderer()->updateFromElement();
+}
+
+void HTMLProgressElement::createShadowSubtreeIfNeeded()
+{
+    if (shadowRoot())
+        return;
+    setShadowRoot(ProgressBarValueElement::create(document()).get());
 }
 
 } // namespace

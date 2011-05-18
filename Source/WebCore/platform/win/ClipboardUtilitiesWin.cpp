@@ -31,6 +31,7 @@
 #include "PlatformString.h"
 #include "TextEncoding.h"
 #include "markup.h"
+#include <shlobj.h>
 #include <shlwapi.h>
 #include <wininet.h> // for INTERNET_MAX_URL_LENGTH
 #include <wtf/StringExtras.h>
@@ -69,6 +70,15 @@ static bool urlFromPath(CFStringRef path, String& url)
     return true;
 }
 #endif
+
+static bool getDataMapItem(const DragDataMap* dataObject, FORMATETC* format, String& item)
+{
+    DragDataMap::const_iterator found = dataObject->find(format->cfFormat);
+    if (found == dataObject->end())
+        return false;
+    item = found->second[0];
+    return true;
+}
 
 static bool getWebLocData(IDataObject* dataObject, String& url, String* title) 
 {
@@ -109,6 +119,34 @@ exit:
     GlobalUnlock(medium.hGlobal);
 #endif
     return succeeded;
+}
+
+static bool getWebLocData(const DragDataMap* dataObject, String& url, String* title) 
+{
+#if PLATFORM(CF)
+    WCHAR filename[MAX_PATH];
+    WCHAR urlBuffer[INTERNET_MAX_URL_LENGTH];
+
+    if (!dataObject->contains(cfHDropFormat()->cfFormat))
+        return false;
+
+    wcscpy(filename, dataObject->get(cfHDropFormat()->cfFormat)[0].characters());
+    if (_wcsicmp(PathFindExtensionW(filename), L".url"))
+        return false;    
+
+    if (!GetPrivateProfileStringW(L"InternetShortcut", L"url", 0, urlBuffer, WTF_ARRAY_LENGTH(urlBuffer), filename))
+        return false;
+
+    if (title) {
+        PathRemoveExtension(filename);
+        *title = filename;
+    }
+    
+    url = urlBuffer;
+    return true;
+#else
+    return false;
+#endif
 }
 
 static String extractURL(const String &inURL, String* title)
@@ -386,6 +424,33 @@ String getURL(IDataObject* dataObject, DragData::FilenameConversionPolicy filena
     return url;
 }
 
+String getURL(const DragDataMap* data, DragData::FilenameConversionPolicy filenamePolicy, String* title)
+{
+    String url;
+
+    if (getWebLocData(data, url, title))
+        return url;
+    if (getDataMapItem(data, urlWFormat(), url))
+        return extractURL(url, title);
+    if (getDataMapItem(data, urlFormat(), url))
+        return extractURL(url, title);
+#if PLATFORM(CF)
+    if (filenamePolicy != DragData::ConvertFilenames)
+        return url;
+
+    String stringData;
+    if (!getDataMapItem(data, filenameWFormat(), stringData))
+        getDataMapItem(data, filenameFormat(), stringData);
+
+    if (stringData.isEmpty() || (!PathFileExists(stringData.charactersWithNullTermination()) && !PathIsUNC(stringData.charactersWithNullTermination())))
+        return url;
+    RetainPtr<CFStringRef> pathAsCFString(AdoptCF, CFStringCreateWithCharacters(kCFAllocatorDefault, (const UniChar *)stringData.charactersWithNullTermination(), stringData.length()));
+    if (urlFromPath(pathAsCFString.get(), url) && title)
+        *title = url;
+#endif
+    return url;
+}
+
 String getPlainText(IDataObject* dataObject, bool& success)
 {
     STGMEDIUM store;
@@ -415,6 +480,17 @@ String getPlainText(IDataObject* dataObject, bool& success)
     return text;
 }
 
+String getPlainText(const DragDataMap* data)
+{
+    String text;
+    
+    if (getDataMapItem(data, plainTextWFormat(), text))
+        return text;
+    if (getDataMapItem(data, plainTextFormat(), text))
+        return text;
+    return getURL(data, DragData::DoNotConvertFilenames);
+}
+
 String getTextHTML(IDataObject* data, bool& success)
 {
     STGMEDIUM store;
@@ -430,6 +506,13 @@ String getTextHTML(IDataObject* data, bool& success)
     return html;
 }
 
+String getTextHTML(const DragDataMap* data)
+{
+    String text;
+    getDataMapItem(data, texthtmlFormat(), text);
+    return text;
+}
+
 String getCFHTML(IDataObject* data, bool& success)
 {
     String cfhtml = getFullCFHTML(data, success);
@@ -438,13 +521,32 @@ String getCFHTML(IDataObject* data, bool& success)
     return String();
 }
 
+String getCFHTML(const DragDataMap* dataMap)
+{
+    String cfhtml;
+    getDataMapItem(dataMap, htmlFormat(), cfhtml);
+    return extractMarkupFromCFHTML(cfhtml);
+}
+
 PassRefPtr<DocumentFragment> fragmentFromFilenames(Document*, const IDataObject*)
 {
     // FIXME: We should be able to create fragments from files
     return 0;
 }
 
+PassRefPtr<DocumentFragment> fragmentFromFilenames(Document*, const DragDataMap*)
+{
+    // FIXME: We should be able to create fragments from files
+    return 0;
+}
+
 bool containsFilenames(const IDataObject*)
+{
+    // FIXME: We'll want to update this once we can produce fragments from files
+    return false;
+}
+
+bool containsFilenames(const DragDataMap*)
 {
     // FIXME: We'll want to update this once we can produce fragments from files
     return false;
@@ -477,8 +579,8 @@ PassRefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data)
     bool success = false;
     String cfhtml = getFullCFHTML(data, success);
     if (success) {
-        if (PassRefPtr<DocumentFragment> fragment = fragmentFromCFHTML(doc, cfhtml))
-            return fragment;
+        if (RefPtr<DocumentFragment> fragment = fragmentFromCFHTML(doc, cfhtml))
+            return fragment.release();
     }
 
     String html = getTextHTML(data, success);
@@ -489,9 +591,180 @@ PassRefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data)
     return 0;
 }
 
+PassRefPtr<DocumentFragment> fragmentFromHTML(Document* document, const DragDataMap* data) 
+{
+    if (!document || !data || data->isEmpty())
+        return 0;
+
+    String stringData;
+    if (getDataMapItem(data, htmlFormat(), stringData)) {
+        if (RefPtr<DocumentFragment> fragment = fragmentFromCFHTML(document, stringData))
+            return fragment.release();
+    }
+
+    String srcURL;
+    if (getDataMapItem(data, texthtmlFormat(), stringData))
+        return createFragmentFromMarkup(document, stringData, srcURL, FragmentScriptingNotAllowed);
+
+    return 0;
+}
+
 bool containsHTML(IDataObject* data)
 {
     return SUCCEEDED(data->QueryGetData(texthtmlFormat())) || SUCCEEDED(data->QueryGetData(htmlFormat()));
+}
+
+bool containsHTML(const DragDataMap* data)
+{
+    return data->contains(texthtmlFormat()->cfFormat) || data->contains(htmlFormat()->cfFormat);
+}
+
+typedef void (*GetStringFunction)(IDataObject*, FORMATETC*, Vector<String>&);
+typedef void (*SetStringFunction)(IDataObject*, FORMATETC*, const Vector<String>&);
+
+struct ClipboardDataItem {
+    GetStringFunction getString;
+    SetStringFunction setString;
+    FORMATETC* format;
+
+    ClipboardDataItem(FORMATETC* format, GetStringFunction getString, SetStringFunction setString): format(format), getString(getString), setString(setString) { }
+};
+
+typedef HashMap<UINT, ClipboardDataItem*> ClipboardFormatMap;
+
+// Getter functions.
+
+template<typename T> void getStringData(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings)
+{
+    STGMEDIUM store;
+    if (FAILED(data->GetData(format, &store)))
+        return;
+    dataStrings.append(String(static_cast<T*>(GlobalLock(store.hGlobal)), ::GlobalSize(store.hGlobal) / sizeof(T)));
+    GlobalUnlock(store.hGlobal);
+    ReleaseStgMedium(&store);
+}
+
+void getUtf8Data(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings)
+{
+    STGMEDIUM store;
+    if (FAILED(data->GetData(format, &store)))
+        return;
+    dataStrings.append(String(UTF8Encoding().decode(static_cast<char*>(GlobalLock(store.hGlobal)), GlobalSize(store.hGlobal))));
+    GlobalUnlock(store.hGlobal);
+    ReleaseStgMedium(&store);
+}
+
+#if PLATFORM(CF)
+void getCFData(IDataObject* data, FORMATETC* format, Vector<String>& dataStrings)
+{
+    STGMEDIUM store;
+    if (FAILED(data->GetData(format, &store)))
+        return;
+
+    HDROP hdrop = reinterpret_cast<HDROP>(GlobalLock(store.hGlobal));
+    if (!hdrop)
+        return;
+
+    WCHAR filename[MAX_PATH];
+    UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
+    for (UINT i = 0; i < fileCount; i++) {
+        if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
+            continue;
+        dataStrings.append(static_cast<UChar*>(filename));
+    }
+
+    GlobalUnlock(store.hGlobal);
+    ReleaseStgMedium(&store);
+}
+#endif
+
+// Setter functions.
+
+void setUCharData(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
+{
+    STGMEDIUM medium = {0};
+    medium.tymed = TYMED_HGLOBAL;
+
+    medium.hGlobal = createGlobalData(dataStrings.first());
+    if (!medium.hGlobal)
+        return;
+    data->SetData(format, &medium, FALSE);
+    ::GlobalFree(medium.hGlobal);
+}
+
+void setUtf8Data(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
+{
+    STGMEDIUM medium = {0};
+    medium.tymed = TYMED_HGLOBAL;
+
+    CString charString = dataStrings.first().utf8();
+    size_t stringLength = charString.length();
+    medium.hGlobal = ::GlobalAlloc(GPTR, stringLength + 1);
+    if (!medium.hGlobal)
+        return;
+    char* buffer = static_cast<char*>(GlobalLock(medium.hGlobal));
+    memcpy(buffer, charString.data(), stringLength);
+    buffer[stringLength] = 0;
+    GlobalUnlock(medium.hGlobal);
+    data->SetData(format, &medium, FALSE);
+    ::GlobalFree(medium.hGlobal);
+}
+
+#if PLATFORM(CF)
+void setCFData(IDataObject* data, FORMATETC* format, const Vector<String>& dataStrings)
+{
+    STGMEDIUM medium = {0};
+    SIZE_T dropFilesSize = sizeof(DROPFILES) + (sizeof(WCHAR) * (dataStrings.first().length() + 2));
+    medium.hGlobal = ::GlobalAlloc(GHND | GMEM_SHARE, dropFilesSize);
+    if (!medium.hGlobal) 
+        return;
+
+    DROPFILES* dropFiles = reinterpret_cast<DROPFILES *>(GlobalLock(medium.hGlobal));
+    dropFiles->pFiles = sizeof(DROPFILES);
+    dropFiles->fWide = TRUE;
+    String filename = dataStrings.first();
+    wcscpy(reinterpret_cast<LPWSTR>(dropFiles + 1), filename.charactersWithNullTermination());    
+    GlobalUnlock(medium.hGlobal);
+    data->SetData(format, &medium, FALSE);
+    ::GlobalFree(medium.hGlobal);
+}
+#endif
+
+static const ClipboardFormatMap& getClipboardMap()
+{
+    static ClipboardFormatMap formatMap;
+    if (formatMap.isEmpty()) {
+        formatMap.add(htmlFormat()->cfFormat, new ClipboardDataItem(htmlFormat(), getUtf8Data, setUtf8Data));
+        formatMap.add(texthtmlFormat()->cfFormat, new ClipboardDataItem(texthtmlFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(plainTextFormat()->cfFormat,  new ClipboardDataItem(plainTextFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(plainTextWFormat()->cfFormat,  new ClipboardDataItem(plainTextWFormat(), getStringData<UChar>, setUCharData));
+#if PLATFORM(CF)
+        formatMap.add(cfHDropFormat()->cfFormat,  new ClipboardDataItem(cfHDropFormat(), getCFData, setCFData));
+#endif
+        formatMap.add(filenameFormat()->cfFormat,  new ClipboardDataItem(filenameFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(filenameWFormat()->cfFormat,  new ClipboardDataItem(filenameWFormat(), getStringData<UChar>, setUCharData));
+        formatMap.add(urlFormat()->cfFormat,  new ClipboardDataItem(urlFormat(), getStringData<char>, setUtf8Data));
+        formatMap.add(urlWFormat()->cfFormat,  new ClipboardDataItem(urlWFormat(), getStringData<UChar>, setUCharData));
+    }
+    return formatMap;
+}
+
+void getClipboardData(IDataObject* dataObject, FORMATETC* format, Vector<String>& dataStrings)
+{
+    const ClipboardFormatMap& formatMap = getClipboardMap();
+    ClipboardFormatMap::const_iterator found = formatMap.find(format->cfFormat);
+    if (found == formatMap.end())
+        return;
+    found->second->getString(dataObject, found->second->format, dataStrings);
+}
+
+void setClipboardData(IDataObject* dataObject, UINT format, const Vector<String>& dataStrings)
+{
+    const ClipboardFormatMap& formatMap = getClipboardMap();
+    ClipboardFormatMap::const_iterator found = formatMap.find(format);
+    if (found == formatMap.end())
+        return;
+    found->second->setString(dataObject, found->second->format, dataStrings);
 }
 
 } // namespace WebCore

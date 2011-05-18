@@ -85,12 +85,14 @@ my (
     $javaScriptDebuggerSupport,
     $linkPrefetchSupport,
     $mathmlSupport,
+    $mediaStatisticsSupport,
     $meterTagSupport,
     $netscapePluginSupport,
     $notificationsSupport,
     $offlineWebApplicationSupport,
     $orientationEventsSupport,
     $progressTagSupport,
+    $registerProtocolHandlerSupport,
     $sharedWorkersSupport,
     $svgSupport,
     $svgAnimationSupport,
@@ -116,8 +118,8 @@ my (
 );
 
 my @features = (
-    { option => "3d-canvas", desc => "Toggle 3D canvas support",
-      define => "ENABLE_3D_CANVAS", default => (isAppleMacWebKit() && !isTiger() && !isLeopard()), value => \$threeDCanvasSupport },
+    { option => "3d-canvas", desc => "Toggle 3D canvas (WebGL) support",
+      define => "ENABLE_WEBGL", default => (isAppleMacWebKit() && !isTiger() && !isLeopard()), value => \$threeDCanvasSupport },
 
     { option => "3d-rendering", desc => "Toggle 3D rendering support",
       define => "ENABLE_3D_RENDERING", default => (isAppleMacWebKit() && !isTiger()), value => \$threeDRenderingSupport },
@@ -194,6 +196,9 @@ my @features = (
     { option => "mathml", desc => "Toggle MathML support",
       define => "ENABLE_MATHML", default => 1, value => \$mathmlSupport },
 
+    { option => "media-statistics", desc => "Toggle Media Statistics support",
+      define => "ENABLE_MEDIA_STATISTICS", default => 0, value => \$mediaStatisticsSupport },
+
     { option => "meter-tag", desc => "Meter Tag support",
       define => "ENABLE_METER_TAG", default => !isGtk() && !isAppleWinWebKit(), value => \$meterTagSupport },
 
@@ -211,6 +216,9 @@ my @features = (
 
     { option => "progress-tag", desc => "Progress Tag support",
       define => "ENABLE_PROGRESS_TAG", default => 1, value => \$progressTagSupport },
+
+    { option => "register-protocol-handler", desc => "Register Protocol Handler support",
+      define => "ENABLE_REGISTER_PROTOCOL_HANDLER", default => 0, value => \$registerProtocolHandlerSupport },
 
     { option => "system-malloc", desc => "Toggle system allocator instead of TCmalloc",
       define => "USE_SYSTEM_MALLOC", default => 0, value => \$systemMallocSupport },
@@ -405,7 +413,7 @@ if (isGtk()) {
     {
         my ($feature, $isEnabled, $defaultValue) = @_;
         return "" if $defaultValue == $isEnabled;
-        return $feature . "=" . ($isEnabled ? $feature : " ");
+        return $feature . "=" . ($isEnabled ? $feature : "");
     }
 
     foreach (@features) {

@@ -29,9 +29,10 @@
 #include "StringFunctions.h"
 #include "TestInvocation.h"
 #include <cstdio>
-#include <WebKit2/WKPageGroup.h>
 #include <WebKit2/WKContextPrivate.h>
+#include <WebKit2/WKPageGroup.h>
 #include <WebKit2/WKPreferencesPrivate.h>
+#include <WebKit2/WKRetainPtr.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WTR {
@@ -103,6 +104,13 @@ static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKF
     return true;
 }
 
+static unsigned long long exceededDatabaseQuota(WKPageRef, WKFrameRef, WKSecurityOriginRef, WKStringRef, WKStringRef, unsigned long long, unsigned long long, unsigned long long, const void*)
+{
+    static const unsigned long long defaultQuota = 5 * 1024 * 1024;    
+    return defaultQuota;
+}
+
+
 void TestController::runModal(WKPageRef page, const void* clientInfo)
 {
     runModal(static_cast<PlatformWebView*>(const_cast<void*>(clientInfo)));
@@ -148,7 +156,7 @@ WKPageRef TestController::createOtherPage(WKPageRef oldPage, WKDictionaryRef, WK
         runBeforeUnloadConfirmPanel,
         0, // didDraw
         0, // pageDidScroll
-        0, // exceededDatabaseQuota
+        exceededDatabaseQuota,
         0, // runOpenPanel
         0, // decidePolicyForGeolocationPermissionRequest
         0, // headerHeight
@@ -157,12 +165,25 @@ WKPageRef TestController::createOtherPage(WKPageRef oldPage, WKDictionaryRef, WK
         0, // drawFooter
         0, // printFrame
         runModal,
+        0, // didCompleteRubberBandForMainFrame
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
 
     WKRetain(newPage);
     return newPage;
 }
+
+const char* TestController::libraryPathForTesting()
+{
+    // FIXME: This may not be sufficient to prevent interactions/crashes
+    // when running more than one copy of DumpRenderTree.
+    // See https://bugs.webkit.org/show_bug.cgi?id=10906
+    char* dumpRenderTreeTemp = getenv("DUMPRENDERTREE_TEMP");
+    if (dumpRenderTreeTemp)
+        return dumpRenderTreeTemp;
+    return platformLibraryPathForTesting();
+}
+
 
 void TestController::initialize(int argc, const char* argv[])
 {
@@ -219,6 +240,15 @@ void TestController::initialize(int argc, const char* argv[])
     m_pageGroup.adopt(WKPageGroupCreateWithIdentifier(pageGroupIdentifier.get()));
 
     m_context.adopt(WKContextCreateWithInjectedBundlePath(injectedBundlePath()));
+
+    const char* path = libraryPathForTesting();
+    if (path) {
+        Vector<char> databaseDirectory(strlen(path) + strlen("/Databases") + 1);
+        sprintf(databaseDirectory.data(), "%s%s", path, "/Databases");
+        WKRetainPtr<WKStringRef> databaseDirectoryWK(AdoptWK, WKStringCreateWithUTF8CString(databaseDirectory.data()));
+        WKContextSetDatabaseDirectory(m_context.get(), databaseDirectoryWK.get());
+    }
+
     platformInitializeContext();
 
     WKContextInjectedBundleClient injectedBundleClient = {
@@ -259,7 +289,7 @@ void TestController::initialize(int argc, const char* argv[])
         runBeforeUnloadConfirmPanel,
         0, // didDraw
         0, // pageDidScroll
-        0, // exceededDatabaseQuota
+        exceededDatabaseQuota,
         0, // runOpenPanel
         0, // decidePolicyForGeolocationPermissionRequest
         0, // headerHeight
@@ -268,6 +298,7 @@ void TestController::initialize(int argc, const char* argv[])
         0, // drawFooter
         0, // printFrame
         0, // runModal
+        0, // didCompleteRubberBandForMainFrame
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient);
 
@@ -317,6 +348,8 @@ bool TestController::resetStateToConsistentValues()
     WKPreferencesSetXSSAuditorEnabled(preferences, false);
     WKPreferencesSetDeveloperExtrasEnabled(preferences, true);
     WKPreferencesSetJavaScriptCanOpenWindowsAutomatically(preferences, true);
+    WKPreferencesSetJavaScriptCanAccessClipboard(preferences, true);
+    WKPreferencesSetDOMPasteAllowed(preferences, true);
 
     static WKStringRef standardFontFamily = WKStringCreateWithUTF8CString("Times");
     static WKStringRef cursiveFontFamily = WKStringCreateWithUTF8CString("Apple Chancery");

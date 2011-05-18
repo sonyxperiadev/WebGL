@@ -76,6 +76,8 @@
 #include "Widget.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <wtf/Assertions.h>
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 #if USE(JSC)
@@ -296,6 +298,16 @@ void* WebCore::Frame::dragImageForSelection()
     return 0;
 }
 
+<<<<<<< HEAD
+=======
+
+WTF::String WebCore::MIMETypeRegistry::getMIMETypeForExtension(WTF::String const&)
+{
+    ASSERT(isMainThread());
+    return WTF::String();
+}
+
+>>>>>>> webkit.org at r78450
 void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WTF::String const&) {}
 
 namespace WebCore {

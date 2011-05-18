@@ -276,9 +276,9 @@ IntRect RenderTableCell::clippedOverflowRectForRepaint(RenderBoxModelObject* rep
             right = max(right, below->borderHalfRight(true));
         }
     }
-    left = max(left, -leftVisualOverflow());
-    top = max(top, -topVisualOverflow());
-    IntRect r(-left, - top, left + max(width() + right, rightVisualOverflow()), top + max(height() + bottom, bottomVisualOverflow()));
+    left = max(left, -minXVisualOverflow());
+    top = max(top, -minYVisualOverflow());
+    IntRect r(-left, - top, left + max(width() + right, maxXVisualOverflow()), top + max(height() + bottom, maxYVisualOverflow()));
 
     if (RenderView* v = view()) {
         // FIXME: layoutDelta needs to be applied in parts before/after transforms and
@@ -812,8 +812,8 @@ void RenderTableCell::paint(PaintInfo& paintInfo, int tx, int ty)
         tx += x();
         ty += y();
         int os = 2 * maximalOutlineSize(paintInfo.phase);
-        if (ty - table()->outerBorderTop() < paintInfo.rect.bottom() + os &&
-            ty + height() + table()->outerBorderBottom() > paintInfo.rect.y() - os)
+        if (ty - table()->outerBorderTop() < paintInfo.rect.maxY() + os
+            && ty + height() + table()->outerBorderBottom() > paintInfo.rect.y() - os)
             paintCollapsedBorder(paintInfo.context, tx, ty, width(), height());
         return;
     } 

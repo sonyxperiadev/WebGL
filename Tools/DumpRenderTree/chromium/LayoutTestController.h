@@ -250,6 +250,7 @@ public:
     void dumpTitleChanges(const CppArgumentList&, CppVariant*);
     void setMainFrameIsFirstResponder(const CppArgumentList&, CppVariant*);
     void display(const CppArgumentList&, CppVariant*);
+    void displayInvalidatedRegion(const CppArgumentList&, CppVariant*);
     void testRepaint(const CppArgumentList&, CppVariant*);
     void repaintSweepHorizontally(const CppArgumentList&, CppVariant*);
     void clearBackForwardList(const CppArgumentList&, CppVariant*);
@@ -310,9 +311,6 @@ public:
 
     // Allows layout tests to exec scripts at WebInspector side.
     void evaluateInWebInspector(const CppArgumentList&, CppVariant*);
-
-    // Forces the selection colors for testing under Linux.
-    void forceRedSelectionColors(const CppArgumentList&, CppVariant*);
 
     // Adds a user script or user style sheet to be injected into new documents.
     void addUserScript(const CppArgumentList&, CppVariant*);

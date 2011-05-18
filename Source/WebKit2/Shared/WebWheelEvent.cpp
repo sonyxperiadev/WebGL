@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebEvent.h"
 
 #include "Arguments.h"
@@ -39,12 +40,16 @@ WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint
     , m_delta(delta)
     , m_wheelTicks(wheelTicks)
     , m_granularity(granularity)
+#if PLATFORM(MAC)
+    , m_phase(PhaseNone)
+    , m_hasPreciseScrollingDeltas(false)
+#endif
 {
     ASSERT(isWheelEventType(type));
 }
 
 #if PLATFORM(MAC)
-WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Granularity granularity, Phase phase, Modifiers modifiers, double timestamp)
+WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Granularity granularity, Phase phase, bool hasPreciseScrollingDeltas, Modifiers modifiers, double timestamp)
     : WebEvent(type, modifiers, timestamp)
     , m_position(position)
     , m_globalPosition(globalPosition)
@@ -52,6 +57,7 @@ WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint
     , m_wheelTicks(wheelTicks)
     , m_granularity(granularity)
     , m_phase(phase)
+    , m_hasPreciseScrollingDeltas(hasPreciseScrollingDeltas)
 {
     ASSERT(isWheelEventType(type));
 }
@@ -68,6 +74,7 @@ void WebWheelEvent::encode(CoreIPC::ArgumentEncoder* encoder) const
     encoder->encode(m_granularity);
 #if PLATFORM(MAC)
     encoder->encode(m_phase);
+    encoder->encode(m_hasPreciseScrollingDeltas);
 #endif
 }
 
@@ -87,6 +94,8 @@ bool WebWheelEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebWheelEvent& t)
         return false;
 #if PLATFORM(MAC)
     if (!decoder->decode(t.m_phase))
+        return false;
+    if (!decoder->decode(t.m_hasPreciseScrollingDeltas))
         return false;
 #endif
     return true;

@@ -564,6 +564,7 @@
 
 #if OS(WINCE)
 #include <ce_time.h>
+#define WTF_USE_MERSENNE_TWISTER_19937 1
 #endif
 
 #if (PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
@@ -600,11 +601,13 @@
 #endif
 
 #if PLATFORM(MAC) && !PLATFORM(IOS)
-#define WTF_PLATFORM_CF 1
-#define WTF_USE_PTHREADS 1
-#define HAVE_PTHREAD_RWLOCK 1
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_TIGER) && CPU(X86_64)
 #define WTF_USE_PLUGIN_HOST_PROCESS 1
+#endif
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#define ENABLE_GESTURE_EVENTS 1
+#define ENABLE_RUBBER_BANDING 1
+#define WTF_USE_WK_SCROLLBAR_PAINTER 1
 #endif
 #if !defined(ENABLE_JAVA_BRIDGE)
 #define ENABLE_JAVA_BRIDGE 1
@@ -612,10 +615,14 @@
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
 #define ENABLE_DASHBOARD_SUPPORT 1
 #endif
+#define WTF_PLATFORM_CF 1
+#define WTF_USE_PTHREADS 1
+#define HAVE_PTHREAD_RWLOCK 1
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
 #define ENABLE_FULLSCREEN_API 1
 #define ENABLE_SMOOTH_SCROLLING 1
+#define ENABLE_WEB_ARCHIVE 1
 #endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
 #if PLATFORM(ANDROID)
@@ -660,6 +667,7 @@
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
+#define ENABLE_WEB_ARCHIVE 1
 #endif
 
 #if PLATFORM(ANDROID)
@@ -683,6 +691,10 @@
 #define WTF_USE_PTHREADS 0
 #endif
 
+#if PLATFORM(WIN) && !OS(WINCE) && !PLATFORM(CHROMIUM) && !PLATFORM(QT)
+#define ENABLE_WEB_ARCHIVE 1
+#endif
+
 #if PLATFORM(WX)
 #define ENABLE_ASSEMBLER 1
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
@@ -690,6 +702,7 @@
 #define WTF_PLATFORM_CF 1
 #ifndef BUILDING_ON_TIGER
 #define WTF_USE_CORE_TEXT 1
+#define ENABLE_WEB_ARCHIVE 1
 #else
 #define WTF_USE_ATSUI 1
 #endif
@@ -728,6 +741,12 @@
 
 #if OS(UNIX) && !OS(SYMBIAN)
 #define HAVE_SIGNAL_H 1
+#endif
+
+#if !defined(HAVE_STRNSTR)
+#if OS(DARWIN) || OS(FREEBSD)
+#define HAVE_STRNSTR 1
+#endif
 #endif
 
 #if !OS(WINDOWS) && !OS(SOLARIS) && !OS(QNX) \
@@ -836,6 +855,9 @@
 #if PLATFORM(QT)
 /* We must not customize the global operator new and delete for the Qt port. */
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
+#if !OS(UNIX) || OS(SYMBIAN)
+#define USE_SYSTEM_MALLOC 1
+#endif
 #endif
 
 /* fastMalloc match validation allows for runtime verification that
@@ -1040,7 +1062,10 @@
 #define ENABLE_REGEXP_TRACING 0
 
 /* Yet Another Regex Runtime - turned on by default for JIT enabled ports. */
-#if ENABLE(JIT) && !defined(ENABLE_YARR_JIT)
+#if PLATFORM(CHROMIUM)
+#define ENABLE_YARR_JIT 0
+
+#elif ENABLE(JIT) && !defined(ENABLE_YARR_JIT)
 #define ENABLE_YARR_JIT 1
 
 /* Setting this flag compares JIT results with interpreter results. */
@@ -1054,8 +1079,6 @@
    security but currectly comes at a significant performance cost. */
 #if PLATFORM(IOS)
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 1
-#else
-#define ENABLE_ASSEMBLER_WX_EXCLUSIVE 0
 #endif
 
 /* Pick which allocator to use; we only need an executable allocator if the assembler is compiled in.
@@ -1074,6 +1097,10 @@
 
 #if !defined(ENABLE_SMOOTH_SCROLLING)
 #define ENABLE_SMOOTH_SCROLLING 0
+#endif
+
+#if !defined(ENABLE_WEB_ARCHIVE)
+#define ENABLE_WEB_ARCHIVE 0
 #endif
 
 /* Use the QXmlStreamReader implementation for XMLDocumentParser */

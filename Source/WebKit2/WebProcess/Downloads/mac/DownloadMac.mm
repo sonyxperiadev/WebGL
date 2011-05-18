@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,16 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "Download.h"
+#import "config.h"
+#import "Download.h"
 
-#include <WebCore/BackForwardController.h>
-#include <WebCore/HistoryItem.h>
-#include <WebCore/Page.h>
-#include <WebCore/ResourceHandle.h>
-#include <WebCore/ResourceResponse.h>
-#include "DataReference.h"
-#include "NotImplemented.h"
-#include "WebPage.h"
+#import <WebCore/BackForwardController.h>
+#import <WebCore/HistoryItem.h>
+#import <WebCore/Page.h>
+#import <WebCore/ResourceHandle.h>
+#import <WebCore/ResourceResponse.h>
+#import "DataReference.h"
+#import "NotImplemented.h"
+#import "WebPage.h"
 
 @interface NSURLDownload (WebNSURLDownloadDetails)
 +(id)_downloadWithLoadingConnection:(NSURLConnection *)connection
@@ -166,6 +167,14 @@ void Download::platformInvalidate()
     [m_delegate.get() invalidate];
     m_delegate = nullptr;
     m_nsURLDownload = nullptr;
+}
+
+void Download::didDecideDestination(const String& destination, bool allowOverwrite)
+{
+}
+
+void Download::platformDidFinish()
+{
 }
 
 } // namespace WebKit

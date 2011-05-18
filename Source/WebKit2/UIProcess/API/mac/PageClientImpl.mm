@@ -23,11 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "NativeWebKeyboardEvent.h"
+#import "config.h"
 #import "PageClientImpl.h"
 
 #import "DataReference.h"
 #import "FindIndicator.h"
+#import "NativeWebKeyboardEvent.h"
 #import "WKAPICast.h"
 #import "WKStringCF.h"
 #import "WKViewInternal.h"
@@ -42,6 +43,10 @@
 #import <wtf/PassOwnPtr.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
+
+@interface NSApplication (WebNSApplicationDetails)
+- (NSCursor *)_cursorRectCursor;
+@end
 
 using namespace WebCore;
 
@@ -177,6 +182,11 @@ void PageClientImpl::processDidCrash()
 {
     [m_wkView _processDidCrash];
 }
+    
+void PageClientImpl::pageClosed()
+{
+    [m_wkView _pageClosed];
+}
 
 void PageClientImpl::didRelaunchProcess()
 {
@@ -195,7 +205,8 @@ void PageClientImpl::toolTipChanged(const String& oldToolTip, const String& newT
 
 void PageClientImpl::setCursor(const WebCore::Cursor& cursor)
 {
-    [m_wkView _setCursor:cursor.platformCursor()];
+    if (![NSApp _cursorRectCursor])
+        [m_wkView _setCursor:cursor.platformCursor()];
 }
 
 void PageClientImpl::setViewportArguments(const WebCore::ViewportArguments&)
@@ -297,10 +308,14 @@ FloatRect PageClientImpl::convertToUserSpace(const FloatRect& rect)
     return [m_wkView _convertToUserSpace:rect];
 }
 
-void PageClientImpl::didNotHandleKeyEvent(const NativeWebKeyboardEvent& event)
+void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool wasEventHandled)
 {
     NSEvent* nativeEvent = event.nativeEvent();
-    if ([nativeEvent type] == NSKeyDown) {
+    if ([nativeEvent type] != NSKeyDown)
+        return;
+    if (wasEventHandled)
+        [NSCursor setHiddenUntilMouseMoves:YES];
+    else {
         [m_wkView _setEventBeingResent:nativeEvent];
         [[NSApplication sharedApplication] sendEvent:nativeEvent];
     }
@@ -321,13 +336,23 @@ void PageClientImpl::setFindIndicator(PassRefPtr<FindIndicator> findIndicator, b
     [m_wkView _setFindIndicator:findIndicator fadeOut:fadeOut];
 }
 
-void PageClientImpl::accessibilityChildTokenReceived(const CoreIPC::DataReference& data)
+void PageClientImpl::accessibilityWebProcessTokenReceived(const CoreIPC::DataReference& data)
 {
     NSData* remoteToken = [NSData dataWithBytes:data.data() length:data.size()];
-    [m_wkView _setAccessibilityChildToken:remoteToken];
+    [m_wkView _setAccessibilityWebProcessToken:remoteToken];
 }
     
 #if USE(ACCELERATED_COMPOSITING)
+void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
+{
+    [m_wkView _enterAcceleratedCompositingMode:layerTreeContext];
+}
+
+void PageClientImpl::exitAcceleratedCompositingMode()
+{
+    [m_wkView _exitAcceleratedCompositingMode];
+}
+
 void PageClientImpl::pageDidEnterAcceleratedCompositing()
 {
     [m_wkView _pageDidEnterAcceleratedCompositing];
@@ -344,9 +369,22 @@ void PageClientImpl::setComplexTextInputEnabled(uint64_t pluginComplexTextInputI
     [m_wkView _setComplexTextInputEnabled:complexTextInputEnabled pluginComplexTextInputIdentifier:pluginComplexTextInputIdentifier];
 }
 
+void PageClientImpl::setAutodisplay(bool newState)
+{
+    if (!newState && [[m_wkView window] isAutodisplay])
+        [m_wkView displayIfNeeded];
+    
+    [[m_wkView window] setAutodisplay:newState];
+}
+
 CGContextRef PageClientImpl::containingWindowGraphicsContext()
 {
     return static_cast<CGContextRef>([[[m_wkView window] graphicsContext] graphicsPort]);
+}
+
+void PageClientImpl::didChangeScrollbarsForMainFrame() const
+{
+    [m_wkView _didChangeScrollbarsForMainFrame];
 }
 
 void PageClientImpl::didCommitLoadForMainFrame(bool useCustomRepresentation)

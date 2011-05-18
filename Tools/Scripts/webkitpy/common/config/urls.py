@@ -34,5 +34,6 @@ def view_source_url(local_path):
 def view_revision_url(revision_number):
     return "http://trac.webkit.org/changeset/%s" % revision_number
 
+chromium_lkgr_url = "http://chromium-status.appspot.com/lkgr"
 
 contribution_guidelines = "http://webkit.org/coding/contributing.html"

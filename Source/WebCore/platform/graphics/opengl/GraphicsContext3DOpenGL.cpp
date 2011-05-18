@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "GraphicsContext3D.h"
 
@@ -83,7 +83,7 @@ void GraphicsContext3D::paintRenderingResultsToCanvas(CanvasRenderingContext* co
     int rowBytes = m_currentWidth * 4;
     int totalBytes = rowBytes * m_currentHeight;
 
-    OwnArrayPtr<unsigned char> pixels(new unsigned char[totalBytes]);
+    OwnArrayPtr<unsigned char> pixels = adoptArrayPtr(new unsigned char[totalBytes]);
     if (!pixels)
         return;
 
@@ -1437,28 +1437,6 @@ void GraphicsContext3D::deleteTexture(Platform3DObject texture)
     glDeleteTextures(1, &texture);
 }
 
-uint32_t GraphicsContext3D::sizeInBytes(GC3Denum type)
-{
-    switch (type) {
-        case GL_BYTE:
-            return sizeof(GLbyte);
-        case GL_UNSIGNED_BYTE:
-            return sizeof(GLubyte);
-        case GL_SHORT:
-            return sizeof(GLshort);
-        case GL_UNSIGNED_SHORT:
-            return sizeof(GLushort);
-        case GL_INT:
-            return sizeof(GLint);
-        case GL_UNSIGNED_INT:
-            return sizeof(GLuint);
-        case GL_FLOAT:
-            return sizeof(GLfloat);
-        default:
-            return 0;
-    }
-}
-
 void GraphicsContext3D::synthesizeGLError(GC3Denum error)
 {
     m_syntheticErrors.add(error);
@@ -1473,4 +1451,4 @@ Extensions3D* GraphicsContext3D::getExtensions()
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

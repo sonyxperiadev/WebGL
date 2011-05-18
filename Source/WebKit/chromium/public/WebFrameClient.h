@@ -41,6 +41,7 @@ namespace WebKit {
 
 class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
+class WebClipboard;
 class WebCookieJar;
 class WebDataSource;
 class WebFormElement;
@@ -87,6 +88,10 @@ public:
     // A frame specific cookie jar.  May return null, in which case
     // WebKitClient::cookieJar() will be called to access cookies.
     virtual WebCookieJar* cookieJar(WebFrame*) { return 0; }
+
+    // A frame specific clipboard. May return null, in which case the caller
+    // should assume there is no data in the clipboard.
+    virtual WebClipboard* clipboard() { return 0; }
 
 
     // General notifications -----------------------------------------------
@@ -279,7 +284,7 @@ public:
     // The indicated security origin has run active content (such as a
     // script) from an insecure source.  Note that the insecure content can
     // spread to other frames in the same origin.
-    virtual void didRunInsecureContent(WebFrame*, const WebSecurityOrigin&) { }
+    virtual void didRunInsecureContent(WebFrame*, const WebSecurityOrigin&, const WebURL& insecureURL) { }
 
 
     // Script notifications ------------------------------------------------
@@ -361,9 +366,6 @@ public:
     virtual void openFileSystem(
         WebFrame*, WebFileSystem::Type, long long size,
         bool create, WebFileSystemCallbacks*) { }
-
-    // FIXME: This method should be deleted once chromium implements the new method above.
-    virtual void openFileSystem(WebFrame* frame, WebFileSystem::Type type, long long size, WebFileSystemCallbacks* callbacks) { return openFileSystem(frame, type, size, true, callbacks); }
 
 protected:
     ~WebFrameClient() { }

@@ -102,7 +102,7 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
     [windowController.get() setInspectorClient:this];
 
     m_frontendPage = core([windowController.get() webView]);
-    WebInspectorFrontendClient* frontendClient = new WebInspectorFrontendClient(m_webView, windowController.get(), inspectorController, m_frontendPage);
+    WebInspectorFrontendClient* frontendClient = new WebInspectorFrontendClient(m_webView, windowController.get(), inspectorController, m_frontendPage, createFrontendSettings());
     m_frontendPage->inspectorController()->setInspectorFrontendClient(frontendClient);
 
     [[m_webView inspector] setFrontend:[[WebInspectorFrontend alloc] initWithFrontendClient:frontendClient]];
@@ -118,8 +118,8 @@ void WebInspectorClient::hideHighlight()
     [m_highlighter.get() hideHighlight];
 }
 
-WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, WebInspectorWindowController* windowController, InspectorController* inspectorController, Page* frontendPage)
-    : InspectorFrontendClientLocal(inspectorController,  frontendPage)
+WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, WebInspectorWindowController* windowController, InspectorController* inspectorController, Page* frontendPage, WTF::PassOwnPtr<Settings> settings)
+    : InspectorFrontendClientLocal(inspectorController,  frontendPage, settings)
     , m_inspectedWebView(inspectedWebView)
     , m_windowController(windowController)
 {
@@ -355,9 +355,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
     _visible = YES;
     
-    // If no preference is set - default to an attached window. This is important for inspector LayoutTests.
-    // FIXME: This flag can be fetched directly from the flags storage.
-    _shouldAttach = [_inspectedWebView page]->inspectorController()->inspectorStartsAttached();
+    _shouldAttach = _inspectorClient->inspectorStartsAttached();
     
     if (_shouldAttach && !_frontendClient->canAttachWindow())
         _shouldAttach = NO;
@@ -392,8 +390,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     if (_attachedToInspectedWebView)
         return;
 
-    // FIXME: This flag can be saved directly to the flags storage.
-    [_inspectedWebView page]->inspectorController()->setInspectorStartsAttached(true);
+    _inspectorClient->setInspectorStartsAttached(true);
 
     [self close];
     [self showWindow:nil];
@@ -404,8 +401,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     if (!_attachedToInspectedWebView)
         return;
 
-    // FIXME: This flag can be saved to the flags storage directly.
-    [_inspectedWebView page]->inspectorController()->setInspectorStartsAttached(false);
+    _inspectorClient->setInspectorStartsAttached(false);
 
     [self close];
     [self showWindow:nil];

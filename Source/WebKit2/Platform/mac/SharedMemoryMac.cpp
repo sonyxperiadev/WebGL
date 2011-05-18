@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "SharedMemory.h"
 
 #include "ArgumentDecoder.h"
@@ -56,7 +57,7 @@ bool SharedMemory::Handle::isNull() const
 void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
     encoder->encodeUInt64(m_size);
-    encoder->encode(CoreIPC::MachPort(m_port, MACH_MSG_TYPE_COPY_SEND));
+    encoder->encode(CoreIPC::MachPort(m_port, MACH_MSG_TYPE_MOVE_SEND));
     m_port = MACH_PORT_NULL;
 }
 
@@ -90,6 +91,8 @@ static inline mach_vm_address_t toVMAddress(void* pointer)
     
 PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
 {
+    ASSERT(size);
+
     mach_vm_address_t address;
     kern_return_t kr = mach_vm_allocate(mach_task_self(), &address, round_page(size), VM_FLAGS_ANYWHERE);
     if (kr != KERN_SUCCESS)

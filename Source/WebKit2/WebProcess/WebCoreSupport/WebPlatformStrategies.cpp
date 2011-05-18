@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebPlatformStrategies.h"
 
 #if USE(PLATFORM_STRATEGIES)
@@ -212,6 +213,13 @@ String WebPlatformStrategies::contextMenuItemTagCopyImageToClipboard()
 {
     return UI_STRING("Copy Image", "Copy Image context menu item");
 }
+
+#if PLATFORM(QT)
+String WebPlatformStrategies::contextMenuItemTagCopyImageUrlToClipboard()
+{
+    return UI_STRING("Copy Image Address", "Copy Image Address menu item");
+}
+#endif
 
 String WebPlatformStrategies::contextMenuItemTagOpenVideoInNewWindow()
 {

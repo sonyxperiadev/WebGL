@@ -36,38 +36,15 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-
-class CSSSelectorBag {
-    WTF_MAKE_NONCOPYABLE(CSSSelectorBag);
-public:
-    CSSSelectorBag() { }
-    ~CSSSelectorBag()
-    {
-        ASSERT(isEmpty());
-    }
-
-    bool isEmpty() const
-    {
-        return m_stack.isEmpty();
-    }
-
-    void add(PassOwnPtr<CSSSelector> selector)
-    {
-        if (selector)
-            m_stack.append(selector.leakPtr());
-    }
-
-    PassOwnPtr<CSSSelector> takeAny()
-    {
-        ASSERT(!isEmpty());
-        OwnPtr<CSSSelector> selector = adoptPtr(m_stack.last());
-        m_stack.removeLast();
-        return selector.release();
-    }
-
-private:
-    Vector<CSSSelector*, 16> m_stack;
-};
+    
+void CSSSelector::createRareData()
+{
+    if (m_hasRareData) 
+        return;
+    // Move the value to the rare data stucture.
+    m_data.m_rareData = new RareData(adoptRef(m_data.m_value));
+    m_hasRareData = true;
+}
 
 unsigned CSSSelector::specificity() const
 {
@@ -161,40 +138,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return SEARCH_RESULTS_DECORATION;
     case PseudoSearchResultsButton:
         return SEARCH_RESULTS_BUTTON;
-    case PseudoMediaControlsPanel:
-        return MEDIA_CONTROLS_PANEL;
-    case PseudoMediaControlsMuteButton:
-        return MEDIA_CONTROLS_MUTE_BUTTON;
-    case PseudoMediaControlsPlayButton:
-        return MEDIA_CONTROLS_PLAY_BUTTON;
-    case PseudoMediaControlsTimelineContainer:
-        return MEDIA_CONTROLS_TIMELINE_CONTAINER;
-    case PseudoMediaControlsVolumeSliderContainer:
-        return MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER;
-    case PseudoMediaControlsCurrentTimeDisplay:
-        return MEDIA_CONTROLS_CURRENT_TIME_DISPLAY;
-    case PseudoMediaControlsTimeRemainingDisplay:
-        return MEDIA_CONTROLS_TIME_REMAINING_DISPLAY;
-    case PseudoMediaControlsTimeline:
-        return MEDIA_CONTROLS_TIMELINE;
-    case PseudoMediaControlsVolumeSlider:
-        return MEDIA_CONTROLS_VOLUME_SLIDER;
-    case PseudoMediaControlsVolumeSliderMuteButton:
-        return MEDIA_CONTROLS_VOLUME_SLIDER_MUTE_BUTTON;
-    case PseudoMediaControlsSeekBackButton:
-        return MEDIA_CONTROLS_SEEK_BACK_BUTTON;
-    case PseudoMediaControlsSeekForwardButton:
-        return MEDIA_CONTROLS_SEEK_FORWARD_BUTTON;
-    case PseudoMediaControlsRewindButton:
-        return MEDIA_CONTROLS_REWIND_BUTTON;
-    case PseudoMediaControlsReturnToRealtimeButton:
-        return MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON;
-    case PseudoMediaControlsToggleClosedCaptions:
-        return MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON;
-    case PseudoMediaControlsStatusDisplay:
-        return MEDIA_CONTROLS_STATUS_DISPLAY;
-    case PseudoMediaControlsFullscreenButton:
-        return MEDIA_CONTROLS_FULLSCREEN_BUTTON;
     case PseudoScrollbar:
         return SCROLLBAR;
     case PseudoScrollbarButton:
@@ -213,14 +156,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return INNER_SPIN_BUTTON;
     case PseudoOuterSpinButton:
         return OUTER_SPIN_BUTTON;
-    case PseudoProgressBarValue:
-#if ENABLE(PROGRESS_TAG)
-        return PROGRESS_BAR_VALUE;
-#else
-        ASSERT_NOT_REACHED();
-        return NOPSEUDO;
-#endif
-
 #if ENABLE(METER_TAG)
     case PseudoMeterHorizontalBar:
         return METER_HORIZONTAL_BAR;
@@ -369,32 +304,11 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, lastOfType, ("last-of-type"));
     DEFINE_STATIC_LOCAL(AtomicString, link, ("link"));
     DEFINE_STATIC_LOCAL(AtomicString, lang, ("lang("));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsPanel, ("-webkit-media-controls-panel"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsMuteButton, ("-webkit-media-controls-mute-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsPlayButton, ("-webkit-media-controls-play-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimeline, ("-webkit-media-controls-timeline"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsVolumeSlider, ("-webkit-media-controls-volume-slider"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsVolumeSliderMuteButton, ("-webkit-media-controls-volume-slider-mute-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsSeekBackButton, ("-webkit-media-controls-seek-back-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsSeekForwardButton, ("-webkit-media-controls-seek-forward-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsRewindButton, ("-webkit-media-controls-rewind-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsReturnToRealtimeButton, ("-webkit-media-controls-return-to-realtime-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsToggleClosedCaptionsButton, ("-webkit-media-controls-toggle-closed-captions-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsStatusDisplay, ("-webkit-media-controls-status-display"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsFullscreenButton, ("-webkit-media-controls-fullscreen-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimelineContainer, ("-webkit-media-controls-timeline-container"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsVolumeSliderContainer, ("-webkit-media-controls-volume-slider-container"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsCurrentTimeDisplay, ("-webkit-media-controls-current-time-display"));
-    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimeRemainingDisplay, ("-webkit-media-controls-time-remaining-display"));
     DEFINE_STATIC_LOCAL(AtomicString, notStr, ("not("));
     DEFINE_STATIC_LOCAL(AtomicString, onlyChild, ("only-child"));
     DEFINE_STATIC_LOCAL(AtomicString, onlyOfType, ("only-of-type"));
     DEFINE_STATIC_LOCAL(AtomicString, optional, ("optional"));
     DEFINE_STATIC_LOCAL(AtomicString, outerSpinButton, ("-webkit-outer-spin-button"));
-#if ENABLE(PROGRESS_TAG)
-    DEFINE_STATIC_LOCAL(AtomicString, progressBarValue, ("-webkit-progress-bar-value"));
-#endif
-
 #if ENABLE(METER_TAG)
     DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalBar, ("-webkit-meter-horizontal-bar"));
     DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalOptimumValue, ("-webkit-meter-horizontal-optimum-value"));
@@ -486,32 +400,12 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(innerSpinButton.impl(), CSSSelector::PseudoInnerSpinButton);
         nameToPseudoType->set(link.impl(), CSSSelector::PseudoLink);
         nameToPseudoType->set(lang.impl(), CSSSelector::PseudoLang);
-        nameToPseudoType->set(mediaControlsPanel.impl(), CSSSelector::PseudoMediaControlsPanel);
-        nameToPseudoType->set(mediaControlsMuteButton.impl(), CSSSelector::PseudoMediaControlsMuteButton);
-        nameToPseudoType->set(mediaControlsPlayButton.impl(), CSSSelector::PseudoMediaControlsPlayButton);
-        nameToPseudoType->set(mediaControlsCurrentTimeDisplay.impl(), CSSSelector::PseudoMediaControlsCurrentTimeDisplay);
-        nameToPseudoType->set(mediaControlsTimeRemainingDisplay.impl(), CSSSelector::PseudoMediaControlsTimeRemainingDisplay);
-        nameToPseudoType->set(mediaControlsTimeline.impl(), CSSSelector::PseudoMediaControlsTimeline);
-        nameToPseudoType->set(mediaControlsVolumeSlider.impl(), CSSSelector::PseudoMediaControlsVolumeSlider);
-        nameToPseudoType->set(mediaControlsVolumeSliderMuteButton.impl(), CSSSelector::PseudoMediaControlsVolumeSliderMuteButton);
-        nameToPseudoType->set(mediaControlsSeekBackButton.impl(), CSSSelector::PseudoMediaControlsSeekBackButton);
-        nameToPseudoType->set(mediaControlsSeekForwardButton.impl(), CSSSelector::PseudoMediaControlsSeekForwardButton);
-        nameToPseudoType->set(mediaControlsRewindButton.impl(), CSSSelector::PseudoMediaControlsRewindButton);
-        nameToPseudoType->set(mediaControlsReturnToRealtimeButton.impl(), CSSSelector::PseudoMediaControlsReturnToRealtimeButton);
-        nameToPseudoType->set(mediaControlsToggleClosedCaptionsButton.impl(), CSSSelector::PseudoMediaControlsToggleClosedCaptions);
-        nameToPseudoType->set(mediaControlsStatusDisplay.impl(), CSSSelector::PseudoMediaControlsStatusDisplay);
-        nameToPseudoType->set(mediaControlsFullscreenButton.impl(), CSSSelector::PseudoMediaControlsFullscreenButton);
-        nameToPseudoType->set(mediaControlsTimelineContainer.impl(), CSSSelector::PseudoMediaControlsTimelineContainer);
-        nameToPseudoType->set(mediaControlsVolumeSliderContainer.impl(), CSSSelector::PseudoMediaControlsVolumeSliderContainer);
         nameToPseudoType->set(notStr.impl(), CSSSelector::PseudoNot);
         nameToPseudoType->set(nthChild.impl(), CSSSelector::PseudoNthChild);
         nameToPseudoType->set(nthOfType.impl(), CSSSelector::PseudoNthOfType);
         nameToPseudoType->set(nthLastChild.impl(), CSSSelector::PseudoNthLastChild);
         nameToPseudoType->set(nthLastOfType.impl(), CSSSelector::PseudoNthLastOfType);
         nameToPseudoType->set(outerSpinButton.impl(), CSSSelector::PseudoOuterSpinButton);
-#if ENABLE(PROGRESS_TAG)
-        nameToPseudoType->set(progressBarValue.impl(), CSSSelector::PseudoProgressBarValue);
-#endif
 #if ENABLE(METER_TAG)
         nameToPseudoType->set(meterHorizontalBar.impl(), CSSSelector::PseudoMeterHorizontalBar);
         nameToPseudoType->set(meterHorizontalOptimumValue.impl(), CSSSelector::PseudoMeterHorizontalOptimum);
@@ -577,7 +471,7 @@ void CSSSelector::extractPseudoType() const
     if (m_match != PseudoClass && m_match != PseudoElement && m_match != PagePseudoClass)
         return;
 
-    m_pseudoType = parsePseudoType(m_value);
+    m_pseudoType = parsePseudoType(value());
 
     bool element = false; // pseudo-element
     bool compat = false; // single colon compatbility mode
@@ -596,23 +490,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoInputSpeechButton:
 #endif
     case PseudoInnerSpinButton:
-    case PseudoMediaControlsPanel:
-    case PseudoMediaControlsMuteButton:
-    case PseudoMediaControlsPlayButton:
-    case PseudoMediaControlsCurrentTimeDisplay:
-    case PseudoMediaControlsTimeRemainingDisplay:
-    case PseudoMediaControlsTimeline:
-    case PseudoMediaControlsVolumeSlider:
-    case PseudoMediaControlsVolumeSliderMuteButton:
-    case PseudoMediaControlsSeekBackButton:
-    case PseudoMediaControlsSeekForwardButton:
-    case PseudoMediaControlsRewindButton:
-    case PseudoMediaControlsReturnToRealtimeButton:
-    case PseudoMediaControlsToggleClosedCaptions:
-    case PseudoMediaControlsStatusDisplay:
-    case PseudoMediaControlsFullscreenButton:
-    case PseudoMediaControlsTimelineContainer:
-    case PseudoMediaControlsVolumeSliderContainer:
     case PseudoMeterHorizontalBar:
     case PseudoMeterHorizontalOptimum:
     case PseudoMeterHorizontalSuboptimal:
@@ -622,7 +499,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoMeterVerticalSuboptimal:
     case PseudoMeterVerticalEvenLessGood:
     case PseudoOuterSpinButton:
-    case PseudoProgressBarValue:
     case PseudoResizer:
     case PseudoScrollbar:
     case PseudoScrollbarCorner:
@@ -721,7 +597,7 @@ bool CSSSelector::operator==(const CSSSelector& other)
     while (sel1 && sel2) {
         if (sel1->m_tag != sel2->m_tag || sel1->attribute() != sel2->attribute() ||
              sel1->relation() != sel2->relation() || sel1->m_match != sel2->m_match ||
-             sel1->m_value != sel2->m_value ||
+             sel1->value() != sel2->value() ||
              sel1->pseudoType() != sel2->pseudoType() ||
              sel1->argument() != sel2->argument())
             return false;
@@ -755,13 +631,13 @@ String CSSSelector::selectorText() const
     while (true) {
         if (cs->m_match == CSSSelector::Id) {
             str += "#";
-            serializeIdentifier(cs->m_value, str);
+            serializeIdentifier(cs->value(), str);
         } else if (cs->m_match == CSSSelector::Class) {
             str += ".";
-            serializeIdentifier(cs->m_value, str);
+            serializeIdentifier(cs->value(), str);
         } else if (cs->m_match == CSSSelector::PseudoClass || cs->m_match == CSSSelector::PagePseudoClass) {
             str += ":";
-            str += cs->m_value;
+            str += cs->value();
             if (cs->pseudoType() == PseudoNot) {
                 if (CSSSelector* subSel = cs->simpleSelector())
                     str += subSel->selectorText();
@@ -776,7 +652,7 @@ String CSSSelector::selectorText() const
             }
         } else if (cs->m_match == CSSSelector::PseudoElement) {
             str += "::";
-            str += cs->m_value;
+            str += cs->value();
         } else if (cs->hasAttribute()) {
             str += "[";
             const AtomicString& prefix = cs->attribute().prefix();
@@ -812,7 +688,7 @@ String CSSSelector::selectorText() const
                     break;
             }
             if (cs->m_match != CSSSelector::Set) {
-                serializeString(cs->m_value, str);
+                serializeString(cs->value(), str);
                 str += "]";
             }
         }
@@ -835,14 +711,6 @@ String CSSSelector::selectorText() const
     }
 
     return str;
-}
-    
-void CSSSelector::setTagHistory(CSSSelector* tagHistory) 
-{ 
-    if (m_hasRareData) 
-        m_data.m_rareData->m_tagHistory.set(tagHistory); 
-    else 
-        m_data.m_tagHistory = tagHistory; 
 }
 
 const QualifiedName& CSSSelector::attribute() const
@@ -869,10 +737,10 @@ void CSSSelector::setArgument(const AtomicString& value)
     m_data.m_rareData->m_argument = value; 
 }
 
-void CSSSelector::setSimpleSelector(CSSSelector* value)
+void CSSSelector::setSimpleSelector(PassOwnPtr<CSSSelector> value)
 {
     createRareData(); 
-    m_data.m_rareData->m_simpleSelector.set(value); 
+    m_data.m_rareData->m_simpleSelector = value; 
 }
 
 bool CSSSelector::parseNth()
@@ -972,35 +840,6 @@ bool CSSSelector::RareData::matchNth(int count)
         if (count > m_b)
             return false;
         return (m_b - count) % (-m_a) == 0;
-    }
-}
-
-inline void CSSSelector::releaseOwnedSelectorsToBag(CSSSelectorBag& bag)
-{
-    if (m_hasRareData) {
-        ASSERT(m_data.m_rareData);
-        bag.add(m_data.m_rareData->m_tagHistory.release());
-        bag.add(m_data.m_rareData->m_simpleSelector.release());
-        delete m_data.m_rareData;
-        // Clear the pointer so that a destructor of this selector will not
-        // traverse this chain.
-        m_data.m_rareData = 0;
-    } else {
-        bag.add(adoptPtr(m_data.m_tagHistory));
-        // Clear the pointer for the same reason.
-        m_data.m_tagHistory = 0;
-    }
-}
-
-void CSSSelector::deleteReachableSelectors()
-{
-    // Traverse the chain of selectors and delete each iteratively.
-    CSSSelectorBag selectorsToBeDeleted;
-    releaseOwnedSelectorsToBag(selectorsToBeDeleted);
-    while (!selectorsToBeDeleted.isEmpty()) {
-        OwnPtr<CSSSelector> selector(selectorsToBeDeleted.takeAny());
-        ASSERT(selector);
-        selector->releaseOwnedSelectorsToBag(selectorsToBeDeleted);
     }
 }
 

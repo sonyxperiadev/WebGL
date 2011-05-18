@@ -56,6 +56,7 @@ public:
 #if PLATFORM(MAC)
         static const cpu_type_t MatchCurrentArchitecture = 0;
         cpu_type_t architecture;
+        bool executableHeap;
 #endif
     };
 
@@ -71,11 +72,6 @@ public:
     void invalidate();
 
     static bool getProcessTypeFromString(const char*, ProcessType&);
-
-#if PLATFORM(QT)
-    friend class ProcessLauncherHelper;
-    static QLocalSocket* takePendingConnection();
-#endif
 
 private:
     ProcessLauncher(Client*, const LaunchOptions& launchOptions);

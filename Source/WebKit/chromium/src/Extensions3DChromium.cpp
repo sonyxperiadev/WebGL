@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "Extensions3DChromium.h"
 
@@ -62,6 +62,16 @@ int Extensions3DChromium::getGraphicsResetStatusARB()
     return m_internal->isContextLost() ? static_cast<int>(Extensions3D::UNKNOWN_CONTEXT_RESET_ARB) : static_cast<int>(GraphicsContext3D::NO_ERROR);
 }
 
+void Extensions3DChromium::blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter)
+{
+    m_internal->blitFramebufferCHROMIUM(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+}
+
+void Extensions3DChromium::renderbufferStorageMultisample(unsigned long target, unsigned long samples, unsigned long internalformat, unsigned long width, unsigned long height)
+{
+    m_internal->renderbufferStorageMultisampleCHROMIUM(target, samples, internalformat, width, height);
+}
+
 void* Extensions3DChromium::mapBufferSubDataCHROMIUM(unsigned target, int offset, int size, unsigned access)
 {
     return m_internal->mapBufferSubDataCHROMIUM(target, offset, size, access);
@@ -89,4 +99,4 @@ void Extensions3DChromium::copyTextureToParentTextureCHROMIUM(unsigned texture, 
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

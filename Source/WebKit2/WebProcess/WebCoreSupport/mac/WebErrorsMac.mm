@@ -23,13 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebErrors.h"
+#import "config.h"
+#import "WebErrors.h"
 
-#include "WKError.h"
-#include "WebError.h"
-#include <WebCore/ResourceRequest.h>
-#include <WebCore/ResourceResponse.h>
-#include <pthread.h>
+#import "WKError.h"
+#import "WebError.h"
+#import <WebCore/ResourceRequest.h>
+#import <WebCore/ResourceResponse.h>
+#import <pthread.h>
 
 using namespace WebCore;
 using namespace WebKit;

@@ -33,11 +33,7 @@
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class CALayer;
-#else
-class CALayer;
-#endif
+OBJC_CLASS CALayer;
 #endif
 
 namespace WebCore {

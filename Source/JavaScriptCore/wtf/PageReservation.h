@@ -57,17 +57,22 @@ namespace WTF {
 class PageReservation : private PageBlock {
 public:
     PageReservation()
-        : m_writable(false)
+        : m_committed(0)
+        , m_writable(false)
         , m_executable(false)
-#ifndef NDEBUG
-        , m_committed(0)
-#endif
     {
     }
-    
-    using PageBlock::operator bool;
+
     using PageBlock::base;
     using PageBlock::size;
+
+#ifndef __clang__
+    using PageBlock::operator bool;
+#else
+    // FIXME: This is a workaround for <rdar://problem/8876150>, wherein Clang incorrectly emits an access
+    // control warning when a client tries to use operator bool exposed above via "using PageBlock::operator bool".
+    operator bool() const { return PageBlock::operator bool(); }
+#endif
 
     void commit(void* start, size_t size)
     {
@@ -76,9 +81,7 @@ public:
         ASSERT(isPageAligned(size));
         ASSERT(contains(start, size));
 
-#ifndef NDEBUG
         m_committed += size;
-#endif
         OSAllocator::commit(start, size, m_writable, m_executable);
     }
 
@@ -89,10 +92,13 @@ public:
         ASSERT(isPageAligned(size));
         ASSERT(contains(start, size));
 
-#ifndef NDEBUG
         m_committed -= size;
-#endif
         OSAllocator::decommit(start, size);
+    }
+
+    size_t committed()
+    {
+        return m_committed;
     }
 
     static PageReservation reserve(size_t size, OSAllocator::Usage usage = OSAllocator::UnknownUsage, bool writable = true, bool executable = false)
@@ -119,19 +125,15 @@ public:
 private:
     PageReservation(void* base, size_t size, bool writable, bool executable)
         : PageBlock(base, size)
+        , m_committed(0)
         , m_writable(writable)
         , m_executable(executable)
-#ifndef NDEBUG
-        , m_committed(0)
-#endif
     {
     }
 
+    size_t m_committed;
     bool m_writable;
     bool m_executable;
-#ifndef NDEBUG
-    size_t m_committed;
-#endif
 };
 
 }

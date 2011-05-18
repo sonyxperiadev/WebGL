@@ -214,21 +214,13 @@ class TestRunner:
 
     def lint(self):
         lint_failed = False
-
-        # Creating the expecations for each platform/configuration pair does
-        # all the test list parsing and ensures it's correct syntax (e.g. no
-        # dupes).
-        for platform_name in self._port.test_platform_names():
+        for test_configuration in self._port.all_test_configurations():
             try:
-                self.parse_expectations(platform_name, is_debug_mode=True)
+                self.lint_expectations(test_configuration)
             except test_expectations.ParseError:
                 lint_failed = True
-            try:
-                self.parse_expectations(platform_name, is_debug_mode=False)
-            except test_expectations.ParseError:
-                lint_failed = True
+                self._printer.write("")
 
-        self._printer.write("")
         if lint_failed:
             _log.error("Lint failed.")
             return -1
@@ -236,22 +228,28 @@ class TestRunner:
         _log.info("Lint succeeded.")
         return 0
 
-    def parse_expectations(self, test_platform_name, is_debug_mode):
+    def lint_expectations(self, config):
+        port = self._port
+        test_expectations.TestExpectations(
+            port,
+            None,
+            port.test_expectations(),
+            config,
+            self._options.lint_test_files,
+            port.test_expectations_overrides())
+
+    def parse_expectations(self):
         """Parse the expectations from the test_list files and return a data
         structure holding them. Throws an error if the test_list files have
         invalid syntax."""
-        if self._options.lint_test_files:
-            test_files = None
-        else:
-            test_files = self._test_files
-
-        expectations_str = self._port.test_expectations()
-        overrides_str = self._port.test_expectations_overrides()
+        port = self._port
         self._expectations = test_expectations.TestExpectations(
-            self._port, test_files, expectations_str, test_platform_name,
-            is_debug_mode, self._options.lint_test_files,
-            overrides=overrides_str)
-        return self._expectations
+            port,
+            self._test_files,
+            port.test_expectations(),
+            port.test_configuration(),
+            self._options.lint_test_files,
+            port.test_expectations_overrides())
 
     # FIXME: This method is way too long and needs to be broken into pieces.
     def prepare_lists_and_print_output(self):
@@ -358,9 +356,7 @@ class TestRunner:
             self._test_files_list = files + skip_chunk_list
             self._test_files = set(self._test_files_list)
 
-            self._expectations = self.parse_expectations(
-                self._port.test_platform_name(),
-                self._options.configuration == 'Debug')
+            self.parse_expectations()
 
             self._test_files = set(files)
             self._test_files_list = files
@@ -691,6 +687,8 @@ class TestRunner:
             self._expectations, result_summary, retry_summary)
         self._printer.print_unexpected_results(unexpected_results)
 
+        # FIXME: remove record_results. It's just used for testing. There's no need
+        # for it to be a commandline argument.
         if (self._options.record_results and not self._options.dry_run and
             not interrupted):
             # Write the same data to log files and upload generated JSON files
@@ -731,28 +729,31 @@ class TestRunner:
             except Queue.Empty:
                 return
 
-            expected = self._expectations.matches_an_expected_result(
-                result.filename, result.type, self._options.pixel_tests)
-            result_summary.add(result, expected)
-            exp_str = self._expectations.get_expectations_string(
-                result.filename)
-            got_str = self._expectations.expectation_to_string(result.type)
-            self._printer.print_test_result(result, expected, exp_str, got_str)
-            self._printer.print_progress(result_summary, self._retrying,
-                                         self._test_files_list)
+            self._update_summary_with_result(result_summary, result)
 
-            def interrupt_if_at_failure_limit(limit, count, message):
-                if limit and count >= limit:
-                    raise TestRunInterruptedException(message % count)
+    def _update_summary_with_result(self, result_summary, result):
+        expected = self._expectations.matches_an_expected_result(
+            result.filename, result.type, self._options.pixel_tests)
+        result_summary.add(result, expected)
+        exp_str = self._expectations.get_expectations_string(
+            result.filename)
+        got_str = self._expectations.expectation_to_string(result.type)
+        self._printer.print_test_result(result, expected, exp_str, got_str)
+        self._printer.print_progress(result_summary, self._retrying,
+                                        self._test_files_list)
 
-            interrupt_if_at_failure_limit(
-                self._options.exit_after_n_failures,
-                result_summary.unexpected_failures,
-                "Aborting run since %d failures were reached")
-            interrupt_if_at_failure_limit(
-                self._options.exit_after_n_crashes_or_timeouts,
-                result_summary.unexpected_crashes_or_timeouts,
-                "Aborting run since %d crashes or timeouts were reached")
+        def interrupt_if_at_failure_limit(limit, count, message):
+            if limit and count >= limit:
+                raise TestRunInterruptedException(message % count)
+
+        interrupt_if_at_failure_limit(
+            self._options.exit_after_n_failures,
+            result_summary.unexpected_failures,
+            "Aborting run since %d failures were reached")
+        interrupt_if_at_failure_limit(
+            self._options.exit_after_n_crashes_or_timeouts,
+            result_summary.unexpected_crashes_or_timeouts,
+            "Aborting run since %d crashes or timeouts were reached")
 
     def _clobber_old_results(self):
         # Just clobber the actual test results directories since the other
@@ -789,7 +790,7 @@ class TestRunner:
         return failed_results
 
     def _upload_json_files(self, unexpected_results, result_summary,
-                        individual_test_timings):
+                           individual_test_timings):
         """Writes the results of the test run as JSON files into the results
         dir and upload the files to the appengine server.
 
@@ -825,18 +826,13 @@ class TestRunner:
             self._options.build_number, self._options.results_directory,
             BUILDER_BASE_URL, individual_test_timings,
             self._expectations, result_summary, self._test_files_list,
-            not self._options.upload_full_results,
             self._options.test_results_server,
             "layout-tests",
             self._options.master_name)
 
         _log.debug("Finished writing JSON files.")
 
-        json_files = ["expectations.json"]
-        if self._options.upload_full_results:
-            json_files.append("results.json")
-        else:
-            json_files.append("incremental_results.json")
+        json_files = ["expectations.json", "incremental_results.json"]
 
         generator.upload_json_files(json_files)
 
@@ -844,6 +840,7 @@ class TestRunner:
         """Prints the configuration for the test run."""
         p = self._printer
         p.print_config("Using port '%s'" % self._port.name())
+        p.print_config("Test configuration: %s" % self._port.test_configuration())
         p.print_config("Placing test results in %s" %
                        self._options.results_directory)
         if self._options.new_baseline:

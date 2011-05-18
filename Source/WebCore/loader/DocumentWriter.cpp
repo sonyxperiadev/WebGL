@@ -67,7 +67,7 @@ DocumentWriter::DocumentWriter(Frame* frame)
 void DocumentWriter::replaceDocument(const String& source)
 {
     m_frame->loader()->stopAllLoaders();
-    begin(m_frame->loader()->url(), true, m_frame->document()->securityOrigin());
+    begin(m_frame->document()->url(), true, m_frame->document()->securityOrigin());
 
     if (!source.isNull()) {
         if (!m_receivedData) {
@@ -123,10 +123,11 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
 
     bool resetScripting = !(m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
     m_frame->loader()->clear(resetScripting, resetScripting);
+    clear();
     if (resetScripting)
         m_frame->script()->updatePlatformScriptObjects();
 
-    m_frame->loader()->setURL(url);
+    m_frame->loader()->setOutgoingReferrer(url);
     m_frame->setDocument(document);
 
     if (m_decoder)
@@ -245,7 +246,7 @@ void DocumentWriter::setDecoder(TextResourceDecoder* decoder)
 
 String DocumentWriter::deprecatedFrameEncoding() const
 {
-    return m_frame->loader()->url().isEmpty() ? m_encoding : encoding();
+    return m_frame->document()->url().isEmpty() ? m_encoding : encoding();
 }
 
 void DocumentWriter::setDocumentWasLoadedAsPartOfNavigation()

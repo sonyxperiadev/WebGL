@@ -48,6 +48,7 @@ _license_header = """/*
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 """
 
 class MessageReceiver(object):
@@ -255,9 +256,13 @@ def struct_or_class(namespace, type):
         'WebCore::PrintInfo',
         'WebCore::ViewportArguments',
         'WebCore::WindowFeatures',
+        'WebKit::ContextMenuState',
         'WebKit::DrawingAreaInfo',
         'WebKit::PlatformPopupMenuData',
         'WebKit::PluginProcessCreationParameters',
+        'WebKit::PrintInfo',
+        'WebKit::SelectionState',
+        'WebKit::TextCheckerState',
         'WebKit::WebNavigationDataStore',
         'WebKit::WebOpenPanelParameters::Data',
         'WebKit::WebPageCreationParameters',
@@ -318,7 +323,6 @@ def generate_messages_header(file):
     result = []
 
     result.append(_license_header)
-    result.append('\n')
 
     result.append('#ifndef %s\n' % header_guard)
     result.append('#define %s\n\n' % header_guard)
@@ -371,9 +375,13 @@ def async_case_statement(receiver, message):
 
 
 def sync_case_statement(receiver, message):
+    dispatch_function = 'handleMessage'
+    if message.is_variadic:
+        dispatch_function += 'Variadic'
+
     result = []
     result.append('    case Messages::%s::%s:\n' % (receiver.name, message.id()))
-    result.append('        CoreIPC::handleMessage<Messages::%s::%s>(arguments, reply, this, &%s);\n' % (receiver.name, message.name, handler_function(receiver, message)))
+    result.append('        CoreIPC::%s<Messages::%s::%s>(arguments, reply, this, &%s);\n' % (dispatch_function, receiver.name, message.name, handler_function(receiver, message)))
     # FIXME: Handle delayed replies
     result.append('        return CoreIPC::AutomaticReply;\n')
     return surround_in_condition(''.join(result), message.condition)
@@ -417,6 +425,7 @@ def headers_for_type(type):
         'WebCore::KeypressCommand': '<WebCore/KeyboardEvent.h>',
         'WebCore::PluginInfo': '<WebCore/PluginData.h>',
         'WebCore::TextCheckingResult': '<WebCore/EditorClient.h>',
+        'WebKit::WebGestureEvent': '"WebEvent.h"',
         'WebKit::WebKeyboardEvent': '"WebEvent.h"',
         'WebKit::WebMouseEvent': '"WebEvent.h"',
         'WebKit::WebTouchEvent': '"WebEvent.h"',
@@ -468,6 +477,7 @@ def generate_message_handler(file):
     result = []
 
     result.append(_license_header)
+    result.append('#include "config.h"\n')
     result.append('\n')
 
     if receiver.condition:

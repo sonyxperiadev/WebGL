@@ -1,3 +1,86 @@
+2011-02-10  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * WebCoreSupport/FrameLoaderClientWinCE.cpp:
+        (WebKit::FrameLoaderClientWinCE::finishedLoading):
+
+2011-02-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove orphan code from old parser
+        https://bugs.webkit.org/show_bug.cgi?id=53984
+
+        * WebCoreSupport/ChromeClientWinCE.cpp:
+        * WebCoreSupport/ChromeClientWinCE.h:
+
+2011-02-07  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed Adam Roben and Darin Adler.
+
+        WebKit2: drag and drop support on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=52775
+
+        Removed createDragImageForLink from DragClient.
+
+        * WebCoreSupport/DragClientWinCE.cpp:
+        * WebCoreSupport/DragClientWinCE.h:
+
+2011-02-06  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Martin Robinson.
+
+        [WINCE] FrameLoaderClient calls loadURLInChildFrame on the child's frame loader
+        https://bugs.webkit.org/show_bug.cgi?id=53896
+
+        * WebView.cpp:
+        (WebView::createFrame): Use coreFrame instead of childFrame.
+
+2011-02-03  Adam Langley  <agl@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Plumb mixed script URL to FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=52384
+
+        Regressions covered by http/tests/security/mixedContent/*
+
+        * WebCoreSupport/FrameLoaderClientWinCE.cpp:
+        (WebKit::FrameLoaderClientWinCE::didRunInsecureContent):
+        * WebCoreSupport/FrameLoaderClientWinCE.h:
+
+2011-02-02  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed WinCE build fix for r77398.
+
+        * WebView.cpp:
+        (WebView::paint):
+
+2011-01-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <select> can't display right-to-left (rtl) languages
+        https://bugs.webkit.org/show_bug.cgi?id=19785
+
+        * WebCoreSupport/ChromeClientWinCE.cpp:
+        (WebKit::ChromeClientWinCE::selectItemAlignmentFollowsMenuWritingDirection): Added.
+        * WebCoreSupport/ChromeClientWinCE.h:
+
+2011-01-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WINCE] Ensure layouted frame when painting
+        https://bugs.webkit.org/show_bug.cgi?id=53108
+
+        * WebView.cpp:
+        (WebView::paint):
+
 2011-01-04  Patrick Gansterer  <paroga@webkit.org>
 
         Unreviewed WinCE build fix.

@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebInspector.h"
 
 #if ENABLE(INSPECTOR)
@@ -37,6 +38,11 @@
 using namespace WebCore;
 
 namespace WebKit {
+
+PassRefPtr<WebInspector> WebInspector::create(WebPage* page)
+{
+    return adoptRef(new WebInspector(page));
+}
 
 WebInspector::WebInspector(WebPage* page)
     : m_page(page)
@@ -91,9 +97,14 @@ void WebInspector::close()
     m_page->corePage()->inspectorController()->close();
 }
 
+void WebInspector::evaluateScriptForTest(long callID, const String& script)
+{
+    m_page->corePage()->inspectorController()->evaluateForTestInFrontend(callID, script);
+}
+
 void WebInspector::showConsole()
 {
-    m_page->corePage()->inspectorController()->showPanel(InspectorController::ConsolePanel);
+    m_page->corePage()->inspectorController()->showConsole();
 }
 
 void WebInspector::startJavaScriptDebugging()
@@ -121,7 +132,6 @@ void WebInspector::stopJavaScriptProfiling()
 {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     m_page->corePage()->inspectorController()->stopUserInitiatedProfiling();
-    m_page->corePage()->inspectorController()->showPanel(InspectorController::ProfilesPanel);
 #endif
 }
 

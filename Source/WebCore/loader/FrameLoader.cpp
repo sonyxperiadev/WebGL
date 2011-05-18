@@ -34,10 +34,13 @@
 #include "FrameLoader.h"
 
 #include "ApplicationCacheHost.h"
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "Archive.h"
 #include "ArchiveFactory.h"
 #endif
+=======
+>>>>>>> webkit.org at r78450
 #include "BackForwardController.h"
 #include "BeforeUnloadEvent.h"
 #include "MemoryCache.h"
@@ -115,9 +118,15 @@
 #include "SVGViewSpec.h"
 #endif
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #include "RenderArena.h"
+=======
+#if ENABLE(WEB_ARCHIVE)
+#include "Archive.h"
+#include "ArchiveFactory.h"
+>>>>>>> webkit.org at r78450
 #endif
 
 namespace WebCore {
@@ -182,7 +191,6 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_policyChecker(frame)
     , m_history(frame)
     , m_notifer(frame)
-    , m_writer(frame)
     , m_subframeLoader(frame)
     , m_state(FrameStateCommittedPage)
     , m_loadType(FrameLoadTypeStandard)
@@ -236,8 +244,8 @@ void FrameLoader::init()
     setState(FrameStateProvisional);
     m_provisionalDocumentLoader->setResponse(ResourceResponse(KURL(), "text/html", 0, String(), String()));
     m_provisionalDocumentLoader->finishedLoading();
-    writer()->begin(KURL(), false);
-    writer()->end();
+    m_documentLoader->writer()->begin(KURL(), false);
+    m_documentLoader->writer()->end();
     m_frame->document()->cancelParsing();
     m_stateMachine.advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocument);
     m_didCallImplicitClose = true;
@@ -392,7 +400,6 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                             DocumentLoadTiming* timing = documentLoader->timing();
                             ASSERT(timing->navigationStart);
                             m_frame->domWindow()->dispatchTimedEvent(unloadEvent, m_frame->domWindow()->document(), &timing->unloadEventStart, &timing->unloadEventEnd);
-                            ASSERT(timing->unloadEventStart >= timing->navigationStart);
                         } else
                             m_frame->domWindow()->dispatchEvent(unloadEvent, m_frame->domWindow()->document());
                     }
@@ -483,15 +490,16 @@ KURL FrameLoader::iconURL()
         return KURL(ParsedURLString, m_frame->document()->iconURL());
 
     // Don't return a favicon iconURL unless we're http or https
-    if (!m_URL.protocolInHTTPFamily())
+    KURL documentURL = m_frame->document()->url();
+    if (!documentURL.protocolInHTTPFamily())
         return KURL();
 
     KURL url;
-    bool couldSetProtocol = url.setProtocol(m_URL.protocol());
+    bool couldSetProtocol = url.setProtocol(documentURL.protocol());
     ASSERT_UNUSED(couldSetProtocol, couldSetProtocol);
-    url.setHost(m_URL.host());
-    if (m_URL.hasPort())
-        url.setPort(m_URL.port());
+    url.setHost(documentURL.host());
+    if (documentURL.hasPort())
+        url.setPort(documentURL.port());
     url.setPath("/favicon.ico");
     return url;
 }
@@ -520,10 +528,9 @@ bool FrameLoader::didOpenURL(const KURL& url)
             window->setDefaultStatus(String());
         }
     }
-    m_URL = url;
-    if (m_URL.protocolInHTTPFamily() && !m_URL.host().isEmpty() && m_URL.path().isEmpty())
-        m_URL.setPath("/");
-    m_workingURL = m_URL;
+    m_workingURL = url;
+    if (m_workingURL.protocolInHTTPFamily() && !m_workingURL.host().isEmpty() && m_workingURL.path().isEmpty())
+        m_workingURL.setPath("/");
 
     started();
 
@@ -543,9 +550,7 @@ void FrameLoader::didExplicitOpen()
     // from a subsequent window.document.open / window.document.write call. 
     // Canceling redirection here works for all cases because document.open 
     // implicitly precedes document.write.
-    m_frame->navigationScheduler()->cancel(); 
-    if (m_frame->document()->url() != blankURL())
-        m_URL = m_frame->document()->url();
+    m_frame->navigationScheduler()->cancel();
 }
 
 
@@ -593,7 +598,6 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
     // Do not drop the document before the ScriptController and view are cleared
     // as some destructors might still try to access the document.
     m_frame->setDocument(0);
-    writer()->clear();
 
     m_subframeLoader.clear();
 
@@ -612,8 +616,8 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
 
 void FrameLoader::receivedFirstData()
 {
-    writer()->begin(m_workingURL, false);
-    writer()->setDocumentWasLoadedAsPartOfNavigation();
+    activeDocumentLoader()->writer()->begin(m_workingURL, false);
+    activeDocumentLoader()->writer()->setDocumentWasLoadedAsPartOfNavigation();
 
     dispatchDidCommitLoad();
     dispatchDidClearWindowObjectsInAllWorlds();
@@ -637,21 +641,20 @@ void FrameLoader::receivedFirstData()
         return;
 
     if (url.isEmpty())
-        url = m_URL.string();
+        url = m_frame->document()->url().string();
     else
         url = m_frame->document()->completeURL(url).string();
 
     m_frame->navigationScheduler()->scheduleRedirect(delay, url);
 }
 
-void FrameLoader::setURL(const KURL& url)
+void FrameLoader::setOutgoingReferrer(const KURL& url)
 {
-    KURL ref(url);
-    ref.setUser(String());
-    ref.setPass(String());
-    ref.removeFragmentIdentifier();
-    m_outgoingReferrer = ref.string();
-    m_URL = url;
+    KURL outgoingReferrer(url);
+    outgoingReferrer.setUser(String());
+    outgoingReferrer.setPass(String());
+    outgoingReferrer.removeFragmentIdentifier();
+    m_outgoingReferrer = outgoingReferrer.string();
 }
 
 void FrameLoader::didBeginDocument(bool dispatch)
@@ -682,6 +685,10 @@ void FrameLoader::didBeginDocument(bool dispatch)
         String dnsPrefetchControl = m_documentLoader->response().httpHeaderField("X-DNS-Prefetch-Control");
         if (!dnsPrefetchControl.isEmpty())
             m_frame->document()->parseDNSPrefetchControlHeader(dnsPrefetchControl);
+
+        String contentSecurityPolicy = m_documentLoader->response().httpHeaderField("X-WebKit-CSP");
+        if (!contentSecurityPolicy.isEmpty())
+            m_frame->document()->contentSecurityPolicy()->didReceiveHeader(contentSecurityPolicy);
     }
 
     history()->restoreDocumentState();
@@ -730,7 +737,7 @@ void FrameLoader::startIconLoader()
             if (!iconDatabase()->iconDataKnownForIconURL(urlString)) {
                 LOG(IconDatabase, "Told not to load icon %s but icon data is not yet available - registering for notification and requesting load from disk", urlString.ascii().data());
                 m_client->registerForIconNotification();
-                iconDatabase()->iconForPageURL(m_URL.string(), IntSize(0, 0));
+                iconDatabase()->iconForPageURL(m_frame->document()->url().string(), IntSize(0, 0));
                 iconDatabase()->iconForPageURL(originalRequestURL().string(), IntSize(0, 0));
             } else
                 m_client->dispatchDidReceiveIcon();
@@ -767,8 +774,8 @@ void FrameLoader::startIconLoader()
 void FrameLoader::commitIconURLToIconDatabase(const KURL& icon)
 {
     ASSERT(iconDatabase());
-    LOG(IconDatabase, "Committing iconURL %s to database for pageURLs %s and %s", icon.string().ascii().data(), m_URL.string().ascii().data(), originalRequestURL().string().ascii().data());
-    iconDatabase()->setIconURLForPageURL(icon.string(), m_URL.string());
+    LOG(IconDatabase, "Committing iconURL %s to database for pageURLs %s and %s", icon.string().ascii().data(), m_frame->document()->url().string().ascii().data(), originalRequestURL().string().ascii().data());
+    iconDatabase()->setIconURLForPageURL(icon.string(), m_frame->document()->url().string());
     iconDatabase()->setIconURLForPageURL(icon.string(), originalRequestURL().string());
 }
 
@@ -794,7 +801,7 @@ void FrameLoader::finishedParsing()
     // Check if the scrollbars are really needed for the content.
     // If not, remove them, relayout, and repaint.
     m_frame->view()->restoreScrollbar();
-    m_frame->view()->scrollToFragment(m_URL);
+    m_frame->view()->scrollToFragment(m_frame->document()->url());
 }
 
 void FrameLoader::loadDone()
@@ -923,13 +930,21 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
 {
     ASSERT(childFrame);
 
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+=======
+#if ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
     RefPtr<Archive> subframeArchive = activeDocumentLoader()->popArchiveForSubframe(childFrame->tree()->uniqueName());    
     if (subframeArchive) {
         childFrame->loader()->loadArchive(subframeArchive.release());
         return;
     }
+<<<<<<< HEAD
 #endif
+=======
+#endif // ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
 
     HistoryItem* parentItem = history()->currentItem();
     // If we're moving in the back/forward list, we might want to replace the content
@@ -945,7 +960,11 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
     childFrame->loader()->loadURL(url, referer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
 }
 
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+=======
+#if ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
 void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
 {
     RefPtr<Archive> archive = prpArchive;
@@ -966,7 +985,11 @@ void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
     documentLoader->addAllArchiveResources(archive.get());
     load(documentLoader.get());
 }
+<<<<<<< HEAD
 #endif
+=======
+#endif // ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
 
 ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn)
 {
@@ -1037,7 +1060,7 @@ void FrameLoader::checkIfDisplayInsecureContent(SecurityOrigin* context, const K
     if (!isMixedContent(context, url))
         return;
 
-    String message = makeString("The page at ", m_URL.string(), " displayed insecure content from ", url.string(), ".\n");
+    String message = makeString("The page at ", m_frame->document()->url().string(), " displayed insecure content from ", url.string(), ".\n");
     m_frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, WarningMessageLevel, message, 1, String());
 
     m_client->didDisplayInsecureContent();
@@ -1048,10 +1071,10 @@ void FrameLoader::checkIfRunInsecureContent(SecurityOrigin* context, const KURL&
     if (!isMixedContent(context, url))
         return;
 
-    String message = makeString("The page at ", m_URL.string(), " ran insecure content from ", url.string(), ".\n");
+    String message = makeString("The page at ", m_frame->document()->url().string(), " ran insecure content from ", url.string(), ".\n");
     m_frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, WarningMessageLevel, message, 1, String());
 
-    m_client->didRunInsecureContent(context);
+    m_client->didRunInsecureContent(context, url);
 }
 
 Frame* FrameLoader::opener()
@@ -1129,7 +1152,7 @@ void FrameLoader::updateFirstPartyForCookies()
     if (m_frame->tree()->parent())
         setFirstPartyForCookies(m_frame->tree()->parent()->document()->firstPartyForCookies());
     else
-        setFirstPartyForCookies(m_URL);
+        setFirstPartyForCookies(m_frame->document()->url());
 }
 
 void FrameLoader::setFirstPartyForCookies(const KURL& url)
@@ -1147,6 +1170,7 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     ASSERT(!stateObject || (stateObject && !isNewNavigation));
 
     // Update the data source's request with the new URL to fake the URL change
+    KURL oldURL = m_frame->document()->url();
     m_frame->document()->setURL(url);
     documentLoader()->replaceRequestURLForSameDocumentNavigation(url);
     if (isNewNavigation && !shouldTreatURLAsSameAsCurrent(url) && !stateObject) {
@@ -1164,11 +1188,8 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
         history()->updateBackForwardListForFragmentScroll();
     }
     
-    String oldURL;
-    bool hashChange = equalIgnoringFragmentIdentifier(url, m_URL) && url.fragmentIdentifier() != m_URL.fragmentIdentifier();
-    oldURL = m_URL;
+    bool hashChange = equalIgnoringFragmentIdentifier(url, oldURL) && url.fragmentIdentifier() != oldURL.fragmentIdentifier();
     
-    m_URL = url;
     history()->updateForSameDocumentNavigation();
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
@@ -1182,7 +1203,7 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     // We need to scroll to the fragment whether or not a hash change occurred, since
     // the user might have scrolled since the previous navigation.
     if (FrameView* view = m_frame->view())
-        view->scrollToFragment(m_URL);
+        view->scrollToFragment(url);
     
     m_isComplete = false;
     checkCompleted();
@@ -1733,7 +1754,11 @@ void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy, ClearProvisional
 
     setProvisionalDocumentLoader(0);
     
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+=======
+#if ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
     if (m_documentLoader)
         m_documentLoader->clearArchiveResources();
 #endif
@@ -1869,7 +1894,8 @@ void FrameLoader::commitProvisionalLoad()
     RefPtr<CachedPage> cachedPage = m_loadingFromCachedPage ? pageCache()->get(history()->provisionalItem()) : 0;
     RefPtr<DocumentLoader> pdl = m_provisionalDocumentLoader;
 
-    LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->uniqueName().string().utf8().data(), m_URL.string().utf8().data(), 
+    LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->uniqueName().string().utf8().data(),
+        m_frame->document() ? m_frame->document()->url().string().utf8().data() : "", 
         pdl ? pdl->url().string().utf8().data() : "<no provisional DocumentLoader>");
 
     // Check to see if we need to cache the page we are navigating away from into the back/forward cache.
@@ -1923,7 +1949,8 @@ void FrameLoader::commitProvisionalLoad()
         didOpenURL(url);
     }
 
-    LOG(Loading, "WebCoreLoading %s: Finished committing provisional load to URL %s", m_frame->tree()->uniqueName().string().utf8().data(), m_URL.string().utf8().data());
+    LOG(Loading, "WebCoreLoading %s: Finished committing provisional load to URL %s", m_frame->tree()->uniqueName().string().utf8().data(),
+        m_frame->document() ? m_frame->document()->url().string().utf8().data() : "");
 
     if (m_loadType == FrameLoadTypeStandard && m_documentLoader->isClientRedirect())
         history()->updateForClientRedirect();
@@ -2051,7 +2078,7 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
             ASSERT_NOT_REACHED();
     }
 
-    writer()->setMIMEType(dl->responseMIMEType());
+    m_documentLoader->writer()->setMIMEType(dl->responseMIMEType());
 
     // Tell the client we've committed this URL.
     ASSERT(m_frame->view());
@@ -2156,7 +2183,6 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
     if (url.protocolInHTTPFamily() && !url.host().isEmpty() && url.path().isEmpty())
         url.setPath("/");
     
-    m_URL = url;
     m_workingURL = url;
 
     started();
@@ -2186,8 +2212,6 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
     m_frame->setDOMWindow(cachedFrame.domWindow());
     m_frame->domWindow()->setURL(document->url());
     m_frame->domWindow()->setSecurityOrigin(document->securityOrigin());
-
-    writer()->setDecoder(document->decoder());
 
     updateFirstPartyForCookies();
 
@@ -2255,6 +2279,9 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 
+#if !ENABLE(WEB_ARCHIVE)
+    m_client->finishedLoading(loader);
+#else
     // Give archive machinery a crack at this document. If the MIME type is not an archive type, it will return 0.
     RefPtr<Archive> archive = ArchiveFactory::create(loader->mainResourceData().get(), loader->responseMIMEType());
     if (!archive) {
@@ -2269,7 +2296,7 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     ArchiveResource* mainResource = archive->mainResource();
     loader->setParsedArchiveData(mainResource->data());
 
-    writer()->setMIMEType(mainResource->mimeType());
+    loader->writer()->setMIMEType(mainResource->mimeType());
 
     closeURL();
     didOpenURL(mainResource->url());
@@ -2277,11 +2304,17 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     ASSERT(m_frame->document());
     String userChosenEncoding = documentLoader()->overrideEncoding();
     bool encodingIsUserChosen = !userChosenEncoding.isNull();
+<<<<<<< HEAD
     writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
     writer()->addData(mainResource->data()->data(), mainResource->data()->size());
 #else
     m_client->finishedLoading(loader);
 #endif // ARCHIVE
+=======
+    loader->writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
+    loader->writer()->addData(mainResource->data()->data(), mainResource->data()->size());
+#endif // ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
 }
 
 bool FrameLoader::isReplacing() const
@@ -2591,7 +2624,9 @@ int FrameLoader::numPendingOrLoadingRequests(bool recurse) const
 
 String FrameLoader::userAgent(const KURL& url) const
 {
-    return m_client->userAgent(url);
+    String userAgent = m_client->userAgent(url);
+    InspectorInstrumentation::applyUserAgentOverride(m_frame, &userAgent);
+    return userAgent;
 }
 
 void FrameLoader::handledOnloadEvents()
@@ -2710,7 +2745,7 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
     // Always try UTF-8. If that fails, try frame encoding (if any) and then the default.
     // For a newly opened frame with an empty URL, encoding() should not be used, because this methods asks decoder, which uses ISO-8859-1.
     Settings* settings = m_frame->settings();
-    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", writer()->deprecatedFrameEncoding(), settings ? settings->defaultTextEncodingName() : String());
+    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", activeDocumentLoader()->writer()->deprecatedFrameEncoding(), settings ? settings->defaultTextEncodingName() : String());
 }
 
 void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, String origin)
@@ -2893,7 +2928,7 @@ bool FrameLoader::shouldScrollToAnchor(bool isFormSubmission, const String& http
         && loadType != FrameLoadTypeReload
         && loadType != FrameLoadTypeReloadFromOrigin
         && loadType != FrameLoadTypeSame
-        && !shouldReload(this->url(), url)
+        && !shouldReload(m_frame->document()->url(), url)
         // We don't want to just scroll if a link from within a
         // frameset is trying to reload the frameset into _top.
         && !m_frame->document()->isFrameSet();
@@ -3009,10 +3044,10 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
     if (!m_frame->page())
         return;
 
-#if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR) && USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
     if (Page* page = m_frame->page()) {
         if (page->mainFrame() == m_frame)
-            page->inspectorController()->resume();
+            m_frame->page()->inspectorController()->resume();
     }
 #endif
 
@@ -3114,7 +3149,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
 
 void FrameLoader::applyUserAgent(ResourceRequest& request)
 {
-    String userAgent = client()->userAgent(request.url());
+    String userAgent = this->userAgent(request.url());
     ASSERT(!userAgent.isNull());
     request.setHTTPUserAgent(userAgent);
 }
@@ -3413,6 +3448,11 @@ void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
         return;
 
     m_client->dispatchDidClearWindowObjectInWorld(world);
+
+#if ENABLE(INSPECTOR)
+    if (Page* page = m_frame->page())
+        page->inspectorController()->didClearWindowObjectInWorld(m_frame, world);
+#endif
 
     InspectorInstrumentation::didClearWindowObjectInWorld(m_frame, world);
 }

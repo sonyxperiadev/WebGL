@@ -39,7 +39,6 @@
 namespace WebCore {
 class AccessibilityObject;
 class FileChooser;
-class HTMLParserQuirks;
 class PopupContainer;
 class PopupMenuClient;
 class SecurityOrigin;
@@ -102,6 +101,9 @@ public:
     virtual bool shouldInterruptJavaScript();
     virtual bool tabsToLinks() const;
     virtual WebCore::IntRect windowResizerRect() const;
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+    virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
+#endif
     virtual void invalidateWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
@@ -137,7 +139,6 @@ public:
     virtual void chooseIconForFiles(const Vector<WTF::String>&, WebCore::FileChooser*);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void formStateDidChange(const WebCore::Node*);
-    virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 #if ENABLE(TOUCH_EVENTS)
     // FIXME: All touch events are forwarded regardless of whether or not they are needed.
     virtual void needTouchEvents(bool needTouchEvents) { }
@@ -173,6 +174,7 @@ public:
     void setCursorForPlugin(const WebCursorInfo&);
 
     virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
     virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 

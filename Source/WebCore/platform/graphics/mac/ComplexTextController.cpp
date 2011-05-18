@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,14 +25,13 @@
 #include "config.h"
 #include "ComplexTextController.h"
 
-#include <ApplicationServices/ApplicationServices.h>
-#include "CharacterNames.h"
 #include "FloatSize.h"
 #include "Font.h"
 #include "TextBreakIterator.h"
 #include "TextRun.h"
-
+#include <ApplicationServices/ApplicationServices.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if defined(BUILDING_ON_LEOPARD)
 // Undefined when compiling agains the 10.5 SDK.
@@ -71,7 +70,8 @@ ComplexTextController::ComplexTextController(const Font* font, const TextRun& ru
     , m_glyphInCurrentRun(0)
     , m_characterInCurrentGlyph(0)
     , m_finalRoundingWidth(0)
-    , m_padding(run.padding())
+    , m_expansion(run.expansion())
+    , m_afterExpansion(true)
     , m_fallbackFonts(fallbackFonts)
     , m_minGlyphBoundingBoxX(numeric_limits<float>::max())
     , m_maxGlyphBoundingBoxX(numeric_limits<float>::min())
@@ -79,19 +79,18 @@ ComplexTextController::ComplexTextController(const Font* font, const TextRun& ru
     , m_maxGlyphBoundingBoxY(numeric_limits<float>::min())
     , m_lastRoundingGlyph(0)
 {
-    if (!m_padding)
-        m_padPerSpace = 0;
+    if (!m_expansion)
+        m_expansionPerOpportunity = 0;
     else {
-        int numSpaces = 0;
-        for (int s = 0; s < m_run.length(); s++) {
-            if (Font::treatAsSpace(m_run[s]))
-                numSpaces++;
-        }
+        bool isAfterExpansion = true;
+        unsigned expansionOpportunityCount = Font::expansionOpportunityCount(m_run.characters(), m_end, m_run.ltr() ? LTR : RTL, isAfterExpansion);
+        if (isAfterExpansion && !m_run.allowsTrailingExpansion())
+            expansionOpportunityCount--;
 
-        if (!numSpaces)
-            m_padPerSpace = 0;
+        if (!expansionOpportunityCount)
+            m_expansionPerOpportunity = 0;
         else
-            m_padPerSpace = m_padding / numSpaces;
+            m_expansionPerOpportunity = m_expansion / expansionOpportunityCount;
     }
 
     collectComplexTextRuns();
@@ -118,9 +117,9 @@ int ComplexTextController::offsetForPosition(float h, bool includePartialGlyphs)
                 CFIndex hitGlyphStart = complexTextRun.indexAt(j);
                 CFIndex hitGlyphEnd;
                 if (m_run.ltr())
-                    hitGlyphEnd = max<CFIndex>(hitGlyphStart, j + 1 < complexTextRun.glyphCount() ? complexTextRun.indexAt(j + 1) : static_cast<CFIndex>(complexTextRun.stringLength()));
+                    hitGlyphEnd = max<CFIndex>(hitGlyphStart, j + 1 < complexTextRun.glyphCount() ? complexTextRun.indexAt(j + 1) : static_cast<CFIndex>(complexTextRun.indexEnd()));
                 else
-                    hitGlyphEnd = max<CFIndex>(hitGlyphStart, j > 0 ? complexTextRun.indexAt(j - 1) : static_cast<CFIndex>(complexTextRun.stringLength()));
+                    hitGlyphEnd = max<CFIndex>(hitGlyphStart, j > 0 ? complexTextRun.indexAt(j - 1) : static_cast<CFIndex>(complexTextRun.indexEnd()));
 
                 // FIXME: Instead of dividing the glyph's advance equally between the characters, this
                 // could use the glyph's "ligature carets". However, there is no Core Text API to get the
@@ -311,6 +310,7 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(const SimpleFontData* font
     , m_characters(characters)
     , m_stringLocation(stringLocation)
     , m_stringLength(stringLength)
+    , m_indexEnd(stringLength)
     , m_isMonotonic(true)
 {
 #if USE(CORE_TEXT) && USE(ATSUI)
@@ -335,7 +335,7 @@ void ComplexTextController::ComplexTextRun::setIsNonMonotonic()
 
     m_glyphEndOffsets.grow(m_glyphCount);
     for (size_t i = 0; i < m_glyphCount; ++i) {
-        CFIndex nextMappedIndex = m_stringLength;
+        CFIndex nextMappedIndex = m_indexEnd;
         for (size_t j = indexAt(i) + 1; j < m_stringLength; ++j) {
             if (mappedIndices[j]) {
                 nextMappedIndex = j;
@@ -370,9 +370,9 @@ void ComplexTextController::advance(unsigned offset, GlyphBuffer* glyphBuffer)
             unsigned glyphEndOffset;
             if (complexTextRun.isMonotonic()) {
                 if (ltr)
-                    glyphEndOffset = max<unsigned>(glyphStartOffset, g + 1 < glyphCount ? static_cast<unsigned>(complexTextRun.indexAt(g + 1)) : complexTextRun.stringLength());
+                    glyphEndOffset = max<unsigned>(glyphStartOffset, static_cast<unsigned>(g + 1 < glyphCount ? complexTextRun.indexAt(g + 1) : complexTextRun.indexEnd()));
                 else
-                    glyphEndOffset = max<unsigned>(glyphStartOffset, g > 0 ? static_cast<unsigned>(complexTextRun.indexAt(g - 1)) : complexTextRun.stringLength());
+                    glyphEndOffset = max<unsigned>(glyphStartOffset, static_cast<unsigned>(g > 0 ? complexTextRun.indexAt(g - 1) : complexTextRun.indexEnd()));
             } else
                 glyphEndOffset = complexTextRun.endOffsetAt(g);
 
@@ -386,7 +386,7 @@ void ComplexTextController::advance(unsigned offset, GlyphBuffer* glyphBuffer)
 
             unsigned oldCharacterInCurrentGlyph = m_characterInCurrentGlyph;
             m_characterInCurrentGlyph = min(m_currentCharacter - complexTextRun.stringLocation(), glyphEndOffset) - glyphStartOffset;
-            // FIXME: Instead of dividing the glyph's advance equially between the characters, this
+            // FIXME: Instead of dividing the glyph's advance equally between the characters, this
             // could use the glyph's "ligature carets". However, there is no Core Text API to get the
             // ligature carets.
             if (glyphStartOffset == glyphEndOffset) {
@@ -421,6 +421,7 @@ void ComplexTextController::adjustGlyphsAndAdvances()
 {
     CGFloat widthSinceLastRounding = 0;
     size_t runCount = m_complexTextRuns.size();
+    bool hasExtraSpacing = (m_font.letterSpacing() || m_font.wordSpacing() || m_expansion) && !m_run.spacingDisabled();
     for (size_t r = 0; r < runCount; ++r) {
         ComplexTextRun& complexTextRun = *m_complexTextRuns[r];
         unsigned glyphCount = complexTextRun.glyphCount();
@@ -433,7 +434,6 @@ void ComplexTextController::adjustGlyphsAndAdvances()
         const UChar* cp = complexTextRun.characters();
         CGFloat roundedSpaceWidth = roundCGFloat(fontData->spaceWidth());
         bool roundsAdvances = !m_font.isPrinterFont() && fontData->platformData().roundsGlyphAdvances();
-        bool hasExtraSpacing = (m_font.letterSpacing() || m_font.wordSpacing() || m_padding) && !m_run.spacingDisabled();
         CGPoint glyphOrigin = CGPointZero;
         CFIndex lastCharacterIndex = m_run.ltr() ? numeric_limits<CFIndex>::min() : numeric_limits<CFIndex>::max();
         bool isMonotonic = true;
@@ -489,25 +489,29 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                     advance.width += m_font.letterSpacing();
 
                 // Handle justification and word-spacing.
-                if (treatAsSpace) {
-                    // Account for padding. WebCore uses space padding to justify text.
-                    // We distribute the specified padding over the available spaces in the run.
-                    if (m_padding) {
-                        // Use leftover padding if not evenly divisible by number of spaces.
-                        if (m_padding < m_padPerSpace) {
-                            advance.width += m_padding;
-                            m_padding = 0;
-                        } else {
-                            float previousPadding = m_padding;
-                            m_padding -= m_padPerSpace;
-                            advance.width += roundf(previousPadding) - roundf(m_padding);
+                if (treatAsSpace || Font::isCJKIdeographOrSymbol(ch)) {
+                    // Distribute the run's total expansion evenly over all expansion opportunities in the run.
+                    if (m_expansion && (!lastGlyph || m_run.allowsTrailingExpansion())) {
+                        float previousExpansion = m_expansion;
+                        if (!treatAsSpace && !m_afterExpansion) {
+                            // Take the expansion opportunity before this ideograph.
+                            m_expansion -= m_expansionPerOpportunity;
+                            int expansion = roundf(previousExpansion) - roundf(m_expansion);
+                            m_totalWidth += expansion;
+                            m_adjustedAdvances.last().width += expansion;
+                            previousExpansion = m_expansion;
                         }
-                    }
+                        m_expansion -= m_expansionPerOpportunity;
+                        advance.width += roundf(previousExpansion) - roundf(m_expansion);
+                        m_afterExpansion = true;
+                    } else
+                        m_afterExpansion = false;
 
                     // Account for word-spacing.
-                    if (characterIndex > 0 && !Font::treatAsSpace(*m_run.data(characterIndex - 1)) && m_font.wordSpacing())
+                    if (treatAsSpace && characterIndex > 0 && !Font::treatAsSpace(*m_run.data(characterIndex - 1)) && m_font.wordSpacing())
                         advance.width += m_font.wordSpacing();
-                }
+                } else
+                    m_afterExpansion = false;
             }
 
             // Deal with the float/integer impedance mismatch between CG and WebCore. "Words" (characters 
@@ -549,9 +553,9 @@ void ComplexTextController::adjustGlyphsAndAdvances()
             FloatRect glyphBounds = fontData->boundsForGlyph(glyph);
             glyphBounds.move(glyphOrigin.x, glyphOrigin.y);
             m_minGlyphBoundingBoxX = min(m_minGlyphBoundingBoxX, glyphBounds.x());
-            m_maxGlyphBoundingBoxX = max(m_maxGlyphBoundingBoxX, glyphBounds.right());
+            m_maxGlyphBoundingBoxX = max(m_maxGlyphBoundingBoxX, glyphBounds.maxX());
             m_minGlyphBoundingBoxY = min(m_minGlyphBoundingBoxY, glyphBounds.y());
-            m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, glyphBounds.bottom());
+            m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, glyphBounds.maxY());
             glyphOrigin.x += advance.width;
             glyphOrigin.y += advance.height;
             

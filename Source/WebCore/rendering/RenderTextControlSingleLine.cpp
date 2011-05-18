@@ -397,7 +397,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
 #endif
 
     FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
-    int textRight = innerTextRenderer->borderBoxRect().right();
+    int textRight = innerTextRenderer->borderBoxRect().maxX();
 
     if (m_resultsButton && localPoint.x() < innerTextRenderer->borderBoxRect().x())
         m_resultsButton->defaultEventHandler(event);
@@ -564,9 +564,6 @@ int RenderTextControlSingleLine::preferredContentWidth(float charWidth) const
         result += cancelRenderer->borderLeft() + cancelRenderer->borderRight() +
                   cancelRenderer->paddingLeft() + cancelRenderer->paddingRight();
 
-    if (RenderBox* spinRenderer = m_innerSpinButton ? m_innerSpinButton->renderBox() : 0)
-        result += spinRenderer->minPreferredLogicalWidth();
-
 #if ENABLE(INPUT_SPEECH)
     if (RenderBox* speechRenderer = m_speechButton ? m_speechButton->renderBox() : 0) {
         result += speechRenderer->borderLeft() + speechRenderer->borderRight() +
@@ -618,17 +615,17 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
 #if ENABLE(INPUT_SPEECH)
         if (inputElement()->isSpeechEnabled() && !m_speechButton) {
             // Create the speech button element.
-            m_speechButton = InputFieldSpeechButtonElement::create(static_cast<HTMLElement*>(node()));
+            m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
             m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
         }
 #endif
         bool hasSpinButton = inputElement()->hasSpinButton();
         if (hasSpinButton && !m_innerSpinButton) {
-            m_innerSpinButton = SpinButtonElement::create(static_cast<HTMLElement*>(node()));
+            m_innerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
             m_innerSpinButton->attachInnerElement(node(), createInnerSpinButtonStyle(), renderArena());
         }
         if (hasSpinButton && !m_outerSpinButton) {
-            m_outerSpinButton = SpinButtonElement::create(static_cast<HTMLElement*>(node()));
+            m_outerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
             m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
         }
         return;
@@ -636,18 +633,18 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
 
     if (!m_innerBlock) {
         // Create the inner block element
-        m_innerBlock = TextControlInnerElement::create(static_cast<HTMLElement*>(node()));
+        m_innerBlock = TextControlInnerElement::create(toHTMLElement(node()));
         m_innerBlock->attachInnerElement(node(), createInnerBlockStyle(style()), renderArena());
     }
 #if ENABLE(INPUT_SPEECH)
     if (inputElement()->isSpeechEnabled() && !m_speechButton) {
         // Create the speech button element.
-        m_speechButton = InputFieldSpeechButtonElement::create(static_cast<HTMLElement*>(node()));
+        m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
         m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
     }
 #endif
     if (inputElement()->hasSpinButton() && !m_outerSpinButton) {
-        m_outerSpinButton = SpinButtonElement::create(static_cast<HTMLElement*>(node()));
+        m_outerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
         m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
     }
 
@@ -687,7 +684,7 @@ void RenderTextControlSingleLine::updateFromElement()
             // flag is false. It protects an unacceptable renderer value from
             // being overwritten with the DOM value.
             if (!static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer())
-                setInnerTextValue(inputElement()->value());
+                setInnerTextValue(inputElement()->visibleValue());
         }
     }
 
@@ -712,7 +709,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
     textBlockStyle->setOverflowY(OHIDDEN);
 
     // Do not allow line-height to be smaller than our default.
-    if (textBlockStyle->font().lineSpacing() > lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes))
+    if (textBlockStyle->fontMetrics().lineSpacing() > lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes))
         textBlockStyle->setLineHeight(Length(-100.0f, Percent));
 
     WebCore::EDisplay display = (m_innerBlock || inputElement()->hasSpinButton() ? INLINE_BLOCK : BLOCK);
@@ -931,7 +928,7 @@ PopupMenuStyle RenderTextControlSingleLine::itemStyle(unsigned) const
 
 PopupMenuStyle RenderTextControlSingleLine::menuStyle() const
 {
-    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->display() == NONE, style()->textIndent(), style()->direction());
+    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->display() == NONE, style()->textIndent(), style()->direction(), style()->unicodeBidi() == Override);
 }
 
 int RenderTextControlSingleLine::clientInsetLeft() const

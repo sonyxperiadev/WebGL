@@ -30,7 +30,6 @@
 #include "IDBIndexBackendInterface.h"
 #include "IDBKeyRange.h"
 #include "IDBRequest.h"
-#include "OptionsObject.h"
 #include "PlatformString.h"
 #include <wtf/Forward.h>
 
@@ -40,7 +39,7 @@ namespace WebCore {
 
 class IDBIndex : public RefCounted<IDBIndex> {
 public:
-    static PassRefPtr<IDBIndex> create(PassRefPtr<IDBIndexBackendInterface> backend, IDBTransactionBackendInterface* transaction)
+    static PassRefPtr<IDBIndex> create(PassRefPtr<IDBIndexBackendInterface> backend, IDBTransaction* transaction)
     {
         return adoptRef(new IDBIndex(backend, transaction));
     }
@@ -53,19 +52,22 @@ public:
     bool unique() const { return m_backend->unique(); }
 
     // FIXME: Try to modify the code generator so this is unneeded.
-    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openCursor(context, OptionsObject(), ec); }
-    PassRefPtr<IDBRequest> openKeyCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openKeyCursor(context, OptionsObject(), ec); }
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openCursor(context, 0, ec); }
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, PassRefPtr<IDBKeyRange> keyRange, ExceptionCode& ec) { return openCursor(context, keyRange, IDBCursor::NEXT, ec); }
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext*, PassRefPtr<IDBKeyRange>, unsigned short direction, ExceptionCode&);
 
-    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext*, const OptionsObject&, ExceptionCode&);
-    PassRefPtr<IDBRequest> openKeyCursor(ScriptExecutionContext*, const OptionsObject&, ExceptionCode&);
+    PassRefPtr<IDBRequest> openKeyCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openKeyCursor(context, 0, ec); } 
+    PassRefPtr<IDBRequest> openKeyCursor(ScriptExecutionContext* context, PassRefPtr<IDBKeyRange> keyRange, ExceptionCode& ec) { return openKeyCursor(context, keyRange, IDBCursor::NEXT, ec); }
+    PassRefPtr<IDBRequest> openKeyCursor(ScriptExecutionContext*, PassRefPtr<IDBKeyRange>, unsigned short direction, ExceptionCode&);
+
     PassRefPtr<IDBRequest> get(ScriptExecutionContext*, PassRefPtr<IDBKey>, ExceptionCode&);
     PassRefPtr<IDBRequest> getKey(ScriptExecutionContext*, PassRefPtr<IDBKey>, ExceptionCode&);
 
 private:
-    IDBIndex(PassRefPtr<IDBIndexBackendInterface>, IDBTransactionBackendInterface* transaction);
+    IDBIndex(PassRefPtr<IDBIndexBackendInterface>, IDBTransaction*);
 
     RefPtr<IDBIndexBackendInterface> m_backend;
-    RefPtr<IDBTransactionBackendInterface> m_transaction;
+    RefPtr<IDBTransaction> m_transaction;
 };
 
 } // namespace WebCore

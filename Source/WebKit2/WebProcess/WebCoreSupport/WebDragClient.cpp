@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebDragClient.h"
 
 #define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
@@ -50,15 +51,9 @@ DragSourceAction WebDragClient::dragSourceActionMaskForPoint(const IntPoint& win
     return DragSourceActionAny;
 }
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(MAC) && !PLATFORM(WIN)
 void WebDragClient::startDrag(DragImageRef, const IntPoint&, const IntPoint&, Clipboard*, Frame*, bool)
 {
-}
-
-DragImageRef WebDragClient::createDragImageForLink(KURL&, const String&, Frame*)
-{
-    notImplemented();
-    return 0;
 }
 #endif
 

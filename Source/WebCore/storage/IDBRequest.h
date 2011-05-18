@@ -32,21 +32,21 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "ActiveDOMObject.h"
+#include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "IDBAny.h"
 #include "IDBCallbacks.h"
-#include "Timer.h"
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class IDBTransactionBackendInterface;
+class IDBEvent;
+class IDBTransaction;
 
 class IDBRequest : public IDBCallbacks, public EventTarget, public ActiveDOMObject {
 public:
-    static PassRefPtr<IDBRequest> create(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction) { return adoptRef(new IDBRequest(context, source, transaction)); }
+    static PassRefPtr<IDBRequest> create(ScriptExecutionContext*, PassRefPtr<IDBAny> source, IDBTransaction*);
     virtual ~IDBRequest();
 
     // Defined in the IDL
@@ -58,11 +58,10 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(success);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
 
-    bool resetReadyState(IDBTransactionBackendInterface*);
+    bool resetReadyState(IDBTransaction*);
 
     // IDBCallbacks
     virtual void onError(PassRefPtr<IDBDatabaseError>);
-    virtual void onSuccess(); // For "null".
     virtual void onSuccess(PassRefPtr<IDBDatabaseBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBCursorBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBIndexBackendInterface>);
@@ -71,21 +70,22 @@ public:
     virtual void onSuccess(PassRefPtr<IDBTransactionBackendInterface>);
     virtual void onSuccess(PassRefPtr<SerializedScriptValue>);
 
+    // ActiveDOMObject
+    virtual bool hasPendingActivity() const;
+
     // EventTarget
     virtual IDBRequest* toIDBRequest() { return this; }
-
-    // ActiveDOMObject
     virtual ScriptExecutionContext* scriptExecutionContext() const;
-    virtual bool canSuspend() const;
+    virtual bool dispatchEvent(PassRefPtr<Event>);
+    bool dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec) { return EventTarget::dispatchEvent(event, ec); }
 
     using ThreadSafeShared<IDBCallbacks>::ref;
     using ThreadSafeShared<IDBCallbacks>::deref;
 
 private:
-    IDBRequest(ScriptExecutionContext*, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction);
+    IDBRequest(ScriptExecutionContext*, PassRefPtr<IDBAny> source, IDBTransaction*);
 
-    void timerFired(Timer<IDBRequest>*);
-    void scheduleEvent(PassRefPtr<IDBAny> result, PassRefPtr<IDBDatabaseError>);
+    void enqueueEvent(PassRefPtr<Event>);
 
     // EventTarget
     virtual void refEventTarget() { ref(); }
@@ -94,19 +94,11 @@ private:
     virtual EventTargetData* ensureEventTargetData();
 
     RefPtr<IDBAny> m_source;
-    RefPtr<IDBTransactionBackendInterface> m_transaction;
-
-    struct PendingEvent {
-        RefPtr<IDBAny> m_result;
-        RefPtr<IDBDatabaseError> m_error;
-    };
-    Vector<PendingEvent> m_pendingEvents;
-
-    // Used to fire events asynchronously.
-    Timer<IDBRequest> m_timer;
-    RefPtr<IDBRequest> m_selfRef; // This is set to us iff there's an event pending.
+    RefPtr<IDBTransaction> m_transaction;
 
     ReadyState m_readyState;
+    bool m_finished; // Is it possible that we'll fire any more events? If not, we're finished.
+
     EventTargetData m_eventTargetData;
 };
 

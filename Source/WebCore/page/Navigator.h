@@ -42,6 +42,8 @@ class ApplicationInstalledCallback;
 class Connection;
 #endif
 
+typedef int ExceptionCode;
+
 class Navigator : public NavigatorBase, public RefCounted<Navigator> {
 public:
     static PassRefPtr<Navigator> create(Frame* frame) { return adoptRef(new Navigator(frame)); }
@@ -75,6 +77,10 @@ public:
 #if ENABLE(DOM_STORAGE)
     // Relinquishes the storage lock, if one exists.
     void getStorageUpdates();
+#endif
+
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+    void registerProtocolHandler(const String& scheme, const String& url, const String& title, ExceptionCode&);
 #endif
 
 private:

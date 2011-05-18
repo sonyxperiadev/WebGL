@@ -51,7 +51,6 @@ class wxScrollWinEvent;
 namespace WebCore {
 
 class HostWindow;
-class PlatformWheelEvent;
 class Scrollbar;
 
 class ScrollView : public Widget, public ScrollableArea {
@@ -62,7 +61,8 @@ public:
     virtual int scrollSize(ScrollbarOrientation orientation) const;
     virtual int scrollPosition(Scrollbar*) const;
     virtual void setScrollOffset(const IntPoint&);
-    
+    virtual void didCompleteRubberBand(const IntSize&) const;
+
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     virtual void scrollTo(const IntSize& newOffset);
 
@@ -162,6 +162,7 @@ public:
     int contentsWidth() const { return contentsSize().width(); }
     int contentsHeight() const { return contentsSize().height(); }
     virtual void setContentsSize(const IntSize&);
+<<<<<<< HEAD
    
 #if PLATFORM(ANDROID)
     int actualWidth() const;
@@ -169,6 +170,8 @@ public:
     int actualScrollX() const;
     int actualScrollY() const;
 #endif
+=======
+>>>>>>> webkit.org at r78450
 
     // Functions for querying the current scrolled position (both as a point, a size, or as individual X and Y values).
     IntPoint scrollPosition() const { return visibleContentRect().location(); }
@@ -179,7 +182,14 @@ public:
     IntPoint adjustScrollPositionWithinRange(const IntPoint&) const; 
     int scrollX() const { return scrollPosition().x(); }
     int scrollY() const { return scrollPosition().y(); }
-    
+
+    // Functions for querying the current scrolled position, negating the effects of overhang.
+    int scrollXForFixedPosition() const;
+    int scrollYForFixedPosition() const;
+    IntSize scrollOffsetForFixedPosition() const;
+
+    IntSize overhangAmount() const;
+
     // Functions for scrolling the view.
     void setScrollPosition(const IntPoint&);
     void scrollBy(const IntSize& s) { return setScrollPosition(scrollPosition() + s); }
@@ -235,6 +245,9 @@ public:
     // On Mac the underlying NSScrollView just does the scrolling, but on other platforms
     // (like Windows), we need this function in order to do the scroll ourselves.
     void wheelEvent(PlatformWheelEvent&);
+#if ENABLE(GESTURE_EVENTS)
+    void gestureEvent(const PlatformGestureEvent&);
+#endif
 
     IntPoint convertChildToSelf(const Widget* child, const IntPoint& point) const
     {
@@ -282,7 +295,10 @@ protected:
 
     virtual void repaintContentRectangle(const IntRect&, bool now = false);
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect) = 0;
-    
+
+    void calculateOverhangAreasForPainting(IntRect& horizontalOverhangRect, IntRect& verticalOverhangRect);
+    virtual void paintOverhangAreas(GraphicsContext*, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect);
+
     virtual void contentsResized() = 0;
     virtual void visibleContentsResized() = 0;
 
@@ -299,7 +315,7 @@ protected:
     // Scroll the content by invalidating everything.
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
 
-    void setScrollOrigin(const IntPoint&, bool updatePosition);
+    void setScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
     IntPoint scrollOrigin() { return m_scrollOrigin; }
 
     // Subclassed by FrameView to check the writing-mode of the document.
@@ -383,7 +399,7 @@ private:
     void platformRepaintContentRectangle(const IntRect&, bool now);
     bool platformIsOffscreen() const;
    
-    void platformSetScrollOrigin(const IntPoint&, bool updatePosition);
+    void platformSetScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
 
 #if PLATFORM(ANDROID)
     int platformActualWidth() const;

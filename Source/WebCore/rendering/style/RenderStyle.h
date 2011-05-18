@@ -165,7 +165,6 @@ protected:
                    (_text_align == other._text_align) &&
                    (_text_transform == other._text_transform) &&
                    (_text_decorations == other._text_decorations) &&
-                   (_text_transform == other._text_transform) &&
                    (_cursor_style == other._cursor_style) &&
                    (_direction == other._direction) &&
                    (_border_collapse == other._border_collapse) &&
@@ -463,6 +462,7 @@ public:
     ETableLayout tableLayout() const { return static_cast<ETableLayout>(noninherited_flags._table_layout); }
 
     const Font& font() const { return inherited->font; }
+    const FontMetrics& fontMetrics() const { return inherited->font.fontMetrics(); }
     const FontDescription& fontDescription() const { return inherited->font.fontDescription(); }
     int fontSize() const { return inherited->font.pixelSize(); }
 
@@ -487,7 +487,7 @@ public:
 
         // Negative value means the line height is not set.  Use the font's built-in spacing.
         if (lh.isNegative())
-            return font().lineSpacing();
+            return fontMetrics().lineSpacing();
 
         if (lh.isPercent())
             return lh.calcMinValue(fontSize());
@@ -727,6 +727,7 @@ public:
     bool hasMask() const { return rareNonInheritedData->m_mask.hasImage() || rareNonInheritedData->m_maskBoxImage.hasImage(); }
 
     TextCombine textCombine() const { return static_cast<TextCombine>(rareNonInheritedData->m_textCombine); }
+    bool hasTextCombine() const { return textCombine() != TextCombineNone; }
     // End CSS3 Getters
 
     // Apple-specific property getter methods

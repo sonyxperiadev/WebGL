@@ -90,7 +90,6 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include "GraphicsContext.h"
 #include "HTMLCollection.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
@@ -101,9 +100,9 @@
 #include "HistoryItem.h"
 #include "InspectorController.h"
 #include "Page.h"
+#include "painting/GraphicsContextBuilder.h"
 #include "Performance.h"
 #include "PlatformBridge.h"
-#include "PlatformContextSkia.h"
 #include "PluginDocument.h"
 #include "PrintContext.h"
 #include "RenderFrame.h"
@@ -154,10 +153,6 @@
 
 #include <algorithm>
 #include <wtf/CurrentTime.h>
-
-#if OS(DARWIN)
-#include "LocalCurrentGraphicsContext.h"
-#endif
 
 #if OS(LINUX) || OS(FREEBSD)
 #include <gdk/gdk.h>
@@ -537,7 +532,7 @@ WebURL WebFrameImpl::openSearchDescriptionURL() const
 
 WebString WebFrameImpl::encoding() const
 {
-    return frame()->loader()->writer()->encoding();
+    return frame()->document()->loader()->writer()->encoding();
 }
 
 WebSize WebFrameImpl::scrollOffset() const
@@ -685,12 +680,14 @@ void WebFrameImpl::forms(WebVector<WebFormElement>& results) const
     }
 
     WebVector<WebFormElement> temp(formCount);
-    for (size_t i = 0; i < formCount; ++i) {
-        Node* node = forms->item(i);
+    size_t j = 0;
+    for (size_t sourceIndex = 0; j < forms->length(); ++sourceIndex) {
+        Node* node = forms->item(sourceIndex);
         // Strange but true, sometimes item can be 0.
         if (node && node->isHTMLElement())
-            temp[i] = static_cast<HTMLFormElement*>(node);
+            temp[j++] = static_cast<HTMLFormElement*>(node);
     }
+    ASSERT(j == formCount);
     results.swap(temp);
 }
 
@@ -883,17 +880,6 @@ void WebFrameImpl::loadHistoryItem(const WebHistoryItem& item)
 {
     RefPtr<HistoryItem> historyItem = PassRefPtr<HistoryItem>(item);
     ASSERT(historyItem.get());
-
-    // Sanity check for http://webkit.org/b/52819.  It appears that some child
-    // items of this item might be null.  Try validating just the first set of
-    // children in an attempt to catch it early.
-    const HistoryItemVector& childItems = historyItem->children();
-    int size = childItems.size();
-    for (int i = 0; i < size; ++i) {
-      RefPtr<HistoryItem> childItem = childItems[i].get();
-      if (!childItem.get())
-        CRASH();
-    }
 
     // If there is no currentItem, which happens when we are navigating in
     // session history after a crash, we need to manufacture one otherwise WebKit
@@ -1349,15 +1335,7 @@ float WebFrameImpl::printPage(int page, WebCanvas* canvas)
         return 0;
     }
 
-#if OS(WINDOWS) || OS(LINUX) || OS(FREEBSD) || OS(SOLARIS)
-    PlatformContextSkia context(canvas);
-    GraphicsContext spool(&context);
-#elif OS(DARWIN)
-    GraphicsContext spool(canvas);
-    LocalCurrentGraphicsContext localContext(&spool);
-#endif
-
-    return m_printContext->spoolPage(spool, page);
+    return m_printContext->spoolPage(GraphicsContextBuilder(canvas).context(), page);
 }
 
 void WebFrameImpl::printEnd()
@@ -1542,6 +1520,9 @@ void WebFrameImpl::scopeStringMatches(int identifier,
 
     RefPtr<Range> searchRange(rangeOfContents(frame()->document()));
 
+    Node* originalEndContainer = searchRange->endContainer();
+    int originalEndOffset = searchRange->endOffset();
+
     ExceptionCode ec = 0, ec2 = 0;
     if (m_resumeScopingFromRange.get()) {
         // This is a continuation of a scoping operation that timed out and didn't
@@ -1555,9 +1536,6 @@ void WebFrameImpl::scopeStringMatches(int identifier,
             return;
         }
     }
-
-    Node* originalEndContainer = searchRange->endContainer();
-    int originalEndOffset = searchRange->endOffset();
 
     // This timeout controls how long we scope before releasing control.  This
     // value does not prevent us from running for longer than this, but it is
@@ -1932,18 +1910,7 @@ void WebFrameImpl::paint(WebCanvas* canvas, const WebRect& rect)
 {
     if (rect.isEmpty())
         return;
-#if WEBKIT_USING_CG
-    GraphicsContext gc(canvas);
-    LocalCurrentGraphicsContext localContext(&gc);
-#elif WEBKIT_USING_SKIA
-    PlatformContextSkia context(canvas);
-
-    // PlatformGraphicsContext is actually a pointer to PlatformContextSkia
-    GraphicsContext gc(reinterpret_cast<PlatformGraphicsContext*>(&context));
-#else
-    notImplemented();
-#endif
-    paintWithContext(gc, rect);
+    paintWithContext(GraphicsContextBuilder(canvas).context(), rect);
 }
 
 void WebFrameImpl::createFrameView()
@@ -1985,7 +1952,7 @@ void WebFrameImpl::createFrameView()
         view->setParentVisible(true);
 }
 
-WebFrameImpl* WebFrameImpl::fromFrame(Frame* frame)
+WebFrameImpl* WebFrameImpl::fromFrame(const Frame* frame)
 {
     if (!frame)
         return 0;
@@ -2133,7 +2100,7 @@ void WebFrameImpl::invalidateArea(AreaToInvalidate area)
             IntRect contentArea(
                 view->x(), view->y(), view->visibleWidth(), view->visibleHeight());
             IntRect frameRect = view->frameRect();
-            contentArea.move(-frameRect.topLeft().x(), -frameRect.topLeft().y());
+            contentArea.move(-frameRect.x(), -frameRect.y());
             view->invalidateRect(contentArea);
         }
 
@@ -2144,7 +2111,7 @@ void WebFrameImpl::invalidateArea(AreaToInvalidate area)
                 ScrollbarTheme::nativeTheme()->scrollbarThickness(),
                 view->visibleHeight());
             IntRect frameRect = view->frameRect();
-            scrollBarVert.move(-frameRect.topLeft().x(), -frameRect.topLeft().y());
+            scrollBarVert.move(-frameRect.x(), -frameRect.y());
             view->invalidateRect(scrollBarVert);
         }
     }
@@ -2298,7 +2265,7 @@ void WebFrameImpl::loadJavaScriptURL(const KURL& url)
         return;
 
     if (!m_frame->navigationScheduler()->locationChangePending())
-        m_frame->loader()->writer()->replaceDocument(scriptResult);
+        m_frame->document()->loader()->writer()->replaceDocument(scriptResult);
 }
 
 } // namespace WebKit

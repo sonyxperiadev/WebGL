@@ -39,11 +39,14 @@ class WebPage;
 class WebChromeClient : public WebCore::ChromeClient {
 public:
     WebChromeClient(WebPage* page)
-        : m_page(page)
+        : m_cachedMainFrameHasHorizontalScrollbar(false)
+        , m_cachedMainFrameHasVerticalScrollbar(false)
+        , m_page(page)
     {
     }
     
     WebPage* page() const { return m_page; }
+
 private:
     virtual void chromeDestroyed();
     
@@ -154,27 +157,28 @@ private:
                                       WebCore::ScrollbarControlState, WebCore::ScrollbarPart pressedPart, bool vertical,
                                       float value, float proportion, WebCore::ScrollbarControlPartMask);
     virtual bool paintCustomScrollCorner(WebCore::GraphicsContext*, const WebCore::FloatRect&);
-    
+
+    virtual bool paintCustomOverhangArea(WebCore::GraphicsContext*, const WebCore::IntRect&, const WebCore::IntRect&, const WebCore::IntRect&);
+
     // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
     // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
     virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
     virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
-    
+
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
     virtual void chooseIconForFiles(const Vector<String>&, WebCore::FileChooser*);
 
     virtual void setCursor(const WebCore::Cursor&);
-    
+
     // Notification that the given form element has changed. This function
     // will be called frequently, so handling should be very fast.
     virtual void formStateDidChange(const WebCore::Node*);
-    
+
     virtual void formDidFocus(const WebCore::Node*);
     virtual void formDidBlur(const WebCore::Node*);
-    
-    virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks();
 
     virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
     virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 
@@ -202,8 +206,13 @@ private:
 
     virtual void dispatchViewportDataDidChange(const WebCore::ViewportArguments&) const;
 
+    virtual void didCompleteRubberBandForMainFrame(const WebCore::IntSize&) const;
+
     String m_cachedToolTip;
     mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;
+    mutable bool m_cachedMainFrameHasHorizontalScrollbar;
+    mutable bool m_cachedMainFrameHasVerticalScrollbar;
+
     WebPage* m_page;
 };
 

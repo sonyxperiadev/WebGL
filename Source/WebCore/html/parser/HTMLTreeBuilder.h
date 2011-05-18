@@ -183,8 +183,7 @@ private:
 
     bool m_framesetOk;
 
-    // FIXME: Implement error reporting.
-    void parseError(AtomicHTMLToken&) { }
+    void parseError(AtomicHTMLToken&);
 
     InsertionMode insertionMode() const { return m_insertionMode; }
     void setInsertionMode(InsertionMode mode)
@@ -212,7 +211,6 @@ private:
         FragmentParsingContext(DocumentFragment*, Element* contextElement, FragmentScriptingPermission);
         ~FragmentParsingContext();
 
-        Document* document() const;
         DocumentFragment* fragment() const { return m_fragment; }
         Element* contextElement() const { ASSERT(m_fragment); return m_contextElement; }
         FragmentScriptingPermission scriptingPermission() const { ASSERT(m_fragment); return m_scriptingPermission; }
@@ -220,7 +218,6 @@ private:
         void finished();
 
     private:
-        RefPtr<Document> m_dummyDocumentForFragmentParsing;
         DocumentFragment* m_fragment;
         Element* m_contextElement;
 

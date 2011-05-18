@@ -54,6 +54,7 @@ class WebFileChooserCompletion;
 class WebFrame;
 class WebGeolocationClient;
 class WebGeolocationService;
+class WebIconLoadingCompletion;
 class WebImage;
 class WebInputElement;
 class WebKeyboardEvent;
@@ -63,6 +64,7 @@ class WebRange;
 class WebSpeechInputController;
 class WebSpeechInputListener;
 class WebStorageNamespace;
+class WebTextCheckingCompletion;
 class WebURL;
 class WebURLRequest;
 class WebView;
@@ -116,6 +118,10 @@ public:
 
     // Called to retrieve the provider of desktop notifications.
     virtual WebNotificationPresenter* notificationPresenter() { return 0; }
+
+    // Called to request an icon for the specified filenames.
+    // The icon is shown in a file upload control.
+    virtual bool queryIconForFiles(const WebVector<WebString>& filenames, WebIconLoadingCompletion*) { return false; }
 
 
     // Navigational --------------------------------------------------------
@@ -173,7 +179,9 @@ public:
     // error, then upon return misspelledLength is 0.
     virtual void spellCheck(
         const WebString& text, int& misspelledOffset, int& misspelledLength) { }
-
+    // Requests asynchronous spelling and grammar checking, whose result should be
+    // returned by passed completion object.
+    virtual void requestCheckingOfText(const WebString&, WebTextCheckingCompletion*) { }
     // Computes an auto-corrected replacement for a misspelled word.  If no
     // replacement is found, then an empty string is returned.
     virtual WebString autoCorrectWord(const WebString& misspelledWord) { return WebString(); }
@@ -321,6 +329,12 @@ public:
     // Informs the browser that the zoom level has changed as a result of an
     // action that wasn't initiated by the client.
     virtual void zoomLevelChanged() { }
+
+    // Registers a new URL handler for the given protocol.
+    virtual void registerProtocolHandler(const WebString& scheme,
+                                         const WebString& baseUrl,
+                                         const WebString& url,
+                                         const WebString& title) { }
 
 protected:
     ~WebViewClient() { }

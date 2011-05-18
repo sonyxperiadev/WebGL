@@ -63,6 +63,7 @@
 #include "TextEncoding.h"
 #include "TextIterator.h"
 #include "WebKitAccessibleHyperlink.h"
+#include "visible_units.h"
 
 #include <atk/atk.h>
 #include <glib.h>
@@ -184,7 +185,7 @@ static const gchar* webkit_accessible_get_name(AtkObject* object)
         Node* node = renderObject->renderer()->node();
         if (node && node->isHTMLElement()) {
             // Get the attribute rather than altText String so as not to fall back on title.
-            String alt = static_cast<HTMLElement*>(node)->getAttribute(HTMLNames::altAttr);
+            String alt = toHTMLElement(node)->getAttribute(HTMLNames::altAttr);
             if (!alt.isEmpty())
                 return returnString(alt);
         }
@@ -211,7 +212,7 @@ static const gchar* webkit_accessible_get_description(AtkObject* object)
 
     // The title attribute should be reliably available as the object's descripton.
     // We do not want to fall back on other attributes in its absence. See bug 25524.
-    String title = static_cast<HTMLElement*>(node)->title();
+    String title = toHTMLElement(node)->title();
     if (!title.isEmpty())
         return returnString(title);
 
@@ -994,7 +995,7 @@ static gchar* utf8Substr(const gchar* string, gint start, gint end)
     if (start > strLen || end > strLen)
         return 0;
     gchar* startPtr = g_utf8_offset_to_pointer(string, start);
-    gsize lenInBytes = g_utf8_offset_to_pointer(string, end) -  startPtr + 1;
+    gsize lenInBytes = g_utf8_offset_to_pointer(string, end + 1) -  startPtr;
     gchar* output = static_cast<gchar*>(g_malloc0(lenInBytes + 1));
     return g_utf8_strncpy(output, startPtr, end - start + 1);
 }
@@ -1208,8 +1209,10 @@ static gint webkit_accessible_text_get_caret_offset(AtkText* text)
     // coreObject is the unignored object whose offset the caller is requesting.
     // focusedObject is the object with the caret. It is likely ignored -- unless it's a link.
     AccessibilityObject* coreObject = core(text);
-    Node* focusedNode = coreObject->selection().end().node();
+    if (!coreObject->isAccessibilityRenderObject())
+        return 0;
 
+    Node* focusedNode = coreObject->selection().end().node();
     if (!focusedNode)
         return 0;
 
@@ -1221,6 +1224,14 @@ static gint webkit_accessible_text_get_caret_offset(AtkText* text)
     if (!objectAndOffsetUnignored(focusedObject, offset, !coreObject->isLink()))
         return 0;
 
+    RenderObject* renderer = toAccessibilityRenderObject(coreObject)->renderer();
+    if (renderer && renderer->isListItem()) {
+        String markerText = toRenderListItem(renderer)->markerTextWithSuffix();
+
+        // We need to adjust the offset for the list item marker.
+        offset += markerText.length();
+    }
+
     // TODO: Verify this for RTL text.
     return offset;
 }
@@ -1230,8 +1241,8 @@ static int baselinePositionForAccessibilityRenderObject(RenderObject* renderObje
     // FIXME: This implementation of baselinePosition originates from RenderObject.cpp and was
     // removed in r70072. The implementation looks incorrect though, because this is not the
     // baseline of the underlying RenderObject, but of the AccessibilityRenderObject.
-    const Font& f = renderObject->firstLineStyle()->font();
-    return f.ascent() + (renderObject->firstLineStyle()->computedLineHeight() - f.height()) / 2;
+    const FontMetrics& fontMetrics = renderObject->firstLineStyle()->fontMetrics();
+    return fontMetrics.ascent() + (renderObject->firstLineStyle()->computedLineHeight() - fontMetrics.height()) / 2;
 }
 
 static AtkAttributeSet* getAttributeSetForAccessibilityObject(const AccessibilityObject* object)
@@ -1543,7 +1554,7 @@ static void webkit_accessible_text_get_character_extents(AtkText* text, gint off
 
 static void webkit_accessible_text_get_range_extents(AtkText* text, gint startOffset, gint endOffset, AtkCoordType coords, AtkTextRectangle* rect)
 {
-    IntRect extents = textExtents(text, startOffset, endOffset - startOffset + 1, coords);
+    IntRect extents = textExtents(text, startOffset, endOffset - startOffset, coords);
     rect->x = extents.x();
     rect->y = extents.y();
     rect->width = extents.width();
@@ -1699,10 +1710,26 @@ static gboolean webkit_accessible_text_set_caret_offset(AtkText* text, gint offs
 {
     AccessibilityObject* coreObject = core(text);
 
+    if (!coreObject->isAccessibilityRenderObject())
+        return FALSE;
+
+    RenderObject* renderer = toAccessibilityRenderObject(coreObject)->renderer();
+    if (renderer && renderer->isListItem()) {
+        String markerText = toRenderListItem(renderer)->markerTextWithSuffix();
+        int markerLength = markerText.length();
+        if (offset < markerLength)
+            return FALSE;
+
+        // We need to adjust the offset for list items.
+        offset -= markerLength;
+    }
+
     PlainTextRange textRange(offset, 0);
     VisiblePositionRange range = coreObject->visiblePositionRangeForRange(textRange);
-    coreObject->setSelectedVisiblePositionRange(range);
+    if (range.isNull())
+        return FALSE;
 
+    coreObject->setSelectedVisiblePositionRange(range);
     return TRUE;
 }
 
@@ -2457,8 +2484,6 @@ AtkObject* webkit_accessible_get_focused_element(WebKitAccessible* accessible)
 
 AccessibilityObject* objectAndOffsetUnignored(AccessibilityObject* coreObject, int& offset, bool ignoreLinks)
 {
-    Node* endNode = static_cast<AccessibilityRenderObject*>(coreObject)->renderer()->node();
-    int endOffset = coreObject->selection().end().computeOffsetInContainerNode();
     // Indication that something bogus has transpired.
     offset = -1;
 
@@ -2473,16 +2498,23 @@ AccessibilityObject* objectAndOffsetUnignored(AccessibilityObject* coreObject, i
     if (!realObject)
         return 0;
 
-    Node* node = static_cast<AccessibilityRenderObject*>(realObject)->renderer()->node();
+    Node* node = realObject->node();
     if (node) {
-        RefPtr<Range> range = rangeOfContents(node);
-        if (range->ownerDocument() == node->document()) {
-            ExceptionCode ec = 0;
-            range->setEndBefore(endNode, ec);
-            if (range->boundaryPointsValid())
-                offset = range->text().length() + endOffset;
+        VisiblePosition startPosition = VisiblePosition(node, 0, DOWNSTREAM);
+        VisiblePosition endPosition = realObject->selection().visibleEnd();
+
+        if (startPosition == endPosition)
+            offset = 0;
+        else if (!isStartOfLine(endPosition)) {
+            RefPtr<Range> range = makeRange(startPosition, endPosition.previous());
+            offset = TextIterator::rangeLength(range.get()) + 1;
+        } else {
+            RefPtr<Range> range = makeRange(startPosition, endPosition);
+            offset = TextIterator::rangeLength(range.get());
         }
+
     }
+
     return realObject;
 }
 

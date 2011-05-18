@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebFrame.h"
 
 #include "DownloadManager.h"
@@ -334,7 +335,7 @@ String WebFrame::url() const
     if (!m_coreFrame)
         return String();
 
-    return m_coreFrame->loader()->url().string();
+    return m_coreFrame->document()->url().string();
 }
 
 String WebFrame::innerText() const
@@ -457,6 +458,81 @@ JSGlobalContextRef WebFrame::jsContextForWorld(InjectedBundleScriptWorld* world)
     return toGlobalRef(m_coreFrame->script()->globalObject(world->coreWorld())->globalExec());
 }
 
+IntRect WebFrame::contentBounds() const
+{    
+    if (!m_coreFrame)
+        return IntRect();
+    
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return IntRect();
+    
+    return IntRect(0, 0, view->contentsWidth(), view->contentsHeight());
+}
+
+IntRect WebFrame::visibleContentBounds() const
+{
+    if (!m_coreFrame)
+        return IntRect();
+    
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return IntRect();
+    
+    IntRect contentRect = view->visibleContentRect(true);
+    return IntRect(0, 0, contentRect.width(), contentRect.height());
+}
+
+IntRect WebFrame::visibleContentBoundsExcludingScrollbars() const
+{
+    if (!m_coreFrame)
+        return IntRect();
+    
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return IntRect();
+    
+    IntRect contentRect = view->visibleContentRect(false);
+    return IntRect(0, 0, contentRect.width(), contentRect.height());
+}
+
+IntSize WebFrame::scrollOffset() const
+{
+    if (!m_coreFrame)
+        return IntSize();
+    
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return IntSize();
+
+    return view->scrollOffset();
+}
+
+bool WebFrame::getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha)
+{
+    if (!m_coreFrame)
+        return false;
+    Document* document = m_coreFrame->document();
+    if (!document)
+        return false;
+
+    Element* rootElementToUse = document->body();
+    if (!rootElementToUse)
+        rootElementToUse = document->documentElement();
+    if (!rootElementToUse)
+        return false;
+
+    RenderObject* renderer = rootElementToUse->renderer();
+    if (!renderer)
+        return false;
+    Color color = renderer->style()->visitedDependentColor(CSSPropertyBackgroundColor);
+    if (!color.isValid())
+        return false;
+
+    color.getRGBA(*red, *green, *blue, *alpha);
+    return true;
+}
+
 WebFrame* WebFrame::frameForContext(JSContextRef context)
 {
     JSObjectRef globalObjectRef = JSContextGetGlobalObject(context);
@@ -541,6 +617,22 @@ String WebFrame::suggestedFilenameForResourceWithURL(const KURL& url) const
         return String();
     
     return resource->response().suggestedFilename();
+}
+
+String WebFrame::mimeTypeForResourceWithURL(const KURL& url) const
+{
+    if (!m_coreFrame)
+        return String();
+
+    DocumentLoader* loader = m_coreFrame->loader()->documentLoader();
+    if (!loader)
+        return String();
+    
+    RefPtr<ArchiveResource> resource = loader->subresource(url);
+    if (resource)
+        return resource->mimeType();
+
+    return page()->cachedResponseMIMETypeForURL(url);
 }
 
 } // namespace WebKit

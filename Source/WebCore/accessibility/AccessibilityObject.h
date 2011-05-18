@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nuanti Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -214,6 +214,12 @@ enum AccessibilityButtonState {
     ButtonStateOn, 
     ButtonStateMixed,
 };
+    
+enum AccessibilitySortDirection {
+    SortDirectionNone,
+    SortDirectionAscending,
+    SortDirectionDescending,
+};
 
 struct VisiblePositionRange {
 
@@ -343,7 +349,6 @@ public:
     virtual void setAccessibleName(String&) { }
     
     virtual Node* node() const { return 0; }
-    bool accessibilityShouldUseUniqueId() const { return true; }
     virtual bool accessibilityIsIgnored() const  { return true; }
 
     virtual int headingLevel() const { return 0; }
@@ -366,6 +371,7 @@ public:
     bool ariaIsMultiline() const;
     virtual const AtomicString& invalidStatus() const;
     bool supportsARIAExpanded() const;
+    AccessibilitySortDirection sortDirection() const;
     
     // ARIA drag and drop
     virtual bool supportsARIADropping() const { return false; }
@@ -436,7 +442,7 @@ public:
     const String& actionVerb() const;
     virtual Widget* widget() const { return 0; }
     virtual Widget* widgetForAttachmentView() const { return 0; }
-    virtual Document* document() const { return 0; }
+    virtual Document* document() const;
     virtual FrameView* topDocumentFrameView() const { return 0; }
     virtual FrameView* documentFrameView() const;
     String language() const;

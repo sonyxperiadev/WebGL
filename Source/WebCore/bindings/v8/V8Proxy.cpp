@@ -161,10 +161,15 @@ void V8Proxy::reportUnsafeAccessTo(Frame* target)
         return;
 
     Frame* source = V8Proxy::retrieveFrameForEnteredContext();
-    if (!source || !source->document())
-        return; // Ignore error if the source document is gone.
+    if (!source)
+        return;
+    Page* page = source->page();
+    if (!page)
+        return;
 
     Document* sourceDocument = source->document();
+    if (!sourceDocument)
+        return; // Ignore error if the source document is gone.
 
     // FIXME: This error message should contain more specifics of why the same
     // origin check has failed.
@@ -178,7 +183,7 @@ void V8Proxy::reportUnsafeAccessTo(Frame* target)
     // NOTE: Safari prints the message in the target page, but it seems like
     // it should be in the source page. Even for delayed messages, we put it in
     // the source page.
-    addMessageToConsole(source->page(), str, kSourceID, kLineNumber);
+    addMessageToConsole(page, str, kSourceID, kLineNumber);
 }
 
 static void handleFatalErrorInV8()
@@ -430,6 +435,8 @@ v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, b
 
     // Run the script and keep track of the current recursion depth.
     v8::Local<v8::Value> result;
+    v8::TryCatch tryCatch;
+    tryCatch.SetVerbose(true);
     {
         // See comment in V8Proxy::callFunction.
         m_frame->keepAlive();
@@ -446,6 +453,11 @@ v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, b
         ASSERT(result.IsEmpty());
 
     // Handle V8 internal error situation (Out-of-memory).
+    if (tryCatch.HasCaught()) {
+        ASSERT(result.IsEmpty());
+        return notHandledByInterceptor();
+    }
+
     if (result.IsEmpty())
         return notHandledByInterceptor();
 

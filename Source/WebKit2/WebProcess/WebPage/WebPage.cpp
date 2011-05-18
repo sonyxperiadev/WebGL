@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebPage.h"
 
 #include "Arguments.h"
@@ -254,6 +255,16 @@ void WebPage::initializeInjectedBundleLoaderClient(WKBundlePageLoaderClient* cli
     m_loaderClient.initialize(client);
 }
 
+void WebPage::initializeInjectedBundlePolicyClient(WKBundlePagePolicyClient* client)
+{
+    m_policyClient.initialize(client);
+}
+
+void WebPage::initializeInjectedBundleResourceLoadClient(WKBundlePageResourceLoadClient* client)
+{
+    m_resourceLoadClient.initialize(client);
+}
+
 void WebPage::initializeInjectedBundleUIClient(WKBundlePageUIClient* client)
 {
     m_uiClient.initialize(client);
@@ -313,6 +324,11 @@ void WebPage::changeAcceleratedCompositingMode(WebCore::GraphicsLayer* layer)
     if (m_isClosed)
         return;
 
+    // With the new drawing area we don't need to inform the UI process when the accelerated
+    // compositing mode changes.
+    if (m_drawingArea->info().type == DrawingAreaInfo::Impl)
+        return;
+
     bool compositing = layer;
     
     // Tell the UI process that accelerated compositing changed. It may respond by changing
@@ -342,6 +358,7 @@ void WebPage::enterAcceleratedCompositingMode(GraphicsLayer* layer)
 void WebPage::exitAcceleratedCompositingMode()
 {
     changeAcceleratedCompositingMode(0);
+    m_drawingArea->setRootCompositingLayer(0);
 }
 #endif
 
@@ -463,20 +480,26 @@ void WebPage::reload(bool reloadFromOrigin)
     m_mainFrame->coreFrame()->loader()->reload(reloadFromOrigin);
 }
 
-void WebPage::goForward(uint64_t backForwardItemID)
+void WebPage::goForward(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
+
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
     m_page->goToItem(item, FrameLoadTypeForward);
 }
 
-void WebPage::goBack(uint64_t backForwardItemID)
+void WebPage::goBack(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
+
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
     m_page->goToItem(item, FrameLoadTypeBack);
 }
 
-void WebPage::goToBackForwardItem(uint64_t backForwardItemID)
+void WebPage::goToBackForwardItem(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
+
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
     m_page->goToItem(item, FrameLoadTypeIndexedBackForward);
 }
@@ -553,6 +576,27 @@ void WebPage::resizeToContentsIfNeeded()
 }
 #endif
 
+void WebPage::scrollMainFrameIfNotAtMaxScrollPosition(const IntSize& scrollOffset)
+{
+    Frame* frame = m_page->mainFrame();
+
+    IntPoint scrollPosition = frame->view()->scrollPosition();
+    IntPoint maximumScrollPosition = frame->view()->maximumScrollPosition();
+
+    // If the current scroll position in a direction is the max scroll position 
+    // we don't want to scroll at all.
+    IntSize newScrollOffset;
+    if (scrollPosition.x() < maximumScrollPosition.x())
+        newScrollOffset.setWidth(scrollOffset.width());
+    if (scrollPosition.y() < maximumScrollPosition.y())
+        newScrollOffset.setHeight(scrollOffset.height());
+
+    if (newScrollOffset.isZero())
+        return;
+
+    frame->view()->setScrollPosition(frame->view()->scrollPosition() + newScrollOffset);
+}
+
 void WebPage::drawRect(GraphicsContext& graphicsContext, const IntRect& rect)
 {
     graphicsContext.save();
@@ -560,12 +604,19 @@ void WebPage::drawRect(GraphicsContext& graphicsContext, const IntRect& rect)
     m_mainFrame->coreFrame()->view()->paint(&graphicsContext, rect);
     graphicsContext.restore();
 
-    if (m_pageOverlay) {
-        graphicsContext.save();
-        graphicsContext.clip(rect);
-        m_pageOverlay->drawRect(graphicsContext, rect);
-        graphicsContext.restore();
-    }
+    // FIXME: Remove this code once we're using the new drawing area on mac and windows.
+    if (m_pageOverlay && m_drawingArea->info().type != DrawingAreaInfo::Impl)
+        drawPageOverlay(graphicsContext, rect);
+}
+
+void WebPage::drawPageOverlay(GraphicsContext& graphicsContext, const IntRect& rect)
+{
+    ASSERT(m_pageOverlay);
+
+    graphicsContext.save();
+    graphicsContext.clip(rect);
+    m_pageOverlay->drawRect(graphicsContext, rect);
+    graphicsContext.restore();
 }
 
 double WebPage::textZoomFactor() const
@@ -614,6 +665,8 @@ void WebPage::scaleWebView(double scale, const IntPoint& origin)
     if (!frame)
         return;
     frame->scalePage(scale, origin);
+
+    send(Messages::WebPageProxy::ViewScaleFactorDidChange(scale));
 }
 
 double WebPage::viewScaleFactor() const
@@ -660,6 +713,9 @@ void WebPage::installPageOverlay(PassRefPtr<PageOverlay> pageOverlay)
 
     m_pageOverlay = pageOverlay;
     m_pageOverlay->setPage(this);
+
+    m_drawingArea->didInstallPageOverlay();
+
     m_pageOverlay->setNeedsDisplay();
 }
 
@@ -670,7 +726,8 @@ void WebPage::uninstallPageOverlay(PageOverlay* pageOverlay)
 
     m_pageOverlay->setPage(0);
     m_pageOverlay = nullptr;
-    m_drawingArea->setNeedsDisplay(IntRect(IntPoint(0, 0), m_viewSize));
+
+    m_drawingArea->didUninstallPageOverlay();
 }
 
 PassRefPtr<WebImage> WebPage::snapshotInViewCoordinates(const IntRect& rect, ImageOptions options)
@@ -697,7 +754,7 @@ PassRefPtr<WebImage> WebPage::snapshotInViewCoordinates(const IntRect& rect, Ima
     return snapshot.release();
 }
 
-PassRefPtr<WebImage> WebPage::snapshotInDocumentCoordinates(const IntRect& rect, ImageOptions options)
+PassRefPtr<WebImage> WebPage::scaledSnapshotInDocumentCoordinates(const IntRect& rect, double scaleFactor, ImageOptions options)
 {
     FrameView* frameView = m_mainFrame->coreFrame()->view();
     if (!frameView)
@@ -708,10 +765,18 @@ PassRefPtr<WebImage> WebPage::snapshotInDocumentCoordinates(const IntRect& rect,
     PaintBehavior oldBehavior = frameView->paintBehavior();
     frameView->setPaintBehavior(oldBehavior | PaintBehaviorFlattenCompositingLayers);
 
-    RefPtr<WebImage> snapshot = WebImage::create(rect.size(), options);
-    OwnPtr<WebCore::GraphicsContext> graphicsContext = snapshot->bitmap()->createGraphicsContext();
+    bool scale = scaleFactor != 1;
+    IntSize size = rect.size();
+    if (scale) 
+        size = IntSize(ceil(rect.width() * scaleFactor), ceil(rect.height() * scaleFactor));
 
+    RefPtr<WebImage> snapshot = WebImage::create(size, options);
+    OwnPtr<WebCore::GraphicsContext> graphicsContext = snapshot->bitmap()->createGraphicsContext();
     graphicsContext->save();
+    
+    if (scale)
+        graphicsContext->scale(FloatSize(scaleFactor, scaleFactor));
+    
     graphicsContext->translate(-rect.x(), -rect.y());
     frameView->paintContents(graphicsContext.get(), rect);
     graphicsContext->restore();
@@ -719,6 +784,11 @@ PassRefPtr<WebImage> WebPage::snapshotInDocumentCoordinates(const IntRect& rect,
     frameView->setPaintBehavior(oldBehavior);
 
     return snapshot.release();
+}
+
+PassRefPtr<WebImage> WebPage::snapshotInDocumentCoordinates(const IntRect& rect, ImageOptions options)
+{
+    return scaledSnapshotInDocumentCoordinates(rect, 1, options);
 }
 
 void WebPage::pageDidScroll()
@@ -909,6 +979,26 @@ void WebPage::keyEvent(const WebKeyboardEvent& keyboardEvent)
     send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(keyboardEvent.type()), handled));
 }
 
+#if ENABLE(GESTURE_EVENTS)
+static bool handleGestureEvent(const WebGestureEvent& gestureEvent, Page* page)
+{
+    Frame* frame = page->mainFrame();
+    if (!frame->view())
+        return false;
+
+    PlatformGestureEvent platformGestureEvent = platform(gestureEvent);
+    return frame->eventHandler()->handleGestureEvent(platformGestureEvent);
+}
+
+void WebPage::gestureEvent(const WebGestureEvent& gestureEvent)
+{
+    CurrentEvent currentEvent(gestureEvent);
+
+    bool handled = handleGestureEvent(gestureEvent, m_page.get());
+    send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(gestureEvent.type()), handled));
+}
+#endif
+
 void WebPage::validateMenuItem(const String& commandName)
 {
     bool isEnabled = false;
@@ -952,10 +1042,10 @@ uint64_t WebPage::restoreSession(const SessionState& sessionState)
     return currentItemID;
 }
 
-void WebPage::restoreSessionAndNavigateToCurrentItem(const SessionState& sessionState)
+void WebPage::restoreSessionAndNavigateToCurrentItem(const SessionState& sessionState, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
     if (uint64_t currentItemID = restoreSession(sessionState))
-        goToBackForwardItem(currentItemID);
+        goToBackForwardItem(currentItemID, sandboxExtensionHandle);
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -1020,6 +1110,30 @@ void WebPage::setDrawsTransparentBackground(bool drawsTransparentBackground)
 
     m_drawingArea->pageBackgroundTransparencyChanged();
     m_drawingArea->setNeedsDisplay(IntRect(IntPoint(0, 0), m_viewSize));
+}
+
+void WebPage::viewWillStartLiveResize()
+{
+    if (!m_page)
+        return;
+
+    // FIXME: This should propagate to all ScrollableAreas.
+    if (Frame* frame = m_page->focusController()->focusedOrMainFrame()) {
+        if (FrameView* view = frame->view())
+            view->willStartLiveResize();
+    }
+}
+
+void WebPage::viewWillEndLiveResize()
+{
+    if (!m_page)
+        return;
+
+    // FIXME: This should propagate to all ScrollableAreas.
+    if (Frame* frame = m_page->focusController()->focusedOrMainFrame()) {
+        if (FrameView* view = frame->view())
+            view->willEndLiveResize();
+    }
 }
 
 void WebPage::setFocused(bool isFocused)
@@ -1161,7 +1275,7 @@ void WebPage::getResourceDataFromFrame(uint64_t frameID, const String& resourceU
     if (WebFrame* frame = WebProcess::shared().webFrame(frameID)) {
         if (DocumentLoader* loader = frame->coreFrame()->loader()->documentLoader()) {
             if (RefPtr<ArchiveResource> subresource = loader->subresource(KURL(KURL(), resourceURL))) {
-                if (buffer = subresource->data())
+                if ((buffer = subresource->data()))
                     dataReference = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>(buffer->data()), buffer->size());
             }
         }
@@ -1187,6 +1301,12 @@ void WebPage::getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
     send(Messages::WebPageProxy::DataCallback(dataReference, callbackID));
 }
 
+void WebPage::forceRepaint(uint64_t callbackID)
+{
+    m_drawingArea->forceRepaint();
+    send(Messages::WebPageProxy::VoidCallback(callbackID));
+}
+    
 void WebPage::preferencesDidChange(const WebPreferencesStore& store)
 {
     WebPreferencesStore::removeTestRunnerOverrides();
@@ -1224,12 +1344,15 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     settings->setJavaScriptCanOpenWindowsAutomatically(store.getBoolValueForKey(WebPreferencesKey::javaScriptCanOpenWindowsAutomaticallyKey()));
     settings->setForceFTPDirectoryListings(store.getBoolValueForKey(WebPreferencesKey::forceFTPDirectoryListingsKey()));
     settings->setDNSPrefetchingEnabled(store.getBoolValueForKey(WebPreferencesKey::dnsPrefetchingEnabledKey()));
+#if ENABLE(WEB_ARCHIVE)
     settings->setWebArchiveDebugModeEnabled(store.getBoolValueForKey(WebPreferencesKey::webArchiveDebugModeEnabledKey()));
+#endif
     settings->setLocalFileContentSniffingEnabled(store.getBoolValueForKey(WebPreferencesKey::localFileContentSniffingEnabledKey()));
     settings->setUsesPageCache(store.getBoolValueForKey(WebPreferencesKey::usesPageCacheKey()));
     settings->setAuthorAndUserStylesEnabled(store.getBoolValueForKey(WebPreferencesKey::authorAndUserStylesEnabledKey()));
     settings->setPaginateDuringLayoutEnabled(store.getBoolValueForKey(WebPreferencesKey::paginateDuringLayoutEnabledKey()));
     settings->setDOMPasteAllowed(store.getBoolValueForKey(WebPreferencesKey::domPasteAllowedKey()));
+    settings->setJavaScriptCanAccessClipboard(store.getBoolValueForKey(WebPreferencesKey::javaScriptCanAccessClipboardKey()));
     settings->setShouldPrintBackgrounds(store.getBoolValueForKey(WebPreferencesKey::shouldPrintBackgroundsKey()));
 
     settings->setMinimumFontSize(store.getUInt32ValueForKey(WebPreferencesKey::minimumFontSizeKey()));
@@ -1245,6 +1368,7 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #endif
     settings->setShowDebugBorders(store.getBoolValueForKey(WebPreferencesKey::compositingBordersVisibleKey()));
     settings->setShowRepaintCounter(store.getBoolValueForKey(WebPreferencesKey::compositingRepaintCountersVisibleKey()));
+    settings->setWebGLEnabled(store.getBoolValueForKey(WebPreferencesKey::webGLEnabledKey()));
 
 #if ENABLE(DATABASE)
     AbstractDatabase::setIsAvailable(store.getBoolValueForKey(WebPreferencesKey::databasesEnabledKey()));
@@ -1259,7 +1383,7 @@ WebInspector* WebPage::inspector()
     if (m_isClosed)
         return 0;
     if (!m_inspector)
-        m_inspector = adoptPtr(new WebInspector(this));
+        m_inspector = WebInspector::create(this);
     return m_inspector.get();
 }
 #endif
@@ -1296,6 +1420,37 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent* evt)
 }
 #endif
 
+#if PLATFORM(WIN)
+void WebPage::performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WebCore::DragDataMap& dataMap, uint32_t flags)
+{
+    if (!m_page) {
+        send(Messages::WebPageProxy::DidPerformDragControllerAction(DragOperationNone));
+        return;
+    }
+
+    DragData dragData(dataMap, clientPosition, globalPosition, static_cast<DragOperation>(draggingSourceOperationMask), static_cast<DragApplicationFlags>(flags));
+    switch (action) {
+    case DragControllerActionEntered:
+        send(Messages::WebPageProxy::DidPerformDragControllerAction(m_page->dragController()->dragEntered(&dragData)));
+        break;
+
+    case DragControllerActionUpdated:
+        send(Messages::WebPageProxy::DidPerformDragControllerAction(m_page->dragController()->dragUpdated(&dragData)));
+        break;
+        
+    case DragControllerActionExited:
+        m_page->dragController()->dragExited(&dragData);
+        break;
+        
+    case DragControllerActionPerformDrag:
+        m_page->dragController()->performDrag(&dragData);
+        break;
+        
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+#else
 void WebPage::performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const String& dragStorageName, uint32_t flags)
 {
     if (!m_page) {
@@ -1325,6 +1480,7 @@ void WebPage::performDragControllerAction(uint64_t action, WebCore::IntPoint cli
         ASSERT_NOT_REACHED();
     }
 }
+#endif
 
 void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation)
 {
@@ -1432,6 +1588,13 @@ void WebPage::didCancelForOpenPanel()
 {
     m_activeOpenPanelResultListener = 0;
 }
+
+#if ENABLE(WEB_PROCESS_SANDBOX)
+void WebPage::extendSandboxForFileFromOpenPanel(const SandboxExtension::Handle& handle)
+{
+    SandboxExtension::create(handle)->consumePermanently();
+}
+#endif
 
 void WebPage::didReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed)
 {
@@ -1563,7 +1726,7 @@ void WebPage::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Messag
         return;
     }
 
-#ifdef __APPLE__
+#if PLATFORM(MAC) || PLATFORM(WIN)
     if (messageID.is<CoreIPC::MessageClassDrawingArea>()) {
         if (m_drawingArea)
             m_drawingArea->didReceiveDrawingAreaMessage(connection, messageID, arguments);
@@ -1650,10 +1813,38 @@ void WebPage::SandboxExtensionTracker::beginLoad(WebFrame* frame, const SandboxE
     m_pendingProvisionalSandboxExtension = SandboxExtension::create(handle);
 }
 
+static bool shouldReuseCommittedSandboxExtension(WebFrame* frame)
+{
+    ASSERT(frame->isMainFrame());
+
+    FrameLoader* frameLoader = frame->coreFrame()->loader();
+    FrameLoadType frameLoadType = frameLoader->loadType();
+
+    // If the page is being reloaded, it should reuse whatever extension is committed.
+    if (frameLoadType == FrameLoadTypeReload || frameLoadType == FrameLoadTypeReloadFromOrigin)
+        return true;
+
+    DocumentLoader* documentLoader = frameLoader->documentLoader();
+    DocumentLoader* provisionalDocumentLoader = frameLoader->provisionalDocumentLoader();
+    if (!documentLoader || !provisionalDocumentLoader)
+        return false;
+
+    if (documentLoader->url().isLocalFile() && provisionalDocumentLoader->url().isLocalFile() 
+        && provisionalDocumentLoader->triggeringAction().type() == NavigationTypeLinkClicked)
+        return true;
+
+    return false;
+}
+
 void WebPage::SandboxExtensionTracker::didStartProvisionalLoad(WebFrame* frame)
 {
     if (!frame->isMainFrame())
         return;
+
+    if (shouldReuseCommittedSandboxExtension(frame)) {
+        m_pendingProvisionalSandboxExtension = m_committedSandboxExtension.release();
+        ASSERT(!m_committedSandboxExtension);
+    }
 
     ASSERT(!m_provisionalSandboxExtension);
 
@@ -1749,6 +1940,9 @@ void WebPage::beginPrinting(uint64_t frameID, const PrintInfo& printInfo)
         m_printContext = adoptPtr(new PrintContext(coreFrame));
 
     m_printContext->begin(printInfo.availablePaperWidth, printInfo.availablePaperHeight);
+
+    float fullPageHeight;
+    m_printContext->computePageRects(FloatRect(0, 0, printInfo.availablePaperWidth, printInfo.availablePaperHeight), 0, 0, printInfo.pageSetupScaleFactor, fullPageHeight, true);
 }
 
 void WebPage::endPrinting()
@@ -1756,57 +1950,90 @@ void WebPage::endPrinting()
     m_printContext = nullptr;
 }
 
-void WebPage::computePagesForPrinting(uint64_t frameID, const PrintInfo& printInfo, Vector<IntRect>& resultPageRects, double& resultTotalScaleFactorForPrinting)
+void WebPage::computePagesForPrinting(uint64_t frameID, const PrintInfo& printInfo, uint64_t callbackID)
 {
+    Vector<IntRect> resultPageRects;
+    double resultTotalScaleFactorForPrinting = 1;
+
     beginPrinting(frameID, printInfo);
 
-    WebFrame* frame = WebProcess::shared().webFrame(frameID);
-    if (!frame)
-        return;
-
-    float fullPageHeight;
-    m_printContext->computePageRects(FloatRect(0, 0, printInfo.availablePaperWidth, printInfo.availablePaperHeight), 0, 0, printInfo.pageSetupScaleFactor, fullPageHeight, true);
-
-    resultTotalScaleFactorForPrinting = m_printContext->computeAutomaticScaleFactor(printInfo.availablePaperWidth) * printInfo.pageSetupScaleFactor;
-    resultPageRects = m_printContext->pageRects();
+    if (m_printContext) {
+        resultPageRects = m_printContext->pageRects();
+        resultTotalScaleFactorForPrinting = m_printContext->computeAutomaticScaleFactor(FloatSize(printInfo.availablePaperWidth, printInfo.availablePaperHeight)) * printInfo.pageSetupScaleFactor;
+    }
 
     // If we're asked to print, we should actually print at least a blank page.
     if (resultPageRects.isEmpty())
         resultPageRects.append(IntRect(0, 0, 1, 1));
+
+    send(Messages::WebPageProxy::ComputedPagesCallback(resultPageRects, resultTotalScaleFactorForPrinting, callbackID));
 }
 
 #if PLATFORM(MAC)
 // FIXME: Find a better place for Mac specific code.
-void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, Vector<uint8_t>& pdfData)
+void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, uint64_t callbackID)
 {
     WebFrame* frame = WebProcess::shared().webFrame(frameID);
-    if (!frame)
-        return;
-
-    Frame* coreFrame = frame->coreFrame();
-    if (!coreFrame)
-        return;
-
-    ASSERT(coreFrame->document()->printing());
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
 
     RetainPtr<CFMutableDataRef> pdfPageData(AdoptCF, CFDataCreateMutable(0, 0));
 
-    // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
-    RetainPtr<CGDataConsumerRef> pdfDataConsumer(AdoptCF, CGDataConsumerCreateWithCFData(pdfPageData.get()));
+    if (coreFrame) {
+        ASSERT(coreFrame->document()->printing());
 
-    CGRect mediaBox = CGRectMake(0, 0, frame->size().width(), frame->size().height());
-    RetainPtr<CGContextRef> context(AdoptCF, CGPDFContextCreate(pdfDataConsumer.get(), &mediaBox, 0));
-    CFDictionaryRef pageInfo = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CGPDFContextBeginPage(context.get(), pageInfo);
+        // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
+        RetainPtr<CGDataConsumerRef> pdfDataConsumer(AdoptCF, CGDataConsumerCreateWithCFData(pdfPageData.get()));
 
-    GraphicsContext ctx(context.get());
-    m_printContext->spoolRect(ctx, rect);
+        CGRect mediaBox = CGRectMake(0, 0, rect.width(), rect.height());
+        RetainPtr<CGContextRef> context(AdoptCF, CGPDFContextCreate(pdfDataConsumer.get(), &mediaBox, 0));
+        RetainPtr<CFDictionaryRef> pageInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+        CGPDFContextBeginPage(context.get(), pageInfo.get());
 
-    CGPDFContextEndPage(context.get());
-    CGPDFContextClose(context.get());
+        GraphicsContext ctx(context.get());
+        ctx.scale(FloatSize(1, -1));
+        ctx.translate(0, -rect.height());
+        m_printContext->spoolRect(ctx, rect);
 
-    pdfData.resize(CFDataGetLength(pdfPageData.get()));
-    CFDataGetBytes(pdfPageData.get(), CFRangeMake(0, pdfData.size()), pdfData.data());
+        CGPDFContextEndPage(context.get());
+        CGPDFContextClose(context.get());
+    }
+
+    send(Messages::WebPageProxy::DataCallback(CoreIPC::DataReference(CFDataGetBytePtr(pdfPageData.get()), CFDataGetLength(pdfPageData.get())), callbackID));
+}
+
+void WebPage::drawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, uint64_t callbackID)
+{
+    WebFrame* frame = WebProcess::shared().webFrame(frameID);
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+
+    RetainPtr<CFMutableDataRef> pdfPageData(AdoptCF, CFDataCreateMutable(0, 0));
+
+    if (coreFrame) {
+        ASSERT(coreFrame->document()->printing());
+
+        // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
+        RetainPtr<CGDataConsumerRef> pdfDataConsumer(AdoptCF, CGDataConsumerCreateWithCFData(pdfPageData.get()));
+
+        CGRect mediaBox = m_printContext->pageCount() ? m_printContext->pageRect(0) : CGRectMake(0, 0, 1, 1);
+        RetainPtr<CGContextRef> context(AdoptCF, CGPDFContextCreate(pdfDataConsumer.get(), &mediaBox, 0));
+        for (uint32_t page = first; page < first + count; ++page) {
+            if (page >= m_printContext->pageCount())
+                break;
+
+            RetainPtr<CFDictionaryRef> pageInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+            CGPDFContextBeginPage(context.get(), pageInfo.get());
+
+            GraphicsContext ctx(context.get());
+            ctx.scale(FloatSize(1, -1));
+            ctx.translate(0, -m_printContext->pageRect(page).height());
+            m_printContext->spoolPage(ctx, page, m_printContext->pageRect(page).width());
+
+            CGPDFContextEndPage(context.get());
+        }
+        CGPDFContextClose(context.get());
+    }
+
+    send(Messages::WebPageProxy::DataCallback(CoreIPC::DataReference(CFDataGetBytePtr(pdfPageData.get()), CFDataGetLength(pdfPageData.get())), callbackID));
 }
 #endif
 

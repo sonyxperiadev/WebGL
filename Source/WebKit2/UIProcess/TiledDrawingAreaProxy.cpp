@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "TiledDrawingAreaProxy.h"
 
 #if ENABLE(TILED_BACKING_STORE)
@@ -82,7 +83,7 @@ void TiledDrawingAreaProxy::sizeDidChange()
     m_isWaitingForDidSetFrameNotification = true;
 
     page->process()->responsivenessTimer()->start();
-    page->process()->send(DrawingAreaLegacyMessage::SetSize, page->pageID(), CoreIPC::In(m_size));
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::SetSize, page->pageID(), CoreIPC::In(m_size));
 }
 
 void TiledDrawingAreaProxy::setPageIsVisible(bool isVisible)
@@ -98,12 +99,12 @@ void TiledDrawingAreaProxy::setPageIsVisible(bool isVisible)
 
     if (!m_isVisible) {
         // Tell the web process that it doesn't need to paint anything for now.
-        page->process()->send(DrawingAreaLegacyMessage::SuspendPainting, page->pageID(), CoreIPC::In());
+        page->process()->deprecatedSend(DrawingAreaLegacyMessage::SuspendPainting, page->pageID(), CoreIPC::In());
         return;
     }
 
     // The page is now visible.
-    page->process()->send(DrawingAreaLegacyMessage::ResumePainting, page->pageID(), CoreIPC::In());
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::ResumePainting, page->pageID(), CoreIPC::In());
 
     // FIXME: We should request a full repaint here if needed.
 }
@@ -114,7 +115,7 @@ void TiledDrawingAreaProxy::didSetSize(const IntSize& viewSize)
     m_isWaitingForDidSetFrameNotification = false;
 
     if (viewSize != m_lastSetViewSize)
-        setSize(m_lastSetViewSize);
+        setSize(m_lastSetViewSize, IntSize());
 
     WebPageProxy* page = this->page();
     page->process()->responsivenessTimer()->stop();
@@ -177,7 +178,7 @@ void TiledDrawingAreaProxy::didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC:
 
 void TiledDrawingAreaProxy::requestTileUpdate(int tileID, const IntRect& dirtyRect)
 {
-    page()->process()->connection()->send(DrawingAreaLegacyMessage::RequestTileUpdate, page()->pageID(), CoreIPC::In(tileID, dirtyRect, contentsScale()));
+    page()->process()->connection()->deprecatedSend(DrawingAreaLegacyMessage::RequestTileUpdate, page()->pageID(), CoreIPC::In(tileID, dirtyRect, contentsScale()));
 }
 
 void TiledDrawingAreaProxy::waitUntilUpdatesComplete()
@@ -188,7 +189,7 @@ void TiledDrawingAreaProxy::waitUntilUpdatesComplete()
         float scale;
         unsigned pendingUpdateCount;
         static const double tileUpdateTimeout = 10.0;
-        OwnPtr<CoreIPC::ArgumentDecoder> arguments = page()->process()->connection()->waitFor(DrawingAreaProxyLegacyMessage::TileUpdated, page()->pageID(), tileUpdateTimeout);
+        OwnPtr<CoreIPC::ArgumentDecoder> arguments = page()->process()->connection()->deprecatedWaitFor(DrawingAreaProxyLegacyMessage::TileUpdated, page()->pageID(), tileUpdateTimeout);
         if (!arguments)
             break;
         if (!arguments->decode(CoreIPC::Out(tileID, updateChunk, scale, pendingUpdateCount)))
@@ -232,22 +233,22 @@ void TiledDrawingAreaProxy::setKeepAndCoverAreaMultipliers(const FloatSize& keep
 void TiledDrawingAreaProxy::takeSnapshot(const IntSize& size, const IntRect& contentsRect)
 {
     WebPageProxy* page = this->page();
-    page->process()->send(DrawingAreaLegacyMessage::TakeSnapshot, page->pageID(), CoreIPC::Out(size, contentsRect));
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::TakeSnapshot, page->pageID(), CoreIPC::Out(size, contentsRect));
 }
 
 void TiledDrawingAreaProxy::invalidate(const IntRect& contentsDirtyRect)
 {
     IntRect dirtyRect(mapFromContents(contentsDirtyRect));
 
-    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
 
     IntRect coverRect = calculateCoverRect(m_previousVisibleRect);
 
     Vector<TiledDrawingAreaTile::Coordinate> tilesToRemove;
 
-    for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
-        for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
+    for (unsigned yCoordinate = topLeft.y(); yCoordinate < bottomRight.y(); ++yCoordinate) {
+        for (unsigned xCoordinate = topLeft.x(); xCoordinate < bottomRight.x(); ++xCoordinate) {
             RefPtr<TiledDrawingAreaTile> currentTile = tileAt(TiledDrawingAreaTile::Coordinate(xCoordinate, yCoordinate));
             if (!currentTile)
                 continue;
@@ -337,11 +338,11 @@ bool TiledDrawingAreaProxy::paint(const IntRect& rect, PlatformDrawingContext co
 
     IntRect dirtyRect = mapFromContents(rect);
 
-    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
 
-    for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
-        for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
+    for (unsigned yCoordinate = topLeft.y(); yCoordinate < bottomRight.y(); ++yCoordinate) {
+        for (unsigned xCoordinate = topLeft.x(); xCoordinate < bottomRight.x(); ++xCoordinate) {
             TiledDrawingAreaTile::Coordinate currentCoordinate(xCoordinate, yCoordinate);
             RefPtr<TiledDrawingAreaTile> currentTile = tileAt(currentCoordinate);
             if (currentTile && currentTile->isReadyToPaint())
@@ -435,10 +436,10 @@ void TiledDrawingAreaProxy::createTiles()
     Vector<TiledDrawingAreaTile::Coordinate> tilesToCreate;
     unsigned requiredTileCount = 0;
     bool hasVisibleCheckers = false;
-    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(coverRect.topLeft());
-    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(coverRect.bottomRight());
-    for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
-        for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
+    TiledDrawingAreaTile::Coordinate topLeft = tileCoordinateForPoint(visibleRect.location());
+    TiledDrawingAreaTile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(visibleRect.maxX(), visibleRect.maxY()));
+    for (unsigned yCoordinate = topLeft.y(); yCoordinate < bottomRight.y(); ++yCoordinate) {
+        for (unsigned xCoordinate = topLeft.x(); xCoordinate < bottomRight.x(); ++xCoordinate) {
             TiledDrawingAreaTile::Coordinate currentCoordinate(xCoordinate, yCoordinate);
             // Distance is 0 for all currently visible tiles.
             double distance = tileDistance(visibleRect, currentCoordinate);
@@ -541,7 +542,7 @@ void TiledDrawingAreaProxy::removeTile(const TiledDrawingAreaTile::Coordinate& c
     if (!tile->hasBackBufferUpdatePending())
         return;
     WebPageProxy* page = this->page();
-    page->process()->send(DrawingAreaLegacyMessage::CancelTileUpdate, page->pageID(), CoreIPC::In(tile->ID()));
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::CancelTileUpdate, page->pageID(), CoreIPC::In(tile->ID()));
 }
 
 IntRect TiledDrawingAreaProxy::mapToContents(const IntRect& rect) const

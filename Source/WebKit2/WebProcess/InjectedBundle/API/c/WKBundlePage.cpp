@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKBundlePage.h"
 #include "WKBundlePagePrivate.h"
 
@@ -64,11 +65,25 @@ void WKBundlePageSetFormClient(WKBundlePageRef pageRef, WKBundlePageFormClient* 
     toImpl(pageRef)->initializeInjectedBundleFormClient(wkClient);
 }
 
-void WKBundlePageSetLoaderClient(WKBundlePageRef pageRef, WKBundlePageLoaderClient* wkClient)
+void WKBundlePageSetPageLoaderClient(WKBundlePageRef pageRef, WKBundlePageLoaderClient* wkClient)
 {
     if (wkClient && wkClient->version)
         return;
     toImpl(pageRef)->initializeInjectedBundleLoaderClient(wkClient);
+}
+
+void WKBundlePageSetResourceLoadClient(WKBundlePageRef pageRef, WKBundlePageResourceLoadClient* wkClient)
+{
+    if (wkClient && wkClient->version)
+        return;
+    toImpl(pageRef)->initializeInjectedBundleResourceLoadClient(wkClient);
+}
+
+void WKBundlePageSetPolicyClient(WKBundlePageRef pageRef, WKBundlePagePolicyClient* wkClient)
+{
+    if (wkClient && wkClient->version)
+        return;
+    toImpl(pageRef)->initializeInjectedBundlePolicyClient(wkClient);
 }
 
 void WKBundlePageSetUIClient(WKBundlePageRef pageRef, WKBundlePageUIClient* wkClient)
@@ -184,3 +199,16 @@ WKImageRef WKBundlePageCreateSnapshotInDocumentCoordinates(WKBundlePageRef pageR
     RefPtr<WebImage> webImage = toImpl(pageRef)->snapshotInDocumentCoordinates(toIntRect(rect), toImageOptions(options));
     return toAPI(webImage.release().leakRef());
 }
+
+WKImageRef WKBundlePageCreateScaledSnapshotInDocumentCoordinates(WKBundlePageRef pageRef, WKRect rect, double scaleFactor, WKImageOptions options)
+{
+    RefPtr<WebImage> webImage = toImpl(pageRef)->scaledSnapshotInDocumentCoordinates(toIntRect(rect), scaleFactor, toImageOptions(options));
+    return toAPI(webImage.release().leakRef());
+}
+
+#if defined(ENABLE_INSPECTOR) && ENABLE_INSPECTOR
+WKBundleInspectorRef WKBundlePageGetInspector(WKBundlePageRef pageRef)
+{
+    return toAPI(toImpl(pageRef)->inspector());
+}
+#endif

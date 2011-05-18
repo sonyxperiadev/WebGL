@@ -31,7 +31,6 @@
 #include "FrameView.h"
 #include "Node.h"
 #include "NotImplemented.h"
-#include <tchar.h>
 #include <windows.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
@@ -73,7 +72,7 @@ void ContextMenu::getContextMenuItems(HMENU menu, Vector<ContextMenuItem>& items
         }
 
         int menuStringLength = info.cch + 1;
-        OwnArrayPtr<WCHAR> menuString(new WCHAR[menuStringLength]);
+        OwnArrayPtr<WCHAR> menuString = adoptArrayPtr(new WCHAR[menuStringLength]);
         info.dwTypeData = menuString.get();
         info.cch = menuStringLength;
 

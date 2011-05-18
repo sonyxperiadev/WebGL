@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Brent Fulgham <bfulgham@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,6 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "Download.h"
 
 #include "NotImplemented.h"
@@ -48,6 +49,16 @@ void Download::cancel()
 }
 
 void Download::platformInvalidate()
+{
+    notImplemented();
+}
+
+void Download::didDecideDestination(const String& destination, bool allowOverwrite)
+{
+    notImplemented();
+}
+
+void Download::platformDidFinish()
 {
     notImplemented();
 }

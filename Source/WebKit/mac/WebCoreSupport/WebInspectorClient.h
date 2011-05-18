@@ -30,6 +30,7 @@
 #import <WebCore/InspectorFrontendClientLocal.h>
 #import <WebCore/PlatformString.h>
 
+#import <wtf/Forward.h>
 #import <wtf/RetainPtr.h>
 
 #ifdef __OBJC__
@@ -59,14 +60,16 @@ public:
     virtual void highlight(WebCore::Node*);
     virtual void hideHighlight();
 
-    virtual void populateSetting(const WTF::String& key, WTF::String* value);
-    virtual void storeSetting(const WTF::String& key, const WTF::String& value);
-
     virtual bool sendMessageToFrontend(const WTF::String&);
+
+    bool inspectorStartsAttached();
+    void setInspectorStartsAttached(bool);
 
     void releaseFrontendPage();
 
 private:
+    WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
+
     WebView *m_webView;
     RetainPtr<WebNodeHighlighter> m_highlighter;
     WebCore::Page* m_frontendPage;
@@ -75,7 +78,7 @@ private:
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal {
 public:
-    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*);
+    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*, WTF::PassOwnPtr<Settings>);
 
     virtual void frontendLoaded();
 

@@ -57,13 +57,17 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <WebCore/Frame.h>
+#include <WebCore/InspectorFrontendClientLocal.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformString.h>
 
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
 using namespace WebCore;
+
+static const char* inspectorStartsAttachedSetting = "inspectorStartsAttached";
 
 static inline CFStringRef createKeyForPreferences(const String& key)
 {
@@ -71,7 +75,7 @@ static inline CFStringRef createKeyForPreferences(const String& key)
     return CFStringCreateWithFormat(0, 0, CFSTR("WebKit Web Inspector Setting - %@"), keyCFString.get());
 }
 
-void WebInspectorClient::populateSetting(const String& key, String* setting)
+static void populateSetting(const String& key, String* setting)
 {
     RetainPtr<CFStringRef> preferencesKey(AdoptCF, createKeyForPreferences(key));
     RetainPtr<CFPropertyListRef> value(AdoptCF, CFPreferencesCopyAppValue(preferencesKey.get(), kCFPreferencesCurrentApplication));
@@ -88,7 +92,7 @@ void WebInspectorClient::populateSetting(const String& key, String* setting)
         *setting = "";
 }
 
-void WebInspectorClient::storeSetting(const String& key, const String& setting)
+static void storeSetting(const String& key, const String& setting)
 {
     RetainPtr<CFPropertyListRef> objectToStore;
     objectToStore.adoptCF(setting.createCFString());
@@ -98,12 +102,46 @@ void WebInspectorClient::storeSetting(const String& key, const String& setting)
     CFPreferencesSetAppValue(preferencesKey.get(), objectToStore.get(), kCFPreferencesCurrentApplication);
 }
 
+bool WebInspectorClient::sendMessageToFrontend(const String& message)
+{
+    return doDispatchMessageOnFrontendPage(m_frontendPage, message);
+}
+
+bool WebInspectorClient::inspectorStartsAttached()
+{
+    String value;
+    populateSetting(inspectorStartsAttachedSetting, &value);
+    if (value.isEmpty())
+        return true;
+    return value == "true";
+}
+
+void WebInspectorClient::setInspectorStartsAttached(bool attached)
+{
+    storeSetting(inspectorStartsAttachedSetting, attached ? "true" : "false");
+}
+
 void WebInspectorClient::releaseFrontendPage()
 {
     m_frontendPage = 0;
 }
 
-bool WebInspectorClient::sendMessageToFrontend(const String& message)
+WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> WebInspectorClient::createFrontendSettings()
 {
-    return doDispatchMessageOnFrontendPage(m_frontendPage, message);
+    class InspectorFrontendSettingsCF : public WebCore::InspectorFrontendClientLocal::Settings {
+    public:
+        virtual ~InspectorFrontendSettingsCF() { }
+        virtual String getProperty(const String& name)
+        {
+            String value;
+            populateSetting(name, &value);
+            return value;
+        }
+
+        virtual void setProperty(const String& name, const String& value)
+        {
+            storeSetting(name, value);
+        }
+    };
+    return adoptPtr<WebCore::InspectorFrontendClientLocal::Settings>(new InspectorFrontendSettingsCF());
 }

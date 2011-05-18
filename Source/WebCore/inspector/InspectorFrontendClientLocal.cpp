@@ -47,14 +47,25 @@
 
 namespace WebCore {
 
+static const char* inspectorAttachedHeightSetting = "inspectorAttachedHeight";
 static const unsigned defaultAttachedHeight = 300;
 static const float minimumAttachedHeight = 250.0f;
 static const float maximumAttachedHeightRatio = 0.75f;
 
-InspectorFrontendClientLocal::InspectorFrontendClientLocal(InspectorController* inspectorController, Page* frontendPage)
+String InspectorFrontendClientLocal::Settings::getProperty(const String&)
+{
+    return String();
+}
+
+void InspectorFrontendClientLocal::Settings::setProperty(const String&, const String&)
+{
+}
+
+InspectorFrontendClientLocal::InspectorFrontendClientLocal(InspectorController* inspectorController, Page* frontendPage, PassOwnPtr<Settings> settings)
     : m_inspectorController(inspectorController)
     , m_frontendPage(frontendPage)
     , m_frontendScriptState(0)
+    , m_settings(settings)
 {
 }
 
@@ -66,7 +77,7 @@ InspectorFrontendClientLocal::~InspectorFrontendClientLocal()
     m_frontendPage = 0;
     m_inspectorController = 0;
 }
-    
+
 void InspectorFrontendClientLocal::windowObjectCleared()
 {
     // FIXME: don't keep reference to the script state
@@ -107,7 +118,7 @@ void InspectorFrontendClientLocal::changeAttachedWindowHeight(unsigned height)
 {
     unsigned totalHeight = m_frontendPage->mainFrame()->view()->visibleHeight() + m_inspectorController->inspectedPage()->mainFrame()->view()->visibleHeight();
     unsigned attachedHeight = constrainedAttachedWindowHeight(height, totalHeight);
-    m_inspectorController->setInspectorAttachedHeight(attachedHeight);
+    m_settings->setProperty(inspectorAttachedHeightSetting, String::number(attachedHeight));
     setAttachedWindowHeight(attachedHeight);
 }
 
@@ -133,9 +144,8 @@ void InspectorFrontendClientLocal::setAttachedWindow(bool attached)
 void InspectorFrontendClientLocal::restoreAttachedWindowHeight()
 {
     unsigned inspectedPageHeight = m_inspectorController->inspectedPage()->mainFrame()->view()->visibleHeight();
-    int attachedHeight = m_inspectorController->inspectorAttachedHeight();
-    bool success = true;
-    unsigned preferredHeight = success ? static_cast<unsigned>(attachedHeight) : defaultAttachedHeight;
+    String value = m_settings->getProperty(inspectorAttachedHeightSetting);
+    unsigned preferredHeight = value.isEmpty() ? defaultAttachedHeight : value.toUInt();
     
     // This call might not go through (if the window starts out detached), but if the window is initially created attached,
     // InspectorController::attachWindow is never called, so we need to make sure to set the attachedWindowHeight.
@@ -151,7 +161,7 @@ unsigned InspectorFrontendClientLocal::constrainedAttachedWindowHeight(unsigned 
 
 void InspectorFrontendClientLocal::sendMessageToBackend(const String& message)
 {
-    m_inspectorController->inspectorBackendDispatcher()->dispatch(message);
+    m_inspectorController->dispatchMessageFromFrontend(message);
 }
 
 } // namespace WebCore

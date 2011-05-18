@@ -704,7 +704,7 @@ int RenderTableSection::layoutRows(int toAdd)
             if (intrinsicPaddingBefore != oldIntrinsicPaddingBefore || intrinsicPaddingAfter != oldIntrinsicPaddingAfter)
                 cell->setNeedsLayout(true, false);
 
-            if (!cell->needsLayout() && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->y()) != cell->pageLogicalOffset())
+            if (!cell->needsLayout() && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->logicalTop()) != cell->pageLogicalOffset())
                 cell->setChildNeedsLayout(true, false);
 
             cell->layoutIfNeeded();
@@ -1068,9 +1068,9 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
     localRepaintRect.move(-tx, -ty);
     if (style()->isFlippedBlocksWritingMode()) {
         if (style()->isHorizontalWritingMode())
-            localRepaintRect.setY(height() - localRepaintRect.bottom());
+            localRepaintRect.setY(height() - localRepaintRect.maxY());
         else
-            localRepaintRect.setX(width() - localRepaintRect.right());
+            localRepaintRect.setX(width() - localRepaintRect.maxX());
     }
 
     // If some cell overflows, just paint all of them.
@@ -1085,7 +1085,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
         if (startrow == m_rowPos.size() || (startrow > 0 && (m_rowPos[startrow] >  before)))
           --startrow;
 
-        int after = (style()->isHorizontalWritingMode() ? localRepaintRect.bottom() : localRepaintRect.right()) + os;
+        int after = (style()->isHorizontalWritingMode() ? localRepaintRect.maxY() : localRepaintRect.maxX()) + os;
         endrow = std::lower_bound(m_rowPos.begin(), m_rowPos.end(), after) - m_rowPos.begin();
         if (endrow == m_rowPos.size())
           --endrow;
@@ -1104,7 +1104,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
         if ((startcol == columnPos.size()) || (startcol > 0 && (columnPos[startcol] > start)))
             --startcol;
 
-        int end = (style()->isHorizontalWritingMode() ? localRepaintRect.right() : localRepaintRect.bottom()) + os;
+        int end = (style()->isHorizontalWritingMode() ? localRepaintRect.maxX() : localRepaintRect.maxY()) + os;
         endcol = std::lower_bound(columnPos.begin(), columnPos.end(), end) - columnPos.begin();
         if (endcol == columnPos.size())
             --endcol;

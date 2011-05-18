@@ -64,6 +64,7 @@ namespace WebCore {
         PassRefPtr<CSSRule> parseKeyframeRule(CSSStyleSheet*, const String&);
         bool parseValue(CSSMutableStyleDeclaration*, int propId, const String&, bool important);
         static bool parseColor(RGBA32& color, const String&, bool strict = false);
+        static bool parseSystemColor(RGBA32& color, const String&, Document*);
         bool parseColor(CSSMutableStyleDeclaration*, const String&);
         bool parseDeclaration(CSSMutableStyleDeclaration*, const String&, RefPtr<CSSStyleSourceData>* styleSourceData = 0);
         bool parseMediaQuery(MediaList*, const String&);
@@ -170,8 +171,8 @@ namespace WebCore {
 
         int yyparse();
 
-        CSSSelector* createFloatingSelector();
-        CSSSelector* sinkFloatingSelector(CSSSelector*);
+        CSSParserSelector* createFloatingSelector();
+        PassOwnPtr<CSSParserSelector> sinkFloatingSelector(CSSParserSelector*);
 
         CSSParserValueList* createFloatingValueList();
         CSSParserValueList* sinkFloatingValueList(CSSParserValueList*);
@@ -188,9 +189,9 @@ namespace WebCore {
         WebKitCSSKeyframesRule* createKeyframesRule();
         CSSRule* createMediaRule(MediaList*, CSSRuleList*);
         CSSRuleList* createRuleList();
-        CSSRule* createStyleRule(Vector<CSSSelector*>* selectors);
+        CSSRule* createStyleRule(Vector<OwnPtr<CSSParserSelector> >* selectors);
         CSSRule* createFontFaceRule();
-        CSSRule* createPageRule(CSSSelector* pageSelector);
+        CSSRule* createPageRule(PassOwnPtr<CSSParserSelector> pageSelector);
         CSSRule* createMarginAtRule(CSSSelector::MarginBoxType marginBox);
         void startDeclarationsForMarginBox();
         void endDeclarationsForMarginBox();
@@ -204,11 +205,11 @@ namespace WebCore {
         PassOwnPtr<MediaQuery> sinkFloatingMediaQuery(MediaQuery*);
 
         void addNamespace(const AtomicString& prefix, const AtomicString& uri);
-        void updateSpecifiersWithElementName(const AtomicString& namespacePrefix, const AtomicString& elementName, CSSSelector*);
+        void updateSpecifiersWithElementName(const AtomicString& namespacePrefix, const AtomicString& elementName, CSSParserSelector*);
 
         void invalidBlockHit();
 
-        Vector<CSSSelector*>* reusableSelectorVector() { return &m_reusableSelectorVector; }
+        Vector<OwnPtr<CSSParserSelector> >* reusableSelectorVector() { return &m_reusableSelectorVector; }
 
         void updateLastSelectorLineAndPosition();
 
@@ -302,7 +303,7 @@ namespace WebCore {
 
         Vector<RefPtr<StyleBase> > m_parsedStyleObjects;
         Vector<RefPtr<CSSRuleList> > m_parsedRuleLists;
-        HashSet<CSSSelector*> m_floatingSelectors;
+        HashSet<CSSParserSelector*> m_floatingSelectors;
         HashSet<CSSParserValueList*> m_floatingValueLists;
         HashSet<CSSParserFunction*> m_floatingFunctions;
 
@@ -310,7 +311,7 @@ namespace WebCore {
         OwnPtr<MediaQueryExp> m_floatingMediaQueryExp;
         OwnPtr<Vector<OwnPtr<MediaQueryExp> > > m_floatingMediaQueryExpList;
 
-        Vector<CSSSelector*> m_reusableSelectorVector;
+        Vector<OwnPtr<CSSParserSelector> > m_reusableSelectorVector;
 
         // defines units allowed for a certain property, used in parseUnit
         enum Units {

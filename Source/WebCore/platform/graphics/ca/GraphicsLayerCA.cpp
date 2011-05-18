@@ -1507,7 +1507,7 @@ void GraphicsLayerCA::pauseCAAnimationOnLayer(AnimatedPropertyID property, const
         return;
 
     // Animations on the layer are immutable, so we have to clone and modify.
-    RefPtr<PlatformCAAnimation> newAnim = PlatformCAAnimation::create(curAnim.get());
+    RefPtr<PlatformCAAnimation> newAnim = curAnim->copy();
 
     newAnim->setSpeed(0);
     newAnim->setTimeOffset(timeOffset);
@@ -1646,7 +1646,7 @@ void GraphicsLayerCA::setupAnimation(PlatformCAAnimation* propertyAnim, const An
 
     float repeatCount = anim->iterationCount();
     if (repeatCount == Animation::IterationCountInfinite)
-        repeatCount = FLT_MAX;
+        repeatCount = numeric_limits<float>::max();
     else if (anim->direction() == Animation::AnimationDirectionAlternate)
         repeatCount /= 2;
 

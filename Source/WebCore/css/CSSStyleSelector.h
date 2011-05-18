@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,6 +27,7 @@
 #include "LinkHash.h"
 #include "MediaQueryExp.h"
 #include "RenderStyle.h"
+#include <wtf/BloomFilter.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
@@ -42,10 +43,7 @@ class CSSProperty;
 class CSSFontFace;
 class CSSFontFaceRule;
 class CSSImageValue;
-class CSSRuleData;
-class CSSRuleDataList;
 class CSSRuleList;
-class CSSRuleSet;
 class CSSSelector;
 class CSSStyleRule;
 class CSSStyleSheet;
@@ -61,6 +59,8 @@ class KeyframeList;
 class KeyframeValue;
 class MediaQueryEvaluator;
 class Node;
+class RuleData;
+class RuleSet;
 class Settings;
 class StyleImage;
 class StyleSheet;
@@ -90,6 +90,10 @@ public:
                          CSSStyleSheet* pageUserSheet, const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets,
                          bool strictParsing, bool matchAuthorAndUserStyles);
         ~CSSStyleSelector();
+        
+        // Using these during tree walk will allow style selector to optimize child and descendant selector lookups.
+        void pushParent(Element* parent);
+        void popParent(Element* parent);
 
         PassRefPtr<RenderStyle> styleForElement(Element* e, RenderStyle* parentStyle = 0, bool allowSharing = true, bool resolveForRootDefault = false, bool matchVisitedPseudoClass = false);
         
@@ -115,6 +119,9 @@ public:
         Node* locateCousinList(Element* parent, unsigned depth = 1) const;
         Node* findSiblingForStyleSharing(Node*, unsigned& count) const;
         bool canShareStyleWithElement(Node*) const;
+        
+        void pushParentStackFrame(Element* parent);
+        void popParentStackFrame();
 
         RenderStyle* style() const { return m_style.get(); }
 
@@ -157,9 +164,6 @@ public:
  
         CSSFontSelector* fontSelector() const { return m_fontSelector.get(); }
 
-        // Checks if a compound selector (which can consist of multiple simple selectors) matches the current element.
-        bool checkSelector(CSSSelector*);
-
         void addViewportDependentMediaQueryResult(const MediaQueryExp*, bool result);
 
         bool affectedByViewportChange() const;
@@ -182,28 +186,43 @@ public:
 
         void adjustRenderStyle(RenderStyle* styleToAdjust, RenderStyle* parentStyle, Element*);
 
-        void addMatchedRule(CSSRuleData* rule) { m_matchedRules.append(rule); }
+        void addMatchedRule(const RuleData* rule) { m_matchedRules.append(rule); }
         void addMatchedDeclaration(CSSMutableStyleDeclaration* decl);
 
-        void matchRules(CSSRuleSet*, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules);
-        void matchRulesForList(CSSRuleDataList*, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules);
+        void matchRules(RuleSet*, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules);
+        void matchRulesForList(const Vector<RuleData>*, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules);
+        bool fastRejectSelector(const RuleData&) const;
         void sortMatchedRules(unsigned start, unsigned end);
+        
+        bool checkSelector(const RuleData&);
 
         template <bool firstPass>
         void applyDeclarations(bool important, int startIndex, int endIndex);
 
-        void matchPageRules(CSSRuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
-        void matchPageRulesForList(CSSRuleDataList*, bool isLeftPage, bool isFirstPage, const String& pageName);
+        void matchPageRules(RuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
+        void matchPageRulesForList(const Vector<RuleData>*, bool isLeftPage, bool isFirstPage, const String& pageName);
         bool isLeftPage(int pageIndex) const;
         bool isRightPage(int pageIndex) const { return !isLeftPage(pageIndex); }
         bool isFirstPage(int pageIndex) const;
         String pageName(int pageIndex) const;
         
-        OwnPtr<CSSRuleSet> m_authorStyle;
-        OwnPtr<CSSRuleSet> m_userStyle;
+        OwnPtr<RuleSet> m_authorStyle;
+        OwnPtr<RuleSet> m_userStyle;
         
-        OwnPtr<CSSRuleSet> m_siblingRules;
+        OwnPtr<RuleSet> m_siblingRules;
         HashSet<AtomicStringImpl*> m_idsInRules;
+        
+        struct ParentStackFrame {
+            ParentStackFrame() {}
+            ParentStackFrame(Element* element) : element(element) {}
+            Element* element;
+            Vector<unsigned, 4> identifierHashes;
+        };
+        Vector<ParentStackFrame> m_parentStack;
+        
+        // With 100 unique strings in the filter, 2^12 slot table has false positive rate of ~0.2%.
+        static const unsigned bloomFilterKeyBits = 12;
+        OwnPtr<BloomFilter<bloomFilterKeyBits> > m_ancestorIdentifierFilter;
 
         bool m_hasUAAppearance;
         BorderData m_borderData;
@@ -225,6 +244,7 @@ public:
             SelectorMatch checkSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isSubSelector, bool encounteredLink, RenderStyle* = 0, RenderStyle* elementParentStyle = 0) const;
             bool checkOneSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isSubSelector, RenderStyle*, RenderStyle* elementParentStyle) const;
             bool checkScrollbarPseudoClass(CSSSelector*, PseudoId& dynamicPseudo) const;
+            static bool fastCheckSelector(const CSSSelector*, const Element*);
 
             EInsideLink determineLinkState(Element* element) const;
             EInsideLink determineLinkStateSlowCase(Element* element) const;
@@ -293,7 +313,7 @@ public:
 
         // A buffer used to hold the set of matched rules for an element, and a temporary buffer used for
         // merge sorting.
-        Vector<CSSRuleData*, 32> m_matchedRules;
+        Vector<const RuleData*, 32> m_matchedRules;
 
         RefPtr<CSSRuleList> m_ruleList;
         

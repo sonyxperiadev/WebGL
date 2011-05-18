@@ -87,7 +87,7 @@ bool BMPImageReader::decodeBMP(bool onlySize)
         m_buffer->setHasAlpha(false);
 
         // For BMPs, the frame always fills the entire image.
-        m_buffer->setRect(IntRect(IntPoint(), m_parent->size()));
+        m_buffer->setOriginalFrameRect(IntRect(IntPoint(), m_parent->size()));
 
         if (!m_isTopDown)
             m_coord.setY(m_parent->size().height() - 1);
@@ -707,7 +707,7 @@ BMPImageReader::ProcessingResult BMPImageReader::processNonRLEData(bool inRLE, i
                 } else {
                     m_seenNonZeroAlphaPixel = true;
                     if (m_seenZeroAlphaPixel) {
-                        m_buffer->zeroFill();
+                        m_buffer->zeroFillPixelData();
                         m_seenZeroAlphaPixel = false;
                     } else if (alpha != 255)
                         m_buffer->setHasAlpha(true);

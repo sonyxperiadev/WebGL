@@ -1,3 +1,82 @@
+2011-02-10  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        French translation for Webkit/GTK
+        https://bugs.webkit.org/show_bug.cgi?id=26108
+
+        * fr.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        Update Simplified Chinese (zh_CN) translation of WebKitGtk
+        https://bugs.webkit.org/show_bug.cgi?id=42496
+
+        * zh_CN.po: Updated.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Please add Greek translation of WebkitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=34482
+
+        * gr.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        Arabic translation
+        https://bugs.webkit.org/show_bug.cgi?id=36340
+
+        * ar.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        Attached is the Bulgarian translation of WebKit Gtk
+        https://bugs.webkit.org/show_bug.cgi?id=44400
+
+        * bg.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        [l10n] Indonesian translation
+        https://bugs.webkit.org/show_bug.cgi?id=46455
+
+        * id.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        [l10n] Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=46567
+
+        * pl.po: Added.
+
+2011-02-09  Christian Dywan  <christian@lanedo.com>
+
+        Unreviewed translation file.
+
+        [Gtk] Please add Hungarian translation
+        https://bugs.webkit.org/show_bug.cgi?id=34543
+
+        * hu.po: Added.
+
+2011-02-02  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] po files path update after the code moved to Source
+        https://bugs.webkit.org/show_bug.cgi?id=53599
+
+        * POTFILES: Add Source to the path of the files.
+
 2011-01-16  Adam Barth  <abarth@webkit.org>
 
         Rubber-stamped by Eric Seidel.

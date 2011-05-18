@@ -41,6 +41,7 @@ var context = {};  // Used by WebCore's inspector routines.
     Preferences.ignoreWhitespace = false;
     Preferences.samplingCPUProfiler = true;
     Preferences.heapProfilerPresent = true;
+    Preferences.detailedHeapProfiles = false;
     Preferences.debuggerAlwaysEnabled = true;
     Preferences.profilerAlwaysEnabled = true;
     Preferences.canEditScriptSource = true;
@@ -85,6 +86,18 @@ document.addEventListener("DOMContentLoaded", devtools.domContentLoaded, false);
 WebInspector.UIString = function(string)
 {
     return String.vsprintf(string, Array.prototype.slice.call(arguments, 1));
+};
+
+
+/*
+ * This label must be kept consistent with that in English.lproj/localizedStrings.js
+ *
+ * http://code.google.com/p/chromium/issues/detail?id=61302 requires a custom label for Chromium,
+ * since its behavior is different.
+ */
+WebInspector.openLinkExternallyLabel = function()
+{
+    return WebInspector.UIString("Open Link in New Tab");
 };
 
 

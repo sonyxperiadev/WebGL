@@ -111,6 +111,8 @@ protected:
     virtual void attach();
     virtual void insertedIntoTree(bool deep);
     virtual void removedFromTree(bool deep);
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
     virtual void willMoveToNewOwnerDocument();
 
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
@@ -170,14 +172,13 @@ protected:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
 
     virtual bool autoComplete() const;
-
+    virtual void finishParsingChildren();
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
     virtual void defaultEventHandler(Event*);
 
 private:
     virtual bool shouldSaveAndRestoreFormControlState() const;
-    virtual void finishParsingChildren();
 };
 
 // FIXME: Give this class its own header file.

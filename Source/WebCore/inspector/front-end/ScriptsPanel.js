@@ -242,9 +242,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _parsedScriptSource: function(event)
     {
-        var sourceID = event.data;
-        var script = WebInspector.debuggerModel.scriptForSourceID(sourceID);
-        this._addScript(script);
+        this._addScript(event.data);
     },
 
     _failedToParseScriptSource: function(event)
@@ -257,16 +255,23 @@ WebInspector.ScriptsPanel.prototype = {
         var sourceID = event.data.sourceID;
         var oldSource = event.data.oldSource;
 
+        var oldView, newView;
         var script = WebInspector.debuggerModel.scriptForSourceID(sourceID);
-        var oldView = script._scriptView;
-        if (oldView) {
-            script._scriptView = new WebInspector.ScriptView(script);
-            this.viewRecreated(oldView, script._scriptView);
-        }
         if (script.resource) {
+            oldView = this._urlToSourceFrame[script.resource.url];
+            delete this._urlToSourceFrame[script.resource.url];
+            newView = this._sourceFrameForResource(script.resource);
             var revertHandle = WebInspector.debuggerModel.editScriptSource.bind(WebInspector.debuggerModel, sourceID, oldSource);
             script.resource.setContent(script.source, revertHandle);
+        } else {
+            var oldView = script._sourceFrame;
+            delete script._sourceFrame;
+            newView = this._sourceFrameForScript(script);
         }
+        newView.scrollTop = oldView.scrollTop;
+
+        if (this.visibleView === oldView)
+            this.visibleView = newView;
 
         var callFrames = WebInspector.debuggerModel.callFrames;
         if (callFrames.length)
@@ -275,7 +280,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _addScript: function(script)
     {
-        var resource = WebInspector.resourceForURL(script.sourceURL);
+        var resource = WebInspector.networkManager.inflightResourceForURL(script.sourceURL) || WebInspector.resourceForURL(script.sourceURL);
         if (resource) {
             if (resource.finished) {
                 // Resource is finished, bind the script right away.
@@ -295,10 +300,16 @@ WebInspector.ScriptsPanel.prototype = {
     _resourceLoadingFinished: function(e)
     {
         var resource = e.target;
+
+        var visible = false;
+        var select = this.filesSelectElement;
         for (var i = 0; i < resource._scriptsPendingResourceLoad.length; ++i) {
             // Bind script to resource.
             var script = resource._scriptsPendingResourceLoad[i];
             script.resource = resource;
+
+            if (select.options[select.selectedIndex] === script.filesSelectOption)
+                visible = true;
 
             // Remove script from the files list.
             script.filesSelectOption.parentElement.removeChild(script.filesSelectOption);
@@ -306,6 +317,24 @@ WebInspector.ScriptsPanel.prototype = {
         // Adding first script will add resource.
         this._addScriptToFilesMenu(resource._scriptsPendingResourceLoad[0]);
         delete resource._scriptsPendingResourceLoad;
+
+        if (visible)
+            this._showScriptOrResource(resource, { initialLoad: true });
+    },
+
+    addConsoleMessage: function(message)
+    {
+        this._messages.push(message);
+        var sourceFrame = this._urlToSourceFrame[message.url];
+        if (sourceFrame)
+            sourceFrame.addMessage(message);
+    },
+
+    clearConsoleMessages: function()
+    {
+        this._messages = [];
+        for (var url in this._urlToSourceFrame)
+            this._urlToSourceFrame[url].clearMessages();
     },
 
     selectedCallFrameId: function()
@@ -316,7 +345,7 @@ WebInspector.ScriptsPanel.prototype = {
         return selectedCallFrame.id;
     },
 
-    evaluateInSelectedCallFrame: function(code, updateInterface, objectGroup, callback)
+    evaluateInSelectedCallFrame: function(code, updateInterface, objectGroup, includeCommandLineAPI, callback)
     {
         var selectedCallFrame = this.sidebarPanes.callstack.selectedCallFrame;
         if (!this._paused || !selectedCallFrame)
@@ -325,24 +354,15 @@ WebInspector.ScriptsPanel.prototype = {
         if (typeof updateInterface === "undefined")
             updateInterface = true;
 
-        var self = this;
         function updatingCallbackWrapper(result)
         {
-            callback(result);
-            if (updateInterface)
-                self.sidebarPanes.scopechain.update(selectedCallFrame);
-        }
-        this.doEvalInCallFrame(selectedCallFrame, code, objectGroup, updatingCallbackWrapper);
-    },
-
-    doEvalInCallFrame: function(callFrame, code, objectGroup, callback)
-    {
-        function evalCallback(result)
-        {
-            if (result)
+            if (result) {
                 callback(WebInspector.RemoteObject.fromPayload(result));
+                if (updateInterface)
+                    this.sidebarPanes.scopechain.update(selectedCallFrame);
+            }
         }
-        InspectorBackend.evaluateOnCallFrame(callFrame.id, code, objectGroup, evalCallback);
+        InspectorBackend.evaluateOnCallFrame(selectedCallFrame.id, code, objectGroup, includeCommandLineAPI, updatingCallbackWrapper.bind(this));
     },
 
     _debuggerPaused: function(event)
@@ -405,6 +425,8 @@ WebInspector.ScriptsPanel.prototype = {
         this._currentBackForwardIndex = -1;
         this._updateBackAndForwardButtons();
 
+        this._urlToSourceFrame = {};
+        this._messages = [];
         this._resourceForURLInFilesSelect = {};
         this.filesSelectElement.removeChildren();
         this.functionsSelectElement.removeChildren();
@@ -432,12 +454,6 @@ WebInspector.ScriptsPanel.prototype = {
 
         if (x)
             x.show(this.viewsContainerElement);
-    },
-
-    viewRecreated: function(oldView, newView)
-    {
-        if (this.visibleView === oldView)
-            this.visibleView = newView;
     },
 
     canShowSourceLine: function(url, line)
@@ -484,43 +500,37 @@ WebInspector.ScriptsPanel.prototype = {
             this.sidebarPanes.callstack.handleShortcut(event);
     },
 
-    scriptViewForScript: function(script)
-    {
-        if (!script)
-            return null;
-        if (!script._scriptView)
-            script._scriptView = new WebInspector.ScriptView(script);
-        return script._scriptView;
-    },
-
-    sourceFrameForScript: function(script)
-    {
-        var view = this.scriptViewForScript(script);
-        if (!view)
-            return null;
-
-        // Setting up the source frame requires that we be attached.
-        if (!this.element.parentNode)
-            this.attach();
-
-        return view.sourceFrame;
-    },
-
     _sourceFrameForScriptOrResource: function(scriptOrResource)
     {
         if (scriptOrResource instanceof WebInspector.Resource)
             return this._sourceFrameForResource(scriptOrResource);
-        if (scriptOrResource instanceof WebInspector.Script)
-            return this.sourceFrameForScript(scriptOrResource);
+        return this._sourceFrameForScript(scriptOrResource);
     },
 
     _sourceFrameForResource: function(resource)
     {
-        var view = WebInspector.ResourceView.resourceViewForResource(resource);
-        if (!view)
-            return null;
+        var sourceFrame = this._urlToSourceFrame[resource.url];
+        if (sourceFrame)
+            return sourceFrame;
+        var contentProvider = new WebInspector.SourceFrameContentProviderForResource(resource);
+        var isScript = resource.type === WebInspector.Resource.Type.Script;
+        sourceFrame = new WebInspector.SourceFrame(contentProvider, resource.url, isScript);
+        for (var i = 0; i < this._messages.length; ++i) {
+            var message = this._messages[i];
+            if (this._messages[i].url === resource.url)
+                sourceFrame.addMessage(message);
+        }
+        this._urlToSourceFrame[resource.url] = sourceFrame;
+        return sourceFrame;
+    },
 
-        return view.sourceFrame;
+    _sourceFrameForScript: function(script)
+    {
+        if (script._sourceFrame)
+            return script._sourceFrame;
+        var contentProvider = new WebInspector.SourceFrameContentProviderForScript(script);
+        script._sourceFrame = new WebInspector.SourceFrame(contentProvider, script.sourceURL, true);
+        return script._sourceFrame;
     },
 
     _showScriptOrResource: function(scriptOrResource, options)
@@ -531,12 +541,7 @@ WebInspector.ScriptsPanel.prototype = {
         if (!scriptOrResource)
             return;
 
-        var view;
-        if (scriptOrResource instanceof WebInspector.Resource)
-            view = WebInspector.ResourceView.resourceViewForResource(scriptOrResource);
-        else if (scriptOrResource instanceof WebInspector.Script)
-            view = this.scriptViewForScript(scriptOrResource);
-
+        var view = this._sourceFrameForScriptOrResource(scriptOrResource);
         if (!view)
             return;
 
@@ -738,7 +743,7 @@ WebInspector.ScriptsPanel.prototype = {
                 this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on all exceptions.\nClick to Pause on uncaught exceptions.");
             else if (pauseOnExceptionsState == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions)
                 this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on uncaught exceptions.\nClick to Not pause on exceptions.");
-    
+
             this._pauseOnExceptionButton.state = pauseOnExceptionsState;
             WebInspector.settings.pauseOnExceptionState = pauseOnExceptionsState;
         }
@@ -824,8 +829,8 @@ WebInspector.ScriptsPanel.prototype = {
 
     _formatScript: function()
     {
-        if (this.visibleView && this.visibleView.sourceFrame)
-            this.visibleView.sourceFrame.formatSource();
+        if (this.visibleView)
+            this.visibleView.formatSource();
     },
 
     _enableDebugging: function()
@@ -841,10 +846,13 @@ WebInspector.ScriptsPanel.prototype = {
         this._waitingToPause = false;
         this._stepping = false;
 
-        if (this._debuggerEnabled)
-            InspectorBackend.disableDebugger(true);
-        else
-            InspectorBackend.enableDebugger(!!optionalAlways);
+        if (this._debuggerEnabled) {
+            WebInspector.settings.debuggerEnabled = false;
+            WebInspector.debuggerModel.disableDebugger();
+        } else {
+            WebInspector.settings.debuggerEnabled = !!optionalAlways;
+            WebInspector.debuggerModel.enableDebugger();
+        }
     },
 
     _togglePauseOnExceptions: function()
@@ -1043,3 +1051,41 @@ WebInspector.ScriptsPanel.prototype = {
 }
 
 WebInspector.ScriptsPanel.prototype.__proto__ = WebInspector.Panel.prototype;
+
+
+WebInspector.SourceFrameContentProviderForScript = function(script)
+{
+    WebInspector.SourceFrameContentProvider.call(this);
+    this._script = script;
+}
+
+WebInspector.SourceFrameContentProviderForScript.prototype = {
+    requestContent: function(callback)
+    {
+        if (this._script.source) {
+            callback("text/javascript", this._script.source);
+            return;
+        }
+
+        function didRequestSource(content)
+        {
+            var source;
+            if (content) {
+                var prefix = "";
+                for (var i = 0; i < this._script.startingLine - 1; ++i)
+                    prefix += "\n";
+                source = prefix + content;
+            } else
+                source = WebInspector.UIString("<source is not available>");
+            callback("text/javascript", source);
+        }
+        this._script.requestSource(didRequestSource.bind(this));
+    },
+
+    scripts: function()
+    {
+        return [this._script];
+    }
+}
+
+WebInspector.SourceFrameContentProviderForScript.prototype.__proto__ = WebInspector.SourceFrameContentProvider.prototype;

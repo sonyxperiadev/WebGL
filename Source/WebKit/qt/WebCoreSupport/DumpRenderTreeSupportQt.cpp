@@ -104,6 +104,26 @@ QDRTNode::~QDRTNode()
         m_node->deref();
 }
 
+QDRTNode::QDRTNode(const QDRTNode& other)
+    :m_node(other.m_node)
+{
+    if (m_node)
+        m_node->ref();
+}
+
+QDRTNode& QDRTNode::operator=(const QDRTNode& other)
+{
+    if (this != &other) {
+        Node* otherNode = other.m_node;
+        if (otherNode)
+            otherNode->ref();
+        if (m_node)
+            m_node->deref();
+        m_node = otherNode;
+    }
+    return *this;
+}
+
 
 DumpRenderTreeSupportQt::DumpRenderTreeSupportQt()
 {
@@ -875,13 +895,11 @@ QVariantList DumpRenderTreeSupportQt::nodesFromRect(const QWebElement& document,
         return res;
     RefPtr<NodeList> nodes = doc->nodesFromRect(x, y, top, right, bottom, left, ignoreClipping);
     for (int i = 0; i < nodes->length(); i++) {
-        QVariant v;
         // QWebElement will be null if the Node is not an HTML Element
         if (nodes->item(i)->isHTMLElement())
-            v.setValue(QWebElement(nodes->item(i)));
+            res << QVariant::fromValue(QWebElement(nodes->item(i)));
         else
-            v.setValue(QDRTNode(nodes->item(i)));
-        res << v;
+            res << QVariant::fromValue(QDRTNode(nodes->item(i)));
     }
     return res;
 }
@@ -893,6 +911,37 @@ QString DumpRenderTreeSupportQt::responseMimeType(QWebFrame* frame)
     return docLoader->responseMIMEType();
 }
 
+void DumpRenderTreeSupportQt::addURLToRedirect(const QString& origin, const QString& destination)
+{
+    FrameLoaderClientQt::URLsToRedirect[origin] = destination;
+}
+
+static QStringList iterateContextMenu(QMenu* menu)
+{
+    if (!menu)
+        return QStringList();
+
+    QStringList items;
+    QList<QAction *> actions = menu->actions();
+    for (int i = 0; i < actions.count(); ++i) {
+        if (actions.at(i)->isSeparator())
+            items << QLatin1String("<separator>");
+        else
+            items << actions.at(i)->text();
+        if (actions.at(i)->menu())
+            items << iterateContextMenu(actions.at(i)->menu());
+    }
+    return items;
+}
+
+QStringList DumpRenderTreeSupportQt::contextMenu(QWebPage* page)
+{
+#ifndef QT_NO_CONTEXTMENU
+    return iterateContextMenu(page->d->currentContextMenu);
+#else
+    return QStringList();
+#endif
+}
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release
 
 void QWEBKIT_EXPORT qt_resumeActiveDOMObjects(QWebFrame* frame)

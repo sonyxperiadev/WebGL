@@ -28,10 +28,9 @@
 #if ENABLE(VIDEO)
 #include "RenderMedia.h"
 
-#include "EventNames.h"
-#include "FloatConversion.h"
-#include "HTMLNames.h"
+#include "HTMLMediaElement.h"
 #include "MediaControlElements.h"
+<<<<<<< HEAD
 #include "MouseEvent.h"
 #include "Page.h"
 #include "RenderLayer.h"
@@ -45,16 +44,15 @@
 #endif
 
 using namespace std;
+=======
+#include "MediaControls.h"
+>>>>>>> webkit.org at r78450
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
-static const double cTimeUpdateRepeatDelay = 0.2;
-static const double cOpacityAnimationRepeatDelay = 0.05;
-
 RenderMedia::RenderMedia(HTMLMediaElement* video)
     : RenderImage(video)
+<<<<<<< HEAD
     , m_timeUpdateTimer(this, &RenderMedia::timeUpdateTimerFired)
     , m_opacityAnimationTimer(this, &RenderMedia::opacityAnimationTimerFired)
     , m_mouseOver(false)
@@ -65,12 +63,16 @@ RenderMedia::RenderMedia(HTMLMediaElement* video)
 #if PLATFORM(ANDROID)
     , m_lastTouch(0)
 #endif
+=======
+    , m_controls(new MediaControls(video))
+>>>>>>> webkit.org at r78450
 {
     setImageResource(RenderImageResource::create());
 }
 
 RenderMedia::RenderMedia(HTMLMediaElement* video, const IntSize& intrinsicSize)
     : RenderImage(video)
+<<<<<<< HEAD
     , m_timeUpdateTimer(this, &RenderMedia::timeUpdateTimerFired)
     , m_opacityAnimationTimer(this, &RenderMedia::opacityAnimationTimerFired)
     , m_mouseOver(false)
@@ -81,6 +83,9 @@ RenderMedia::RenderMedia(HTMLMediaElement* video, const IntSize& intrinsicSize)
 #if PLATFORM(ANDROID)
     , m_lastTouch(0)
 #endif
+=======
+    , m_controls(new MediaControls(video))
+>>>>>>> webkit.org at r78450
 {
     setImageResource(RenderImageResource::create());
     setIntrinsicSize(intrinsicSize);
@@ -92,16 +97,7 @@ RenderMedia::~RenderMedia()
 
 void RenderMedia::destroy()
 {
-    if (m_controlsShadowRoot && m_controlsShadowRoot->renderer()) {
-
-        // detach the panel before removing the shadow renderer to prevent a crash in m_controlsShadowRoot->detach() 
-        //  when display: style changes
-        m_panel->detach();
-
-        removeChild(m_controlsShadowRoot->renderer());
-        m_controlsShadowRoot->detach();
-        m_controlsShadowRoot = 0;
-    }
+    m_controls->destroy();
     RenderImage::destroy();
 }
 
@@ -110,51 +106,10 @@ HTMLMediaElement* RenderMedia::mediaElement() const
     return static_cast<HTMLMediaElement*>(node()); 
 }
 
-MediaPlayer* RenderMedia::player() const
-{
-    return mediaElement()->player();
-}
-
 void RenderMedia::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderImage::styleDidChange(diff, oldStyle);
-
-    if (m_controlsShadowRoot) {
-        if (m_panel)
-            m_panel->updateStyle();
-        if (m_muteButton)
-            m_muteButton->updateStyle();
-        if (m_playButton)
-            m_playButton->updateStyle();
-        if (m_seekBackButton)
-            m_seekBackButton->updateStyle();
-        if (m_seekForwardButton)
-            m_seekForwardButton->updateStyle();
-        if (m_rewindButton)
-            m_rewindButton->updateStyle();
-        if (m_returnToRealtimeButton)
-            m_returnToRealtimeButton->updateStyle();
-        if (m_toggleClosedCaptionsButton)
-            m_toggleClosedCaptionsButton->updateStyle();
-        if (m_statusDisplay)
-            m_statusDisplay->updateStyle();
-        if (m_timelineContainer)
-            m_timelineContainer->updateStyle();
-        if (m_timeline)
-            m_timeline->updateStyle();
-        if (m_fullscreenButton)
-            m_fullscreenButton->updateStyle();
-        if (m_currentTimeDisplay)
-            m_currentTimeDisplay->updateStyle();
-        if (m_timeRemainingDisplay)
-            m_timeRemainingDisplay->updateStyle();
-        if (m_volumeSliderContainer)
-            m_volumeSliderContainer->updateStyle();
-        if (m_volumeSliderMuteButton)
-            m_volumeSliderMuteButton->updateStyle();
-        if (m_volumeSlider)
-            m_volumeSlider->updateStyle();
-    }
+    m_controls->updateStyle();
 }
 
 void RenderMedia::layout()
@@ -163,17 +118,13 @@ void RenderMedia::layout()
 
     RenderImage::layout();
 
-    RenderBox* controlsRenderer = m_controlsShadowRoot ? m_controlsShadowRoot->renderBox() : 0;
+    RenderBox* controlsRenderer = m_controls->renderBox();
     if (!controlsRenderer)
         return;
     IntSize newSize = contentBoxRect().size();
     if (newSize != oldSize || controlsRenderer->needsLayout()) {
 
-        if (m_currentTimeDisplay && m_timeRemainingDisplay) {
-            bool shouldShowTimeDisplays = shouldShowTimeDisplayControls();
-            m_currentTimeDisplay->setVisible(shouldShowTimeDisplays);
-            m_timeRemainingDisplay->setVisible(shouldShowTimeDisplays);
-        }
+        m_controls->updateTimeDisplayVisibility();
 
         controlsRenderer->setLocation(borderLeft() + paddingLeft(), borderTop() + paddingTop());
         controlsRenderer->style()->setHeight(Length(newSize.height(), Fixed));
@@ -184,139 +135,9 @@ void RenderMedia::layout()
     }
 }
 
-void RenderMedia::createControlsShadowRoot()
-{
-    ASSERT(!m_controlsShadowRoot);
-    m_controlsShadowRoot = MediaControlShadowRootElement::create(mediaElement());
-    addChild(m_controlsShadowRoot->renderer());
-}
-
-void RenderMedia::createPanel()
-{
-    ASSERT(!m_panel);
-    m_panel = MediaControlElement::create(mediaElement(), MEDIA_CONTROLS_PANEL);
-    m_panel->attachToParent(m_controlsShadowRoot.get());
-}
-
-void RenderMedia::createMuteButton()
-{
-    ASSERT(!m_muteButton);
-    m_muteButton = MediaControlMuteButtonElement::create(mediaElement(), MediaControlMuteButtonElement::Controller);
-    m_muteButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createPlayButton()
-{
-    ASSERT(!m_playButton);
-    m_playButton = MediaControlPlayButtonElement::create(mediaElement());
-    m_playButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createSeekBackButton()
-{
-    ASSERT(!m_seekBackButton);
-    m_seekBackButton = MediaControlSeekButtonElement::create(mediaElement(), MEDIA_CONTROLS_SEEK_BACK_BUTTON);
-    m_seekBackButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createSeekForwardButton()
-{
-    ASSERT(!m_seekForwardButton);
-    m_seekForwardButton = MediaControlSeekButtonElement::create(mediaElement(), MEDIA_CONTROLS_SEEK_FORWARD_BUTTON);
-    m_seekForwardButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createRewindButton()
-{
-    ASSERT(!m_rewindButton);
-    m_rewindButton = MediaControlRewindButtonElement::create(mediaElement());
-    m_rewindButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createReturnToRealtimeButton()
-{
-    ASSERT(!m_returnToRealtimeButton);
-    m_returnToRealtimeButton = MediaControlReturnToRealtimeButtonElement::create(mediaElement());
-    m_returnToRealtimeButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createToggleClosedCaptionsButton()
-{
-    ASSERT(!m_toggleClosedCaptionsButton);
-    m_toggleClosedCaptionsButton = MediaControlToggleClosedCaptionsButtonElement::create(mediaElement());
-    m_toggleClosedCaptionsButton->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createStatusDisplay()
-{
-    ASSERT(!m_statusDisplay);
-    m_statusDisplay = MediaControlStatusDisplayElement::create(mediaElement());
-    m_statusDisplay->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createTimelineContainer()
-{
-    ASSERT(!m_timelineContainer);
-    m_timelineContainer = MediaControlTimelineContainerElement::create(mediaElement());
-    m_timelineContainer->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createTimeline()
-{
-    ASSERT(!m_timeline);
-    m_timeline = MediaControlTimelineElement::create(mediaElement());
-    m_timeline->setAttribute(precisionAttr, "float");
-    m_timeline->attachToParent(m_timelineContainer.get());
-}
-
-void RenderMedia::createVolumeSliderContainer()
-{
-    ASSERT(!m_volumeSliderContainer);
-    m_volumeSliderContainer = MediaControlVolumeSliderContainerElement::create(mediaElement());
-    m_volumeSliderContainer->attachToParent(m_panel.get());
-}
-
-void RenderMedia::createVolumeSlider()
-{
-    ASSERT(!m_volumeSlider);
-    m_volumeSlider = MediaControlVolumeSliderElement::create(mediaElement());
-    m_volumeSlider->setAttribute(precisionAttr, "float");
-    m_volumeSlider->setAttribute(maxAttr, "1");
-    m_volumeSlider->setAttribute(valueAttr, String::number(mediaElement()->volume()));
-    m_volumeSlider->attachToParent(m_volumeSliderContainer.get());
-}
-
-void RenderMedia::createVolumeSliderMuteButton()
-{
-    ASSERT(!m_volumeSliderMuteButton);
-    m_volumeSliderMuteButton = MediaControlMuteButtonElement::create(mediaElement(), MediaControlMuteButtonElement::VolumeSlider);
-    m_volumeSliderMuteButton->attachToParent(m_volumeSliderContainer.get());
-    
-}
-
-void RenderMedia::createCurrentTimeDisplay()
-{
-    ASSERT(!m_currentTimeDisplay);
-    m_currentTimeDisplay = MediaControlTimeDisplayElement::create(mediaElement(), MEDIA_CONTROLS_CURRENT_TIME_DISPLAY);
-    m_currentTimeDisplay->attachToParent(m_timelineContainer.get());
-}
-
-void RenderMedia::createTimeRemainingDisplay()
-{
-    ASSERT(!m_timeRemainingDisplay);
-    m_timeRemainingDisplay = MediaControlTimeDisplayElement::create(mediaElement(), MEDIA_CONTROLS_TIME_REMAINING_DISPLAY);
-    m_timeRemainingDisplay->attachToParent(m_timelineContainer.get());
-}
-
-void RenderMedia::createFullscreenButton()
-{
-    ASSERT(!m_fullscreenButton);
-    m_fullscreenButton = MediaControlFullscreenButtonElement::create(mediaElement());
-    m_fullscreenButton->attachToParent(m_panel.get());
-}
-    
 void RenderMedia::updateFromElement()
 {
+<<<<<<< HEAD
     updateControls();
 }
             
@@ -658,6 +479,9 @@ bool RenderMedia::shouldShowTimeDisplayControls() const
 
     int width = mediaElement()->renderBox()->width();
     return width >= minWidthToDisplayTimeDisplays * style()->effectiveZoom();
+=======
+    m_controls->update();
+>>>>>>> webkit.org at r78450
 }
 
 } // namespace WebCore

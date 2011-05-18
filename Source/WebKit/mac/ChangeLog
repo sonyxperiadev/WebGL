@@ -1,3 +1,467 @@
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A little more encapsulation for the heap: Removed CollectorHeapIterator
+        https://bugs.webkit.org/show_bug.cgi?id=54298
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics javaScriptProtectedObjectTypeCounts]):
+        (+[WebCoreStatistics javaScriptObjectTypeCounts]): Updated for new typedef.
+
+2011-02-10  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _canProvideDocumentSource]):
+
+2011-02-10  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        AX: AX needs to stop using WebCoreViewFactory
+        https://bugs.webkit.org/show_bug.cgi?id=54153
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-02-10  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Remove PCRE source from trunk
+        https://bugs.webkit.org/show_bug.cgi?id=54188
+
+        * ForwardingHeaders/pcre/pcre.h: Removed.
+
+2011-02-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: follow up on InspectorAgent split -
+        removing unnecessary methods from InspectorController.
+        https://bugs.webkit.org/show_bug.cgi?id=54093
+
+        * WebInspector/WebInspector.mm:
+        (-[WebInspector showConsole:]):
+        (-[WebInspector stopProfilingJavaScript:]):
+
+2011-02-08  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Jon Honeycutt and Maciej Stachowiak.
+
+        <rdar://problem/8959420> Find in Mail no longer cycles around
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView searchFor:direction:caseSensitive:wrap:startInSelection:]): Set
+        the wrap option according to the flag.
+
+2011-02-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77980.
+        http://trac.webkit.org/changeset/77980
+        https://bugs.webkit.org/show_bug.cgi?id=54043
+
+        "Crashes on Windows and Linux..." (Requested by leviw on
+        #webkit).
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _caretRectAtNode:offset:affinity:]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController doCompletion]):
+
+2011-02-08  Levi Weintraub  <leviw@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Stop instantiating legacy editing Positions in VisiblePosition
+        https://bugs.webkit.org/show_bug.cgi?id=52919
+
+        Changing usage of legacy VisiblePosition constructor. Since we were dealing
+        with positions from DOM Ranges, we're guaranteed a parent-anchored position.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _caretRectAtPosition:affinity:]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController doCompletion]):
+
+2011-02-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove orphan code from old parser
+        https://bugs.webkit.org/show_bug.cgi?id=53984
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2011-02-02  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: move InspectorController's methods from InspectorAgent to InspectorController.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53169
+
+        Minor change enforced by major changes in WebCore/inspector/InspectorController.
+
+        * WebInspector/WebInspector.mm:
+        (-[WebInspector isTimelineProfilingEnabled]):
+
+2011-02-07  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed Adam Roben and Darin Adler.
+
+        WebKit2: drag and drop support on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=52775
+
+        Removed createDragImageForLink from DragClient.
+
+        * WebCoreSupport/WebDragClient.h:
+        * WebCoreSupport/WebDragClient.mm:
+        (WebDragClient::startDrag):
+
+2011-02-03  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove settings related methods from InspectorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53686
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::openInspectorFrontend):
+        (WebInspectorFrontendClient::WebInspectorFrontendClient):
+
+2011-02-03  James Kozianski  <koz@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add navigator.registerProtocolHandler behind a flag.
+        https://bugs.webkit.org/show_bug.cgi?id=52609
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-02-03  Adam Langley  <agl@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Plumb mixed script URL to FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=52384
+
+        Regressions covered by http/tests/security/mixedContent/*
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::didRunInsecureContent):
+
+2011-02-03  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Fix for <rdar://problem/8944544> Ability to animate track
+        for WKPainter scrollers
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-02-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        <rdar://problem/8928367> Crash when loading canvas pages inside HTMLCanvasElement::createImageBuffer().
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Add some missing initializers.
+
+2011-02-02  Steve Lacey  <sjl@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Implement basic media statistics on media elements.
+        https://bugs.webkit.org/show_bug.cgi?id=53322
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-02-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Beth Dakin.
+
+        Part 2 for <rdar://problem/8492788>
+        Adopt WKScrollbarPainterController
+
+        Use header detection to define scrollbar painting controller #define.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-02-01  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53520
+        
+        Remove the physical terminology from IntRect and FloatRect.
+        
+        Now that we have flipped RenderBlocks for vertical-rl and horizontal-bt writing modes,
+        we need to update our terminology to be more accurate.
+
+        I'm borrowing a page from AppKit here (which also supports flipped NSViews) and
+        renaming right() and bottom() to maxX() and maxY().  These terms remain accurate
+        even for flipped rectangles.
+
+        * WebView/WebHTMLView.mm:
+        (setNeedsDisplayInRect):
+
+2011-02-01  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Fix for <rdar://problem/8492788> Adopt WKScrollbarPainterController
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-02-01  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46422, make printing and pagination work
+        with vertical text.
+
+        Change printing functions to check writing-mode and properly swap width and height
+        as needed.
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView setScrollOrigin:updatePositionAtAll:immediately:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _computePageRectsWithPrintScaleFactor:pageSize:]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _web_setPrintingModeRecursive]):
+        (-[WebHTMLView _web_clearPrintingModeRecursive]):
+        (-[WebHTMLView _web_setPrintingModeRecursiveAndAdjustViewSize]):
+        (-[WebHTMLView _beginPrintModeWithMinimumPageWidth:height:maximumPageWidth:]):
+        (-[WebHTMLView _beginPrintModeWithPageWidth:height:shrinkToFit:]):
+        (-[WebHTMLView _endPrintMode]):
+        (-[WebHTMLView _beginScreenPaginationModeWithPageSize:shrinkToFit:]):
+        (-[WebHTMLView _endScreenPaginationMode]):
+        (-[WebHTMLView layoutToMinimumPageWidth:height:maximumPageWidth:adjustingViewSize:]):
+        (-[WebHTMLView _setPrinting:minimumPageLogicalWidth:logicalHeight:maximumPageLogicalWidth:adjustViewSize:paginateScreenContent:]):
+        (-[WebHTMLView adjustPageHeightNew:top:bottom:limit:]):
+        (-[WebHTMLView _scaleFactorForPrintOperation:]):
+        (-[WebHTMLView setPageWidthForPrinting:]):
+        (-[WebHTMLView knowsPageRange:]):
+
+2011-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        rolling r77098, r77099, r77100, r77109, and
+        r77111 back in, along with a few more Qt fix attempts.
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-01-30  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Unreviewed, rolling out r77098, r77099, r77100, r77109, and
+        r77111.
+        http://trac.webkit.org/changeset/77098
+        http://trac.webkit.org/changeset/77099
+        http://trac.webkit.org/changeset/77100
+        http://trac.webkit.org/changeset/77109
+        http://trac.webkit.org/changeset/77111
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        Qt build is broken
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-01-30  Oliver Hunt  <oliver@apple.com>
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        rolling r77006 and r77020 back in.
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-01-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Some more Heap cleanup.
+        https://bugs.webkit.org/show_bug.cgi?id=53357
+
+        Updated for JavaScriptCore changes.
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics memoryStatistics]):
+
+2011-01-28  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r77006 and r77020.
+        http://trac.webkit.org/changeset/77006
+        http://trac.webkit.org/changeset/77020
+        https://bugs.webkit.org/show_bug.cgi?id=53360
+
+        "Broke Windows tests" (Requested by rniwa on #webkit).
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-01-27  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Convert markstack to a slot visitor API
+        https://bugs.webkit.org/show_bug.cgi?id=53219
+
+        Update to new marking api
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-01-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <select> can't display right-to-left (rtl) languages
+        https://bugs.webkit.org/show_bug.cgi?id=19785
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::selectItemWritingDirectionIsNatural): Changed to return false.
+        (WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection): Added. Returns true.
+
+2011-01-27  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r76891.
+        http://trac.webkit.org/changeset/76891
+        https://bugs.webkit.org/show_bug.cgi?id=53280
+
+        Makes every layout test crash (Requested by othermaciej on
+        #webkit).
+
+        * Misc/WebIconDatabase.mm:
+        (-[ThreadEnabler threadEnablingSelector:]):
+        (importToWebCoreFormat):
+
+2011-01-27  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Use Document::url() instead of FrameLoader::url().
+        https://bugs.webkit.org/show_bug.cgi?id=41165
+
+        * WebView/WebView.mm:
+        (-[WebView _dispatchDidReceiveIconFromWebFrame:]):
+
+2011-01-27  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Anders Carlsson.
+
+        Reverted an accidental change in r76561.
+
+        * WebView/WebHTMLView.mm:
+
+2011-01-26  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/53192> Add experimental support for HTTP pipelining in CFNetwork
+        <rdar://problem/8821760>
+
+        Reviewed by Antti Koivisto.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Added initialization for
+        GetHTTPPipeliningPriority and SetHTTPPipeliningPriority.
+
+2011-01-26  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix for <rdar://problem/8895140> Adopt WKScrollbar metrics 
+        when using WKScrollbars.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2011-01-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        WebKit is using CSBackupSetItemExcluded incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=53095
+        rdar://problem/8790540
+
+        * Misc/WebIconDatabase.mm:
+        (importToWebCoreFormat): Removed code that was calling CSBackupSetItemExcluded.
+        It was incorrect, and this responsibility has been moved to WebCore.
+
+2011-01-24  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Change ENABLE_3D_CANVAS to ENABLE_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=53041
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-01-25  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove "attached" state related methods from InspectorAgent
+        https://bugs.webkit.org/show_bug.cgi?id=53086
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (-[WebInspectorWindowController showWindow:]):
+        (-[WebInspectorWindowController attach]):
+        (-[WebInspectorWindowController detach]):
+
+2011-01-23  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        <rdar://problem/6097826> Mail's cursor does not become a resize cursor when moving mouse from scrolled email to the horizontal splitter
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::setCursor): If the current cursor comes from a cursor rect, do not override it.
+
+2011-01-22  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=52473
+        Auto-scaling to avoid orphans is broken, remove dysfunctional code
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _setPrinting:minimumPageWidth:height:maximumPageWidth:adjustViewSize:paginateScreenContent:]):
+        (-[WebHTMLView _scaleFactorForPrintOperation:]):
+        (-[WebHTMLView knowsPageRange:]):
+
+2011-01-21  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Jon Honeycutt.
+
+        Fix the build when using Clang by removing some unused variables.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView updateAndSetWindow]):
+        * WebView/WebFullScreenController.mm:
+        (-[WebFullScreenController enterFullscreen:]):
+        (-[WebFullScreenController exitFullscreen]):
+
 2011-01-21  Chris Rogers  <crogers@google.com>
 
         Reviewed by Darin Fisher.

@@ -26,12 +26,12 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLUniformLocation.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLUniformLocation> WebGLUniformLocation::create(WebGLProgram* program, GC3Dint location)
 {
     return adoptRef(new WebGLUniformLocation(program, location));
@@ -64,4 +64,4 @@ GC3Dint WebGLUniformLocation::location() const
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

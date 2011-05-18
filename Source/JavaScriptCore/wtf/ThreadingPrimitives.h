@@ -150,10 +150,20 @@ private:
     PlatformCondition m_condition;
 };
 
+#if OS(WINDOWS)
+// The absoluteTime is in seconds, starting on January 1, 1970. The time is assumed to use the same time zone as WTF::currentTime().
+// Returns an interval in milliseconds suitable for passing to one of the Win32 wait functions (e.g., ::WaitForSingleObject).
+DWORD absoluteTimeToWaitTimeoutInterval(double absoluteTime);
+#endif
+
 } // namespace WTF
 
 using WTF::Mutex;
 using WTF::MutexLocker;
 using WTF::ThreadCondition;
+
+#if OS(WINDOWS)
+using WTF::absoluteTimeToWaitTimeoutInterval;
+#endif
 
 #endif // ThreadingPrimitives_h

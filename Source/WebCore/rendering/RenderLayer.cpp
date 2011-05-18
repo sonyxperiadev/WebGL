@@ -188,6 +188,8 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
     , m_scrollCorner(0)
     , m_resizer(0)
 {
+    ScrollableArea::setConstrainsScrollingToContentEdge(false);
+
     if (!renderer->firstChild() && renderer->style()) {
         m_visibleContentStatusDirty = false;
         m_hasVisibleContent = renderer->style()->visibility() == VISIBLE;
@@ -960,7 +962,7 @@ static IntRect transparencyClipBox(const RenderLayer* l, const RenderLayer* root
 
         TransformationMatrix transform;
         transform.translate(x, y);
-        transform = *l->transform() * transform;
+        transform = transform * *l->transform();
 
         IntRect clipRect = l->boundingBox(l);
         expandClipRectForDescendantsAndReflection(clipRect, l, l, paintBehavior);
@@ -1532,7 +1534,7 @@ IntRect RenderLayer::getRectToExpose(const IntRect &visibleRect, const IntRect &
         scrollX = ScrollAlignment::getHiddenBehavior(alignX);
     // If we're trying to align to the closest edge, and the exposeRect is further right
     // than the visibleRect, and not bigger than the visible area, then align with the right.
-    if (scrollX == alignToClosestEdge && exposeRect.right() > visibleRect.right() && exposeRect.width() < visibleRect.width())
+    if (scrollX == alignToClosestEdge && exposeRect.maxX() > visibleRect.maxX() && exposeRect.width() < visibleRect.width())
         scrollX = alignRight;
 
     // Given the X behavior, compute the X coordinate.
@@ -1540,7 +1542,7 @@ IntRect RenderLayer::getRectToExpose(const IntRect &visibleRect, const IntRect &
     if (scrollX == noScroll) 
         x = visibleRect.x();
     else if (scrollX == alignRight)
-        x = exposeRect.right() - visibleRect.width();
+        x = exposeRect.maxX() - visibleRect.width();
     else if (scrollX == alignCenter)
         x = exposeRect.x() + (exposeRect.width() - visibleRect.width()) / 2;
     else
@@ -1565,7 +1567,7 @@ IntRect RenderLayer::getRectToExpose(const IntRect &visibleRect, const IntRect &
         scrollY = ScrollAlignment::getHiddenBehavior(alignY);
     // If we're trying to align to the closest edge, and the exposeRect is further down
     // than the visibleRect, and not bigger than the visible area, then align with the bottom.
-    if (scrollY == alignToClosestEdge && exposeRect.bottom() > visibleRect.bottom() && exposeRect.height() < visibleRect.height())
+    if (scrollY == alignToClosestEdge && exposeRect.maxY() > visibleRect.maxY() && exposeRect.height() < visibleRect.height())
         scrollY = alignBottom;
 
     // Given the Y behavior, compute the Y coordinate.
@@ -1573,7 +1575,7 @@ IntRect RenderLayer::getRectToExpose(const IntRect &visibleRect, const IntRect &
     if (scrollY == noScroll) 
         y = visibleRect.y();
     else if (scrollY == alignBottom)
-        y = exposeRect.bottom() - visibleRect.height();
+        y = exposeRect.maxY() - visibleRect.height();
     else if (scrollY == alignCenter)
         y = exposeRect.y() + (exposeRect.height() - visibleRect.height()) / 2;
     else
@@ -1681,7 +1683,7 @@ int RenderLayer::scrollPosition(Scrollbar* scrollbar) const
     if (scrollbar->orientation() == HorizontalScrollbar)
         return scrollXOffset();
     if (scrollbar->orientation() == VerticalScrollbar)
-        return m_scrollY;
+        return scrollYOffset();
     return 0;
 }
 
@@ -1710,8 +1712,8 @@ static IntRect cornerRect(const RenderLayer* layer, const IntRect& bounds)
         horizontalThickness = layer->verticalScrollbar()->width();
         verticalThickness = layer->horizontalScrollbar()->height();
     }
-    return IntRect(bounds.right() - horizontalThickness - layer->renderer()->style()->borderRightWidth(), 
-                   bounds.bottom() - verticalThickness - layer->renderer()->style()->borderBottomWidth(),
+    return IntRect(bounds.maxX() - horizontalThickness - layer->renderer()->style()->borderRightWidth(), 
+                   bounds.maxY() - verticalThickness - layer->renderer()->style()->borderBottomWidth(),
                    horizontalThickness, verticalThickness);
 }
 
@@ -1789,6 +1791,21 @@ IntPoint RenderLayer::convertFromContainingViewToScrollbar(const Scrollbar* scro
     return point;
 }
 
+IntSize RenderLayer::contentsSize() const
+{
+    return IntSize(const_cast<RenderLayer*>(this)->scrollWidth(), const_cast<RenderLayer*>(this)->scrollHeight());
+}
+
+int RenderLayer::visibleHeight() const
+{
+    return m_height;
+}
+
+int RenderLayer::visibleWidth() const
+{
+    return m_width;
+}
+
 IntSize RenderLayer::scrollbarOffset(const Scrollbar* scrollbar) const
 {
     RenderBox* box = renderBox();
@@ -1846,10 +1863,13 @@ void RenderLayer::setHasHorizontalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_hBar != 0))
         return;
 
-    if (hasScrollbar)
+    if (hasScrollbar) {
         m_hBar = createScrollbar(HorizontalScrollbar);
-    else
+        ScrollableArea::didAddHorizontalScrollbar(m_hBar.get());
+    } else {
+        ScrollableArea::willRemoveHorizontalScrollbar(m_hBar.get());
         destroyScrollbar(HorizontalScrollbar);
+    }
 
     // Destroying or creating one bar can cause our scrollbar corner to come and go.  We need to update the opposite scrollbar's style.
     if (m_hBar)
@@ -1869,10 +1889,13 @@ void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_vBar != 0))
         return;
 
-    if (hasScrollbar)
+    if (hasScrollbar) {
         m_vBar = createScrollbar(VerticalScrollbar);
-    else
+        ScrollableArea::didAddVerticalScrollbar(m_vBar.get());
+    } else {
+        ScrollableArea::willRemoveVerticalScrollbar(m_vBar.get());
         destroyScrollbar(VerticalScrollbar);
+    }
 
      // Destroying or creating one bar can cause our scrollbar corner to come and go.  We need to update the opposite scrollbar's style.
     if (m_hBar)
@@ -1936,14 +1959,14 @@ void RenderLayer::positionOverflowControls(int tx, int ty)
     IntRect scrollCorner(scrollCornerRect(this, borderBox));
     IntRect absBounds(borderBox.x() + tx, borderBox.y() + ty, borderBox.width(), borderBox.height());
     if (m_vBar)
-        m_vBar->setFrameRect(IntRect(absBounds.right() - box->borderRight() - m_vBar->width(),
+        m_vBar->setFrameRect(IntRect(absBounds.maxX() - box->borderRight() - m_vBar->width(),
                                      absBounds.y() + box->borderTop(),
                                      m_vBar->width(),
                                      absBounds.height() - (box->borderTop() + box->borderBottom()) - scrollCorner.height()));
 
     if (m_hBar)
         m_hBar->setFrameRect(IntRect(absBounds.x() + box->borderLeft(),
-                                     absBounds.bottom() - box->borderBottom() - m_hBar->height(),
+                                     absBounds.maxY() - box->borderBottom() - m_hBar->height(),
                                      absBounds.width() - (box->borderLeft() + box->borderRight()) - scrollCorner.width(),
                                      m_hBar->height()));
     
@@ -2000,7 +2023,7 @@ int RenderLayer::overflowBottom() const
     RenderBox* box = renderBox();
     IntRect overflowRect(box->layoutOverflowRect());
     box->flipForWritingMode(overflowRect);
-    return overflowRect.bottom();
+    return overflowRect.maxY();
 }
 
 int RenderLayer::overflowLeft() const
@@ -2016,7 +2039,7 @@ int RenderLayer::overflowRight() const
     RenderBox* box = renderBox();
     IntRect overflowRect(box->layoutOverflowRect());
     box->flipForWritingMode(overflowRect);
-    return overflowRect.right();
+    return overflowRect.maxX();
 }
 
 void RenderLayer::computeScrollDimensions(bool* needHBar, bool* needVBar)
@@ -2078,8 +2101,8 @@ void RenderLayer::updateScrollInfoAfterLayout()
         // Layout may cause us to be in an invalid scroll position.  In this case we need
         // to pull our scroll offsets back to the max (or push them up to the min).
         int newX = max(0, min(scrollXOffset(), scrollWidth() - box->clientWidth()));
-        int newY = max(0, min(m_scrollY, scrollHeight() - box->clientHeight()));
-        if (newX != scrollXOffset() || newY != m_scrollY) {
+        int newY = max(0, min(scrollYOffset(), scrollHeight() - box->clientHeight()));
+        if (newX != scrollXOffset() || newY != scrollYOffset()) {
             RenderView* view = renderer()->view();
             ASSERT(view);
             // scrollToOffset() may call updateLayerPositions(), which doesn't work
@@ -2163,7 +2186,10 @@ void RenderLayer::updateScrollInfoAfterLayout()
         m_vBar->setProportion(clientHeight, m_scrollHeight);
     }
  
+    RenderView* view = renderer()->view();
+    view->disableLayoutState();
     scrollToOffset(scrollXOffset(), scrollYOffset());
+    view->enableLayoutState();
  
     if (renderer()->node() && renderer()->document()->hasListenerType(Document::OVERFLOWCHANGED_LISTENER))
         updateOverflowStatus(horizontalOverflow, verticalOverflow);
@@ -2256,7 +2282,7 @@ void RenderLayer::paintResizer(GraphicsContext* context, int tx, int ty, const I
 
     // Paint the resizer control.
     DEFINE_STATIC_LOCAL(RefPtr<Image>, resizeCornerImage, (Image::loadPlatformResource("textAreaResizeCorner")));
-    IntPoint imagePoint(absRect.right() - resizeCornerImage->width(), absRect.bottom() - resizeCornerImage->height());
+    IntPoint imagePoint(absRect.maxX() - resizeCornerImage->width(), absRect.maxY() - resizeCornerImage->height());
     context->drawImage(resizeCornerImage.get(), box->style()->colorSpace(), imagePoint);
 
     // Draw a frame around the resizer (1px grey line) if there are any scrollbars present.
@@ -2634,13 +2660,18 @@ void RenderLayer::paintChildLayerIntoColumns(RenderLayer* childLayer, RenderLaye
     int layerY = 0;
     columnBlock->layer()->convertToLayerCoords(rootLayer, layerX, layerY);
     
+    bool isHorizontal = columnBlock->style()->isHorizontalWritingMode();
+
     ColumnInfo* colInfo = columnBlock->columnInfo();
     unsigned colCount = columnBlock->columnCount(colInfo);
-    int currYOffset = 0;
+    int currLogicalTopOffset = 0;
     for (unsigned i = 0; i < colCount; i++) {
         // For each rect, we clip to the rect, and then we adjust our coords.
         IntRect colRect = columnBlock->columnRectAt(colInfo, i);
-        int currXOffset = colRect.x() - (columnBlock->borderLeft() + columnBlock->paddingLeft());
+        columnBlock->flipForWritingMode(colRect);
+        int logicalLeftOffset = (isHorizontal ? colRect.x() : colRect.y()) - columnBlock->logicalLeftOffsetForContent();
+        IntSize offset = isHorizontal ? IntSize(logicalLeftOffset, currLogicalTopOffset) : IntSize(currLogicalTopOffset, logicalLeftOffset);
+
         colRect.move(layerX, layerY);
 
         IntRect localDirtyRect(paintDirtyRect);
@@ -2660,7 +2691,7 @@ void RenderLayer::paintChildLayerIntoColumns(RenderLayer* childLayer, RenderLaye
                 if (oldHasTransform)
                     oldTransform = *childLayer->transform();
                 TransformationMatrix newTransform(oldTransform);
-                newTransform.translateRight(currXOffset, currYOffset);
+                newTransform.translateRight(offset.width(), offset.height());
                 
                 childLayer->m_transform.set(new TransformationMatrix(newTransform));
                 childLayer->paintLayer(rootLayer, context, localDirtyRect, paintBehavior, paintingRoot, overlapTestRequests, paintFlags);
@@ -2675,7 +2706,7 @@ void RenderLayer::paintChildLayerIntoColumns(RenderLayer* childLayer, RenderLaye
                 int childY = 0;
                 columnLayers[colIndex - 1]->convertToLayerCoords(rootLayer, childX, childY);
                 TransformationMatrix transform;
-                transform.translateRight(childX + currXOffset, childY + currYOffset);
+                transform.translateRight(childX + offset.width(), childY + offset.height());
                 
                 // Apply the transform.
                 context->concatCTM(transform.toAffineTransform());
@@ -2690,7 +2721,11 @@ void RenderLayer::paintChildLayerIntoColumns(RenderLayer* childLayer, RenderLaye
         }
 
         // Move to the next position.
-        currYOffset -= colRect.height();
+        int blockDelta = isHorizontal ? colRect.height() : colRect.width();
+        if (columnBlock->style()->isFlippedBlocksWritingMode())
+            currLogicalTopOffset += blockDelta;
+        else
+            currLogicalTopOffset -= blockDelta;
     }
 }
 
@@ -3111,21 +3146,35 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
     int colCount = columnBlock->columnCount(colInfo);
     
     // We have to go backwards from the last column to the first.
-    int left = columnBlock->borderLeft() + columnBlock->paddingLeft();
-    int currYOffset = 0;
+    bool isHorizontal = columnBlock->style()->isHorizontalWritingMode();
+    int logicalLeft = columnBlock->logicalLeftOffsetForContent();
+    int currLogicalTopOffset = 0;
     int i;
-    for (i = 0; i < colCount; i++)
-        currYOffset -= columnBlock->columnRectAt(colInfo, i).height();
+    for (i = 0; i < colCount; i++) {
+        IntRect colRect = columnBlock->columnRectAt(colInfo, i);
+        int blockDelta =  (isHorizontal ? colRect.height() : colRect.width());
+        if (columnBlock->style()->isFlippedBlocksWritingMode())
+            currLogicalTopOffset += blockDelta;
+        else
+            currLogicalTopOffset -= blockDelta;
+    }
     for (i = colCount - 1; i >= 0; i--) {
         // For each rect, we clip to the rect, and then we adjust our coords.
         IntRect colRect = columnBlock->columnRectAt(colInfo, i);
-        int currXOffset = colRect.x() - left;
-        currYOffset += colRect.height();
+        columnBlock->flipForWritingMode(colRect);
+        int currLogicalLeftOffset = (isHorizontal ? colRect.x() : colRect.y()) - logicalLeft;
+        int blockDelta =  (isHorizontal ? colRect.height() : colRect.width());
+        if (columnBlock->style()->isFlippedBlocksWritingMode())
+            currLogicalTopOffset -= blockDelta;
+        else
+            currLogicalTopOffset += blockDelta;
         colRect.move(layerX, layerY);
 
         IntRect localClipRect(hitTestRect);
         localClipRect.intersect(colRect);
         
+        IntSize offset = isHorizontal ? IntSize(currLogicalLeftOffset, currLogicalTopOffset) : IntSize(currLogicalTopOffset, currLogicalLeftOffset);
+
         if (!localClipRect.isEmpty() && localClipRect.intersects(result.rectForPoint(hitTestPoint))) {
             RenderLayer* hitLayer = 0;
             if (!columnIndex) {
@@ -3135,7 +3184,7 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
                 if (oldHasTransform)
                     oldTransform = *childLayer->transform();
                 TransformationMatrix newTransform(oldTransform);
-                newTransform.translateRight(currXOffset, currYOffset);
+                newTransform.translateRight(offset.width(), offset.height());
                 
                 childLayer->m_transform.set(new TransformationMatrix(newTransform));
                 hitLayer = childLayer->hitTestLayer(rootLayer, columnLayers[0], request, result, localClipRect, hitTestPoint, false, transformState, zOffset);
@@ -3148,7 +3197,7 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
                 // This involves subtracting out the position of the layer in our current coordinate space.
                 RenderLayer* nextLayer = columnLayers[columnIndex - 1];
                 RefPtr<HitTestingTransformState> newTransformState = nextLayer->createLocalTransformState(rootLayer, nextLayer, localClipRect, hitTestPoint, transformState);
-                newTransformState->translate(currXOffset, currYOffset, HitTestingTransformState::AccumulateTransform);
+                newTransformState->translate(offset.width(), offset.height(), HitTestingTransformState::AccumulateTransform);
                 IntPoint localPoint = roundedIntPoint(newTransformState->mappedPoint());
                 IntRect localHitTestRect = newTransformState->mappedQuad().enclosingBoundingBox();
                 newTransformState->flatten();
@@ -3437,19 +3486,9 @@ IntRect RenderLayer::localBoundingBox() const
     // as part of our bounding box.  We do this because we are the responsible layer for both hit testing and painting those
     // floats.
     IntRect result;
-    if (renderer()->isRenderInline()) {
-        // Go from our first line box to our last line box.
-        RenderInline* inlineFlow = toRenderInline(renderer());
-        InlineFlowBox* firstBox = inlineFlow->firstLineBox();
-        if (!firstBox)
-            return result;
-        int top = firstBox->topVisualOverflow();
-        int bottom = inlineFlow->lastLineBox()->bottomVisualOverflow();
-        int left = firstBox->x();
-        for (InlineFlowBox* curr = firstBox->nextLineBox(); curr; curr = curr->nextLineBox())
-            left = min(left, curr->x());
-        result = IntRect(left, top, width(), bottom - top);
-    } else if (renderer()->isTableRow()) {
+    if (renderer()->isRenderInline())
+        result = toRenderInline(renderer())->linesVisualOverflowBoundingBox();
+    else if (renderer()->isTableRow()) {
         // Our bounding box is just the union of all of our cells' border/overflow rects.
         for (RenderObject* child = renderer()->firstChild(); child; child = child->nextSibling()) {
             if (child->isTableCell()) {
@@ -3485,7 +3524,10 @@ IntRect RenderLayer::localBoundingBox() const
 IntRect RenderLayer::boundingBox(const RenderLayer* ancestorLayer) const
 {    
     IntRect result = localBoundingBox();
-
+    if (renderer()->isBox())
+        renderBox()->flipForWritingMode(result);
+    else
+        renderer()->containingBlock()->flipForWritingMode(result);
     int deltaX = 0, deltaY = 0;
     convertToLayerCoords(ancestorLayer, deltaX, deltaY);
     result.move(deltaX, deltaY);
@@ -3537,6 +3579,26 @@ bool RenderLayer::hasCompositedMask() const
     return m_backing && m_backing->hasMaskLayer();
 }
 #endif
+
+bool RenderLayer::scrollbarWillRenderIntoCompositingLayer() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (enclosingCompositingLayer())
+        return true;
+
+    RenderView* view = renderer()->view();
+    if (!view)
+        return false;
+
+    FrameView* frameView = view->frameView();
+    if (!frameView)
+        return false;
+
+    return frameView->isEnclosedInCompositingLayer();
+#else
+    return false;
+#endif
+}
 
 bool RenderLayer::paintsWithTransform(PaintBehavior paintBehavior) const
 {

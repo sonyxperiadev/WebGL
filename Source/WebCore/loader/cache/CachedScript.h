@@ -47,12 +47,13 @@ namespace WebCore {
 
         const String& script();
 
+        virtual void didAddClient(CachedResourceClient*);
         virtual void allClientsRemoved();
 
         virtual void setEncoding(const String&);
         virtual String encoding() const;
         virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
-        virtual void error(CachedResource::Status);
+        virtual void error(Status);
 
         void checkNotify();
 

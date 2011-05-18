@@ -1,3 +1,268 @@
+2011-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A little more encapsulation for the heap: Removed CollectorHeapIterator
+        https://bugs.webkit.org/show_bug.cgi?id=54298
+
+        * WebCoreStatistics.cpp:
+        (WebCoreStatistics::javaScriptProtectedObjectTypeCounts):
+
+2011-02-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: follow up on InspectorAgent split -
+        removing unnecessary methods from InspectorController.
+        https://bugs.webkit.org/show_bug.cgi?id=54093
+
+        * WebInspector.cpp:
+        (WebInspector::showConsole):
+        (WebInspector::toggleProfilingJavaScript):
+
+2011-02-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove orphan code from old parser
+        https://bugs.webkit.org/show_bug.cgi?id=53984
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2011-02-08  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/8932077> REGRESSION (5.0.3-ToT): United boarding pass has wrong layout when printed
+        
+        Windows never got patched to pass in the page height to WebCore, so when WebCore's pagination got re-written to depend on this
+        value, Windows got broken.  Patch setPrinting to be identical to WebKit1 on OS X and to have it take an extra minimum page height
+        argument.
+
+        * WebFrame.cpp:
+        (WebFrame::setPrinting):
+        (WebFrame::setInPrintingMode):
+        * WebFrame.h:
+
+2011-02-02  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: move InspectorController's methods from InspectorAgent to InspectorController.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53169
+
+        Minor change enforced by major changes in WebCore/inspector/InspectorController.
+
+        * WebInspector.cpp:
+        (WebInspector::isTimelineProfilingEnabled):
+
+2011-02-07  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed Adam Roben and Darin Adler.
+
+        WebKit2: drag and drop support on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=52775
+
+        Removed createDragImageForLink from DragClient.
+
+        * WebCoreSupport/WebDragClient.cpp:
+        (WebDragClient::startDrag):
+        * WebCoreSupport/WebDragClient.h:
+
+2011-02-06  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        OwnArraryPtr.h uses deleteOwnedPtr but doesn’t include OwnPtrCommon.h
+        https://bugs.webkit.org/show_bug.cgi?id=52867
+
+        * WebHistory.cpp:
+        (WebHistory::orderedLastVisitedDays): Calls adoptArrayPtr.
+        * WebPreferences.cpp:
+        (WebPreferences::copyWebKitPreferencesToCFPreferences): Ditto.
+
+2011-02-03  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove settings related methods from InspectorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53686
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::openInspectorFrontend):
+        (WebInspectorFrontendClient::WebInspectorFrontendClient):
+        * WebCoreSupport/WebInspectorClient.h:
+
+2011-02-03  Adam Langley  <agl@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Plumb mixed script URL to FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=52384
+
+        Regressions covered by http/tests/security/mixedContent/*
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didRunInsecureContent):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2011-02-02  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Removal of right()/bottom(), converting to maxX()/maxY().
+
+        * DOMHTMLClasses.cpp:
+        (DOMHTMLInputElement::rectOnScreen):
+        * WebCoreSupport/EmbeddedWidget.cpp:
+        (EmbeddedWidget::frameRectsChanged):
+        * WebFrame.cpp:
+        (WebFrame::computePageRects):
+        * WebScrollBar.cpp:
+        (WebScrollBar::frameRect):
+        * WebView.cpp:
+        (WebView::addToDirtyRegion):
+        (WebView::visibleContentRect):
+        (WebView::prepareCandidateWindow):
+
+2011-01-31  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix the clean Windows build.
+
+        * WebKitGraphics.cpp:
+        (WebDrawText):
+
+2011-01-28  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Downloads in WK2 on Windows should write resume data to bundle
+        https://bugs.webkit.org/show_bug.cgi?id=53282
+        <rdar://problem/8753077>
+
+        Reviewed by Alice Liu.
+
+        * WebDownload.cpp:
+        (WebDownload::bundlePathForTargetPath):
+        Use the new WebCore::DownloadBundle function.
+        (WebDownload::request):
+
+        * WebDownload.h:
+        Removed declarations for functions that were moved to a new location.
+
+        * WebDownloadCFNet.cpp:
+        (WebDownload::initToResumeWithBundle):
+        Use the new WebCore::DownloadBundle function.
+        (WebDownload::cancelForResume):
+        Fix a leak of the resume data CFDataRef by using adoptCF(). Use the new
+        WebCore::DownloadBundle function.
+
+2011-01-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <select> can't display right-to-left (rtl) languages
+        https://bugs.webkit.org/show_bug.cgi?id=19785
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection): Added.
+        * WebCoreSupport/WebChromeClient.h:
+
+2011-01-27  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Use Document::url() instead of FrameLoader::url().
+        https://bugs.webkit.org/show_bug.cgi?id=41165
+
+        * WebFrame.cpp:
+        (WebFrame::url):
+
+2011-01-27  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Fix scrollbars in Safari's Downloads window and Bookmarks view by
+        implementing two needed functions from ScrollableArea.
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::horizontalScrollbar): Return the WebCore::Scrollbar if
+        we are a horizontal scrollbar.
+        (WebScrollBar::verticalScrollbar): Return the WebCore::Scrollbar if we
+        are a vertical scrollbar.
+        * WebScrollBar.h:
+
+2011-01-27  Adam Roben  <aroben@apple.com>
+
+        Trim down #includes in WebView.h
+
+        Rubber-stamped by Steve Falkenburg.
+
+        * WebView.cpp: Moved some #includes here from the header file.
+
+        * WebView.h: Replaced some broader #includes with more specific ones, plus a
+        forward-declaration.
+
+2011-01-25  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows production build fix.
+        Build correct configuration of Interfaces for Debug_All.
+
+        * WebKit.vcproj/WebKit.submit.sln:
+
+2011-01-25  Steve Falkenburg  <sfalken@apple.com>
+
+        Rubber-stamped by Adam Roben.
+
+        Windows production build fix.
+        Use correct environment variable escaping
+
+        * WebKit.vcproj/WebKit.make:
+
+2011-01-24  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Change ENABLE_3D_CANVAS to ENABLE_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=53041
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2011-01-25  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove "attached" state related methods from InspectorAgent
+        https://bugs.webkit.org/show_bug.cgi?id=53086
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::attachWindow):
+        (WebInspectorFrontendClient::detachWindow):
+        (WebInspectorFrontendClient::showWindowWithoutNotifications):
+        * WebCoreSupport/WebInspectorClient.h:
+
+2011-01-24  Adam Roben  <aroben@apple.com>
+
+        Windows Production build fix
+
+        * WebKit.vcproj/WebKit.make: Update for move of WebKit into Source.
+
+2011-01-21  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Introduce FontMetrics abstraction
+        https://bugs.webkit.org/show_bug.cgi?id=51456
+
+        * FullscreenVideoController.cpp: Use FontMetrics instead of Font to access the metrics.
+        (FullscreenVideoController::draw):
+        * WebCoreSupport/WebDragClient.cpp: Ditto.
+        (WebDragClient::createDragImageForLink):
+        * WebKitGraphics.cpp: Ditto.
+        (FontMetrics):
+
 2011-01-21  Chris Rogers  <crogers@google.com>
 
         Reviewed by Darin Fisher.

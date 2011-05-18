@@ -90,6 +90,8 @@ public:
 
     float x() const { return m_location.x(); }
     float y() const { return m_location.y(); }
+    float maxX() const { return x() + width(); }
+    float maxY() const { return y() + height(); }
     float width() const { return m_size.width(); }
     float height() const { return m_size.height(); }
 
@@ -99,11 +101,6 @@ public:
     void setHeight(float height) { m_size.setHeight(height); }
 
     bool isEmpty() const { return m_size.isEmpty(); }
-
-    float left() const { return x(); }
-    float right() const { return x() + width(); }
-    float top() const { return y(); }
-    float bottom() const { return y() + height(); }
 
     FloatPoint center() const { return FloatPoint(x() + width() / 2, y() + height() / 2); }
 
@@ -119,9 +116,8 @@ public:
     // Note, this doesn't match what IntRect::contains(IntPoint&) does; the int version
     // is really checking for containment of 1x1 rect, but that doesn't make sense with floats.
     bool contains(float px, float py) const
-        { return px >= x() && px <= right() && py >= y() && py <= bottom(); }
+        { return px >= x() && px <= maxX() && py >= y() && py <= maxY(); }
     bool contains(const FloatPoint& point) const { return contains(point.x(), point.y()); }
-
 
     void inflateX(float dx) {
         m_location.setX(m_location.x() - dx);

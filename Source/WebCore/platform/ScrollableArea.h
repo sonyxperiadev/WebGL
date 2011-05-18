@@ -33,6 +33,7 @@
 namespace WebCore {
 
 class FloatPoint;
+class PlatformGestureEvent;
 class PlatformWheelEvent;
 class ScrollAnimator;
 
@@ -47,6 +48,26 @@ public:
     void scrollToXOffsetWithoutAnimation(float x);
     void scrollToYOffsetWithoutAnimation(float x);
 
+    void handleWheelEvent(PlatformWheelEvent&);
+#if ENABLE(GESTURE_EVENTS)
+    void handleGestureEvent(const PlatformGestureEvent&);
+#endif
+
+    // Functions for controlling if you can scroll past the end of the document.
+    bool constrainsScrollingToContentEdge() const { return m_constrainsScrollingToContentEdge; }
+    void setConstrainsScrollingToContentEdge(bool constrainsScrollingToContentEdge) { m_constrainsScrollingToContentEdge = constrainsScrollingToContentEdge; }
+
+    bool inLiveResize() const { return m_inLiveResize; }
+    void willStartLiveResize();
+    void willEndLiveResize();
+
+    void didAddVerticalScrollbar(Scrollbar*);
+    void willRemoveVerticalScrollbar(Scrollbar*);
+    void didAddHorizontalScrollbar(Scrollbar*);
+    void willRemoveHorizontalScrollbar(Scrollbar*);
+
+    ScrollAnimator* scrollAnimator() const { return m_scrollAnimator.get(); }
+
     virtual int scrollSize(ScrollbarOrientation) const = 0;
     virtual int scrollPosition(Scrollbar*) const = 0;
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&) = 0;
@@ -57,7 +78,6 @@ public:
     // This function should be overriden by subclasses to perform the actual
     // scroll of the content.
     virtual void setScrollOffset(const IntPoint&) = 0;
-
 
     // Convert points and rects between the scrollbar and its containing view.
     // The client needs to implement these in order to be aware of layout effects
@@ -82,12 +102,28 @@ public:
     virtual Scrollbar* horizontalScrollbar() const { return 0; }
     virtual Scrollbar* verticalScrollbar() const { return 0; }
 
+    virtual IntPoint scrollPosition() const { ASSERT_NOT_REACHED(); return IntPoint(); }
+    virtual IntPoint minimumScrollPosition() const { ASSERT_NOT_REACHED(); return IntPoint(); }
+    virtual IntPoint maximumScrollPosition() const { ASSERT_NOT_REACHED(); return IntPoint(); }
+    virtual IntRect visibleContentRect(bool = false) const { ASSERT_NOT_REACHED(); return IntRect(); }
+    virtual int visibleHeight() const { ASSERT_NOT_REACHED(); return 0; }
+    virtual int visibleWidth() const { ASSERT_NOT_REACHED(); return 0; }
+    virtual IntSize contentsSize() const { ASSERT_NOT_REACHED(); return IntSize(); }
+    virtual IntSize overhangAmount() const { ASSERT_NOT_REACHED(); return IntSize(); }
+    virtual IntPoint currentMousePosition() const { return IntPoint(); }
+    virtual void didCompleteRubberBand(const IntSize&) const { ASSERT_NOT_REACHED(); }
+
+    virtual bool scrollbarWillRenderIntoCompositingLayer() const { return false; }
+
 private:
     // NOTE: Only called from the ScrollAnimator.
     friend class ScrollAnimator;
     void setScrollOffsetFromAnimation(const IntPoint&);
 
     OwnPtr<ScrollAnimator> m_scrollAnimator;
+    bool m_constrainsScrollingToContentEdge;
+
+    bool m_inLiveResize;
 };
 
 } // namespace WebCore

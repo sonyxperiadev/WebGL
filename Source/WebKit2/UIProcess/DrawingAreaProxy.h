@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,19 +32,24 @@
 
 #if PLATFORM(QT)
 class QPainter;
+#elif PLATFORM(GTK)
+typedef struct _cairo cairo_t;
 #endif
 
 namespace WebKit {
 
+class LayerTreeContext;
+class UpdateInfo;
 class WebPageProxy;
-struct UpdateInfo;
-    
+
 #if PLATFORM(MAC)
 typedef CGContextRef PlatformDrawingContext;
 #elif PLATFORM(WIN)
 typedef HDC PlatformDrawingContext;
 #elif PLATFORM(QT)
 typedef QPainter* PlatformDrawingContext;
+#elif PLATFORM(GTK)
+typedef cairo_t* PlatformDrawingContext;
 #endif
 
 class DrawingAreaProxy {
@@ -54,7 +60,7 @@ public:
 
     virtual ~DrawingAreaProxy();
 
-#ifdef __APPLE__
+#if PLATFORM(MAC) || PLATFORM(WIN)
     void didReceiveDrawingAreaProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 #endif
 
@@ -79,7 +85,7 @@ public:
     const DrawingAreaInfo& info() const { return m_info; }
 
     const WebCore::IntSize& size() const { return m_size; }
-    void setSize(const WebCore::IntSize&);
+    void setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
 
 protected:
     explicit DrawingAreaProxy(DrawingAreaInfo::Type, WebPageProxy*);
@@ -88,12 +94,17 @@ protected:
     WebPageProxy* m_webPageProxy;
 
     WebCore::IntSize m_size;
+    WebCore::IntSize m_scrollOffset;
 
 private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
-    virtual void update(const UpdateInfo&) { }
-    virtual void didSetSize(const UpdateInfo&) { }
+    virtual void update(uint64_t sequenceNumber, const UpdateInfo&) { }
+    virtual void didSetSize(uint64_t sequenceNumber, const UpdateInfo&, const LayerTreeContext&) { }
+#if USE(ACCELERATED_COMPOSITING)
+    virtual void enterAcceleratedCompositingMode(uint64_t sequenceNumber, const LayerTreeContext&) { }
+    virtual void exitAcceleratedCompositingMode(uint64_t sequenceNumber, const UpdateInfo&) { }
+#endif
 };
 
 } // namespace WebKit

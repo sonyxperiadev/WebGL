@@ -79,6 +79,7 @@ public:
     
     virtual void processDidCrash() = 0;
     virtual void didRelaunchProcess() = 0;
+    virtual void pageClosed() = 0;
 
     virtual void takeFocus(bool direction) = 0;
     virtual void toolTipChanged(const String&, const String&) = 0;
@@ -98,7 +99,7 @@ public:
     virtual void clearAllEditCommands() = 0;
     virtual void setEditCommandState(const String& commandName, bool isEnabled, int state) = 0;
 #if PLATFORM(MAC)
-    virtual void accessibilityChildTokenReceived(const CoreIPC::DataReference&) = 0;
+    virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&) = 0;
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines) = 0;
     virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag) = 0;
 #endif
@@ -108,7 +109,7 @@ public:
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) = 0;
 
-    virtual void didNotHandleKeyEvent(const NativeWebKeyboardEvent&) = 0;
+    virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) = 0;
 
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) = 0;
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*) = 0;
@@ -116,6 +117,9 @@ public:
     virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut) = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
+    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) = 0;
+    virtual void exitAcceleratedCompositingMode() = 0;
+    
     virtual void pageDidEnterAcceleratedCompositing() = 0;
     virtual void pageDidLeaveAcceleratedCompositing() = 0;
 #endif
@@ -126,9 +130,12 @@ public:
 
 #if PLATFORM(MAC)
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled) = 0;
+    virtual void setAutodisplay(bool) = 0;
 
     virtual CGContextRef containingWindowGraphicsContext() = 0;
 #endif
+
+    virtual void didChangeScrollbarsForMainFrame() const = 0;
 
     // Custom representations.
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation) = 0;

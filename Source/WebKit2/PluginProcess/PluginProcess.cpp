@@ -23,9 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(PLUGIN_PROCESS)
-
+#include "config.h"
 #include "PluginProcess.h"
+
+#if ENABLE(PLUGIN_PROCESS)
 
 #include "MachPort.h"
 #include "NetscapePluginModule.h"
@@ -55,11 +56,12 @@ PluginProcess::~PluginProcess()
 {
 }
 
-void PluginProcess::initializeConnection(CoreIPC::Connection::Identifier serverIdentifier)
+void PluginProcess::initialize(CoreIPC::Connection::Identifier serverIdentifier, RunLoop* runLoop)
 {
     ASSERT(!m_connection);
 
-    m_connection = CoreIPC::Connection::createClientConnection(serverIdentifier, this, RunLoop::main());
+    m_connection = CoreIPC::Connection::createClientConnection(serverIdentifier, this, runLoop);
+    m_connection->setDidCloseOnConnectionWorkQueueCallback(didCloseOnConnectionWorkQueue);
     m_connection->open();
 }
 
@@ -109,7 +111,14 @@ void PluginProcess::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Mess
 {
 }
 
-void PluginProcess::initialize(const PluginProcessCreationParameters& parameters)
+NO_RETURN void PluginProcess::didFailToSendSyncMessage(CoreIPC::Connection*)
+{
+    // We were making a synchronous call to a web process that doesn't exist any more.
+    // Callers are unlikely to be prepared for an error like this, so it's best to exit immediately.
+    exit(0);
+}
+    
+void PluginProcess::initializePluginProcess(const PluginProcessCreationParameters& parameters)
 {
     ASSERT(!m_pluginModule);
 

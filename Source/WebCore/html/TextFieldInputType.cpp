@@ -52,6 +52,11 @@ bool TextFieldInputType::valueMissing(const String& value) const
     return value.isEmpty();
 }
 
+bool TextFieldInputType::canSetSuggestedValue()
+{
+    return true;
+}
+
 void TextFieldInputType::handleKeydownEvent(KeyboardEvent* event)
 {
     if (!element()->focused())
@@ -64,6 +69,8 @@ void TextFieldInputType::handleKeydownEvent(KeyboardEvent* event)
 
 void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent* event)
 {
+    if (element()->disabled() || element()->readOnly())
+        return;
     const String& key = event->keyIdentifier();
     int step = 0;
     if (key == "Up")
@@ -78,6 +85,8 @@ void TextFieldInputType::handleKeydownEventForSpinButton(KeyboardEvent* event)
 
 void TextFieldInputType::handleWheelEventForSpinButton(WheelEvent* event)
 {
+    if (element()->disabled() || element()->readOnly())
+        return;
     int step = 0;
     if (event->wheelDeltaY() > 0)
         step = 1;

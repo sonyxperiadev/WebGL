@@ -125,7 +125,7 @@ unsigned SVGFontFaceElement::unitsPerEm() const
 {
     const AtomicString& value = getAttribute(units_per_emAttr);
     if (value.isEmpty())
-        return defaultUnitsPerEm;
+        return gDefaultUnitsPerEm;
 
     return static_cast<unsigned>(ceilf(value.toFloat()));
 }
@@ -259,6 +259,11 @@ int SVGFontFaceElement::descent() const
 String SVGFontFaceElement::fontFamily() const
 {
     return m_styleDeclaration->getPropertyValue(CSSPropertyFontFamily);
+}
+
+SVGFontElement* SVGFontFaceElement::associatedFontElement() const
+{
+    return m_fontElement.get();
 }
 
 void SVGFontFaceElement::rebuildFontFace()

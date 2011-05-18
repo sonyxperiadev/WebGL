@@ -448,6 +448,7 @@ static void resetDefaultsToConsistentValues()
     [preferences setDeveloperExtrasEnabled:NO];
     [preferences setLoadsImagesAutomatically:YES];
     [preferences setFrameFlatteningEnabled:NO];
+    [preferences setSpatialNavigationEnabled:NO];
     [preferences setEditingBehavior:WebKitEditingMacBehavior];
     if (persistentUserStyleSheetLocation) {
         [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
@@ -753,7 +754,10 @@ static void dumpHistoryItem(WebHistoryItem *item, int indent, BOOL current)
 
 static void dumpFrameScrollPosition(WebFrame *f)
 {
-    NSPoint scrollPosition = [[[[f frameView] documentView] superview] bounds].origin;
+    WebScriptObject* scriptObject = [f windowObject];
+    NSPoint scrollPosition = NSMakePoint(
+        [[scriptObject valueForKey:@"pageXOffset"] floatValue],
+        [[scriptObject valueForKey:@"pageYOffset"] floatValue]);
     if (ABS(scrollPosition.x) > 0.00000001 || ABS(scrollPosition.y) > 0.00000001) {
         if ([f parentFrame] != nil)
             printf("frame '%s' ", [[f name] UTF8String]);

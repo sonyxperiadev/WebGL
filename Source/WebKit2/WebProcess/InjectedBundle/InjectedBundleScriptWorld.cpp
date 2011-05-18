@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "InjectedBundleScriptWorld.h"
 
 #include <WebCore/DOMWrapperWorld.h>
@@ -79,6 +80,11 @@ InjectedBundleScriptWorld::~InjectedBundleScriptWorld()
 DOMWrapperWorld* InjectedBundleScriptWorld::coreWorld() const
 {
     return m_world.get();
+}
+    
+void InjectedBundleScriptWorld::clearWrappers()
+{
+    m_world->clearWrappers();
 }
 
 } // namespace WebKit

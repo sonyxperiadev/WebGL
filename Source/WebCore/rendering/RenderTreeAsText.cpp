@@ -27,7 +27,6 @@
 #include "RenderTreeAsText.h"
 
 #include "CSSMutableStyleDeclaration.h"
-#include "CharacterNames.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -48,6 +47,7 @@
 #include "SelectionController.h"
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(SVG)
 #include "RenderSVGContainer.h"
@@ -621,10 +621,10 @@ static void writeLayers(TextStream& ts, const RenderLayer* rootLayer, RenderLaye
     // FIXME: Apply overflow to the root layer to not break every test.  Complete hack.  Sigh.
     IntRect paintDirtyRect(paintRect);
     if (rootLayer == l) {
-        paintDirtyRect.setWidth(max(paintDirtyRect.width(), rootLayer->renderBox()->rightLayoutOverflow()));
-        paintDirtyRect.setHeight(max(paintDirtyRect.height(), rootLayer->renderBox()->bottomLayoutOverflow()));
-        l->setWidth(max(l->width(), l->renderBox()->rightLayoutOverflow()));
-        l->setHeight(max(l->height(), l->renderBox()->bottomLayoutOverflow()));
+        paintDirtyRect.setWidth(max(paintDirtyRect.width(), rootLayer->renderBox()->maxXLayoutOverflow()));
+        paintDirtyRect.setHeight(max(paintDirtyRect.height(), rootLayer->renderBox()->maxYLayoutOverflow()));
+        l->setWidth(max(l->width(), l->renderBox()->maxXLayoutOverflow()));
+        l->setHeight(max(l->height(), l->renderBox()->maxYLayoutOverflow()));
     }
     
     // Calculate the clip rects we should use.
@@ -769,13 +769,12 @@ String counterValueForElement(Element* element)
     element->document()->updateLayout();
     TextStream stream;
     bool isFirstCounter = true;
-    // The counter renderers should be children of anonymous children
-    // (i.e., :before or :after pseudo-elements).
+    // The counter renderers should be children of :before or :after pseudo-elements.
     if (RenderObject* renderer = element->renderer()) {
-        for (RenderObject* child = renderer->firstChild(); child; child = child->nextSibling()) {
-            if (child->isAnonymous())
-                writeCounterValuesFromChildren(stream, child, isFirstCounter);
-        }
+        if (RenderObject* pseudoElement = renderer->beforePseudoElementRenderer())
+            writeCounterValuesFromChildren(stream, pseudoElement, isFirstCounter);
+        if (RenderObject* pseudoElement = renderer->afterPseudoElementRenderer())
+            writeCounterValuesFromChildren(stream, pseudoElement, isFirstCounter);
     }
     return stream.release();
 }

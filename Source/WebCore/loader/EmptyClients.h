@@ -141,11 +141,16 @@ public:
     virtual bool shouldInterruptJavaScript() { return false; }
 
     virtual bool selectItemWritingDirectionIsNatural() { return false; }
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection() { return false; }
     virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptyPopupMenu()); }
     virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptySearchPopupMenu()); }
 
 #if ENABLE(CONTEXT_MENUS)
     virtual void showContextMenu() { }
+#endif
+
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+    virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
 #endif
 
     virtual void setStatusbarText(const String&) { }
@@ -197,8 +202,6 @@ public:
 
     virtual void formDidFocus(const Node*) { }
     virtual void formDidBlur(const Node*) { }
-
-    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 
     virtual void setCursor(const Cursor&) { }
 
@@ -356,7 +359,7 @@ public:
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
     virtual void didDisplayInsecureContent() { }
-    virtual void didRunInsecureContent(SecurityOrigin*) { }
+    virtual void didRunInsecureContent(SecurityOrigin*, const KURL&) { }
     virtual PassRefPtr<Frame> createFrame(const KURL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int) { return 0; }
     virtual void didTransferChildFrameToNewDocument(Page*) { }
     virtual void transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*) { }
@@ -555,7 +558,6 @@ public:
     virtual DragDestinationAction actionMaskForDrag(DragData*) { return DragDestinationActionNone; }
     virtual DragSourceAction dragSourceActionMaskForPoint(const IntPoint&) { return DragSourceActionNone; }
     virtual void startDrag(DragImageRef, const IntPoint&, const IntPoint&, Clipboard*, Frame*, bool) { }
-    virtual DragImageRef createDragImageForLink(KURL&, const String&, Frame*) { return 0; }
     virtual void dragControllerDestroyed() { }
 };
 #endif // ENABLE(DRAG_SUPPORT)
@@ -573,8 +575,6 @@ public:
     virtual void highlight(Node*) { }
     virtual void hideHighlight() { }
 
-    virtual void populateSetting(const String&, String*) { }
-    virtual void storeSetting(const String&, const String&) { }
     virtual bool sendMessageToFrontend(const String&) { return false; }
 };
 

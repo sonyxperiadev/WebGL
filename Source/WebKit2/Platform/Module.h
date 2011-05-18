@@ -37,6 +37,10 @@
 #include <QLibrary>
 #endif
 
+#if PLATFORM(GTK)
+typedef struct _GModule GModule;
+#endif
+
 namespace WebKit {
 
 class Module {
@@ -62,6 +66,8 @@ private:
     HMODULE m_module;
 #elif PLATFORM(QT)
     QLibrary m_lib;
+#elif PLATFORM(GTK)
+    GModule* m_handle;
 #endif
 };
 

@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebBackForwardList.h"
 #include "Logging.h"
 #include <wtf/RetainPtr.h>
@@ -51,6 +52,8 @@ DEFINE_STATIC_GETTER(CFStringRef, SessionHistoryEntryDataKey, (CFSTR("SessionHis
 
 CFDictionaryRef WebBackForwardList::createCFDictionaryRepresentation(WebPageProxy::WebPageProxySessionStateFilterCallback filter, void* context) const
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     RetainPtr<CFNumberRef> currentIndex(AdoptCF, CFNumberCreate(0, kCFNumberIntType, &m_current));    
     RetainPtr<CFMutableArrayRef> entries(AdoptCF, CFArrayCreateMutable(0, m_entries.size(), &kCFTypeArrayCallBacks));
     
@@ -61,7 +64,7 @@ CFDictionaryRef WebBackForwardList::createCFDictionaryRepresentation(WebPageProx
 
     for (size_t i = 0; i < m_entries.size(); ++i) {
         RefPtr<WebURL> webURL = WebURL::create(m_entries[i]->url());
-        if (!filter(toAPI(m_page), WKPageGetSessionHistoryURLValueType(), toURLRef(m_entries[i]->originalURL().impl()), context))
+        if (filter && !filter(toAPI(m_page), WKPageGetSessionHistoryURLValueType(), toURLRef(m_entries[i]->originalURL().impl()), context))
             continue;
         
         RetainPtr<CFStringRef> url(AdoptCF, m_entries[i]->url().createCFString());
@@ -100,6 +103,16 @@ bool WebBackForwardList::restoreFromCFDictionaryRepresentation(CFDictionaryRef d
     }
 
     CFIndex size = CFArrayGetCount(cfEntries);
+    if (currentIndex != static_cast<CFIndex>(NoCurrentItemIndex) && currentIndex >= size) {
+        LOG(SessionState, "WebBackForwardList dictionary representation contains an invalid current index (%ld) for the number of entries (%ld)", currentIndex, size);
+        return false;
+    }
+
+    if (currentIndex == static_cast<CFIndex>(NoCurrentItemIndex) && size) {
+        LOG(SessionState, "WebBackForwardList dictionary representation says there is no current item index, but there is a list of %ld entries - this is bogus", size);
+        return false;
+    }
+    
     BackForwardListItemVector newEntries;
     newEntries.reserveCapacity(size);
     for (CFIndex i = 0; i < size; ++i) {
@@ -138,6 +151,7 @@ bool WebBackForwardList::restoreFromCFDictionaryRepresentation(CFDictionaryRef d
     
     m_current = currentIndex;
     m_entries = newEntries;
+
     return true;
 }
 

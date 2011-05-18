@@ -39,6 +39,7 @@
 #include "GOwnPtr.h"
 #include "LayoutTestController.h"
 #include "PixelDumpSupport.h"
+#include "TextInputController.h"
 #include "WebCoreSupport/DumpRenderTreeSupportGtk.h"
 #include "WorkQueue.h"
 #include "WorkQueueItem.h"
@@ -419,6 +420,7 @@ static void resetDefaultsToConsistentValues()
                  "enable-fullscreen", TRUE,
                  NULL);
     webkit_web_view_set_settings(webView, settings);
+    webkit_set_cache_model(WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER);
 
     DumpRenderTreeSupportGtk::clearMainFrameName(mainFrame);
 
@@ -432,7 +434,6 @@ static void resetDefaultsToConsistentValues()
     WebKitWebBackForwardList* list = webkit_web_view_get_back_forward_list(webView);
     webkit_web_back_forward_list_clear(list);
 
-#ifdef HAVE_LIBSOUP_2_29_90
     SoupSession* session = webkit_get_default_session();
     SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
 
@@ -440,11 +441,14 @@ static void resetDefaultsToConsistentValues()
     // HTTP. Should we initialize it earlier, perhaps?
     if (jar)
         g_object_set(G_OBJECT(jar), SOUP_COOKIE_JAR_ACCEPT_POLICY, SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY, NULL);
-#endif
 
     setlocale(LC_ALL, "");
 
     DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(true);
+    DumpRenderTreeSupportGtk::setIconDatabaseEnabled(false);
+
+    if (axController)
+        axController->resetToConsistentState();
 }
 
 static bool useLongRunningServerMode(int argc, char *argv[])
@@ -738,6 +742,11 @@ static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void
         dump();
 }
 
+static gboolean webViewLoadError(WebKitWebView*, WebKitWebFrame*, gchar*, gpointer, gpointer)
+{
+    return TRUE; // Return true here to disable the default error page.
+}
+
 static void webViewDocumentLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
 {
     if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
@@ -781,6 +790,11 @@ static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* fram
     JSValueRef eventSender = makeEventSender(context, !webkit_web_frame_get_parent(frame));
     JSObjectSetProperty(context, windowObject, eventSenderStr, eventSender, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
     JSStringRelease(eventSenderStr);
+
+    JSStringRef textInputControllerStr = JSStringCreateWithUTF8CString("textInputController");
+    JSValueRef textInputController = makeTextInputController(context);
+    JSObjectSetProperty(context, windowObject, textInputControllerStr, textInputController, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
+    JSStringRelease(textInputControllerStr);
 }
 
 static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
@@ -999,6 +1013,7 @@ static WebKitWebView* createWebView()
     g_object_connect(G_OBJECT(view),
                      "signal::load-started", webViewLoadStarted, 0,
                      "signal::load-finished", webViewLoadFinished, 0,
+                     "signal::load-error", webViewLoadError, 0,
                      "signal::window-object-cleared", webViewWindowObjectCleared, 0,
                      "signal::console-message", webViewConsoleMessage, 0,
                      "signal::script-alert", webViewScriptAlert, 0,

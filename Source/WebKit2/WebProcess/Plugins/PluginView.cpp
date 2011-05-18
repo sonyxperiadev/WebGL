@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "PluginView.h"
 
 #include "NPRuntimeUtilities.h"
@@ -30,6 +31,7 @@
 #include "WebEvent.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include "WebProcess.h"
 #include <WebCore/Chrome.h>
 #include <WebCore/CookieJar.h>
 #include <WebCore/DocumentLoader.h>
@@ -282,8 +284,11 @@ PluginView::~PluginView()
     // Invalidate the object map.
     m_npRuntimeObjectMap.invalidate();
 
-    // Cancel all streams.
     cancelAllStreams();
+
+    // Null out the plug-in element explicitly so we'll crash earlier if we try to use
+    // the plug-in view after it's been destroyed.
+    m_pluginElement = nullptr;
 }
 
 Frame* PluginView::frame()
@@ -901,6 +906,10 @@ bool PluginView::evaluate(NPObject* npObject, const String& scriptString, NPVari
     bool oldAllowPopups = frame()->script()->allowPopupsFromPlugin();
     frame()->script()->setAllowPopupsFromPlugin(allowPopups);
 
+    // Calling evaluate will run JavaScript that can potentially remove the plug-in element, so we need to
+    // protect the plug-in view from destruction.
+    NPRuntimeObjectMap::PluginProtector pluginProtector(&m_npRuntimeObjectMap);
+
     bool returnValue = m_npRuntimeObjectMap.evaluate(npObject, scriptString, result);
 
     frame()->script()->setAllowPopupsFromPlugin(oldAllowPopups);
@@ -959,6 +968,12 @@ void PluginView::setComplexTextInputEnabled(bool complexTextInputEnabled)
 {
     m_webPage->send(Messages::WebPageProxy::SetComplexTextInputEnabled(m_plugin->pluginComplexTextInputIdentifier(), complexTextInputEnabled));
 }
+
+mach_port_t PluginView::compositingRenderServerPort()
+{
+    return WebProcess::shared().compositingRenderServerPort();
+}
+
 #endif
     
 String PluginView::proxiesForURL(const String& urlString)

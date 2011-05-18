@@ -68,6 +68,34 @@ namespace WebCore {
 using namespace HTMLNames;
 using namespace XMLNames;
     
+class StyleSelectorParentPusher {
+public:
+    StyleSelectorParentPusher(Element* parent)
+        : m_parent(parent)
+        , m_pushedStyleSelector(0)
+    {
+    }
+    void push()
+    {
+        if (m_pushedStyleSelector)
+            return;
+        m_pushedStyleSelector = m_parent->document()->styleSelector();
+        m_pushedStyleSelector->pushParent(m_parent);
+    }
+    ~StyleSelectorParentPusher() 
+    {
+
+        if (!m_pushedStyleSelector)
+            return;
+        ASSERT(m_pushedStyleSelector == m_parent->document()->styleSelector());
+        m_pushedStyleSelector->popParent(m_parent); 
+    }
+
+private:
+    Element* m_parent;
+    CSSStyleSelector* m_pushedStyleSelector;
+};
+
 PassRefPtr<Element> Element::create(const QualifiedName& tagName, Document* document)
 {
     return adoptRef(new Element(tagName, document, CreateElement));
@@ -124,7 +152,7 @@ PassRefPtr<DocumentFragment> Element::deprecatedCreateContextualFragment(const S
     for (RefPtr<Node> node = fragment->firstChild(); node; node = nextNode) {
         nextNode = node->nextSibling();
         if (node->hasTagName(htmlTag) || node->hasTagName(bodyTag)) {
-            HTMLElement* element = static_cast<HTMLElement*>(node.get());
+            HTMLElement* element = toHTMLElement(node.get());
             Node* firstChild = element->firstChild();
             if (firstChild)
                 nextNode = firstChild;
@@ -917,9 +945,15 @@ void Element::attach()
     RenderWidget::suspendWidgetHierarchyUpdates();
 
     createRendererIfNeeded();
+    
+    StyleSelectorParentPusher parentPusher(this);
+    if (firstChild())
+        parentPusher.push();
     ContainerNode::attach();
-    if (Node* shadow = shadowRoot())
+    if (Node* shadow = shadowRoot()) {
+        parentPusher.push();
         shadow->attach();
+    }
     if (hasRareData()) {   
         ElementRareData* data = rareData();
         if (data->needsFocusAppearanceUpdateSoonAfterAttach()) {
@@ -1075,7 +1109,7 @@ void Element::recalcStyle(StyleChange change)
                 change = ch;
         }
     }
-
+    StyleSelectorParentPusher parentPusher(this);
     // FIXME: This check is good enough for :hover + foo, but it is not good enough for :hover + foo + bar.
     // For now we will just worry about the common case, since it's a lot trickier to get the second case right
     // without doing way too much re-resolution.
@@ -1084,15 +1118,19 @@ void Element::recalcStyle(StyleChange change)
         bool childRulesChanged = n->needsStyleRecalc() && n->styleChangeType() == FullStyleChange;
         if (forceCheckOfNextElementSibling && n->isElementNode())
             n->setNeedsStyleRecalc();
-        if (change >= Inherit || n->isTextNode() || n->childNeedsStyleRecalc() || n->needsStyleRecalc())
+        if (change >= Inherit || n->isTextNode() || n->childNeedsStyleRecalc() || n->needsStyleRecalc()) {
+            parentPusher.push();
             n->recalcStyle(change);
+        }
         if (n->isElementNode())
             forceCheckOfNextElementSibling = childRulesChanged && hasDirectAdjacentRules;
     }
     // FIXME: This does not care about sibling combinators. Will be necessary in XBL2 world.
     if (Node* shadow = shadowRoot()) {
-        if (change >= Inherit || shadow->isTextNode() || shadow->childNeedsStyleRecalc() || shadow->needsStyleRecalc())
+        if (change >= Inherit || shadow->isTextNode() || shadow->childNeedsStyleRecalc() || shadow->needsStyleRecalc()) {
+            parentPusher.push();
             shadow->recalcStyle(change);
+        }
     }
 
     clearNeedsStyleRecalc();
@@ -1238,12 +1276,22 @@ void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* af
     if (!changedByParser)
         checkForSiblingStyleChanges(this, renderStyle(), false, beforeChange, afterChange, childCountDelta);
 }
+    
+void Element::beginParsingChildren()
+{
+    clearIsParsingChildrenFinished();
+    CSSStyleSelector* styleSelector = document()->styleSelectorIfExists();
+    if (styleSelector && attached())
+        styleSelector->pushParent(this);
+}
 
 void Element::finishParsingChildren()
 {
     ContainerNode::finishParsingChildren();
     setIsParsingChildrenFinished();
     checkForSiblingStyleChanges(this, renderStyle(), true, lastChild(), 0, 0);
+    if (CSSStyleSelector* styleSelector = document()->styleSelectorIfExists())
+        styleSelector->popParent(this);
 }
 
 void Element::dispatchAttrRemovalEvent(Attribute*)
@@ -1632,10 +1680,7 @@ void Element::normalizeAttributes()
 // ElementTraversal API
 Element* Element::firstElementChild() const
 {
-    Node* n = firstChild();
-    while (n && !n->isElementNode())
-        n = n->nextSibling();
-    return static_cast<Element*>(n);
+    return WebCore::firstElementChild(this);
 }
 
 Element* Element::lastElementChild() const

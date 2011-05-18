@@ -1,3 +1,398 @@
+2011-02-11  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r78331.
+        http://trac.webkit.org/changeset/78331
+        https://bugs.webkit.org/show_bug.cgi?id=54295
+
+        This patch broke 11 tests in GTK bots (Requested by svillar on
+        #webkit).
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::notifyStatus):
+
+2011-02-10  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update calls to DocumentWriter.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::FrameLoaderClient):
+        (WebKit::FrameLoaderClient::didRunInsecureContent):
+        (WebKit::FrameLoaderClient::dispatchDidLoadMainResource):
+        (WebKit::FrameLoaderClient::finishedLoading):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_encoding):
+
+2011-02-11  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] events missing when a document is (re)loaded
+        https://bugs.webkit.org/show_bug.cgi?id=25831
+
+        Emit the right signals when reloading a document.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::notifyAccessibilityStatus): New function, to make sure
+        the signals involved in reloading a document are properly emitted.
+        (WebKit::notifyStatus): Also notify accessibility if enabled.
+
+2011-02-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] DRT needs an implementation of LayoutTestController.setIconDatabaseEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=54033
+
+        Add a DumpRenderTreeSupportGtk method for turning the icon database on and off.
+        This is a likely candidate for a new API point.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::setIconDatabaseEnabled): Added.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+        * webkit/webkitglobals.cpp:
+        (webkitInit): Call setIconDatabaseEnabled(true) on startup, instead
+        of initializing the database manually.
+        (WebKit::setIconDatabaseEnabled): Added.
+        * webkit/webkitglobalsprivate.h: Added declarations.
+
+2011-02-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove orphan code from old parser
+        https://bugs.webkit.org/show_bug.cgi?id=53984
+
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2011-02-02  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: move InspectorController's methods from InspectorAgent to InspectorController.
+
+        https://bugs.webkit.org/show_bug.cgi?id=53169
+
+        Minor change enforced by major changes in WebCore/inspector/InspectorController.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        * webkit/webkitwebinspector.cpp:
+        (webkit_web_inspector_get_property):
+
+2011-02-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] DRT's TextInputController is unimplemented on GTK
+        https://bugs.webkit.org/show_bug.cgi?id=52997
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::setComposition):
+        (DumpRenderTreeSupportGtk::confirmComposition):
+        (DumpRenderTreeSupportGtk::firstRectForCharacterRange):
+        (DumpRenderTreeSupportGtk::selectedRange): New methods needed by
+        TextInputController.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-02-07  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed Adam Roben and Darin Adler.
+
+        WebKit2: drag and drop support on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=52775
+
+        Removed createDragImageForLink from DragClient.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        * WebCoreSupport/DragClientGtk.h:
+
+2011-02-07  Joone Hur  <joone.hur@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] Implement layoutTestController.findString
+        https://bugs.webkit.org/show_bug.cgi?id=50237
+
+        * GNUmakefile.am: Add AssertMatchingEnums.cpp.
+        * WebCoreSupport/AssertMatchingEnums.cpp: Add this file to assert that various 
+        WebKit API enum values continue matching WebCore defined enum values.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::findString):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-02-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Daniel Bates.
+
+        [GTK] fast/history/history-subframe-with-name.html fails with GTK DRT
+        https://bugs.webkit.org/show_bug.cgi?id=44784
+
+        Call FrameLoader::loadURLIntoChildFrame on the parent frame's loader, not the child's. 
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createFrame): Fix the call to FrameLoader::loadURLIntoChildFrame.
+
+2011-02-07  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] atk_text_get_caret_offset fails for list items
+        https://bugs.webkit.org/show_bug.cgi?id=53436
+
+        Update unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkCaretOffsets): Check that the caret offset returned
+        match the value previously set.
+
+2011-02-04  Joone Hur  <joone.hur@collabora.co.uk>
+
+        Unreviewed, Fix compilation warning.
+
+        Constructor initialization list should follow the declaration order.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::FrameLoaderClient): m_hasRepresentation is moved to 
+        the last position in the initialization list.
+
+2011-02-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] WebKitWebFrame can return a stale frame name when calling webkit_web_frame_get_name
+        https://bugs.webkit.org/show_bug.cgi?id=53797
+
+        When the frame name changes between different calls to webkit_web_frame_get_name
+        on the same frame, return the new frame name instead of the one valid during the
+        previous call.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_init): Initialize the frame name to 0.
+        (webkit_web_frame_get_name): Check the current frame name first before
+        returning the cached value.
+
+2011-02-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] fast/events/pagehide-timeout.html fails
+        https://bugs.webkit.org/show_bug.cgi?id=53771
+
+        Add the document browser cache model. This model is optimized for viewing
+        a series of local files, while the document viewer is optimized for only
+        viewing one local file. Improve the documentation on the mapping of these
+        enum values to actual cache settings.
+
+        * webkit/webkitglobals.cpp:
+        (webkit_set_cache_model): Add support for the document browser cache model and
+        improve comments in this section better explaining where the magic numbers come from.
+        * webkit/webkitglobals.h: Added an enum value for the document browser cache model.
+
+2011-02-03  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove settings related methods from InspectorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53686
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorFrontendClient::InspectorFrontendClient):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2011-02-03  Adam Langley  <agl@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Plumb mixed script URL to FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=52384
+
+        Regressions covered by http/tests/security/mixedContent/*
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::didRunInsecureContent):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2011-02-03  Joone Hur  <joone.hur@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] No need to set text encoding in the provisional phase
+        https://bugs.webkit.org/show_bug.cgi?id=53487
+
+        According to changeset 67253, setEncoding could be called multiple times from 
+        committedLoad, finishedLoading, dispatchDidFailLoading, and setMainDocumentError 
+        in FrameLoaderClient. To fix this, the relevant code was removed from 
+        FrameLoaderClient and moved to DocumentLoader::commitData. However, that 
+        code was not removed from FrameLoaderClient::finishedLoading in WebKitGtk+.
+
+        Due to this reason, after loading a html document, other ports initialize the 
+        text encoding from FrameLoaderClient::finishedLoading, but WebKitGtk+ sets 
+        the same encoding again, even tries to set encoding in the provisional phase. 
+        This causes unnecessary encoding setting.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::FrameLoaderClient): Set m_hasRepresentation to false.
+        (WebKit::FrameLoaderClient::makeRepresentation): Set m_hasRepresentation to true.
+        (WebKit::FrameLoaderClient::revertToProvisionalState): Set m_hasRepresentation to true.
+        (WebKit::FrameLoaderClient::finishedLoading): Skip the encoding setting when 
+        m_hasRepresentation is false.
+        * WebCoreSupport/FrameLoaderClientGtk.h: Added m_hasRepresentation.
+
+2011-02-02  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Update the NEWS file in preparation for the 1.3.11 release.
+
+        * NEWS: Update the NEWS.
+
+2011-02-02  Dan Winship  <danw@gnome.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] drop soup cache stuff, which has been moved to libsoup
+        https://bugs.webkit.org/show_bug.cgi?id=50747
+
+        * GNUmakefile.am: Remove old cache files.
+
+2011-02-02  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Removal of right()/bottom(), converting to maxX()/maxY().
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_popup_menu_handler):
+
+2011-02-01  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] atk_text_set_caret_offset fails for list items
+        https://bugs.webkit.org/show_bug.cgi?id=53388
+
+        Update unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkCaretOffsets): Ensure setting the caret in a list
+        item through the AtkText interface is possible.
+
+2011-02-01  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] character range extents is off when the end of a wrapped line is included
+        https://bugs.webkit.org/show_bug.cgi?id=53323
+
+        Update unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkGetExtents): Check that the extent for a full line
+        are the same height than for a partial section of the same line.
+
+2011-02-01  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Caret Offset is one off at the end of wrapped lines
+        https://bugs.webkit.org/show_bug.cgi?id=53300
+
+        Update unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkCaretOffsetsAndExtranousWhiteSpaces): Set and get
+        the caret offset at the edge of the line.
+
+2011-01-31  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] atk_text_set_caret_offset returns True even when it is unsuccessful
+        https://bugs.webkit.org/show_bug.cgi?id=53389
+
+        New unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkCaretOffsets): New.
+        (main): Add new test.
+
+2011-01-29  Dan Winship  <danw@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Remove HAVE_LIBSOUP_2_29_90 and HAVE_GSETTINGS conditionals;
+        we depend on glib 2.27.4 and libsoup 2.33.1 now.
+        https://bugs.webkit.org/show_bug.cgi?id=50675
+
+        * GNUmakefile.am:
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::storeSetting):
+        * webkit/webkitprivate.cpp:
+        (inspectorGSettings):
+        * webkit/webkitprivate.h:
+
+2011-01-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <select> can't display right-to-left (rtl) languages
+        https://bugs.webkit.org/show_bug.cgi?id=19785
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::selectItemAlignmentFollowsMenuWritingDirection): Added.
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2011-01-28  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Fix compilation warning
+        https://bugs.webkit.org/show_bug.cgi?id=53292
+
+        * webkit/webkitwebframe.cpp:
+        (draw_page_callback): Cast the pageCount from size_t to int, it
+        should be safe considering page_nr is the number of pages,
+        0-based.
+
+2011-01-27  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Use Document::url() instead of FrameLoader::url().
+        https://bugs.webkit.org/show_bug.cgi?id=41165
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_icon_uri):
+
+2011-01-27  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Space characters in source document interfere with reported caret offset
+        https://bugs.webkit.org/show_bug.cgi?id=53033
+
+        New unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkCaretOffsetsAndExtranousWhiteSpaces): New.
+        (main): Add new unit test.
+
+2011-01-26  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Reliable crash with getTextAtOffset()
+        https://bugs.webkit.org/show_bug.cgi?id=53131
+
+        New unit test to check the fix for this bug.
+
+        * tests/testatk.c:
+        (testWebkitAtkGetTextAtOffsetWithSpecialCharacters): New.
+        (main): Add new unit test.
+
 2011-01-21  Carlos Garcia Campos  <cgarcia@igalia.com>
 
         Reviewed by Martin Robinson.

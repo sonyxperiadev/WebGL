@@ -26,7 +26,10 @@
 #ifndef IDBDatabase_h
 #define IDBDatabase_h
 
+#include "ActiveDOMObject.h"
 #include "DOMStringList.h"
+#include "Event.h"
+#include "EventTarget.h"
 #include "ExceptionCode.h"
 #include "IDBDatabaseBackendInterface.h"
 #include "IDBObjectStore.h"
@@ -42,17 +45,13 @@ namespace WebCore {
 
 class IDBAny;
 class IDBRequest;
-class ScriptExecutionContext;
 
-class IDBDatabase : public RefCounted<IDBDatabase> {
+class IDBDatabase : public RefCounted<IDBDatabase>, public EventTarget, public ActiveDOMObject {
 public:
-    static PassRefPtr<IDBDatabase> create(PassRefPtr<IDBDatabaseBackendInterface> database)
-    {
-        return adoptRef(new IDBDatabase(database));
-    }
+    static PassRefPtr<IDBDatabase> create(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
     ~IDBDatabase();
 
-    void setSetVersionTransaction(IDBTransactionBackendInterface*);
+    void setSetVersionTransaction(IDBTransaction*);
 
     // Implement the IDL
     String name() const { return m_backend->name(); }
@@ -61,19 +60,45 @@ public:
 
     // FIXME: Try to modify the code generator so this is unneeded.
     PassRefPtr<IDBObjectStore> createObjectStore(const String& name, ExceptionCode& ec) { return createObjectStore(name, OptionsObject(), ec); }
-    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext* context, ExceptionCode& ec) { return transaction(context, OptionsObject(), ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext* context, ExceptionCode& ec) { return transaction(context, 0, ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext* context, PassRefPtr<DOMStringList> storeNames, ExceptionCode& ec) { return transaction(context, storeNames, IDBTransaction::READ_ONLY, ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext*, PassRefPtr<DOMStringList>, unsigned short mode, ExceptionCode&);
 
     PassRefPtr<IDBObjectStore> createObjectStore(const String& name, const OptionsObject&, ExceptionCode&);
     void deleteObjectStore(const String& name, ExceptionCode&);
     PassRefPtr<IDBRequest> setVersion(ScriptExecutionContext*, const String& version, ExceptionCode&);
-    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext*, const OptionsObject&, ExceptionCode&);
     void close();
 
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+
+    // ActiveDOMObject
+    virtual bool hasPendingActivity() const;
+    virtual void stop();
+
+    // EventTarget
+    virtual IDBDatabase* toIDBDatabase() { return this; }
+    virtual ScriptExecutionContext* scriptExecutionContext() const;
+
+    using RefCounted<IDBDatabase>::ref;
+    using RefCounted<IDBDatabase>::deref;
+
 private:
-    IDBDatabase(PassRefPtr<IDBDatabaseBackendInterface>);
+    IDBDatabase(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
+
+    // EventTarget
+    virtual void refEventTarget() { ref(); }
+    virtual void derefEventTarget() { deref(); }
+    virtual EventTargetData* eventTargetData();
+    virtual EventTargetData* ensureEventTargetData();
 
     RefPtr<IDBDatabaseBackendInterface> m_backend;
-    RefPtr<IDBTransactionBackendInterface> m_setVersionTransaction;
+    RefPtr<IDBTransaction> m_setVersionTransaction;
+
+    bool m_noNewTransactions;
+    bool m_stopped;
+
+    EventTargetData m_eventTargetData;
 };
 
 } // namespace WebCore

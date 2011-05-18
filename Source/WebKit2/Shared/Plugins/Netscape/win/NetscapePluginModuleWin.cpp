@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "NetscapePluginModule.h"
 
 #include <WebCore/FileSystem.h>
@@ -59,7 +60,7 @@ bool NetscapePluginModule::getPluginInfo(const String& pluginPath, PluginInfoSto
     if (!versionInfoSize)
         return false;
 
-    OwnArrayPtr<char> versionInfoData(new char[versionInfoSize]);
+    OwnArrayPtr<char> versionInfoData = adoptArrayPtr(new char[versionInfoSize]);
     if (!::GetFileVersionInfoW(pathCopy.charactersWithNullTermination(), 0, versionInfoSize, versionInfoData.get()))
         return false;
 

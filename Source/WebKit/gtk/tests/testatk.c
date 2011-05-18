@@ -32,6 +32,8 @@ static const char* contents = "<html><body><p>This is a test. This is the second
 
 static const char* contentsWithNewlines = "<html><body><p>This is a test. \n\nThis\n is the second sentence. And this the third.</p></body></html>";
 
+static const char* contentsWithSpecialChars = "<html><body><p>&laquo;&nbsp;This is a paragraph with &ldquo;special&rdquo; characters inside.&nbsp;&raquo;</p></body></html>";
+
 static const char* contentsInTextarea = "<html><body><textarea cols='80'>This is a test. This is the second sentence. And this the third.</textarea></body></html>";
 
 static const char* contentsInTextInput = "<html><body><input type='text' size='80' value='This is a test. This is the second sentence. And this the third.'/></body></html>";
@@ -44,6 +46,8 @@ static const char* contentsInTable = "<html><body><table><tr><td>foo</td><td>bar
 
 static const char* contentsInTableWithHeaders = "<html><body><table><tr><th>foo</th><th>bar</th><th colspan='2'>baz</th></tr><tr><th>qux</th><td>1</td><td>2</td><td>3</td></tr><tr><th rowspan='2'>quux</th><td>4</td><td>5</td><td>6</td></tr><tr><td>6</td><td>7</td><td>8</td></tr><tr><th>corge</th><td>9</td><td>10</td><td>11</td></tr></table><table><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></table></body></html>";
 
+static const char* contentsWithExtraneousWhiteSpaces = "<html><head><body><p>This\n                          paragraph\n                                                      is\n                                                                                                                                                                                                                                                                                                                                                                            borked!</p></body></html>";
+
 static const char* comboBoxSelector = "<html><body><select><option selected value='foo'>foo</option><option value='bar'>bar</option></select></body></html>";
 
 static const char* formWithTextInputs = "<html><body><form><input type='text' name='entry' /></form></body></html>";
@@ -55,6 +59,8 @@ static const char* layoutAndDataTables = "<html><body><table><tr><th>Odd</th><th
 static const char* linksWithInlineImages = "<html><head><style>a.http:before {content: url(no-image.png);}</style><body><p><a class='http' href='foo'>foo</a> bar baz</p><p>foo <a class='http' href='bar'>bar</a> baz</p><p>foo bar <a class='http' href='baz'>baz</a></p></body></html>";
 
 static const char* listsOfItems = "<html><body><ul><li>text only</li><li><a href='foo'>link only</a></li><li>text and a <a href='bar'>link</a></li></ul><ol><li>text only</li><li><a href='foo'>link only</a></li><li>text and a <a href='bar'>link</a></li></ol></body></html>";
+
+static const char* textForCaretBrowsing = "<html><body><h1>A text header</h1><p>A paragraph <a href='http://foo.bar.baz/'>with a link</a> in the middle</p><ol><li>A list item</li></ol><select><option selected value='foo'>An option in a combo box</option></select></body></html>";
 
 static const char* textForSelections = "<html><body><p>A paragraph with plain text</p><p>A paragraph with <a href='http://webkit.org'>a link</a> in the middle</p></body></html>";
 
@@ -221,6 +227,156 @@ static void runGetTextTests(AtkText* textObject)
     /* ATK_TEXT_BOUNDARY_LINE_END */
     testGetTextFunction(textObject, atk_text_get_text_at_offset, ATK_TEXT_BOUNDARY_LINE_END,
                         0, "This is a test. This is the second sentence. And this the third.", 0, 64);
+}
+
+static void testWebkitAtkCaretOffsets()
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
+    g_object_ref_sink(webView);
+    GtkAllocation allocation = { 0, 0, 800, 600 };
+    gtk_widget_size_allocate(GTK_WIDGET(webView), &allocation);
+    webkit_web_view_load_string(webView, textForCaretBrowsing, 0, 0, 0);
+
+    /* Wait for the accessible objects to be created. */
+    waitForAccessibleObjects();
+
+    AtkObject* object = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    g_assert(object);
+
+    AtkObject* header = atk_object_ref_accessible_child(object, 0);
+    g_assert(ATK_IS_TEXT(header));
+    gchar* text = atk_text_get_text(ATK_TEXT(header), 0, -1);
+    g_assert_cmpstr(text, ==, "A text header");
+    g_free (text);
+
+    /* It should be possible to place the caret inside a header. */
+    gboolean result = atk_text_set_caret_offset(ATK_TEXT(header), 5);
+    g_assert_cmpint(result, ==, TRUE);
+    gint offset = atk_text_get_caret_offset(ATK_TEXT(header));
+    g_assert_cmpint(offset, ==, 5);
+
+    AtkObject* paragraph = atk_object_ref_accessible_child(object, 1);
+    g_assert(ATK_IS_TEXT(paragraph));
+    text = atk_text_get_text(ATK_TEXT(paragraph), 0, -1);
+    g_assert_cmpstr(text, ==, "A paragraph with a link in the middle");
+    g_free (text);
+
+    /* It should be possible to place the caret inside a paragraph and a link. */
+    result = atk_text_set_caret_offset(ATK_TEXT(paragraph), 5);
+    g_assert_cmpint(result, ==, TRUE);
+    offset = atk_text_get_caret_offset(ATK_TEXT(paragraph));
+    g_assert_cmpint(offset, ==, 5);
+
+    result = atk_text_set_caret_offset(ATK_TEXT(paragraph), 20);
+    g_assert_cmpint(result, ==, TRUE);
+    offset = atk_text_get_caret_offset(ATK_TEXT(paragraph));
+    g_assert_cmpint(offset, ==, 20);
+
+    result = atk_text_set_caret_offset(ATK_TEXT(paragraph), 30);
+    g_assert_cmpint(result, ==, TRUE);
+    offset = atk_text_get_caret_offset(ATK_TEXT(paragraph));
+    g_assert_cmpint(offset, ==, 30);
+
+    AtkObject* list = atk_object_ref_accessible_child(object, 2);
+    g_assert(ATK_OBJECT(list));
+    g_assert(atk_object_get_role(list) == ATK_ROLE_LIST);
+    g_assert_cmpint(atk_object_get_n_accessible_children(list), ==, 1);
+
+    AtkObject* listItem = atk_object_ref_accessible_child(list, 0);
+    g_assert(ATK_IS_TEXT(listItem));
+    text = atk_text_get_text(ATK_TEXT(listItem), 0, -1);
+    g_assert_cmpstr(text, ==, "1. A list item");
+    g_free (text);
+
+    /* It's not possible to place the caret inside an item's marker. */
+    result = atk_text_set_caret_offset(ATK_TEXT(listItem), 1);
+    g_assert_cmpint(result, ==, FALSE);
+
+    /* It should be possible to place the caret inside an item's text. */
+    result = atk_text_set_caret_offset(ATK_TEXT(listItem), 5);
+    g_assert_cmpint(result, ==, TRUE);
+    offset = atk_text_get_caret_offset(ATK_TEXT(listItem));
+    g_assert_cmpint(offset, ==, 5);
+
+    AtkObject* panel = atk_object_ref_accessible_child(object, 3);
+    g_assert(ATK_IS_OBJECT(panel));
+    g_assert(atk_object_get_role(panel) == ATK_ROLE_PANEL);
+
+    AtkObject* comboBox = atk_object_ref_accessible_child(panel, 0);
+    g_assert(ATK_IS_OBJECT(comboBox));
+    g_assert(atk_object_get_role(comboBox) == ATK_ROLE_COMBO_BOX);
+
+    AtkObject* menuPopup = atk_object_ref_accessible_child(comboBox, 0);
+    g_assert(ATK_IS_OBJECT(menuPopup));
+    g_assert(atk_object_get_role(menuPopup) == ATK_ROLE_MENU);
+
+    AtkObject* comboBoxOption = atk_object_ref_accessible_child(menuPopup, 0);
+    g_assert(ATK_IS_OBJECT(comboBoxOption));
+    g_assert(atk_object_get_role(comboBoxOption) == ATK_ROLE_MENU_ITEM);
+    g_assert(ATK_IS_TEXT(comboBoxOption));
+    text = atk_text_get_text(ATK_TEXT(comboBoxOption), 0, -1);
+    g_assert_cmpstr(text, ==, "An option in a combo box");
+
+    /* It's not possible to place the caret inside an option for a combobox. */
+    result = atk_text_set_caret_offset(ATK_TEXT(comboBoxOption), 1);
+    g_assert_cmpint(result, ==, FALSE);
+
+    g_object_unref(header);
+    g_object_unref(paragraph);
+    g_object_unref(list);
+    g_object_unref(listItem);
+    g_object_unref(panel);
+    g_object_unref(comboBox);
+    g_object_unref(menuPopup);
+    g_object_unref(comboBoxOption);
+    g_object_unref(webView);
+}
+
+static void testWebkitAtkCaretOffsetsAndExtranousWhiteSpaces()
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
+    g_object_ref_sink(webView);
+    GtkAllocation allocation = { 0, 0, 800, 600 };
+    gtk_widget_size_allocate(GTK_WIDGET(webView), &allocation);
+    webkit_web_view_load_string(webView, contentsWithExtraneousWhiteSpaces, 0, 0, 0);
+
+    /* Wait for the accessible objects to be created. */
+    waitForAccessibleObjects();
+
+    /* Enable caret browsing. */
+    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
+    g_object_set(G_OBJECT(settings), "enable-caret-browsing", TRUE, NULL);
+    webkit_web_view_set_settings(webView, settings);
+
+    /* Get to the inner AtkText object. */
+    AtkObject* object = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    g_assert(object);
+    object = atk_object_ref_accessible_child(object, 0);
+    g_assert(object);
+
+    AtkText* textObject = ATK_TEXT(object);
+    g_assert(ATK_IS_TEXT(textObject));
+
+    gchar* text = atk_text_get_text(textObject, 0, -1);
+    g_assert_cmpstr(text, ==, "This paragraph is borked!");
+    g_free(text);
+
+    gint characterCount = atk_text_get_character_count(textObject);
+    g_assert_cmpint(characterCount, ==, 25);
+
+    gboolean result = atk_text_set_caret_offset(textObject, characterCount - 1);
+    g_assert_cmpint(result, ==, TRUE);
+
+    gint caretOffset = atk_text_get_caret_offset(textObject);
+    g_assert_cmpint(caretOffset, ==, characterCount - 1);
+
+    result = atk_text_set_caret_offset(textObject, characterCount);
+    g_assert_cmpint(result, ==, TRUE);
+
+    caretOffset = atk_text_get_caret_offset(textObject);
+    g_assert_cmpint(caretOffset, ==, characterCount);
+
+    g_object_unref(webView);
 }
 
 static void testWebkitAtkComboBox()
@@ -449,6 +605,40 @@ static void testWebkitAtkGetTextAtOffsetTextInput()
     g_assert(ATK_IS_TEXT(textObject));
 
     runGetTextTests(textObject);
+
+    g_object_unref(webView);
+}
+
+static void testWebkitAtkGetTextAtOffsetWithSpecialCharacters()
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
+    g_object_ref_sink(webView);
+    GtkAllocation allocation = { 0, 0, 800, 600 };
+    gtk_widget_size_allocate(GTK_WIDGET(webView), &allocation);
+    webkit_web_view_load_string(webView, contentsWithSpecialChars, 0, 0, 0);
+
+    /* Wait for the accessible objects to be created. */
+    waitForAccessibleObjects();
+
+    /* Get to the inner AtkText object. */
+    AtkObject* object = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    g_assert(object);
+    object = atk_object_ref_accessible_child(object, 0);
+    g_assert(object);
+
+    AtkText* textObject = ATK_TEXT(object);
+    g_assert(ATK_IS_TEXT(textObject));
+
+    const gchar* expectedText = "\302\253\302\240This is a paragraph with \342\200\234special\342\200\235 characters inside.\302\240\302\273";
+    char* text = atk_text_get_text(textObject, 0, -1);
+    g_assert_cmpstr(text, ==, expectedText);
+    g_free(text);
+
+    /* Check that getting the text with ATK_TEXT_BOUNDARY_LINE_START
+       and ATK_TEXT_BOUNDARY_LINE_END does not crash because of not
+       properly handling characters inside the UTF-8 string. */
+    testGetTextFunction(textObject, atk_text_get_text_at_offset, ATK_TEXT_BOUNDARY_LINE_START, 0, expectedText, 0, 57);
+    testGetTextFunction(textObject, atk_text_get_text_at_offset, ATK_TEXT_BOUNDARY_LINE_END, 0, expectedText, 0, 57);
 
     g_object_unref(webView);
 }
@@ -1005,6 +1195,21 @@ static void testWebkitAtkGetExtents()
     g_assert_cmpint(y, ==, mline_window.y + mline_window.height - height);
     g_assert_cmpint(height, <=, mline_window.height);
 
+    /* Check that extent for a full line are the same height than for
+       a partial section of the same line */
+    gint startOffset;
+    gint endOffset;
+    gchar* text = atk_text_get_text_at_offset(multilineText, 0, ATK_TEXT_BOUNDARY_LINE_START, &startOffset, &endOffset);
+    g_free(text);
+
+    AtkTextRectangle fline_window;
+    AtkTextRectangle afline_window;
+    atk_text_get_range_extents(multilineText, startOffset, endOffset, ATK_XY_WINDOW, &fline_window);
+    atk_text_get_range_extents(multilineText, startOffset, endOffset - 1, ATK_XY_WINDOW, &afline_window);
+    g_assert_cmpint(fline_window.x, ==, afline_window.x);
+    g_assert_cmpint(fline_window.y, ==, afline_window.y);
+    g_assert_cmpint(fline_window.height, ==, afline_window.height);
+
     g_object_unref(shortText1);
     g_object_unref(shortText2);
     g_object_unref(longText);
@@ -1314,12 +1519,15 @@ int main(int argc, char** argv)
     gtk_test_init(&argc, &argv, 0);
 
     g_test_bug_base("https://bugs.webkit.org/");
+    g_test_add_func("/webkit/atk/caretOffsets", testWebkitAtkCaretOffsets);
+    g_test_add_func("/webkit/atk/caretOffsetsAndExtranousWhiteSpaces", testWebkitAtkCaretOffsetsAndExtranousWhiteSpaces);
     g_test_add_func("/webkit/atk/comboBox", testWebkitAtkComboBox);
     g_test_add_func("/webkit/atk/getTextAtOffset", testWebkitAtkGetTextAtOffset);
     g_test_add_func("/webkit/atk/getTextAtOffsetForms", testWebkitAtkGetTextAtOffsetForms);
     g_test_add_func("/webkit/atk/getTextAtOffsetNewlines", testWebkitAtkGetTextAtOffsetNewlines);
     g_test_add_func("/webkit/atk/getTextAtOffsetTextarea", testWebkitAtkGetTextAtOffsetTextarea);
     g_test_add_func("/webkit/atk/getTextAtOffsetTextInput", testWebkitAtkGetTextAtOffsetTextInput);
+    g_test_add_func("/webkit/atk/getTextAtOffsetWithSpecialCharacters", testWebkitAtkGetTextAtOffsetWithSpecialCharacters);
     g_test_add_func("/webkit/atk/getTextInParagraphAndBodySimple", testWebkitAtkGetTextInParagraphAndBodySimple);
     g_test_add_func("/webkit/atk/getTextInParagraphAndBodyModerate", testWebkitAtkGetTextInParagraphAndBodyModerate);
     g_test_add_func("/webkit/atk/getTextInTable", testWebkitAtkGetTextInTable);

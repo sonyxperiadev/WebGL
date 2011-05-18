@@ -30,6 +30,8 @@
 #include "CachedResourceHandle.h"
 #include "CachePolicy.h"
 #include "ResourceLoadPriority.h"
+#include "Timer.h"
+#include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -123,6 +125,10 @@ private:
     
     void notifyLoadedFromMemoryCache(CachedResource*);
     bool canRequest(CachedResource::Type, const KURL&);
+
+    void loadDoneActionTimerFired(Timer<CachedResourceLoader>*);
+
+    void performPostLoadActions();
     
     HashSet<String> m_validatedURLs;
     mutable DocumentResourceMap m_documentResources;
@@ -139,7 +145,9 @@ private:
         String m_url;
         String m_charset;
     };
-    Vector<PendingPreload> m_pendingPreloads;
+    Deque<PendingPreload> m_pendingPreloads;
+
+    Timer<CachedResourceLoader> m_loadDoneActionTimer;
     
     //29 bits left
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE

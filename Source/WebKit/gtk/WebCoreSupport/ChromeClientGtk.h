@@ -128,8 +128,6 @@ namespace WebKit {
 
         virtual void formStateDidChange(const WebCore::Node*) { }
 
-        virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
         virtual void setCursor(const WebCore::Cursor&);
 
         virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const {}
@@ -137,6 +135,7 @@ namespace WebKit {
         virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
 
         virtual bool selectItemWritingDirectionIsNatural();
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection();
         virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
         virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 #if ENABLE(VIDEO)

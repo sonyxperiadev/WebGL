@@ -23,9 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(PLUGIN_PROCESS)
-
+#include "config.h"
 #include "PluginProcessProxy.h"
+
+#if ENABLE(PLUGIN_PROCESS)
 
 #include "MachPort.h"
 #include "PluginProcessCreationParameters.h"
@@ -51,6 +52,9 @@ PluginProcessProxy::PluginProcessProxy(PluginProcessManager* PluginProcessManage
     launchOptions.processType = ProcessLauncher::PluginProcess;
 #if PLATFORM(MAC)
     launchOptions.architecture = pluginInfo.pluginArchitecture;
+
+    // FIXME: This shouldn't be true for all plug-ins.
+    launchOptions.executableHeap = true;
 #endif
 
     m_processLauncher = ProcessLauncher::create(this, launchOptions);
@@ -71,8 +75,9 @@ void PluginProcessProxy::createWebProcessConnection(WebProcessProxy* webProcessP
         return;
     }
 
-    // Ask the plug-in process to create a connection.
-    m_connection->send(Messages::PluginProcess::CreateWebProcessConnection(), 0);
+    // Ask the plug-in process to create a connection. Since the plug-in can be waiting for a synchronous reply
+    // we need to make sure that this message is always processed, even when the plug-in is waiting for a synchronus reply.
+    m_connection->send(Messages::PluginProcess::CreateWebProcessConnection(), 0, CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch()
@@ -126,7 +131,7 @@ void PluginProcessProxy::didFinishLaunching(ProcessLauncher*, CoreIPC::Connectio
     platformInitializePluginProcess(parameters);
 
     // Initialize the plug-in host process.
-    m_connection->send(Messages::PluginProcess::Initialize(parameters), 0);
+    m_connection->send(Messages::PluginProcess::InitializePluginProcess(parameters), 0);
 
     // Send all our pending requests.
     for (unsigned i = 0; i < m_numPendingConnectionRequests; ++i)

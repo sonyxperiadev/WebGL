@@ -23,16 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "LayerBackedDrawingAreaProxy.h"
+#import "config.h"
+#import "LayerBackedDrawingAreaProxy.h"
 
-#include "DrawingAreaMessageKinds.h"
-#include "DrawingAreaProxyMessageKinds.h"
-#include <QuartzCore/QuartzCore.h>
-#include "WKAPICast.h"
-#include "WKView.h"
-#include "WKViewInternal.h"
-#include "WebKitSystemInterface.h"
-#include "WebPageProxy.h"
+#import "DrawingAreaMessageKinds.h"
+#import "DrawingAreaProxyMessageKinds.h"
+#import <QuartzCore/QuartzCore.h>
+#import "WKAPICast.h"
+#import "WKView.h"
+#import "WKViewInternal.h"
+#import "WebKitSystemInterface.h"
+#import "WebPageProxy.h"
 
 using namespace WebCore;
 
@@ -89,4 +90,19 @@ void LayerBackedDrawingAreaProxy::detachCompositingContext()
     m_compositingRootLayer = 0;
 }
 
+bool LayerBackedDrawingAreaProxy::paint(const IntRect& rect, PlatformDrawingContext context)
+{
+    WebPageProxy* webPageProxy = page();
+    if (webPageProxy->drawsBackground() && webPageProxy->drawsTransparentBackground()) {
+        CGContextSaveGState(context);
+        CGContextSetBlendMode(context, kCGBlendModeCopy);
+        CGContextSetFillColorWithColor(context, CGColorGetConstantColor(kCGColorClear));
+        CGContextFillRect(context, rect);
+        
+        CGContextRestoreGState(context);
+    }
+
+    return true;
+}
+    
 } // namespace WebKit

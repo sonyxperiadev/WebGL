@@ -43,11 +43,11 @@ HEADERS += \
     OBJECTS_DIR = obj/release
 }
 
-include(../../../../WebKit.pri)
+include(../../../../Source/WebKit.pri)
 include(../../../../Source/JavaScriptCore/JavaScriptCore.pri)
-addJavaScriptCoreLib(../../../../Source/JavaScriptCore)
+addJavaScriptCoreLib(../../../JavaScriptCore)
 include(../../../../Source/WebKit2/WebKit2.pri)
-addWebKit2Lib(../../../../Source/WebKit2)
+addWebKit2Lib(../../../WebKit2)
 
 INCLUDEPATH += \
     $$PWD \
@@ -56,6 +56,8 @@ INCLUDEPATH += \
     $$PWD/../Bindings \
     $$PWD/../../../../Source/JavaScriptCore \
     $$PWD/../../../../Source/JavaScriptCore/wtf \
+    $$PWD/../../../../Source/WebCore \
+    $$PWD/../../../../Source/WebCore/platform/text \
     $$PWD/../../../../Source/WebKit2 \
     $$PWD/../../../../Source/WebKit2/Shared \
     $$GENERATED_SOURCES_DIR

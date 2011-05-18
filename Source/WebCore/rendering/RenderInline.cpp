@@ -595,10 +595,10 @@ IntRect RenderInline::linesVisualOverflowBoundingBox() const
 
     bool isHorizontal = style()->isHorizontalWritingMode();
         
-    int x = isHorizontal ? logicalLeftSide : firstLineBox()->leftVisualOverflow();
-    int y = isHorizontal ? firstLineBox()->topVisualOverflow() : logicalLeftSide;
-    int width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->rightVisualOverflow() - firstLineBox()->leftVisualOverflow();
-    int height = isHorizontal ? lastLineBox()->bottomVisualOverflow() - firstLineBox()->topVisualOverflow() : logicalRightSide - logicalLeftSide;
+    int x = isHorizontal ? logicalLeftSide : firstLineBox()->minXVisualOverflow();
+    int y = isHorizontal ? firstLineBox()->minYVisualOverflow() : logicalLeftSide;
+    int width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->maxXVisualOverflow() - firstLineBox()->minXVisualOverflow();
+    int height = isHorizontal ? lastLineBox()->maxYVisualOverflow() - firstLineBox()->minYVisualOverflow() : logicalRightSide - logicalLeftSide;
     return IntRect(x, y, width, height);
 }
 
@@ -749,7 +749,7 @@ void RenderInline::computeRectForRepaint(RenderBoxModelObject* repaintContainer,
 IntSize RenderInline::offsetFromContainer(RenderObject* container, const IntPoint& point) const
 {
     ASSERT(container == this->container());
-
+    
     IntSize offset;    
     if (isRelPositioned())
         offset += relativePositionOffset();
@@ -782,6 +782,10 @@ void RenderInline::mapLocalToContainer(RenderBoxModelObject* repaintContainer, b
     RenderObject* o = container(repaintContainer, &containerSkipped);
     if (!o)
         return;
+
+    IntPoint centerPoint = roundedIntPoint(transformState.mappedPoint());
+    if (o->isBox() && o->style()->isFlippedBlocksWritingMode())
+        transformState.move(toRenderBox(o)->flipForWritingModeIncludingColumns(roundedIntPoint(transformState.mappedPoint())) - centerPoint);
 
     IntSize containerOffset = offsetFromContainer(o, roundedIntPoint(transformState.mappedPoint()));
 
@@ -905,8 +909,8 @@ int RenderInline::lineHeight(bool firstLine, LineDirectionMode /*direction*/, Li
 
 int RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
-    const Font& f = style(firstLine)->font();
-    return f.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - f.height()) / 2;
+    const FontMetrics& fontMetrics = style(firstLine)->fontMetrics();
+    return fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2;
 }
 
 IntSize RenderInline::relativePositionedInlineOffset(const RenderBox* child) const
@@ -1033,30 +1037,30 @@ void RenderInline::paintOutlineForLine(GraphicsContext* graphicsContext, int tx,
 
     int t = ty + thisline.y() - offset;
     int l = tx + thisline.x() - offset;
-    int b = ty + thisline.bottom() + offset;
-    int r = tx + thisline.right() + offset;
+    int b = ty + thisline.maxY() + offset;
+    int r = tx + thisline.maxX() + offset;
     
     // left edge
     drawLineForBoxSide(graphicsContext,
                l - ow,
-               t - (lastline.isEmpty() || thisline.x() < lastline.x() || (lastline.right() - 1) <= thisline.x() ? ow : 0),
+               t - (lastline.isEmpty() || thisline.x() < lastline.x() || (lastline.maxX() - 1) <= thisline.x() ? ow : 0),
                l,
-               b + (nextline.isEmpty() || thisline.x() <= nextline.x() || (nextline.right() - 1) <= thisline.x() ? ow : 0),
+               b + (nextline.isEmpty() || thisline.x() <= nextline.x() || (nextline.maxX() - 1) <= thisline.x() ? ow : 0),
                BSLeft,
                oc, os,
-               (lastline.isEmpty() || thisline.x() < lastline.x() || (lastline.right() - 1) <= thisline.x() ? ow : -ow),
-               (nextline.isEmpty() || thisline.x() <= nextline.x() || (nextline.right() - 1) <= thisline.x() ? ow : -ow));
+               (lastline.isEmpty() || thisline.x() < lastline.x() || (lastline.maxX() - 1) <= thisline.x() ? ow : -ow),
+               (nextline.isEmpty() || thisline.x() <= nextline.x() || (nextline.maxX() - 1) <= thisline.x() ? ow : -ow));
     
     // right edge
     drawLineForBoxSide(graphicsContext,
                r,
-               t - (lastline.isEmpty() || lastline.right() < thisline.right() || (thisline.right() - 1) <= lastline.x() ? ow : 0),
+               t - (lastline.isEmpty() || lastline.maxX() < thisline.maxX() || (thisline.maxX() - 1) <= lastline.x() ? ow : 0),
                r + ow,
-               b + (nextline.isEmpty() || nextline.right() <= thisline.right() || (thisline.right() - 1) <= nextline.x() ? ow : 0),
+               b + (nextline.isEmpty() || nextline.maxX() <= thisline.maxX() || (thisline.maxX() - 1) <= nextline.x() ? ow : 0),
                BSRight,
                oc, os,
-               (lastline.isEmpty() || lastline.right() < thisline.right() || (thisline.right() - 1) <= lastline.x() ? ow : -ow),
-               (nextline.isEmpty() || nextline.right() <= thisline.right() || (thisline.right() - 1) <= nextline.x() ? ow : -ow));
+               (lastline.isEmpty() || lastline.maxX() < thisline.maxX() || (thisline.maxX() - 1) <= lastline.x() ? ow : -ow),
+               (nextline.isEmpty() || nextline.maxX() <= thisline.maxX() || (thisline.maxX() - 1) <= nextline.x() ? ow : -ow));
     // upper edge
     if (thisline.x() < lastline.x())
         drawLineForBoxSide(graphicsContext,
@@ -1068,14 +1072,14 @@ void RenderInline::paintOutlineForLine(GraphicsContext* graphicsContext, int tx,
                    ow,
                    (!lastline.isEmpty() && tx + lastline.x() + 1 < r + ow) ? -ow : ow);
     
-    if (lastline.right() < thisline.right())
+    if (lastline.maxX() < thisline.maxX())
         drawLineForBoxSide(graphicsContext,
-                   max(lastline.isEmpty() ? -1000000 : tx + lastline.right(), l - ow),
+                   max(lastline.isEmpty() ? -1000000 : tx + lastline.maxX(), l - ow),
                    t - ow,
                    r + ow,
                    t ,
                    BSTop, oc, os,
-                   (!lastline.isEmpty() && l - ow < tx + lastline.right()) ? -ow : ow,
+                   (!lastline.isEmpty() && l - ow < tx + lastline.maxX()) ? -ow : ow,
                    ow);
     
     // lower edge
@@ -1089,14 +1093,14 @@ void RenderInline::paintOutlineForLine(GraphicsContext* graphicsContext, int tx,
                    ow,
                    (!nextline.isEmpty() && tx + nextline.x() + 1 < r + ow) ? -ow : ow);
     
-    if (nextline.right() < thisline.right())
+    if (nextline.maxX() < thisline.maxX())
         drawLineForBoxSide(graphicsContext,
-                   max(!nextline.isEmpty() ? tx + nextline.right() : -1000000, l - ow),
+                   max(!nextline.isEmpty() ? tx + nextline.maxX() : -1000000, l - ow),
                    b,
                    r + ow,
                    b + ow,
                    BSBottom, oc, os,
-                   (!nextline.isEmpty() && l - ow < tx + nextline.right()) ? -ow : ow,
+                   (!nextline.isEmpty() && l - ow < tx + nextline.maxX()) ? -ow : ow,
                    ow);
 }
 

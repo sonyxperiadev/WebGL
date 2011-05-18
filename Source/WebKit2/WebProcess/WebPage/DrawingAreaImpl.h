@@ -27,12 +27,13 @@
 #define DrawingAreaImpl_h
 
 #include "DrawingArea.h"
+#include "LayerTreeHost.h"
 #include "Region.h"
 #include "RunLoop.h"
 
 namespace WebKit {
 
-struct UpdateInfo;
+class UpdateInfo;
 
 class DrawingAreaImpl : public DrawingArea {
 public:
@@ -45,6 +46,12 @@ private:
     // DrawingArea
     virtual void setNeedsDisplay(const WebCore::IntRect&);
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
+    virtual void forceRepaint();
+
+    virtual void didInstallPageOverlay();
+    virtual void didUninstallPageOverlay();
+    virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&);
+    
     virtual void attachCompositingContext();
     virtual void detachCompositingContext();
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
@@ -53,10 +60,14 @@ private:
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
     // CoreIPC message handlers.
-    virtual void setSize(const WebCore::IntSize&);
+    virtual void setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
     virtual void didUpdate();
     virtual void suspendPainting();
     virtual void resumePainting();
+
+    void enterAcceleratedCompositingMode(WebCore::GraphicsLayer*);
+    void exitAcceleratedCompositingModeSoon();
+    void exitAcceleratedCompositingMode();
 
     void scheduleDisplay();
     void display();
@@ -65,7 +76,10 @@ private:
     Region m_dirtyRegion;
     WebCore::IntRect m_scrollRect;
     WebCore::IntSize m_scrollOffset;
-    
+
+    // Whether we're currently processing a setSize message.
+    bool m_inSetSize;
+
     // Whether we're waiting for a DidUpdate message. Used for throttling paints so that the 
     // web process won't paint more frequent than the UI process can handle.
     bool m_isWaitingForDidUpdate;
@@ -75,6 +89,10 @@ private:
     bool m_isPaintingSuspended;
 
     RunLoop::Timer<DrawingAreaImpl> m_displayTimer;
+    RunLoop::Timer<DrawingAreaImpl> m_exitCompositingTimer;
+
+    // The layer tree host that handles accelerated compositing.
+    RefPtr<LayerTreeHost> m_layerTreeHost;
 };
 
 } // namespace WebKit

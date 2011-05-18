@@ -22,6 +22,7 @@
 #define qwkpage_p_h
 
 #include "DrawingAreaProxy.h"
+#include "LayerTreeContext.h"
 #include "PageClient.h"
 #include "qwkpage.h"
 #include "qgraphicswkview.h"
@@ -34,6 +35,8 @@
 
 class QGraphicsWKView;
 class QWKPreferences;
+
+using namespace WebKit;
 
 class QWKPagePrivate : WebKit::PageClient {
 public:
@@ -57,11 +60,14 @@ public:
     virtual bool isViewInWindow();
 
 #if USE(ACCELERATED_COMPOSITING)
+    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
+    virtual void exitAcceleratedCompositingMode();
     void pageDidEnterAcceleratedCompositing() { }
     void pageDidLeaveAcceleratedCompositing() { }
 #endif // USE(ACCELERATED_COMPOSITING)
     virtual void pageDidRequestScroll(const WebCore::IntSize&);
-    virtual void processDidCrash() { }
+    virtual void processDidCrash();
+    virtual void pageClosed() { }
     virtual void didRelaunchProcess();
     virtual void didChangeContentsSize(const WebCore::IntSize&);
     virtual void didFindZoomableArea(const WebCore::IntRect&);
@@ -73,7 +79,7 @@ public:
     virtual void clearAllEditCommands();
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
-    virtual void didNotHandleKeyEvent(const WebKit::NativeWebKeyboardEvent&);
+    virtual void doneWithKeyEvent(const WebKit::NativeWebKeyboardEvent&, bool wasEventHandled);
     virtual void selectionChanged(bool, bool, bool, bool);
     virtual PassRefPtr<WebKit::WebPopupMenuProxy> createPopupMenuProxy(WebKit::WebPageProxy*);
     virtual PassRefPtr<WebKit::WebContextMenuProxy> createContextMenuProxy(WebKit::WebPageProxy*);
@@ -84,6 +90,7 @@ public:
     virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);
     virtual double customRepresentationZoomFactor() { return 1; }
     virtual void setCustomRepresentationZoomFactor(double) { }
+    virtual void didChangeScrollbarsForMainFrame() const { }
 
     void paint(QPainter* painter, QRect);
 
@@ -122,6 +129,8 @@ public:
     QPoint tripleClick;
     QBasicTimer tripleClickTimer;
     QGraphicsWKView::BackingStoreType backingStoreType;
+
+    bool isConnectedToEngine;
 };
 
 class QtViewportAttributesPrivate : public QSharedData {

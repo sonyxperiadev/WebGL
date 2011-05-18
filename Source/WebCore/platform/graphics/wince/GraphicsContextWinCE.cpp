@@ -23,7 +23,6 @@
 #include "GraphicsContext.h"
 
 #include "AffineTransform.h"
-#include "CharacterNames.h"
 #include "Font.h"
 #include "GDIExtras.h"
 #include "GlyphBuffer.h"
@@ -33,9 +32,9 @@
 #include "PlatformPathWinCE.h"
 #include "SharedBitmap.h"
 #include "SimpleFontData.h"
-#include <wtf/OwnPtr.h>
-
 #include <windows.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -62,7 +61,7 @@ static inline int stableRound(double d)
 // Unlike enclosingIntRect(), this function does strict rounding.
 static inline IntRect roundRect(const FloatRect& r)
 {
-    return IntRect(stableRound(r.x()), stableRound(r.y()), stableRound(r.right()) - stableRound(r.x()), stableRound(r.bottom()) - stableRound(r.y()));
+    return IntRect(stableRound(r.x()), stableRound(r.y()), stableRound(r.maxX()) - stableRound(r.x()), stableRound(r.maxY()) - stableRound(r.y()));
 }
 
 // Rotation transformation
@@ -129,8 +128,8 @@ template<class Transform, class Rect, class Value> static inline Rect mapRect(co
 {
     Value x[4], y[4];
     Value l, t, r, b;
-    r = rect.right() - 1;
-    b = rect.bottom() - 1;
+    r = rect.maxX() - 1;
+    b = rect.maxY() - 1;
     transform.map(rect.x(), rect.y(), x, y);
     transform.map(rect.x(), b, x + 1, y + 1);
     transform.map(r, b, x + 2, y + 2);
@@ -503,10 +502,10 @@ TransparentLayerDC::TransparentLayerDC(GraphicsContextPlatformPrivate* data, Int
             m_rotation.m_postShiftX -= m_origRect.x();
             m_rotation.m_postShiftY -= m_origRect.y();
 
-            FloatPoint topLeft = m_data->m_transform.mapPoint(FloatPoint(rectBeforeTransform->topLeft()));
-            FloatPoint topRight(rectBeforeTransform->right() - 1, rectBeforeTransform->y());
+            FloatPoint topLeft = m_data->m_transform.mapPoint(FloatPoint(rectBeforeTransform->location()));
+            FloatPoint topRight(rectBeforeTransform->maxX() - 1, rectBeforeTransform->y());
             topRight = m_data->m_transform.mapPoint(topRight);
-            FloatPoint bottomLeft(rectBeforeTransform->x(), rectBeforeTransform->bottom() - 1);
+            FloatPoint bottomLeft(rectBeforeTransform->x(), rectBeforeTransform->maxY() - 1);
             bottomLeft = m_data->m_transform.mapPoint(bottomLeft);
             FloatSize sideTop = topRight - topLeft;
             FloatSize sideLeft = bottomLeft - topLeft;
@@ -656,7 +655,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
         if (trRect.height() <= 0)
             trRect.setHeight(1);
 
-        Rectangle(dc, trRect.x(), trRect.y(), trRect.right(), trRect.bottom());
+        Rectangle(dc, trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY());
     }
 
     SelectObject(dc, oldPen);
@@ -726,7 +725,7 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
         oldPen = SelectObject(dc, GetStockObject(NULL_PEN));
 
     if (brush || pen)
-        Ellipse(dc, trRect.x(), trRect.y(), trRect.right(), trRect.bottom());
+        Ellipse(dc, trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY());
 
     SelectObject(dc, oldPen);
     SelectObject(dc, oldBrush);
@@ -839,7 +838,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     }
 
     HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
-    Ellipse(dc, trRect.x(), trRect.y(), trRect.right(), trRect.bottom());
+    Ellipse(dc, trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY());
     SelectObject(dc, oldBrush);
 
     if (newClip)
@@ -960,9 +959,9 @@ void GraphicsContext::clip(const FloatRect& rect)
 
     OwnPtr<HRGN> clipRgn(CreateRectRgn(0, 0, 0, 0));
     if (GetClipRgn(m_data->m_dc, clipRgn.get()) > 0)
-        IntersectClipRect(m_data->m_dc, trRect.x(), trRect.y(), trRect.right(), trRect.bottom());
+        IntersectClipRect(m_data->m_dc, trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY());
     else {
-        clipRgn.set(CreateRectRgn(trRect.x(), trRect.y(), trRect.right(), trRect.bottom()));
+        clipRgn.set(CreateRectRgn(trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY()));
         SelectClipRgn(m_data->m_dc, clipRgn.get());
     }
 }
@@ -977,7 +976,7 @@ void GraphicsContext::clipOut(const IntRect& rect)
 
     IntRect trRect = m_data->mapRect(rect);
 
-    ExcludeClipRect(m_data->m_dc, trRect.x(), trRect.y(), trRect.right(), trRect.bottom());
+    ExcludeClipRect(m_data->m_dc, trRect.x(), trRect.y(), trRect.maxX(), trRect.maxY());
 }
 
 void GraphicsContext::drawFocusRing(const Path& path, int width, int offset, const Color& color)
@@ -1093,8 +1092,8 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float width)
     OwnPtr<HPEN> pen = createPen(strokeColor(), strokeThickness(), strokeStyle());
     HGDIOBJ oldPen = SelectObject(dc, pen.get());
 
-    int right = trRect.right() - 1;
-    int bottom = trRect.bottom() - 1;
+    int right = trRect.maxX() - 1;
+    int bottom = trRect.maxY() - 1;
     const POINT intPoints[5] =
     {
         { trRect.x(), trRect.y() },
@@ -1536,8 +1535,8 @@ void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPo
     float oldOpacity = m_data->m_opacity;
     m_data->m_opacity *= fillColor().alpha() / 255.0;
 
-    FloatRect textRect = font.selectionRectForText(run, point, font.height(), from, to);
-    textRect.setY(textRect.y() - font.ascent());
+    FloatRect textRect = font.selectionRectForText(run, point, font.fontMetrics().height(), from, to);
+    textRect.setY(textRect.y() - font.fontMetrics().ascent());
     IntRect trRect = enclosingIntRect(m_data->mapRect(textRect));
     RECT bmpRect;
     AlphaPaintType alphaPaintType = mustSupportAlpha ? AlphaPaintOther : AlphaPaintNone;
@@ -1546,7 +1545,7 @@ void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPo
             GraphicsContext gc(0);
             gc.setBitmap(bmp);
             gc.scale(FloatSize(m_data->m_transform.a(), m_data->m_transform.d()));
-            font.drawText(&gc, run, IntPoint(0, font.ascent()), from, to);
+            font.drawText(&gc, run, IntPoint(0, font.fontMetrics().ascent()), from, to);
         }
         unsigned key1;
         HDC memDC = bmp->getDC(&key1);
@@ -1591,7 +1590,7 @@ void GraphicsContext::drawText(const SimpleFontData* fontData, const GlyphBuffer
         ? fontData->platformData().getScaledFontHandle(height, scaleX == scaleY ? 0 : width)
         : 0;
 
-    FloatPoint startPoint(point.x(), point.y() - fontData->ascent());
+    FloatPoint startPoint(point.x(), point.y() - fontData->fontMetrics().ascent());
     FloatPoint trPoint = m_data->mapPoint(startPoint);
     int y = stableRound(trPoint.y());
 

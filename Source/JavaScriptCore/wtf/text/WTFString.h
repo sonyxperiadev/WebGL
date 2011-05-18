@@ -66,6 +66,7 @@ struct StringHash;
 // Declarations of string operations
 
 bool charactersAreAllASCII(const UChar*, size_t);
+bool charactersAreAllLatin1(const UChar*, size_t);
 int charactersToIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 unsigned charactersToUIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 int64_t charactersToInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
@@ -328,6 +329,7 @@ public:
     WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
 
     bool containsOnlyASCII() const { return charactersAreAllASCII(characters(), length()); }
+    bool containsOnlyLatin1() const { return charactersAreAllLatin1(characters(), length()); }
 
     // Hash table deleted values, which are only constructed and never copied or destroyed.
     String(WTF::HashTableDeletedValueType) : m_impl(WTF::HashTableDeletedValue) { }
@@ -367,6 +369,9 @@ inline bool equalPossiblyIgnoringCase(const String& a, const String& b, bool ign
 
 inline bool equalIgnoringNullity(const String& a, const String& b) { return equalIgnoringNullity(a.impl(), b.impl()); }
 
+template<size_t inlineCapacity>
+inline bool equalIgnoringNullity(const Vector<UChar, inlineCapacity>& a, const String& b) { return equalIgnoringNullity(a, b.impl()); }
+
 inline bool operator!(const String& str) { return str.isNull(); }
 
 inline void swap(String& a, String& b) { a.swap(b); }
@@ -386,6 +391,14 @@ inline bool charactersAreAllASCII(const UChar* characters, size_t length)
     for (size_t i = 0; i < length; ++i)
         ored |= characters[i];
     return !(ored & 0xFF80);
+}
+
+inline bool charactersAreAllLatin1(const UChar* characters, size_t length)
+{
+    UChar ored = 0;
+    for (size_t i = 0; i < length; ++i)
+        ored |= characters[i];
+    return !(ored & 0xFF00);
 }
 
 int codePointCompare(const String&, const String&);
@@ -480,6 +493,7 @@ using WTF::String;
 using WTF::append;
 using WTF::appendNumber;
 using WTF::charactersAreAllASCII;
+using WTF::charactersAreAllLatin1;
 using WTF::charactersToIntStrict;
 using WTF::charactersToUIntStrict;
 using WTF::charactersToInt64Strict;

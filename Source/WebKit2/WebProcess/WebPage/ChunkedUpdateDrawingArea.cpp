@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "ChunkedUpdateDrawingArea.h"
 
 #include "DrawingAreaMessageKinds.h"
@@ -89,10 +90,16 @@ void ChunkedUpdateDrawingArea::display()
     UpdateChunk updateChunk(dirtyRect);
     paintIntoUpdateChunk(&updateChunk);
 
-    WebProcess::shared().connection()->send(DrawingAreaProxyLegacyMessage::Update, m_webPage->pageID(), CoreIPC::In(updateChunk));
+    WebProcess::shared().connection()->deprecatedSend(DrawingAreaProxyLegacyMessage::Update, m_webPage->pageID(), CoreIPC::In(updateChunk));
 
     m_isWaitingForUpdate = true;
     m_displayTimer.stop();
+}
+
+void ChunkedUpdateDrawingArea::forceRepaint()
+{
+    m_isWaitingForUpdate = false;
+    display();
 }
 
 void ChunkedUpdateDrawingArea::scheduleDisplay()
@@ -132,7 +139,7 @@ void ChunkedUpdateDrawingArea::setSize(const IntSize& viewSize)
         ASSERT(!m_displayTimer.isActive());
 
         // Painting is suspended, just send back an empty update chunk.
-        WebProcess::shared().connection()->send(DrawingAreaProxyLegacyMessage::DidSetSize, m_webPage->pageID(), CoreIPC::In(UpdateChunk()));
+        WebProcess::shared().connection()->deprecatedSend(DrawingAreaProxyLegacyMessage::DidSetSize, m_webPage->pageID(), CoreIPC::In(UpdateChunk()));
         return;
     }
 
@@ -142,7 +149,7 @@ void ChunkedUpdateDrawingArea::setSize(const IntSize& viewSize)
 
     m_displayTimer.stop();
 
-    WebProcess::shared().connection()->send(DrawingAreaProxyLegacyMessage::DidSetSize, m_webPage->pageID(), CoreIPC::In(updateChunk));
+    WebProcess::shared().connection()->deprecatedSend(DrawingAreaProxyLegacyMessage::DidSetSize, m_webPage->pageID(), CoreIPC::In(updateChunk));
 }
 
 void ChunkedUpdateDrawingArea::suspendPainting()
@@ -161,7 +168,7 @@ void ChunkedUpdateDrawingArea::resumePainting(bool forceRepaint)
 
     if (forceRepaint) {
         // Just set the dirty rect to the entire page size.
-        m_dirtyRect = IntRect(IntPoint(0, 0), m_webPage->size());
+        m_dirtyRect = m_webPage->bounds();
     }
 
     // Schedule a display.

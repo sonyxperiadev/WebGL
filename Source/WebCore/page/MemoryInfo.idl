@@ -34,6 +34,7 @@ module window {
 
         readonly attribute unsigned long totalJSHeapSize;
         readonly attribute unsigned long usedJSHeapSize;
+        readonly attribute [JSCCustomGetter] unsigned long jsHeapSizeLimit;
 
     };
 

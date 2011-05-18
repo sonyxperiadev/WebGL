@@ -1,7 +1,7 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -36,11 +36,11 @@
 #include "PaintInfo.h"
 #include "RenderArena.h"
 #include "RenderBlock.h"
+#include "RenderCombineText.h"
 #include "RenderRubyRun.h"
 #include "RenderRubyText.h"
 #include "RenderTheme.h"
 #include "Text.h"
-#include "TextRun.h"
 #include "break_lines.h"
 #include <wtf/AlwaysInline.h>
 
@@ -163,6 +163,7 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
         ePos = len;
     }
 
+<<<<<<< HEAD
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     TextRun textRun = TextRun(characters, len, textObj->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride);
     if (m_disableRoundingHacks)
@@ -170,13 +171,16 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
     IntRect r = enclosingIntRect(f.selectionRectForText(textRun, IntPoint(), selHeight, sPos, ePos));
 #else
     IntRect r = enclosingIntRect(f.selectionRectForText(TextRun(characters, len, textObj->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride),
+=======
+    IntRect r = enclosingIntRect(f.selectionRectForText(TextRun(characters, len, textObj->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
+>>>>>>> webkit.org at r78450
                                                         IntPoint(), selHeight, sPos, ePos));
 #endif
                                                         
     int logicalWidth = r.width();
     if (r.x() > m_logicalWidth)
         logicalWidth  = 0;
-    else if (r.right() > m_logicalWidth)
+    else if (r.maxX() > m_logicalWidth)
         logicalWidth = m_logicalWidth - r.x();
     
     IntPoint topPoint = isHorizontal() ? IntPoint(tx + m_x + r.x(), ty + selTop) : IntPoint(tx + selTop, ty + m_y + r.x());
@@ -449,7 +453,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
     int logicalStart = logicalLeft() - logicalLeftOverflow + (isHorizontal() ? tx : ty);
     int logicalExtent = logicalWidth() + logicalLeftOverflow + logicalRightOverflow;
     
-    int paintEnd = isHorizontal() ? paintInfo.rect.right() : paintInfo.rect.bottom();
+    int paintEnd = isHorizontal() ? paintInfo.rect.maxX() : paintInfo.rect.maxY();
     int paintStart = isHorizontal() ? paintInfo.rect.x() : paintInfo.rect.y();
     
     if (logicalStart >= paintEnd || logicalStart + logicalExtent <= paintStart)
@@ -492,13 +496,15 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
     IntPoint boxOrigin = locationIncludingFlipping();
     boxOrigin.move(tx, ty);    
     IntRect boxRect(boxOrigin, IntSize(logicalWidth(), logicalHeight()));
-    IntPoint textOrigin = IntPoint(boxOrigin.x(), boxOrigin.y() + styleToUse->font().ascent());
+    IntPoint textOrigin = IntPoint(boxOrigin.x(), boxOrigin.y() + styleToUse->fontMetrics().ascent());
 
-    if (!isHorizontal()) {
+    RenderCombineText* combinedText = styleToUse->hasTextCombine() ? toRenderCombineText(textRenderer()) : 0;
+    bool shouldRotate = !isHorizontal() && (!combinedText || !combinedText->isCombined());
+    if (shouldRotate) {
         context->save();
-        context->translate(boxRect.x(), boxRect.bottom());
+        context->translate(boxRect.x(), boxRect.maxY());
         context->rotate(static_cast<float>(deg2rad(90.)));
-        context->translate(-boxRect.x(), -boxRect.bottom());
+        context->translate(-boxRect.x(), -boxRect.maxY());
     }
     
     
@@ -509,6 +515,9 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
     // Set our font.
     int d = styleToUse->textDecorationsInEffect();
     const Font& font = styleToUse->font();
+
+    if (combinedText)
+        combinedText->adjustTextOrigin(textOrigin, boxRect);
 
     // 1. Paint backgrounds behind text if needed. Examples of such backgrounds include selection
     // and composition underlines.
@@ -609,17 +618,26 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         }
     }
 
-    const UChar* characters = textRenderer()->text()->characters() + m_start;
     int length = m_len;
+    const UChar* characters;
+    if (!combinedText)
+        characters = textRenderer()->text()->characters() + m_start;
+    else
+        combinedText->charactersToRender(m_start, characters, length);
+
     BufferForAppendingHyphen charactersWithHyphen;
     if (hasHyphen())
         adjustCharactersAndLengthForHyphen(charactersWithHyphen, styleToUse, characters, length);
 
+<<<<<<< HEAD
     TextRun textRun(characters, length, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || styleToUse->visuallyOrdered());
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     if (m_disableRoundingHacks)
         textRun.disableRoundingHacks();
 #endif
+=======
+    TextRun textRun(characters, length, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || styleToUse->visuallyOrdered());
+>>>>>>> webkit.org at r78450
 
     int sPos = 0;
     int ePos = 0;
@@ -637,7 +655,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
     bool hasTextEmphasis = getEmphasisMarkPosition(styleToUse, emphasisMarkPosition);
     const AtomicString& emphasisMark = hasTextEmphasis ? styleToUse->textEmphasisMarkString() : nullAtom;
     if (!emphasisMark.isEmpty())
-        emphasisMarkOffset = emphasisMarkPosition == TextEmphasisPositionOver ? -font.ascent() - font.emphasisMarkDescent(emphasisMark) : font.descent() + font.emphasisMarkAscent(emphasisMark);
+        emphasisMarkOffset = emphasisMarkPosition == TextEmphasisPositionOver ? -font.fontMetrics().ascent() - font.emphasisMarkDescent(emphasisMark) : font.fontMetrics().descent() + font.emphasisMarkAscent(emphasisMark);
 
     if (!paintSelectedTextOnly) {
         // For stroked painting, we have to change the text drawing mode.  It's probably dangerous to leave that mutated as a side
@@ -715,7 +733,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         }
     }
     
-    if (!isHorizontal())
+    if (shouldRotate)
         context->restore();
 }
 
@@ -773,6 +791,7 @@ void InlineTextBox::paintSelection(GraphicsContext* context, const IntPoint& box
     int selHeight = selectionHeight();
     IntPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
     context->clip(IntRect(localOrigin, IntSize(m_logicalWidth, selHeight)));
+<<<<<<< HEAD
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     TextRun textRun = TextRun(characters, length, textRenderer()->allowTabs(), textPos(), m_toAdd,
                               !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
@@ -781,6 +800,9 @@ void InlineTextBox::paintSelection(GraphicsContext* context, const IntPoint& box
     context->drawHighlightForText(font, textRun, localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
 #else
     context->drawHighlightForText(font, TextRun(characters, length, textRenderer()->allowTabs(), textPos(), m_toAdd, 
+=======
+    context->drawHighlightForText(font, TextRun(characters, length, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), 
+>>>>>>> webkit.org at r78450
                                   !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
                                   localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
 #endif
@@ -805,6 +827,7 @@ void InlineTextBox::paintCompositionBackground(GraphicsContext* context, const I
     int deltaY = renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom() - logicalBottom() : logicalTop() - selectionTop();
     int selHeight = selectionHeight();
     IntPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
+<<<<<<< HEAD
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     TextRun textRun = TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd,
                               !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
@@ -813,6 +836,9 @@ void InlineTextBox::paintCompositionBackground(GraphicsContext* context, const I
     context->drawHighlightForText(font, textRun, localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
 #else
     context->drawHighlightForText(font, TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd,
+=======
+    context->drawHighlightForText(font, TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(),
+>>>>>>> webkit.org at r78450
                                   !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
                                   localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
 #endif
@@ -864,7 +890,7 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, const IntPoint& bo
     bool linesAreOpaque = !isPrinting && (!(deco & UNDERLINE) || underline.alpha() == 255) && (!(deco & OVERLINE) || overline.alpha() == 255) && (!(deco & LINE_THROUGH) || linethrough.alpha() == 255);
 
     RenderStyle* styleToUse = renderer()->style(m_firstLine);
-    int baseline = styleToUse->font().ascent();
+    int baseline = styleToUse->fontMetrics().ascent();
 
     bool setClip = false;
     int extraOffset = 0;
@@ -975,11 +1001,15 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, const IntP
         int deltaY = renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom() - logicalBottom() : logicalTop() - selectionTop();
         int selHeight = selectionHeight();
         IntPoint startPoint(boxOrigin.x(), boxOrigin.y() - deltaY);
+<<<<<<< HEAD
         TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     if (m_disableRoundingHacks)
         run.disableRoundingHacks();
 #endif
+=======
+        TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
+>>>>>>> webkit.org at r78450
          
         IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, selHeight, startPosition, endPosition));
         start = markerRect.x() - startPoint.x();
@@ -1001,7 +1031,7 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, const IntP
     // So, we generally place the underline at the bottom of the text, but in larger fonts that's not so good so
     // we pin to two pixels under the baseline.
     int lineThickness = cMisspellingLineThickness;
-    int baseline = renderer()->style(m_firstLine)->font().ascent();
+    int baseline = renderer()->style(m_firstLine)->fontMetrics().ascent();
     int descent = logicalHeight() - baseline;
     int underlineOffset;
     if (descent <= (2 + lineThickness)) {
@@ -1023,11 +1053,15 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, const IntPoint& bo
 
     int sPos = max(marker.startOffset - m_start, (unsigned)0);
     int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
+<<<<<<< HEAD
     TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     if (m_disableRoundingHacks)
         run.disableRoundingHacks();
 #endif
+=======
+    TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
+>>>>>>> webkit.org at r78450
     
     // Always compute and store the rect associated with this marker. The computed rect is in absolute coordinates.
     IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, IntPoint(m_x, selectionTop()), selHeight, sPos, ePos));
@@ -1055,11 +1089,15 @@ void InlineTextBox::computeRectForReplacementMarker(const DocumentMarker& marker
     
     int sPos = max(marker.startOffset - m_start, (unsigned)0);
     int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
+<<<<<<< HEAD
     TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     if (m_disableRoundingHacks)
         run.disableRoundingHacks();
 #endif
+=======
+    TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
+>>>>>>> webkit.org at r78450
     IntPoint startPoint = IntPoint(m_x, y);
     
     // Compute and store the rect associated with this marker.
@@ -1085,9 +1123,7 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, const IntPoint& bo
         switch (marker.type) {
             case DocumentMarker::Grammar:
             case DocumentMarker::Spelling:
-            case DocumentMarker::Replacement:
             case DocumentMarker::CorrectionIndicator:
-            case DocumentMarker::RejectedCorrection:
                 if (background)
                     continue;
                 break;
@@ -1095,9 +1131,8 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, const IntPoint& bo
                 if (!background)
                     continue;
                 break;
-            
             default:
-                ASSERT_NOT_REACHED();
+                continue;
         }
 
         if (marker.endOffset <= start())
@@ -1123,9 +1158,6 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, const IntPoint& bo
             case DocumentMarker::CorrectionIndicator:
                 computeRectForReplacementMarker(marker, style, font);
                 paintSpellingOrGrammarMarker(pt, boxOrigin, marker, style, font, false);
-                break;
-            case DocumentMarker::Replacement:
-            case DocumentMarker::RejectedCorrection:
                 break;
             default:
                 ASSERT_NOT_REACHED();
@@ -1166,7 +1198,7 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext* ctx, const IntPoi
     // All other marked text underlines are 1px thick.
     // If there's not enough space the underline will touch or overlap characters.
     int lineThickness = 1;
-    int baseline = renderer()->style(m_firstLine)->font().ascent();
+    int baseline = renderer()->style(m_firstLine)->fontMetrics().ascent();
     if (underline.thick && logicalHeight() - baseline >= 2)
         lineThickness = 2;
 
@@ -1230,7 +1262,7 @@ int InlineTextBox::offsetForPosition(int lineOffset, bool includePartialGlyphs) 
     int offset = f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
 #else
     int offset = f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len,
-        textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
+        textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
         lineOffset - logicalLeft(), includePartialGlyphs);
 #endif
     if (blockIsInOppositeDirection && (!offset || offset == m_len))
@@ -1251,6 +1283,7 @@ int InlineTextBox::positionForOffset(int offset) const
     int from = !isLeftToRightDirection() ? offset - m_start : 0;
     int to = !isLeftToRightDirection() ? m_len : offset - m_start;
     // FIXME: Do we need to add rightBearing here?
+<<<<<<< HEAD
 #ifdef ANDROID_DISABLE_ROUNDING_HACKS
     TextRun textRun = TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride);
     if (m_disableRoundingHacks)
@@ -1260,6 +1293,10 @@ int InlineTextBox::positionForOffset(int offset) const
     return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, !isLeftToRightDirection(), m_dirOverride),
                                                    IntPoint(logicalLeft(), 0), 0, from, to)).right();
 #endif
+=======
+    return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
+                                                   IntPoint(logicalLeft(), 0), 0, from, to)).maxX();
+>>>>>>> webkit.org at r78450
 }
 
 bool InlineTextBox::containsCaretOffset(int offset) const

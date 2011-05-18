@@ -77,6 +77,7 @@ use POSIX;
 
 sub buildPlatformResultHierarchy();
 sub buildPlatformTestHierarchy(@);
+sub captureSavedCrashLog($);
 sub checkPythonVersion();
 sub closeCygpaths();
 sub closeDumpTool();
@@ -89,6 +90,7 @@ sub dumpToolDidCrash();
 sub epiloguesAndPrologues($$);
 sub expectedDirectoryForTest($;$;$);
 sub fileNameWithNumber($$);
+sub findNewestFileMatchingGlob($);
 sub htmlForResultsSection(\@$&);
 sub isTextOnlyTest($);
 sub launchWithEnv(\@\%);
@@ -189,6 +191,9 @@ my $actualTag = "actual";
 my $prettyDiffTag = "pretty-diff";
 my $diffsTag = "diffs";
 my $errorTag = "stderr";
+my $crashLogTag = "crash-log";
+
+my $windowsCrashLogFilePrefix = "CrashLog";
 
 # These are defined here instead of closer to where they are used so that they
 # will always be accessible from the END block that uses them, even if the user
@@ -1731,12 +1736,59 @@ sub testCrashedOrTimedOut($$$$$$)
     kill 9, $dumpToolPID unless $didCrash;
 
     closeDumpTool();
-    
+
+    captureSavedCrashLog($base) if $didCrash;
+
     return unless isCygwin() && !$didCrash && $base =~ /^http/;
     # On Cygwin, http tests timing out can be a symptom of a non-responsive httpd.
     # If we timed out running an http test, try restarting httpd.
     $isHttpdOpen = !closeHTTPD();
     configureAndOpenHTTPDIfNeeded();
+}
+
+sub captureSavedCrashLog($)
+{
+    my ($base) = @_;
+
+    my $crashLog;
+
+    my $glob;
+    if (isCygwin()) {
+        $glob = File::Spec->catfile($testResultsDirectory, $windowsCrashLogFilePrefix . "*.txt");
+    } elsif (isAppleMacWebKit()) {
+        $glob = File::Spec->catfile("~", "Library", "Logs", "CrashReporter", $dumpToolName . "_*.crash");
+
+        # Even though the dump tool has exited, CrashReporter might still be running. We need to
+        # wait for it to exit to ensure it has saved its crash log to disk. For simplicitly, we'll
+        # assume that the ReportCrash process with the highest PID is the one we want.
+        if (my @reportCrashPIDs = sort map { /^\s*(\d+)/; $1 } grep { /ReportCrash/ } `/bin/ps x`) {
+            my $reportCrashPID = $reportCrashPIDs[$#reportCrashPIDs];
+            # We use kill instead of waitpid because ReportCrash is not one of our child processes.
+            usleep(250000) while kill(0, $reportCrashPID) > 0;
+        }
+    }
+
+    # We assume that the newest crash log in matching the glob is the one that corresponds to the crash that just occurred.
+    if (my $newestCrashLog = findNewestFileMatchingGlob($glob)) {
+        # The crash log must have been created after this script started running.
+        $crashLog = $newestCrashLog if -M $newestCrashLog < 0;
+    }
+
+    return unless $crashLog;
+
+    move($crashLog, File::Spec->catfile($testResultsDirectory, "$base-$crashLogTag.txt"));
+}
+
+sub findNewestFileMatchingGlob($)
+{
+    my ($glob) = @_;
+
+    my @paths = glob $glob;
+    return unless @paths;
+
+    my @pathsAndTimes = map { [$_, -M $_] } @paths;
+    @pathsAndTimes = sort { $b->[1] <=> $a->[1] } @pathsAndTimes;
+    return $pathsAndTimes[$#pathsAndTimes]->[0];
 }
 
 sub printFailureMessageForTest($$)
@@ -1865,7 +1917,9 @@ sub htmlForResultsSection(\@$&)
         push @html, "<tr>";
         push @html, "<td><a href=\"" . toURL("$testDirectory/$test") . "\">$test</a></td>";
         foreach my $link (@{&{$linkGetter}($test)}) {
-            push @html, "<td><a href=\"$link->{href}\">$link->{text}</a></td>";
+            push @html, "<td>";
+            push @html, "<a href=\"$link->{href}\">$link->{text}</a>" if -f File::Spec->catfile($testResultsDirectory, $link->{href});
+            push @html, "</td>";
         }
         push @html, "</tr>";
     }
@@ -1911,6 +1965,63 @@ sub linksForMismatchTest
     return \@links;
 }
 
+sub crashLocation($)
+{
+    my ($base) = @_;
+
+    my $crashLogFile = File::Spec->catfile($testResultsDirectory, "$base-$crashLogTag.txt");
+
+    if (isCygwin()) {
+        # We're looking for the following text:
+        #
+        # FOLLOWUP_IP:
+        # module!function+offset [file:line]
+        #
+        # The second contains the function that crashed (or the function that ended up jumping to a bad
+        # address, as in the case of a null function pointer).
+
+        open LOG, "<", $crashLogFile or return;
+        while (my $line = <LOG>) {
+            last if $line =~ /^FOLLOWUP_IP:/;
+        }
+        my $desiredLine = <LOG>;
+        close LOG;
+
+        return unless $desiredLine;
+
+        # Just take everything up to the first space (which is where the file/line information should
+        # start).
+        $desiredLine =~ /^(\S+)/;
+        return $1;
+    }
+
+    if (isAppleMacWebKit()) {
+        # We're looking for the following text:
+        #
+        # Thread M Crashed:
+        # N   module                              address function + offset (file:line)
+        #
+        # Some lines might have a module of "???" if we've jumped to a bad address. We should skip
+        # past those.
+
+        open LOG, "<", $crashLogFile or return;
+        while (my $line = <LOG>) {
+            last if $line =~ /^Thread \d+ Crashed:/;
+        }
+        my $location;
+        while (my $line = <LOG>) {
+            $line =~ /^\d+\s+(\S+)\s+\S+ (.* \+ \d+)/ or next;
+            my $module = $1;
+            my $functionAndOffset = $2;
+            next if $module eq "???";
+            $location = "$module: $functionAndOffset";
+            last;
+        }
+        close LOG;
+        return $location;
+    }
+}
+
 sub linksForErrorTest
 {
     my ($test) = @_;
@@ -1919,8 +2030,14 @@ sub linksForErrorTest
 
     my $base = stripExtension($test);
 
+    my $crashLogText = "crash log";
+    if (my $crashLocation = crashLocation($base)) {
+        $crashLogText .= " (<code>" . $crashLocation . "</code>)";
+    }
+
     push @links, @{linksForExpectedAndActualResults($base)};
     push @links, { href => "$base-$errorTag.txt", text => "stderr" };
+    push @links, { href => "$base-$crashLogTag.txt", text => $crashLogText };
 
     return \@links;
 }
@@ -1951,6 +2068,7 @@ sub deleteExpectedAndActualResults($)
     unlink "$testResultsDirectory/$base-$actualTag.txt";
     unlink "$testResultsDirectory/$base-$diffsTag.txt";
     unlink "$testResultsDirectory/$base-$errorTag.txt";
+    unlink "$testResultsDirectory/$base-$crashLogTag.txt";
 }
 
 sub recordActualResultsAndDiff($$)
@@ -2450,6 +2568,37 @@ sub stopRunningTestsEarlyIfNeeded()
     return 0;
 }
 
+# Store this at global scope so it won't be GCed (and thus unlinked) until the program exits.
+my $debuggerTempDirectory;
+
+sub createDebuggerCommandFile()
+{
+    return unless isCygwin();
+
+    my @commands = (
+        '.logopen /t "' . toWindowsPath($testResultsDirectory) . "\\" . $windowsCrashLogFilePrefix . '.txt"',
+        '.srcpath "' . toWindowsPath(sourceDir()) . '"',
+        '!analyze -vv',
+        '~*kpn',
+        'q',
+    );
+
+    $debuggerTempDirectory = File::Temp->newdir;
+
+    my $commandFile = File::Spec->catfile($debuggerTempDirectory, "debugger-commands.txt");
+    unless (open COMMANDS, '>', $commandFile) {
+        print "Failed to open $commandFile. Crash logs will not be saved.\n";
+        return;
+    }
+    print COMMANDS join("\n", @commands), "\n";
+    unless (close COMMANDS) {
+        print "Failed to write to $commandFile. Crash logs will not be saved.\n";
+        return;
+    }
+
+    return $commandFile;
+}
+
 sub setUpWindowsCrashLogSaving()
 {
     return unless isCygwin();
@@ -2468,8 +2617,23 @@ sub setUpWindowsCrashLogSaving()
         }
     }
 
+    # If we used -c (instead of -cf) we could pass the commands directly on the command line. But
+    # when the commands include multiple quoted paths (e.g., for .logopen and .srcpath), Windows
+    # fails to invoke the post-mortem debugger at all (perhaps due to a bug in Windows's command
+    # line parsing). So we save the commands to a file instead and tell the debugger to execute them
+    # using -cf.
+    my $commandFile = createDebuggerCommandFile() or return;
+
+    my @options = (
+        '-p %ld',
+        '-e %ld',
+        '-g',
+        '-lines',
+        '-cf "' . toWindowsPath($commandFile) . '"',
+    );
+
     my %values = (
-        Debugger => '"' . toWindowsPath($ntsdPath) . '" -p %ld -e %ld -g -lines -c ".logopen /t \"' . toWindowsPath($testResultsDirectory) . '\CrashLog.txt\";!analyze -vv;~*kpn;q"',
+        Debugger => '"' . toWindowsPath($ntsdPath) . '" ' . join(' ', @options),
         Auto => 1
     );
 

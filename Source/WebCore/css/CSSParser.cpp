@@ -62,8 +62,10 @@
 #include "HashTools.h"
 #include "MediaList.h"
 #include "MediaQueryExp.h"
+#include "Page.h"
 #include "Pair.h"
 #include "Rect.h"
+#include "RenderTheme.h"
 #include "ShadowValue.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
@@ -129,13 +131,6 @@ static bool hasPrefix(const char* string, unsigned length, const char* prefix)
     return false;
 }
 
-static int clampToSignedInteger(double d)
-{
-    const double minIntAsDouble = std::numeric_limits<int>::min();
-    const double maxIntAsDouble = std::numeric_limits<int>::max();
-    return static_cast<int>(max(minIntAsDouble, min(d, maxIntAsDouble)));
-}
-
 CSSParser::CSSParser(bool strictParsing)
     : m_strict(strictParsing)
     , m_important(false)
@@ -183,7 +178,6 @@ CSSParser::~CSSParser()
     fastDeleteAllValues(m_floatingSelectors);
     deleteAllValues(m_floatingValueLists);
     deleteAllValues(m_floatingFunctions);
-    deleteAllValues(m_reusableSelectorVector);
 }
 
 void CSSParserString::lower()
@@ -330,11 +324,14 @@ bool CSSParser::parseColor(RGBA32& color, const String& string, bool strict)
         return false;
 
     CSSValue* value = parser.m_parsedProperties[0]->value();
-    if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE) {
-        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
-        color = primitiveValue->getRGBA32Value();
-    }
+    if (value->cssValueType() != CSSValue::CSS_PRIMITIVE_VALUE)
+        return false;
 
+    CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
+    if (primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_RGBCOLOR)
+        return false;
+
+    color = primitiveValue->getRGBA32Value();
     return true;
 }
 
@@ -354,6 +351,22 @@ bool CSSParser::parseColor(CSSMutableStyleDeclaration* declaration, const String
     android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
 #endif
     return (m_numParsedProperties && m_parsedProperties[0]->m_id == CSSPropertyColor);
+}
+
+bool CSSParser::parseSystemColor(RGBA32& color, const String& string, Document* document)
+{
+    if (!document || !document->page())
+        return false;
+
+    CSSParserString cssColor;
+    cssColor.characters = const_cast<UChar*>(string.characters());
+    cssColor.length = string.length();
+    int id = cssValueKeywordID(cssColor);
+    if (id <= 0)
+        return false;
+
+    color = document->page()->theme()->systemColor(id).rgb();
+    return true;
 }
 
 void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorList& selectorList)
@@ -1675,14 +1688,14 @@ bool CSSParser::parseValue(int propId, bool important)
         // FIXME: Add CSSPropertyBackgroundSize to the shorthand.
         const int properties[] = { CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat,
                                    CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition, CSSPropertyBackgroundOrigin,
-                                   CSSPropertyBackgroundColor };
-        return parseFillShorthand(propId, properties, 6, important);
+                                   CSSPropertyBackgroundClip, CSSPropertyBackgroundColor };
+        return parseFillShorthand(propId, properties, 7, important);
     }
     case CSSPropertyWebkitMask: {
         const int properties[] = { CSSPropertyWebkitMaskImage, CSSPropertyWebkitMaskRepeat,
                                    CSSPropertyWebkitMaskAttachment, CSSPropertyWebkitMaskPosition,
-                                   CSSPropertyWebkitMaskOrigin };
-        return parseFillShorthand(propId, properties, 5, important);
+                                   CSSPropertyWebkitMaskOrigin, CSSPropertyWebkitMaskClip };
+        return parseFillShorthand(propId, properties, 6, important);
     }
     case CSSPropertyBorder:
         // [ 'border-width' || 'border-style' || <color> ] | inherit
@@ -1988,6 +2001,7 @@ bool CSSParser::parseFillShorthand(int propId, const int* properties, int numPro
     RefPtr<CSSValue> clipValue;
     RefPtr<CSSValue> positionYValue;
     RefPtr<CSSValue> repeatYValue;
+    bool foundClip = false;
     int i;
 
     while (m_valueList->current()) {
@@ -2010,7 +2024,7 @@ bool CSSParser::parseFillShorthand(int propId, const int* properties, int numPro
                     if ((properties[i] == CSSPropertyBackgroundOrigin || properties[i] == CSSPropertyWebkitMaskOrigin) && !parsedProperty[i]) {
                         // If background-origin wasn't present, then reset background-clip also.
                         addFillValue(clipValue, CSSInitialValue::createImplicit());
-                    }
+                    }                    
                 }
                 parsedProperty[i] = false;
             }
@@ -2038,6 +2052,11 @@ bool CSSParser::parseFillShorthand(int propId, const int* properties, int numPro
                             addFillValue(clipValue, val1.release()); // The property parsed successfully.
                         else
                             addFillValue(clipValue, CSSInitialValue::createImplicit()); // Some value was used for origin that is not supported by clip. Just reset clip instead.
+                    }
+                    if (properties[i] == CSSPropertyBackgroundClip || properties[i] == CSSPropertyWebkitMaskClip) {
+                        // Update clipValue
+                        addFillValue(clipValue, val1.release());
+                        foundClip = true;
                     }
                 }
             }
@@ -2082,13 +2101,16 @@ bool CSSParser::parseFillShorthand(int propId, const int* properties, int numPro
             addProperty(CSSPropertyWebkitMaskRepeatX, values[i].release(), important);
             // it's OK to call repeatYValue.release() since we only see CSSPropertyBackgroundPosition once
             addProperty(CSSPropertyWebkitMaskRepeatY, repeatYValue.release(), important);
-        } else
+        } else if ((properties[i] == CSSPropertyBackgroundClip || properties[i] == CSSPropertyWebkitMaskClip) && !foundClip)
+            // Value is already set while updating origin
+            continue;
+        else
             addProperty(properties[i], values[i].release(), important);
 
         // Add in clip values when we hit the corresponding origin property.
-        if (properties[i] == CSSPropertyBackgroundOrigin)
+        if (properties[i] == CSSPropertyBackgroundOrigin && !foundClip)
             addProperty(CSSPropertyBackgroundClip, clipValue.release(), important);
-        else  if (properties[i] == CSSPropertyWebkitMaskOrigin)
+        else if (properties[i] == CSSPropertyWebkitMaskOrigin && !foundClip)
             addProperty(CSSPropertyWebkitMaskClip, clipValue.release(), important);
     }
 
@@ -4722,7 +4744,7 @@ bool CSSParser::parseCounter(int propId, int defaultValue, bool important)
             case VAL: {
                 int i = defaultValue;
                 if (val && val->unit == CSSPrimitiveValue::CSS_NUMBER) {
-                    i = clampToSignedInteger(val->fValue);
+                    i = clampToInteger(val->fValue);
                     m_valueList->next();
                 }
 
@@ -5409,6 +5431,10 @@ PassRefPtr<CSSValueList> CSSParser::parseTransform()
                 // 1st param of translateZ() cannot be a percentage
                 if (!validUnit(a, FLength, true))
                     return 0;
+            } else if (info.type() == WebKitCSSTransformValue::PerspectiveTransformOperation && argNumber == 0) {
+                // 1st param of perspective() must be a non-negative number (deprecated) or length.
+                if (!validUnit(a, FNumber | FLength | FNonNeg, true))
+                    return 0;
             } else if (!validUnit(a, unit, true))
                 return 0;
 
@@ -5789,20 +5815,20 @@ void CSSParser::countLines()
     }
 }
 
-CSSSelector* CSSParser::createFloatingSelector()
+CSSParserSelector* CSSParser::createFloatingSelector()
 {
-    CSSSelector* selector = fastNew<CSSSelector>();
+    CSSParserSelector* selector = new CSSParserSelector;
     m_floatingSelectors.add(selector);
     return selector;
 }
 
-CSSSelector* CSSParser::sinkFloatingSelector(CSSSelector* selector)
+PassOwnPtr<CSSParserSelector> CSSParser::sinkFloatingSelector(CSSParserSelector* selector)
 {
     if (selector) {
         ASSERT(m_floatingSelectors.contains(selector));
         m_floatingSelectors.remove(selector);
     }
-    return selector;
+    return adoptPtr(selector);
 }
 
 CSSParserValueList* CSSParser::createFloatingValueList()
@@ -5944,7 +5970,7 @@ WebKitCSSKeyframesRule* CSSParser::createKeyframesRule()
     return rulePtr;
 }
 
-CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
+CSSRule* CSSParser::createStyleRule(Vector<OwnPtr<CSSParserSelector> >* selectors)
 {
     CSSStyleRule* result = 0;
     markRuleBodyEnd();
@@ -6006,21 +6032,21 @@ void CSSParser::addNamespace(const AtomicString& prefix, const AtomicString& uri
     m_styleSheet->addNamespace(this, prefix, uri);
 }
 
-void CSSParser::updateSpecifiersWithElementName(const AtomicString& namespacePrefix, const AtomicString& elementName, CSSSelector* specifiers)
+void CSSParser::updateSpecifiersWithElementName(const AtomicString& namespacePrefix, const AtomicString& elementName, CSSParserSelector* specifiers)
 {
     AtomicString determinedNamespace = namespacePrefix != nullAtom && m_styleSheet ? m_styleSheet->determineNamespace(namespacePrefix) : m_defaultNamespace;
     QualifiedName tag = QualifiedName(namespacePrefix, elementName, determinedNamespace);
     if (!specifiers->isUnknownPseudoElement()) {
-        specifiers->m_tag = tag;
+        specifiers->setTag(tag);
         return;
     }
 
     if (Document* doc = document())
         doc->setUsesDescendantRules(true);
 
-    specifiers->m_relation = CSSSelector::ShadowDescendant;
-    if (CSSSelector* history = specifiers->tagHistory()) {
-        history->m_tag = tag;
+    specifiers->setRelation(CSSSelector::ShadowDescendant);
+    if (CSSParserSelector* history = specifiers->tagHistory()) {
+        history->setTag(tag);
         return;
     }
 
@@ -6029,19 +6055,22 @@ void CSSParser::updateSpecifiersWithElementName(const AtomicString& namespacePre
     if (elementName == starAtom && m_defaultNamespace == starAtom)
         return;
 
-    CSSSelector* elementNameSelector = fastNew<CSSSelector>();
-    elementNameSelector->m_tag = tag;
+    CSSParserSelector* elementNameSelector = new CSSParserSelector;
+    elementNameSelector->setTag(tag);
     specifiers->setTagHistory(elementNameSelector);
 }
 
 
-CSSRule* CSSParser::createPageRule(CSSSelector* pageSelector)
+CSSRule* CSSParser::createPageRule(PassOwnPtr<CSSParserSelector> pageSelector)
 {
     // FIXME: Margin at-rules are ignored.
     m_allowImportRules = m_allowNamespaceDeclarations = false;
     CSSPageRule* pageRule = 0;
     if (pageSelector) {
-        RefPtr<CSSPageRule> rule = CSSPageRule::create(m_styleSheet, pageSelector, m_lastSelectorLineNumber);
+        RefPtr<CSSPageRule> rule = CSSPageRule::create(m_styleSheet, m_lastSelectorLineNumber);
+        Vector<OwnPtr<CSSParserSelector> > selectorVector;
+        selectorVector.append(pageSelector);
+        rule->adoptSelectorVector(selectorVector);
         rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
         pageRule = rule.get();
         m_parsedStyleObjects.append(rule.release());

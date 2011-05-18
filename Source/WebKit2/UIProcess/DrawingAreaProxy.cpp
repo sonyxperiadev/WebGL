@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "DrawingAreaProxy.h"
 
 #include "WebPageProxy.h"
@@ -34,7 +35,6 @@ namespace WebKit {
 DrawingAreaProxy::DrawingAreaProxy(DrawingAreaInfo::Type type, WebPageProxy* webPageProxy)
     : m_info(type, nextIdentifier())
     , m_webPageProxy(webPageProxy)
-    , m_size(webPageProxy->viewSize())
 {
 }
 
@@ -48,12 +48,13 @@ DrawingAreaInfo::Identifier DrawingAreaProxy::nextIdentifier()
     return ++nextID;
 }
 
-void DrawingAreaProxy::setSize(const IntSize& size)
+void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& scrollOffset)
 { 
-    if (m_size == size)
+    if (m_size == size && scrollOffset.isZero())
         return;
 
     m_size = size;
+    m_scrollOffset += scrollOffset;
     sizeDidChange();
 }
 

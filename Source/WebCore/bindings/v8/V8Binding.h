@@ -41,6 +41,7 @@
 
 namespace WebCore {
 
+    class DOMStringList;
     class EventListener;
     class EventTarget;
 
@@ -206,6 +207,8 @@ namespace WebCore {
 
     String int32ToWebCoreString(int value);
 
+    PassRefPtr<DOMStringList> v8ValueToWebCoreDOMStringList(v8::Handle<v8::Value>);
+
     class V8ParameterBase {
     public:
         operator String() { return toString<String>(); }
@@ -230,6 +233,14 @@ namespace WebCore {
             // Handle the case where an exception is thrown as part of invoking toString on the object.
             if (block.HasCaught()) {
                 block.ReThrow();
+                return false;
+            }
+
+            // This path is unexpected.  However there is hypothesis that it
+            // might be combination of v8 and v8 bindings bugs.  For now
+            // just bailout as we'll crash if attempt to convert empty handle into a string.
+            if (m_v8Object.IsEmpty()) {
+                ASSERT_NOT_REACHED();
                 return false;
             }
 

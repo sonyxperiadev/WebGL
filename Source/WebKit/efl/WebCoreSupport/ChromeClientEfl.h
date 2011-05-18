@@ -128,8 +128,6 @@ public:
     virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
     virtual void formStateDidChange(const Node*);
 
-    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
     virtual void setCursor(const Cursor&);
 
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
@@ -149,6 +147,7 @@ public:
     virtual void dispatchViewportDataDidChange(const ViewportArguments&) const;
 
     virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
     virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
     virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 

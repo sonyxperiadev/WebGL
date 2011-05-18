@@ -48,6 +48,7 @@
 #include "HTMLSourceElement.h"
 #include "HTMLVideoElement.h"
 #include "Logging.h"
+#include "MediaControls.h"
 #include "MediaDocument.h"
 #include "MediaError.h"
 #include "MediaList.h"
@@ -2181,6 +2182,7 @@ void HTMLMediaElement::userCancelledLoad()
     m_player.clear();
 #endif
     stopPeriodicTimers();
+    m_loadTimer.stop();
     m_loadState = WaitingForSource;
 
     // 2 - Set the error attribute to a new MediaError object whose code attribute is set to MEDIA_ERR_ABORTED.
@@ -2297,7 +2299,7 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
         widget->handleEvent(event);
 #else
     if (renderer() && renderer()->isMedia())
-        toRenderMedia(renderer())->forwardEvent(event);
+        toRenderMedia(renderer())->controls()->forwardEvent(event);
     if (event->defaultHandled())
         return;
     HTMLElement::defaultEventHandler(event);
@@ -2401,7 +2403,7 @@ void HTMLMediaElement::createMediaPlayerProxy()
         m_needWidgetUpdate = false;
 }
 
-void HTMLMediaElement::updateWidget(bool)
+void HTMLMediaElement::updateWidget(PluginCreationOption)
 {
     mediaElement->setNeedWidgetUpdate(false);
 
@@ -2492,6 +2494,22 @@ bool HTMLMediaElement::webkitHasClosedCaptions() const
 {
     return hasClosedCaptions();
 }
+
+#if ENABLE(MEDIA_STATISTICS)
+unsigned long HTMLMediaElement::webkitAudioBytesDecoded() const
+{
+    if (!m_player)
+        return 0;
+    return m_player->audioBytesDecoded();
+}
+
+unsigned long HTMLMediaElement::webkitVideoBytesDecoded() const
+{
+    if (!m_player)
+        return 0;
+    return m_player->videoBytesDecoded();
+}
+#endif
 
 void HTMLMediaElement::mediaCanStart()
 {

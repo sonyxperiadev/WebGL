@@ -179,8 +179,6 @@ namespace WebCore {
 
         virtual void formStateDidChange(const Node*) { }
 
-        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
         virtual void setCursor(const Cursor&);
 
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
@@ -189,6 +187,7 @@ namespace WebCore {
         virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
 
         virtual bool selectItemWritingDirectionIsNatural();
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection();
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
         virtual void populateVisitedLinks();

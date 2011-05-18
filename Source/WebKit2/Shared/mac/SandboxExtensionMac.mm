@@ -23,16 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
+#import "SandboxExtension.h"
+
 #if ENABLE(WEB_PROCESS_SANDBOX)
 
-#include "SandboxExtension.h"
-
-#include "ArgumentDecoder.h"
-#include "ArgumentEncoder.h"
-#include "DataReference.h"
-#include "WebKitSystemInterface.h"
-#include <WebCore/FileSystem.h>
-#include <wtf/text/CString.h>
+#import "ArgumentDecoder.h"
+#import "ArgumentEncoder.h"
+#import "DataReference.h"
+#import "WebKitSystemInterface.h"
+#import <WebCore/FileSystem.h>
+#import <wtf/text/CString.h>
 
 using namespace WebCore;
 

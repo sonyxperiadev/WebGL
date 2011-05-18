@@ -69,6 +69,8 @@ Programs_DumpRenderTree_SOURCES = \
 	Tools/DumpRenderTree/config.h \
 	Tools/DumpRenderTree/cairo/PixelDumpSupportCairo.cpp \
 	Tools/DumpRenderTree/cairo/PixelDumpSupportCairo.h \
+	Tools/DumpRenderTree/gtk/AccessibilityCallbacks.h \
+	Tools/DumpRenderTree/gtk/AccessibilityCallbacks.cpp \
 	Tools/DumpRenderTree/gtk/AccessibilityControllerGtk.cpp \
 	Tools/DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp \
 	Tools/DumpRenderTree/gtk/DumpRenderTree.cpp \
@@ -80,6 +82,8 @@ Programs_DumpRenderTree_SOURCES = \
 	Tools/DumpRenderTree/gtk/GCControllerGtk.cpp \
 	Tools/DumpRenderTree/gtk/LayoutTestControllerGtk.cpp \
 	Tools/DumpRenderTree/gtk/PixelDumpSupportGtk.cpp \
+	Tools/DumpRenderTree/gtk/TextInputController.h \
+	Tools/DumpRenderTree/gtk/TextInputController.cpp \
 	Tools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp \
 	Source/WebCore/platform/gtk/GtkVersioning.c
 

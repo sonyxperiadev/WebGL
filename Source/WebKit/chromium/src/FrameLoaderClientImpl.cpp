@@ -1099,7 +1099,7 @@ void FrameLoaderClientImpl::finishedLoading(DocumentLoader* dl)
         // However, we only want to do this if makeRepresentation has been called, to
         // match the behavior on the Mac.
         if (m_hasRepresentation)
-            dl->frameLoader()->writer()->setEncoding("", false);
+            dl->writer()->setEncoding("", false);
     }
 }
 
@@ -1153,10 +1153,10 @@ void FrameLoaderClientImpl::didDisplayInsecureContent()
         m_webFrame->client()->didDisplayInsecureContent(m_webFrame);
 }
 
-void FrameLoaderClientImpl::didRunInsecureContent(SecurityOrigin* origin)
+void FrameLoaderClientImpl::didRunInsecureContent(SecurityOrigin* origin, const KURL& insecureURL)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didRunInsecureContent(m_webFrame, WebSecurityOrigin(origin));
+        m_webFrame->client()->didRunInsecureContent(m_webFrame, WebSecurityOrigin(origin), insecureURL);
 }
 
 ResourceError FrameLoaderClientImpl::blockedError(const ResourceRequest&)

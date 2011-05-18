@@ -31,10 +31,11 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "Event.h"
+#include "Document.h"
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "EventQueue.h"
 #include "IDBCursor.h"
 #include "IDBDatabase.h"
 #include "IDBIndex.h"
@@ -42,86 +43,102 @@
 #include "IDBObjectStore.h"
 #include "IDBPendingTransactionMonitor.h"
 #include "IDBSuccessEvent.h"
-#include "ScriptExecutionContext.h"
 
 namespace WebCore {
 
-IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction)
+PassRefPtr<IDBRequest> IDBRequest::create(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransaction* transaction)
+{
+    return adoptRef(new IDBRequest(context, source, transaction));
+}
+
+IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransaction* transaction)
     : ActiveDOMObject(context, this)
     , m_source(source)
     , m_transaction(transaction)
-    , m_timer(this, &IDBRequest::timerFired)
     , m_readyState(LOADING)
+    , m_finished(false)
 {
     if (m_transaction)
-        IDBPendingTransactionMonitor::removePendingTransaction(m_transaction.get());
+        IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
 }
 
 IDBRequest::~IDBRequest()
 {
 }
 
-bool IDBRequest::resetReadyState(IDBTransactionBackendInterface* transaction)
+bool IDBRequest::resetReadyState(IDBTransaction* transaction)
 {
-    ASSERT(m_readyState == DONE);
-    m_readyState = LOADING;
-    ASSERT(!m_transaction);
+    ASSERT(!m_finished);
+    ASSERT(scriptExecutionContext());
+    if (m_readyState != DONE)
+        return false;
+
     m_transaction = transaction;
-    IDBPendingTransactionMonitor::removePendingTransaction(m_transaction.get());
+    m_readyState = LOADING;
+
+    IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
+
     return true;
 }
 
 void IDBRequest::onError(PassRefPtr<IDBDatabaseError> error)
 {
-    scheduleEvent(0, error);
-}
-
-void IDBRequest::onSuccess()
-{
-    scheduleEvent(IDBAny::createNull(), 0);
+    enqueueEvent(IDBErrorEvent::create(m_source, *error));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBCursorBackendInterface> backend)
 {
-    scheduleEvent(IDBAny::create(IDBCursor::create(backend, this, m_transaction.get())), 0);
+    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(IDBCursor::create(backend, this, m_transaction.get()))));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBDatabaseBackendInterface> backend)
 {
-    scheduleEvent(IDBAny::create(IDBDatabase::create(backend)), 0);
+    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(IDBDatabase::create(scriptExecutionContext(), backend))));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBIndexBackendInterface> backend)
 {
-    scheduleEvent(IDBAny::create(IDBIndex::create(backend, m_transaction.get())), 0);
+    ASSERT_NOT_REACHED(); // FIXME: This method should go away.
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBKey> idbKey)
 {
-    scheduleEvent(IDBAny::create(idbKey), 0);
+    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(idbKey)));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBObjectStoreBackendInterface> backend)
 {
-    // FIXME: This function should go away once createObjectStore is sync.
-    scheduleEvent(IDBAny::create(IDBObjectStore::create(backend, m_transaction.get())), 0);
+    ASSERT_NOT_REACHED(); // FIXME: This method should go away.
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBTransactionBackendInterface> prpBackend)
 {
+    if (!scriptExecutionContext())
+        return;
+
     RefPtr<IDBTransactionBackendInterface> backend = prpBackend;
-    // This is only used by setVersion which will always have a source that's an IDBDatabase.
-    m_source->idbDatabase()->setSetVersionTransaction(backend.get());
     RefPtr<IDBTransaction> frontend = IDBTransaction::create(scriptExecutionContext(), backend, m_source->idbDatabase().get());
     backend->setCallbacks(frontend.get());
-    m_transaction = backend;
-    IDBPendingTransactionMonitor::removePendingTransaction(m_transaction.get());
-    scheduleEvent(IDBAny::create(frontend.release()), 0);
+    m_transaction = frontend;
+
+    ASSERT(m_source->type() == IDBAny::IDBDatabaseType);
+    m_source->idbDatabase()->setSetVersionTransaction(frontend.get());
+
+    IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
+    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(frontend.release())));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<SerializedScriptValue> serializedScriptValue)
 {
-    scheduleEvent(IDBAny::create(serializedScriptValue), 0);
+    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(serializedScriptValue)));
+}
+
+bool IDBRequest::hasPendingActivity() const
+{
+    // FIXME: In an ideal world, we should return true as long as anyone has a or can
+    //        get a handle to us and we have event listeners. This is order to handle
+    //        user generated events properly.
+    return !m_finished || ActiveDOMObject::hasPendingActivity();
 }
 
 ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
@@ -129,11 +146,56 @@ ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
     return ActiveDOMObject::scriptExecutionContext();
 }
 
-bool IDBRequest::canSuspend() const
+bool IDBRequest::dispatchEvent(PassRefPtr<Event> event)
 {
-    // IDBTransactions cannot be suspended at the moment. We therefore
-    // disallow the back/forward cache for pages that use IndexedDatabase.
-    return false;
+    ASSERT(!m_finished);
+    ASSERT(scriptExecutionContext());
+    ASSERT(event->target() == this);
+    ASSERT(m_readyState < DONE);
+    m_readyState = DONE;
+
+    Vector<RefPtr<EventTarget> > targets;
+    targets.append(this);
+    if (m_transaction) {
+        targets.append(m_transaction);
+        // If there ever are events that are associated with a database but
+        // that do not have a transaction, then this will not work and we need
+        // this object to actually hold a reference to the database (to ensure
+        // it stays alive).
+        targets.append(m_transaction->db());
+    }
+
+    ASSERT(event->isIDBErrorEvent() || event->isIDBSuccessEvent());
+    bool dontPreventDefault = static_cast<IDBEvent*>(event.get())->dispatch(targets);
+
+    // If the event's result was of type IDBCursor, then it's possible for us to
+    // fire again (unless the transaction completes).
+    if (event->isIDBSuccessEvent()) {
+        RefPtr<IDBAny> any = static_cast<IDBSuccessEvent*>(event.get())->result();
+        if (any->type() != IDBAny::IDBCursorType)
+            m_finished = true;
+    } else
+        m_finished = true;
+
+    if (m_transaction) {
+        if (dontPreventDefault && event->isIDBErrorEvent())
+            m_transaction->backend()->abort();
+        m_transaction->backend()->didCompleteTaskEvents();
+    }
+    return dontPreventDefault;
+}
+
+void IDBRequest::enqueueEvent(PassRefPtr<Event> event)
+{
+    ASSERT(!m_finished);
+    ASSERT(m_readyState < DONE);
+    if (!scriptExecutionContext())
+        return;
+
+    ASSERT(scriptExecutionContext()->isDocument());
+    EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
+    event->setTarget(this);
+    eventQueue->enqueueEvent(event);
 }
 
 EventTargetData* IDBRequest::eventTargetData()
@@ -144,61 +206,6 @@ EventTargetData* IDBRequest::eventTargetData()
 EventTargetData* IDBRequest::ensureEventTargetData()
 {
     return &m_eventTargetData;
-}
-
-void IDBRequest::timerFired(Timer<IDBRequest>*)
-{
-    ASSERT(m_selfRef);
-    ASSERT(m_pendingEvents.size());
-    // FIXME: We should handle the stop event and stop any timers when we see it. We can then assert here that scriptExecutionContext is non-null.
-
-    // We need to keep self-referencing ourself, otherwise it's possible we'll be deleted.
-    // But in some cases, suspend() could be called while we're dispatching an event, so we
-    // need to make sure that resume() doesn't re-start the timer based on m_selfRef being set.
-    RefPtr<IDBRequest> selfRef = m_selfRef.release();
-
-    // readyStateReset can be called synchronously while we're dispatching the event.
-    RefPtr<IDBTransactionBackendInterface> transaction = m_transaction;
-    m_transaction.clear();
-
-    Vector<PendingEvent> pendingEvents;
-    pendingEvents.swap(m_pendingEvents);
-    for (size_t i = 0; i < pendingEvents.size(); ++i) {
-        // It's possible we've navigated in which case we'll crash.
-        if (!scriptExecutionContext())
-            return;
-
-        if (pendingEvents[i].m_error) {
-            ASSERT(!pendingEvents[i].m_result);
-            dispatchEvent(IDBErrorEvent::create(m_source, *pendingEvents[i].m_error));
-        } else {
-            ASSERT(pendingEvents[i].m_result->type() != IDBAny::UndefinedType);
-            dispatchEvent(IDBSuccessEvent::create(m_source, pendingEvents[i].m_result));
-        }
-    }
-    if (transaction) {
-        // Now that we processed all pending events, let the transaction monitor check if
-        // it can commit the current transaction or if there's anything new pending.
-        // FIXME: Handle the workers case.
-        transaction->didCompleteTaskEvents();
-    }
-}
-
-void IDBRequest::scheduleEvent(PassRefPtr<IDBAny> result, PassRefPtr<IDBDatabaseError> error)
-{
-    ASSERT(m_readyState < DONE);
-    ASSERT(!!m_selfRef == m_timer.isActive());
-
-    PendingEvent pendingEvent;
-    pendingEvent.m_result = result;
-    pendingEvent.m_error = error;
-    m_pendingEvents.append(pendingEvent);
-
-    m_readyState = DONE;
-    if (!m_timer.isActive()) {
-        m_selfRef = this;
-        m_timer.startOneShot(0);
-    }
 }
 
 } // namespace WebCore

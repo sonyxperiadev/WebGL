@@ -4,6 +4,8 @@ noinst_LTLIBRARIES += \
 
 libWebKit2_ladir = $(prefix)/include/webkit2-@WEBKITGTK_API_VERSION@/WebKit2
 libWebKit2_la_HEADERS = \
+	$(WebKit2)/Shared/API/c/gtk/WKBaseGtk.h \
+	$(WebKit2)/Shared/API/c/gtk/WKGraphicsContextGtk.h \
 	$(WebKit2)/Shared/API/c/WKArray.h \
 	$(WebKit2)/Shared/API/c/WKBase.h \
 	$(WebKit2)/Shared/API/c/WKCertificateInfo.h \
@@ -15,6 +17,7 @@ libWebKit2_la_HEADERS = \
 	$(WebKit2)/Shared/API/c/WKEvent.h \
 	$(WebKit2)/Shared/API/c/WKFindOptions.h \
 	$(WebKit2)/Shared/API/c/WKGeometry.h \
+	$(WebKit2)/Shared/API/c/WKGraphicsContext.h \
 	$(WebKit2)/Shared/API/c/WKImage.h \
 	$(WebKit2)/Shared/API/c/WKMutableArray.h \
 	$(WebKit2)/Shared/API/c/WKMutableDictionary.h \
@@ -31,7 +34,8 @@ libWebKit2_la_HEADERS = \
 	$(WebKit2)/Shared/API/c/WKURLRequest.h \
 	$(WebKit2)/Shared/API/c/WKURLResponse.h \
 	$(WebKit2)/Shared/API/c/WKUserContentURLPattern.h \
-	$(WebKit2)/UIProcess/API/cpp/WKRetainPtr.h \
+	$(WebKit2)/UIProcess/API/C/gtk/WKAPICastGtk.h \
+	$(WebKit2)/UIProcess/API/C/gtk/WKView.h \
 	$(WebKit2)/UIProcess/API/C/WebKit2.h \
 	$(WebKit2)/UIProcess/API/C/WKAPICast.h \
 	$(WebKit2)/UIProcess/API/C/WKAuthenticationChallenge.h \
@@ -58,7 +62,8 @@ libWebKit2_la_HEADERS = \
 	$(WebKit2)/UIProcess/API/C/WKPreferences.h \
 	$(WebKit2)/UIProcess/API/C/WKPreferencesPrivate.h \
 	$(WebKit2)/UIProcess/API/C/WKProtectionSpace.h \
-	$(WebKit2)/UIProcess/API/C/WKProtectionSpaceTypes.h
+	$(WebKit2)/UIProcess/API/C/WKProtectionSpaceTypes.h \
+	$(WebKit2)/UIProcess/API/cpp/WKRetainPtr.h
 
 nodist_libWebKit2_la_SOURCES = \
 	$(webkit2_built_sources)
@@ -84,6 +89,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Platform/CoreIPC/HandleMessage.h \
 	Source/WebKit2/Platform/CoreIPC/MessageID.h \
 	Source/WebKit2/Platform/CoreIPC/MessageSender.h \
+	Source/WebKit2/Platform/gtk/ModuleGtk.cpp \
 	Source/WebKit2/Platform/gtk/RunLoopGtk.cpp \
 	Source/WebKit2/Platform/gtk/SharedMemoryGtk.cpp \
 	Source/WebKit2/Platform/gtk/WorkQueueGtk.cpp \
@@ -106,6 +112,9 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/PluginProcess/WebProcessConnection.cpp \
 	Source/WebKit2/PluginProcess/WebProcessConnection.h \
 	Source/WebKit2/Shared/APIClient.h \
+	Source/WebKit2/Shared/API/c/gtk/WKBaseGtk.h \
+	Source/WebKit2/Shared/API/c/gtk/WKGraphicsContextGtk.h \
+	Source/WebKit2/Shared/API/c/gtk/WKGraphicsContextGtk.cpp \
 	Source/WebKit2/Shared/API/c/WKArray.cpp \
 	Source/WebKit2/Shared/API/c/WKArray.h \
 	Source/WebKit2/Shared/API/c/WKBase.h \
@@ -123,6 +132,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/API/c/WKEvent.h \
 	Source/WebKit2/Shared/API/c/WKFindOptions.h \
 	Source/WebKit2/Shared/API/c/WKGeometry.h \
+	Source/WebKit2/Shared/API/c/WKGraphicsContext.cpp \
+	Source/WebKit2/Shared/API/c/WKGraphicsContext.h \
 	Source/WebKit2/Shared/API/c/WKImage.cpp \
 	Source/WebKit2/Shared/API/c/WKImage.h \
 	Source/WebKit2/Shared/API/c/WKMutableArray.cpp \
@@ -168,6 +179,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/FontSmoothingLevel.h \
 	Source/WebKit2/Shared/gtk/ShareableBitmapGtk.cpp \
 	Source/WebKit2/Shared/gtk/PlatformCertificateInfo.h \
+	Source/WebKit2/Shared/gtk/UpdateChunk.cpp \
+	Source/WebKit2/Shared/gtk/UpdateChunk.h \
 	Source/WebKit2/Shared/gtk/WebCoreArgumentCodersGtk.cpp \
 	Source/WebKit2/Shared/ImageOptions.h \
 	Source/WebKit2/Shared/ImmutableArray.cpp \
@@ -228,6 +241,10 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/WebEvent.cpp \
 	Source/WebKit2/Shared/WebEvent.h \
 	Source/WebKit2/Shared/WebFindOptions.h \
+	Source/WebKit2/Shared/WebGeolocationPosition.cpp \
+	Source/WebKit2/Shared/WebGeolocationPosition.h \
+	Source/WebKit2/Shared/WebGraphicsContext.cpp \
+	Source/WebKit2/Shared/WebGraphicsContext.h \
 	Source/WebKit2/Shared/WebImage.cpp \
 	Source/WebKit2/Shared/WebImage.h \
 	Source/WebKit2/Shared/WebKeyboardEvent.cpp \
@@ -258,7 +275,9 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/WebURLResponse.h \
 	Source/WebKit2/Shared/WebUserContentURLPattern.h \
 	Source/WebKit2/Shared/WebWheelEvent.cpp \
-	Source/WebKit2/UIProcess/API/cpp/WKRetainPtr.h \
+	Source/WebKit2/UIProcess/API/C/gtk/WKAPICastGtk.h \
+	Source/WebKit2/UIProcess/API/C/gtk/WKView.cpp \
+	Source/WebKit2/UIProcess/API/C/gtk/WKView.h \
 	Source/WebKit2/UIProcess/API/C/WebKit2.h \
 	Source/WebKit2/UIProcess/API/C/WKAPICast.h \
 	Source/WebKit2/UIProcess/API/C/WKAuthenticationChallenge.cpp \
@@ -305,6 +324,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/API/C/WKProtectionSpace.cpp \
 	Source/WebKit2/UIProcess/API/C/WKProtectionSpace.h \
 	Source/WebKit2/UIProcess/API/C/WKProtectionSpaceTypes.h \
+	Source/WebKit2/UIProcess/API/cpp/WKRetainPtr.h \
 	Source/WebKit2/UIProcess/Authentication/AuthenticationChallengeProxy.cpp \
 	Source/WebKit2/UIProcess/Authentication/AuthenticationChallengeProxy.h \
 	Source/WebKit2/UIProcess/Authentication/AuthenticationDecisionListener.cpp \
@@ -322,6 +342,11 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/FindIndicator.cpp \
 	Source/WebKit2/UIProcess/FindIndicator.h \
 	Source/WebKit2/UIProcess/GenericCallback.h \
+	Source/WebKit2/UIProcess/GeolocationPermissionRequestManagerProxy.cpp \
+	Source/WebKit2/UIProcess/GeolocationPermissionRequestManagerProxy.h \
+	Source/WebKit2/UIProcess/GeolocationPermissionRequestProxy.cpp \
+	Source/WebKit2/UIProcess/GeolocationPermissionRequestProxy.h \
+	Source/WebKit2/UIProcess/gtk/ChunkedUpdateDrawingAreaProxyGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/TextCheckerGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/WebInspectorGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/WebPageProxyGtk.cpp \
@@ -380,6 +405,10 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/WebFramePolicyListenerProxy.h \
 	Source/WebKit2/UIProcess/WebFrameProxy.cpp \
 	Source/WebKit2/UIProcess/WebFrameProxy.h \
+	Source/WebKit2/UIProcess/WebGeolocationManagerProxy.cpp \
+	Source/WebKit2/UIProcess/WebGeolocationManagerProxy.h \
+	Source/WebKit2/UIProcess/WebGeolocationProvider.cpp \
+	Source/WebKit2/UIProcess/WebGeolocationProvider.h \
 	Source/WebKit2/UIProcess/WebHistoryClient.cpp \
 	Source/WebKit2/UIProcess/WebHistoryClient.h \
 	Source/WebKit2/UIProcess/WebInspectorProxy.cpp \
@@ -416,6 +445,10 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/Downloads/Download.h \
 	Source/WebKit2/WebProcess/Downloads/DownloadManager.cpp \
 	Source/WebKit2/WebProcess/Downloads/DownloadManager.h \
+	Source/WebKit2/WebProcess/Geolocation/GeolocationPermissionRequestManager.cpp \
+	Source/WebKit2/WebProcess/Geolocation/GeolocationPermissionRequestManager.h \
+	Source/WebKit2/WebProcess/Geolocation/WebGeolocationManager.cpp \
+	Source/WebKit2/WebProcess/Geolocation/WebGeolocationManager.h \
 	Source/WebKit2/WebProcess/gtk/WebProcessGtk.cpp \
 	Source/WebKit2/WebProcess/gtk/WebProcessMainGtk.cpp \
 	Source/WebKit2/WebProcess/gtk/WebProcessMainGtk.h \
@@ -432,6 +465,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInitialize.h \
+	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInspector.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInspector.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleNodeHandle.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleNodeHandle.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleNodeHandlePrivate.h \
@@ -470,6 +505,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageFormClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.h \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleScriptWorld.cpp \
@@ -504,7 +541,6 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/Plugins/PluginView.cpp \
 	Source/WebKit2/WebProcess/Plugins/PluginView.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebContextMenuClientGtk.cpp \
-	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebDatabaseManagerGtk.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebFrameNetworkingContext.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebPopupMenuGtk.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebChromeClient.cpp \
@@ -520,6 +556,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebErrors.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.h \
+	Source/WebKit2/WebProcess/WebCoreSupport/WebGeolocationClient.cpp \
+	Source/WebKit2/WebProcess/WebCoreSupport/WebGeolocationClient.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebInspectorFrontendClient.cpp \
@@ -530,7 +568,6 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebPopupMenu.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.h \
-	Source/WebKit2/WebProcess/WebKitMain.cpp \
 	Source/WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.cpp \
 	Source/WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.h \
 	Source/WebKit2/WebProcess/WebPage/DecoderAdapter.cpp \
@@ -541,6 +578,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/WebPage/EncoderAdapter.h \
 	Source/WebKit2/WebProcess/WebPage/FindController.cpp \
 	Source/WebKit2/WebProcess/WebPage/FindController.h \
+	Source/WebKit2/WebProcess/WebPage/gtk/ChunkedUpdateDrawingAreaGtk.cpp \
 	Source/WebKit2/WebProcess/WebPage/gtk/WebInspectorGtk.cpp \
 	Source/WebKit2/WebProcess/WebPage/LayerBackedDrawingArea.cpp \
 	Source/WebKit2/WebProcess/WebPage/LayerBackedDrawingArea.h \
@@ -565,8 +603,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/WebPage/WebPageGroupProxy.h \
 	Source/WebKit2/WebProcess/WebPage/WebPage.h \
 	Source/WebKit2/WebProcess/WebProcess.cpp \
-	Source/WebKit2/WebProcess/WebProcess.h \
-	Source/WebKit2/WebProcess/WebProcessMain.h
+	Source/WebKit2/WebProcess/WebProcess.h
 
 libWebKit2_la_CPPFLAGS = \
 	-fno-strict-aliasing \
@@ -603,6 +640,7 @@ libWebKit2_la_CPPFLAGS = \
 	-I$(srcdir)/Source/WebKit2/WebProcess \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Authentication \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Downloads \
+	-I$(srcdir)/Source/WebKit2/WebProcess/Geolocation \
 	-I$(srcdir)/Source/WebKit2/WebProcess/gtk \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle/API \
@@ -755,6 +793,10 @@ webkit2_built_sources += \
 	DerivedSources/WebKit2/WebDatabaseManagerMessages.h \
 	DerivedSources/WebKit2/WebDatabaseManagerProxyMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebDatabaseManagerProxyMessages.h \
+	DerivedSources/WebKit2/WebGeolocationManagerMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebGeolocationManagerMessages.h \
+	DerivedSources/WebKit2/WebGeolocationManagerProxyMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebGeolocationManagerProxyMessages.h \
 	DerivedSources/WebKit2/WebInspectorMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebInspectorMessages.h \
 	DerivedSources/WebKit2/WebInspectorProxyMessageReceiver.cpp \
@@ -776,9 +818,6 @@ BUILT_SOURCES += \
 
 forwarding_headers := $(GENSOURCES_WEBKIT2)/include
 generate-webkit2-forwarding-headers: $(WebKit2)/Scripts/generate-forwarding-headers.pl $(libWebKit2_la_SOURCES)
-	$(AM_V_at)$(mkdir_p) $(forwarding_headers)/JavaScriptCore
-	$(AM_V_at)$(mkdir_p) $(forwarding_headers)/WebCore
-	$(AM_V_at)$(mkdir_p) $(forwarding_headers)/WebKit2
 	$(AM_V_GEN)$(PERL) $< $(WebKit2) $(forwarding_headers) gtk
 	$(AM_V_GEN)$(PERL) $< $(WebKit2) $(forwarding_headers) soup 
 
@@ -787,9 +826,11 @@ vpath %.messages.in = \
 	$(WebKit2)/Shared/Plugins \
 	$(WebKit2)/UIProcess \
 	$(WebKit2)/UIProcess/Downloads \
+	$(WebKit2)/UIProcess/Geolocation \
 	$(WebKit2)/UIProcess/Plugins \
 	$(WebKit2)/WebProcess \
 	$(WebKit2)/WebProcess/Authentication \
+	$(WebKit2)/WebProcess/Geolocation \
 	$(WebKit2)/WebProcess/Plugins \
 	$(WebKit2)/WebProcess/WebCoreSupport \
 	$(WebKit2)/WebProcess/WebPage

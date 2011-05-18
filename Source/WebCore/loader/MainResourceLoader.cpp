@@ -31,6 +31,7 @@
 #include "MainResourceLoader.h"
 
 #include "ApplicationCacheHost.h"
+#include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
 #include "FormState.h"

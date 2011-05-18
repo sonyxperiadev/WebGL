@@ -24,6 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebPage.h"
 
 #include "WebEvent.h"
@@ -268,6 +269,12 @@ bool WebPage::platformHasLocalDataForURL(const WebCore::KURL&)
 {
     // FIXME: Implement
     return false;
+}
+
+String WebPage::cachedResponseMIMETypeForURL(const WebCore::KURL&)
+{
+    // FIXME: Implement
+    return String();
 }
 
 bool WebPage::canHandleRequest(const WebCore::ResourceRequest&)

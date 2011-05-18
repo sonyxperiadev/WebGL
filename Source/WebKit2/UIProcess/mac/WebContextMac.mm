@@ -23,12 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebContext.h"
+#import "config.h"
+#import "WebContext.h"
 
-#include "WebKitSystemInterface.h"
-#include "WebProcessCreationParameters.h"
-#include <WebCore/FileSystem.h>
-#include <sys/param.h>
+#import "WebKitSystemInterface.h"
+#import "WebProcessCreationParameters.h"
+#import <WebCore/FileSystem.h>
+#import <sys/param.h>
 
 using namespace WebCore;
 
@@ -88,6 +89,11 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     // FIXME: This should really be configurable; we shouldn't just blindly allow read access to the UI process bundle.
     parameters.uiProcessBundleResourcePath = fileSystemRepresentation([[NSBundle mainBundle] resourcePath]);
+}
+
+String WebContext::platformDefaultDatabaseDirectory() const
+{
+    return [@"~/Library/WebKit/Databases" stringByStandardizingPath];
 }
 
 } // namespace WebKit

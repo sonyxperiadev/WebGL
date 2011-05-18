@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebURLRequest.h"
+#import "config.h"
+#import "WebURLRequest.h"
 
 namespace WebKit {
 

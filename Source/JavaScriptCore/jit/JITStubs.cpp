@@ -221,7 +221,7 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
     "ret" "\n"
 );
 
-#elif COMPILER(GCC) && CPU(ARM_THUMB2)
+#elif (COMPILER(GCC) || COMPILER(RVCT)) && CPU(ARM_THUMB2)
 
 #define THUNK_RETURN_ADDRESS_OFFSET      0x38
 #define PRESERVED_RETURN_ADDRESS_OFFSET  0x3C
@@ -321,58 +321,7 @@ extern "C" {
 
 #else // USE(JSVALUE32_64)
 
-#if COMPILER(GCC) && CPU(X86)
-
-// These ASSERTs remind you that, if you change the layout of JITStackFrame, you
-// need to change the assembly trampolines below to match.
-COMPILE_ASSERT(offsetof(struct JITStackFrame, callFrame) == 0x38, JITStackFrame_callFrame_offset_matches_ctiTrampoline);
-COMPILE_ASSERT(offsetof(struct JITStackFrame, code) == 0x30, JITStackFrame_code_offset_matches_ctiTrampoline);
-COMPILE_ASSERT(offsetof(struct JITStackFrame, savedEBX) == 0x1c, JITStackFrame_stub_argument_space_matches_ctiTrampoline);
-
-asm (
-".text\n"
-".globl " SYMBOL_STRING(ctiTrampoline) "\n"
-HIDE_SYMBOL(ctiTrampoline) "\n"
-SYMBOL_STRING(ctiTrampoline) ":" "\n"
-    "pushl %ebp" "\n"
-    "movl %esp, %ebp" "\n"
-    "pushl %esi" "\n"
-    "pushl %edi" "\n"
-    "pushl %ebx" "\n"
-    "subl $0x1c, %esp" "\n"
-    "movl $512, %esi" "\n"
-    "movl 0x38(%esp), %edi" "\n"
-    "call *0x30(%esp)" "\n"
-    "addl $0x1c, %esp" "\n"
-    "popl %ebx" "\n"
-    "popl %edi" "\n"
-    "popl %esi" "\n"
-    "popl %ebp" "\n"
-    "ret" "\n"
-);
-
-asm (
-".globl " SYMBOL_STRING(ctiVMThrowTrampoline) "\n"
-HIDE_SYMBOL(ctiVMThrowTrampoline) "\n"
-SYMBOL_STRING(ctiVMThrowTrampoline) ":" "\n"
-    "movl %esp, %ecx" "\n"
-    "call " SYMBOL_STRING_RELOCATION(cti_vm_throw) "\n"
-    "int3" "\n"
-);
-    
-asm (
-".globl " SYMBOL_STRING(ctiOpThrowNotCaught) "\n"
-HIDE_SYMBOL(ctiOpThrowNotCaught) "\n"
-SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
-    "addl $0x1c, %esp" "\n"
-    "popl %ebx" "\n"
-    "popl %edi" "\n"
-    "popl %esi" "\n"
-    "popl %ebp" "\n"
-    "ret" "\n"
-);
-    
-#elif COMPILER(GCC) && CPU(X86_64)
+#if COMPILER(GCC) && CPU(X86_64)
 
 // These ASSERTs remind you that, if you change the layout of JITStackFrame, you
 // need to change the assembly trampolines below to match.
@@ -437,97 +386,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
     "popq %rbp" "\n"
     "ret" "\n"
 );
-
-#elif COMPILER(GCC) && CPU(ARM_THUMB2)
-
-#define THUNK_RETURN_ADDRESS_OFFSET      0x20
-#define PRESERVED_RETURN_ADDRESS_OFFSET  0x24
-#define PRESERVED_R4_OFFSET              0x28
-#define PRESERVED_R5_OFFSET              0x2C
-#define PRESERVED_R6_OFFSET              0x30
-#define REGISTER_FILE_OFFSET             0x34
-#define CALLFRAME_OFFSET                 0x38
-#define EXCEPTION_OFFSET                 0x3C
-#define ENABLE_PROFILER_REFERENCE_OFFSET 0x40
-
-#elif (COMPILER(GCC) || COMPILER(RVCT)) && CPU(ARM_TRADITIONAL)
-
-#define THUNK_RETURN_ADDRESS_OFFSET 32
-#define PRESERVEDR4_OFFSET          36
-
-#elif CPU(MIPS)
-
-#define PRESERVED_GP_OFFSET         28
-#define PRESERVED_S0_OFFSET         32
-#define PRESERVED_S1_OFFSET         36
-#define PRESERVED_S2_OFFSET         40
-#define PRESERVED_RETURN_ADDRESS_OFFSET 44
-#define THUNK_RETURN_ADDRESS_OFFSET 48
-#define REGISTER_FILE_OFFSET        52
-#define CALLFRAME_OFFSET            56
-#define EXCEPTION_OFFSET            60
-#define ENABLE_PROFILER_REFERENCE_OFFSET 64
-#define GLOBAL_DATA_OFFSET          68
-#define STACK_LENGTH                72
-
-#elif COMPILER(MSVC) && CPU(X86)
-
-// These ASSERTs remind you that, if you change the layout of JITStackFrame, you
-// need to change the assembly trampolines below to match.
-COMPILE_ASSERT(offsetof(struct JITStackFrame, callFrame) == 0x38, JITStackFrame_callFrame_offset_matches_ctiTrampoline);
-COMPILE_ASSERT(offsetof(struct JITStackFrame, code) == 0x30, JITStackFrame_code_offset_matches_ctiTrampoline);
-COMPILE_ASSERT(offsetof(struct JITStackFrame, savedEBX) == 0x1c, JITStackFrame_stub_argument_space_matches_ctiTrampoline);
-
-extern "C" {
-
-    __declspec(naked) EncodedJSValue ctiTrampoline(void* code, RegisterFile*, CallFrame*, void* /*unused1*/, Profiler**, JSGlobalData*)
-    {
-        __asm {
-            push ebp;
-            mov ebp, esp;
-            push esi;
-            push edi;
-            push ebx;
-            sub esp, 0x1c;
-            mov esi, 512;
-            mov ecx, esp;
-            mov edi, [esp + 0x38];
-            call [esp + 0x30];
-            add esp, 0x1c;
-            pop ebx;
-            pop edi;
-            pop esi;
-            pop ebp;
-            ret;
-        }
-    }
-
-    __declspec(naked) void ctiVMThrowTrampoline()
-    {
-        __asm {
-            mov ecx, esp;
-            call cti_vm_throw;
-            add esp, 0x1c;
-            pop ebx;
-            pop edi;
-            pop esi;
-            pop ebp;
-            ret;
-        }
-    }
-     
-     __declspec(naked) void ctiOpThrowNotCaught()
-     {
-         __asm {
-             add esp, 0x1c;
-             pop ebx;
-             pop edi;
-             pop esi;
-             pop ebp;
-             ret;
-         }
-     }
-}
 
 #else
     #error "JIT not supported on this platform."
@@ -987,7 +845,7 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
         if (slotBaseObject->structure()->isDictionary()) {
-            slotBaseObject->flattenDictionaryObject();
+            slotBaseObject->flattenDictionaryObject(callFrame->globalData());
             offset = slotBaseObject->structure()->get(propertyName);
         }
         
@@ -1084,17 +942,17 @@ static NEVER_INLINE void throwStackOverflowError(CallFrame* callFrame, JSGlobalD
 
 #define CHECK_FOR_EXCEPTION() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception)) \
+        if (UNLIKELY(stackFrame.globalData->exception.get())) \
             VM_THROW_EXCEPTION(); \
     } while (0)
 #define CHECK_FOR_EXCEPTION_AT_END() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception)) \
+        if (UNLIKELY(stackFrame.globalData->exception.get())) \
             VM_THROW_EXCEPTION_AT_END(); \
     } while (0)
 #define CHECK_FOR_EXCEPTION_VOID() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception)) { \
+        if (UNLIKELY(stackFrame.globalData->exception.get())) { \
             VM_THROW_EXCEPTION_AT_END(); \
             return; \
         } \
@@ -1608,7 +1466,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_method_check)
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
         if (slotBaseObject->structure()->isDictionary())
-            slotBaseObject->flattenDictionaryObject();
+            slotBaseObject->flattenDictionaryObject(callFrame->globalData());
 
         // The result fetched should always be the callee!
         ASSERT(result == JSValue(callee));
@@ -1798,7 +1656,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_proto_list)
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
         if (slotBaseObject->structure()->isDictionary()) {
-            slotBaseObject->flattenDictionaryObject();
+            slotBaseObject->flattenDictionaryObject(callFrame->globalData());
             offset = slotBaseObject->structure()->get(propertyName);
         }
 
@@ -2289,7 +2147,7 @@ DEFINE_STUB_FUNCTION(void, op_tear_off_activation)
     activation->copyRegisters();
     if (JSValue v = stackFrame.args[1].jsValue()) {
         if (!stackFrame.callFrame->codeBlock()->isStrictMode())
-            asArguments(v)->setActivation(activation);
+            asArguments(v)->setActivation(*stackFrame.globalData, activation);
     }
 }
 
@@ -2346,7 +2204,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve)
 
     Identifier& ident = stackFrame.args[0].identifier();
     do {
-        JSObject* o = *iter;
+        JSObject* o = iter->get();
         PropertySlot slot(o);
         if (o->getPropertySlot(callFrame, ident, slot)) {
             JSValue result = slot.getValue(callFrame, ident);
@@ -2539,7 +2397,7 @@ DEFINE_STUB_FUNCTION(void, op_put_by_val)
         if (isJSArray(globalData, baseValue)) {
             JSArray* jsArray = asArray(baseValue);
             if (jsArray->canSetIndex(i))
-                jsArray->setIndex(i, value);
+                jsArray->setIndex(*globalData, i, value);
             else
                 jsArray->JSArray::put(callFrame, i, value);
         } else if (isJSByteArray(globalData, baseValue) && asByteArray(baseValue)->canAccessIndex(i)) {
@@ -2787,7 +2645,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve_skip)
     }
     Identifier& ident = stackFrame.args[0].identifier();
     do {
-        JSObject* o = *iter;
+        JSObject* o = iter->get();
         PropertySlot slot(o);
         if (o->getPropertySlot(callFrame, ident, slot)) {
             JSValue result = slot.getValue(callFrame, ident);
@@ -3116,7 +2974,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve_with_base)
     Identifier& ident = stackFrame.args[0].identifier();
     JSObject* base;
     do {
-        base = *iter;
+        base = iter->get();
         PropertySlot slot(base);
         if (base->getPropertySlot(callFrame, ident, slot)) {
             JSValue result = slot.getValue(callFrame, ident);
@@ -3622,7 +3480,7 @@ DEFINE_STUB_FUNCTION(void*, vm_throw)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
     JSGlobalData* globalData = stackFrame.globalData;
-    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception, globalData->exceptionLocation);
+    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception.get(), globalData->exceptionLocation);
     STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
     return handler.callFrame;
 }

@@ -45,6 +45,7 @@ class RenderLayer;
 class RenderObject;
 class RenderEmbeddedObject;
 class RenderScrollbarPart;
+
 struct ScheduledEvent;
 
 template <typename T> class Timer;
@@ -101,7 +102,7 @@ public:
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-    void serviceScriptedAnimations();
+    void serviceScriptedAnimations(DOMTimeStamp);
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -209,6 +210,8 @@ public:
     bool isPainting() const;
     void setNodeToDraw(Node*);
 
+    virtual void paintOverhangAreas(GraphicsContext*, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect);
+
     static double currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
     
     void updateLayoutAndStyleIfNeededRecursive();
@@ -261,6 +264,11 @@ public:
     // On each repaint the delay increses by this amount
     static void setRepaintThrottlingDeferredRepaintDelayIncrementDuringLoading(double p);
 
+    virtual IntPoint currentMousePosition() const;
+
+    // FIXME: Remove this method once plugin loading is decoupled from layout.
+    void flushAnyPendingPostLayoutTasks();
+
 protected:
     virtual bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
@@ -291,7 +299,7 @@ private:
     void performPostLayoutTasks();
 
     virtual void repaintContentRectangle(const IntRect&, bool immediate);
-    virtual void contentsResized() { setNeedsLayout(); }
+    virtual void contentsResized();
     virtual void visibleContentsResized();
 
     // Override ScrollView methods to do point conversion via renderers, in order to
@@ -305,8 +313,9 @@ private:
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
     virtual void getTickmarks(Vector<IntRect>&) const;
-
     virtual void scrollTo(const IntSize&);
+    virtual void didCompleteRubberBand(const IntSize&) const;
+    virtual bool scrollbarWillRenderIntoCompositingLayer() const { return hasCompositedContent() || isEnclosedInCompositingLayer(); }
 
     void deferredRepaintTimerFired(Timer<FrameView>*);
     void doDeferredRepaints();

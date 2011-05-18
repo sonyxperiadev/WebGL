@@ -202,14 +202,14 @@ bool WebRuntimeFeatures::isWebAudioEnabled()
 
 void WebRuntimeFeatures::enableWebGL(bool enable)
 {
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     RuntimeEnabledFeatures::setWebGLEnabled(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isWebGLEnabled()
 {
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     return RuntimeEnabledFeatures::webGLRenderingContextEnabled();
 #else
     return false;
@@ -299,6 +299,22 @@ bool WebRuntimeFeatures::isFileSystemEnabled()
 {
 #if ENABLE(FILE_SYSTEM)
     return RuntimeEnabledFeatures::fileSystemEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableJavaScriptI18NAPI(bool enable)
+{
+#if ENABLE(JAVASCRIPT_I18N_API)
+    RuntimeEnabledFeatures::setJavaScriptI18NAPIEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isJavaScriptI18NAPIEnabled()
+{
+#if ENABLE(JAVASCRIPT_I18N_API)
+    return RuntimeEnabledFeatures::javaScriptI18NAPIEnabled();
 #else
     return false;
 #endif

@@ -65,6 +65,8 @@ struct PopupItem {
     String label;
     Type type;
     int yOffset; // y offset of this item, relative to the top of the popup.
+    TextDirection textDirection;
+    bool hasTextDirectionOverride;
     bool enabled;
 };
 
@@ -97,22 +99,6 @@ struct PopupContainerSettings {
     // Whether we should restrict the width of the PopupListBox or not.
     // Autocomplete popups are restricted, combo-boxes (select tags) aren't.
     bool restrictWidthOfListBox;
-
-    // A hint on the display directionality of the item text in popup menu.
-    //
-    // We could either display the items in the drop-down using its DOM element's
-    // directionality, or we could display the items in the drop-down using heuristics:
-    // such as in its first strong directionality character's direction.
-    // Please refer to the discussion (especially comment #7 and #10) in
-    // https://bugs.webkit.org/show_bug.cgi?id=27889 for details.
-    enum DirectionalityHint {
-        // Use the DOM element's directionality to display the item text in popup menu.
-        DOMElementDirection,
-        // Use the item text's first strong-directional character's directionality
-        // to display the item text in popup menu.
-        FirstStrongDirectionalCharacterDirection,
-    };
-    DirectionalityHint itemTextDirectionalityHint;
 };
 
 class PopupContainer : public FramelessScrollView {
@@ -141,9 +127,6 @@ public:
 
     // Show the popup
     void showPopup(FrameView*);
-
-    // Used on Mac Chromium for HTML select popup menus.
-    void showExternal(const IntRect&, FrameView*, int index);
 
     // Show the popup in the specified rect for the specified frame.
     // Note: this code was somehow arbitrarily factored-out of the Popup class
@@ -194,7 +177,7 @@ private:
     void paintBorder(GraphicsContext*, const IntRect&);
 
     // Layout and calculate popup widget size and location and returns it as IntRect.
-    IntRect layoutAndCalculateWidgetRect(int targetControlHeight, const IntPoint& popupInitialCoordinate);
+    IntRect layoutAndCalculateWidgetRect(int targetControlHeight, int popupInitialY);
 
     // Returns the ChromeClient of the page this popup is associated with.
     ChromeClientChromium* chromeClientChromium();

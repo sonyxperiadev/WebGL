@@ -172,8 +172,8 @@ bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, int& tx, int& ty)
     int currentTY = ty + y();
 
     // Early exit if the element touches the edges.
-    int top = currentTY + topVisualOverflow();
-    int bottom = currentTY + bottomVisualOverflow();
+    int top = currentTY + minYVisualOverflow();
+    int bottom = currentTY + maxYVisualOverflow();
     if (isSelected() && m_inlineBoxWrapper) {
         int selTop = ty + m_inlineBoxWrapper->root()->selectionTop();
         int selBottom = ty + selTop + m_inlineBoxWrapper->root()->selectionHeight();
@@ -182,9 +182,9 @@ bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, int& tx, int& ty)
     }
     
     int os = 2 * maximalOutlineSize(paintInfo.phase);
-    if (currentTX + leftVisualOverflow() >= paintInfo.rect.right() + os || currentTX + rightVisualOverflow() <= paintInfo.rect.x() - os)
+    if (currentTX + minXVisualOverflow() >= paintInfo.rect.maxX() + os || currentTX + maxXVisualOverflow() <= paintInfo.rect.x() - os)
         return false;
-    if (top >= paintInfo.rect.bottom() + os || bottom <= paintInfo.rect.y() - os)
+    if (top >= paintInfo.rect.maxY() + os || bottom <= paintInfo.rect.y() - os)
         return false;
 
     return true;

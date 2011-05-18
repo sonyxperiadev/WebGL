@@ -26,6 +26,7 @@
 // NOTE: This implementation is very similar to the implementation of popups in WebCore::PopupMenuWin.
 // We should try and factor out the common bits and share them.
 
+#include "config.h"
 #include "WebPopupMenuProxyWin.h"
 
 #include "WebView.h"
@@ -187,7 +188,7 @@ WebPopupMenuProxyWin::~WebPopupMenuProxyWin()
         m_scrollbar->setParent(0);
 }
 
-void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, const Vector<WebPopupItem>& items, const PlatformPopupMenuData& data, int32_t selectedIndex)
+void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, TextDirection, const Vector<WebPopupItem>& items, const PlatformPopupMenuData& data, int32_t selectedIndex)
 {
     m_items = items;
     m_data = data;
@@ -323,7 +324,8 @@ void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, const Vector<WebPo
     m_showPopup = false;
     ::ShowWindow(m_popup, SW_HIDE);
 
-    m_client->valueChangedForPopupMenu(this, m_newSelectedIndex);
+    if (m_client)
+        m_client->valueChangedForPopupMenu(this, m_newSelectedIndex);
 }
 
 void WebPopupMenuProxyWin::hidePopupMenu()
@@ -372,7 +374,7 @@ void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
     // Always left-align items in the popup.  This matches popup menus on the mac.
     int popupX = rectInScreenCoords.x() + m_data.m_clientInsetLeft;
 
-    IntRect popupRect(popupX, rectInScreenCoords.bottom(), popupWidth, popupHeight);
+    IntRect popupRect(popupX, rectInScreenCoords.maxY(), popupWidth, popupHeight);
 
     // The popup needs to stay within the bounds of the screen and not overlap any toolbars
     HMONITOR monitor = ::MonitorFromWindow(m_webView->window(), MONITOR_DEFAULTTOPRIMARY);
@@ -382,7 +384,7 @@ void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
     FloatRect screen = monitorInfo.rcWork;
 
     // Check that we don't go off the screen vertically
-    if (popupRect.bottom() > screen.height()) {
+    if (popupRect.maxY() > screen.height()) {
         // The popup will go off the screen, so try placing it above the client
         if (rectInScreenCoords.y() - popupRect.height() < 0) {
             // The popup won't fit above, either, so place it whereever's bigger and resize it to fit
@@ -848,8 +850,10 @@ bool WebPopupMenuProxyWin::setFocusedIndex(int i, bool hotTracking)
 
     m_focusedIndex = i;
 
-    if (!hotTracking)
-        m_client->setTextFromItemForPopupMenu(this, i);
+    if (!hotTracking) {
+        if (m_client)
+            m_client->setTextFromItemForPopupMenu(this, i);
+    }
 
     if (!scrollToRevealSelection())
         ::UpdateWindow(m_popup);

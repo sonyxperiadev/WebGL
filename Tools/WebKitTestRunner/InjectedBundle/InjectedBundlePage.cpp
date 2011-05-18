@@ -29,6 +29,7 @@
 #include "StringFunctions.h"
 #include <cmath>
 #include <JavaScriptCore/JSRetainPtr.h>
+#include <WebCore/KURL.h>
 #include <WebKit2/WKArray.h>
 #include <WebKit2/WKBundle.h>
 #include <WebKit2/WKBundleBackForwardList.h>
@@ -36,6 +37,7 @@
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
+#include <WebKit2/WKURLRequest.h>
 
 using namespace std;
 
@@ -190,9 +192,20 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         didCancelClientRedirectForFrame,
         willPerformClientRedirectForFrame,
         didHandleOnloadEventsForFrame,
-        shouldLoadResourceForFrame
     };
-    WKBundlePageSetLoaderClient(m_page, &loaderClient);
+    WKBundlePageSetPageLoaderClient(m_page, &loaderClient);
+
+    WKBundlePageResourceLoadClient resourceLoadClient = {
+        0,
+        this,
+        didInitiateLoadForResource,
+        willSendRequestForFrame,
+        didReceiveResponseForResource,
+        didReceiveContentLengthForResource,
+        didFinishLoadForResource,
+        didFailLoadForResource
+    };
+    WKBundlePageSetResourceLoadClient(m_page, &resourceLoadClient);
 
     WKBundlePageUIClient uiClient = {
         0,
@@ -204,6 +217,7 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         willRunJavaScriptPrompt,
         0, /*mouseDidMoveOverElement*/
         0, /*pageDidScroll*/
+        0, /*paintCustomOverhangArea*/
     };
     WKBundlePageSetUIClient(m_page, &uiClient);
 
@@ -321,11 +335,35 @@ void InjectedBundlePage::didRunInsecureContentForFrame(WKBundlePageRef page, WKB
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didRunInsecureContentForFrame(frame);
 }
 
-bool InjectedBundlePage::shouldLoadResourceForFrame(WKBundlePageRef page, WKBundleFrameRef frame, WKStringRef, const void* clientInfo)
+void InjectedBundlePage::didInitiateLoadForResource(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, WKURLRequestRef request, bool pageLoadIsProvisional, const void* clientInfo)
 {
-    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldLoadResourceForFrame(frame);
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didInitiateLoadForResource(page, frame, identifier, request, pageLoadIsProvisional);
 }
 
+WKURLRequestRef InjectedBundlePage::willSendRequestForFrame(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, WKURLRequestRef request, WKURLResponseRef redirectResponse, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->willSendRequestForFrame(page, frame, identifier, request, redirectResponse);
+}
+
+void InjectedBundlePage::didReceiveResponseForResource(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, WKURLResponseRef response, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didReceiveResponseForResource(page, frame, identifier, response);
+}
+
+void InjectedBundlePage::didReceiveContentLengthForResource(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, uint64_t length, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didReceiveContentLengthForResource(page, frame, identifier, length);
+}
+
+void InjectedBundlePage::didFinishLoadForResource(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didFinishLoadForResource(page, frame, identifier);
+}
+
+void InjectedBundlePage::didFailLoadForResource(WKBundlePageRef page, WKBundleFrameRef frame, uint64_t identifier, WKErrorRef error, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didFinishLoadForResource(page, frame, identifier, error);
+}
 
 void InjectedBundlePage::didStartProvisionalLoadForFrame(WKBundleFrameRef frame)
 {
@@ -574,9 +612,46 @@ void InjectedBundlePage::didRunInsecureContentForFrame(WKBundleFrameRef frame)
 {
 }
 
-bool InjectedBundlePage::shouldLoadResourceForFrame(WKBundleFrameRef frame)
+void InjectedBundlePage::didInitiateLoadForResource(WKBundlePageRef, WKBundleFrameRef, uint64_t identifier, WKURLRequestRef, bool)
 {
-    return true;
+}
+
+// Resource Load Client Callbacks
+
+WKURLRequestRef InjectedBundlePage::willSendRequestForFrame(WKBundlePageRef, WKBundleFrameRef, uint64_t, WKURLRequestRef request, WKURLResponseRef)
+{
+    if (InjectedBundle::shared().isTestRunning() && InjectedBundle::shared().layoutTestController()->willSendRequestReturnsNull())
+        return 0;
+
+    string urlString = toSTD(adoptWK(WKURLCopyString(adoptWK(WKURLRequestCopyURL(request)).get())));
+    WebCore::KURL url(WebCore::ParsedURLString, urlString.c_str());
+
+    if (!url.host().isEmpty()
+        && (equalIgnoringCase(url.protocol(), "http") || (equalIgnoringCase(url.protocol(), "https")))
+        && (url.host() != "127.0.0.1")
+        && (url.host() != "255.255.255.255") // used in some tests that expect to get back an error
+        && (!equalIgnoringCase(url.host(), "localhost"))) {
+        InjectedBundle::shared().os() << "Blocked access to external URL " << urlString << "\n";
+        return 0;
+    }
+
+    return request;
+}
+
+void InjectedBundlePage::didReceiveResponseForResource(WKBundlePageRef, WKBundleFrameRef, uint64_t, WKURLResponseRef)
+{
+}
+
+void InjectedBundlePage::didReceiveContentLengthForResource(WKBundlePageRef, WKBundleFrameRef, uint64_t, uint64_t)
+{
+}
+
+void InjectedBundlePage::didFinishLoadForResource(WKBundlePageRef, WKBundleFrameRef, uint64_t)
+{
+}
+
+void InjectedBundlePage::didFailLoadForResource(WKBundlePageRef, WKBundleFrameRef, uint64_t, WKErrorRef)
+{
 }
 
 // UI Client Callbacks

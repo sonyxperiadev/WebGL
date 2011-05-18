@@ -4,7 +4,7 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -30,7 +30,6 @@
 #include "Frame.h"
 #include "GraphicsContext.h"
 #include "HTMLAreaElement.h"
-#include "HTMLCollection.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMapElement.h"
@@ -38,11 +37,9 @@
 #include "HitTestResult.h"
 #include "Page.h"
 #include "RenderLayer.h"
-#include "RenderTheme.h"
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "TextRun.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/UnusedParam.h>
 
 #ifdef ANDROID_LAYOUT
@@ -116,7 +113,7 @@ bool RenderImage::setImageSizeForAltText(CachedImage* newImage /* = 0 */)
     // we have an alt and the user meant it (its not a text we invented)
     if (!m_altText.isEmpty()) {
         const Font& font = style()->font();
-        IntSize textSize(min(font.width(TextRun(m_altText.characters(), m_altText.length())), maxAltTextWidth), min(font.height(), maxAltTextHeight));
+        IntSize textSize(min(font.width(TextRun(m_altText.characters(), m_altText.length())), maxAltTextWidth), min(font.fontMetrics().height(), maxAltTextHeight));
         imageSize = imageSize.expandedTo(textSize);
     }
 
@@ -277,7 +274,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
             int usableWidth = cWidth - 2;
             int usableHeight = cHeight - 2;
 
-            Image* image = m_imageResource->image();
+            RefPtr<Image> image = m_imageResource->image();
 
             if (m_imageResource->errorOccurred() && !image->isNull() && usableWidth >= image->width() && usableHeight >= image->height()) {
                 // Center the error image, accounting for border and padding.
@@ -289,7 +286,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
                     centerY = 0;
                 imageX = leftBorder + leftPad + centerX + 1;
                 imageY = topBorder + topPad + centerY + 1;
-                context->drawImage(image, style()->colorSpace(), IntPoint(tx + imageX, ty + imageY));
+                context->drawImage(image.get(), style()->colorSpace(), IntPoint(tx + imageX, ty + imageY));
                 errorPictureDrawn = true;
             }
 
@@ -299,21 +296,22 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
                 int ax = tx + leftBorder + leftPad;
                 int ay = ty + topBorder + topPad;
                 const Font& font = style()->font();
-                int ascent = font.ascent();
+                const FontMetrics& fontMetrics = font.fontMetrics();
+                int ascent = fontMetrics.ascent();
 
                 // Only draw the alt text if it'll fit within the content box,
                 // and only if it fits above the error image.
                 TextRun textRun(text.characters(), text.length());
                 int textWidth = font.width(textRun);
                 if (errorPictureDrawn) {
-                    if (usableWidth >= textWidth && font.height() <= imageY)
-                        context->drawText(style()->font(), textRun, IntPoint(ax, ay + ascent));
-                } else if (usableWidth >= textWidth && cHeight >= font.height())
-                    context->drawText(style()->font(), textRun, IntPoint(ax, ay + ascent));
+                    if (usableWidth >= textWidth && fontMetrics.height() <= imageY)
+                        context->drawText(font, textRun, IntPoint(ax, ay + ascent));
+                } else if (usableWidth >= textWidth && cHeight >= fontMetrics.height())
+                    context->drawText(font, textRun, IntPoint(ax, ay + ascent));
             }
         }
     } else if (m_imageResource->hasImage() && cWidth > 0 && cHeight > 0) {
-        Image* img = m_imageResource->image(cWidth, cHeight);
+        RefPtr<Image> img = m_imageResource->image(cWidth, cHeight);
         if (!img || img->isNull())
             return;
 
@@ -333,60 +331,65 @@ void RenderImage::paint(PaintInfo& paintInfo, int tx, int ty)
     RenderReplaced::paint(paintInfo, tx, ty);
     
     if (paintInfo.phase == PaintPhaseOutline)
-        paintFocusRing(paintInfo, style());
+        paintAreaElementFocusRing(paintInfo);
 }
     
-void RenderImage::paintFocusRing(PaintInfo& paintInfo, const RenderStyle*)
+void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo)
 {
-    // Don't draw focus rings if printing.
-    if (document()->printing() || !frame()->selection()->isFocusedAndActive())
+    Document* document = this->document();
+    
+    if (document->printing() || !document->frame()->selection()->isFocusedAndActive())
         return;
     
     if (paintInfo.context->paintingDisabled() && !paintInfo.context->updatingControlTints())
         return;
 
-    HTMLMapElement* mapElement = imageMap();
-    if (!mapElement)
-        return;
-    
-    Document* document = mapElement->document();
-    if (!document)
-        return;
-    
     Node* focusedNode = document->focusedNode();
-    if (!focusedNode)
+    if (!focusedNode || !focusedNode->hasTagName(areaTag))
         return;
-    
-    RefPtr<HTMLCollection> areas = mapElement->areas();
-    unsigned numAreas = areas->length();
-    
-    // FIXME: Clip the paths to the image bounding box.
-    for (unsigned k = 0; k < numAreas; ++k) {
-        HTMLAreaElement* areaElement = static_cast<HTMLAreaElement*>(areas->item(k));
-        if (focusedNode != areaElement)
-            continue;
 
-        RenderStyle* styleToUse = areaElement->computedStyle();
-        if (theme()->supportsFocusRing(styleToUse))
-            return; // The theme draws the focus ring.
-        paintInfo.context->drawFocusRing(areaElement->getPath(this), styleToUse->outlineWidth(), styleToUse->outlineOffset(), styleToUse->visitedDependentColor(CSSPropertyOutlineColor));
-        break;
-    }
+    HTMLAreaElement* areaElement = static_cast<HTMLAreaElement*>(focusedNode);
+    if (areaElement->imageElement() != node())
+        return;
+
+    // Even if the theme handles focus ring drawing for entire elements, it won't do it for
+    // an area within an image, so we don't call RenderTheme::supportsFocusRing here.
+
+    Path path = areaElement->computePath(this);
+    if (path.isEmpty())
+        return;
+
+    // FIXME: Do we need additional code to clip the path to the image's bounding box?
+
+    RenderStyle* areaElementStyle = areaElement->computedStyle();
+    paintInfo.context->drawFocusRing(path, areaElementStyle->outlineWidth(), areaElementStyle->outlineOffset(),
+        areaElementStyle->visitedDependentColor(CSSPropertyOutlineColor));
 }
-    
+
+void RenderImage::areaElementFocusChanged(HTMLAreaElement* element)
+{
+    ASSERT_UNUSED(element, element->imageElement() == node());
+
+    // It would be more efficient to only repaint the focus ring rectangle
+    // for the passed-in area element. That would require adding functions
+    // to the area element class.
+    repaint();
+}
+
 void RenderImage::paintIntoRect(GraphicsContext* context, const IntRect& rect)
 {
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred() || rect.width() <= 0 || rect.height() <= 0)
         return;
 
-    Image* img = m_imageResource->image(rect.width(), rect.height());
+    RefPtr<Image> img = m_imageResource->image(rect.width(), rect.height());
     if (!img || img->isNull())
         return;
 
     HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
     CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
-    bool useLowQualityScaling = shouldPaintAtLowQuality(context, m_imageResource->image(), 0, rect.size());
-    context->drawImage(m_imageResource->image(rect.width(), rect.height()), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
+    Image* image = m_imageResource->image().get();
+    bool useLowQualityScaling = shouldPaintAtLowQuality(context, image, image, rect.size());
+    context->drawImage(m_imageResource->image(rect.width(), rect.height()).get(), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
 }
 
 int RenderImage::minimumReplacedHeight() const

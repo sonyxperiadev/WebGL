@@ -32,11 +32,13 @@
 
 #include "MediaControlElements.h"
 
+#include "CSSStyleSelector.h"
 #include "EventNames.h"
 #include "FloatConversion.h"
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "LocalizedStrings.h"
+#include "MediaControls.h"
 #include "MouseEvent.h"
 #include "Page.h"
 #include "RenderMedia.h"
@@ -88,14 +90,6 @@ PassRefPtr<MediaControlShadowRootElement> MediaControlShadowRootElement::create(
     return element.release();
 }
 
-void MediaControlShadowRootElement::updateStyle()
-{
-    if (renderer()) {
-        RenderStyle* timelineContainerStyle = shadowHost()->renderer()->getCachedPseudoStyle(MEDIA_CONTROLS_TIMELINE_CONTAINER);
-        renderer()->setStyle(timelineContainerStyle);
-    }
-}
-
 void MediaControlShadowRootElement::detach()
 {
     HTMLDivElement::detach();
@@ -105,40 +99,11 @@ void MediaControlShadowRootElement::detach()
 
 // ----------------------------
 
-MediaControlElement::MediaControlElement(HTMLMediaElement* mediaElement, PseudoId pseudo)
+MediaControlElement::MediaControlElement(HTMLMediaElement* mediaElement)
     : HTMLDivElement(divTag, mediaElement->document())
     , m_mediaElement(mediaElement)
-    , m_pseudoStyleId(pseudo)
 {
     setInDocument();
-    switch (pseudo) {
-    case MEDIA_CONTROLS_CURRENT_TIME_DISPLAY:
-        m_displayType = MediaCurrentTimeDisplay;
-        break;
-    case MEDIA_CONTROLS_TIME_REMAINING_DISPLAY:
-        m_displayType = MediaTimeRemainingDisplay;
-        break;
-    case MEDIA_CONTROLS_TIMELINE_CONTAINER:
-        m_displayType = MediaTimelineContainer;
-        break;
-    case MEDIA_CONTROLS_STATUS_DISPLAY:
-        m_displayType = MediaStatusDisplay;
-        break;
-    case MEDIA_CONTROLS_PANEL:
-        m_displayType = MediaControlsPanel;
-        break;
-    case MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER:
-        m_displayType = MediaVolumeSliderContainer;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
-}
-
-PassRefPtr<MediaControlElement> MediaControlElement::create(HTMLMediaElement* mediaElement, PseudoId pseudoStyleId)
-{
-    return adoptRef(new MediaControlElement(mediaElement, pseudoStyleId));
 }
 
 void MediaControlElement::attachToParent(Element* parent)
@@ -157,7 +122,8 @@ void MediaControlElement::update()
 
 PassRefPtr<RenderStyle> MediaControlElement::styleForElement()
 {
-    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+    ASSERT(m_mediaElement->renderer());
+    RefPtr<RenderStyle> style = document()->styleSelector()->styleForElement(this, m_mediaElement->renderer()->style(), true);
     if (!style)
         return 0;
     
@@ -225,8 +191,31 @@ void MediaControlElement::updateStyle()
 
 // ----------------------------
 
+inline MediaControlPanelElement::MediaControlPanelElement(HTMLMediaElement* mediaElement)
+    : MediaControlElement(mediaElement)
+{
+}
+
+PassRefPtr<MediaControlPanelElement> MediaControlPanelElement::create(HTMLMediaElement* mediaElement)
+{
+    return adoptRef(new MediaControlPanelElement(mediaElement));
+}
+
+MediaControlElementType MediaControlPanelElement::displayType() const
+{
+    return MediaControlsPanel;
+}
+
+const AtomicString& MediaControlPanelElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-panel"));
+    return id;
+}
+
+// ----------------------------
+
 inline MediaControlTimelineContainerElement::MediaControlTimelineContainerElement(HTMLMediaElement* mediaElement)
-    : MediaControlElement(mediaElement, MEDIA_CONTROLS_TIMELINE_CONTAINER)
+    : MediaControlElement(mediaElement)
 {
 }
 
@@ -240,20 +229,29 @@ bool MediaControlTimelineContainerElement::rendererIsNeeded(RenderStyle* style)
     if (!MediaControlElement::rendererIsNeeded(style))
         return false;
 
-    // This is for MediaControllerThemeClassic:
-    // If there is no style for MediaControlStatusDisplayElement style, don't hide
-    // the timeline.
-    if (!mediaElement()->renderer()->getCachedPseudoStyle(MEDIA_CONTROLS_STATUS_DISPLAY))
+    // Always show the timeline if the theme doesn't use status display (MediaControllerThemeClassic, for instance).
+    if (!document()->page()->theme()->usesMediaControlStatusDisplay())
         return true;
 
     float duration = mediaElement()->duration();
     return !isnan(duration) && !isinf(duration);
 }
 
+MediaControlElementType MediaControlTimelineContainerElement::displayType() const
+{
+    return MediaTimelineContainer;
+}
+
+const AtomicString& MediaControlTimelineContainerElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-timeline-container"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlVolumeSliderContainerElement::MediaControlVolumeSliderContainerElement(HTMLMediaElement* mediaElement)
-    : MediaControlElement(mediaElement, MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER)
+    : MediaControlElement(mediaElement)
     , m_isVisible(false)
     , m_x(0)
     , m_y(0)
@@ -298,10 +296,21 @@ bool MediaControlVolumeSliderContainerElement::hitTest(const IntPoint& absPoint)
     return false;
 }
 
+MediaControlElementType MediaControlVolumeSliderContainerElement::displayType() const
+{
+    return MediaVolumeSliderContainer;
+}
+
+const AtomicString& MediaControlVolumeSliderContainerElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-volume-slider-container"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlStatusDisplayElement::MediaControlStatusDisplayElement(HTMLMediaElement* mediaElement)
-    : MediaControlElement(mediaElement, MEDIA_CONTROLS_STATUS_DISPLAY)
+    : MediaControlElement(mediaElement)
     , m_stateBeingDisplayed(Nothing)
 {
 }
@@ -344,59 +353,30 @@ void MediaControlStatusDisplayElement::update()
 
 bool MediaControlStatusDisplayElement::rendererIsNeeded(RenderStyle* style)
 {
-    if (!MediaControlElement::rendererIsNeeded(style))
+    if (!MediaControlElement::rendererIsNeeded(style) || !document()->page()->theme()->usesMediaControlStatusDisplay())
         return false;
     float duration = mediaElement()->duration();
     return (isnan(duration) || isinf(duration));
 }
 
+MediaControlElementType MediaControlStatusDisplayElement::displayType() const
+{
+    return MediaStatusDisplay;
+}
+
+const AtomicString& MediaControlStatusDisplayElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-status-display"));
+    return id;
+}
+
 // ----------------------------
     
-MediaControlInputElement::MediaControlInputElement(HTMLMediaElement* mediaElement, PseudoId pseudo)
-    : HTMLInputElement(inputTag, mediaElement->document())
+MediaControlInputElement::MediaControlInputElement(HTMLMediaElement* mediaElement, MediaControlElementType displayType)
+    : HTMLInputElement(inputTag, mediaElement->document(), 0, false)
     , m_mediaElement(mediaElement)
-    , m_pseudoStyleId(pseudo)
+    , m_displayType(displayType)
 {
-    setInDocument();
-
-    switch (pseudo) {
-    case MEDIA_CONTROLS_MUTE_BUTTON:
-        m_displayType = MediaMuteButton;
-        break;
-    case MEDIA_CONTROLS_PLAY_BUTTON:
-        m_displayType = MediaPlayButton;
-        break;
-    case MEDIA_CONTROLS_SEEK_FORWARD_BUTTON:
-        m_displayType = MediaSeekForwardButton;
-        break;
-    case MEDIA_CONTROLS_SEEK_BACK_BUTTON:
-        m_displayType = MediaSeekBackButton;
-        break;
-    case MEDIA_CONTROLS_FULLSCREEN_BUTTON:
-        m_displayType = MediaFullscreenButton;
-        break;
-    case MEDIA_CONTROLS_TIMELINE:
-        m_displayType = MediaSlider;
-        break;
-    case MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON:
-        m_displayType = MediaReturnToRealtimeButton;
-        break;
-    case MEDIA_CONTROLS_REWIND_BUTTON:
-        m_displayType = MediaRewindButton;
-        break;
-    case MEDIA_CONTROLS_VOLUME_SLIDER:
-        m_displayType = MediaVolumeSlider;
-        break;
-    case MEDIA_CONTROLS_VOLUME_SLIDER_MUTE_BUTTON:
-        m_displayType = MediaVolumeSliderMuteButton;
-        break;
-    case MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON:
-        m_displayType = MediaShowClosedCaptionsButton;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
 }
 
 void MediaControlInputElement::attachToParent(Element* parent)
@@ -416,7 +396,7 @@ void MediaControlInputElement::update()
 
 PassRefPtr<RenderStyle> MediaControlInputElement::styleForElement()
 {
-    return mediaElement()->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+    return document()->styleSelector()->styleForElement(this, 0, true);
 }
 
 bool MediaControlInputElement::rendererIsNeeded(RenderStyle* style)
@@ -481,7 +461,7 @@ void MediaControlInputElement::updateStyle()
     if (Node* shadowNode = shadowRoot())
         shadowNode->recalcStyle(Node::Force);
 }
-    
+
 bool MediaControlInputElement::hitTest(const IntPoint& absPoint)
 {
     if (renderer() && renderer()->style()->hasAppearance())
@@ -502,14 +482,14 @@ void MediaControlInputElement::setDisplayType(MediaControlElementType displayTyp
 
 // ----------------------------
 
-inline MediaControlMuteButtonElement::MediaControlMuteButtonElement(HTMLMediaElement* mediaElement, ButtonLocation location)
-    : MediaControlInputElement(mediaElement, location == Controller ? MEDIA_CONTROLS_MUTE_BUTTON : MEDIA_CONTROLS_VOLUME_SLIDER_MUTE_BUTTON)
+inline MediaControlMuteButtonElement::MediaControlMuteButtonElement(HTMLMediaElement* mediaElement, MediaControlElementType displayType)
+    : MediaControlInputElement(mediaElement, displayType)
 {
 }
 
-PassRefPtr<MediaControlMuteButtonElement> MediaControlMuteButtonElement::create(HTMLMediaElement* mediaElement, ButtonLocation location)
+PassRefPtr<MediaControlMuteButtonElement> MediaControlMuteButtonElement::create(HTMLMediaElement* mediaElement)
 {
-    RefPtr<MediaControlMuteButtonElement> button = adoptRef(new MediaControlMuteButtonElement(mediaElement, location));
+    RefPtr<MediaControlMuteButtonElement> button = adoptRef(new MediaControlMuteButtonElement(mediaElement, MediaMuteButton));
     button->setType("button");
     return button.release();
 }
@@ -523,15 +503,39 @@ void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 }
 
+const AtomicString& MediaControlMuteButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-mute-button"));
+    return id;
+}
+
 void MediaControlMuteButtonElement::updateDisplayType()
 {
     setDisplayType(mediaElement()->muted() ? MediaUnMuteButton : MediaMuteButton);
 }
 
+inline MediaControlVolumeSliderMuteButtonElement::MediaControlVolumeSliderMuteButtonElement(HTMLMediaElement* mediaElement)
+    : MediaControlMuteButtonElement(mediaElement, MediaVolumeSliderMuteButton)
+{
+}
+
+PassRefPtr<MediaControlVolumeSliderMuteButtonElement> MediaControlVolumeSliderMuteButtonElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlVolumeSliderMuteButtonElement> button = adoptRef(new MediaControlVolumeSliderMuteButtonElement(mediaElement));
+    button->setType("button");
+    return button.release();
+}
+
+const AtomicString& MediaControlVolumeSliderMuteButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-volume-slider-mute-button"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlPlayButtonElement::MediaControlPlayButtonElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_PLAY_BUTTON)
+    : MediaControlInputElement(mediaElement, MediaPlayButton)
 {
 }
 
@@ -556,26 +560,20 @@ void MediaControlPlayButtonElement::updateDisplayType()
     setDisplayType(mediaElement()->canPlay() ? MediaPlayButton : MediaPauseButton);
 }
 
+const AtomicString& MediaControlPlayButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-play-button"));
+    return id;
+}
+
 // ----------------------------
 
-inline MediaControlSeekButtonElement::MediaControlSeekButtonElement(HTMLMediaElement* mediaElement, PseudoId pseudoId)
-    : MediaControlInputElement(mediaElement, pseudoId)
+inline MediaControlSeekButtonElement::MediaControlSeekButtonElement(HTMLMediaElement* mediaElement, MediaControlElementType displayType)
+    : MediaControlInputElement(mediaElement, displayType)
     , m_seeking(false)
     , m_capturing(false)
     , m_seekTimer(this, &MediaControlSeekButtonElement::seekTimerFired)
 {
-}
-
-PassRefPtr<MediaControlSeekButtonElement> MediaControlSeekButtonElement::create(HTMLMediaElement* mediaElement, PseudoId pseudoStyleId)
-{
-    RefPtr<MediaControlSeekButtonElement> button = adoptRef(new MediaControlSeekButtonElement(mediaElement, pseudoStyleId));
-    button->setType("button");
-    return button.release();
-}
-
-inline bool MediaControlSeekButtonElement::isForwardButton() const
-{
-    return pseudoStyleId() == MEDIA_CONTROLS_SEEK_FORWARD_BUTTON;
 }
 
 void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
@@ -627,8 +625,48 @@ void MediaControlSeekButtonElement::detach()
 
 // ----------------------------
 
+inline MediaControlSeekForwardButtonElement::MediaControlSeekForwardButtonElement(HTMLMediaElement* mediaElement)
+    : MediaControlSeekButtonElement(mediaElement, MediaSeekForwardButton)
+{
+}
+
+PassRefPtr<MediaControlSeekForwardButtonElement> MediaControlSeekForwardButtonElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlSeekForwardButtonElement> button = adoptRef(new MediaControlSeekForwardButtonElement(mediaElement));
+    button->setType("button");
+    return button.release();
+}
+
+const AtomicString& MediaControlSeekForwardButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-seek-forward-button"));
+    return id;
+}
+
+// ----------------------------
+
+inline MediaControlSeekBackButtonElement::MediaControlSeekBackButtonElement(HTMLMediaElement* mediaElement)
+    : MediaControlSeekButtonElement(mediaElement, MediaSeekBackButton)
+{
+}
+
+PassRefPtr<MediaControlSeekBackButtonElement> MediaControlSeekBackButtonElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlSeekBackButtonElement> button = adoptRef(new MediaControlSeekBackButtonElement(mediaElement));
+    button->setType("button");
+    return button.release();
+}
+
+const AtomicString& MediaControlSeekBackButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-seek-back-button"));
+    return id;
+}
+
+// ----------------------------
+
 inline MediaControlRewindButtonElement::MediaControlRewindButtonElement(HTMLMediaElement* element)
-    : MediaControlInputElement(element, MEDIA_CONTROLS_REWIND_BUTTON)
+    : MediaControlInputElement(element, MediaRewindButton)
 {
 }
 
@@ -648,10 +686,16 @@ void MediaControlRewindButtonElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 }
 
+const AtomicString& MediaControlRewindButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-rewind-button"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlReturnToRealtimeButtonElement::MediaControlReturnToRealtimeButtonElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON)
+    : MediaControlInputElement(mediaElement, MediaReturnToRealtimeButton)
 {
 }
 
@@ -671,11 +715,16 @@ void MediaControlReturnToRealtimeButtonElement::defaultEventHandler(Event* event
     HTMLInputElement::defaultEventHandler(event);
 }
 
+const AtomicString& MediaControlReturnToRealtimeButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-return-to-realtime-button"));
+    return id;
+}
 
 // ----------------------------
 
 inline MediaControlToggleClosedCaptionsButtonElement::MediaControlToggleClosedCaptionsButtonElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON)
+    : MediaControlInputElement(mediaElement, MediaShowClosedCaptionsButton)
 {
 }
 
@@ -701,10 +750,16 @@ void MediaControlToggleClosedCaptionsButtonElement::updateDisplayType()
     setDisplayType(mediaElement()->closedCaptionsVisible() ? MediaHideClosedCaptionsButton : MediaShowClosedCaptionsButton);
 }
 
+const AtomicString& MediaControlToggleClosedCaptionsButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-toggle-closed-captions-button"));
+    return id;
+}
+
 // ----------------------------
 
 MediaControlTimelineElement::MediaControlTimelineElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_TIMELINE)
+    : MediaControlInputElement(mediaElement, MediaSlider)
 {
 }
 
@@ -739,12 +794,17 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     }
 
     RenderSlider* slider = toRenderSlider(renderer());
+<<<<<<< HEAD
     if (slider && slider->inDragMode()) {
         toRenderMedia(mediaElement()->renderer())->updateTimeDisplay();
 #if PLATFORM(ANDROID)
         toRenderMedia(mediaElement()->renderer())->updateLastTouch();
 #endif
     }
+=======
+    if (slider && slider->inDragMode())
+        toRenderMedia(mediaElement()->renderer())->controls()->updateTimeDisplay();
+>>>>>>> webkit.org at r78450
 
     if (event->type() == eventNames().mouseupEvent)
         mediaElement()->endScrubbing();
@@ -760,10 +820,16 @@ void MediaControlTimelineElement::update(bool updateDuration)
     MediaControlInputElement::update();
 }
 
+const AtomicString& MediaControlTimelineElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-timeline"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlVolumeSliderElement::MediaControlVolumeSliderElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_VOLUME_SLIDER)
+    : MediaControlInputElement(mediaElement, MediaVolumeSlider)
 {
 }
 
@@ -804,10 +870,16 @@ void MediaControlVolumeSliderElement::update()
     MediaControlInputElement::update();
 }
 
+const AtomicString& MediaControlVolumeSliderElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-volume-slider"));
+    return id;
+}
+
 // ----------------------------
 
 inline MediaControlFullscreenButtonElement::MediaControlFullscreenButtonElement(HTMLMediaElement* mediaElement)
-    : MediaControlInputElement(mediaElement, MEDIA_CONTROLS_FULLSCREEN_BUTTON)
+    : MediaControlInputElement(mediaElement, MediaFullscreenButton)
 {
 }
 
@@ -840,18 +912,19 @@ void MediaControlFullscreenButtonElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 }
 
+const AtomicString& MediaControlFullscreenButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-fullscreen-button"));
+    return id;
+}
+
 // ----------------------------
 
-inline MediaControlTimeDisplayElement::MediaControlTimeDisplayElement(HTMLMediaElement* mediaElement, PseudoId pseudo)
-    : MediaControlElement(mediaElement, pseudo)
+inline MediaControlTimeDisplayElement::MediaControlTimeDisplayElement(HTMLMediaElement* mediaElement)
+    : MediaControlElement(mediaElement)
     , m_currentValue(0)
     , m_isVisible(true)
 {
-}
-
-PassRefPtr<MediaControlTimeDisplayElement> MediaControlTimeDisplayElement::create(HTMLMediaElement* mediaElement, PseudoId pseudoStyleId)
-{
-    return adoptRef(new MediaControlTimeDisplayElement(mediaElement, pseudoStyleId));
 }
 
 PassRefPtr<RenderStyle> MediaControlTimeDisplayElement::styleForElement()
@@ -882,6 +955,52 @@ void MediaControlTimeDisplayElement::setVisible(bool visible)
 void MediaControlTimeDisplayElement::setCurrentValue(float time)
 {
     m_currentValue = time;
+}
+
+// ----------------------------
+
+PassRefPtr<MediaControlTimeRemainingDisplayElement> MediaControlTimeRemainingDisplayElement::create(HTMLMediaElement* mediaElement)
+{
+    return adoptRef(new MediaControlTimeRemainingDisplayElement(mediaElement));
+}
+
+MediaControlTimeRemainingDisplayElement::MediaControlTimeRemainingDisplayElement(HTMLMediaElement* mediaElement)
+    : MediaControlTimeDisplayElement(mediaElement)
+{
+}
+
+MediaControlElementType MediaControlTimeRemainingDisplayElement::displayType() const
+{
+    return MediaTimeRemainingDisplay;
+}
+
+const AtomicString& MediaControlTimeRemainingDisplayElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-time-remaining-display"));
+    return id;
+}
+
+// ----------------------------
+
+PassRefPtr<MediaControlCurrentTimeDisplayElement> MediaControlCurrentTimeDisplayElement::create(HTMLMediaElement* mediaElement)
+{
+    return adoptRef(new MediaControlCurrentTimeDisplayElement(mediaElement));
+}
+
+MediaControlCurrentTimeDisplayElement::MediaControlCurrentTimeDisplayElement(HTMLMediaElement* mediaElement)
+    : MediaControlTimeDisplayElement(mediaElement)
+{
+}
+
+MediaControlElementType MediaControlCurrentTimeDisplayElement::displayType() const
+{
+    return MediaCurrentTimeDisplay;
+}
+
+const AtomicString& MediaControlCurrentTimeDisplayElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-current-time-display"));
+    return id;
 }
 
 } // namespace WebCore

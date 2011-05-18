@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "Extensions3DOpenGL.h"
 
@@ -79,6 +79,10 @@ bool Extensions3DOpenGL::supports(const String& name)
     if (name == "GL_ANGLE_framebuffer_multisample")
         return m_availableExtensions.contains("GL_EXT_framebuffer_multisample");
 
+    // Desktop GL always supports GL_OES_rgb8_rgba8.
+    if (name == "GL_OES_rgb8_rgba8")
+        return true;
+
     // If GL_ARB_texture_float is available then we report GL_OES_texture_float and
     // GL_OES_texture_half_float as available.
     if (name == "GL_OES_texture_float" || name == "GL_OES_texture_half_float")
@@ -125,4 +129,4 @@ void Extensions3DOpenGL::renderbufferStorageMultisample(unsigned long target, un
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

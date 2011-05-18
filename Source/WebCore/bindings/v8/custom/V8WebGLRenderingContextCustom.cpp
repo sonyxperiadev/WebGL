@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "V8WebGLRenderingContext.h"
 
@@ -120,14 +120,14 @@ static v8::Handle<v8::Value> toV8Object(const WebGLGetInfo& info)
     }
     case WebGLGetInfo::kTypeFloat:
         return v8::Number::New(info.getFloat());
-    case WebGLGetInfo::kTypeLong:
-        return v8::Integer::New(info.getLong());
+    case WebGLGetInfo::kTypeInt:
+        return v8::Integer::New(info.getInt());
     case WebGLGetInfo::kTypeNull:
         return v8::Null();
     case WebGLGetInfo::kTypeString:
         return v8::String::New(fromWebCoreString(info.getString()), info.getString().length());
-    case WebGLGetInfo::kTypeUnsignedLong:
-        return v8::Integer::NewFromUnsigned(info.getUnsignedLong());
+    case WebGLGetInfo::kTypeUnsignedInt:
+        return v8::Integer::NewFromUnsigned(info.getUnsignedInt());
     case WebGLGetInfo::kTypeWebGLBuffer:
         return toV8(info.getWebGLBuffer());
     case WebGLGetInfo::kTypeWebGLFloatArray:
@@ -773,4 +773,4 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::vertexAttrib4fvCallback(const v8:
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

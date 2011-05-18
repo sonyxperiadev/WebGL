@@ -26,7 +26,7 @@
 module html {
 
     interface [
-        Conditional=3D_CANVAS,
+        Conditional=WEBGL,
         InterfaceUUID=98fb48ae-7216-489c-862b-8e1217fc4443,
         ImplementationUUID=ab4f0781-152f-450e-9546-5b3987491a54,
         CustomMarkFunction,
@@ -258,9 +258,7 @@ module html {
         const unsigned int VALIDATE_STATUS                  = 0x8B83;
         const unsigned int ATTACHED_SHADERS                 = 0x8B85;
         const unsigned int ACTIVE_UNIFORMS                  = 0x8B86;
-        const unsigned int ACTIVE_UNIFORM_MAX_LENGTH        = 0x8B87;
         const unsigned int ACTIVE_ATTRIBUTES                = 0x8B89;
-        const unsigned int ACTIVE_ATTRIBUTE_MAX_LENGTH      = 0x8B8A;
         const unsigned int SHADING_LANGUAGE_VERSION         = 0x8B8C;
         const unsigned int CURRENT_PROGRAM                  = 0x8B8D;
 
@@ -389,8 +387,6 @@ module html {
 
         /* Shader Source */
         const unsigned int COMPILE_STATUS                 = 0x8B81;
-        const unsigned int INFO_LOG_LENGTH                = 0x8B84;
-        const unsigned int SHADER_SOURCE_LENGTH           = 0x8B88;
         const unsigned int SHADER_COMPILER                = 0x8DFA;
 
         /* Shader Precision-Specified Types */
@@ -613,8 +609,10 @@ module html {
                                                      in unsigned long format, in unsigned long type, in HTMLImageElement image) raises (DOMException);
         [StrictTypeChecking] void         texImage2D(in unsigned long target, in long level, in unsigned long internalformat,
                                                      in unsigned long format, in unsigned long type, in HTMLCanvasElement canvas) raises (DOMException);
+#if defined(ENABLE_VIDEO) && ENABLE_VIDEO
         [StrictTypeChecking] void         texImage2D(in unsigned long target, in long level, in unsigned long internalformat,
                                                      in unsigned long format, in unsigned long type, in HTMLVideoElement video) raises (DOMException);
+#endif
 
         [StrictTypeChecking] void         texSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset, 
                                                         in long width, in long height, 
@@ -625,8 +623,10 @@ module html {
                                                         in unsigned long format, in unsigned long type, in HTMLImageElement image) raises (DOMException);
         [StrictTypeChecking] void         texSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset,
                                                         in unsigned long format, in unsigned long type, in HTMLCanvasElement canvas) raises (DOMException);
+#if defined(ENABLE_VIDEO) && ENABLE_VIDEO
         [StrictTypeChecking] void         texSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset,
                                                         in unsigned long format, in unsigned long type, in HTMLVideoElement video) raises (DOMException);
+#endif
 
         [StrictTypeChecking] void uniform1f(in WebGLUniformLocation location, in float x) raises(DOMException);
         [StrictTypeChecking, Custom] void uniform1fv(in WebGLUniformLocation location, in Float32Array v) raises(DOMException);

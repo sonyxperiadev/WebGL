@@ -174,14 +174,14 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
     Vector<ImageFrame>::iterator i(end);
     for (; (i != m_frameBufferCache.begin()) && ((i->status() == ImageFrame::FrameEmpty) || (i->disposalMethod() == ImageFrame::DisposeOverwritePrevious)); --i) {
         if ((i->status() == ImageFrame::FrameComplete) && (i != end))
-            i->clear();
+            i->clearPixelData();
     }
 
     // Now |i| holds the last frame we need to preserve; clear prior frames.
     for (Vector<ImageFrame>::iterator j(m_frameBufferCache.begin()); j != i; ++j) {
         ASSERT(j->status() != ImageFrame::FramePartial);
         if (j->status() != ImageFrame::FrameEmpty)
-            j->clear();
+            j->clearPixelData();
     }
 }
 
@@ -266,7 +266,7 @@ bool GIFImageDecoder::frameComplete(unsigned frameIndex, unsigned frameDuration,
     if (!m_currentBufferSawAlpha) {
         // The whole frame was non-transparent, so it's possible that the entire
         // resulting buffer was non-transparent, and we can setHasAlpha(false).
-        if (buffer.rect().contains(IntRect(IntPoint(), scaledSize())))
+        if (buffer.originalFrameRect().contains(IntRect(IntPoint(), scaledSize())))
             buffer.setHasAlpha(false);
         else if (frameIndex) {
             // Tricky case.  This frame does not have alpha only if everywhere
@@ -289,7 +289,7 @@ bool GIFImageDecoder::frameComplete(unsigned frameIndex, unsigned frameDuration,
             // The only remaining case is a DisposeOverwriteBgcolor frame.  If
             // it had no alpha, and its rect is contained in the current frame's
             // rect, we know the current frame has no alpha.
-            if ((prevBuffer->disposalMethod() == ImageFrame::DisposeOverwriteBgcolor) && !prevBuffer->hasAlpha() && buffer.rect().contains(prevBuffer->rect()))
+            if ((prevBuffer->disposalMethod() == ImageFrame::DisposeOverwriteBgcolor) && !prevBuffer->hasAlpha() && buffer.originalFrameRect().contains(prevBuffer->originalFrameRect()))
                 buffer.setHasAlpha(false);
         }
     }
@@ -327,17 +327,17 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
     IntRect frameRect(frameReader->x_offset, frameReader->y_offset, frameReader->width, frameReader->height);
 
     // Make sure the frameRect doesn't extend outside the buffer.
-    if (frameRect.right() > size().width())
+    if (frameRect.maxX() > size().width())
         frameRect.setWidth(size().width() - frameReader->x_offset);
-    if (frameRect.bottom() > size().height())
+    if (frameRect.maxY() > size().height())
         frameRect.setHeight(size().height() - frameReader->y_offset);
 
     ImageFrame* const buffer = &m_frameBufferCache[frameIndex];
     int left = upperBoundScaledX(frameRect.x());
-    int right = lowerBoundScaledX(frameRect.right(), left);
+    int right = lowerBoundScaledX(frameRect.maxX(), left);
     int top = upperBoundScaledY(frameRect.y());
-    int bottom = lowerBoundScaledY(frameRect.bottom(), top);
-    buffer->setRect(IntRect(left, top, right - left, bottom - top));
+    int bottom = lowerBoundScaledY(frameRect.maxY(), top);
+    buffer->setOriginalFrameRect(IntRect(left, top, right - left, bottom - top));
     
     if (!frameIndex) {
         // This is the first frame, so we're not relying on any previous data.
@@ -367,7 +367,7 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
         } else {
             // We want to clear the previous frame to transparent, without
             // affecting pixels in the image outside of the frame.
-            const IntRect& prevRect = prevBuffer->rect();
+            const IntRect& prevRect = prevBuffer->originalFrameRect();
             const IntSize& bufferSize = scaledSize();
             if (!frameIndex || prevRect.contains(IntRect(IntPoint(), scaledSize()))) {
                 // Clearing the first frame, or a frame the size of the whole
@@ -378,8 +378,8 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
               // Copy the whole previous buffer, then clear just its frame.
               if (!buffer->copyBitmapData(*prevBuffer))
                   return setFailed();
-              for (int y = prevRect.y(); y < prevRect.bottom(); ++y) {
-                  for (int x = prevRect.x(); x < prevRect.right(); ++x)
+              for (int y = prevRect.y(); y < prevRect.maxY(); ++y) {
+                  for (int x = prevRect.x(); x < prevRect.maxX(); ++x)
                       buffer->setRGBA(x, y, 0, 0, 0, 0);
               }
               if ((prevRect.width() > 0) && (prevRect.height() > 0))

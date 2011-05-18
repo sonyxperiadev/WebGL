@@ -31,6 +31,7 @@
 WK_EXPORT
 @interface WKView : NSView <NSTextInput> {
     WKViewData *_data;
+    unsigned _frameSizeUpdatesDisabledCount;
 }
 
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef;
@@ -38,6 +39,8 @@ WK_EXPORT
 
 - (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(WKFrameRef)frameRef;
 - (BOOL)canChangeFrameLayout:(WKFrameRef)frameRef;
+
+- (void)setFrame:(NSRect)rect andScrollBy:(NSSize)offset;
 
 @property(readonly) WKPageRef pageRef;
 

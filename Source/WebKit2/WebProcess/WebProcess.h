@@ -68,7 +68,7 @@ class WebProcess : ChildProcess {
 public:
     static WebProcess& shared();
 
-    void initialize(CoreIPC::Connection::Identifier, RunLoop* runLoop);
+    void initialize(CoreIPC::Connection::Identifier, RunLoop*);
 
     CoreIPC::Connection* connection() const { return m_connection.get(); }
     RunLoop* runLoop() const { return m_runLoop; }
@@ -156,6 +156,7 @@ private:
     CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
     void didClose(CoreIPC::Connection*);
     void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    NO_RETURN void didFailToSendSyncMessage(CoreIPC::Connection*);
 
     // Implemented in generated WebProcessMessageReceiver.cpp
     void didReceiveWebProcessMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);

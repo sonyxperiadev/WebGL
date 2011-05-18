@@ -141,7 +141,7 @@ var testDateB = new Date("Wed Jan 05 2011 15:54:49");
 
 function addData()
 {
-    var transaction = evalAndLog("transaction = db.transaction({mode: webkitIDBTransaction.READ_WRITE})");
+    var transaction = evalAndLog("transaction = db.transaction([], webkitIDBTransaction.READ_WRITE)");
     transaction.onabort = unexpectedAbortCallback;
     window.store = evalAndLog("store = transaction.objectStore('storeName')");
 
@@ -179,7 +179,7 @@ function addSuccess()
     result = evalAndLog("event.source.add({x: 'foo'}, 'zzz')");
     verifyResult(result);
     result.onsuccess = unexpectedSuccessCallback;
-    result.onerror = addAgainFailure;
+    result.addEventListener('error', addAgainFailure, false);
 }
 
 function addAgainFailure()
@@ -189,14 +189,16 @@ function addAgainFailure()
     // FIXME: This error code needs to be specced.
     shouldBe("event.code", "webkitIDBDatabaseException.UNKNOWN_ERR");
 
-    transaction = evalAndLog("db.transaction({mode: webkitIDBTransaction.READ_WRITE})");
+    evalAndLog("event.preventDefault()");
+
+    transaction = evalAndLog("db.transaction([], webkitIDBTransaction.READ_WRITE)");
     transaction.onabort = unexpectedErrorCallback;
     var store = evalAndLog("store = transaction.objectStore('storeName')");
 
     result = evalAndLog("store.add({x: 'othervalue'}, null)");
     verifyResult(result);
     result.onsuccess = unexpectedSuccessCallback;
-    result.onerror = addWithNullKeyFailure;
+    result.addEventListener('error', addWithNullKeyFailure, true);
 }
 
 function addWithNullKeyFailure()
@@ -205,7 +207,9 @@ function addWithNullKeyFailure()
     verifyErrorEvent(event);
     shouldBe("event.code", "webkitIDBDatabaseException.DATA_ERR");
 
-    transaction = evalAndLog("db.transaction({mode: webkitIDBTransaction.READ_WRITE})");
+    evalAndLog("event.preventDefault()");
+
+    transaction = evalAndLog("db.transaction([], webkitIDBTransaction.READ_WRITE)");
     transaction.onabort = unexpectedErrorCallback;
     var store = evalAndLog("store = transaction.objectStore('storeName')");
 
@@ -221,13 +225,15 @@ function addWithNullIndexFailure()
     verifyErrorEvent(event);
     shouldBe("event.code", "webkitIDBDatabaseException.DATA_ERR");
 
-    transaction = evalAndLog("db.transaction({mode: webkitIDBTransaction.READ_WRITE})");
+    evalAndLog("event.preventDefault()");
+
+    transaction = evalAndLog("db.transaction([], webkitIDBTransaction.READ_WRITE)");
     transaction.onabort = unexpectedErrorCallback;
     var store = evalAndLog("store = transaction.objectStore('storeName')");
 
     result = evalAndLog("store.get('key')");
     verifyResult(result);
-    result.onsuccess = getSuccess;
+    result.addEventListener('success', getSuccess, true);
     result.onerror = unexpectedErrorCallback;
 }
 
@@ -239,7 +245,7 @@ function getSuccess()
 
     var store = evalAndLog("store = event.source");
     result = evalAndLog("store.get(testDate)");
-    result.onsuccess = getSuccessDateKey;
+    result.addEventListener('success', getSuccessDateKey, false);
     result.onerror = unexpectedErrorCallback;
 }
 

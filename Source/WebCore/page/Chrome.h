@@ -134,6 +134,10 @@ namespace WebCore {
         void setStatusbarText(Frame*, const String&);
         bool shouldInterruptJavaScript();
 
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+        void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
+#endif
+
         IntRect windowResizerRect() const;
 
         void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
@@ -163,6 +167,7 @@ namespace WebCore {
 #endif
 
         bool selectItemWritingDirectionIsNatural();
+        bool selectItemAlignmentFollowsMenuWritingDirection();
         PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
         PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 

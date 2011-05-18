@@ -188,6 +188,7 @@
                 'public/WebHistoryItem.h',
                 'public/WebHTTPBody.h',
                 'public/WebHTTPLoadInfo.h',
+                'public/WebIconLoadingCompletion.h',
                 'public/WebImage.h',
                 'public/WebImageDecoder.h',
                 'public/WebIDBCallbacks.h',
@@ -272,6 +273,8 @@
                 'public/WebString.h',
                 'public/WebTextAffinity.h',
                 'public/WebTextCaseSensitivity.h',
+                'public/WebTextCheckingResult.h',
+                'public/WebTextCheckingCompletion.h',
                 'public/WebTextDirection.h',
                 'public/WebTextInputType.h',
                 'public/WebTextRun.h',
@@ -383,6 +386,7 @@
                 'src/MediaPlayerPrivateChromium.cpp',
                 'src/NotificationPresenterImpl.h',
                 'src/NotificationPresenterImpl.cpp',
+                'src/painting/GraphicsContextBuilder.h',
                 'src/PlatformBridge.cpp',
                 'src/PlatformMessagePortChannel.cpp',
                 'src/PlatformMessagePortChannel.h',
@@ -399,6 +403,8 @@
                 'src/StorageNamespaceProxy.cpp',
                 'src/StorageNamespaceProxy.h',
                 'src/TemporaryGlue.h',
+                'src/WebTextCheckingCompletionImpl.h',
+                'src/WebTextCheckingCompletionImpl.cpp',
                 'src/VideoFrameChromiumImpl.cpp',
                 'src/VideoFrameChromiumImpl.h',
                 'src/WebAccessibilityCache.cpp',
@@ -463,6 +469,8 @@
                 'src/WebHistoryItem.cpp',
                 'src/WebHTTPBody.cpp',
                 'src/WebHTTPLoadInfo.cpp',
+                'src/WebIconLoadingCompletionImpl.cpp',
+                'src/WebIconLoadingCompletionImpl.h',
                 'src/WebIDBCallbacksImpl.cpp',
                 'src/WebIDBCallbacksImpl.h',
                 'src/WebIDBCursorImpl.cpp',
@@ -660,7 +668,7 @@
                         'chromium_code': 1,
                     }
                 }],
-                ['"ENABLE_3D_CANVAS=1" in feature_defines', {
+                ['"ENABLE_WEBGL=1" in feature_defines', {
                     'conditions': [
                         ['OS=="mac"', {
                             'link_settings': {
@@ -952,8 +960,8 @@
                             'variables': {
                                 'repack_path': '<(chromium_src_dir)/tools/data_pack/repack.py',
                                 'pak_inputs': [
-                                    '<(SHARED_INTERMEDIATE_DIR)/gfx/gfx_resources.pak',
                                     '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/ui/gfx/gfx_resources.pak',
                                     '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
                                     '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
                                     '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',

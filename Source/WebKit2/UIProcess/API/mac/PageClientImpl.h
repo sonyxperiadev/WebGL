@@ -60,6 +60,7 @@ private:
     virtual bool isViewInWindow();
     
     virtual void processDidCrash();
+    virtual void pageClosed();
     virtual void didRelaunchProcess();
     virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const String& oldToolTip, const String& newToolTip);
@@ -75,22 +76,28 @@ private:
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
 
-    virtual void didNotHandleKeyEvent(const NativeWebKeyboardEvent&);
+    virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
 
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*);
 
     void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut);
 
+    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
+    virtual void exitAcceleratedCompositingMode();
+
 #if USE(ACCELERATED_COMPOSITING)
     virtual void pageDidEnterAcceleratedCompositing();
     virtual void pageDidLeaveAcceleratedCompositing();
 #endif
 
-    virtual void accessibilityChildTokenReceived(const CoreIPC::DataReference&);    
+    virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&);    
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled);
+    virtual void setAutodisplay(bool);
 
     virtual CGContextRef containingWindowGraphicsContext();
+
+    virtual void didChangeScrollbarsForMainFrame() const;
 
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
     virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);

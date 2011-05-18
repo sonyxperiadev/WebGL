@@ -21,6 +21,7 @@
 #include "config.h"
 #include "MachineStackMarker.h"
 
+#include "ConservativeSet.h"
 #include "Heap.h"
 #include "JSArray.h"
 #include "JSGlobalData.h"
@@ -72,6 +73,18 @@
 #endif
 
 namespace JSC {
+
+static inline void swapIfBackwards(void*& begin, void*& end)
+{
+#if OS(WINCE)
+    if (begin <= end)
+        return;
+    std::swap(begin, end);
+#else
+UNUSED_PARAM(begin);
+UNUSED_PARAM(end);
+#endif
+}
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
 
@@ -196,7 +209,10 @@ void MachineStackMarker::unregisterThread()
 
 void NEVER_INLINE MachineStackMarker::markCurrentThreadConservativelyInternal(ConservativeSet& conservativeSet)
 {
-    m_heap->markConservatively(conservativeSet, m_heap->globalData()->stack().current(), m_heap->globalData()->stack().origin());
+    void* begin = m_heap->globalData()->stack().current();
+    void* end = m_heap->globalData()->stack().origin();
+    swapIfBackwards(begin, end);
+    conservativeSet.add(begin, end);
 }
 
 #if COMPILER(GCC)
@@ -358,10 +374,12 @@ void MachineStackMarker::markOtherThreadConservatively(ConservativeSet& conserva
     size_t regSize = getPlatformThreadRegisters(thread->platformThread, regs);
 
     // mark the thread's registers
-    m_heap->markConservatively(conservativeSet, static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
+    conservativeSet.add(static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
 
     void* stackPointer = otherThreadStackPointer(regs);
-    m_heap->markConservatively(conservativeSet, stackPointer, thread->stackBase);
+    void* stackBase = thread->stackBase;
+    swapIfBackwards(stackPointer, stackBase);
+    conservativeSet.add(stackPointer, stackBase);
 
     resumeThread(thread->platformThread);
 }

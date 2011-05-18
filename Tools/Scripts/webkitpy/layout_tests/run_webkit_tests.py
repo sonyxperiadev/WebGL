@@ -30,8 +30,6 @@
 
 """Run layout tests."""
 
-from __future__ import with_statement
-
 import errno
 import logging
 import optparse
@@ -41,6 +39,7 @@ import sys
 
 from layout_package import printing
 from layout_package import test_runner
+from layout_package import test_runner2
 
 from webkitpy.common.system import user
 from webkitpy.thirdparty import simplejson
@@ -89,7 +88,11 @@ def run(port, options, args, regular_output=sys.stderr,
     # in a try/finally to ensure that we clean up the logging configuration.
     num_unexpected_results = -1
     try:
-        runner = test_runner.TestRunner(port, options, printer)
+        if options.worker_model in ('inline', 'threads', 'processes'):
+            runner = test_runner2.TestRunner2(port, options, printer)
+        else:
+            runner = test_runner.TestRunner(port, options, printer)
+
         runner._print_config()
 
         printer.print_update("Collecting tests ...")
@@ -100,11 +103,11 @@ def run(port, options, args, regular_output=sys.stderr,
                 return -1
             raise
 
-        printer.print_update("Parsing expectations ...")
         if options.lint_test_files:
             return runner.lint()
-        runner.parse_expectations(port.test_platform_name(),
-                                  options.configuration == 'Debug')
+
+        printer.print_update("Parsing expectations ...")
+        runner.parse_expectations()
 
         printer.print_update("Checking build ...")
         if not port.check_build(runner.needs_http()):
@@ -128,9 +131,12 @@ def _set_up_derived_options(port_obj, options):
     # We return a list of warnings to print after the printer is initialized.
     warnings = []
 
-    if options.worker_model == 'old-inline':
+    if options.worker_model is None:
+        options.worker_model = port_obj.default_worker_model()
+
+    if options.worker_model in ('inline', 'old-inline'):
         if options.child_processes and int(options.child_processes) > 1:
-            warnings.append("--worker-model=old-inline overrides --child-processes")
+            warnings.append("--worker-model=%s overrides --child-processes" % options.worker_model)
         options.child_processes = "1"
     if not options.child_processes:
         options.child_processes = os.environ.get("WEBKIT_TEST_CHILD_PROCESSES",
@@ -226,9 +232,6 @@ def parse_args(args=None):
         optparse.make_option("--nocheck-sys-deps", action="store_true",
             default=False,
             help="Don't check the system dependencies (themes)"),
-        optparse.make_option("--use-test-shell", action="store_true",
-            default=False,
-            help="Use test_shell instead of DRT"),
         optparse.make_option("--accelerated-compositing",
             action="store_true",
             help="Use hardware-accelated compositing for rendering"),
@@ -368,8 +371,8 @@ def parse_args(args=None):
             help="Number of DumpRenderTrees to run in parallel."),
         # FIXME: Display default number of child processes that will run.
         optparse.make_option("--worker-model", action="store",
-            default="old-threads", help=("controls worker model. Valid values "
-            "are 'old-inline', 'old-threads'.")),
+            default=None, help=("controls worker model. Valid values are 'old-inline', "
+                                "'old-threads', 'inline', 'threads', and 'processes'.")),
         optparse.make_option("--experimental-fully-parallel",
             action="store_true", default=False,
             help="run all tests in parallel"),
@@ -415,10 +418,6 @@ def parse_args(args=None):
         optparse.make_option("--test-results-server", default="",
             help=("If specified, upload results json files to this appengine "
                   "server.")),
-        optparse.make_option("--upload-full-results",
-            action="store_true",
-            default=False,
-            help="If true, upload full json results to server."),
     ]
 
     option_list = (configuration_options + print_options +

@@ -30,38 +30,60 @@
 #define BrowserWindow_h
 
 #include "BrowserView.h"
+
+#include "MiniBrowserApplication.h"
 #include <QStringList>
 #include <QtGui>
-#include <qgraphicswkview.h>
 
 class BrowserWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    BrowserWindow(QWKContext* = 0);
+    BrowserWindow(QWKContext*, WindowOptions* = 0);
     ~BrowserWindow();
     void load(const QString& url);
 
     QWKPage* page();
 
-    static QGraphicsWKView::BackingStoreType backingStoreTypeForNewWindow;
-
 public slots:
     BrowserWindow* newWindow(const QString& url = "about:blank");
     void openLocation();
 
+signals:
+    void enteredFullScreenMode(bool on);
+
 protected slots:
     void changeLocation();
     void loadProgress(int progress);
-    void titleChanged(const QString&);
     void urlChanged(const QUrl&);
+    void openFile();
+
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+    void toggleZoomTextOnly(bool on);
+    void screenshot();
+
+    void toggleFullScreenMode(bool enable);
+
+    void toggleFrameFlattening(bool);
     void showUserAgentDialog();
+
+    void toggleAutoLoadImages(bool);
+    void toggleDisableJavaScript(bool);
 
 private:
     void updateUserAgentList();
 
+    void applyZoom();
+
+    static QVector<qreal> m_zoomLevels;
+    bool m_isZoomTextOnly;
+    qreal m_currentZoom;
+
+    QWKContext* m_context;
+    WindowOptions m_windowOptions;
     BrowserView* m_browser;
-    QMenuBar* m_menu;
     QLineEdit* m_addressBar;
     QStringList m_userAgentList;
 };

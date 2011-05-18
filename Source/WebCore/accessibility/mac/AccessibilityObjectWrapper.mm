@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@
 #import "TextIterator.h"
 #import "WebCoreFrameView.h"
 #import "WebCoreObjCExtras.h"
-#import "WebCoreViewFactory.h"
+#import "WebCoreSystemInterface.h"
 #import "htmlediting.h"
 #import "visible_units.h"
 
@@ -194,7 +194,7 @@ typedef unsigned NSUInteger;
 
 - (void)unregisterUniqueIdForUIElement
 {
-    [[WebCoreViewFactory sharedFactory] unregisterUniqueIdForUIElement:self];
+    wkUnregisterUniqueIdForElement(self);
 }
 
 - (void)detach
@@ -237,7 +237,52 @@ typedef unsigned NSUInteger;
     return NSAccessibilityUnignoredDescendant(widget->platformWidget());
 }
 
-static WebCoreTextMarker* textMarkerForVisiblePosition(AXObjectCache* cache, const VisiblePosition& visiblePos)
+#pragma mark SystemInterface wrappers
+
+static inline id CFAutoreleaseHelper(CFTypeRef obj)
+{
+    if (obj)
+        CFMakeCollectable(obj);
+    [(id)obj autorelease];
+    return (id)obj;
+}
+
+static inline BOOL AXObjectIsTextMarker(id obj)
+{
+    return obj != nil && CFGetTypeID(obj) == wkGetAXTextMarkerTypeID();    
+}
+
+static inline BOOL AXObjectIsTextMarkerRange(id obj)
+{
+    return obj != nil && CFGetTypeID(obj) == wkGetAXTextMarkerRangeTypeID();    
+}
+
+static id AXTextMarkerRange(id startMarker, id endMarker)
+{
+    ASSERT(startMarker != nil);
+    ASSERT(endMarker != nil);
+    ASSERT(CFGetTypeID(startMarker) == wkGetAXTextMarkerTypeID());
+    ASSERT(CFGetTypeID(endMarker) == wkGetAXTextMarkerTypeID());
+    return CFAutoreleaseHelper(wkCreateAXTextMarkerRange((CFTypeRef)startMarker, (CFTypeRef)endMarker));
+}
+
+static id AXTextMarkerRangeStart(id range)
+{
+    ASSERT(range != nil);
+    ASSERT(CFGetTypeID(range) == wkGetAXTextMarkerRangeTypeID());
+    return CFAutoreleaseHelper(wkCopyAXTextMarkerRangeStart(range));    
+}
+
+static id AXTextMarkerRangeEnd(id range)
+{
+    ASSERT(range != nil);
+    ASSERT(CFGetTypeID(range) == wkGetAXTextMarkerRangeTypeID());
+    return CFAutoreleaseHelper(wkCopyAXTextMarkerRangeEnd(range));    
+}
+
+#pragma mark Text Marker helpers
+
+static id textMarkerForVisiblePosition(AXObjectCache* cache, const VisiblePosition& visiblePos)
 {
     ASSERT(cache);
     
@@ -246,48 +291,48 @@ static WebCoreTextMarker* textMarkerForVisiblePosition(AXObjectCache* cache, con
     if (!textMarkerData.axID)
         return nil;
     
-    return [[WebCoreViewFactory sharedFactory] textMarkerWithBytes:&textMarkerData length:sizeof(textMarkerData)];
+    return CFAutoreleaseHelper(wkCreateAXTextMarker(&textMarkerData, sizeof(textMarkerData)));
 }
 
-- (WebCoreTextMarker *)textMarkerForVisiblePosition:(const VisiblePosition &)visiblePos
+- (id)textMarkerForVisiblePosition:(const VisiblePosition &)visiblePos
 {
     return textMarkerForVisiblePosition(m_object->axObjectCache(), visiblePos);
 }
 
-static VisiblePosition visiblePositionForTextMarker(AXObjectCache* cache, WebCoreTextMarker* textMarker)
+static VisiblePosition visiblePositionForTextMarker(AXObjectCache* cache, CFTypeRef textMarker)
 {
     ASSERT(cache);
 
     if (!textMarker)
         return VisiblePosition();
     TextMarkerData textMarkerData;
-    if (![[WebCoreViewFactory sharedFactory] getBytes:&textMarkerData fromTextMarker:textMarker length:sizeof(textMarkerData)])
+    if (!wkGetBytesFromAXTextMarker(textMarker, &textMarkerData, sizeof(textMarkerData)))
         return VisiblePosition();
     
     return cache->visiblePositionForTextMarkerData(textMarkerData);
 }
 
-- (VisiblePosition)visiblePositionForTextMarker:(WebCoreTextMarker *)textMarker
+- (VisiblePosition)visiblePositionForTextMarker:(id)textMarker
 {
     return visiblePositionForTextMarker(m_object->axObjectCache(), textMarker);
 }
 
-static VisiblePosition visiblePositionForStartOfTextMarkerRange(AXObjectCache *cache, WebCoreTextMarkerRange* textMarkerRange)
+static VisiblePosition visiblePositionForStartOfTextMarkerRange(AXObjectCache *cache, id textMarkerRange)
 {
-    return visiblePositionForTextMarker(cache, [[WebCoreViewFactory sharedFactory] startOfTextMarkerRange:textMarkerRange]);
+    return visiblePositionForTextMarker(cache, AXTextMarkerRangeStart(textMarkerRange));
 }
 
-static VisiblePosition visiblePositionForEndOfTextMarkerRange(AXObjectCache *cache, WebCoreTextMarkerRange* textMarkerRange)
+static VisiblePosition visiblePositionForEndOfTextMarkerRange(AXObjectCache *cache, id textMarkerRange)
 {
-    return visiblePositionForTextMarker(cache, [[WebCoreViewFactory sharedFactory] endOfTextMarkerRange:textMarkerRange]);
+    return visiblePositionForTextMarker(cache, AXTextMarkerRangeEnd(textMarkerRange));
 }
 
-static WebCoreTextMarkerRange* textMarkerRangeFromMarkers(WebCoreTextMarker* textMarker1, WebCoreTextMarker* textMarker2)
+static id textMarkerRangeFromMarkers(id textMarker1, id textMarker2)
 {
     if (!textMarker1 || !textMarker2)
         return nil;
         
-    return [[WebCoreViewFactory sharedFactory] textMarkerRangeWithStart:textMarker1 end:textMarker2];
+    return AXTextMarkerRange(textMarker1, textMarker2);
 }
 
 static void AXAttributeStringSetFont(NSMutableAttributedString* attrString, NSString* attribute, NSFont* font, NSRange range)
@@ -484,7 +529,7 @@ static void AXAttributeStringSetElement(NSMutableAttributedString* attrString, N
         if (!cache)
             return;
 
-        AXUIElementRef axElement = [[WebCoreViewFactory sharedFactory] AXUIElementForElement:object->wrapper()];
+        AXUIElementRef axElement = wkCreateAXUIElementRef(object->wrapper());
         if (axElement) {
             [attrString addAttribute:attribute value:(id)axElement range:range];
             CFRelease(axElement);
@@ -543,7 +588,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     return [NSString stringWithCharacters:&attachmentChar length:1];
 }
 
-- (NSAttributedString*)doAXAttributedStringForTextMarkerRange:(WebCoreTextMarkerRange*)textMarkerRange
+- (NSAttributedString*)doAXAttributedStringForTextMarkerRange:(id)textMarkerRange
 {
     if (!m_object)
         return nil;
@@ -599,14 +644,14 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     return [attrString autorelease];
 }
 
-static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(AXObjectCache *cache, VisiblePosition startPosition, VisiblePosition endPosition)
+static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, VisiblePosition startPosition, VisiblePosition endPosition)
 {
-    WebCoreTextMarker* startTextMarker = textMarkerForVisiblePosition(cache, startPosition);
-    WebCoreTextMarker* endTextMarker = textMarkerForVisiblePosition(cache, endPosition);
+    id startTextMarker = textMarkerForVisiblePosition(cache, startPosition);
+    id endTextMarker = textMarkerForVisiblePosition(cache, endPosition);
     return textMarkerRangeFromMarkers(startTextMarker, endTextMarker);
 }
 
-- (WebCoreTextMarkerRange *)textMarkerRangeFromVisiblePositions:(VisiblePosition)startPosition endPosition:(VisiblePosition)endPosition
+- (id)textMarkerRangeFromVisiblePositions:(VisiblePosition)startPosition endPosition:(VisiblePosition)endPosition
 {
     return textMarkerRangeFromVisiblePositions(m_object->axObjectCache(), startPosition, endPosition);
 }
@@ -664,6 +709,9 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(AXObjectCache
         [additional addObject:NSAccessibilityARIALiveAttribute];
         [additional addObject:NSAccessibilityARIARelevantAttribute];
     }
+    
+    if (m_object->sortDirection() != SortDirectionNone)
+        [additional addObject:NSAccessibilitySortDirectionAttribute];
         
     // If an object is a child of a live region, then add these
     if (m_object->isInsideARIALiveRegion()) {
@@ -1035,7 +1083,7 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(AXObjectCache
     return objectAttributes;
 }
 
-- (VisiblePositionRange)visiblePositionRangeForTextMarkerRange:(WebCoreTextMarkerRange*) textMarkerRange
+- (VisiblePositionRange)visiblePositionRangeForTextMarkerRange:(id)textMarkerRange
 {
     if (!textMarkerRange)
         return VisiblePositionRange();
@@ -1089,7 +1137,7 @@ static NSMutableArray* convertToNSArray(const AccessibilityObject::Accessibility
     return array;
 }
 
-- (WebCoreTextMarkerRange*)textMarkerRangeForSelection
+- (id)textMarkerRangeForSelection
 {
     VisibleSelection selection = m_object->selection();
     if (selection.isNone())
@@ -1125,7 +1173,7 @@ static NSMutableArray* convertToNSArray(const AccessibilityObject::Accessibility
         point.y = screenHeight - (point.y + remotePosition.y + rect.height() - scrollPosition.y);
     } else {
         // The Cocoa accessibility API wants the lower-left corner.
-        point = NSMakePoint(rect.x(), rect.bottom());
+        point = NSMakePoint(rect.x(), rect.maxY());
         
         if (frameView) {
             NSView* view = frameView->documentView();
@@ -1976,6 +2024,17 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
     }
     
+    if ([attributeName isEqualToString:NSAccessibilitySortDirectionAttribute]) {
+        switch (m_object->sortDirection()) {
+        case SortDirectionAscending:
+            return NSAccessibilityAscendingSortDirectionValue;
+        case SortDirectionDescending:
+            return NSAccessibilityDescendingSortDirectionValue;
+        default:
+            return NSAccessibilityUnknownSortDirectionValue;
+        }
+    }
+    
     if ([attributeName isEqualToString:NSAccessibilityLanguageAttribute]) 
         return m_object->language();
     
@@ -2312,15 +2371,15 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if (![self updateObjectBackingStore])
         return;
 
-    WebCoreTextMarkerRange* textMarkerRange = nil;
+    id textMarkerRange = nil;
     NSNumber*               number = nil;
     NSString*               string = nil;
     NSRange                 range = {0, 0};
     NSArray*                array = nil;
     
     // decode the parameter
-    if ([[WebCoreViewFactory sharedFactory] objectIsTextMarkerRange:value])
-        textMarkerRange = (WebCoreTextMarkerRange*) value;
+    if (AXObjectIsTextMarkerRange(value))
+        textMarkerRange = value;
 
     else if ([value isKindOfClass:[NSNumber self]])
         number = value;
@@ -2429,8 +2488,8 @@ static RenderObject* rendererForView(NSView* view)
 
 - (id)accessibilityAttributeValue:(NSString*)attribute forParameter:(id)parameter
 {
-    WebCoreTextMarker* textMarker = nil;
-    WebCoreTextMarkerRange* textMarkerRange = nil;
+    id textMarker = nil;
+    id textMarkerRange = nil;
     NSNumber* number = nil;
     NSArray* array = nil;
     RefPtr<AccessibilityObject> uiElement = 0;
@@ -2449,11 +2508,11 @@ static RenderObject* rendererForView(NSView* view)
     // common parameter type check/casting.  Nil checks in handlers catch wrong type case.
     // NOTE: This assumes nil is not a valid parameter, because it is indistinguishable from
     // a parameter of the wrong type.
-    if ([[WebCoreViewFactory sharedFactory] objectIsTextMarker:parameter])
-        textMarker = (WebCoreTextMarker*) parameter;
+    if (AXObjectIsTextMarker(parameter))
+        textMarker = parameter;
 
-    else if ([[WebCoreViewFactory sharedFactory] objectIsTextMarkerRange:parameter])
-        textMarkerRange = (WebCoreTextMarkerRange*) parameter;
+    else if (AXObjectIsTextMarkerRange(parameter))
+        textMarkerRange = parameter;
 
     else if ([parameter isKindOfClass:[AccessibilityObjectWrapper self]])
         uiElement = [(AccessibilityObjectWrapper*)parameter accessibilityObject];
@@ -2540,10 +2599,9 @@ static RenderObject* rendererForView(NSView* view)
         if ([array count] < 2)
             return nil;
 
-        WebCoreTextMarker* textMarker1 = (WebCoreTextMarker*) [array objectAtIndex:0];
-        WebCoreTextMarker* textMarker2 = (WebCoreTextMarker*) [array objectAtIndex:1];
-        if (![[WebCoreViewFactory sharedFactory] objectIsTextMarker:textMarker1] 
-            || ![[WebCoreViewFactory sharedFactory] objectIsTextMarker:textMarker2])
+        id textMarker1 = [array objectAtIndex:0];
+        id textMarker2 = [array objectAtIndex:1];
+        if (!AXObjectIsTextMarker(textMarker1) || !AXObjectIsTextMarker(textMarker2))
             return nil;
 
         VisiblePosition visiblePos1 = [self visiblePositionForTextMarker:(textMarker1)];
@@ -2731,9 +2789,15 @@ static RenderObject* rendererForView(NSView* view)
     return [super accessibilityAttributeValue:attribute forParameter:parameter];
 }
 
+- (BOOL)accessibilitySupportsOverriddenAttributes
+{
+    return YES;
+}
+
 - (BOOL)accessibilityShouldUseUniqueId
 {
-    return m_object->accessibilityShouldUseUniqueId();
+    // All AX object wrappers should use unique ID's because it's faster within AppKit to look them up.
+    return YES;
 }
 
 // API that AppKit uses for faster access

@@ -23,18 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
+#import "PluginProcessMain.h"
+
 #if ENABLE(PLUGIN_PROCESS)
 
-#include "PluginProcessMain.h"
-
-#include "CommandLine.h"
-#include "PluginProcess.h"
-#include "RunLoop.h"
-#include <runtime/InitializeThreading.h>
-#include <servers/bootstrap.h>
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
-#include <WebKitSystemInterface.h>
+#import "CommandLine.h"
+#import "PluginProcess.h"
+#import "RunLoop.h"
+#import <runtime/InitializeThreading.h>
+#import <servers/bootstrap.h>
+#import <wtf/text/CString.h>
+#import <wtf/text/WTFString.h>
+#import <WebKitSystemInterface.h>
 
 // FIXME: We should be doing this another way.
 extern "C" kern_return_t bootstrap_look_up2(mach_port_t, const name_t, mach_port_t*, pid_t, uint64_t);
@@ -84,7 +85,7 @@ int PluginProcessMain(const CommandLine& commandLine)
     PluginProcess::shared().initializeShim();
     
     // Initialize the plug-in process connection.
-    PluginProcess::shared().initializeConnection(serverPort);
+    PluginProcess::shared().initialize(serverPort, RunLoop::main());
 
     [NSApplication sharedApplication];
 

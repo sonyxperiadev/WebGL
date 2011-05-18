@@ -41,11 +41,16 @@
 
 namespace WebCore {
 
-// FIXME: We need to spec this differently.
-const unsigned long defaultTimeout = 0; // Infinite.
+PassRefPtr<IDBDatabase> IDBDatabase::create(ScriptExecutionContext* context, PassRefPtr<IDBDatabaseBackendInterface> database)
+{
+    return adoptRef(new IDBDatabase(context, database));
+}
 
-IDBDatabase::IDBDatabase(PassRefPtr<IDBDatabaseBackendInterface> backend)
-    : m_backend(backend)
+IDBDatabase::IDBDatabase(ScriptExecutionContext* context, PassRefPtr<IDBDatabaseBackendInterface> backend)
+    : ActiveDOMObject(context, this)
+    , m_backend(backend)
+    , m_noNewTransactions(false)
+    , m_stopped(false)
 {
     // We pass a reference of this object before it can be adopted.
     relaxAdoptionRequirement();
@@ -53,9 +58,10 @@ IDBDatabase::IDBDatabase(PassRefPtr<IDBDatabaseBackendInterface> backend)
 
 IDBDatabase::~IDBDatabase()
 {
+    ASSERT(m_stopped);
 }
 
-void IDBDatabase::setSetVersionTransaction(IDBTransactionBackendInterface* transaction)
+void IDBDatabase::setSetVersionTransaction(IDBTransaction* transaction)
 {
     m_setVersionTransaction = transaction;
 }
@@ -73,7 +79,7 @@ PassRefPtr<IDBObjectStore> IDBDatabase::createObjectStore(const String& name, co
     options.getKeyBool("autoIncrement", autoIncrement);
     // FIXME: Look up evictable and pass that on as well.
 
-    RefPtr<IDBObjectStoreBackendInterface> objectStore = m_backend->createObjectStore(name, keyPath, autoIncrement, m_setVersionTransaction.get(), ec);
+    RefPtr<IDBObjectStoreBackendInterface> objectStore = m_backend->createObjectStore(name, keyPath, autoIncrement, m_setVersionTransaction->backend(), ec);
     if (!objectStore) {
         ASSERT(ec);
         return 0;
@@ -88,7 +94,7 @@ void IDBDatabase::deleteObjectStore(const String& name, ExceptionCode& ec)
         return;
     }
 
-    m_backend->deleteObjectStore(name, m_setVersionTransaction.get(), ec);
+    m_backend->deleteObjectStore(name, m_setVersionTransaction->backend(), ec);
 }
 
 PassRefPtr<IDBRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, const String& version, ExceptionCode& ec)
@@ -98,38 +104,27 @@ PassRefPtr<IDBRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, 
     return request;
 }
 
-PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* context, const OptionsObject& options, ExceptionCode& ec)
+PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* context, PassRefPtr<DOMStringList> prpStoreNames, unsigned short mode, ExceptionCode& ec)
 {
-    RefPtr<DOMStringList> storeNames = options.getKeyDOMStringList("objectStoreNames");
-    if (!storeNames) {
+    RefPtr<DOMStringList> storeNames = prpStoreNames;
+    if (!storeNames)
         storeNames = DOMStringList::create();
-        String storeName;
-        if (options.getKeyString("objectStoreNames", storeName))
-            storeNames->append(storeName);
-    }
 
-    // Gets cast to an unsigned short.
-    int32_t mode = IDBTransaction::READ_ONLY;
-    options.getKeyInt32("mode", mode);
     if (mode != IDBTransaction::READ_WRITE && mode != IDBTransaction::READ_ONLY) {
         // FIXME: May need to change when specced: http://www.w3.org/Bugs/Public/show_bug.cgi?id=11406
         ec = IDBDatabaseException::CONSTRAINT_ERR;
         return 0;
     }
-
-    // Gets cast to an unsigned long.
-    // FIXME: The spec needs to be updated on this. It should probably take a double.
-    int32_t timeout = defaultTimeout; 
-    options.getKeyInt32("timeout", timeout);
-    int64_t unsignedLongMax = std::numeric_limits<unsigned long>::max();
-    if (timeout < 0 || timeout > unsignedLongMax)
-        timeout = defaultTimeout; // Ignore illegal values.
+    if (m_noNewTransactions) {
+        ec = IDBDatabaseException::NOT_ALLOWED_ERR;
+        return 0;
+    }
 
     // We need to create a new transaction synchronously. Locks are acquired asynchronously. Operations
     // can be queued against the transaction at any point. They will start executing as soon as the
     // appropriate locks have been acquired.
     // Also note that each backend object corresponds to exactly one IDBTransaction object.
-    RefPtr<IDBTransactionBackendInterface> transactionBackend = m_backend->transaction(storeNames.get(), mode, timeout, ec);
+    RefPtr<IDBTransactionBackendInterface> transactionBackend = m_backend->transaction(storeNames.get(), mode, ec);
     if (!transactionBackend) {
         ASSERT(ec);
         return 0;
@@ -141,7 +136,40 @@ PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* cont
 
 void IDBDatabase::close()
 {
-    m_backend->close();
+    m_noNewTransactions = true;
+}
+
+bool IDBDatabase::hasPendingActivity() const
+{
+    // FIXME: Try to find some way not to just leak this object until page navigation.
+    // FIXME: In an ideal world, we should return true as long as anyone has or can
+    //        get a handle to us or any derivative transaction/request object and any
+    //        of those have event listeners. This is in order to handle user generated
+    //        events properly.
+    return !m_stopped || ActiveDOMObject::hasPendingActivity();
+}
+
+void IDBDatabase::stop()
+{
+    // Stop fires at a deterministic time, so we need to call close in it.
+    close();
+
+    m_stopped = true;
+}
+
+ScriptExecutionContext* IDBDatabase::scriptExecutionContext() const
+{
+    return ActiveDOMObject::scriptExecutionContext();
+}
+
+EventTargetData* IDBDatabase::eventTargetData()
+{
+    return &m_eventTargetData;
+}
+
+EventTargetData* IDBDatabase::ensureEventTargetData()
+{
+    return &m_eventTargetData;
 }
 
 } // namespace WebCore

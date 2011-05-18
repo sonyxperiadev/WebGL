@@ -38,6 +38,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
+#include "LocalizedNumber.h"
 #include "RenderTextControl.h"
 #include <limits>
 #include <wtf/ASCIICType.h>
@@ -49,15 +50,19 @@ namespace WebCore {
 using namespace HTMLNames;
 using namespace std;
 
-static const double numberDefaultMinimum = -FLT_MAX;
-static const double numberDefaultMaximum = FLT_MAX;
-
 static const double numberDefaultStep = 1.0;
 static const double numberStepScaleFactor = 1.0;
 
-static bool isNumberCharacter(UChar ch)
+// Returns true if the specified character can be a part of 'valid floating
+// point number' of HTML5.
+static bool isHTMLNumberCharacter(UChar ch)
 {
     return ch == '+' || ch == '-' || ch == '.' || ch == 'e' || ch == 'E' || isASCIIDigit(ch);
+}
+
+static bool isNumberCharacter(UChar ch)
+{
+    return isLocalizedNumberCharacter(ch) || isHTMLNumberCharacter(ch);
 }
 
 PassOwnPtr<InputType> NumberInputType::create(HTMLInputElement* element)
@@ -77,11 +82,11 @@ double NumberInputType::valueAsNumber() const
 
 void NumberInputType::setValueAsNumber(double newValue, ExceptionCode& ec) const
 {
-    if (newValue < numberDefaultMinimum) {
+    if (newValue < -numeric_limits<float>::max()) {
         ec = INVALID_STATE_ERR;
         return;
     }
-    if (newValue > numberDefaultMaximum) {
+    if (newValue > numeric_limits<float>::max()) {
         ec = INVALID_STATE_ERR;
         return;
     }
@@ -120,12 +125,12 @@ bool NumberInputType::supportsRangeLimitation() const
 
 double NumberInputType::minimum() const
 {
-    return parseToDouble(element()->fastGetAttribute(minAttr), numberDefaultMinimum);
+    return parseToDouble(element()->fastGetAttribute(minAttr), -numeric_limits<float>::max());
 }
 
 double NumberInputType::maximum() const
 {
-    return parseToDouble(element()->fastGetAttribute(maxAttr), numberDefaultMaximum);
+    return parseToDouble(element()->fastGetAttribute(maxAttr), numeric_limits<float>::max());
 }
 
 bool NumberInputType::stepMismatch(const String& value, double step) const
@@ -248,13 +253,29 @@ void NumberInputType::handleBlurEvent()
         element()->renderer()->updateFromElement();
 }
 
+String NumberInputType::visibleValue() const
+{
+    String currentValue = element()->value();
+    if (currentValue.isEmpty())
+        return currentValue;
+    double doubleValue = numeric_limits<double>::quiet_NaN();
+    parseToDoubleForNumberType(currentValue, &doubleValue);
+    String localized = formatLocalizedNumber(doubleValue);
+    return localized.isEmpty() ? currentValue : localized;
+}
+
 bool NumberInputType::isAcceptableValue(const String& proposedValue)
 {
-    return proposedValue.isEmpty() || parseToDoubleForNumberType(proposedValue, 0);
+    return proposedValue.isEmpty() || isfinite(parseLocalizedNumber(proposedValue)) || parseToDoubleForNumberType(proposedValue, 0);
 }
 
 String NumberInputType::sanitizeValue(const String& proposedValue)
 {
+    // Try to parse the value as a localized number, then try to parse it as
+    // the standard format.
+    double parsedValue = parseLocalizedNumber(proposedValue);
+    if (isfinite(parsedValue))
+        return serializeForNumberType(parsedValue);
     return parseToDoubleForNumberType(proposedValue, 0) ? proposedValue : String();
 }
 

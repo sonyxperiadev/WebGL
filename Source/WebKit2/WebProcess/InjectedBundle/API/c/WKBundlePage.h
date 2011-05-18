@@ -87,8 +87,6 @@ typedef void (*WKBundlePageDidClearWindowObjectForFrameCallback)(WKBundlePageRef
 typedef void (*WKBundlePageDidCancelClientRedirectForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
 typedef void (*WKBundlePageWillPerformClientRedirectForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKURLRef url, double delay, double date, const void *clientInfo);
 typedef void (*WKBundlePageDidHandleOnloadEventsForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-typedef bool (*WKBundlePageShouldLoadResourceForFrameCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKStringRef url, const void *clientInfo);
-
 
 struct WKBundlePageLoaderClient {
     int                                                                 version;
@@ -113,9 +111,42 @@ struct WKBundlePageLoaderClient {
     WKBundlePageDidCancelClientRedirectForFrameCallback                 didCancelClientRedirectForFrame;
     WKBundlePageWillPerformClientRedirectForFrameCallback               willPerformClientRedirectForFrame;
     WKBundlePageDidHandleOnloadEventsForFrameCallback                   didHandleOnloadEventsForFrame;
-    WKBundlePageShouldLoadResourceForFrameCallback                      shouldLoadResourceForFrame;
 };
 typedef struct WKBundlePageLoaderClient WKBundlePageLoaderClient;
+
+// Policy Client
+typedef void (*WKBundlePageDecidePolicyForNavigationActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
+typedef void (*WKBundlePageDecidePolicyForNewWindowActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKStringRef frameName, WKTypeRef* userData, const void* clientInfo);
+typedef void (*WKBundlePageDecidePolicyForMIMETypeCallback)(WKBundlePageRef page, WKBundleFrameRef frame,  WKStringRef MIMEType, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
+
+struct WKBundlePagePolicyClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
+    WKBundlePageDecidePolicyForNavigationActionCallback                 decidePolicyForNavigationAction;
+    WKBundlePageDecidePolicyForNewWindowActionCallback                  decidePolicyForNewWindowAction;
+    WKBundlePageDecidePolicyForMIMETypeCallback                         decidePolicyForMIMEType;
+};
+typedef struct WKBundlePagePolicyClient WKBundlePagePolicyClient;
+
+// Resource Load Client
+typedef void (*WKBundlePageDidInitiateLoadForResourceCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, WKURLRequestRef, bool pageIsProvisionallyLoading, const void* clientInfo);
+typedef WKURLRequestRef (*WKBundlePageWillSendRequestForFrameCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, WKURLRequestRef, WKURLResponseRef redirectResponse, const void *clientInfo);
+typedef void (*WKBundlePageDidReceiveResponseForResourceCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, WKURLResponseRef, const void* clientInfo);
+typedef void (*WKBundlePageDidReceiveContentLengthForResourceCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, uint64_t contentLength, const void* clientInfo);
+typedef void (*WKBundlePageDidFinishLoadForResourceCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, const void* clientInfo);
+typedef void (*WKBundlePageDidFailLoadForResourceCallback)(WKBundlePageRef, WKBundleFrameRef, uint64_t resourceIdentifier, WKErrorRef, const void* clientInfo);
+
+struct WKBundlePageResourceLoadClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
+    WKBundlePageDidInitiateLoadForResourceCallback                      didInitiateLoadForResource;
+    WKBundlePageWillSendRequestForFrameCallback                         willSendRequestForFrame;
+    WKBundlePageDidReceiveResponseForResourceCallback                   didReceiveResponseForResource;
+    WKBundlePageDidReceiveContentLengthForResourceCallback              didReceiveContentLengthForResource;
+    WKBundlePageDidFinishLoadForResourceCallback                        didFinishLoadForResource;
+    WKBundlePageDidFailLoadForResourceCallback                          didFailLoadForResource;
+};
+typedef struct WKBundlePageResourceLoadClient WKBundlePageResourceLoadClient;
 
 // UI Client
 typedef void (*WKBundlePageWillAddMessageToConsoleCallback)(WKBundlePageRef page, WKStringRef message, uint32_t lineNumber, const void *clientInfo);
@@ -125,6 +156,7 @@ typedef void (*WKBundlePageWillRunJavaScriptConfirmCallback)(WKBundlePageRef pag
 typedef void (*WKBundlePageWillRunJavaScriptPromptCallback)(WKBundlePageRef page, WKStringRef message, WKStringRef defaultValue, WKBundleFrameRef frame, const void *clientInfo);
 typedef void (*WKBundlePageMouseDidMoveOverElementCallback)(WKBundlePageRef page, WKBundleHitTestResultRef hitTestResult, WKEventModifiers modifiers, WKTypeRef* userData, const void *clientInfo);
 typedef void (*WKBundlePageDidScrollCallback)(WKBundlePageRef page, const void *clientInfo);
+typedef void (*WKBundlePagePaintCustomOverhangAreaCallback)(WKBundlePageRef page, WKGraphicsContextRef graphicsContext, WKRect horizontalOverhang, WKRect verticalOverhang, WKRect dirtyRect, const void* clientInfo);
 
 struct WKBundlePageUIClient {
     int                                                                 version;
@@ -136,6 +168,7 @@ struct WKBundlePageUIClient {
     WKBundlePageWillRunJavaScriptPromptCallback                         willRunJavaScriptPrompt;
     WKBundlePageMouseDidMoveOverElementCallback                         mouseDidMoveOverElement;
     WKBundlePageDidScrollCallback                                       pageDidScroll;
+    WKBundlePagePaintCustomOverhangAreaCallback                         paintCustomOverhangArea;
 };
 typedef struct WKBundlePageUIClient WKBundlePageUIClient;
 
@@ -201,7 +234,9 @@ WK_EXPORT WKTypeID WKBundlePageGetTypeID();
 WK_EXPORT void WKBundlePageSetContextMenuClient(WKBundlePageRef page, WKBundlePageContextMenuClient* client);
 WK_EXPORT void WKBundlePageSetEditorClient(WKBundlePageRef page, WKBundlePageEditorClient* client);
 WK_EXPORT void WKBundlePageSetFormClient(WKBundlePageRef page, WKBundlePageFormClient* client);
-WK_EXPORT void WKBundlePageSetLoaderClient(WKBundlePageRef page, WKBundlePageLoaderClient* client);
+WK_EXPORT void WKBundlePageSetPageLoaderClient(WKBundlePageRef page, WKBundlePageLoaderClient* client);
+WK_EXPORT void WKBundlePageSetResourceLoadClient(WKBundlePageRef page, WKBundlePageResourceLoadClient* client);
+WK_EXPORT void WKBundlePageSetPolicyClient(WKBundlePageRef page, WKBundlePagePolicyClient* client);
 WK_EXPORT void WKBundlePageSetUIClient(WKBundlePageRef page, WKBundlePageUIClient* client);
 
 WK_EXPORT WKBundlePageGroupRef WKBundlePageGetPageGroup(WKBundlePageRef page);
@@ -219,6 +254,11 @@ WK_EXPORT bool WKBundlePageFindString(WKBundlePageRef page, WKStringRef target, 
 
 WK_EXPORT WKImageRef WKBundlePageCreateSnapshotInViewCoordinates(WKBundlePageRef page, WKRect rect, WKImageOptions options);
 WK_EXPORT WKImageRef WKBundlePageCreateSnapshotInDocumentCoordinates(WKBundlePageRef page, WKRect rect, WKImageOptions options);
+WK_EXPORT WKImageRef WKBundlePageCreateScaledSnapshotInDocumentCoordinates(WKBundlePageRef page, WKRect rect, double scaleFactor, WKImageOptions options);
+
+#if defined(ENABLE_INSPECTOR) && ENABLE_INSPECTOR
+WK_EXPORT WKBundleInspectorRef WKBundlePageGetInspector(WKBundlePageRef page);
+#endif
 
 #ifdef __cplusplus
 }

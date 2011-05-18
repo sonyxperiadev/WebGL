@@ -41,16 +41,9 @@ import webbrowser
 from webkitpy.common.system import executive
 from webkitpy.common.system.path import cygpath
 from webkitpy.layout_tests.layout_package import test_expectations
-from webkitpy.layout_tests.layout_package import test_output
-
-import base
-import http_server
-
-# Chromium DRT on OSX uses WebKitDriver.
-if sys.platform == 'darwin':
-    import webkit
-
-import websocket_server
+from webkitpy.layout_tests.port import base
+from webkitpy.layout_tests.port import http_server
+from webkitpy.layout_tests.port import websocket_server
 
 _log = logging.getLogger("webkitpy.layout_tests.port.chromium")
 
@@ -176,8 +169,6 @@ class ChromiumPort(base.Port):
         return result
 
     def driver_name(self):
-        if self._options.use_test_shell:
-            return "test_shell"
         return "DumpRenderTree"
 
     def path_from_chromium_base(self, *comps):
@@ -189,7 +180,7 @@ class ChromiumPort(base.Port):
             if offset == -1:
                 self._chromium_base_dir = self._filesystem.join(
                     abspath[0:abspath.find('Tools')],
-                    'WebKit', 'chromium')
+                    'Source', 'WebKit', 'chromium')
             else:
                 self._chromium_base_dir = abspath[0:offset]
         return self._filesystem.join(self._chromium_base_dir, *comps)
@@ -217,8 +208,6 @@ class ChromiumPort(base.Port):
 
     def create_driver(self, worker_number):
         """Starts a new Driver and returns a handle to it."""
-        if not self.get_option('use_test_shell') and sys.platform == 'darwin':
-            return webkit.WebKitDriver(self, worker_number)
         return ChromiumDriver(self, worker_number)
 
     def start_helper(self):
@@ -240,9 +229,6 @@ class ChromiumPort(base.Port):
             # wait() is not threadsafe and can throw OSError due to:
             # http://bugs.python.org/issue1731717
             self._helper.wait()
-
-    def test_base_platform_names(self):
-        return ('linux', 'mac', 'win')
 
     def test_expectations(self):
         """Returns the test expectations for this port.
@@ -273,15 +259,14 @@ class ChromiumPort(base.Port):
             all_test_files.update(extra_test_files)
 
         expectations = test_expectations.TestExpectations(
-            self, all_test_files, expectations_str, test_platform_name,
-            is_debug_mode, is_lint_mode=False, overrides=overrides_str)
+            self, all_test_files, expectations_str, self.test_configuration(),
+            is_lint_mode=False, overrides=overrides_str)
         tests_dir = self.layout_tests_dir()
         return [self.relative_test_filename(test)
                 for test in expectations.get_tests_with_result_type(test_expectations.SKIP)]
 
     def test_platform_names(self):
-        return self.test_base_platform_names() + ('win-xp',
-            'win-vista', 'win-7')
+        return ('mac', 'win', 'linux', 'win-xp', 'win-vista', 'win-7')
 
     def test_platform_name_to_name(self, test_platform_name):
         if test_platform_name in self.test_platform_names():
@@ -340,13 +325,11 @@ class ChromiumPort(base.Port):
 
     def _path_to_image_diff(self):
         binary_name = 'ImageDiff'
-        if self.get_option('use_test_shell'):
-            binary_name = 'image_diff'
         return self._build_path(self.get_option('configuration'), binary_name)
 
 
 class ChromiumDriver(base.Driver):
-    """Abstract interface for test_shell."""
+    """Abstract interface for DRT."""
 
     def __init__(self, port, worker_number):
         self._port = port
@@ -365,10 +348,7 @@ class ChromiumDriver(base.Driver):
             cmd.append("--pixel-tests=" +
                        self._port._convert_path(self._image_path))
 
-        if self._port.get_option('use_test_shell'):
-            cmd.append('--layout-tests')
-        else:
-            cmd.append('--test-shell')
+        cmd.append('--test-shell')
 
         if self._port.get_option('startup_dialog'):
             cmd.append('--testshell-startup-dialog')
@@ -385,14 +365,12 @@ class ChromiumDriver(base.Driver):
         if self._port.get_option('stress_deopt'):
             cmd.append('--stress-deopt')
 
-        # test_shell does not support accelerated compositing.
-        if not self._port.get_option("use_test_shell"):
-            if self._port.get_option('accelerated_compositing'):
-                cmd.append('--enable-accelerated-compositing')
-            if self._port.get_option('accelerated_2d_canvas'):
-                cmd.append('--enable-accelerated-2d-canvas')
-            if self._port.get_option('enable_hardware_gpu'):
-                cmd.append('--enable-hardware-gpu')
+        if self._port.get_option('accelerated_compositing'):
+            cmd.append('--enable-accelerated-compositing')
+        if self._port.get_option('accelerated_2d_canvas'):
+            cmd.append('--enable-accelerated-2d-canvas')
+        if self._port.get_option('enable_hardware_gpu'):
+            cmd.append('--enable-hardware-gpu')
         return cmd
 
     def start(self):
@@ -420,17 +398,17 @@ class ChromiumDriver(base.Driver):
         try:
             if input:
                 if isinstance(input, unicode):
-                    # TestShell expects utf-8
+                    # DRT expects utf-8
                     input = input.encode("utf-8")
                 self._proc.stdin.write(input)
             # DumpRenderTree text output is always UTF-8.  However some tests
             # (e.g. webarchive) may spit out binary data instead of text so we
-            # don't bother to decode the output (for either DRT or test_shell).
+            # don't bother to decode the output.
             line = self._proc.stdout.readline()
             # We could assert() here that line correctly decodes as UTF-8.
             return (line, False)
         except IOError, e:
-            _log.error("IOError communicating w/ test_shell: " + str(e))
+            _log.error("IOError communicating w/ DRT: " + str(e))
             return (None, True)
 
     def _test_shell_command(self, uri, timeoutms, checksum):
@@ -465,7 +443,7 @@ class ChromiumDriver(base.Driver):
                     raise e
         return self._output_image()
 
-    def run_test(self, test_input):
+    def run_test(self, driver_input):
         output = []
         error = []
         crash = False
@@ -475,9 +453,9 @@ class ChromiumDriver(base.Driver):
 
         start_time = time.time()
 
-        uri = self._port.filename_to_uri(test_input.filename)
-        cmd = self._test_shell_command(uri, test_input.timeout,
-                                       test_input.image_hash)
+        uri = self._port.filename_to_uri(driver_input.filename)
+        cmd = self._test_shell_command(uri, driver_input.timeout,
+                                       driver_input.image_hash)
         (line, crash) = self._write_command_and_read_line(input=cmd)
 
         while not crash and line.rstrip() != "#EOF":
@@ -485,7 +463,7 @@ class ChromiumDriver(base.Driver):
             if line == '' and self.poll() is not None:
                 # This is hex code 0xc000001d, which is used for abrupt
                 # termination. This happens if we hit ctrl+c from the prompt
-                # and we happen to be waiting on test_shell.
+                # and we happen to be waiting on DRT.
                 # sdoyon: Not sure for which OS and in what circumstances the
                 # above code is valid. What works for me under Linux to detect
                 # ctrl+c is for the subprocess returncode to be negative
@@ -519,7 +497,7 @@ class ChromiumDriver(base.Driver):
             (line, crash) = self._write_command_and_read_line(input=None)
 
         run_time = time.time() - start_time
-        return test_output.TestOutput(
+        return base.DriverOutput(
             ''.join(output), self._output_image_with_retry(), actual_checksum,
             crash, run_time, timeout, ''.join(error))
 
@@ -532,8 +510,8 @@ class ChromiumDriver(base.Driver):
             if sys.platform not in ('win32', 'cygwin'):
                 # Closing stdin/stdout/stderr hangs sometimes on OS X,
                 # (see __init__(), above), and anyway we don't want to hang
-                # the harness if test_shell is buggy, so we wait a couple
-                # seconds to give test_shell a chance to clean up, but then
+                # the harness if DRT is buggy, so we wait a couple
+                # seconds to give DRT a chance to clean up, but then
                 # force-kill the process if necessary.
                 KILL_TIMEOUT = 3.0
                 timeout = time.time() + KILL_TIMEOUT

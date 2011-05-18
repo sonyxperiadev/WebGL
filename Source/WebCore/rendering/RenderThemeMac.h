@@ -164,9 +164,12 @@ protected:
     virtual String extraMediaControlsStyleSheet();
 
     virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
+    virtual bool usesMediaControlStatusDisplay();
     virtual void adjustMediaSliderThumbSize(RenderObject*) const;
     virtual IntPoint volumeSliderOffsetFromMuteButton(Node*, const IntSize&) const;
 #endif
+    
+    virtual bool shouldShowPlaceholderWhenFocused() const;
 
 private:
 

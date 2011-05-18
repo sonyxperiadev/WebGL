@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,6 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "ChunkedUpdateDrawingAreaProxy.h"
 
 #include "DrawingAreaMessageKinds.h"
@@ -47,6 +49,9 @@ ChunkedUpdateDrawingAreaProxy::ChunkedUpdateDrawingAreaProxy(PlatformWebView* we
     , m_isWaitingForDidSetFrameNotification(false)
     , m_isVisible(true)
     , m_forceRepaintWhenResumingPainting(false)
+#if PLATFORM(GTK)
+    , m_backingStoreImage(0)
+#endif
     , m_webView(webView)
 {
 }
@@ -65,7 +70,7 @@ bool ChunkedUpdateDrawingAreaProxy::paint(const IntRect& rect, PlatformDrawingCo
         if (page->process()->isLaunching())
             return false;
 
-        OwnPtr<CoreIPC::ArgumentDecoder> arguments = page->process()->connection()->waitFor(DrawingAreaProxyLegacyMessage::DidSetSize, page->pageID(), 0.04);
+        OwnPtr<CoreIPC::ArgumentDecoder> arguments = page->process()->connection()->deprecatedWaitFor(DrawingAreaProxyLegacyMessage::DidSetSize, page->pageID(), 0.04);
         if (arguments)
             didReceiveMessage(page->process()->connection(), CoreIPC::MessageID(DrawingAreaProxyLegacyMessage::DidSetSize), arguments.get());
     }
@@ -91,12 +96,12 @@ void ChunkedUpdateDrawingAreaProxy::setPageIsVisible(bool isVisible)
 
     if (!m_isVisible) {
         // Tell the web process that it doesn't need to paint anything for now.
-        page->process()->send(DrawingAreaLegacyMessage::SuspendPainting, page->pageID(), CoreIPC::In(info().identifier));
+        page->process()->deprecatedSend(DrawingAreaLegacyMessage::SuspendPainting, page->pageID(), CoreIPC::In(info().identifier));
         return;
     }
     
     // The page is now visible, resume painting.
-    page->process()->send(DrawingAreaLegacyMessage::ResumePainting, page->pageID(), CoreIPC::In(info().identifier, m_forceRepaintWhenResumingPainting));
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::ResumePainting, page->pageID(), CoreIPC::In(info().identifier, m_forceRepaintWhenResumingPainting));
     m_forceRepaintWhenResumingPainting = false;
 }
     
@@ -113,9 +118,6 @@ void ChunkedUpdateDrawingAreaProxy::didSetSize(UpdateChunk* updateChunk)
     invalidateBackingStore();
     if (!updateChunk->isEmpty())
         drawUpdateChunkIntoBackingStore(updateChunk);
-
-    WebPageProxy* page = this->page();
-    page->process()->responsivenessTimer()->stop();
 }
 
 void ChunkedUpdateDrawingAreaProxy::update(UpdateChunk* updateChunk)
@@ -131,7 +133,7 @@ void ChunkedUpdateDrawingAreaProxy::update(UpdateChunk* updateChunk)
     }
 
     WebPageProxy* page = this->page();
-    page->process()->send(DrawingAreaLegacyMessage::DidUpdate, page->pageID(), CoreIPC::In(info().identifier));
+    page->process()->deprecatedSend(DrawingAreaLegacyMessage::DidUpdate, page->pageID(), CoreIPC::In(info().identifier));
 }
 
 void ChunkedUpdateDrawingAreaProxy::sendSetSize()
@@ -143,8 +145,7 @@ void ChunkedUpdateDrawingAreaProxy::sendSetSize()
         return;
     m_isWaitingForDidSetFrameNotification = true;
     
-    m_webPageProxy->process()->responsivenessTimer()->start();
-    m_webPageProxy->process()->send(DrawingAreaLegacyMessage::SetSize, m_webPageProxy->pageID(), CoreIPC::In(info().identifier, m_size));
+    m_webPageProxy->process()->deprecatedSend(DrawingAreaLegacyMessage::SetSize, m_webPageProxy->pageID(), CoreIPC::In(info().identifier, m_size));
 }
     
 void ChunkedUpdateDrawingAreaProxy::didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)

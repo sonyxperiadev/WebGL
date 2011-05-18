@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "JSWebGLRenderingContext.h"
 
@@ -89,14 +89,14 @@ static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const WebG
     }
     case WebGLGetInfo::kTypeFloat:
         return jsNumber(info.getFloat());
-    case WebGLGetInfo::kTypeLong:
-        return jsNumber(info.getLong());
+    case WebGLGetInfo::kTypeInt:
+        return jsNumber(info.getInt());
     case WebGLGetInfo::kTypeNull:
         return jsNull();
     case WebGLGetInfo::kTypeString:
         return jsString(exec, info.getString());
-    case WebGLGetInfo::kTypeUnsignedLong:
-        return jsNumber(info.getUnsignedLong());
+    case WebGLGetInfo::kTypeUnsignedInt:
+        return jsNumber(info.getUnsignedInt());
     case WebGLGetInfo::kTypeWebGLBuffer:
         return toJS(exec, globalObject, info.getWebGLBuffer());
     case WebGLGetInfo::kTypeWebGLFloatArray:
@@ -703,4 +703,4 @@ JSC::JSValue JSWebGLRenderingContext::vertexAttrib4fv(JSC::ExecState* exec)
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

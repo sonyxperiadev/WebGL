@@ -274,6 +274,11 @@ void WebSettingsImpl::setExperimentalWebGLEnabled(bool enabled)
     m_settings->setWebGLEnabled(enabled);
 }
 
+void WebSettingsImpl::setOpenGLMultisamplingEnabled(bool enabled)
+{
+    m_settings->setOpenGLMultisamplingEnabled(enabled);
+}
+
 void WebSettingsImpl::setShowDebugBorders(bool show)
 {
     m_settings->setShowDebugBorders(show);
@@ -327,6 +332,11 @@ void WebSettingsImpl::setMemoryInfoEnabled(bool enabled)
 void WebSettingsImpl::setHyperlinkAuditingEnabled(bool enabled)
 {
     m_settings->setHyperlinkAuditingEnabled(enabled);
+}
+
+void WebSettingsImpl::setAsynchronousSpellCheckingEnabled(bool enabled)
+{
+    m_settings->setAsynchronousSpellCheckingEnabled(enabled);
 }
 
 void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)

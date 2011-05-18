@@ -1,3 +1,80 @@
+2011-02-08  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WIN] Add missing forward declarations in WebKitSystemInterface.h
+        https://bugs.webkit.org/show_bug.cgi?id=53889
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+
+2011-02-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Bump Windows minimum system requirement to XPSP2
+        https://bugs.webkit.org/show_bug.cgi?id=53807
+
+        * win/tools/vsprops/common.vsprops:
+
+2011-02-03  James Kozianski  <koz@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add navigator.registerProtocolHandler behind a flag.
+        https://bugs.webkit.org/show_bug.cgi?id=52609
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2011-02-02  Steve Lacey  <sjl@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Implement basic media statistics on media elements.
+        https://bugs.webkit.org/show_bug.cgi?id=53322
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2011-01-28  Anders Carlsson  <andersca@apple.com>
+
+        Build fix.
+        
+        Update WKSI.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-01-26  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/53192> Add experimental support for HTTP pipelining in CFNetwork
+        <rdar://problem/8821760>
+
+        Reviewed by Antti Koivisto.
+
+        * WebKitSystemInterface.h:
+            New methods added for HTTP pipelining support.
+        (WKGetHTTPPipeliningPriority): Added.
+        (WKSetHTTPPipeliningPriority): Added.
+            Unrelated methods added after updating the header.
+        (WKMakeScrollbarPainter): Added.
+        (WKScrollbarPainterPaint): Added.
+        * libWebKitSystemInterfaceLeopard.a: Updated.
+        * libWebKitSystemInterfaceSnowLeopard.a: Updated.
+
+2011-01-24  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        REGRESSION (r72119): Audio never plays on Star Wars intro animation
+        https://bugs.webkit.org/show_bug.cgi?id=52467
+        
+        Add wkGetQuickTimeMIMETypeList() function.
+        
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+
 2011-01-18  Anders Carlsson  <andersca@apple.com>
 
         Reviewed by Darin Adler.

@@ -64,7 +64,7 @@ public:
     void addListener(ScriptDebugListener*, Page*);
     void removeListener(ScriptDebugListener*, Page*);
 
-    String setBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition, bool enabled, unsigned* actualLineNumber);
+    String setBreakpoint(const String& sourceID, const ScriptBreakpoint&, int* actualLineNumber, int* actualColumnNumber);
     void removeBreakpoint(const String& breakpointId);
     void clearBreakpoints();
     void setBreakpointsActivated(bool activated);
@@ -92,10 +92,6 @@ public:
     void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0);
 
     JavaScriptCallFrame* currentCallFrame();
-
-    void pageCreated(Page*);
-
-    bool isDebuggerAlwaysEnabled();
 
 private:
     typedef HashSet<ScriptDebugListener*> ListenerSet;
@@ -138,7 +134,8 @@ private:
     void didRemoveListener(Page*);
 
     typedef HashMap<Page*, ListenerSet*> PageListenersMap;
-    typedef HashMap<intptr_t, SourceBreakpoints> BreakpointsMap;
+    typedef HashMap<long, ScriptBreakpoint> LineToBreakpointMap;
+    typedef HashMap<intptr_t, LineToBreakpointMap> SourceIdToBreakpointsMap;
 
     PageListenersMap m_pageListenersMap;
     bool m_callingListeners;
@@ -150,7 +147,7 @@ private:
     bool m_breakpointsActivated;
     JavaScriptCallFrame* m_pauseOnCallFrame;
     RefPtr<JavaScriptCallFrame> m_currentCallFrame;
-    BreakpointsMap m_breakpoints;
+    SourceIdToBreakpointsMap m_sourceIdToBreakpoints;
     Timer<ScriptDebugServer> m_recompileTimer;
 };
 

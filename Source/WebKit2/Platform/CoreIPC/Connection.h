@@ -31,7 +31,6 @@
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
 #include "Arguments.h"
-#include "BinarySemaphore.h"
 #include "MessageID.h"
 #include "WorkQueue.h"
 #include <wtf/HashMap.h>
@@ -44,9 +43,8 @@
 #elif PLATFORM(WIN)
 #include <string>
 #elif PLATFORM(QT)
-#include <QString>
-class QLocalServer;
-class QLocalSocket;
+class QSocketNotifier;
+#include "PlatformProcessIdentifier.h"
 #endif
 
 class RunLoop;
@@ -58,6 +56,12 @@ class MessageID;
 enum SyncReplyMode {
     AutomaticReply,
     ManualReply
+};
+
+enum MessageSendFlags {
+    // Whether this message should be dispatched when waiting for a sync reply.
+    // This is the default for synchronous messages.
+    DispatchMessageEvenWhenWaitingForSyncReply = 1 << 0,
 };
 
 #define MESSAGE_CHECK_BASE(assertion, connection) do \
@@ -86,10 +90,7 @@ public:
     public:
         virtual void didClose(Connection*) = 0;
         virtual void didReceiveInvalidMessage(Connection*, MessageID) = 0;
-
-        // Called on the connection work queue when the connection is closed, before
-        // didCall is called on the client thread.
-        virtual void didCloseOnConnectionWorkQueue(WorkQueue*, Connection*) { }
+        virtual void didFailToSendSyncMessage(Connection*) { }
     };
 
 #if PLATFORM(MAC)
@@ -98,7 +99,7 @@ public:
     typedef HANDLE Identifier;
     static bool createServerAndClientIdentifiers(Identifier& serverIdentifier, Identifier& clientIdentifier);
 #elif PLATFORM(QT)
-    typedef const QString Identifier;
+    typedef int Identifier;
 #elif PLATFORM(GTK)
     typedef int Identifier;
 #endif
@@ -109,27 +110,37 @@ public:
 
 #if PLATFORM(MAC)
     void setShouldCloseConnectionOnMachExceptions();
+#elif PLATFORM(QT)
+    void setShouldCloseConnectionOnProcessTermination(WebKit::PlatformProcessIdentifier);
 #endif
 
+    // The set callback will be called on the connection work queue when the connection is closed, 
+    // before didCall is called on the client thread. Must be called before the connection is opened.
+    // In the future we might want a more generic way to handle sync or async messages directly
+    // on the work queue, for example if we want to handle them on some other thread we could avoid
+    // handling the message on the client thread first.
+    typedef void (*DidCloseOnConnectionWorkQueueCallback)(WorkQueue&, Connection*);
+    void setDidCloseOnConnectionWorkQueueCallback(DidCloseOnConnectionWorkQueueCallback callback);
+                                                
     bool open();
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
     static const unsigned long long NoTimeout = 10000000000ULL;
 
-    template<typename T> bool send(const T& message, uint64_t destinationID);
+    template<typename T> bool send(const T& message, uint64_t destinationID, unsigned messageSendFlags = 0);
     template<typename T> bool sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout = NoTimeout);
     template<typename T> bool waitForAndDispatchImmediately(uint64_t destinationID, double timeout);
 
     PassOwnPtr<ArgumentEncoder> createSyncMessageArgumentEncoder(uint64_t destinationID, uint64_t& syncRequestID);
-    bool sendMessage(MessageID, PassOwnPtr<ArgumentEncoder>);
+    bool sendMessage(MessageID, PassOwnPtr<ArgumentEncoder>, unsigned messageSendFlags = 0);
     bool sendSyncReply(PassOwnPtr<ArgumentEncoder>);
 
-    // FIXME: These variants of senc, sendSync and waitFor are all deprecated.
+    // FIXME: These variants of send, sendSync and waitFor are all deprecated.
     // All clients should move to the overloads that take a message type.
-    template<typename E, typename T> bool send(E messageID, uint64_t destinationID, const T& arguments);
-    template<typename E, typename T, typename U> bool sendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout = NoTimeout);
-    template<typename E> PassOwnPtr<ArgumentDecoder> waitFor(E messageID, uint64_t destinationID, double timeout);
+    template<typename E, typename T> bool deprecatedSend(E messageID, uint64_t destinationID, const T& arguments);
+    template<typename E, typename T, typename U> bool deprecatedSendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout = NoTimeout);
+    template<typename E> PassOwnPtr<ArgumentDecoder> deprecatedWaitFor(E messageID, uint64_t destinationID, double timeout);
     
 private:
     template<typename T> class Message {
@@ -146,6 +157,8 @@ private:
         }
         
         MessageID messageID() const { return m_messageID; }
+        uint64_t destinationID() const { return m_arguments->destinationID(); }
+
         T* arguments() const { return m_arguments; }
         
         PassOwnPtr<T> releaseArguments()
@@ -184,14 +197,22 @@ private:
     bool sendOutgoingMessage(MessageID, PassOwnPtr<ArgumentEncoder>);
     void connectionDidClose();
     
+    typedef Message<ArgumentDecoder> IncomingMessage;
+
     // Called on the listener thread.
     void dispatchConnectionDidClose();
+    void dispatchMessage(IncomingMessage&);
     void dispatchMessages();
     void dispatchSyncMessage(MessageID, ArgumentDecoder*);
-                             
+
+    // Can be called on any thread.
+    void enqueueIncomingMessage(IncomingMessage&);
+
     Client* m_client;
     bool m_isServer;
     uint64_t m_syncRequestID;
+
+    DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback;
 
     bool m_isConnected;
     WorkQueue m_connectionQueue;
@@ -201,8 +222,6 @@ private:
     bool m_didReceiveInvalidMessage;
 
     // Incoming messages.
-    typedef Message<ArgumentDecoder> IncomingMessage;
-
     Mutex m_incomingMessagesLock;
     Vector<IncomingMessage> m_incomingMessages;
 
@@ -249,12 +268,13 @@ private:
         }
     };
     
-    BinarySemaphore m_waitForSyncReplySemaphore;
+    class SyncMessageState;
+    friend class SyncMessageState;
+    RefPtr<SyncMessageState> m_syncMessageState;
 
     Mutex m_syncReplyStateMutex;
     bool m_shouldWaitForSyncReplies;
     Vector<PendingSyncReply> m_pendingSyncReplies;
-    Vector<IncomingMessage> m_syncMessagesReceivedWhileWaitingForSyncReply;
 
 #if PLATFORM(MAC)
     // Called on the connection queue.
@@ -285,8 +305,8 @@ private:
 
     Vector<uint8_t> m_readBuffer;
     size_t m_currentMessageSize;
-    QLocalSocket* m_socket;
-    QString m_serverName;
+    QSocketNotifier* m_socketNotifier;
+    int m_socketDescriptor;
 #elif PLATFORM(GTK)
     void readEventHandler();
     void processCompletedMessage();
@@ -299,12 +319,12 @@ private:
 #endif
 };
 
-template<typename T> bool Connection::send(const T& message, uint64_t destinationID)
+template<typename T> bool Connection::send(const T& message, uint64_t destinationID, unsigned messageSendFlags)
 {
     OwnPtr<ArgumentEncoder> argumentEncoder = ArgumentEncoder::create(destinationID);
     argumentEncoder->encode(message);
     
-    return sendMessage(MessageID(T::messageID), argumentEncoder.release());
+    return sendMessage(MessageID(T::messageID), argumentEncoder.release(), messageSendFlags);
 }
 
 template<typename T> bool Connection::sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout)
@@ -338,7 +358,7 @@ template<typename T> bool Connection::waitForAndDispatchImmediately(uint64_t des
 // These three member functions are all deprecated.
 
 template<typename E, typename T, typename U>
-inline bool Connection::sendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout)
+inline bool Connection::deprecatedSendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout)
 {
     uint64_t syncRequestID = 0;
     OwnPtr<ArgumentEncoder> argumentEncoder = createSyncMessageArgumentEncoder(destinationID, syncRequestID);
@@ -356,7 +376,7 @@ inline bool Connection::sendSync(E messageID, uint64_t destinationID, const T& a
 }
 
 template<typename E, typename T>
-bool Connection::send(E messageID, uint64_t destinationID, const T& arguments)
+bool Connection::deprecatedSend(E messageID, uint64_t destinationID, const T& arguments)
 {
     OwnPtr<ArgumentEncoder> argumentEncoder = ArgumentEncoder::create(destinationID);
     argumentEncoder->encode(arguments);
@@ -364,7 +384,7 @@ bool Connection::send(E messageID, uint64_t destinationID, const T& arguments)
     return sendMessage(MessageID(messageID), argumentEncoder.release());
 }
 
-template<typename E> inline PassOwnPtr<ArgumentDecoder> Connection::waitFor(E messageID, uint64_t destinationID, double timeout)
+template<typename E> inline PassOwnPtr<ArgumentDecoder> Connection::deprecatedWaitFor(E messageID, uint64_t destinationID, double timeout)
 {
     return waitForMessage(MessageID(messageID), destinationID, timeout);
 }

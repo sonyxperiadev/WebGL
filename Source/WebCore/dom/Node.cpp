@@ -1641,7 +1641,7 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
 
     // FIXME: we could also optimize for the the [id="foo"] case
     if (strictParsing && inDocument() && querySelectorList.hasOneSelector() && querySelectorList.first()->m_match == CSSSelector::Id) {
-        Element* element = document()->getElementById(querySelectorList.first()->m_value);
+        Element* element = document()->getElementById(querySelectorList.first()->value());
         if (element && (isDocumentNode() || element->isDescendantOf(this)) && selectorChecker.checkSelector(querySelectorList.first(), element))
             return element;
         return 0;
@@ -2913,6 +2913,18 @@ void Node::dispatchSimulatedClick(PassRefPtr<Event> event, bool sendMouseEvents,
     gNodesDispatchingSimulatedClicks->remove(this);
 }
 
+// FIXME: Once https://bugs.webkit.org/show_bug.cgi?id=52963 lands, this should
+// be greatly improved. See https://bugs.webkit.org/show_bug.cgi?id=54025.
+static Node* pullOutOfShadow(Node* node)
+{
+    Node* outermostShadowBoundary = node;
+    for (Node* n = node; n; n = n->parentOrHostNode()) {
+        if (n->isShadowRoot())
+            outermostShadowBoundary = n->parentOrHostNode();
+    }
+    return outermostShadowBoundary;
+}
+
 bool Node::dispatchMouseEvent(const AtomicString& eventType, int button, int detail,
     int pageX, int pageY, int screenX, int screenY,
     bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, 
@@ -2935,7 +2947,7 @@ bool Node::dispatchMouseEvent(const AtomicString& eventType, int button, int det
     bool swallowEvent = false;
     
     // Attempting to dispatch with a non-EventTarget relatedTarget causes the relatedTarget to be silently ignored.
-    RefPtr<Node> relatedTarget = relatedTargetArg;
+    RefPtr<Node> relatedTarget = pullOutOfShadow(relatedTargetArg);
 
     int adjustedPageX = pageX;
     int adjustedPageY = pageY;

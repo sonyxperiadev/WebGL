@@ -26,14 +26,9 @@
 # wtf source files
 
 LOCAL_SRC_FILES := \
-	pcre/pcre_compile.cpp \
-	pcre/pcre_exec.cpp \
-	pcre/pcre_tables.cpp \
-	pcre/pcre_ucp_searchfuncs.cpp \
-	pcre/pcre_xclass.cpp \
-	\
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
+	wtf/CryptographicallyRandomNumber.cpp \
 	wtf/CurrentTime.cpp \
 	wtf/DateMath.cpp \
 	wtf/DecimalNumber.cpp \
@@ -41,9 +36,13 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
+<<<<<<< HEAD
 	wtf/OSAllocatorPosix.cpp \
 	wtf/PageAllocationAligned.cpp \
 	wtf/PageBlock.cpp \
+=======
+	wtf/OSRandomSource.cpp \
+>>>>>>> webkit.org at r78450
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/StackBounds.cpp \
@@ -68,6 +67,7 @@ LOCAL_SRC_FILES := \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	\
+<<<<<<< HEAD
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
 	wtf/url/src/URLCharacterTypes.cpp \
@@ -85,3 +85,6 @@ $(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
 
 # We do not add $(CHARTABLES) to LOCAL_GENERATED_SOURCES because the chartables.c file
 # is explicitly #included in pcre_tables.cpp.
+=======
+	wtf/unicode/icu/CollatorICU.cpp
+>>>>>>> webkit.org at r78450

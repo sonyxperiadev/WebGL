@@ -55,6 +55,7 @@
 #include "DocumentType.h"
 #include "EditingText.h"
 #include "Editor.h"
+#include "Element.h"
 #include "EntityReference.h"
 #include "Event.h"
 #include "EventHandler.h"
@@ -102,6 +103,7 @@
 #include "MouseEventWithHitTestResults.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
+#include "NestingLevelIncrementer.h"
 #include "NodeFilter.h"
 #include "NodeIterator.h"
 #include "NodeWithIndex.h"
@@ -143,7 +145,6 @@
 #include "XMLHttpRequest.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
-#include "XSSAuditor.h"
 #include "htmlediting.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/HashFunctions.h>
@@ -235,15 +236,12 @@ using namespace HTMLNames;
 
 // #define INSTRUMENT_LAYOUT_SCHEDULING 1
 
+static const unsigned cMaxWriteRecursionDepth = 21;
+
 // This amount of time must have elapsed before we will even consider scheduling a layout without a delay.
 // FIXME: For faster machines this value can really be lowered to 200.  250 is adequate, but a little high
 // for dual G5s. :)
 static const int cLayoutScheduleThreshold = 250;
-
-// These functions can't have internal linkage because they are used as template arguments.
-bool keyMatchesId(AtomicStringImpl*, Element*);
-bool keyMatchesMapName(AtomicStringImpl*, Element*);
-bool keyMatchesLowercasedMapName(AtomicStringImpl*, Element*);
 
 // DOM Level 2 says (letters added):
 //
@@ -383,7 +381,7 @@ private:
     Document* m_document;
 };
 
-Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, const KURL& baseURL)
+Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     : ContainerNode(0)
     , m_compatibilityMode(NoQuirksMode)
     , m_compatibilityModeLocked(false)
@@ -430,7 +428,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     , m_normalWorldWrapperCache(0)
 #endif
     , m_usingGeolocation(false)
-    , m_eventQueue(adoptPtr(new EventQueue))
+    , m_eventQueue(EventQueue::create(this))
 #if ENABLE(WML)
     , m_containsWMLContent(false)
 #endif
@@ -446,6 +444,8 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     , m_loadEventDelayTimer(this, &Document::loadEventDelayTimerFired)
     , m_directionSetOnDocumentElement(false)
     , m_writingModeSetOnDocumentElement(false)
+    , m_writeRecursionIsTooDeep(false)
+    , m_writeRecursionDepth(0)
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     , m_nextRequestAnimationFrameCallbackId(0)
 #endif
@@ -460,16 +460,25 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     m_ignoreAutofocus = false;
 
     m_frame = frame;
+    m_documentLoader = frame ? frame->loader()->activeDocumentLoader() : 0;
 
-    if (frame || !url.isEmpty())
+    // We depend on the url getting immediately set in subframes, but we
+    // also depend on the url NOT getting immediately set in opened windows.
+    // See fast/dom/early-frame-url.html
+    // and fast/dom/location-new-window-no-crash.html, respectively.
+    // FIXME: Can/should we unify this behavior?
+    if ((frame && frame->ownerElement()) || !url.isEmpty())
         setURL(url);
 
+<<<<<<< HEAD
     // Setting of m_baseURL needs to happen after the setURL call, since that
     // calls updateBaseURL, which would clobber the passed in value.
     if (!baseURL.isNull())
         m_baseURL = baseURL;
 
 #if !PLATFORM(ANDROID)
+=======
+>>>>>>> webkit.org at r78450
     m_axObjectCache = 0;
 #endif
 
@@ -519,12 +528,6 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
 #if ENABLE(XHTMLMP)
     m_shouldProcessNoScriptElement = !(m_frame && m_frame->script()->canExecuteScripts(NotAboutToExecuteScript));
 #endif
-}
-
-inline void Document::DocumentOrderedMap::clear()
-{
-    m_map.clear();
-    m_duplicateCounts.clear();
 }
 
 void Document::removedLastRef()
@@ -736,10 +739,7 @@ void Document::childrenChanged(bool changedByParser, Node* beforeChange, Node* a
 void Document::cacheDocumentElement() const
 {
     ASSERT(!m_documentElement);
-    Node* n = firstChild();
-    while (n && !n->isElementNode())
-        n = n->nextSibling();
-    m_documentElement = static_cast<Element*>(n);
+    m_documentElement = firstElementChild(this);
 }
 
 PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionCode& ec)
@@ -1019,87 +1019,11 @@ PassRefPtr<Element> Document::createElementNS(const String& namespaceURI, const 
     return createElement(qName, false);
 }
 
-inline void Document::DocumentOrderedMap::add(AtomicStringImpl* key, Element* element)
-{
-    ASSERT(key);
-    ASSERT(element);
-
-    if (!m_duplicateCounts.contains(key)) {
-        // Fast path. The key is not already in m_duplicateCounts, so we assume that it's
-        // also not already in m_map and try to add it. If that add succeeds, we're done.
-        pair<Map::iterator, bool> addResult = m_map.add(key, element);
-        if (addResult.second)
-            return;
-
-        // The add failed, so this key was already cached in m_map.
-        // There are multiple elements with this key. Remove the m_map
-        // cache for this key so get searches for it next time it is called.
-        m_map.remove(addResult.first);
-        m_duplicateCounts.add(key);
-    } else {
-        // There are multiple elements with this key. Remove the m_map
-        // cache for this key so get will search for it next time it is called.
-        Map::iterator cachedItem = m_map.find(key);
-        if (cachedItem != m_map.end()) {
-            m_map.remove(cachedItem);
-            m_duplicateCounts.add(key);
-        }
-    }
-
-    m_duplicateCounts.add(key);
-}
-
-inline void Document::DocumentOrderedMap::remove(AtomicStringImpl* key, Element* element)
-{
-    ASSERT(key);
-    ASSERT(element);
-
-    m_map.checkConsistency();
-    Map::iterator cachedItem = m_map.find(key);
-    if (cachedItem != m_map.end() && cachedItem->second == element)
-        m_map.remove(cachedItem);
-    else
-        m_duplicateCounts.remove(key);
-}
-
-template<bool keyMatches(AtomicStringImpl*, Element*)> inline Element* Document::DocumentOrderedMap::get(AtomicStringImpl* key, const Document* document) const
-{
-    ASSERT(key);
-
-    m_map.checkConsistency();
-
-    Element* element = m_map.get(key);
-    if (element)
-        return element;
-
-    if (m_duplicateCounts.contains(key)) {
-        // We know there's at least one node that matches; iterate to find the first one.
-        for (Node* node = document->firstChild(); node; node = node->traverseNextNode()) {
-            if (!node->isElementNode())
-                continue;
-            element = static_cast<Element*>(node);
-            if (!keyMatches(key, element))
-                continue;
-            m_duplicateCounts.remove(key);
-            m_map.set(key, element);
-            return element;
-        }
-        ASSERT_NOT_REACHED();
-    }
-
-    return 0;
-}
-
-inline bool keyMatchesId(AtomicStringImpl* key, Element* element)
-{
-    return element->hasID() && element->getIdAttribute().impl() == key;
-}
-
 Element* Document::getElementById(const AtomicString& elementId) const
 {
     if (elementId.isEmpty())
         return 0;
-    return m_elementsById.get<keyMatchesId>(elementId.impl(), this);
+    return m_elementsById.getElementById(elementId.impl(), this);
 }
 
 String Document::readyState() const
@@ -1209,7 +1133,7 @@ void Document::setContent(const String& content)
     open();
     m_parser->append(content);
     m_parser->finish();
-    close();
+    explicitClose();
 }
 
 // FIXME: We need to discuss the DOM API here at some point. Ideas:
@@ -2038,6 +1962,8 @@ void Document::open(Document* ownerDocument)
 
     removeAllEventListeners();
     implicitOpen();
+    if (ScriptableDocumentParser* parser = scriptableDocumentParser())
+        parser->setWasCreatedByScript(true);
 
     if (DOMWindow* domWindow = this->domWindow())
         domWindow->removeAllEventListeners();
@@ -2056,14 +1982,15 @@ void Document::detachParser()
 
 void Document::cancelParsing()
 {
-    if (m_parser) {
-        // We have to clear the parser to avoid possibly triggering
-        // the onload handler when closing as a side effect of a cancel-style
-        // change, such as opening a new document or closing the window while
-        // still parsing
-        detachParser();
-        close();
-    }
+    if (!m_parser)
+        return;
+
+    // We have to clear the parser to avoid possibly triggering
+    // the onload handler when closing as a side effect of a cancel-style
+    // change, such as opening a new document or closing the window while
+    // still parsing
+    detachParser();
+    explicitClose();
 }
 
 void Document::implicitOpen()
@@ -2077,10 +2004,6 @@ void Document::implicitOpen()
     m_parser = createParser();
     setParsing(true);
     setReadyState(Loading);
-
-    ScriptableDocumentParser* parser = scriptableDocumentParser();
-    if (m_frame && parser)
-        parser->setXSSAuditor(m_frame->script()->xssAuditor());
 
     // If we reload, the animation controller sticks around and has
     // a stale animation time. We need to update it here.
@@ -2098,12 +2021,12 @@ HTMLElement* Document::body() const
     Node* body = 0;
     for (Node* i = de->firstChild(); i; i = i->nextSibling()) {
         if (i->hasTagName(framesetTag))
-            return static_cast<HTMLElement*>(i);
+            return toHTMLElement(i);
         
         if (i->hasTagName(bodyTag) && !body)
             body = i;
     }
-    return static_cast<HTMLElement*>(body);
+    return toHTMLElement(body);
 }
 
 void Document::setBody(PassRefPtr<HTMLElement> newBody, ExceptionCode& ec)
@@ -2135,18 +2058,28 @@ HTMLHeadElement* Document::head()
 
 void Document::close()
 {
-    Frame* frame = this->frame();
-    if (frame) {
-        // This code calls implicitClose() if all loading has completed.
-        FrameLoader* frameLoader = frame->loader();
-        frameLoader->writer()->endIfNotLoadingMainResource();
-        frameLoader->checkCompleted();
-    } else {
+    // FIXME: We should follow the specification more closely:
+    //        http://www.whatwg.org/specs/web-apps/current-work/#dom-document-close
+
+    if (!scriptableDocumentParser() || !scriptableDocumentParser()->wasCreatedByScript())
+        return;
+
+    explicitClose();
+}
+
+void Document::explicitClose()
+{
+    if (!m_frame) {
         // Because we have no frame, we don't know if all loading has completed,
         // so we just call implicitClose() immediately. FIXME: This might fire
         // the load event prematurely <http://bugs.webkit.org/show_bug.cgi?id=14568>.
         implicitClose();
+        return;
     }
+
+    // This code calls implicitClose() if all loading has completed.
+    loader()->writer()->endIfNotLoadingMainResource();
+    m_frame->loader()->checkCompleted();
 }
 
 void Document::implicitClose()
@@ -2297,6 +2230,14 @@ int Document::elapsedTime() const
 
 void Document::write(const SegmentedString& text, Document* ownerDocument)
 {
+    NestingLevelIncrementer nestingLevelIncrementer(m_writeRecursionDepth);
+
+    m_writeRecursionIsTooDeep = (m_writeRecursionDepth > 1) && m_writeRecursionIsTooDeep;
+    m_writeRecursionIsTooDeep = (m_writeRecursionDepth > cMaxWriteRecursionDepth) || m_writeRecursionIsTooDeep;
+
+    if (m_writeRecursionIsTooDeep)
+       return;
+
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
         printf("Beginning a document.write at %d\n", elapsedTime());
@@ -2421,7 +2362,7 @@ void Document::processBaseElement()
     KURL baseElementURL;
     if (href) {
         String strippedHref = stripLeadingAndTrailingHTMLSpaces(*href);
-        if (!strippedHref.isEmpty() && (!frame() || frame()->script()->xssAuditor()->canSetBaseElementURL(*href)))
+        if (!strippedHref.isEmpty())
             baseElementURL = KURL(url(), strippedHref);
     }
     if (m_baseElementURL != baseElementURL) {
@@ -2698,7 +2639,7 @@ void Document::processHttpEquiv(const String& equiv, const String& content)
         String url;
         if (frame && parseHTTPRefresh(content, true, delay, url)) {
             if (url.isEmpty())
-                url = frame->loader()->url().string();
+                url = m_url.string();
             else
                 url = completeURL(url).string();
             frame->navigationScheduler()->scheduleRedirect(delay, url);
@@ -2979,12 +2920,11 @@ void Document::removePendingSheet()
 
     styleSelectorChanged(RecalcStyleImmediately);
 
-    ScriptableDocumentParser* parser = scriptableDocumentParser();
-    if (parser)
+    if (ScriptableDocumentParser* parser = scriptableDocumentParser())
         parser->executeScriptsWaitingForStylesheets();
 
     if (m_gotoAnchorNeededAfterStylesheetsLoad && view())
-        view()->scrollToFragment(m_frame->loader()->url());
+        view()->scrollToFragment(m_url);
 }
 
 void Document::styleSelectorChanged(StyleSelectorUpdateFlag updateFlag)
@@ -3037,6 +2977,9 @@ void Document::styleSelectorChanged(StyleSelectorUpdateFlag updateFlag)
 
 void Document::addStyleSheetCandidateNode(Node* node, bool createdByParser)
 {
+    if (!node->inDocument())
+        return;
+    
     // Until the <body> exists, we have no choice but to compare document positions,
     // since styles outside of the body and head continue to be shunted into the head
     // (and thus can shift to end up before dynamically added DOM content that is also
@@ -3825,7 +3768,7 @@ String Document::lastModified() const
     DateComponents date;
     bool foundDate = false;
     if (m_frame) {
-        String httpLastModified = m_frame->loader()->documentLoader()->response().httpHeaderField("Last-Modified");
+        String httpLastModified = m_documentLoader->response().httpHeaderField("Last-Modified");
         if (!httpLastModified.isEmpty()) {
             date.setMillisecondsSinceEpochForDateTime(parseDate(httpLastModified));
             foundDate = true;
@@ -3957,16 +3900,6 @@ void Document::removeImageMap(HTMLMapElement* imageMap)
     m_imageMapsByName.remove(name, imageMap);
 }
 
-inline bool keyMatchesMapName(AtomicStringImpl* key, Element* element)
-{
-    return element->hasTagName(mapTag) && static_cast<HTMLMapElement*>(element)->getName().impl() == key;
-}
-
-inline bool keyMatchesLowercasedMapName(AtomicStringImpl* key, Element* element)
-{
-    return element->hasTagName(mapTag) && static_cast<HTMLMapElement*>(element)->getName().lower().impl() == key;
-}
-
 HTMLMapElement* Document::getImageMap(const String& url) const
 {
     if (url.isNull())
@@ -3974,8 +3907,8 @@ HTMLMapElement* Document::getImageMap(const String& url) const
     size_t hashPos = url.find('#');
     String name = (hashPos == notFound ? url : url.substring(hashPos + 1)).impl();
     if (isHTMLDocument())
-        return static_cast<HTMLMapElement*>(m_imageMapsByName.get<keyMatchesLowercasedMapName>(AtomicString(name.lower()).impl(), this));
-    return static_cast<HTMLMapElement*>(m_imageMapsByName.get<keyMatchesMapName>(AtomicString(name).impl(), this));
+        return static_cast<HTMLMapElement*>(m_imageMapsByName.getElementByLowercasedMapName(AtomicString(name.lower()).impl(), this));
+    return static_cast<HTMLMapElement*>(m_imageMapsByName.getElementByMapName(AtomicString(name).impl(), this));
 }
 
 void Document::setDecoder(PassRefPtr<TextResourceDecoder> decoder)
@@ -4338,7 +4271,7 @@ void Document::finishedParsing()
 
         f->loader()->finishedParsing();
 
-        InspectorInstrumentation::mainResourceFiredDOMContentEvent(f, url());
+        InspectorInstrumentation::domContentLoadedEventFired(f, url());
     }
 }
 
@@ -4551,8 +4484,7 @@ void Document::initSecurityContext()
         // load local resources.  See https://bugs.webkit.org/show_bug.cgi?id=16756
         // and https://bugs.webkit.org/show_bug.cgi?id=19760 for further
         // discussion.
-        DocumentLoader* documentLoader = m_frame->loader()->documentLoader();
-        if (documentLoader && documentLoader->substituteData().isValid())
+        if (m_documentLoader->substituteData().isValid())
             securityOrigin()->grantLoadLocalResources();
     }
 
@@ -4629,10 +4561,9 @@ void Document::updateURLForPushOrReplaceState(const KURL& url)
     if (!f)
         return;
 
-    // FIXME: Eliminate this redundancy.
     setURL(url);
-    f->loader()->setURL(url);
-    f->loader()->documentLoader()->replaceRequestURLForSameDocumentNavigation(url);
+    f->loader()->setOutgoingReferrer(url);
+    m_documentLoader->replaceRequestURLForSameDocumentNavigation(url);
 }
 
 void Document::statePopped(SerializedScriptValue* stateObject)
@@ -5048,7 +4979,7 @@ void Document::webkitCancelRequestAnimationFrame(int id)
     }
 }
 
-void Document::serviceScriptedAnimations()
+void Document::serviceScriptedAnimations(DOMTimeStamp time)
 {
     if (!m_requestAnimationFrameCallbacks)
         return;
@@ -5076,7 +5007,7 @@ void Document::serviceScriptedAnimations()
             RequestAnimationFrameCallback* callback = callbacks[i].get();
             if (!callback->m_firedOrCancelled && (!callback->m_element || callback->m_element->renderer())) {
                 callback->m_firedOrCancelled = true;
-                callback->handleEvent();
+                callback->handleEvent(time);
                 firedCallback = true;
                 callbacks.remove(i);
                 break;

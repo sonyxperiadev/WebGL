@@ -23,24 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ProcessLauncher.h"
+#import "config.h"
+#import "ProcessLauncher.h"
 
-#include "RunLoop.h"
-#include "WebProcess.h"
-#include "WebKitSystemInterface.h"
-#include <crt_externs.h>
-#include <mach-o/dyld.h>
-#include <mach/machine.h>
-#include <runtime/InitializeThreading.h>
-#include <servers/bootstrap.h>
-#include <spawn.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RetainPtr.h>
-#include <wtf/Threading.h>
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
+#import "RunLoop.h"
+#import "WebProcess.h"
+#import "WebKitSystemInterface.h"
+#import <crt_externs.h>
+#import <mach-o/dyld.h>
+#import <mach/machine.h>
+#import <runtime/InitializeThreading.h>
+#import <servers/bootstrap.h>
+#import <spawn.h>
+#import <sys/param.h>
+#import <sys/stat.h>
+#import <wtf/PassRefPtr.h>
+#import <wtf/RetainPtr.h>
+#import <wtf/Threading.h>
+#import <wtf/text/CString.h>
+#import <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
@@ -229,6 +230,12 @@ void ProcessLauncher::launchProcess()
 
     // Start suspended so we can set up the termination notification handler.
     flags |= POSIX_SPAWN_START_SUSPENDED;
+
+#ifndef BUILDING_ON_SNOW_LEOPARD
+    static const int allowExecutableHeapFlag = 0x2000;
+    if (m_launchOptions.executableHeap)
+        flags |= allowExecutableHeapFlag;
+#endif
 
     posix_spawnattr_setflags(&attr, flags);
 

@@ -145,7 +145,11 @@ void ResourceLoader::start()
     ASSERT(!m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
 
+<<<<<<< HEAD
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+=======
+#if ENABLE(WEB_ARCHIVE)
+>>>>>>> webkit.org at r78450
     if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
         return;
 #endif

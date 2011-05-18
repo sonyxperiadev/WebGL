@@ -26,7 +26,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLGetInfo.h"
 
@@ -63,9 +63,9 @@ WebGLGetInfo::WebGLGetInfo(float value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(long value)
-    : m_type(kTypeLong)
-    , m_long(value)
+WebGLGetInfo::WebGLGetInfo(int value)
+    : m_type(kTypeInt)
+    , m_int(value)
 {
 }
 
@@ -80,9 +80,9 @@ WebGLGetInfo::WebGLGetInfo(const String& value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(unsigned long value)
-    : m_type(kTypeUnsignedLong)
-    , m_unsignedLong(value)
+WebGLGetInfo::WebGLGetInfo(unsigned int value)
+    : m_type(kTypeUnsignedInt)
+    , m_unsignedInt(value)
 {
 }
 
@@ -161,10 +161,10 @@ float WebGLGetInfo::getFloat() const
     return m_float;
 }
 
-long WebGLGetInfo::getLong() const
+int WebGLGetInfo::getInt() const
 {
-    ASSERT(getType() == kTypeLong);
-    return m_long;
+    ASSERT(getType() == kTypeInt);
+    return m_int;
 }
 
 const String& WebGLGetInfo::getString() const
@@ -173,10 +173,10 @@ const String& WebGLGetInfo::getString() const
     return m_string;
 }
 
-unsigned long WebGLGetInfo::getUnsignedLong() const
+unsigned int WebGLGetInfo::getUnsignedInt() const
 {
-    ASSERT(getType() == kTypeUnsignedLong);
-    return m_unsignedLong;
+    ASSERT(getType() == kTypeUnsignedInt);
+    return m_unsignedInt;
 }
 
 PassRefPtr<WebGLBuffer> WebGLGetInfo::getWebGLBuffer() const
@@ -229,4 +229,4 @@ PassRefPtr<Uint8Array> WebGLGetInfo::getWebGLUnsignedByteArray() const
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

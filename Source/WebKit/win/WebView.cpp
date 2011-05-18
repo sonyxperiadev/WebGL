@@ -152,6 +152,11 @@
 #include <WebKitSystemInterface/WebKitSystemInterface.h> 
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+#include <WebCore/CACFLayerTreeHost.h>
+#include <WebCore/PlatformCALayer.h>
+#endif
+
 #include <ShlObj.h>
 #include <comutil.h>
 #include <dimm.h>
@@ -797,7 +802,7 @@ void WebView::addToDirtyRegion(const IntRect& dirtyRect)
 #endif
 
     HRGN newRegion = ::CreateRectRgn(dirtyRect.x(), dirtyRect.y(),
-                                     dirtyRect.right(), dirtyRect.bottom());
+                                     dirtyRect.maxX(), dirtyRect.maxY());
     addToDirtyRegion(newRegion);
 }
 
@@ -4806,9 +4811,9 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings->setWebAudioEnabled(true);
 #endif // ENABLE(WEB_AUDIO)
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     settings->setWebGLEnabled(true);
-#endif  // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)
 
     hr = prefsPrivate->isDNSPrefetchingEnabled(&enabled);
     if (FAILED(hr))
@@ -4975,8 +4980,8 @@ HRESULT STDMETHODCALLTYPE WebView::visibleContentRect(
     FloatRect visibleContent = m_page->mainFrame()->view()->visibleContentRect();
     rect->left = (LONG) visibleContent.x();
     rect->top = (LONG) visibleContent.y();
-    rect->right = (LONG) visibleContent.right();
-    rect->bottom = (LONG) visibleContent.bottom();
+    rect->right = (LONG) visibleContent.maxX();
+    rect->bottom = (LONG) visibleContent.maxY();
     return S_OK;
 }
 
@@ -5340,9 +5345,9 @@ void WebView::prepareCandidateWindow(Frame* targetFrame, HIMC hInputContext)
     form.ptCurrentPos.x = caret.x();
     form.ptCurrentPos.y = caret.y() + caret.height();
     form.rcArea.top = caret.y();
-    form.rcArea.bottom = caret.bottom();
+    form.rcArea.bottom = caret.maxY();
     form.rcArea.left = caret.x();
-    form.rcArea.right = caret.right();
+    form.rcArea.right = caret.maxX();
     IMMDict::dict().setCandidateWindow(hInputContext, &form);
 }
 

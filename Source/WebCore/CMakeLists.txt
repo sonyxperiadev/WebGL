@@ -73,14 +73,13 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
     "${JAVASCRIPTCORE_DIR}/parser"
-    "${JAVASCRIPTCORE_DIR}/pcre"
     "${JAVASCRIPTCORE_DIR}/profiler"
     "${JAVASCRIPTCORE_DIR}/runtime"
     "${JAVASCRIPTCORE_DIR}/wtf"
     "${JAVASCRIPTCORE_DIR}/wtf/unicode"
+    "${JAVASCRIPTCORE_DIR}/yarr"
     "${DERIVED_SOURCES_DIR}"
     "${CMAKE_SOURCE_DIR}"
-    "${CMAKE_SOURCE_DIR}/Source"
     "${CMAKE_BINARY_DIR}"
 )
 
@@ -320,6 +319,7 @@ SET(WebCore_IDL_FILES
     page/BarInfo.idl
     page/Console.idl
     page/Coordinates.idl
+    page/Crypto.idl
     page/DOMSelection.idl
     page/DOMWindow.idl
     page/EventSource.idl
@@ -422,146 +422,6 @@ SET(WebCore_IDL_FILES
     xml/XSLTProcessor.idl
 )
 
-IF (ENABLE_SVG)
-    LIST(APPEND WebCore_IDL_FILES
-        svg/SVGAElement.idl
-        svg/SVGAltGlyphElement.idl
-        svg/SVGAngle.idl
-        svg/SVGAnimateColorElement.idl
-        svg/SVGAnimateElement.idl
-        svg/SVGAnimateTransformElement.idl
-        svg/SVGAnimatedAngle.idl
-        svg/SVGAnimatedBoolean.idl
-        svg/SVGAnimatedEnumeration.idl
-        svg/SVGAnimatedInteger.idl
-        svg/SVGAnimatedLength.idl
-        svg/SVGAnimatedLengthList.idl
-        svg/SVGAnimatedNumber.idl
-        svg/SVGAnimatedNumberList.idl
-        svg/SVGAnimatedPreserveAspectRatio.idl
-        svg/SVGAnimatedRect.idl
-        svg/SVGAnimatedString.idl
-        svg/SVGAnimatedTransformList.idl
-        svg/SVGAnimationElement.idl
-        svg/SVGCircleElement.idl
-        svg/SVGClipPathElement.idl
-        svg/SVGColor.idl
-        svg/SVGComponentTransferFunctionElement.idl
-        svg/SVGCursorElement.idl
-        svg/SVGDefsElement.idl
-        svg/SVGDescElement.idl
-        svg/SVGDocument.idl
-        svg/SVGElement.idl
-        svg/SVGElementInstance.idl
-        svg/SVGElementInstanceList.idl
-        svg/SVGEllipseElement.idl
-        svg/SVGException.idl
-        svg/SVGFEBlendElement.idl
-        svg/SVGFEColorMatrixElement.idl
-        svg/SVGFEComponentTransferElement.idl
-        svg/SVGFECompositeElement.idl
-        svg/SVGFEConvolveMatrixElement.idl
-        svg/SVGFEDiffuseLightingElement.idl
-        svg/SVGFEDisplacementMapElement.idl
-        svg/SVGFEDistantLightElement.idl
-        svg/SVGFEFloodElement.idl
-        svg/SVGFEFuncAElement.idl
-        svg/SVGFEFuncBElement.idl
-        svg/SVGFEFuncGElement.idl
-        svg/SVGFEFuncRElement.idl
-        svg/SVGFEGaussianBlurElement.idl
-        svg/SVGFEImageElement.idl
-        svg/SVGFEMergeElement.idl
-        svg/SVGFEMergeNodeElement.idl
-        svg/SVGFEMorphologyElement.idl
-        svg/SVGFEOffsetElement.idl
-        svg/SVGFEPointLightElement.idl
-        svg/SVGFESpecularLightingElement.idl
-        svg/SVGFESpotLightElement.idl
-        svg/SVGFETileElement.idl
-        svg/SVGFETurbulenceElement.idl
-        svg/SVGFilterElement.idl
-        svg/SVGFontElement.idl
-        svg/SVGFontFaceElement.idl
-        svg/SVGFontFaceFormatElement.idl
-        svg/SVGFontFaceNameElement.idl
-        svg/SVGFontFaceSrcElement.idl
-        svg/SVGFontFaceUriElement.idl
-        svg/SVGForeignObjectElement.idl
-        svg/SVGGElement.idl
-        svg/SVGGlyphElement.idl
-        svg/SVGGradientElement.idl
-        svg/SVGHKernElement.idl
-        svg/SVGImageElement.idl
-        svg/SVGLength.idl
-        svg/SVGLengthList.idl
-        svg/SVGLineElement.idl
-        svg/SVGLinearGradientElement.idl
-        svg/SVGMarkerElement.idl
-        svg/SVGMaskElement.idl
-        svg/SVGMatrix.idl
-        svg/SVGMetadataElement.idl
-        svg/SVGMissingGlyphElement.idl
-        svg/SVGNumber.idl
-        svg/SVGNumberList.idl
-        svg/SVGPaint.idl
-        svg/SVGPathElement.idl
-        svg/SVGPathSeg.idl
-        svg/SVGPathSegArcAbs.idl
-        svg/SVGPathSegArcRel.idl
-        svg/SVGPathSegClosePath.idl
-        svg/SVGPathSegCurvetoCubicAbs.idl
-        svg/SVGPathSegCurvetoCubicRel.idl
-        svg/SVGPathSegCurvetoCubicSmoothAbs.idl
-        svg/SVGPathSegCurvetoCubicSmoothRel.idl
-        svg/SVGPathSegCurvetoQuadraticAbs.idl
-        svg/SVGPathSegCurvetoQuadraticRel.idl
-        svg/SVGPathSegCurvetoQuadraticSmoothAbs.idl
-        svg/SVGPathSegCurvetoQuadraticSmoothRel.idl
-        svg/SVGPathSegLinetoAbs.idl
-        svg/SVGPathSegLinetoHorizontalAbs.idl
-        svg/SVGPathSegLinetoHorizontalRel.idl
-        svg/SVGPathSegLinetoRel.idl
-        svg/SVGPathSegLinetoVerticalAbs.idl
-        svg/SVGPathSegLinetoVerticalRel.idl
-        svg/SVGPathSegList.idl
-        svg/SVGPathSegMovetoAbs.idl
-        svg/SVGPathSegMovetoRel.idl
-        svg/SVGPatternElement.idl
-        svg/SVGPoint.idl
-        svg/SVGPointList.idl
-        svg/SVGPolygonElement.idl
-        svg/SVGPolylineElement.idl
-        svg/SVGPreserveAspectRatio.idl
-        svg/SVGRadialGradientElement.idl
-        svg/SVGRect.idl
-        svg/SVGRectElement.idl
-        svg/SVGRenderingIntent.idl
-        svg/SVGSVGElement.idl
-        svg/SVGScriptElement.idl
-        svg/SVGSetElement.idl
-        svg/SVGStopElement.idl
-        svg/SVGStringList.idl
-        svg/SVGStyleElement.idl
-        svg/SVGSwitchElement.idl
-        svg/SVGSymbolElement.idl
-        svg/SVGTRefElement.idl
-        svg/SVGTSpanElement.idl
-        svg/SVGTextContentElement.idl
-        svg/SVGTextElement.idl
-        svg/SVGTextPathElement.idl
-        svg/SVGTextPositioningElement.idl
-        svg/SVGTitleElement.idl
-        svg/SVGTransform.idl
-        svg/SVGTransformList.idl
-        svg/SVGUnitTypes.idl
-        svg/SVGUseElement.idl
-        svg/SVGViewElement.idl
-        svg/SVGVKernElement.idl
-        svg/SVGZoomEvent.idl
-    )
-ENDIF()
-
 SET(WebCore_SOURCES
     ${DERIVED_SOURCES_DIR}/JSWebSocket.cpp
 
@@ -598,6 +458,8 @@ SET(WebCore_SOURCES
     bindings/js/GCController.cpp
     bindings/js/IDBBindingUtilities.cpp
     bindings/js/JSAttrCustom.cpp
+    bindings/js/JSArrayBufferCustom.cpp
+    bindings/js/JSDataViewCustom.cpp
     bindings/js/JSCDATASectionCustom.cpp
     bindings/js/JSCSSFontFaceRuleCustom.cpp
     bindings/js/JSCSSImportRuleCustom.cpp
@@ -646,6 +508,7 @@ SET(WebCore_SOURCES
     bindings/js/JSEventTarget.cpp
     bindings/js/JSExceptionBase.cpp
     bindings/js/JSFileReaderCustom.cpp
+    bindings/js/JSFloat32ArrayCustom.cpp
     bindings/js/JSGeolocationCustom.cpp
     bindings/js/JSHTMLAllCollectionCustom.cpp
     bindings/js/JSHTMLAppletElementCustom.cpp
@@ -670,12 +533,16 @@ SET(WebCore_SOURCES
     bindings/js/JSIDBKeyCustom.cpp
     bindings/js/JSImageConstructor.cpp
     bindings/js/JSImageDataCustom.cpp
+    bindings/js/JSInt16ArrayCustom.cpp
+    bindings/js/JSInt32ArrayCustom.cpp
+    bindings/js/JSInt8ArrayCustom.cpp
     bindings/js/JSInjectedScriptHostCustom.cpp
     bindings/js/JSInspectorFrontendHostCustom.cpp
     bindings/js/JSJavaScriptCallFrameCustom.cpp
     bindings/js/JSLazyEventListener.cpp
     bindings/js/JSLocationCustom.cpp
     bindings/js/JSMainThreadExecState.cpp
+    bindings/js/JSMemoryInfoCustom.cpp
     bindings/js/JSMessageChannelCustom.cpp
     bindings/js/JSMessageEventCustom.cpp
     bindings/js/JSMessagePortCustom.cpp
@@ -701,6 +568,9 @@ SET(WebCore_SOURCES
     bindings/js/JSTouchCustom.cpp
     bindings/js/JSTouchListCustom.cpp
     bindings/js/JSTreeWalkerCustom.cpp
+    bindings/js/JSUint16ArrayCustom.cpp 
+    bindings/js/JSUint32ArrayCustom.cpp
+    bindings/js/JSUint8ArrayCustom.cpp
     bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp
     bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp
     bindings/js/JSWebKitCSSMatrixCustom.cpp
@@ -839,6 +709,7 @@ SET(WebCore_SOURCES
     dom/DocumentMarkerController.cpp
     dom/DocumentFragment.cpp
     dom/DocumentParser.cpp
+    dom/DocumentOrderedMap.cpp
     dom/DocumentType.cpp
     dom/DOMImplementation.cpp
     dom/DOMStringList.cpp
@@ -1123,12 +994,22 @@ SET(WebCore_SOURCES
     html/ValidityState.cpp
     html/WeekInputType.cpp
 
+    html/canvas/ArrayBuffer.cpp
+    html/canvas/ArrayBufferView.cpp
     html/canvas/CanvasGradient.cpp
     html/canvas/CanvasPattern.cpp
     html/canvas/CanvasPixelArray.cpp
     html/canvas/CanvasRenderingContext.cpp
     html/canvas/CanvasRenderingContext2D.cpp
     html/canvas/CanvasStyle.cpp
+    html/canvas/DataView.cpp
+    html/canvas/Float32Array.cpp
+    html/canvas/Int16Array.cpp
+    html/canvas/Int32Array.cpp
+    html/canvas/Int8Array.cpp
+    html/canvas/Uint16Array.cpp
+    html/canvas/Uint32Array.cpp
+    html/canvas/Uint8Array.cpp
 
     html/parser/CSSPreloadScanner.cpp
     html/parser/HTMLConstructionSite.cpp
@@ -1142,17 +1023,21 @@ SET(WebCore_SOURCES
     html/parser/HTMLMetaCharsetParser.cpp
     html/parser/HTMLPreloadScanner.cpp
     html/parser/HTMLScriptRunner.cpp
+    html/parser/HTMLSourceTracker.cpp
     html/parser/HTMLTokenizer.cpp
     html/parser/HTMLTreeBuilder.cpp
     html/parser/HTMLViewSourceParser.cpp
     html/parser/TextDocumentParser.cpp
     html/parser/TextViewSourceParser.cpp
+    html/parser/XSSFilter.cpp
 
+    html/shadow/MediaControls.cpp
     html/shadow/SliderThumbElement.cpp
 
     inspector/ConsoleMessage.cpp
     inspector/InjectedScript.cpp
     inspector/InjectedScriptHost.cpp
+    inspector/InspectorAgent.cpp
     inspector/InspectorApplicationCacheAgent.cpp
     inspector/InspectorBrowserDebuggerAgent.cpp
     inspector/InspectorCSSAgent.cpp
@@ -1165,20 +1050,17 @@ SET(WebCore_SOURCES
     inspector/InspectorDatabaseAgent.cpp
     inspector/InspectorDatabaseResource.cpp
     inspector/InspectorDebuggerAgent.cpp
-    inspector/InspectorFileSystemAgent.cpp
     inspector/InspectorFrontendClientLocal.cpp
     inspector/InspectorFrontendHost.cpp
     inspector/InspectorInstrumentation.cpp
     inspector/InspectorProfilerAgent.cpp
     inspector/InspectorResourceAgent.cpp
     inspector/InspectorRuntimeAgent.cpp
-    inspector/InspectorSettings.cpp
     inspector/InspectorState.cpp
     inspector/InspectorStyleSheet.cpp
     inspector/InspectorTimelineAgent.cpp
     inspector/InspectorValues.cpp
     inspector/ScriptArguments.cpp
-    inspector/ScriptBreakpoint.cpp
     inspector/ScriptCallFrame.cpp
     inspector/ScriptCallStack.cpp
     inspector/TimelineRecordFactory.cpp
@@ -1246,7 +1128,9 @@ SET(WebCore_SOURCES
     page/BarInfo.cpp
     page/Chrome.cpp
     page/Console.cpp
+    page/ContentSecurityPolicy.cpp
     page/ContextMenuController.cpp
+    page/Crypto.cpp
     page/DOMSelection.cpp
     page/DOMTimer.cpp
     page/DOMWindow.cpp
@@ -1284,7 +1168,6 @@ SET(WebCore_SOURCES
     page/UserContentURLPattern.cpp
     page/WindowFeatures.cpp
     page/WorkerNavigator.cpp
-    page/XSSAuditor.cpp
 
     page/animation/AnimationBase.cpp
     page/animation/AnimationController.cpp
@@ -1359,6 +1242,7 @@ SET(WebCore_SOURCES
     platform/graphics/StringTruncator.cpp
     platform/graphics/WidthIterator.cpp
 
+    platform/graphics/filters/DistantLightSource.cpp
     platform/graphics/filters/FEBlend.cpp
     platform/graphics/filters/FEColorMatrix.cpp
     platform/graphics/filters/FEComponentTransfer.cpp
@@ -1377,6 +1261,8 @@ SET(WebCore_SOURCES
     platform/graphics/filters/FETurbulence.cpp
     platform/graphics/filters/FilterEffect.cpp
     platform/graphics/filters/LightSource.cpp
+    platform/graphics/filters/PointLightSource.cpp
+    platform/graphics/filters/SpotLightSource.cpp
     platform/graphics/filters/SourceAlpha.cpp
     platform/graphics/filters/SourceGraphic.cpp
 
@@ -1427,6 +1313,7 @@ SET(WebCore_SOURCES
     platform/text/Base64.cpp
     platform/text/BidiContext.cpp
     platform/text/LineEnding.cpp
+    platform/text/LocalizedNumberNone.cpp
     platform/text/Hyphenation.cpp
     platform/text/RegularExpression.cpp
     platform/text/SegmentedString.cpp
@@ -1435,6 +1322,7 @@ SET(WebCore_SOURCES
     platform/text/TextCodec.cpp
     platform/text/TextCodecLatin1.cpp
     platform/text/TextCodecUTF16.cpp
+    platform/text/TextCodecUTF8.cpp
     platform/text/TextCodecUserDefined.cpp
     platform/text/TextEncoding.cpp
     platform/text/TextEncodingRegistry.cpp
@@ -1468,6 +1356,7 @@ SET(WebCore_SOURCES
     rendering/RenderBox.cpp
     rendering/RenderBoxModelObject.cpp
     rendering/RenderButton.cpp
+    rendering/RenderCombineText.cpp
     rendering/RenderCounter.cpp
     rendering/RenderDataGrid.cpp
     rendering/RenderDetails.cpp
@@ -1992,6 +1881,144 @@ IF (ENABLE_SVG)
         svg/properties/SVGPathSegListPropertyTearOff.cpp
     )
 
+    LIST(APPEND WebCore_IDL_FILES
+        svg/SVGAElement.idl
+        svg/SVGAltGlyphElement.idl
+        svg/SVGAngle.idl
+        svg/SVGAnimateColorElement.idl
+        svg/SVGAnimateElement.idl
+        svg/SVGAnimateTransformElement.idl
+        svg/SVGAnimatedAngle.idl
+        svg/SVGAnimatedBoolean.idl
+        svg/SVGAnimatedEnumeration.idl
+        svg/SVGAnimatedInteger.idl
+        svg/SVGAnimatedLength.idl
+        svg/SVGAnimatedLengthList.idl
+        svg/SVGAnimatedNumber.idl
+        svg/SVGAnimatedNumberList.idl
+        svg/SVGAnimatedPreserveAspectRatio.idl
+        svg/SVGAnimatedRect.idl
+        svg/SVGAnimatedString.idl
+        svg/SVGAnimatedTransformList.idl
+        svg/SVGAnimationElement.idl
+        svg/SVGCircleElement.idl
+        svg/SVGClipPathElement.idl
+        svg/SVGColor.idl
+        svg/SVGComponentTransferFunctionElement.idl
+        svg/SVGCursorElement.idl
+        svg/SVGDefsElement.idl
+        svg/SVGDescElement.idl
+        svg/SVGDocument.idl
+        svg/SVGElement.idl
+        svg/SVGElementInstance.idl
+        svg/SVGElementInstanceList.idl
+        svg/SVGEllipseElement.idl
+        svg/SVGException.idl
+        svg/SVGFEBlendElement.idl
+        svg/SVGFEColorMatrixElement.idl
+        svg/SVGFEComponentTransferElement.idl
+        svg/SVGFECompositeElement.idl
+        svg/SVGFEConvolveMatrixElement.idl
+        svg/SVGFEDiffuseLightingElement.idl
+        svg/SVGFEDisplacementMapElement.idl
+        svg/SVGFEDistantLightElement.idl
+        svg/SVGFEFloodElement.idl
+        svg/SVGFEFuncAElement.idl
+        svg/SVGFEFuncBElement.idl
+        svg/SVGFEFuncGElement.idl
+        svg/SVGFEFuncRElement.idl
+        svg/SVGFEGaussianBlurElement.idl
+        svg/SVGFEImageElement.idl
+        svg/SVGFEMergeElement.idl
+        svg/SVGFEMergeNodeElement.idl
+        svg/SVGFEMorphologyElement.idl
+        svg/SVGFEOffsetElement.idl
+        svg/SVGFEPointLightElement.idl
+        svg/SVGFESpecularLightingElement.idl
+        svg/SVGFESpotLightElement.idl
+        svg/SVGFETileElement.idl
+        svg/SVGFETurbulenceElement.idl
+        svg/SVGFilterElement.idl
+        svg/SVGFontElement.idl
+        svg/SVGFontFaceElement.idl
+        svg/SVGFontFaceFormatElement.idl
+        svg/SVGFontFaceNameElement.idl
+        svg/SVGFontFaceSrcElement.idl
+        svg/SVGFontFaceUriElement.idl
+        svg/SVGForeignObjectElement.idl
+        svg/SVGGElement.idl
+        svg/SVGGlyphElement.idl
+        svg/SVGGradientElement.idl
+        svg/SVGHKernElement.idl
+        svg/SVGImageElement.idl
+        svg/SVGLength.idl
+        svg/SVGLengthList.idl
+        svg/SVGLineElement.idl
+        svg/SVGLinearGradientElement.idl
+        svg/SVGMarkerElement.idl
+        svg/SVGMaskElement.idl
+        svg/SVGMatrix.idl
+        svg/SVGMetadataElement.idl
+        svg/SVGMissingGlyphElement.idl
+        svg/SVGNumber.idl
+        svg/SVGNumberList.idl
+        svg/SVGPaint.idl
+        svg/SVGPathElement.idl
+        svg/SVGPathSeg.idl
+        svg/SVGPathSegArcAbs.idl
+        svg/SVGPathSegArcRel.idl
+        svg/SVGPathSegClosePath.idl
+        svg/SVGPathSegCurvetoCubicAbs.idl
+        svg/SVGPathSegCurvetoCubicRel.idl
+        svg/SVGPathSegCurvetoCubicSmoothAbs.idl
+        svg/SVGPathSegCurvetoCubicSmoothRel.idl
+        svg/SVGPathSegCurvetoQuadraticAbs.idl
+        svg/SVGPathSegCurvetoQuadraticRel.idl
+        svg/SVGPathSegCurvetoQuadraticSmoothAbs.idl
+        svg/SVGPathSegCurvetoQuadraticSmoothRel.idl
+        svg/SVGPathSegLinetoAbs.idl
+        svg/SVGPathSegLinetoHorizontalAbs.idl
+        svg/SVGPathSegLinetoHorizontalRel.idl
+        svg/SVGPathSegLinetoRel.idl
+        svg/SVGPathSegLinetoVerticalAbs.idl
+        svg/SVGPathSegLinetoVerticalRel.idl
+        svg/SVGPathSegList.idl
+        svg/SVGPathSegMovetoAbs.idl
+        svg/SVGPathSegMovetoRel.idl
+        svg/SVGPatternElement.idl
+        svg/SVGPoint.idl
+        svg/SVGPointList.idl
+        svg/SVGPolygonElement.idl
+        svg/SVGPolylineElement.idl
+        svg/SVGPreserveAspectRatio.idl
+        svg/SVGRadialGradientElement.idl
+        svg/SVGRect.idl
+        svg/SVGRectElement.idl
+        svg/SVGRenderingIntent.idl
+        svg/SVGSVGElement.idl
+        svg/SVGScriptElement.idl
+        svg/SVGSetElement.idl
+        svg/SVGStopElement.idl
+        svg/SVGStringList.idl
+        svg/SVGStyleElement.idl
+        svg/SVGSwitchElement.idl
+        svg/SVGSymbolElement.idl
+        svg/SVGTRefElement.idl
+        svg/SVGTSpanElement.idl
+        svg/SVGTextContentElement.idl
+        svg/SVGTextElement.idl
+        svg/SVGTextPathElement.idl
+        svg/SVGTextPositioningElement.idl
+        svg/SVGTitleElement.idl
+        svg/SVGTransform.idl
+        svg/SVGTransformList.idl
+        svg/SVGUnitTypes.idl
+        svg/SVGUseElement.idl
+        svg/SVGViewElement.idl
+        svg/SVGVKernElement.idl
+        svg/SVGZoomEvent.idl
+    )
+
     LIST(APPEND WebCore_CSS_PROPERTY_NAMES
         ${WEBCORE_DIR}/css/SVGCSSPropertyNames.in
     )
@@ -2091,7 +2118,7 @@ FOREACH (_file ${WebCore_IDL_FILES})
     ADD_CUSTOM_COMMAND(
         OUTPUT  ${DERIVED_SOURCES_DIR}/JS${_name}.cpp ${DERIVED_SOURCES_DIR}/JS${_name}.h
         MAIN_DEPENDENCY ${_file}
-        DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${_file}
+        DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${WEBCORE_DIR}/bindings/scripts/CodeGeneratorJS.pm ${_file}
         COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator JS ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_DIR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" ${WEBCORE_DIR}/${_file}
         VERBATIM)
     LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/JS${_name}.cpp)
@@ -2102,7 +2129,7 @@ ENDFOREACH ()
 ADD_CUSTOM_COMMAND(
     OUTPUT ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.h ${DERIVED_SOURCES_DIR}/InspectorFrontend.cpp ${DERIVED_SOURCES_DIR}/InspectorFrontend.h
     MAIN_DEPENDENCY inspector/Inspector.idl
-    DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} inspector/Inspector.idl
+    DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${WEBCORE_DIR}/inspector/CodeGeneratorInspector.pm inspector/Inspector.idl
     COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts -I${WEBCORE_DIR}/inspector ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator Inspector ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_DIR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" ${WEBCORE_DIR}/inspector/Inspector.idl
     VERBATIM)
 LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp ${DERIVED_SOURCES_DIR}/InspectorFrontend.cpp)
@@ -2247,6 +2274,7 @@ WEBKIT_WRAP_SOURCELIST(${WebCore_IDL_FILES} ${WebCore_SOURCES})
 ADD_DEFINITIONS(-DBUILDING_WebCore)
 INCLUDE_DIRECTORIES(${WebCore_INCLUDE_DIRECTORIES})
 ADD_LIBRARY(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARY_TYPE} ${WebCore_SOURCES})
+ADD_DEPENDENCIES(${WebCore_LIBRARY_NAME} ${JavaScriptCore_LIBRARY_NAME})
 TARGET_LINK_LIBRARIES(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARIES})
 
 IF (WebCore_LINK_FLAGS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,12 @@
 #include "config.h"
 #include "TextEncodingRegistry.h"
 
-#include "PlatformString.h"
 #include "TextCodecLatin1.h"
 #include "TextCodecUserDefined.h"
 #include "TextCodecUTF16.h"
+#include "TextCodecUTF8.h"
 #include "TextEncoding.h"
 #include <wtf/ASCIICType.h>
-#include <wtf/Assertions.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
@@ -68,7 +66,6 @@ const size_t maxEncodingNameLength = 63;
 
 // Hash for all-ASCII strings that does case folding.
 struct TextEncodingNameHash {
-
     static bool equal(const char* s1, const char* s2)
     {
         char c1;
@@ -129,9 +126,7 @@ static bool didExtendTextCodecMaps;
 static HashSet<const char*>* japaneseEncodings;
 static HashSet<const char*>* nonBackslashEncodings;
 
-static const char* const textEncodingNameBlacklist[] = {
-    "UTF-7"
-};
+static const char* const textEncodingNameBlacklist[] = { "UTF-7" };
 
 #if ERROR_DISABLED
 
@@ -268,7 +263,7 @@ static void buildQuirksSets()
     ASSERT(!japaneseEncodings);
     ASSERT(!nonBackslashEncodings);
 
-    japaneseEncodings = new HashSet<const char*>();
+    japaneseEncodings = new HashSet<const char*>;
     addEncodingName(japaneseEncodings, "EUC-JP");
     addEncodingName(japaneseEncodings, "ISO-2022-JP");
     addEncodingName(japaneseEncodings, "ISO-2022-JP-1");
@@ -284,7 +279,7 @@ static void buildQuirksSets()
     addEncodingName(japaneseEncodings, "cp932");
     addEncodingName(japaneseEncodings, "x-mac-japanese");
 
-    nonBackslashEncodings = new HashSet<const char*>();
+    nonBackslashEncodings = new HashSet<const char*>;
     // The text encodings below treat backslash as a currency symbol for IE compatibility.
     // See http://blogs.msdn.com/michkap/archive/2005/09/17/469941.aspx for more information.
     addEncodingName(nonBackslashEncodings, "x-mac-japanese");

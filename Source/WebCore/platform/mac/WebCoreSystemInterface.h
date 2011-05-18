@@ -147,6 +147,8 @@ extern void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 extern void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *error);
 extern void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
 extern unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
+extern int (*wkGetHTTPPipeliningPriority)(NSURLRequest *);
+extern void (*wkSetHTTPPipeliningPriority)(NSMutableURLRequest *, int priority);
 extern void (*wkSetCONNECTProxyForStream)(CFReadStreamRef, CFStringRef proxyHost, CFNumberRef proxyPort);
 extern void (*wkSetCONNECTProxyAuthorizationForStream)(CFReadStreamRef, CFStringRef proxyAuthorizationString);
 extern CFHTTPMessageRef (*wkCopyCONNECTProxyResponse)(CFReadStreamRef, CFURLRef responseURL);
@@ -189,8 +191,49 @@ extern CGImageRef (*wkIOSurfaceContextCreateImage)(CGContextRef context);
 
 typedef struct __WKScrollbarPainter *WKScrollbarPainterRef;
 extern WKScrollbarPainterRef (*wkMakeScrollbarPainter)(int controlSize, bool isHorizontal);
+extern WKScrollbarPainterRef (*wkMakeScrollbarReplacementPainter)(WKScrollbarPainterRef oldPainter, int newStyle, int controlSize, bool isHorizontal);
+extern void (*wkScrollbarPainterSetDelegate)(WKScrollbarPainterRef, id scrollbarPainterDelegate);
 extern void (*wkScrollbarPainterPaint)(WKScrollbarPainterRef, bool enabled, double value, CGFloat proportion, CGRect frameRect);
+extern int (*wkScrollbarThickness)(int controlSize);
+extern int (*wkScrollbarMinimumThumbLength)(WKScrollbarPainterRef);
+extern int (*wkScrollbarMinimumTotalLengthNeededForThumb)(WKScrollbarPainterRef);
+extern CGFloat (*wkScrollbarPainterKnobAlpha)(WKScrollbarPainterRef);
+extern void (*wkSetScrollbarPainterKnobAlpha)(WKScrollbarPainterRef, CGFloat);
+extern CGFloat (*wkScrollbarPainterTrackAlpha)(WKScrollbarPainterRef);
+extern void (*wkSetScrollbarPainterTrackAlpha)(WKScrollbarPainterRef, CGFloat);
+extern bool (*wkScrollbarPainterIsHorizontal)(WKScrollbarPainterRef);
+extern void (*wkScrollbarPainterSetOverlayState)(WKScrollbarPainterRef, int overlayScrollerState);
+
+typedef struct __WKScrollbarPainterController *WKScrollbarPainterControllerRef;
+extern WKScrollbarPainterControllerRef (*wkMakeScrollbarPainterController)(id painterControllerDelegate);
+extern void (*wkSetPainterForPainterController)(WKScrollbarPainterControllerRef, WKScrollbarPainterRef, bool isHorizontal);
+extern WKScrollbarPainterRef (*wkVerticalScrollbarPainterForController)(WKScrollbarPainterControllerRef);
+extern WKScrollbarPainterRef (*wkHorizontalScrollbarPainterForController)(WKScrollbarPainterControllerRef);
+extern void (*wkSetScrollbarPainterControllerStyle)(WKScrollbarPainterControllerRef, int newStyle);
+extern void (*wkContentAreaScrolled)(WKScrollbarPainterControllerRef);
+extern void (*wkContentAreaWillPaint)(WKScrollbarPainterControllerRef);
+extern void (*wkMouseEnteredContentArea)(WKScrollbarPainterControllerRef);
+extern void (*wkMouseExitedContentArea)(WKScrollbarPainterControllerRef);
+extern void (*wkMouseMovedInContentArea)(WKScrollbarPainterControllerRef);
+extern void (*wkWillStartLiveResize)(WKScrollbarPainterControllerRef);
+extern void (*wkContentAreaResized)(WKScrollbarPainterControllerRef);
+extern void (*wkWillEndLiveResize)(WKScrollbarPainterControllerRef);
+extern void (*wkContentAreaDidShow)(WKScrollbarPainterControllerRef);
+extern void (*wkContentAreaDidHide)(WKScrollbarPainterControllerRef);
+
+extern bool (*wkScrollbarPainterUsesOverlayScrollers)(void);
 #endif
+
+extern void (*wkUnregisterUniqueIdForElement)(id element);
+extern void (*wkAccessibilityHandleFocusChanged)(void);    
+extern CFTypeID (*wkGetAXTextMarkerTypeID)(void);
+extern CFTypeID (*wkGetAXTextMarkerRangeTypeID)(void);
+extern CFTypeRef (*wkCreateAXTextMarkerRange)(CFTypeRef start, CFTypeRef end);
+extern CFTypeRef (*wkCopyAXTextMarkerRangeStart)(CFTypeRef range);
+extern CFTypeRef (*wkCopyAXTextMarkerRangeEnd)(CFTypeRef range);
+extern CFTypeRef (*wkCreateAXTextMarker)(const void *bytes, size_t len);
+extern BOOL (*wkGetBytesFromAXTextMarker)(CFTypeRef textMarker, void *bytes, size_t length);
+extern AXUIElementRef (*wkCreateAXUIElementRef)(id element);
 
 }
 

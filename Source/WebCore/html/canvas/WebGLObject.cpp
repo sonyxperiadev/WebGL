@@ -25,14 +25,14 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLObject.h"
 
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 WebGLObject::WebGLObject(WebGLRenderingContext* context)
     : m_object(0)
     , m_context(context)
@@ -68,4 +68,4 @@ void WebGLObject::deleteObject()
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

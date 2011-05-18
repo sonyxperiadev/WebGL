@@ -35,6 +35,8 @@
 namespace WebCore {
 class DOMWrapperWorld;
 class ResourceError;
+class ResourceRequest;
+class ResourceResponse;
 }
 
 namespace WebKit {
@@ -59,8 +61,6 @@ public:
     void didRemoveFrameFromHierarchy(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didDisplayInsecureContentForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didRunInsecureContentForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
-
-    bool shouldLoadResourceForFrame(WebPage*, WebFrame*, const String&);
 
     void didClearWindowObjectForFrame(WebPage*, WebFrame*, WebCore::DOMWrapperWorld*);
     void didCancelClientRedirectForFrame(WebPage*, WebFrame*);

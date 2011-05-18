@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebProcessProxy.h"
 
 #include "DataReference.h"
@@ -43,6 +44,7 @@
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
+using namespace std;
 
 namespace WebKit {
 
@@ -76,7 +78,7 @@ WebProcessProxy::~WebProcessProxy()
         m_connection->invalidate();
     
     for (size_t i = 0; i < m_pendingMessages.size(); ++i)
-        m_pendingMessages[i].releaseArguments();
+        m_pendingMessages[i].first.releaseArguments();
 
     if (m_processLauncher) {
         m_processLauncher->invalidate();
@@ -99,20 +101,22 @@ void WebProcessProxy::connect()
 
         ProcessLauncher::LaunchOptions launchOptions;
         launchOptions.processType = ProcessLauncher::WebProcess;
+
 #if PLATFORM(MAC)
         // We want the web process to match the architecture of the UI process.
         launchOptions.architecture = ProcessLauncher::LaunchOptions::MatchCurrentArchitecture;
+        launchOptions.executableHeap = false;
 #endif
         m_processLauncher = ProcessLauncher::create(this, launchOptions);
     }
 }
 
-bool WebProcessProxy::sendMessage(CoreIPC::MessageID messageID, PassOwnPtr<CoreIPC::ArgumentEncoder> arguments)
+bool WebProcessProxy::sendMessage(CoreIPC::MessageID messageID, PassOwnPtr<CoreIPC::ArgumentEncoder> arguments, unsigned messageSendFlags)
 {
     // If we're waiting for the web process to launch, we need to stash away the messages so we can send them once we have
     // a CoreIPC connection.
     if (isLaunching()) {
-        m_pendingMessages.append(CoreIPC::Connection::OutgoingMessage(messageID, arguments));
+        m_pendingMessages.append(make_pair(CoreIPC::Connection::OutgoingMessage(messageID, arguments), messageSendFlags));
         return true;
     }
 
@@ -120,7 +124,7 @@ bool WebProcessProxy::sendMessage(CoreIPC::MessageID messageID, PassOwnPtr<CoreI
     if (!m_connection)
         return false;
 
-    return m_connection->sendMessage(messageID, arguments);
+    return m_connection->sendMessage(messageID, arguments, messageSendFlags);
 }
 
 bool WebProcessProxy::isLaunching() const
@@ -344,13 +348,16 @@ void WebProcessProxy::didFinishLaunching(CoreIPC::Connection::Identifier connect
     m_connection = CoreIPC::Connection::createServerConnection(connectionIdentifier, this, RunLoop::main());
 #if PLATFORM(MAC)
     m_connection->setShouldCloseConnectionOnMachExceptions();
+#elif PLATFORM(QT)
+    m_connection->setShouldCloseConnectionOnProcessTermination(processIdentifier());
 #endif
-    
+
     m_connection->open();
     
     for (size_t i = 0; i < m_pendingMessages.size(); ++i) {
-        CoreIPC::Connection::OutgoingMessage& outgoingMessage = m_pendingMessages[i];
-        m_connection->sendMessage(outgoingMessage.messageID(), adoptPtr(outgoingMessage.arguments()));
+        CoreIPC::Connection::OutgoingMessage& outgoingMessage = m_pendingMessages[i].first;
+        unsigned messageSendFlags = m_pendingMessages[i].second;
+        m_connection->sendMessage(outgoingMessage.messageID(), adoptPtr(outgoingMessage.arguments()), messageSendFlags);
     }
 
     m_pendingMessages.clear();

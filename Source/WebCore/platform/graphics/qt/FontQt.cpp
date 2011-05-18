@@ -61,14 +61,14 @@ static const QString fromRawDataWithoutRef(const String& string, int start = 0, 
 static QTextLine setupLayout(QTextLayout* layout, const TextRun& style)
 {
     int flags = style.rtl() ? Qt::TextForceRightToLeft : Qt::TextForceLeftToRight;
-    if (style.padding())
+    if (style.expansion())
         flags |= Qt::TextJustificationForced;
     layout->setFlags(flags);
     layout->beginLayout();
     QTextLine line = layout->createLine();
     line.setLineWidth(INT_MAX/256);
-    if (style.padding())
-        line.setLineWidth(line.naturalTextWidth() + style.padding());
+    if (style.expansion())
+        line.setLineWidth(line.naturalTextWidth() + style.expansion());
     layout->endLayout();
     return line;
 }
@@ -107,7 +107,7 @@ static void drawTextCommon(GraphicsContext* ctx, const TextRun& run, const Float
             textStrokePen = QPen(QColor(ctx->strokeColor()), ctx->strokeThickness());
     }
 
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
     QPointF pt(point.x(), point.y());
 
@@ -196,7 +196,7 @@ static void drawTextCommon(GraphicsContext* ctx, const TextRun& run, const Float
                 p->save();
                 p->setPen(ctxShadow->m_color);
                 p->translate(ctxShadow->offset());
-                p->drawText(pt, string, flags, run.padding());
+                p->drawText(pt, string, flags, run.expansion());
                 p->restore();
             } else {
                 QFontMetrics fm(font);
@@ -210,7 +210,7 @@ static void drawTextCommon(GraphicsContext* ctx, const TextRun& run, const Float
                     // Since it will be blurred anyway, we don't care about render hints.
                     shadowPainter->setFont(p->font());
                     shadowPainter->setPen(ctxShadow->m_color);
-                    shadowPainter->drawText(pt, string, flags, run.padding());
+                    shadowPainter->drawText(pt, string, flags, run.expansion());
                     ctxShadow->endShadowLayer(ctx);
                 }
             }
@@ -243,7 +243,7 @@ static void drawTextCommon(GraphicsContext* ctx, const TextRun& run, const Float
     if (ctx->textDrawingMode() & TextModeFill) {
         QPen previousPen = p->pen();
         p->setPen(textFillPen);
-        p->drawText(pt, string, flags, run.padding());
+        p->drawText(pt, string, flags, run.expansion());
         p->setPen(previousPen);
     }
 }
@@ -299,7 +299,7 @@ float Font::floatWidthForSimpleText(const TextRun& run, GlyphBuffer* glyphBuffer
     if (!run.length())
         return 0;
 
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
 
     int w = QFontMetrics(font()).width(string, -1, Qt::TextBypassShaping);
@@ -308,7 +308,7 @@ float Font::floatWidthForSimpleText(const TextRun& run, GlyphBuffer* glyphBuffer
     if (treatAsSpace(run[0]))
         w -= m_wordSpacing;
 
-    return w + run.padding();
+    return w + run.expansion();
 #else
     Q_ASSERT(false);
     return 0;
@@ -324,9 +324,9 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
         return 0;
 
     if (run.length() == 1 && treatAsSpace(run[0]))
-        return QFontMetrics(font()).width(space) + run.padding();
+        return QFontMetrics(font()).width(space) + run.expansion();
 
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
 
     int w = QFontMetrics(font()).width(string);
@@ -334,13 +334,13 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     if (treatAsSpace(run[0]))
         w -= m_wordSpacing;
 
-    return w + run.padding();
+    return w + run.expansion();
 }
 
 int Font::offsetForPositionForSimpleText(const TextRun& run, float position, bool includePartialGlyphs) const
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
 
     QFontMetrics fm(font());
@@ -367,7 +367,7 @@ int Font::offsetForPositionForSimpleText(const TextRun& run, float position, boo
 
 int Font::offsetForPositionForComplexText(const TextRun& run, float position, bool) const
 {
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
 
     QTextLayout layout(string, font());
@@ -378,7 +378,7 @@ int Font::offsetForPositionForComplexText(const TextRun& run, float position, bo
 FloatRect Font::selectionRectForSimpleText(const TextRun& run, const FloatPoint& pt, int h, int from, int to) const
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString wholeText = fromRawDataWithoutRef(sanitized);
     QString selectedText = fromRawDataWithoutRef(sanitized, from, qMin(to - from, wholeText.length() - from));
 
@@ -394,7 +394,7 @@ FloatRect Font::selectionRectForSimpleText(const TextRun& run, const FloatPoint&
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint& pt, int h, int from, int to) const
 {
-    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    String sanitized = Font::normalizeSpaces(run.characters(), run.length());
     QString string = fromRawDataWithoutRef(sanitized);
 
     QTextLayout layout(string, font());
@@ -409,6 +409,11 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint
 }
 
 bool Font::canReturnFallbackFontsForComplexText()
+{
+    return false;
+}
+
+bool Font::canExpandAroundIdeographsInComplexText()
 {
     return false;
 }

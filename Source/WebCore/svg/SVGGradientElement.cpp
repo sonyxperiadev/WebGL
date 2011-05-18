@@ -124,6 +124,16 @@ void SVGGradientElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHref();
 }
 
+void SVGGradientElement::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+
+    attributeToPropertyTypeMap.set(SVGNames::spreadMethodAttr, AnimatedEnumeration);
+    attributeToPropertyTypeMap.set(SVGNames::gradientUnitsAttr, AnimatedEnumeration);
+    attributeToPropertyTypeMap.set(SVGNames::gradientTransformAttr, AnimatedTransformList);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+}
+    
 void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);

@@ -227,6 +227,24 @@ void SVGUseElement::synchronizeProperty(const QualifiedName& attrName)
         SVGTests::synchronizeProperties(this, attrName);
 }
 
+AttributeToPropertyTypeMap& SVGUseElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGUseElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedLength);
+}
+
 static void updateContainerSize(SVGUseElement* useElement, SVGElementInstance* targetInstance)
 {
     // Depth-first used to write the method in early exit style, no particular other reason.
@@ -716,6 +734,8 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
 
         // Enter recursion, appending new instance tree nodes to the "instance" object.
         buildInstanceTree(element, instancePtr, foundProblem);
+        if (foundProblem)
+            return;
     }
 
     if (!targetHasUseTag || !newTarget)

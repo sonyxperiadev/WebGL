@@ -169,7 +169,7 @@ PassRefPtr<Frame> WebView::createFrame(const KURL& url, const String& name, HTML
     if (!childFrame->page())
         return 0;
 
-    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    coreFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -232,11 +232,17 @@ void WebView::stop()
 
 void WebView::paint(HDC hDC, const IntRect& clipRect)
 {
-    OwnPtr<HRGN> clipRgn(CreateRectRgn(clipRect.x(), clipRect.y(), clipRect.right(), clipRect.bottom()));
+    FrameView* frameView = view();
+    if (!frameView)
+        return;
+
+    OwnPtr<HRGN> clipRgn(CreateRectRgn(clipRect.x(), clipRect.y(), clipRect.maxX(), clipRect.maxY()));
     SelectClipRgn(hDC, clipRgn.get());
 
+    frameView->updateLayoutAndStyleIfNeededRecursive();
+
     GraphicsContext gc(hDC);
-    view()->paint(&gc, clipRect);
+    frameView->paint(&gc, clipRect);
 }
 
 bool WebView::handlePaint(HWND hWnd)

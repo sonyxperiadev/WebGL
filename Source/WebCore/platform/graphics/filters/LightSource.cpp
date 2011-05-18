@@ -3,6 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Zoltan Herczeg <zherczeg@webkit.org>
+ * Copyright (C) 2011 Renata Hodovan <reni@webkit.org>, University of Szeged.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,136 +34,80 @@
 
 namespace WebCore {
 
-void PointLightSource::initPaintingData(PaintingData&)
+bool LightSource::setAzimuth(float azimuth)
 {
+    if (m_type == LS_DISTANT)
+        return static_cast<DistantLightSource*>(this)->setAzimuth(azimuth);
+    return false;
 }
 
-void PointLightSource::updatePaintingData(PaintingData& paintingData, int x, int y, float z)
+bool LightSource::setElevation(float elevation)
 {
-    paintingData.lightVector.setX(m_position.x() - x);
-    paintingData.lightVector.setY(m_position.y() - y);
-    paintingData.lightVector.setZ(m_position.z() - z);
-    paintingData.lightVectorLength = paintingData.lightVector.length();
+    if (m_type == LS_DISTANT)
+        return static_cast<DistantLightSource*>(this)->setElevation(elevation);
+    return false;
 }
 
-// spot-light edge darkening depends on an absolute treshold
-// according to the SVG 1.1 SE light regression tests
-static const float antiAliasTreshold = 0.016f;
-
-void SpotLightSource::initPaintingData(PaintingData& paintingData)
+bool LightSource::setX(float x)
 {
-    paintingData.privateColorVector = paintingData.colorVector;
-    paintingData.directionVector.setX(m_direction.x() - m_position.x());
-    paintingData.directionVector.setY(m_direction.y() - m_position.y());
-    paintingData.directionVector.setZ(m_direction.z() - m_position.z());
-    paintingData.directionVector.normalize();
-
-    if (!m_limitingConeAngle) {
-        paintingData.coneCutOffLimit = 0.0f;
-        paintingData.coneFullLight = -antiAliasTreshold;
-    } else {
-        float limitingConeAngle = m_limitingConeAngle;
-        if (limitingConeAngle < 0.0f)
-            limitingConeAngle = -limitingConeAngle;
-        if (limitingConeAngle > 90.0f)
-            limitingConeAngle = 90.0f;
-        paintingData.coneCutOffLimit = cosf(deg2rad(180.0f - limitingConeAngle));
-        paintingData.coneFullLight = paintingData.coneCutOffLimit - antiAliasTreshold;
-    }
-
-    // Optimization for common specularExponent values
-    if (!m_specularExponent)
-        paintingData.specularExponent = 0;
-    else if (m_specularExponent == 1.0f)
-        paintingData.specularExponent = 1;
-    else // It is neither 0.0f nor 1.0f
-        paintingData.specularExponent = 2;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setX(x);
+    if (m_type == LS_POINT)
+        return static_cast<PointLightSource*>(this)->setX(x);
+    return false;
 }
 
-void SpotLightSource::updatePaintingData(PaintingData& paintingData, int x, int y, float z)
+bool LightSource::setY(float y)
 {
-    paintingData.lightVector.setX(m_position.x() - x);
-    paintingData.lightVector.setY(m_position.y() - y);
-    paintingData.lightVector.setZ(m_position.z() - z);
-    paintingData.lightVectorLength = paintingData.lightVector.length();
-
-    float cosineOfAngle = (paintingData.lightVector * paintingData.directionVector) / paintingData.lightVectorLength;
-    if (cosineOfAngle > paintingData.coneCutOffLimit) {
-        // No light is produced, scanlines are not updated
-        paintingData.colorVector.setX(0.0f);
-        paintingData.colorVector.setY(0.0f);
-        paintingData.colorVector.setZ(0.0f);
-        return;
-    }
-
-    // Set the color of the pixel
-    float lightStrength;
-    switch (paintingData.specularExponent) {
-    case 0:
-        lightStrength = 1.0f; // -cosineOfAngle ^ 0 == 1
-        break;
-    case 1:
-        lightStrength = -cosineOfAngle; // -cosineOfAngle ^ 1 == -cosineOfAngle
-        break;
-    default:
-        lightStrength = powf(-cosineOfAngle, m_specularExponent);
-        break;
-    }
-
-    if (cosineOfAngle > paintingData.coneFullLight)
-        lightStrength *= (paintingData.coneCutOffLimit - cosineOfAngle) / (paintingData.coneCutOffLimit - paintingData.coneFullLight);
-
-    if (lightStrength > 1.0f)
-        lightStrength = 1.0f;
-
-    paintingData.colorVector.setX(paintingData.privateColorVector.x() * lightStrength);
-    paintingData.colorVector.setY(paintingData.privateColorVector.y() * lightStrength);
-    paintingData.colorVector.setZ(paintingData.privateColorVector.z() * lightStrength);
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setY(y);
+    if (m_type == LS_POINT)
+        return static_cast<PointLightSource*>(this)->setY(y);
+    return false;
 }
 
-void DistantLightSource::initPaintingData(PaintingData& paintingData)
+bool LightSource::setZ(float z)
 {
-    float azimuth = deg2rad(m_azimuth);
-    float elevation = deg2rad(m_elevation);
-    paintingData.lightVector.setX(cosf(azimuth) * cosf(elevation));
-    paintingData.lightVector.setY(sinf(azimuth) * cosf(elevation));
-    paintingData.lightVector.setZ(sinf(elevation));
-    paintingData.lightVectorLength = 1;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setZ(z);
+    if (m_type == LS_POINT)
+        return static_cast<PointLightSource*>(this)->setZ(z);
+    return false;
 }
 
-void DistantLightSource::updatePaintingData(PaintingData&, int, int, float)
+bool LightSource::setPointsAtX(float pointsAtX)
 {
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setPointsAtX(pointsAtX);
+    return false;
 }
 
-static TextStream& operator<<(TextStream& ts, const FloatPoint3D& p)
+bool LightSource::setPointsAtY(float pointsAtY)
 {
-    ts << "x=" << p.x() << " y=" << p.y() << " z=" << p.z();
-    return ts;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setPointsAtY(pointsAtY);
+    return false;
 }
 
-TextStream& PointLightSource::externalRepresentation(TextStream& ts) const
+bool LightSource::setPointsAtZ(float pointsAtZ)
 {
-    ts << "[type=POINT-LIGHT] ";
-    ts << "[position=\"" << position() << "\"]";
-    return ts;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setPointsAtZ(pointsAtZ);
+    return false;
 }
 
-TextStream& SpotLightSource::externalRepresentation(TextStream& ts) const
+bool LightSource::setSpecularExponent(float specularExponent)
 {
-    ts << "[type=SPOT-LIGHT] ";
-    ts << "[position=\"" << position() << "\"]";
-    ts << "[direction=\"" << direction() << "\"]";
-    ts << "[specularExponent=\"" << specularExponent() << "\"]";
-    ts << "[limitingConeAngle=\"" << limitingConeAngle() << "\"]";
-    return ts;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setSpecularExponent(specularExponent);
+    return false;
 }
 
-TextStream& DistantLightSource::externalRepresentation(TextStream& ts) const
+bool LightSource::setLimitingConeAngle(float limitingConeAngle)
 {
-    ts << "[type=DISTANT-LIGHT] ";
-    ts << "[azimuth=\"" << azimuth() << "\"]";
-    ts << "[elevation=\"" << elevation() << "\"]";
-    return ts;
+    if (m_type == LS_SPOT)
+        return static_cast<SpotLightSource*>(this)->setLimitingConeAngle(limitingConeAngle);
+    return false;
 }
 
 } // namespace WebCore

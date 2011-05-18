@@ -137,7 +137,7 @@ private:
     virtual void dispatchDidChangeBackForwardIndex() const;
 
     virtual void didDisplayInsecureContent();
-    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -221,9 +221,6 @@ private:
     bool m_hasSentResponseToPluginView;
     bool m_frameHasCustomRepresentation;
 };
-
-uint32_t modifiersForNavigationAction(const WebCore::NavigationAction&);
-int32_t mouseButtonForNavigationAction(const WebCore::NavigationAction&);
 
 } // namespace WebKit
 

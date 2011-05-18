@@ -292,7 +292,7 @@ static unsigned previousWordPositionBoundary(const UChar* characters, unsigned l
 VisiblePosition previousWordPosition(const VisiblePosition &c)
 {
     VisiblePosition prev = previousBoundary(c, previousWordPositionBoundary);
-    return c.honorEditableBoundaryAtOrAfter(prev);
+    return c.honorEditableBoundaryAtOrBefore(prev);
 }
 
 static unsigned nextWordPositionBoundary(const UChar* characters, unsigned length, unsigned offset, BoundarySearchContextAvailability mayHaveMoreContext, bool& needMoreContext)
@@ -308,7 +308,7 @@ static unsigned nextWordPositionBoundary(const UChar* characters, unsigned lengt
 VisiblePosition nextWordPosition(const VisiblePosition &c)
 {
     VisiblePosition next = nextBoundary(c, nextWordPositionBoundary);    
-    return c.honorEditableBoundaryAtOrBefore(next);
+    return c.honorEditableBoundaryAtOrAfter(next);
 }
 
 // ---------
@@ -391,7 +391,7 @@ VisiblePosition startOfLine(const VisiblePosition& c)
 {
     VisiblePosition visPos = startPositionForLine(c);
 
-    return c.honorEditableBoundaryAtOrAfter(visPos);
+    return c.honorEditableBoundaryAtOrBefore(visPos);
 }
 
 static VisiblePosition endPositionForLine(const VisiblePosition& c)
@@ -458,7 +458,7 @@ VisiblePosition endOfLine(const VisiblePosition& c)
         visPos = endPositionForLine(visPos);
     }
     
-    return c.honorEditableBoundaryAtOrBefore(visPos);
+    return c.honorEditableBoundaryAtOrAfter(visPos);
 }
 
 bool inSameLine(const VisiblePosition &a, const VisiblePosition &b)
@@ -536,7 +536,7 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
         while (n && startBlock == enclosingNodeWithNonInlineRenderer(n))
             n = previousLeafWithSameEditability(n);
         while (n) {
-            if (highestEditableRoot(Position(n, 0)) != highestRoot)
+            if (highestEditableRoot(firstPositionInOrBeforeNode(n)) != highestRoot)
                 break;
             Position pos(n, caretMinOffset(n));
             if (pos.isCandidate()) {
@@ -567,7 +567,7 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
         RenderObject* renderer = root->closestLeafChildForLogicalLeftPosition(x - absPos.x(), isEditablePosition(p))->renderer();
         Node* node = renderer->node();
         if (node && editingIgnoresContent(node))
-            return Position(node->parentNode(), node->nodeIndex());
+            return positionInParentBeforeNode(node);
         return renderer->positionForPoint(IntPoint(x - absPos.x(), root->lineTop()));
     }
     
@@ -583,7 +583,7 @@ static Node* nextLeafWithSameEditability(Node* node, int offset)
     bool editable = node->isContentEditable();
     ASSERT(offset >= 0);
     Node* child = node->childNode(offset);
-    Node* n = child ? child->nextLeafNode() : node->nextLeafNode();
+    Node* n = child ? child->nextLeafNode() : node->lastDescendant()->nextLeafNode();
     while (n) {
         if (editable == n->isContentEditable())
             return n;
@@ -645,7 +645,7 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
         while (n && startBlock == enclosingNodeWithNonInlineRenderer(n))
             n = nextLeafWithSameEditability(n);
         while (n) {
-            if (highestEditableRoot(Position(n, 0)) != highestRoot)
+            if (highestEditableRoot(firstPositionInOrBeforeNode(n)) != highestRoot)
                 break;
             Position pos(n, caretMinOffset(n));
             if (pos.isCandidate()) {
@@ -672,7 +672,7 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
         RenderObject* renderer = root->closestLeafChildForLogicalLeftPosition(x - absPos.x(), isEditablePosition(p))->renderer();
         Node* node = renderer->node();
         if (node && editingIgnoresContent(node))
-            return Position(node->parentNode(), node->nodeIndex());
+            return positionInParentBeforeNode(node);
         return renderer->positionForPoint(IntPoint(x - absPos.x(), root->lineTop()));
     }    
 
@@ -720,7 +720,7 @@ static unsigned previousSentencePositionBoundary(const UChar* characters, unsign
 VisiblePosition previousSentencePosition(const VisiblePosition &c)
 {
     VisiblePosition prev = previousBoundary(c, previousSentencePositionBoundary);
-    return c.honorEditableBoundaryAtOrAfter(prev);
+    return c.honorEditableBoundaryAtOrBefore(prev);
 }
 
 static unsigned nextSentencePositionBoundary(const UChar* characters, unsigned length, unsigned, BoundarySearchContextAvailability, bool&)
@@ -734,7 +734,7 @@ static unsigned nextSentencePositionBoundary(const UChar* characters, unsigned l
 VisiblePosition nextSentencePosition(const VisiblePosition &c)
 {
     VisiblePosition next = nextBoundary(c, nextSentencePositionBoundary);    
-    return c.honorEditableBoundaryAtOrBefore(next);
+    return c.honorEditableBoundaryAtOrAfter(next);
 }
 
 VisiblePosition startOfParagraph(const VisiblePosition& c, EditingBoundaryCrossingRule boundaryCrossingRule)
@@ -913,7 +913,7 @@ VisiblePosition startOfBlock(const VisiblePosition &c)
     Node *startNode = p.node();
     if (!startNode)
         return VisiblePosition();
-    return VisiblePosition(Position(startNode->enclosingBlockFlowElement(), 0), DOWNSTREAM);
+    return VisiblePosition(firstPositionInNode(startNode->enclosingBlockFlowElement()), DOWNSTREAM);
 }
 
 VisiblePosition endOfBlock(const VisiblePosition &c)
@@ -1133,7 +1133,7 @@ VisiblePosition logicalStartOfLine(const VisiblePosition& c)
     // Please refer to https://bugs.webkit.org/show_bug.cgi?id=49107 for detail.
     VisiblePosition visPos = logicalStartPositionForLine(c);
     
-    return c.honorEditableBoundaryAtOrAfter(visPos);
+    return c.honorEditableBoundaryAtOrBefore(visPos);
 }
 
 static VisiblePosition logicalEndPositionForLine(const VisiblePosition& c)
@@ -1190,7 +1190,7 @@ VisiblePosition logicalEndOfLine(const VisiblePosition& c)
     if (!inSameLogicalLine(c, visPos))
         visPos = visPos.previous();
     
-    return c.honorEditableBoundaryAtOrBefore(visPos);
+    return c.honorEditableBoundaryAtOrAfter(visPos);
 }
 
 VisiblePosition leftBoundaryOfLine(const VisiblePosition& c, TextDirection direction)

@@ -308,7 +308,7 @@ public:
     }
     Q_INVOKABLE QObjectList myInvokableWithQObjectListArg(const QObjectList &lst) {
         m_qtFunctionInvoked = 14;
-        m_actuals << qVariantFromValue(lst);
+        m_actuals << QVariant::fromValue(lst);
         return lst;
     }
     Q_INVOKABLE QVariant myInvokableWithVariantArg(const QVariant &v) {
@@ -323,38 +323,38 @@ public:
     }
     Q_INVOKABLE QList<int> myInvokableWithListOfIntArg(const QList<int> &lst) {
         m_qtFunctionInvoked = 17;
-        m_actuals << qVariantFromValue(lst);
+        m_actuals << QVariant::fromValue(lst);
         return lst;
     }
     Q_INVOKABLE QObject* myInvokableWithQObjectStarArg(QObject* obj) {
         m_qtFunctionInvoked = 18;
-        m_actuals << qVariantFromValue(obj);
+        m_actuals << QVariant::fromValue(obj);
         return obj;
     }
     Q_INVOKABLE QBrush myInvokableWithQBrushArg(const QBrush &brush) {
         m_qtFunctionInvoked = 19;
-        m_actuals << qVariantFromValue(brush);
+        m_actuals << QVariant::fromValue(brush);
         return brush;
     }
     Q_INVOKABLE void myInvokableWithBrushStyleArg(Qt::BrushStyle style) {
         m_qtFunctionInvoked = 43;
-        m_actuals << qVariantFromValue(style);
+        m_actuals << QVariant::fromValue(style);
     }
     Q_INVOKABLE void myInvokableWithVoidStarArg(void* arg) {
         m_qtFunctionInvoked = 44;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     Q_INVOKABLE void myInvokableWithAmbiguousArg(int arg) {
         m_qtFunctionInvoked = 45;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     Q_INVOKABLE void myInvokableWithAmbiguousArg(uint arg) {
         m_qtFunctionInvoked = 46;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     Q_INVOKABLE void myInvokableWithDefaultArgs(int arg1, const QString &arg2 = "") {
         m_qtFunctionInvoked = 47;
-        m_actuals << qVariantFromValue(arg1) << qVariantFromValue(arg2);
+        m_actuals << QVariant::fromValue(arg1) << qVariantFromValue(arg2);
     }
     Q_INVOKABLE QObject& myInvokableReturningRef() {
         m_qtFunctionInvoked = 48;
@@ -366,11 +366,11 @@ public:
     }
     Q_INVOKABLE void myInvokableWithPointArg(const QPoint &arg) {
         const_cast<MyQObject*>(this)->m_qtFunctionInvoked = 50;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     Q_INVOKABLE void myInvokableWithPointArg(const QPointF &arg) {
         const_cast<MyQObject*>(this)->m_qtFunctionInvoked = 51;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     Q_INVOKABLE void myInvokableWithBoolArg(bool arg) {
         m_qtFunctionInvoked = 52;
@@ -418,7 +418,7 @@ public Q_SLOTS:
     }
     void myOverloadedSlot(QObject* arg) {
         m_qtFunctionInvoked = 41;
-        m_actuals << qVariantFromValue(arg);
+        m_actuals << QVariant::fromValue(arg);
     }
     void myOverloadedSlot(bool arg) {
         m_qtFunctionInvoked = 25;
@@ -514,6 +514,24 @@ private:
     QVariantList m_actuals;
 };
 
+class MyWebElementSlotOnlyObject : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QString tagName READ tagName)
+public slots:
+    void doSomethingWithWebElement(const QWebElement& element)
+    {
+        m_tagName = element.tagName();
+    }
+
+public:
+    QString tagName() const
+    {
+        return m_tagName;
+    }
+private:
+    QString m_tagName;
+};
+
 class MyOtherQObject : public MyQObject
 {
 public:
@@ -584,6 +602,7 @@ private slots:
     void findChild();
     void findChildren();
     void overloadedSlots();
+    void webElementSlotOnly();
     void enumerate_data();
     void enumerate();
     void objectDeleted();
@@ -824,7 +843,7 @@ void tst_QWebFrame::getSetStaticProperty()
     QCOMPARE(evalJS("myObject.variantProperty === 'bar'"), sTrue);
     m_myObject->setVariantProperty(42);
     QCOMPARE(evalJS("myObject.variantProperty === 42"), sTrue);
-    m_myObject->setVariantProperty(qVariantFromValue(QBrush()));
+    m_myObject->setVariantProperty(QVariant::fromValue(QBrush()));
 //XFAIL
 //  QCOMPARE(evalJS("typeof myObject.variantProperty"), sVariant);
 
@@ -1246,7 +1265,7 @@ void tst_QWebFrame::callQtInvokable()
     /* XFAIL - variant support
     m_myObject->resetQtFunctionInvoked();
     {
-        m_myObject->setVariantProperty(qVariantFromValue(QBrush()));
+        m_myObject->setVariantProperty(QVariant::fromValue(QBrush()));
         QVariant ret = evalJS("myObject.myInvokableWithVariantArg(myObject.variantProperty)");
         QVERIFY(ret.isVariant());
         QCOMPARE(m_myObject->qtFunctionInvoked(), 15);
@@ -2427,8 +2446,10 @@ void tst_QWebFrame::javaScriptWindowObjectClearedOnEvaluate()
 void tst_QWebFrame::setHtml()
 {
     QString html("<html><head></head><body><p>hello world</p></body></html>");
+    QSignalSpy spy(m_view->page(), SIGNAL(loadFinished(bool)));
     m_view->page()->mainFrame()->setHtml(html);
     QCOMPARE(m_view->page()->mainFrame()->toHtml(), html);
+    QCOMPARE(spy.count(), 1);
 }
 
 void tst_QWebFrame::setHtmlWithResource()
@@ -3255,6 +3276,15 @@ void tst_QWebFrame::setCacheLoadControlAttribute()
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::PreferNetwork);
     frame->load(request);
     QCOMPARE(manager->lastCacheLoad(), QNetworkRequest::PreferNetwork);
+}
+
+void tst_QWebFrame::webElementSlotOnly()
+{
+    MyWebElementSlotOnlyObject object;
+    m_page->mainFrame()->setHtml("<html><head><body></body></html>");
+    m_page->mainFrame()->addToJavaScriptWindowObject("myWebElementSlotObject", &object);
+    evalJS("myWebElementSlotObject.doSomethingWithWebElement(document.body)");
+    QCOMPARE(evalJS("myWebElementSlotObject.tagName"), QString("BODY"));
 }
 
 QTEST_MAIN(tst_QWebFrame)

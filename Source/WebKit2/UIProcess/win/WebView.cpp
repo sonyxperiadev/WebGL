@@ -23,14 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebView.h"
 
 #include "ChunkedUpdateDrawingAreaProxy.h"
+#include "DrawingAreaProxyImpl.h"
 #include "FindIndicator.h"
 #include "LayerBackedDrawingAreaProxy.h"
 #include "Logging.h"
-#include "RunLoop.h"
 #include "NativeWebKeyboardEvent.h"
+#include "Region.h"
+#include "RunLoop.h"
+#include "WKAPICast.h"
 #include "WebContext.h"
 #include "WebContextMenuProxyWin.h"
 #include "WebEditCommandProxy.h"
@@ -38,8 +42,10 @@
 #include "WebPageProxy.h"
 #include "WebPopupMenuProxyWin.h"
 #include <Commctrl.h>
+#include <WebCore/BitmapInfo.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/GraphicsContextCG.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/SoftLinking.h>
 #include <WebCore/WebCoreInstanceHandle.h>
@@ -47,17 +53,17 @@
 #include <wtf/text/WTFString.h>
 
 namespace Ime {
-    // We need these functions in a separate namespace, because in the global namespace they conflict
-    // with the definitions in imm.h only by the type modifier (the macro defines them as static) and
-    // imm.h is included by windows.h
-    SOFT_LINK_LIBRARY(IMM32)
-    SOFT_LINK(IMM32, ImmGetContext, HIMC, WINAPI, (HWND hwnd), (hwnd))
-    SOFT_LINK(IMM32, ImmReleaseContext, BOOL, WINAPI, (HWND hWnd, HIMC hIMC), (hWnd, hIMC))
-    SOFT_LINK(IMM32, ImmGetCompositionStringW, LONG, WINAPI, (HIMC hIMC, DWORD dwIndex, LPVOID lpBuf, DWORD dwBufLen), (hIMC, dwIndex, lpBuf, dwBufLen))
-    SOFT_LINK(IMM32, ImmSetCandidateWindow, BOOL, WINAPI, (HIMC hIMC, LPCANDIDATEFORM lpCandidate), (hIMC, lpCandidate))
-    SOFT_LINK(IMM32, ImmSetOpenStatus, BOOL, WINAPI, (HIMC hIMC, BOOL fOpen), (hIMC, fOpen))
-    SOFT_LINK(IMM32, ImmNotifyIME, BOOL, WINAPI, (HIMC hIMC, DWORD dwAction, DWORD dwIndex, DWORD dwValue), (hIMC, dwAction, dwIndex, dwValue))
-    SOFT_LINK(IMM32, ImmAssociateContextEx, BOOL, WINAPI, (HWND hWnd, HIMC hIMC, DWORD dwFlags), (hWnd, hIMC, dwFlags))
+// We need these functions in a separate namespace, because in the global namespace they conflict
+// with the definitions in imm.h only by the type modifier (the macro defines them as static) and
+// imm.h is included by windows.h
+SOFT_LINK_LIBRARY(IMM32)
+SOFT_LINK(IMM32, ImmGetContext, HIMC, WINAPI, (HWND hwnd), (hwnd))
+SOFT_LINK(IMM32, ImmReleaseContext, BOOL, WINAPI, (HWND hWnd, HIMC hIMC), (hWnd, hIMC))
+SOFT_LINK(IMM32, ImmGetCompositionStringW, LONG, WINAPI, (HIMC hIMC, DWORD dwIndex, LPVOID lpBuf, DWORD dwBufLen), (hIMC, dwIndex, lpBuf, dwBufLen))
+SOFT_LINK(IMM32, ImmSetCandidateWindow, BOOL, WINAPI, (HIMC hIMC, LPCANDIDATEFORM lpCandidate), (hIMC, lpCandidate))
+SOFT_LINK(IMM32, ImmSetOpenStatus, BOOL, WINAPI, (HIMC hIMC, BOOL fOpen), (hIMC, fOpen))
+SOFT_LINK(IMM32, ImmNotifyIME, BOOL, WINAPI, (HIMC hIMC, DWORD dwAction, DWORD dwIndex, DWORD dwValue), (hIMC, dwAction, dwIndex, dwValue))
+SOFT_LINK(IMM32, ImmAssociateContextEx, BOOL, WINAPI, (HWND hWnd, HIMC hIMC, DWORD dwFlags), (hWnd, hIMC, dwFlags))
 };
 
 using namespace WebCore;
@@ -75,6 +81,13 @@ static const int kMaxToolTipWidth = 250;
 enum {
     UpdateActiveStateTimer = 1,
 };
+
+static bool useNewDrawingArea()
+{
+    // FIXME: Remove this function and the old drawing area code once we aren't interested in
+    // testing the old drawing area anymore.
+    return true;
+}
 
 LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -100,93 +113,93 @@ LRESULT WebView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     bool handled = true;
 
     switch (message) {
-        case WM_CLOSE:
-            m_page->tryClose();
-            break;
-        case WM_DESTROY:
-            m_isBeingDestroyed = true;
-            close();
-            break;
-        case WM_ERASEBKGND:
-            lResult = 1;
-            break;
-        case WM_PAINT:
-            lResult = onPaintEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_PRINTCLIENT:
-            lResult = onPrintClientEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_MOUSEACTIVATE:
-            setWasActivatedByMouseEvent(true);
-            handled = false;
-            break;
-        case WM_MOUSEMOVE:
-        case WM_LBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-        case WM_LBUTTONDBLCLK:
-        case WM_MBUTTONDBLCLK:
-        case WM_RBUTTONDBLCLK:
-        case WM_LBUTTONUP:
-        case WM_MBUTTONUP:
-        case WM_RBUTTONUP:
-        case WM_MOUSELEAVE:
-            lResult = onMouseEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_MOUSEWHEEL:
-        case WM_VISTA_MOUSEHWHEEL:
-            lResult = onWheelEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_SYSKEYDOWN:
-        case WM_KEYDOWN:
-        case WM_SYSCHAR:
-        case WM_CHAR:
-        case WM_SYSKEYUP:
-        case WM_KEYUP:
-            lResult = onKeyEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_SIZE:
-            lResult = onSizeEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_WINDOWPOSCHANGED:
-            lResult = onWindowPositionChangedEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_SETFOCUS:
-            lResult = onSetFocusEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_KILLFOCUS:
-            lResult = onKillFocusEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_TIMER:
-            lResult = onTimerEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_SHOWWINDOW:
-            lResult = onShowWindowEvent(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_SETCURSOR:
-            lResult = onSetCursor(hWnd, message, wParam, lParam, handled);
-            break;
-        case WM_IME_STARTCOMPOSITION:
-            handled = onIMEStartComposition();
-            break;
-        case WM_IME_REQUEST:
-            lResult = onIMERequest(wParam, lParam);
-            break;
-        case WM_IME_COMPOSITION:
-            handled = onIMEComposition(lParam);
-            break;
-        case WM_IME_ENDCOMPOSITION:
-            handled = onIMEEndComposition();
-            break;
-        case WM_IME_SELECT:
-            handled = onIMESelect(wParam, lParam);
-            break;
-        case WM_IME_SETCONTEXT:
-            handled = onIMESetContext(wParam, lParam);
-            break;
-        default:
-            handled = false;
-            break;
+    case WM_CLOSE:
+        m_page->tryClose();
+        break;
+    case WM_DESTROY:
+        m_isBeingDestroyed = true;
+        close();
+        break;
+    case WM_ERASEBKGND:
+        lResult = 1;
+        break;
+    case WM_PAINT:
+        lResult = onPaintEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_PRINTCLIENT:
+        lResult = onPrintClientEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_MOUSEACTIVATE:
+        setWasActivatedByMouseEvent(true);
+        handled = false;
+        break;
+    case WM_MOUSEMOVE:
+    case WM_LBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
+    case WM_MBUTTONDBLCLK:
+    case WM_RBUTTONDBLCLK:
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
+    case WM_RBUTTONUP:
+    case WM_MOUSELEAVE:
+        lResult = onMouseEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_MOUSEWHEEL:
+    case WM_VISTA_MOUSEHWHEEL:
+        lResult = onWheelEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_SYSKEYDOWN:
+    case WM_KEYDOWN:
+    case WM_SYSCHAR:
+    case WM_CHAR:
+    case WM_SYSKEYUP:
+    case WM_KEYUP:
+        lResult = onKeyEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_SIZE:
+        lResult = onSizeEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_WINDOWPOSCHANGED:
+        lResult = onWindowPositionChangedEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_SETFOCUS:
+        lResult = onSetFocusEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_KILLFOCUS:
+        lResult = onKillFocusEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_TIMER:
+        lResult = onTimerEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_SHOWWINDOW:
+        lResult = onShowWindowEvent(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_SETCURSOR:
+        lResult = onSetCursor(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_IME_STARTCOMPOSITION:
+        handled = onIMEStartComposition();
+        break;
+    case WM_IME_REQUEST:
+        lResult = onIMERequest(wParam, lParam);
+        break;
+    case WM_IME_COMPOSITION:
+        handled = onIMEComposition(lParam);
+        break;
+    case WM_IME_ENDCOMPOSITION:
+        handled = onIMEEndComposition();
+        break;
+    case WM_IME_SELECT:
+        handled = onIMESelect(wParam, lParam);
+        break;
+    case WM_IME_SETCONTEXT:
+        handled = onIMESetContext(wParam, lParam);
+        break;
+    default:
+        handled = false;
+        break;
     }
 
     if (!handled)
@@ -232,18 +245,23 @@ WebView::WebView(RECT rect, WebContext* context, WebPageGroup* pageGroup, HWND p
     , m_wasActivatedByMouseEvent(false)
     , m_isBeingDestroyed(false)
     , m_inIMEComposition(0)
+    , m_findIndicatorCallback(0)
+    , m_findIndicatorCallbackContext(0)
 {
     registerWebViewWindowClass();
 
-    m_page = context->createWebPage(this, pageGroup);
-
-    m_window = ::CreateWindowEx(0, kWebKit2WebViewWindowClassName, 0, WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+    m_window = ::CreateWindowExW(0, kWebKit2WebViewWindowClassName, 0, WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE,
         rect.top, rect.left, rect.right - rect.left, rect.bottom - rect.top, parentWindow ? parentWindow : HWND_MESSAGE, 0, instanceHandle(), this);
     ASSERT(::IsWindow(m_window));
+    // We only check our window style, and not ::IsWindowVisible, because m_isVisible only tracks
+    // this window's visibility status, while ::IsWindowVisible takes our ancestors' visibility
+    // status into account. <http://webkit.org/b/54104>
+    ASSERT(m_isVisible == static_cast<bool>(::GetWindowLong(m_window, GWL_STYLE) & WS_VISIBLE));
 
+    m_page = context->createWebPage(this, pageGroup);
     m_page->initializeWebPage();
 
-    ::ShowWindow(m_window, SW_SHOW);
+    CoCreateInstance(CLSID_DragDropHelper, 0, CLSCTX_INPROC_SERVER, IID_IDropTargetHelper, (void**)&m_dropTargetHelper);
 
     // FIXME: Initializing the tooltip window here matches WebKit win, but seems like something
     // we could do on demand to save resources.
@@ -258,6 +276,11 @@ WebView::~WebView()
     // Tooltip window needs to be explicitly destroyed since it isn't a WS_CHILD.
     if (::IsWindow(m_toolTipWindow))
         ::DestroyWindow(m_toolTipWindow);
+}
+
+void WebView::initialize()
+{
+    ::RegisterDragDrop(m_window, this);
 }
 
 void WebView::setParentWindow(HWND parentWindow)
@@ -325,29 +348,29 @@ LRESULT WebView::onMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
     setWasActivatedByMouseEvent(false);
     
     switch (message) {
-        case WM_LBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-            ::SetFocus(m_window);
-            ::SetCapture(m_window);
-            break; 
-        case WM_LBUTTONUP:
-        case WM_MBUTTONUP:
-        case WM_RBUTTONUP:
-            ::ReleaseCapture();
-            break;
-        case WM_MOUSEMOVE:
-            startTrackingMouseLeave();
-            break;
-        case WM_MOUSELEAVE:
-            stopTrackingMouseLeave();
-            break;
-        case WM_LBUTTONDBLCLK:
-        case WM_MBUTTONDBLCLK:
-        case WM_RBUTTONDBLCLK:
-            break;
-        default:
-            ASSERT_NOT_REACHED();
+    case WM_LBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+        ::SetFocus(m_window);
+        ::SetCapture(m_window);
+        break; 
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
+    case WM_RBUTTONUP:
+        ::ReleaseCapture();
+        break;
+    case WM_MOUSEMOVE:
+        startTrackingMouseLeave();
+        break;
+    case WM_MOUSELEAVE:
+        stopTrackingMouseLeave();
+        break;
+    case WM_LBUTTONDBLCLK:
+    case WM_MBUTTONDBLCLK:
+    case WM_RBUTTONDBLCLK:
+        break;
+    default:
+        ASSERT_NOT_REACHED();
     }
 
     m_page->handleMouseEvent(mouseEvent);
@@ -382,19 +405,45 @@ LRESULT WebView::onKeyEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     return 0;
 }
 
+static void drawPageBackground(HDC dc, const RECT& rect)
+{
+    // Mac checks WebPageProxy::drawsBackground and
+    // WebPageProxy::drawsTransparentBackground here, but those are always false on
+    // Windows currently (see <http://webkit.org/b/52009>).
+    ::FillRect(dc, &rect, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
+}
+
+void WebView::paint(HDC hdc, const IntRect& dirtyRect)
+{
+    if (useNewDrawingArea()) {
+        if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(m_page->drawingArea())) {
+            // FIXME: We should port WebKit1's rect coalescing logic here.
+            Region unpaintedRegion;
+            drawingArea->paint(hdc, dirtyRect, unpaintedRegion);
+
+            Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
+            for (size_t i = 0; i < unpaintedRects.size(); ++i) {
+                RECT winRect = unpaintedRects[i];
+                drawPageBackground(hdc, unpaintedRects[i]);
+            }
+        } else
+            drawPageBackground(hdc, dirtyRect);
+
+        m_page->didDraw();
+    } else {
+        if (m_page->isValid() && m_page->drawingArea() && m_page->drawingArea()->paint(dirtyRect, hdc))
+            m_page->didDraw();
+        else
+            drawPageBackground(hdc, dirtyRect);
+    }
+}
+
 LRESULT WebView::onPaintEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled)
 {
     PAINTSTRUCT paintStruct;
     HDC hdc = ::BeginPaint(m_window, &paintStruct);
 
-    if (m_page->isValid() && m_page->drawingArea() && m_page->drawingArea()->paint(IntRect(paintStruct.rcPaint), hdc))
-        m_page->didDraw();
-    else {
-        // Mac checks WebPageProxy::drawsBackground and
-        // WebPageProxy::drawsTransparentBackground here, but those are always false on Windows
-        // currently (see <http://webkit.org/b/52009>).
-        ::FillRect(hdc, &paintStruct.rcPaint, reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1));
-    }
+    paint(hdc, paintStruct.rcPaint);
 
     ::EndPaint(m_window, &paintStruct);
 
@@ -407,9 +456,8 @@ LRESULT WebView::onPrintClientEvent(HWND hWnd, UINT, WPARAM wParam, LPARAM, bool
     HDC hdc = reinterpret_cast<HDC>(wParam);
     RECT winRect;
     ::GetClientRect(hWnd, &winRect);
-    IntRect rect = winRect;
 
-    m_page->drawingArea()->paint(rect, hdc);
+    paint(hdc, winRect);
 
     handled = true;
     return 0;
@@ -420,8 +468,8 @@ LRESULT WebView::onSizeEvent(HWND, UINT, WPARAM, LPARAM lParam, bool& handled)
     int width = LOWORD(lParam);
     int height = HIWORD(lParam);
 
-    if (m_page->drawingArea())
-        m_page->drawingArea()->setSize(IntSize(width, height));
+    if (m_page && m_page->drawingArea())
+        m_page->drawingArea()->setSize(IntSize(width, height), IntSize());
 
     handled = true;
     return 0;
@@ -453,10 +501,10 @@ LRESULT WebView::onKillFocusEvent(HWND, UINT, WPARAM, LPARAM lParam, bool& handl
 LRESULT WebView::onTimerEvent(HWND hWnd, UINT, WPARAM wParam, LPARAM, bool& handled)
 {
     switch (wParam) {
-        case UpdateActiveStateTimer:
-            ::KillTimer(hWnd, UpdateActiveStateTimer);
-            updateActiveState();
-            break;
+    case UpdateActiveStateTimer:
+        ::KillTimer(hWnd, UpdateActiveStateTimer);
+        updateActiveState();
+        break;
     }
 
     handled = true;
@@ -466,14 +514,15 @@ LRESULT WebView::onTimerEvent(HWND hWnd, UINT, WPARAM wParam, LPARAM, bool& hand
 LRESULT WebView::onShowWindowEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
 {
     // lParam is 0 when the message is sent because of a ShowWindow call.
-    // FIXME: Is WM_SHOWWINDOW sent when ShowWindow is called on an ancestor of our window?
+    // FIXME: Since we don't get notified when an ancestor window is hidden or shown, we will keep
+    // painting even when we have a hidden ancestor. <http://webkit.org/b/54104>
     if (!lParam) {
         m_isVisible = wParam;
-        m_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
-
-        handled = true;
+        if (m_page)
+            m_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
     }
 
+    handled = false;
     return 0;
 }
 
@@ -569,6 +618,7 @@ void WebView::stopTrackingMouseLeave()
 
 void WebView::close()
 {
+    ::RevokeDragDrop(m_window);
     setParentWindow(0);
     m_page->close();
 }
@@ -577,6 +627,9 @@ void WebView::close()
 
 PassOwnPtr<DrawingAreaProxy> WebView::createDrawingAreaProxy()
 {
+    if (useNewDrawingArea())
+        return DrawingAreaProxyImpl::create(m_page.get());
+
     return ChunkedUpdateDrawingAreaProxy::create(this, m_page.get());
 }
 
@@ -624,6 +677,10 @@ bool WebView::isViewVisible()
 bool WebView::isViewInWindow()
 {
     return m_isInWindow;
+}
+
+void WebView::pageClosed()
+{
 }
 
 void WebView::processDidCrash()
@@ -740,11 +797,11 @@ void WebView::prepareCandidateWindow(HIMC hInputContext)
     form.dwIndex = 0;
     form.dwStyle = CFS_EXCLUDE;
     form.ptCurrentPos.x = caret.x();
-    form.ptCurrentPos.y = caret.bottom();
+    form.ptCurrentPos.y = caret.maxY();
     form.rcArea.top = caret.y();
-    form.rcArea.bottom = caret.bottom();
+    form.rcArea.bottom = caret.maxY();
     form.rcArea.left = caret.x();
-    form.rcArea.right = caret.right();
+    form.rcArea.right = caret.maxX();
     Ime::ImmSetCandidateWindow(hInputContext, &form);
 }
 
@@ -962,11 +1019,11 @@ LRESULT WebView::onIMERequest(WPARAM request, LPARAM data)
         return 0;
 
     switch (request) {
-        case IMR_RECONVERTSTRING:
-            return onIMERequestReconvertString(reinterpret_cast<RECONVERTSTRING*>(data));
+    case IMR_RECONVERTSTRING:
+        return onIMERequestReconvertString(reinterpret_cast<RECONVERTSTRING*>(data));
 
-        case IMR_QUERYCHARPOSITION:
-            return onIMERequestCharPosition(reinterpret_cast<IMECHARPOSITION*>(data));
+    case IMR_QUERYCHARPOSITION:
+        return onIMERequestCharPosition(reinterpret_cast<IMECHARPOSITION*>(data));
     }
     return 0;
 }
@@ -985,11 +1042,12 @@ bool WebView::onIMESetContext(WPARAM wparam, LPARAM)
     return false;
 }
 
-void WebView::didNotHandleKeyEvent(const NativeWebKeyboardEvent& event)
+void WebView::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool wasEventHandled)
 {
     // Calling ::DefWindowProcW will ensure that pressing the Alt key will generate a WM_SYSCOMMAND
     // event, e.g. See <http://webkit.org/b/47671>.
-    ::DefWindowProcW(event.nativeEvent()->hwnd, event.nativeEvent()->message, event.nativeEvent()->wParam, event.nativeEvent()->lParam);
+    if (!wasEventHandled)
+        ::DefWindowProcW(event.nativeEvent()->hwnd, event.nativeEvent()->message, event.nativeEvent()->wParam, event.nativeEvent()->lParam);
 }
 
 PassRefPtr<WebPopupMenuProxy> WebView::createPopupMenuProxy(WebPageProxy* page)
@@ -1002,9 +1060,54 @@ PassRefPtr<WebContextMenuProxy> WebView::createContextMenuProxy(WebPageProxy* pa
     return WebContextMenuProxyWin::create(m_window, page);
 }
 
-void WebView::setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut)
+void WebView::setFindIndicator(PassRefPtr<FindIndicator> prpFindIndicator, bool fadeOut)
 {
-    // FIXME: Implement.
+    if (!m_findIndicatorCallback)
+        return;
+
+    HBITMAP hbmp = 0;
+    IntRect selectionRect;
+
+    if (RefPtr<FindIndicator> findIndicator = prpFindIndicator) {
+        if (ShareableBitmap* contentImage = findIndicator->contentImage()) {
+            // Render the contentImage to an HBITMAP.
+            void* bits;
+            HDC hdc = ::CreateCompatibleDC(0);
+            int width = contentImage->bounds().width();
+            int height = contentImage->bounds().height();
+            BitmapInfo bitmapInfo = BitmapInfo::create(contentImage->size());
+
+            hbmp = CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, static_cast<void**>(&bits), 0, 0);
+            HBITMAP hbmpOld = static_cast<HBITMAP>(SelectObject(hdc, hbmp));
+            RetainPtr<CGContextRef> context(AdoptCF, CGBitmapContextCreate(bits, width, height,
+                8, width * sizeof(RGBQUAD), deviceRGBColorSpaceRef(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
+
+            GraphicsContext graphicsContext(context.get());
+            contentImage->paint(graphicsContext, IntPoint(), contentImage->bounds());
+
+            ::SelectObject(hdc, hbmpOld);
+            ::DeleteDC(hdc);
+        }
+
+        selectionRect = IntRect(findIndicator->selectionRectInWindowCoordinates());
+    }
+    
+    // The callback is responsible for calling ::DeleteObject(hbmp).
+    (*m_findIndicatorCallback)(toAPI(this), hbmp, selectionRect, fadeOut, m_findIndicatorCallbackContext);
+}
+
+void WebView::setFindIndicatorCallback(WKViewFindIndicatorCallback callback, void* context)
+{
+    m_findIndicatorCallback = callback;
+    m_findIndicatorCallbackContext = context;
+}
+
+WKViewFindIndicatorCallback WebView::getFindIndicatorCallback(void** context)
+{
+    if (context)
+        *context = m_findIndicatorCallbackContext;
+    
+    return m_findIndicatorCallback;
 }
 
 void WebView::didCommitLoadForMainFrame(bool useCustomRepresentation)
@@ -1024,6 +1127,10 @@ void WebView::setCustomRepresentationZoomFactor(double)
 {
 }
 
+void WebView::didChangeScrollbarsForMainFrame() const
+{
+}
+
 void WebView::setIsInWindow(bool isInWindow)
 {
     m_isInWindow = isInWindow;
@@ -1032,36 +1139,55 @@ void WebView::setIsInWindow(bool isInWindow)
 
 #if USE(ACCELERATED_COMPOSITING)
 
+void WebView::enterAcceleratedCompositingMode(const LayerTreeContext&)
+{
+    ASSERT(useNewDrawingArea());
+    // FIXME: Implement.
+    ASSERT_NOT_REACHED();
+}
+
+void WebView::exitAcceleratedCompositingMode()
+{
+    ASSERT(useNewDrawingArea());
+    // FIXME: Implement.
+    ASSERT_NOT_REACHED();
+}
+
 void WebView::pageDidEnterAcceleratedCompositing()
 {
+    ASSERT(!useNewDrawingArea());
     switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::LayerBacked);
 }
 
 void WebView::pageDidLeaveAcceleratedCompositing()
 {
+    ASSERT(!useNewDrawingArea());
     switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::ChunkedUpdate);
 }
 
 void WebView::switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::Type type)
 {
+    ASSERT(!useNewDrawingArea());
+
     DrawingAreaInfo::Type existingDrawingAreaType = m_page->drawingArea() ? m_page->drawingArea()->info().type : DrawingAreaInfo::None;
     if (existingDrawingAreaType == type)
         return;
 
     OwnPtr<DrawingAreaProxy> newDrawingArea;
     switch (type) {
-        case DrawingAreaInfo::None:
-            break;
-        case DrawingAreaInfo::ChunkedUpdate:
-            newDrawingArea = ChunkedUpdateDrawingAreaProxy::create(this, m_page.get());
-            break;
-        case DrawingAreaInfo::LayerBacked:
-            newDrawingArea = LayerBackedDrawingAreaProxy::create(this, m_page.get());
-            break;
+    case DrawingAreaInfo::Impl:
+    case DrawingAreaInfo::None:
+        break;
+    case DrawingAreaInfo::ChunkedUpdate:
+        newDrawingArea = ChunkedUpdateDrawingAreaProxy::create(this, m_page.get());
+        break;
+    case DrawingAreaInfo::LayerBacked:
+        newDrawingArea = LayerBackedDrawingAreaProxy::create(this, m_page.get());
+        break;
     }
 
     if (m_page->drawingArea())
-        newDrawingArea->setSize(m_page->drawingArea()->size());
+        newDrawingArea->setSize(m_page->drawingArea()->size(), IntSize());
 
     m_page->drawingArea()->detachCompositingContext();
     m_page->setDrawingArea(newDrawingArea.release());
@@ -1079,13 +1205,140 @@ HWND WebView::nativeWindow()
 void WebView::windowReceivedMessage(HWND, UINT message, WPARAM wParam, LPARAM)
 {
     switch (message) {
-        case WM_NCACTIVATE:
-            updateActiveStateSoon();
-            break;
-        case WM_SETTINGCHANGE:
-            // systemParameterChanged(wParam);
-            break;
+    case WM_NCACTIVATE:
+        updateActiveStateSoon();
+        break;
+    case WM_SETTINGCHANGE:
+        // systemParameterChanged(wParam);
+        break;
     }
+}
+
+HRESULT STDMETHODCALLTYPE WebView::QueryInterface(REFIID riid, void** ppvObject)
+{
+    *ppvObject = 0;
+    if (IsEqualGUID(riid, IID_IUnknown))
+        *ppvObject = static_cast<IUnknown*>(this);
+    else if (IsEqualGUID(riid, IID_IDropTarget))
+        *ppvObject = static_cast<IDropTarget*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+ULONG STDMETHODCALLTYPE WebView::AddRef(void)
+{
+    ref();
+    return refCount();
+}
+
+ULONG STDMETHODCALLTYPE WebView::Release(void)
+{
+    deref();
+    return refCount();
+}
+
+static DWORD dragOperationToDragCursor(DragOperation op)
+{
+    DWORD res = DROPEFFECT_NONE;
+    if (op & DragOperationCopy) 
+        res = DROPEFFECT_COPY;
+    else if (op & DragOperationLink) 
+        res = DROPEFFECT_LINK;
+    else if (op & DragOperationMove) 
+        res = DROPEFFECT_MOVE;
+    else if (op & DragOperationGeneric) 
+        res = DROPEFFECT_MOVE; // This appears to be the Firefox behaviour
+    return res;
+}
+
+WebCore::DragOperation WebView::keyStateToDragOperation(DWORD grfKeyState) const
+{
+    if (!m_page)
+        return DragOperationNone;
+
+    // Conforms to Microsoft's key combinations as documented for 
+    // IDropTarget::DragOver. Note, grfKeyState is the current 
+    // state of the keyboard modifier keys on the keyboard. See:
+    // <http://msdn.microsoft.com/en-us/library/ms680129(VS.85).aspx>.
+    DragOperation operation = m_page->dragOperation();
+
+    if ((grfKeyState & (MK_CONTROL | MK_SHIFT)) == (MK_CONTROL | MK_SHIFT))
+        operation = DragOperationLink;
+    else if ((grfKeyState & MK_CONTROL) == MK_CONTROL)
+        operation = DragOperationCopy;
+    else if ((grfKeyState & MK_SHIFT) == MK_SHIFT)
+        operation = DragOperationGeneric;
+
+    return operation;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::DragEnter(IDataObject* pDataObject, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    m_dragData = 0;
+    m_page->resetDragOperation();
+
+    if (m_dropTargetHelper)
+        m_dropTargetHelper->DragEnter(m_window, pDataObject, (POINT*)&pt, *pdwEffect);
+
+    POINTL localpt = pt;
+    ::ScreenToClient(m_window, (LPPOINT)&localpt);
+    DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
+    m_page->performDragControllerAction(DragControllerActionEntered, &data);
+    *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
+
+    m_lastDropEffect = *pdwEffect;
+    m_dragData = pDataObject;
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::DragOver(DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    if (m_dropTargetHelper)
+        m_dropTargetHelper->DragOver((POINT*)&pt, *pdwEffect);
+
+    if (m_dragData) {
+        POINTL localpt = pt;
+        ::ScreenToClient(m_window, (LPPOINT)&localpt);
+        DragData data(m_dragData.get(), IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
+        m_page->performDragControllerAction(DragControllerActionUpdated, &data);
+        *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
+    } else
+        *pdwEffect = DROPEFFECT_NONE;
+
+    m_lastDropEffect = *pdwEffect;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::DragLeave()
+{
+    if (m_dropTargetHelper)
+        m_dropTargetHelper->DragLeave();
+
+    if (m_dragData) {
+        DragData data(m_dragData.get(), IntPoint(), IntPoint(), DragOperationNone);
+        m_page->performDragControllerAction(DragControllerActionExited, &data);
+        m_dragData = 0;
+        m_page->resetDragOperation();
+    }
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::Drop(IDataObject* pDataObject, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
+{
+    if (m_dropTargetHelper)
+        m_dropTargetHelper->Drop(pDataObject, (POINT*)&pt, *pdwEffect);
+
+    m_dragData = 0;
+    *pdwEffect = m_lastDropEffect;
+    POINTL localpt = pt;
+    ::ScreenToClient(m_window, (LPPOINT)&localpt);
+    DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
+    m_page->performDragControllerAction(DragControllerActionPerformDrag, &data);
+    return S_OK;
 }
 
 } // namespace WebKit

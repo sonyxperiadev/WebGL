@@ -302,9 +302,11 @@ namespace WebCore {
 
         void setNeedsSiteSpecificQuirks(bool);
         bool needsSiteSpecificQuirks() const { return m_needsSiteSpecificQuirks; }
-        
+
+#if ENABLE(WEB_ARCHIVE)
         void setWebArchiveDebugModeEnabled(bool);
         bool webArchiveDebugModeEnabled() const { return m_webArchiveDebugModeEnabled; }
+#endif
 
         void setLocalFileContentSniffingEnabled(bool);
         bool localFileContentSniffingEnabled() const { return m_localFileContentSniffingEnabled; }
@@ -385,6 +387,9 @@ namespace WebCore {
 
         void setWebGLEnabled(bool);
         bool webGLEnabled() const { return m_webGLEnabled; }
+
+        void setOpenGLMultisamplingEnabled(bool);
+        bool openGLMultisamplingEnabled() const { return m_openGLMultisamplingEnabled; }
 
         void setAccelerated2dCanvasEnabled(bool);
         bool accelerated2dCanvasEnabled() const { return m_acceleratedCanvas2dEnabled; }
@@ -548,6 +553,7 @@ namespace WebCore {
         bool m_showRepaintCounter : 1;
         bool m_experimentalNotificationsEnabled : 1;
         bool m_webGLEnabled : 1;
+        bool m_openGLMultisamplingEnabled : 1;
         bool m_webAudioEnabled : 1;
         bool m_acceleratedCanvas2dEnabled : 1;
         bool m_loadDeferringEnabled : 1;

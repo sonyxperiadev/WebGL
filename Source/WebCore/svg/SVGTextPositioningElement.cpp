@@ -161,31 +161,15 @@ void SVGTextPositioningElement::synchronizeProperty(const QualifiedName& attrNam
         synchronizeRotate();
 }
 
-static inline bool listContainsRelativeValue(const SVGLengthList& list)
+void SVGTextPositioningElement::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
 {
-    unsigned size = list.size();
-    for (unsigned i = 0; i < size; ++i) {
-        const SVGLength& length = list.at(i);
-        if (length.isRelative())
-            return true;
-    }
+    SVGTextContentElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
 
-    return false;
-}
-
-bool SVGTextPositioningElement::selfHasRelativeLengths() const
-{
-    if (SVGTextContentElement::selfHasRelativeLengths())
-        return true;
-    if (listContainsRelativeValue(x()))
-        return true;
-    if (listContainsRelativeValue(y()))
-        return true;
-    if (listContainsRelativeValue(dx()))
-        return true;
-    if (listContainsRelativeValue(dy()))
-        return true;
-    return false;
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedNumberList);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedNumberList);
+    attributeToPropertyTypeMap.set(SVGNames::dxAttr, AnimatedNumberList);
+    attributeToPropertyTypeMap.set(SVGNames::dyAttr, AnimatedNumberList);
+    attributeToPropertyTypeMap.set(SVGNames::rotateAttr, AnimatedNumberList);
 }
 
 SVGTextPositioningElement* SVGTextPositioningElement::elementFromRenderer(RenderObject* renderer)

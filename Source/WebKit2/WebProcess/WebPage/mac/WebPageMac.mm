@@ -23,28 +23,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebPage.h"
+#import "config.h"
+#import "WebPage.h"
 
-#include "AccessibilityWebPageObject.h"
-#include "DataReference.h"
-#include "PluginView.h"
-#include "WebCoreArgumentCoders.h"
-#include "WebEvent.h"
-#include "WebFrame.h"
-#include "WebPageProxyMessages.h"
-#include "WebProcess.h"
-#include <WebCore/AXObjectCache.h>
-#include <WebCore/FocusController.h>
-#include <WebCore/Frame.h>
-#include <WebCore/FrameView.h>
-#include <WebCore/HitTestResult.h>
-#include <WebCore/KeyboardEvent.h>
-#include <WebCore/Page.h>
-#include <WebCore/PlatformKeyboardEvent.h>
-#include <WebCore/ScrollView.h>
-#include <WebCore/TextIterator.h>
-#include <WebCore/WindowsKeyboardCodes.h>
-#include <WebKitSystemInterface.h>
+#import "AccessibilityWebPageObject.h"
+#import "DataReference.h"
+#import "PluginView.h"
+#import "WebCoreArgumentCoders.h"
+#import "WebEvent.h"
+#import "WebFrame.h"
+#import "WebPageProxyMessages.h"
+#import "WebProcess.h"
+#import <WebCore/AXObjectCache.h>
+#import <WebCore/FocusController.h>
+#import <WebCore/Frame.h>
+#import <WebCore/FrameView.h>
+#import <WebCore/HitTestResult.h>
+#import <WebCore/KeyboardEvent.h>
+#import <WebCore/Page.h>
+#import <WebCore/PlatformKeyboardEvent.h>
+#import <WebCore/ScrollView.h>
+#import <WebCore/TextIterator.h>
+#import <WebCore/WindowsKeyboardCodes.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
@@ -65,7 +66,7 @@ void WebPage::platformInitialize()
     // send data back over
     NSData* remoteToken = (NSData *)WKAXRemoteTokenForElement(mockAccessibilityElement); 
     CoreIPC::DataReference dataToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteToken bytes]), [remoteToken length]);
-    send(Messages::WebPageProxy::DidReceiveAccessibilityPageToken(dataToken));
+    send(Messages::WebPageProxy::RegisterWebProcessAccessibilityToken(dataToken));
     m_mockAccessibilityElement = mockAccessibilityElement;
 #endif
 }
@@ -230,10 +231,11 @@ void WebPage::firstRectForCharacterRange(uint64_t location, uint64_t length, Web
     resultRect.setSize(IntSize(0, 0));
     
     RefPtr<Range> range = convertToRange(frame, NSMakeRange(location, length));
-    if (range) {
-        ASSERT(range->startContainer());
-        ASSERT(range->endContainer());
-    }
+    if (!range)
+        return;
+    
+    ASSERT(range->startContainer());
+    ASSERT(range->endContainer());
      
     IntRect rect = frame->editor()->firstRectForRange(range.get());
     resultRect = frame->view()->contentsToWindow(rect);
@@ -334,11 +336,16 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
     return true;
 }
 
-void WebPage::sendAccessibilityPresenterToken(const CoreIPC::DataReference& data)
+void WebPage::registerUIProcessAccessibilityTokens(const CoreIPC::DataReference& elementToken, const CoreIPC::DataReference& windowToken)
 {
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
-    NSData* tokenData = [NSData dataWithBytes:data.data() length:data.size()];
-    [m_mockAccessibilityElement.get() setRemoteParent:WKAXRemoteElementForToken((CFDataRef)tokenData)];
+    NSData* elementTokenData = [NSData dataWithBytes:elementToken.data() length:elementToken.size()];
+    NSData* windowTokenData = [NSData dataWithBytes:windowToken.data() length:windowToken.size()];
+    id remoteElement = WKAXRemoteElementForToken(elementTokenData);
+    id remoteWindow = WKAXRemoteElementForToken(windowTokenData);
+    WKAXSetWindowForRemoteElement(remoteWindow, remoteElement);
+    
+    [accessibilityRemoteObject() setRemoteParent:remoteElement];
 #endif
 }
 
@@ -355,6 +362,16 @@ bool WebPage::platformHasLocalDataForURL(const WebCore::KURL& url)
     [request release];
     
     return cachedResponse;
+}
+
+String WebPage::cachedResponseMIMETypeForURL(const WebCore::KURL& url)
+{
+    NSMutableURLRequest* request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setValue:(NSString*)userAgent() forHTTPHeaderField:@"User-Agent"];
+    NSCachedURLResponse *cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
+    [request release];
+    
+    return [[cachedResponse response] MIMEType];
 }
 
 bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)

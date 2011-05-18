@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKContext.h"
 #include "WKContextPrivate.h"
 
@@ -175,4 +176,9 @@ void WKContextStartMemorySampler(WKContextRef contextRef, WKDoubleRef interval)
 void WKContextStopMemorySampler(WKContextRef contextRef)
 {
     toImpl(contextRef)->stopMemorySampler();
+}
+
+void WKContextSetDatabaseDirectory(WKContextRef contextRef, WKStringRef databaseDirectory)
+{
+    toImpl(contextRef)->setDatabaseDirectory(toImpl(databaseDirectory)->string());
 }

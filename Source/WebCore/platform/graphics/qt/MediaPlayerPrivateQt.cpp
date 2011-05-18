@@ -215,7 +215,7 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
             // Don't set the header if there are no cookies.
             // This prevents a warning from being emitted.
             if (!cookies.isEmpty())
-                request.setHeader(QNetworkRequest::CookieHeader, qVariantFromValue(cookies));
+                request.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(cookies));
 
             // Set the refferer, but not when requesting insecure content from a secure page
             QUrl documentUrl = QUrl(QString(document->documentURI()));
@@ -543,7 +543,7 @@ void MediaPlayerPrivateQt::updateStates()
         m_readyState = MediaPlayer::HaveCurrentData;
     } else if (currentStatus == QMediaPlayer::BufferedMedia
                || currentStatus == QMediaPlayer::EndOfMedia) {
-        m_networkState = MediaPlayer::Idle;
+        m_networkState = MediaPlayer::Loaded;
         m_readyState = MediaPlayer::HaveEnoughData;
     } else if (currentStatus == QMediaPlayer::InvalidMedia) {
         m_networkState = MediaPlayer::NetworkError;
@@ -616,6 +616,21 @@ void MediaPlayerPrivateQt::paint(GraphicsContext* context, const IntRect& rect)
 
     QPainter* painter = context->platformContext();
     m_videoScene->render(painter, QRectF(QRect(rect)), m_videoItem->sceneBoundingRect());
+}
+
+void MediaPlayerPrivateQt::paintCurrentFrameInContext(GraphicsContext* context, const IntRect& rect)
+{
+    if (context->paintingDisabled())
+        return;
+
+    if (!m_isVisible)
+        return;
+
+    // Grab the painter and widget
+    QPainter* painter = context->platformContext();
+
+    // Render the video, using the item as it might not be in the scene
+    m_videoItem->paint(painter, 0, 0);
 }
 
 void MediaPlayerPrivateQt::repaint()

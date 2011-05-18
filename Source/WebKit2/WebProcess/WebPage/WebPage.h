@@ -35,11 +35,14 @@
 #include "InjectedBundlePageEditorClient.h"
 #include "InjectedBundlePageFormClient.h"
 #include "InjectedBundlePageLoaderClient.h"
+#include "InjectedBundlePagePolicyClient.h"
+#include "InjectedBundlePageResourceLoadClient.h"
 #include "InjectedBundlePageUIClient.h"
 #include "MessageSender.h"
 #include "Plugin.h"
 #include "SandboxExtension.h"
 #include "WebEditCommand.h"
+#include <WebCore/DragData.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntRect.h>
@@ -55,11 +58,7 @@
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class AccessibilityWebPageObject;
-#else
-class AccessibilityWebPageObject;
-#endif
+OBJC_CLASS AccessibilityWebPageObject;
 #endif
 
 namespace CoreIPC {
@@ -100,6 +99,10 @@ struct PrintInfo;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
 
+#if ENABLE(GESTURE_EVENTS)
+class WebGestureEvent;
+#endif
+
 #if ENABLE(TOUCH_EVENTS)
 class WebTouchEvent;
 #endif
@@ -122,11 +125,14 @@ public:
 
     void setSize(const WebCore::IntSize&);
     const WebCore::IntSize& size() const { return m_viewSize; }
-
+    WebCore::IntRect bounds() const { return WebCore::IntRect(WebCore::IntPoint(), size()); }
+    
     InjectedBundleBackForwardList* backForwardList();
     DrawingArea* drawingArea() const { return m_drawingArea.get(); }
 
     WebPageGroupProxy* pageGroup() const { return m_pageGroup.get(); }
+
+    void scrollMainFrameIfNotAtMaxScrollPosition(const WebCore::IntSize& scrollOffset);
 
 #if ENABLE(INSPECTOR)
     WebInspector* inspector();
@@ -135,6 +141,7 @@ public:
     // -- Called by the DrawingArea.
     // FIXME: We could genericize these into a DrawingArea client interface. Would that be beneficial?
     void drawRect(WebCore::GraphicsContext&, const WebCore::IntRect&);
+    void drawPageOverlay(WebCore::GraphicsContext&, const WebCore::IntRect&);
     void layoutIfNeeded();
 
     // -- Called from WebCore clients.
@@ -165,12 +172,16 @@ public:
     void initializeInjectedBundleEditorClient(WKBundlePageEditorClient*);
     void initializeInjectedBundleFormClient(WKBundlePageFormClient*);
     void initializeInjectedBundleLoaderClient(WKBundlePageLoaderClient*);
+    void initializeInjectedBundlePolicyClient(WKBundlePagePolicyClient*);
+    void initializeInjectedBundleResourceLoadClient(WKBundlePageResourceLoadClient*);
     void initializeInjectedBundleUIClient(WKBundlePageUIClient*);
 
     InjectedBundlePageContextMenuClient& injectedBundleContextMenuClient() { return m_contextMenuClient; }
     InjectedBundlePageEditorClient& injectedBundleEditorClient() { return m_editorClient; }
     InjectedBundlePageFormClient& injectedBundleFormClient() { return m_formClient; }
     InjectedBundlePageLoaderClient& injectedBundleLoaderClient() { return m_loaderClient; }
+    InjectedBundlePagePolicyClient& injectedBundlePolicyClient() { return m_policyClient; }
+    InjectedBundlePageResourceLoadClient& injectedBundleResourceLoadClient() { return m_resourceLoadClient; }
     InjectedBundlePageUIClient& injectedBundleUIClient() { return m_uiClient; }
 
     bool findStringFromInjectedBundle(const String&, FindOptions);
@@ -224,9 +235,11 @@ public:
 
     void installPageOverlay(PassRefPtr<PageOverlay>);
     void uninstallPageOverlay(PageOverlay*);
+    bool hasPageOverlay() const { return m_pageOverlay; }
 
     PassRefPtr<WebImage> snapshotInViewCoordinates(const WebCore::IntRect&, ImageOptions);
     PassRefPtr<WebImage> snapshotInDocumentCoordinates(const WebCore::IntRect&, ImageOptions);
+    PassRefPtr<WebImage> scaledSnapshotInDocumentCoordinates(const WebCore::IntRect&, double scaleFactor, ImageOptions);
 
     static const WebEvent* currentEvent();
 
@@ -247,6 +260,7 @@ public:
     WebContextMenu* contextMenu();
     
     bool hasLocalDataForURL(const WebCore::KURL&);
+    String cachedResponseMIMETypeForURL(const WebCore::KURL&);
     
     static bool canHandleRequest(const WebCore::ResourceRequest&);
 
@@ -271,7 +285,7 @@ public:
     static void getLocationAndLengthFromRange(WebCore::Range*, uint64_t& location, uint64_t& length);
 
 #if PLATFORM(MAC)
-    void sendAccessibilityPresenterToken(const CoreIPC::DataReference&);
+    void registerUIProcessAccessibilityTokens(const CoreIPC::DataReference& elemenToken, const CoreIPC::DataReference& windowToken);
     AccessibilityWebPageObject* accessibilityRemoteObject();
     WebCore::IntPoint accessibilityPosition() const { return m_accessibilityPosition; }    
     
@@ -300,14 +314,19 @@ public:
 #endif
 
     void replaceSelectionWithText(WebCore::Frame*, const String&);
+#if PLATFORM(WIN)
+    void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WebCore::DragDataMap&, uint32_t flags);
+#else
     void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WTF::String& dragStorageName, uint32_t flags);
+#endif
     void dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation);
 
     void beginPrinting(uint64_t frameID, const PrintInfo&);
     void endPrinting();
-    void computePagesForPrinting(uint64_t frameID, const PrintInfo&, Vector<WebCore::IntRect>& resultPageRects, double& resultTotalScaleFactorForPrinting);
+    void computePagesForPrinting(uint64_t frameID, const PrintInfo&, uint64_t callbackID);
 #if PLATFORM(MAC)
-    void drawRectToPDF(uint64_t frameID, const WebCore::IntRect&, Vector<uint8_t>& pdfData);
+    void drawRectToPDF(uint64_t frameID, const WebCore::IntRect&, uint64_t callbackID);
+    void drawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, uint64_t callbackID);
 #endif
 
     bool mainFrameHasCustomRepresentation() const;
@@ -336,36 +355,43 @@ private:
 
     // Actions
     void tryClose();
-    void loadURL(const String&, const SandboxExtension::Handle& sandboxExtensionHandle);
-    void loadURLRequest(const WebCore::ResourceRequest&, const SandboxExtension::Handle& sandboxExtensionHandle);
+    void loadURL(const String&, const SandboxExtension::Handle&);
+    void loadURLRequest(const WebCore::ResourceRequest&, const SandboxExtension::Handle&);
     void loadHTMLString(const String& htmlString, const String& baseURL);
     void loadAlternateHTMLString(const String& htmlString, const String& baseURL, const String& unreachableURL);
     void loadPlainTextString(const String&);
     void reload(bool reloadFromOrigin);
-    void goForward(uint64_t);
-    void goBack(uint64_t);
-    void goToBackForwardItem(uint64_t);
+    void goForward(uint64_t, const SandboxExtension::Handle&);
+    void goBack(uint64_t, const SandboxExtension::Handle&);
+    void goToBackForwardItem(uint64_t, const SandboxExtension::Handle&);
     void setActive(bool);
     void setFocused(bool);
     void setInitialFocus(bool);
     void setWindowResizerSize(const WebCore::IntSize&);
     void setIsInWindow(bool);
+    void validateMenuItem(const String&);
+    void executeEditCommand(const String&);
+
     void mouseEvent(const WebMouseEvent&);
     void wheelEvent(const WebWheelEvent&);
     void keyEvent(const WebKeyboardEvent&);
-    void validateMenuItem(const String&);
-    void executeEditCommand(const String&);
+#if ENABLE(GESTURE_EVENTS)
+    void gestureEvent(const WebGestureEvent&);
+#endif
 #if ENABLE(TOUCH_EVENTS)
     void touchEvent(const WebTouchEvent&);
 #endif
 
     uint64_t restoreSession(const SessionState&);
-    void restoreSessionAndNavigateToCurrentItem(const SessionState&);
+    void restoreSessionAndNavigateToCurrentItem(const SessionState&, const SandboxExtension::Handle&);
 
     void didRemoveBackForwardItem(uint64_t);
 
     void setDrawsBackground(bool);
     void setDrawsTransparentBackground(bool);
+
+    void viewWillStartLiveResize();
+    void viewWillEndLiveResize();
 
     void getContentsAsString(uint64_t callbackID);
     void getMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID);
@@ -375,6 +401,7 @@ private:
     void getSourceForFrame(uint64_t frameID, uint64_t callbackID);
     void getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID);
     void runJavaScriptInMainFrame(const String&, uint64_t callbackID);
+    void forceRepaint(uint64_t callbackID);
 
     void preferencesDidChange(const WebPreferencesStore&);
     void platformPreferencesDidChange(const WebPreferencesStore&);
@@ -406,6 +433,9 @@ private:
 
     void didChooseFilesForOpenPanel(const Vector<String>&);
     void didCancelForOpenPanel();
+#if ENABLE(WEB_PROCESS_SANDBOX)
+    void extendSandboxForFileFromOpenPanel(const SandboxExtension::Handle&);
+#endif
 
     void didReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed);
 
@@ -477,6 +507,8 @@ private:
     InjectedBundlePageEditorClient m_editorClient;
     InjectedBundlePageFormClient m_formClient;
     InjectedBundlePageLoaderClient m_loaderClient;
+    InjectedBundlePagePolicyClient m_policyClient;
+    InjectedBundlePageResourceLoadClient m_resourceLoadClient;
     InjectedBundlePageUIClient m_uiClient;
 
 #if ENABLE(TILED_BACKING_STORE)
@@ -487,7 +519,7 @@ private:
     RefPtr<PageOverlay> m_pageOverlay;
 
 #if ENABLE(INSPECTOR)
-    OwnPtr<WebInspector> m_inspector;
+    RefPtr<WebInspector> m_inspector;
 #endif
     RefPtr<WebPopupMenu> m_activePopupMenu;
     RefPtr<WebContextMenu> m_contextMenu;

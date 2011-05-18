@@ -23,10 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebPreferences.h"
+#import "config.h"
+#import "WebPreferences.h"
 
-#include "PageClientImpl.h"
-#include <wtf/text/StringConcatenate.h>
+#import "PageClientImpl.h"
+#import <wtf/text/StringConcatenate.h>
 
 namespace WebKit {
 

@@ -86,6 +86,7 @@ public:
     virtual void setOfflineWebApplicationCacheEnabled(bool);
     virtual void setWebAudioEnabled(bool);
     virtual void setExperimentalWebGLEnabled(bool);
+    virtual void setOpenGLMultisamplingEnabled(bool);
     virtual void setShowDebugBorders(bool);
     virtual void setEditingBehavior(EditingBehavior);
     virtual void setAcceleratedCompositingEnabled(bool);
@@ -97,6 +98,7 @@ public:
     virtual void setAccelerated2dCanvasEnabled(bool);
     virtual void setMemoryInfoEnabled(bool);
     virtual void setHyperlinkAuditingEnabled(bool);
+    virtual void setAsynchronousSpellCheckingEnabled(bool);
     virtual void setCaretBrowsingEnabled(bool);
     virtual void setInteractiveFormValidationEnabled(bool);
 

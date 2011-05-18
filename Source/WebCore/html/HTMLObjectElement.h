@@ -85,7 +85,7 @@ private:
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
-    virtual void updateWidget(bool onlyCreateNonNetscapePlugins);
+    virtual void updateWidget(PluginCreationOption);
     void updateDocNamedItem();
 
     bool hasFallbackContent() const;
@@ -98,6 +98,7 @@ private:
 
     virtual void refFormAssociatedElement() { ref(); }
     virtual void derefFormAssociatedElement() { deref(); }
+    virtual HTMLFormElement* virtualForm() const;
 
     virtual const AtomicString& formControlName() const;
 

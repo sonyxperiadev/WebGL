@@ -26,7 +26,6 @@
 #include "HTMLFormControlElement.h"
 
 #include "Attribute.h"
-#include "CharacterNames.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
@@ -49,6 +48,7 @@
 #include "ValidityState.h"
 #include <limits>
 #include <wtf/Vector.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -163,6 +163,18 @@ void HTMLFormControlElement::removedFromTree(bool deep)
 {
     FormAssociatedElement::removedFromTree();
     HTMLElement::removedFromTree(deep);
+}
+
+void HTMLFormControlElement::insertedIntoDocument()
+{
+    HTMLElement::insertedIntoDocument();
+    FormAssociatedElement::insertedIntoDocument();
+}
+
+void HTMLFormControlElement::removedFromDocument()
+{
+    HTMLElement::removedFromDocument();
+    FormAssociatedElement::removedFromDocument();
 }
 
 const AtomicString& HTMLFormControlElement::formControlName() const
@@ -570,8 +582,8 @@ bool HTMLTextFormControlElement::placeholderShouldBeVisible() const
 {
     return supportsPlaceholder()
         && isEmptyValue()
-        && document()->focusedNode() != this
-        && !isPlaceholderEmpty();
+        && !isPlaceholderEmpty()
+        && (document()->focusedNode() != this || (renderer() && renderer()->theme()->shouldShowPlaceholderWhenFocused()));
 }
 
 void HTMLTextFormControlElement::updatePlaceholderVisibility(bool placeholderValueChanged)

@@ -2,18 +2,22 @@ TEMPLATE = app
 TARGET = MiniBrowser
 
 SOURCES += \
-    main.cpp \
     BrowserView.cpp \
     BrowserWindow.cpp \
+    main.cpp \
+    MiniBrowserApplication.cpp \
+    UrlLoader.cpp \
+    utils.cpp \
 
 HEADERS += \
     BrowserView.h \
     BrowserWindow.h \
-
-CONFIG += uitools
+    MiniBrowserApplication.h \
+    UrlLoader.h \
+    utils.h \
 
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../..
-include(../../../WebKit.pri)
+include(../../../Source/WebKit.pri)
 
 INCLUDEPATH += \
     $$PWD/../../../Source/WebKit2/ \
@@ -55,4 +59,4 @@ contains(QT_CONFIG, opengl) {
 # We copy the resource file to the build directory.
 # The copier is defined in Tools/MiniBrowser/DerivedSources.pro.
 RESOURCES += \
-    $$OUTPUT_DIR/Tools/MiniBrowser/qt/MiniBrowser.qrc
+    $$OUTPUT_DIR/MiniBrowser/qt/MiniBrowser.qrc

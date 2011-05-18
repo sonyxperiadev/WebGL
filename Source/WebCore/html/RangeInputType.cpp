@@ -158,6 +158,8 @@ void RangeInputType::handleMouseDownEvent(MouseEvent* event)
 
 void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 {
+    if (element()->disabled() || element()->readOnly())
+        return;
     const String& key = event->keyIdentifier();
     if (key != "Up" && key != "Right" && key != "Down" && key != "Left")
         return;
@@ -255,6 +257,11 @@ void RangeInputType::minOrMaxAttributeChanged()
     // Sanitize the value.
     element()->setValue(element()->value());
     element()->setNeedsStyleRecalc();
+}
+
+void RangeInputType::valueChanged()
+{
+    element()->shadowRoot()->setNeedsStyleRecalc();
 }
 
 String RangeInputType::fallbackValue()

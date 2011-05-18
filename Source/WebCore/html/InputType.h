@@ -152,6 +152,7 @@ public:
     virtual String typeMismatchText() const;
     virtual String valueMissingText() const;
     virtual bool canSetStringValue() const;
+    virtual String visibleValue() const;
     virtual bool isAcceptableValue(const String&);
     virtual String sanitizeValue(const String&);
     virtual bool hasUnacceptableValue();
@@ -197,9 +198,11 @@ public:
     virtual void minOrMaxAttributeChanged();
     virtual void altAttributeChanged();
     virtual void srcAttributeChanged();
+    virtual void valueChanged();
     virtual void willMoveToNewOwnerDocument();
     virtual bool shouldRespectAlignAttribute();
     virtual FileList* files();
+    // Should return true if the corresponding renderer for a type can display a suggested value.
     virtual bool canSetSuggestedValue();
     virtual bool shouldSendChangeEventAfterCheckedChanged();
     virtual bool canSetValue(const String&);

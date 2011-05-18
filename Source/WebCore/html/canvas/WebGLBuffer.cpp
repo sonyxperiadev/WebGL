@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLBuffer.h"
 
@@ -34,7 +34,7 @@
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLBuffer> WebGLBuffer::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLBuffer(ctx));
@@ -207,4 +207,4 @@ void WebGLBuffer::clearCachedMaxIndices()
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

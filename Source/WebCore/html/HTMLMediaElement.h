@@ -129,6 +129,12 @@ public:
     bool webkitClosedCaptionsVisible() const;
     void setWebkitClosedCaptionsVisible(bool);
 
+#if ENABLE(MEDIA_STATISTICS)
+// Statistics
+    unsigned long webkitAudioBytesDecoded() const;
+    unsigned long webkitVideoBytesDecoded() const;
+#endif
+
 // controls
     bool controls() const;
     void setControls(bool);
@@ -152,7 +158,7 @@ public:
     void getPluginProxyParams(KURL& url, Vector<String>& names, Vector<String>& values);
     virtual void finishParsingChildren();
     void createMediaPlayerProxy();
-    void updateWidget(bool onlyCreateNonNetscapePlugins);
+    void updateWidget(PluginCreationOption);
 #endif
 
     bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }

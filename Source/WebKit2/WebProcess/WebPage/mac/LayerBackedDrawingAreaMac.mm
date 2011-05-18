@@ -23,18 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
+#import "LayerBackedDrawingArea.h"
+
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "LayerBackedDrawingArea.h"
-
-#include "DrawingAreaProxyMessageKinds.h"
-#include "WebKitSystemInterface.h"
-#include "WebPage.h"
-#include "WebProcess.h"
-#include <WebCore/Frame.h>
-#include <WebCore/FrameView.h>
-#include <WebCore/GraphicsLayer.h>
-#include <WebCore/Page.h>
+#import "DrawingAreaProxyMessageKinds.h"
+#import "WebKitSystemInterface.h"
+#import "WebPage.h"
+#import "WebProcess.h"
+#import <WebCore/Frame.h>
+#import <WebCore/FrameView.h>
+#import <WebCore/GraphicsLayer.h>
+#import <WebCore/Page.h>
 
 using namespace WebCore;
 
@@ -83,7 +84,7 @@ void LayerBackedDrawingArea::attachCompositingContext()
     WKCARemoteLayerClientSetLayer(m_remoteLayerRef.get(), m_hostingLayer->platformLayer());
     
     uint32_t contextID = WKCARemoteLayerClientGetClientId(m_remoteLayerRef.get());
-    WebProcess::shared().connection()->sendSync(DrawingAreaProxyLegacyMessage::AttachCompositingContext, m_webPage->pageID(), CoreIPC::In(contextID), CoreIPC::Out());
+    WebProcess::shared().connection()->deprecatedSendSync(DrawingAreaProxyLegacyMessage::AttachCompositingContext, m_webPage->pageID(), CoreIPC::In(contextID), CoreIPC::Out());
 #endif
 }
 

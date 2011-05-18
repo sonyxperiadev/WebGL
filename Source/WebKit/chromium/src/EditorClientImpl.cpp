@@ -40,6 +40,7 @@
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
 #include "RenderObject.h"
+#include "SpellChecker.h"
 
 #include "DOMUtilitiesPrivate.h"
 #include "WebAutoFillClient.h"
@@ -54,6 +55,7 @@
 #include "WebPasswordAutocompleteListener.h"
 #include "WebRange.h"
 #include "WebTextAffinity.h"
+#include "WebTextCheckingCompletionImpl.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
 
@@ -800,18 +802,6 @@ void EditorClientImpl::cancelPendingAutofill()
     m_autofillTimer.stop();
 }
 
-void EditorClientImpl::onAutocompleteSuggestionAccepted(HTMLInputElement* textField)
-{
-    if (m_webView->autoFillClient())
-        m_webView->autoFillClient()->didAcceptAutocompleteSuggestion(WebInputElement(textField));
-
-    WebFrameImpl* webframe = WebFrameImpl::fromFrame(textField->document()->frame());
-    if (!webframe)
-        return;
-
-    webframe->notifiyPasswordListenerOfAutocomplete(WebInputElement(textField));
-}
-
 bool EditorClientImpl::doTextFieldCommandFromEvent(Element* element,
                                                    KeyboardEvent* event)
 {
@@ -874,6 +864,11 @@ void EditorClientImpl::checkSpellingOfString(const UChar* text, int length,
         *misspellingLocation = spellLocation;
     if (misspellingLength)
         *misspellingLength = spellLength;
+}
+
+void EditorClientImpl::requestCheckingOfString(SpellChecker* sender, int identifier, const String& text)
+{
+    m_webView->client()->requestCheckingOfText(text, new WebTextCheckingCompletionImpl(identifier, sender));
 }
 
 String EditorClientImpl::getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWord)

@@ -27,7 +27,9 @@
 #include "Attribute.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
+#include "SVGFEDiffuseLightingElement.h"
 #include "SVGFilterElement.h"
+#include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGNames.h"
 
 namespace WebCore {
@@ -91,11 +93,21 @@ void SVGFELightElement::svgAttributeChanged(const QualifiedName& attrName)
         || attrName == SVGNames::pointsAtZAttr
         || attrName == SVGNames::specularExponentAttr
         || attrName == SVGNames::limitingConeAngleAttr) {
-        if (ContainerNode* parent = parentNode()) {
-            RenderObject* renderer = parent->renderer();
-            if (renderer && renderer->isSVGResourceFilterPrimitive())
-                RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
+        ContainerNode* parent = parentNode();
+        if (!parent)
+            return;
+
+        RenderObject* renderer = parent->renderer();
+        if (!renderer || !renderer->isSVGResourceFilterPrimitive())
+            return;
+
+        if (parent->hasTagName(SVGNames::feDiffuseLightingTag)) {
+            SVGFEDiffuseLightingElement* diffuseLighting = static_cast<SVGFEDiffuseLightingElement*>(parent);
+            diffuseLighting->lightElementAttributeChanged(this, attrName);
+            return;
         }
+        // Handler for SpecularLighting has not implemented yet.
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
     }
 }
 
@@ -137,6 +149,27 @@ void SVGFELightElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeSpecularExponent();
     else if (attrName == SVGNames::limitingConeAngleAttr)
         synchronizeLimitingConeAngle();
+}
+
+AttributeToPropertyTypeMap& SVGFELightElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGFELightElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+    attributeToPropertyTypeMap.set(SVGNames::azimuthAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::elevationAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::zAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::pointsAtXAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::pointsAtYAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::pointsAtZAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::specularExponentAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::limitingConeAngleAttr, AnimatedNumber);
 }
 
 void SVGFELightElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)

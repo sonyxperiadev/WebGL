@@ -23,11 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
+#import "PluginProxy.h"
+
 #if ENABLE(PLUGIN_PROCESS)
 
-#include "PluginProxy.h"
-
-#include <WebKitSystemInterface.h>
+#import <WebKitSystemInterface.h>
 
 namespace WebKit {
 

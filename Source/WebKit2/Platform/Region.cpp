@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "Region.h"
 
 // A region class based on the paper "Scanline Coherent Shape Algebra"
@@ -72,8 +73,8 @@ Region::Shape::Shape(const IntRect& rect)
 {
     appendSpan(rect.y());
     appendSegment(rect.x());
-    appendSegment(rect.right());
-    appendSpan(rect.bottom());
+    appendSegment(rect.maxX());
+    appendSpan(rect.maxY());
 }
 
 void Region::Shape::appendSpan(int y)
@@ -254,7 +255,7 @@ Region::Shape Region::Shape::shapeOperation(const Shape& shape1, const Shape& sh
 
     // Iterate over all spans.
     while (spans1 != spans1End && spans2 != spans2End) {
-        int y;
+        int y = 0;
         int test = spans1->y - spans2->y;
 
         if (test <= 0) {

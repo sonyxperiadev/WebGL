@@ -103,8 +103,7 @@ void CachedImage::didAddClient(CachedResourceClient* c)
     if (m_image && !m_image->isNull())
         c->imageChanged(this);
 
-    if (!isLoading())
-        c->notifyFinished(this);
+    CachedResource::didAddClient(c);
 }
 
 void CachedImage::allClientsRemoved()

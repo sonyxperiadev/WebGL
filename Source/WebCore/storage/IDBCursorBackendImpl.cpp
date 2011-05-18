@@ -68,7 +68,6 @@ unsigned short IDBCursorBackendImpl::direction() const
 
 PassRefPtr<IDBKey> IDBCursorBackendImpl::key() const
 {
-    
     return m_currentKey;
 }
 
@@ -79,43 +78,15 @@ PassRefPtr<IDBAny> IDBCursorBackendImpl::value() const
     return IDBAny::create(m_currentIDBKeyValue.get());
 }
 
-void IDBCursorBackendImpl::update(PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBCallbacks> prpCallbacks, ExceptionCode& ec)
+void IDBCursorBackendImpl::update(PassRefPtr<SerializedScriptValue> value, PassRefPtr<IDBCallbacks> callbacks, ExceptionCode& ec)
 {
-    RefPtr<IDBCursorBackendImpl> cursor = this;
-    RefPtr<SerializedScriptValue> value = prpValue;
-    RefPtr<IDBCallbacks> callbacks = prpCallbacks;
-    // FIXME: Throw DATA_ERR and SERIAL_ERR when appropriate.
-    if (!m_transaction->scheduleTask(createCallbackTask(&IDBCursorBackendImpl::updateInternal, cursor, value, callbacks)))
+    if (!m_query || m_currentId == InvalidId || !m_isSerializedScriptValueCursor) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
-}
-
-void IDBCursorBackendImpl::updateInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl> cursor, PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBCallbacks> callbacks)
-{
-    // FIXME: This method doesn't update indexes. It's dangerous to call in its current state.
-    callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Not implemented."));
-    return;
-
-    RefPtr<SerializedScriptValue> value = prpValue;
-
-    if (!cursor->m_query || cursor->m_currentId == InvalidId) {
-        // FIXME: Use the proper error code when it's specced.
-        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Operation not possible."));
         return;
     }
 
-    String sql = "UPDATE ObjectStoreData SET value = ? WHERE id = ?";
-    SQLiteStatement updateQuery(cursor->database(), sql);
-    
-    bool ok = updateQuery.prepare() == SQLResultOk;
-    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
-    updateQuery.bindText(1, value->toWireString());
-    updateQuery.bindInt64(2, cursor->m_currentId);
-    ok = updateQuery.step() == SQLResultDone;
-    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
-
-    if (cursor->m_isSerializedScriptValueCursor)
-        cursor->m_currentSerializedScriptValue = value.release();
-    callbacks->onSuccess();
+    RefPtr<IDBKey> key = m_currentIDBKeyValue ? m_currentIDBKeyValue : m_currentKey;
+    m_objectStore->put(value, key.release(), IDBObjectStoreBackendInterface::CursorUpdate, callbacks, m_transaction.get(), ec);
 }
 
 void IDBCursorBackendImpl::continueFunction(PassRefPtr<IDBKey> prpKey, PassRefPtr<IDBCallbacks> prpCallbacks, ExceptionCode& ec)
@@ -127,6 +98,20 @@ void IDBCursorBackendImpl::continueFunction(PassRefPtr<IDBKey> prpKey, PassRefPt
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
 }
 
+bool IDBCursorBackendImpl::currentRowExists()
+{
+    String sql = m_currentIDBKeyValue ? "SELECT id FROM IndexData WHERE id = ?" : "SELECT id FROM ObjectStoreData WHERE id = ?";
+    SQLiteStatement statement(m_database->db(), sql);
+
+    bool ok = statement.prepare() == SQLResultOk;
+    ASSERT_UNUSED(ok, ok);
+
+    statement.bindInt64(1, m_currentId);
+    return statement.step() == SQLResultRow;
+}
+
+// IMPORTANT: If this ever 1) fires an 'error' event and 2) it's possible to fire another event afterwards,
+//            IDBRequest::hasPendingActivity() will need to be modified to handle this!!!
 void IDBCursorBackendImpl::continueFunctionInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl> prpCursor, PassRefPtr<IDBKey> prpKey, PassRefPtr<IDBCallbacks> callbacks)
 {
     RefPtr<IDBCursorBackendImpl> cursor = prpCursor;
@@ -138,12 +123,16 @@ void IDBCursorBackendImpl::continueFunctionInternal(ScriptExecutionContext*, Pas
             cursor->m_currentKey = 0;
             cursor->m_currentSerializedScriptValue = 0;
             cursor->m_currentIDBKeyValue = 0;
-            callbacks->onSuccess();
+            callbacks->onSuccess(SerializedScriptValue::nullValue());
             return;
         }
 
         RefPtr<IDBKey> oldKey = cursor->m_currentKey;
         cursor->loadCurrentRow();
+
+        // Skip if this entry has been deleted from the object store.
+        if (!cursor->currentRowExists())
+            continue;
 
         // If a key was supplied, we must loop until we find that key (or hit the end).
         if (key && !key->isEqual(cursor->m_currentKey.get()))
@@ -178,7 +167,7 @@ void IDBCursorBackendImpl::loadCurrentRow()
     m_currentId = m_query->getColumnInt64(0);
     m_currentKey = IDBKey::fromQuery(*m_query, 1);
     if (m_isSerializedScriptValueCursor)
-        m_currentSerializedScriptValue = SerializedScriptValue::createFromWire(m_query->getColumnText(4));
+        m_currentSerializedScriptValue = SerializedScriptValue::createFromWire(m_query->getColumnBlobAsString(4));
 
     m_currentIDBKeyValue = IDBKey::fromQuery(*m_query, 5);
 }

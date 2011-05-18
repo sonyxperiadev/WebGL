@@ -77,6 +77,16 @@ FilterEffect* FilterEffect::inputEffect(unsigned number) const
     return m_inputEffects.at(number).get();
 }
 
+void FilterEffect::clearResult()
+{
+    if (m_imageBufferResult)
+        m_imageBufferResult.clear();
+    if (m_unmultipliedImageResult)
+        m_unmultipliedImageResult.clear();
+    if (m_premultipliedImageResult)
+        m_premultipliedImageResult.clear();
+}
+
 ImageBuffer* FilterEffect::asImageBuffer()
 {
     if (!hasResult())
@@ -109,7 +119,7 @@ PassRefPtr<ByteArray> FilterEffect::asPremultipliedImage(const IntRect& rect)
 inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destination, const IntRect& rect)
 {
     // Copy the necessary lines.
-    if (rect.x() < 0 || rect.y() < 0 || rect.bottom() > m_absolutePaintRect.width() || rect.bottom() > m_absolutePaintRect.height())
+    if (rect.x() < 0 || rect.y() < 0 || rect.maxY() > m_absolutePaintRect.width() || rect.maxY() > m_absolutePaintRect.height())
         memset(destination->data(), 0, destination->length());
 
     int xOrigin = rect.x();
@@ -118,7 +128,7 @@ inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destinati
         xDest = -xOrigin;
         xOrigin = 0;
     }
-    int xEnd = rect.right();
+    int xEnd = rect.maxX();
     if (xEnd > m_absolutePaintRect.width())
         xEnd = m_absolutePaintRect.width();
 
@@ -128,7 +138,7 @@ inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destinati
         yDest = -yOrigin;
         yOrigin = 0;
     }
-    int yEnd = rect.bottom();
+    int yEnd = rect.maxY();
     if (yEnd > m_absolutePaintRect.height())
         yEnd = m_absolutePaintRect.height();
 

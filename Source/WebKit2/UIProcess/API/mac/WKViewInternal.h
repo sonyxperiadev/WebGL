@@ -36,6 +36,7 @@ namespace WebKit {
 - (PassOwnPtr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy;
 - (BOOL)_isFocused;
 - (void)_processDidCrash;
+- (void)_pageClosed;
 - (void)_didRelaunchProcess;
 - (void)_takeFocus:(BOOL)direction;
 - (void)_toolTipChangedFrom:(NSString *)oldToolTip to:(NSString *)newToolTip;
@@ -48,6 +49,9 @@ namespace WebKit {
 - (NSRect)_convertToUserSpace:(NSRect)rect;
 - (void)_setFindIndicator:(PassRefPtr<WebKit::FindIndicator>)findIndicator fadeOut:(BOOL)fadeOut;
 
+- (void)_enterAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
+- (void)_exitAcceleratedCompositingMode;
+
 #if USE(ACCELERATED_COMPOSITING)
 - (void)_startAcceleratedCompositing:(CALayer *)rootLayer;
 - (void)_stopAcceleratedCompositing;
@@ -55,7 +59,7 @@ namespace WebKit {
 - (void)_pageDidLeaveAcceleratedCompositing;
 #endif
 
-- (void)_setAccessibilityChildToken:(NSData *)data;
+- (void)_setAccessibilityWebProcessToken:(NSData *)data;
 - (void)_setComplexTextInputEnabled:(BOOL)complexTextInputEnabled pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 
 - (void)_setPageHasCustomRepresentation:(BOOL)pageHasCustomRepresentation;
@@ -64,4 +68,7 @@ namespace WebKit {
 - (void)_setCustomRepresentationZoomFactor:(double)zoomFactor;
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
 
+- (void)_setDrawingAreaSize:(NSSize)size;
+
+- (void)_didChangeScrollbarsForMainFrame;
 @end

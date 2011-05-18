@@ -46,7 +46,7 @@ struct CSSGradientColorStop {
 
 class CSSGradientValue : public CSSImageGeneratorValue {
 public:
-    virtual Image* image(RenderObject*, const IntSize&);
+    virtual PassRefPtr<Image> image(RenderObject*, const IntSize&);
 
     void setFirstX(PassRefPtr<CSSPrimitiveValue> val) { m_firstX = val; }
     void setFirstY(PassRefPtr<CSSPrimitiveValue> val) { m_firstY = val; }
@@ -81,6 +81,8 @@ protected:
 
     // Resolve points/radii to front end values.
     FloatPoint computeEndPoint(CSSPrimitiveValue*, CSSPrimitiveValue*, RenderStyle*, RenderStyle* rootStyle, const IntSize&);
+    
+    bool isCacheable() const;
 
     // Points. Some of these may be null for linear gradients.
     RefPtr<CSSPrimitiveValue> m_firstX;

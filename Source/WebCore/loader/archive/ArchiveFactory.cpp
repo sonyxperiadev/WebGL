@@ -62,7 +62,7 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
     if (initialized)
         return mimeTypes;
 
-#if PLATFORM(CF) && !PLATFORM(QT)
+#if PLATFORM(CF)
     mimeTypes.set("application/x-webarchive", archiveFactoryCreate<LegacyWebArchive>);
 #elif PLATFORM(ANDROID)
     mimeTypes.set("application/x-webarchive-xml", archiveFactoryCreate<WebArchiveAndroid>);

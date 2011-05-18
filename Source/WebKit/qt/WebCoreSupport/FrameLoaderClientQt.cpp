@@ -180,6 +180,7 @@ QStringList FrameLoaderClientQt::sendRequestClearHeaders;
 QString FrameLoaderClientQt::dumpResourceLoadCallbacksPath;
 bool FrameLoaderClientQt::policyDelegateEnabled = false;
 bool FrameLoaderClientQt::policyDelegatePermissive = false;
+QMap<QString, QString> FrameLoaderClientQt::URLsToRedirect = QMap<QString, QString>();
 
 // Taken from DumpRenderTree/chromium/WebViewHost.cpp
 static const char* navigationTypeToString(NavigationType type)
@@ -629,7 +630,7 @@ void FrameLoaderClientQt::finishedLoading(DocumentLoader* loader)
         // However, we only want to do this if makeRepresentation has been called, to
         // match the behavior on the Mac.
         if (m_hasRepresentation)
-            loader->frameLoader()->writer()->setEncoding("", false);
+            loader->writer()->setEncoding("", false);
         return;
     }
     if (m_pluginView->isPluginView())
@@ -846,7 +847,7 @@ void FrameLoaderClientQt::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClientQt::didRunInsecureContent(WebCore::SecurityOrigin*)
+void FrameLoaderClientQt::didRunInsecureContent(WebCore::SecurityOrigin*, const KURL&)
 {
     if (dumpFrameLoaderCallbacks)
         printf("didRunInsecureContent\n");
@@ -1021,6 +1022,11 @@ void FrameLoaderClientQt::dispatchWillSendRequest(WebCore::DocumentLoader*, unsi
     for (int i = 0; i < sendRequestClearHeaders.size(); ++i)
           newRequest.setHTTPHeaderField(sendRequestClearHeaders.at(i).toLocal8Bit().constData(), QString());
 
+    if (QWebPagePrivate::drtRun) {
+        QString url = newRequest.url().string();
+        if (URLsToRedirect.contains(url))
+            newRequest.setURL(QUrl(URLsToRedirect[url]));
+    }
     // seems like the Mac code doesn't do anything here by default neither
     //qDebug() << "FrameLoaderClientQt::dispatchWillSendRequest" << request.isNull() << request.url().string`();
 }
@@ -1510,46 +1516,46 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
 #endif // QT_NO_STYLE_STYLESHEET
     }
 
-        if (!object) {
-            QWebPluginFactory* factory = m_webFrame->page()->pluginFactory();
-            if (factory)
-                object = factory->create(mimeType, qurl, params, values);
+    if (!object) {
+        QWebPluginFactory* factory = m_webFrame->page()->pluginFactory();
+        if (factory)
+            object = factory->create(mimeType, qurl, params, values);
+    }
+
+    if (object) {
+        QWidget* widget = qobject_cast<QWidget*>(object);
+        if (widget) {
+            QWidget* parentWidget = 0;
+            if (m_webFrame->page()->d->client)
+                parentWidget = qobject_cast<QWidget*>(m_webFrame->page()->d->client->pluginParent());
+            if (parentWidget) // don't reparent to nothing (i.e. keep whatever parent QWebPage::createPlugin() chose.
+                widget->setParent(parentWidget);
+            widget->hide();
+            RefPtr<QtPluginWidget> w = adoptRef(new QtPluginWidget());
+            w->setPlatformWidget(widget);
+            // Make sure it's invisible until properly placed into the layout
+            w->setFrameRect(IntRect(0, 0, 0, 0));
+            return w;
         }
 
-        if (object) {
-            QWidget* widget = qobject_cast<QWidget*>(object);
-            if (widget) {
-                QWidget* parentWidget = 0;
-                if (m_webFrame->page()->d->client)
-                    parentWidget = qobject_cast<QWidget*>(m_webFrame->page()->d->client->pluginParent());
-                if (parentWidget) // don't reparent to nothing (i.e. keep whatever parent QWebPage::createPlugin() chose.
-                    widget->setParent(parentWidget);
-                widget->hide();
-                RefPtr<QtPluginWidget> w = adoptRef(new QtPluginWidget());
-                w->setPlatformWidget(widget);
-                // Make sure it's invisible until properly placed into the layout
-                w->setFrameRect(IntRect(0, 0, 0, 0));
-                return w;
-            }
-
 #if !defined(QT_NO_GRAPHICSVIEW)
-            QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
-            if (graphicsWidget) {
-                QGraphicsObject* parentWidget = 0;
-                if (m_webFrame->page()->d->client)
-                    parentWidget = qobject_cast<QGraphicsObject*>(m_webFrame->page()->d->client->pluginParent());
-                graphicsWidget->hide();
-                if (parentWidget) // don't reparent to nothing (i.e. keep whatever parent QWebPage::createPlugin() chose.
-                    graphicsWidget->setParentItem(parentWidget);
-                RefPtr<QtPluginGraphicsWidget> w = QtPluginGraphicsWidget::create(graphicsWidget);
-                // Make sure it's invisible until properly placed into the layout
-                w->setFrameRect(IntRect(0, 0, 0, 0));
-                return w;
-            }
+        QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
+        if (graphicsWidget) {
+            QGraphicsObject* parentWidget = 0;
+            if (m_webFrame->page()->d->client)
+                parentWidget = qobject_cast<QGraphicsObject*>(m_webFrame->page()->d->client->pluginParent());
+            graphicsWidget->hide();
+            if (parentWidget) // don't reparent to nothing (i.e. keep whatever parent QWebPage::createPlugin() chose.
+                graphicsWidget->setParentItem(parentWidget);
+            RefPtr<QtPluginGraphicsWidget> w = QtPluginGraphicsWidget::create(graphicsWidget);
+            // Make sure it's invisible until properly placed into the layout
+            w->setFrameRect(IntRect(0, 0, 0, 0));
+            return w;
+        }
 #endif // QT_NO_GRAPHICSVIEW
 
-            // FIXME: make things work for widgetless plugins as well
-            delete object;
+        // FIXME: make things work for widgetless plugins as well
+        delete object;
     }
 #if ENABLE(NETSCAPE_PLUGIN_API)
     else { // NPAPI Plugins
@@ -1575,7 +1581,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 if (wmodeIndex == -1) {
                     params.append("wmode");
                     values.append("opaque");
-                } else
+                } else if (equalIgnoringCase(values[wmodeIndex], "window"))
                     values[wmodeIndex] = "opaque";
             }
 #endif

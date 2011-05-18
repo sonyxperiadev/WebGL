@@ -370,11 +370,6 @@ void ChromeClientWinCE::formStateDidChange(const Node*)
     notImplemented();
 }
 
-PassOwnPtr<HTMLParserQuirks> ChromeClientWinCE::createHTMLParserQuirks()
-{
-    return 0;
-}
-
 void ChromeClientWinCE::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     notImplemented();
@@ -386,6 +381,11 @@ void ChromeClientWinCE::cancelGeolocationPermissionRequestForFrame(Frame*, Geolo
 }
 
 bool ChromeClientWinCE::selectItemWritingDirectionIsNatural()
+{
+    return false;
+}
+
+bool ChromeClientWinCE::selectItemAlignmentFollowsMenuWritingDirection()
 {
     return false;
 }

@@ -41,4 +41,4 @@ sys.path.append(os.path.join(webkitpy_directory, "thirdparty"))
 import rebaseline_chromium_webkit_tests
 
 if __name__ == '__main__':
-    rebaseline_chromium_webkit_tests.main()
+    rebaseline_chromium_webkit_tests.main(sys.argv[1:])

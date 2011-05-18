@@ -23,13 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "PluginInfoStore.h"
+#import "config.h"
+#import "PluginInfoStore.h"
 
-#include "NetscapePluginModule.h"
-#include "WebKitSystemInterface.h"
-#include <WebCore/WebCoreNSStringExtras.h>
-#include <wtf/HashSet.h>
-#include <wtf/RetainPtr.h>
+#import "NetscapePluginModule.h"
+#import "WebKitSystemInterface.h"
+#import <WebCore/WebCoreNSStringExtras.h>
+#import <wtf/HashSet.h>
+#import <wtf/RetainPtr.h>
 
 using namespace WebCore;
 

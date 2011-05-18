@@ -371,7 +371,7 @@ void HTMLElement::setOuterHTML(const String& html, ExceptionCode& ec)
         ec = NO_MODIFICATION_ALLOWED_ERR;
         return;
     }
-    HTMLElement* parent = static_cast<HTMLElement*>(p);
+    HTMLElement* parent = toHTMLElement(p);
 
     RefPtr<DocumentFragment> fragment = createFragmentFromSource(html, parent, ec);
     if (fragment) {
@@ -735,6 +735,8 @@ void HTMLElement::setContentEditable(const String& enabled, ExceptionCode& ec)
         setAttribute(contenteditableAttr, "true", ec);
     else if (equalIgnoringCase(enabled, "false"))
         setAttribute(contenteditableAttr, "false", ec);
+    else if (equalIgnoringCase(enabled, "plaintext-only"))
+        setAttribute(contenteditableAttr, "plaintext-only");
     else if (equalIgnoringCase(enabled, "inherit"))
         removeAttribute(contenteditableAttr, ec);
     else
@@ -850,7 +852,7 @@ HTMLFormElement* HTMLElement::shadowAncestorOwnerForm()
 
     if (!ancestorNode->isHTMLElement())
         return 0;
-    HTMLElement* ancestorHTML = static_cast<HTMLElement*>(ancestorNode);
+    HTMLElement* ancestorHTML = toHTMLElement(ancestorNode);
     if (!ancestorHTML)
         return 0;
     return ancestorHTML->form();

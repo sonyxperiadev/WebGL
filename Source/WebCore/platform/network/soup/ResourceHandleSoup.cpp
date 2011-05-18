@@ -45,12 +45,14 @@
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
-#include "soup-request-http.h"
 #include "TextEncoding.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <gio/gio.h>
 #include <glib.h>
+#define LIBSOUP_USE_UNSTABLE_REQUEST_API
+#include <libsoup/soup-request-http.h>
+#include <libsoup/soup-requester.h>
 #include <libsoup/soup.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -127,7 +129,7 @@ static void cleanupSoupRequestOperation(ResourceHandle*, bool isDestroying);
 static void sendRequestCallback(GObject*, GAsyncResult*, gpointer);
 static void readCallback(GObject*, GAsyncResult*, gpointer);
 static void closeCallback(GObject*, GAsyncResult*, gpointer);
-static bool startGio(ResourceHandle*, KURL);
+static bool startNonHTTPRequest(ResourceHandle*, KURL);
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
@@ -145,14 +147,48 @@ ResourceHandle::~ResourceHandle()
     cleanupSoupRequestOperation(this, true);
 }
 
+static void ensureSessionIsInitialized(SoupSession* session)
+{
+    // Values taken from http://stevesouders.com/ua/index.php following
+    // the rule "Do What Every Other Modern Browser Is Doing". They seem
+    // to significantly improve page loading time compared to soup's
+    // default values.
+    static const int maxConnections = 60;
+    static const int maxConnectionsPerHost = 6;
+
+    if (g_object_get_data(G_OBJECT(session), "webkit-init"))
+        return;
+
+    SoupCookieJar* jar = SOUP_COOKIE_JAR(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
+    if (!jar)
+        soup_session_add_feature(session, SOUP_SESSION_FEATURE(defaultCookieJar()));
+    else
+        setDefaultCookieJar(jar);
+
+    if (!soup_session_get_feature(session, SOUP_TYPE_LOGGER) && LogNetwork.state == WTFLogChannelOn) {
+        SoupLogger* logger = soup_logger_new(static_cast<SoupLoggerLogLevel>(SOUP_LOGGER_LOG_BODY), -1);
+        soup_session_add_feature(session, SOUP_SESSION_FEATURE(logger));
+        g_object_unref(logger);
+    }
+
+    SoupRequester* requester = soup_requester_new();
+    soup_session_add_feature(session, SOUP_SESSION_FEATURE(requester));
+    g_object_unref(requester);
+
+    g_object_set(session,
+                 SOUP_SESSION_MAX_CONNS, maxConnections,
+                 SOUP_SESSION_MAX_CONNS_PER_HOST, maxConnectionsPerHost,
+                 NULL);
+
+    g_object_set_data(G_OBJECT(session), "webkit-init", reinterpret_cast<void*>(0xdeadbeef));
+}
+
 void ResourceHandle::prepareForURL(const KURL &url)
 {
-#ifdef HAVE_LIBSOUP_2_29_90
     GOwnPtr<SoupURI> soupURI(soup_uri_new(url.prettyURL().utf8().data()));
     if (!soupURI)
         return;
     soup_session_prepare_for_uri(ResourceHandle::defaultSession(), soupURI.get());
-#endif
 }
 
 // All other kinds of redirections, except for the *304* status code
@@ -206,14 +242,12 @@ static void restartedCallback(SoupMessage* msg, gpointer data)
     if (d->m_cancelled)
         return;
 
-#ifdef HAVE_LIBSOUP_2_29_90
     // Update the first party in case the base URL changed with the redirect
     String firstPartyString = request.firstPartyForCookies().string();
     if (!firstPartyString.isEmpty()) {
         GOwnPtr<SoupURI> firstParty(soup_uri_new(firstPartyString.utf8().data()));
         soup_message_set_first_party(d->m_soupMessage.get(), firstParty.get());
     }
-#endif
 }
 
 static void contentSniffedCallback(SoupMessage*, const char*, GHashTable*, gpointer);
@@ -263,7 +297,26 @@ static void gotHeadersCallback(SoupMessage* msg, gpointer data)
     client->didReceiveResponse(handle.get(), d->m_response);
 }
 
-// This callback will not be called if the content sniffer is disabled in startHttp.
+static void wroteBodyDataCallback(SoupMessage*, SoupBuffer* buffer, gpointer data)
+{
+    RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
+    if (!handle)
+        return;
+
+    ASSERT(buffer);
+    ResourceHandleInternal* internal = handle->getInternal();
+    internal->m_bodyDataSent += buffer->length;
+
+    if (internal->m_cancelled)
+        return;
+    ResourceHandleClient* client = handle->client();
+    if (!client)
+        return;
+
+    client->didSendData(handle.get(), internal->m_bodyDataSent, internal->m_bodySize);
+}
+
+// This callback will not be called if the content sniffer is disabled in startHTTPRequest.
 static void contentSniffedCallback(SoupMessage* msg, const char* sniffedType, GHashTable *params, gpointer data)
 {
     if (sniffedType) {
@@ -312,134 +365,9 @@ static void gotChunkCallback(SoupMessage* msg, SoupBuffer* chunk, gpointer data)
     client->didReceiveData(handle.get(), chunk->data, chunk->length, false);
 }
 
-static gboolean parseDataUrl(gpointer callbackData)
-{
-    ResourceHandle* handle = static_cast<ResourceHandle*>(callbackData);
-    ResourceHandleClient* client = handle->client();
-    ResourceHandleInternal* d = handle->getInternal();
-    if (d->m_cancelled)
-        return false;
-
-    d->m_idleHandler = 0;
-
-    ASSERT(client);
-    if (!client)
-        return false;
-
-    String url = handle->firstRequest().url().string();
-    ASSERT(url.startsWith("data:", false));
-
-    int index = url.find(',');
-    if (index == -1) {
-        client->cannotShowURL(handle);
-        return false;
-    }
-
-    String mediaType = url.substring(5, index - 5);
-
-    bool isBase64 = mediaType.endsWith(";base64", false);
-    if (isBase64)
-        mediaType = mediaType.left(mediaType.length() - 7);
-
-    if (mediaType.isEmpty())
-        mediaType = "text/plain;charset=US-ASCII";
-
-    String mimeType = extractMIMETypeFromMediaType(mediaType);
-    String charset = extractCharsetFromMediaType(mediaType);
-
-    ASSERT(d->m_response.isNull());
-
-    d->m_response.setURL(handle->firstRequest().url());
-    d->m_response.setMimeType(mimeType);
-
-    // For non base64 encoded data we have to convert to UTF-16 early
-    // due to limitations in KURL
-    d->m_response.setTextEncodingName(isBase64 ? charset : "UTF-16");
-    client->didReceiveResponse(handle, d->m_response);
-
-    // The load may be cancelled, and the client may be destroyed
-    // by any of the client reporting calls, so we check, and bail
-    // out in either of those cases.
-    if (d->m_cancelled || !handle->client())
-        return false;
-
-    SoupSession* session = handle->defaultSession();
-    GOwnPtr<GError> error;
-    d->m_soupRequest = adoptGRef(webkit_soup_requester_request(d->m_requester.get(), handle->firstRequest().url().string().utf8().data(), session, &error.outPtr()));
-    if (error) {
-        d->m_soupRequest = 0;
-        client->didFinishLoading(handle, 0);
-        return false;
-    }
-
-    d->m_inputStream = adoptGRef(webkit_soup_request_send(d->m_soupRequest.get(), 0, &error.outPtr()));
-    if (error) {
-        d->m_inputStream = 0;
-        client->didFinishLoading(handle, 0);
-        return false;
-    }
-
-    d->m_buffer = static_cast<char*>(g_slice_alloc0(READ_BUFFER_SIZE));
-    d->m_total = 0;
-
-    g_object_set_data(G_OBJECT(d->m_inputStream.get()), "webkit-resource", handle);
-    // balanced by a deref() in cleanupSoupRequestOperation, which should always run
-    handle->ref();
-
-    d->m_cancellable = adoptGRef(g_cancellable_new());
-    g_input_stream_read_async(d->m_inputStream.get(), d->m_buffer, READ_BUFFER_SIZE, G_PRIORITY_DEFAULT,
-                              d->m_cancellable.get(), readCallback, GINT_TO_POINTER(!isBase64));
-
-    return false;
-}
-
-static bool startData(ResourceHandle* handle, String urlString)
-{
-    ASSERT(handle);
-
-    ResourceHandleInternal* d = handle->getInternal();
-
-    // If parseDataUrl is called synchronously the job is not yet effectively started
-    // and webkit won't never know that the data has been parsed even didFinishLoading is called.
-    d->m_idleHandler = g_timeout_add(0, parseDataUrl, handle);
-    return true;
-}
-
 static SoupSession* createSoupSession()
 {
     return soup_session_async_new();
-}
-
-// Values taken from http://stevesouders.com/ua/index.php following
-// the rule "Do What Every Other Modern Browser Is Doing". They seem
-// to significantly improve page loading time compared to soup's
-// default values.
-#define MAX_CONNECTIONS          60
-#define MAX_CONNECTIONS_PER_HOST 6
-
-static void ensureSessionIsInitialized(SoupSession* session)
-{
-    if (g_object_get_data(G_OBJECT(session), "webkit-init"))
-        return;
-
-    SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
-    if (!jar)
-        soup_session_add_feature(session, SOUP_SESSION_FEATURE(defaultCookieJar()));
-    else
-        setDefaultCookieJar(jar);
-
-    if (!soup_session_get_feature(session, SOUP_TYPE_LOGGER) && LogNetwork.state == WTFLogChannelOn) {
-        SoupLogger* logger = soup_logger_new(static_cast<SoupLoggerLogLevel>(SOUP_LOGGER_LOG_BODY), -1);
-        soup_logger_attach(logger, session);
-        g_object_unref(logger);
-    }
-
-    g_object_set(session,
-                 SOUP_SESSION_MAX_CONNS, MAX_CONNECTIONS,
-                 SOUP_SESSION_MAX_CONNS_PER_HOST, MAX_CONNECTIONS_PER_HOST,
-                 NULL);
-
-    g_object_set_data(G_OBJECT(session), "webkit-init", reinterpret_cast<void*>(0xdeadbeef));
 }
 
 static void cleanupSoupRequestOperation(ResourceHandle* handle, bool isDestroying = false)
@@ -495,14 +423,14 @@ static void sendRequestCallback(GObject* source, GAsyncResult* res, gpointer use
     }
 
     GOwnPtr<GError> error;
-    GInputStream* in = webkit_soup_request_send_finish(d->m_soupRequest.get(), res, &error.outPtr());
+    GInputStream* in = soup_request_send_finish(d->m_soupRequest.get(), res, &error.outPtr());
 
     if (error) {
         SoupMessage* soupMsg = d->m_soupMessage.get();
         gboolean isTransportError = d->m_soupMessage && SOUP_STATUS_IS_TRANSPORT_ERROR(soupMsg->status_code);
 
         if (isTransportError || (error->domain == G_IO_ERROR)) {
-            SoupURI* uri = webkit_soup_request_get_uri(d->m_soupRequest.get());
+            SoupURI* uri = soup_request_get_uri(d->m_soupRequest.get());
             GOwnPtr<char> uriStr(soup_uri_to_string(uri, false));
             gint errorCode = isTransportError ? static_cast<gint>(soupMsg->status_code) : error->code;
             const gchar* errorMsg = isTransportError ? soupMsg->reason_phrase : error->message;
@@ -550,13 +478,14 @@ static void sendRequestCallback(GObject* source, GAsyncResult* res, gpointer use
     // readCallback needs it
     g_object_set_data(G_OBJECT(d->m_inputStream.get()), "webkit-resource", handle.get());
 
-    // Ensure a response is sent for any protocols that don't explicitly support responses
-    // through got-headers signal or content sniffing.
-    // (e.g. file and GIO based protocol).
-    if (!handle->shouldContentSniff() && d->m_response.isNull()) {
+    // If not using SoupMessage we need to call didReceiveResponse now.
+    // (This will change later when SoupRequest supports content sniffing.)
+    if (!d->m_soupMessage) {
         d->m_response.setURL(handle->firstRequest().url());
-        d->m_response.setMimeType(webkit_soup_request_get_content_type(d->m_soupRequest.get()));
-        d->m_response.setExpectedContentLength(webkit_soup_request_get_content_length(d->m_soupRequest.get()));
+        const gchar* contentType = soup_request_get_content_type(d->m_soupRequest.get());
+        d->m_response.setMimeType(extractMIMETypeFromMediaType(contentType));
+        d->m_response.setTextEncodingName(extractCharsetFromMediaType(contentType));
+        d->m_response.setExpectedContentLength(soup_request_get_content_length(d->m_soupRequest.get()));
         client->didReceiveResponse(handle.get(), d->m_response);
 
         if (d->m_cancelled) {
@@ -572,12 +501,56 @@ static void sendRequestCallback(GObject* source, GAsyncResult* res, gpointer use
                               G_PRIORITY_DEFAULT, d->m_cancellable.get(), readCallback, 0);
 }
 
-static bool startHttp(ResourceHandle* handle)
+static bool addFormElementsToSoupMessage(SoupMessage* message, const char* contentType, FormData* httpBody, unsigned long& totalBodySize)
+{
+    size_t numElements = httpBody->elements().size();
+    if (numElements < 2) { // No file upload is the most common case.
+        Vector<char> body;
+        httpBody->flatten(body);
+        totalBodySize = body.size();
+        soup_message_set_request(message, contentType, SOUP_MEMORY_COPY, body.data(), body.size());
+        return true;
+    }
+
+    // We have more than one element to upload, and some may be large files,
+    // which we will want to mmap instead of copying into memory
+    soup_message_body_set_accumulate(message->request_body, FALSE);
+    for (size_t i = 0; i < numElements; i++) {
+        const FormDataElement& element = httpBody->elements()[i];
+
+        if (element.m_type == FormDataElement::data) {
+            totalBodySize += element.m_data.size();
+            soup_message_body_append(message->request_body, SOUP_MEMORY_TEMPORARY,
+                                     element.m_data.data(), element.m_data.size());
+            continue;
+        }
+
+        // This technique is inspired by libsoup's simple-httpd test.
+        GOwnPtr<GError> error;
+        CString fileName = fileSystemRepresentation(element.m_filename);
+        GMappedFile* fileMapping = g_mapped_file_new(fileName.data(), false, &error.outPtr());
+        if (error)
+            return false;
+
+        gsize mappedFileSize = g_mapped_file_get_length(fileMapping);
+        totalBodySize += mappedFileSize;
+        SoupBuffer* soupBuffer = soup_buffer_new_with_owner(g_mapped_file_get_contents(fileMapping),
+                                                            mappedFileSize, fileMapping,
+                                                            reinterpret_cast<GDestroyNotify>(g_mapped_file_unref));
+        soup_message_body_append_buffer(message->request_body, soupBuffer);
+        soup_buffer_free(soupBuffer);
+    }
+
+    return true;
+}
+
+static bool startHTTPRequest(ResourceHandle* handle)
 {
     ASSERT(handle);
 
     SoupSession* session = handle->defaultSession();
     ensureSessionIsInitialized(session);
+    SoupRequester* requester = SOUP_REQUESTER(soup_session_get_feature(session, SOUP_TYPE_REQUESTER));
 
     ResourceHandleInternal* d = handle->getInternal();
 
@@ -587,7 +560,7 @@ static bool startHttp(ResourceHandle* handle)
     request.setURL(url);
 
     GOwnPtr<GError> error;
-    d->m_soupRequest = adoptGRef(webkit_soup_requester_request(d->m_requester.get(), url.string().utf8().data(), session, &error.outPtr()));
+    d->m_soupRequest = adoptGRef(soup_requester_request(requester, url.string().utf8().data(), &error.outPtr()));
     if (error) {
         d->m_soupRequest = 0;
         return false;
@@ -595,7 +568,7 @@ static bool startHttp(ResourceHandle* handle)
 
     g_object_set_data(G_OBJECT(d->m_soupRequest.get()), "webkit-resource", handle);
 
-    d->m_soupMessage = adoptGRef(webkit_soup_request_http_get_message(WEBKIT_SOUP_REQUEST_HTTP(d->m_soupRequest.get())));
+    d->m_soupMessage = adoptGRef(soup_request_http_get_message(SOUP_REQUEST_HTTP(d->m_soupRequest.get())));
     if (!d->m_soupMessage)
         return false;
 
@@ -609,65 +582,23 @@ static bool startHttp(ResourceHandle* handle)
 
     g_signal_connect(soupMessage, "restarted", G_CALLBACK(restartedCallback), handle);
     g_signal_connect(soupMessage, "got-headers", G_CALLBACK(gotHeadersCallback), handle);
+    g_signal_connect(soupMessage, "wrote-body-data", G_CALLBACK(wroteBodyDataCallback), handle);
     d->m_gotChunkHandler = g_signal_connect(soupMessage, "got-chunk", G_CALLBACK(gotChunkCallback), handle);
 
-#ifdef HAVE_LIBSOUP_2_29_90
     String firstPartyString = request.firstPartyForCookies().string();
     if (!firstPartyString.isEmpty()) {
         GOwnPtr<SoupURI> firstParty(soup_uri_new(firstPartyString.utf8().data()));
         soup_message_set_first_party(soupMessage, firstParty.get());
     }
-#endif
 
     FormData* httpBody = d->m_firstRequest.httpBody();
-    if (httpBody && !httpBody->isEmpty()) {
-        size_t numElements = httpBody->elements().size();
-
-        // handle the most common case (i.e. no file upload)
-        if (numElements < 2) {
-            Vector<char> body;
-            httpBody->flatten(body);
-            soup_message_set_request(soupMessage, d->m_firstRequest.httpContentType().utf8().data(),
-                                     SOUP_MEMORY_COPY, body.data(), body.size());
-        } else {
-            /*
-             * we have more than one element to upload, and some may
-             * be (big) files, which we will want to mmap instead of
-             * copying into memory; TODO: support upload of non-local
-             * (think sftp://) files by using GIO?
-             */
-            soup_message_body_set_accumulate(soupMessage->request_body, FALSE);
-            for (size_t i = 0; i < numElements; i++) {
-                const FormDataElement& element = httpBody->elements()[i];
-
-                if (element.m_type == FormDataElement::data)
-                    soup_message_body_append(soupMessage->request_body, SOUP_MEMORY_TEMPORARY, element.m_data.data(), element.m_data.size());
-                else {
-                    /*
-                     * mapping for uploaded files code inspired by technique used in
-                     * libsoup's simple-httpd test
-                     */
-                    GOwnPtr<GError> error;
-                    CString fileName = fileSystemRepresentation(element.m_filename);
-                    GMappedFile* fileMapping = g_mapped_file_new(fileName.data(), false, &error.outPtr());
-
-                    if (error) {
-                        g_signal_handlers_disconnect_matched(soupMessage, G_SIGNAL_MATCH_DATA,
-                                                             0, 0, 0, 0, handle);
-                        d->m_soupMessage.clear();
-
-                        return false;
-                    }
-
-                    SoupBuffer* soupBuffer = soup_buffer_new_with_owner(g_mapped_file_get_contents(fileMapping),
-                                                                        g_mapped_file_get_length(fileMapping),
-                                                                        fileMapping,
-                                                                        reinterpret_cast<GDestroyNotify>(g_mapped_file_unref));
-                    soup_message_body_append_buffer(soupMessage->request_body, soupBuffer);
-                    soup_buffer_free(soupBuffer);
-                }
-            }
-        }
+    CString contentType = d->m_firstRequest.httpContentType().utf8().data();
+    if (httpBody && !httpBody->isEmpty()
+        && !addFormElementsToSoupMessage(soupMessage, contentType.data(), httpBody, d->m_bodySize)) {
+        // We failed to prepare the body data, so just fail this load.
+        g_signal_handlers_disconnect_matched(soupMessage, G_SIGNAL_MATCH_DATA, 0, 0, 0, 0, handle);
+        d->m_soupMessage.clear();
+        return false;
     }
 
     // balanced by a deref() in cleanupSoupRequestOperation, which should always run
@@ -681,7 +612,7 @@ static bool startHttp(ResourceHandle* handle)
     // Send the request only if it's not been explicitely deferred.
     if (!d->m_defersLoading) {
         d->m_cancellable = adoptGRef(g_cancellable_new());
-        webkit_soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
+        soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
     }
 
     return true;
@@ -715,19 +646,13 @@ bool ResourceHandle::start(NetworkingContext* context)
     // Used to set the authentication dialog toplevel; may be NULL
     d->m_context = context;
 
-    if (equalIgnoringCase(protocol, "data"))
-        return startData(this, urlString);
-
     if (equalIgnoringCase(protocol, "http") || equalIgnoringCase(protocol, "https")) {
-        if (startHttp(this))
+        if (startHTTPRequest(this))
             return true;
     }
 
-    if (equalIgnoringCase(protocol, "file") || equalIgnoringCase(protocol, "ftp") || equalIgnoringCase(protocol, "ftps")) {
-        // FIXME: should we be doing any other protocols here?
-        if (startGio(this, url))
-            return true;
-    }
+    if (startNonHTTPRequest(this, url))
+        return true;
 
     // Error must not be reported immediately
     this->scheduleFailure(InvalidURLFailure);
@@ -764,7 +689,7 @@ void ResourceHandle::platformSetDefersLoading(bool defersLoading)
 
     if (!defersLoading && !d->m_cancellable && d->m_soupRequest.get()) {
         d->m_cancellable = adoptGRef(g_cancellable_new());
-        webkit_soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
+        soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
         return;
     }
 
@@ -795,11 +720,13 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
 void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
     WebCoreSynchronousLoader syncLoader(error, response, data);
-    // FIXME: we should use the ResourceHandle::create method here,
-    // but it makes us timeout in a couple of tests. See
-    // https://bugs.webkit.org/show_bug.cgi?id=41823
-    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, &syncLoader, false /*defersLoading*/, false /*shouldContentSniff*/));
-    handle->start(context);
+    RefPtr<ResourceHandle> handle = create(context, request, &syncLoader, false /*defersLoading*/, false /*shouldContentSniff*/);
+    if (!handle)
+        return;
+
+    // If the request has already failed, do not run the main loop, or else we'll block indefinitely.
+    if (handle->d->m_scheduledFailureType != NoFailure)
+        return;
 
     syncLoader.run();
 }
@@ -811,18 +738,8 @@ static void closeCallback(GObject* source, GAsyncResult* res, gpointer)
         return;
 
     ResourceHandleInternal* d = handle->getInternal();
-    ResourceHandleClient* client = handle->client();
-
     g_input_stream_close_finish(d->m_inputStream.get(), res, 0);
     cleanupSoupRequestOperation(handle.get());
-
-    // The load may have been cancelled, the client may have been
-    // destroyed already. In such cases calling didFinishLoading is a
-    // bad idea.
-    if (d->m_cancelled || !client)
-        return;
-
-    client->didFinishLoading(handle.get(), 0);
 }
 
 static void readCallback(GObject* source, GAsyncResult* asyncResult, gpointer data)
@@ -844,7 +761,7 @@ static void readCallback(GObject* source, GAsyncResult* asyncResult, gpointer da
 
     gssize bytesRead = g_input_stream_read_finish(d->m_inputStream.get(), asyncResult, &error.outPtr());
     if (error) {
-        SoupURI* uri = webkit_soup_request_get_uri(d->m_soupRequest.get());
+        SoupURI* uri = soup_request_get_uri(d->m_soupRequest.get());
         GOwnPtr<char> uriStr(soup_uri_to_string(uri, false));
         ResourceError resourceError(g_quark_to_string(G_IO_ERROR), error->code, uriStr.get(),
                                     error ? String::fromUTF8(error->message) : String());
@@ -854,6 +771,10 @@ static void readCallback(GObject* source, GAsyncResult* asyncResult, gpointer da
     }
 
     if (!bytesRead) {
+        // Finish the load. We do not wait for the stream to
+        // close. Instead we better notify WebCore as soon as possible
+        client->didFinishLoading(handle.get(), 0);
+
         g_input_stream_close_async(d->m_inputStream.get(), G_PRIORITY_DEFAULT,
                                    0, closeCallback, 0);
         return;
@@ -881,7 +802,7 @@ static void readCallback(GObject* source, GAsyncResult* asyncResult, gpointer da
                               d->m_cancellable.get(), readCallback, data);
 }
 
-static bool startGio(ResourceHandle* handle, KURL url)
+static bool startNonHTTPRequest(ResourceHandle* handle, KURL url)
 {
     ASSERT(handle);
 
@@ -889,18 +810,14 @@ static bool startGio(ResourceHandle* handle, KURL url)
         return false;
 
     SoupSession* session = handle->defaultSession();
+    ensureSessionIsInitialized(session);
+    SoupRequester* requester = SOUP_REQUESTER(soup_session_get_feature(session, SOUP_TYPE_REQUESTER));
     ResourceHandleInternal* d = handle->getInternal();
 
-    // GIO doesn't know how to handle refs and queries, so remove them
-    // TODO: use KURL.fileSystemPath after KURLGtk and FileSystemGtk are
-    // using GIO internally, and providing URIs instead of file paths
-    url.removeFragmentIdentifier();
-    url.setQuery(String());
-    url.removePort();
     CString urlStr = url.string().utf8();
 
     GOwnPtr<GError> error;
-    d->m_soupRequest = adoptGRef(webkit_soup_requester_request(d->m_requester.get(), urlStr.data(), session, &error.outPtr()));
+    d->m_soupRequest = adoptGRef(soup_requester_request(requester, urlStr.data(), &error.outPtr()));
     if (error) {
         d->m_soupRequest = 0;
         return false;
@@ -912,7 +829,7 @@ static bool startGio(ResourceHandle* handle, KURL url)
     handle->ref();
 
     d->m_cancellable = adoptGRef(g_cancellable_new());
-    webkit_soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
+    soup_request_send_async(d->m_soupRequest.get(), d->m_cancellable.get(), sendRequestCallback, 0);
 
     return true;
 }

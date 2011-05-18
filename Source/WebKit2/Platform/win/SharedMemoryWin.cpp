@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "SharedMemory.h"
 
 #include "ArgumentDecoder.h"
@@ -45,6 +46,11 @@ SharedMemory::Handle::~Handle()
     ::CloseHandle(m_handle);
 }
 
+bool SharedMemory::Handle::isNull() const
+{
+    return !m_handle;
+}
+
 void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
     encoder->encodeUInt64(m_size);
@@ -57,6 +63,25 @@ void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
 
     // Send along our PID so that the receiving process can duplicate the HANDLE for its own use.
     encoder->encodeUInt32(::GetCurrentProcessId());
+}
+
+static bool getDuplicatedHandle(HANDLE sourceHandle, DWORD sourcePID, HANDLE& duplicatedHandle)
+{
+    duplicatedHandle = 0;
+    if (!sourceHandle)
+        return true;
+
+    HANDLE sourceProcess = ::OpenProcess(PROCESS_DUP_HANDLE, FALSE, sourcePID);
+    if (!sourceProcess)
+        return false;
+
+    // Copy the handle into our process and close the handle that the sending process created for us.
+    BOOL success = ::DuplicateHandle(sourceProcess, sourceHandle, ::GetCurrentProcess(), &duplicatedHandle, 0, FALSE, DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE);
+    ASSERT_WITH_MESSAGE(success, "::DuplicateHandle failed with error %lu", ::GetLastError());
+
+    ::CloseHandle(sourceProcess);
+
+    return success;
 }
 
 bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder* decoder, Handle& handle)
@@ -76,17 +101,8 @@ bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder* decoder, Handle& han
     if (!decoder->decodeUInt32(sourcePID))
         return false;
 
-    HANDLE sourceProcess = ::OpenProcess(PROCESS_DUP_HANDLE, FALSE, sourcePID);
-    if (!sourceProcess)
-        return false;
-
-    // Copy the handle into our process and close the handle that the sending process created for us.
     HANDLE duplicatedHandle;
-    BOOL success = ::DuplicateHandle(sourceProcess, reinterpret_cast<HANDLE>(sourceHandle), ::GetCurrentProcess(), &duplicatedHandle, 0, FALSE, DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE);
-
-    ::CloseHandle(sourceProcess);
-
-    if (!success)
+    if (!getDuplicatedHandle(reinterpret_cast<HANDLE>(sourceHandle), sourcePID, duplicatedHandle))
         return false;
 
     handle.m_handle = duplicatedHandle;
@@ -130,9 +146,13 @@ static DWORD accessRights(SharedMemory::Protection protection)
 
 PassRefPtr<SharedMemory> SharedMemory::create(const Handle& handle, Protection protection)
 {
+    if (handle.isNull())
+        return 0;
+
     DWORD desiredAccess = accessRights(protection);
 
     void* baseAddress = ::MapViewOfFile(handle.m_handle, desiredAccess, 0, 0, handle.m_size);
+    ASSERT_WITH_MESSAGE(baseAddress, "::MapViewOfFile failed with error %lu", ::GetLastError());
     if (!baseAddress)
         return 0;
 

@@ -45,7 +45,9 @@
       },
     },{
       # WebKit is checked out in src/chromium/third_party/WebKit
-      'variables': {'chromium_src_dir': '../../../../..'},
+      'variables': {
+        'chromium_src_dir': '../../../../..',
+      },
     }],
     ['OS == "mac"', {
       'targets': [
@@ -104,6 +106,13 @@
         'cflags!': ['-g'],
       },
     }],
+    ['OS=="linux" and target_arch=="arm"', {
+      # Due to a bug in gcc arm, we get warnings about uninitialized timesNewRoman.unstatic.3258
+      # and colorTransparent.unstatic.4879.
+      'target_defaults': {
+        'cflags': ['-Wno-uninitialized'],
+      },
+    }],
   ],  # conditions
 
   'variables': {
@@ -114,6 +123,10 @@
     # If set to 0, doesn't build SVG support, reducing the size of the
     # binary and increasing the speed of gdb.
     'enable_svg%': 1,
+
+    # Use v8 as default JavaScript engine. This makes sure that javascript_engine variable
+    # is set for both inside_chromium_build 0 and 1 cases.
+    'javascript_engine%': 'v8',
 
     'webcore_include_dirs': [
       '../',
@@ -248,7 +261,6 @@
           # FIXME: Eliminate dependency on platform/graphics/mac and
           # related directories.
           # platform/graphics/cg may need to stick around, though.
-          '../loader/archive/cf',
           '../platform/audio/mac',
           '../platform/graphics/mac',
           '../platform/mac',
@@ -748,7 +760,7 @@
         'webcore_bindings_sources',
         'inspector_protocol_sources',
         'injected_script_source',
-        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:pcre',
+        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:yarr',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
@@ -852,10 +864,15 @@
           },
         }],
         # FIXME: (kbr) ideally this target should just depend on webcore_prerequisites
-        # to pick up this include directory, but I'm nervous about making that change.
+        # to pick up these include directories, but I'm nervous about making that change.
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
           'include_dirs': [
             '<(chromium_src_dir)/third_party/mkl/include',
+          ],
+        }],
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
+          'include_dirs': [
+            '<(chromium_src_dir)/third_party/fftw/api',
           ],
         }],
       ],
@@ -867,7 +884,7 @@
       'type': 'none',
       'dependencies': [
         'webcore_bindings',
-        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:pcre',
+        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:yarr',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
@@ -884,7 +901,7 @@
       ],
       'export_dependent_settings': [
         'webcore_bindings',
-        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:pcre',
+        '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:yarr',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
         '<(chromium_src_dir)/skia/skia.gyp:skia',
@@ -936,9 +953,11 @@
           ],
           'conditions': [
             ['inside_chromium_build==1 and OS=="win" and component=="shared_library"', {
-              'defines': [
-                'USING_V8_SHARED',
-              ],
+              'direct_dependent_settings': {
+                'defines': [
+                  'USING_V8_SHARED',
+                ],
+              },
             }],
           ],
         }],
@@ -959,20 +978,24 @@
             '<(chromium_src_dir)/build/linux/system.gyp:fontconfig',
             '<(chromium_src_dir)/build/linux/system.gyp:gtk',
           ],
-          'cflags': [
-            # WebCore does not work with strict aliasing enabled.
-            # https://bugs.webkit.org/show_bug.cgi?id=25864
-            '-fno-strict-aliasing',
-          ],
+          'direct_dependent_settings': {
+            'cflags': [
+              # WebCore does not work with strict aliasing enabled.
+              # https://bugs.webkit.org/show_bug.cgi?id=25864
+              '-fno-strict-aliasing',
+            ],
+          },
         }],
         ['OS=="linux"', {
-          'defines': [
-            # Mozilla on Linux effectively uses uname -sm, but when running
-            # 32-bit x86 code on an x86_64 processor, it uses
-            # "Linux i686 (x86_64)".  Matching that would require making a
-            # run-time determination.
-            'WEBCORE_NAVIGATOR_PLATFORM="Linux i686"',
-          ],
+          'direct_dependent_settings': {
+            'defines': [
+              # Mozilla on Linux effectively uses uname -sm, but when running
+              # 32-bit x86 code on an x86_64 processor, it uses
+              # "Linux i686 (x86_64)".  Matching that would require making a
+              # run-time determination.
+              'WEBCORE_NAVIGATOR_PLATFORM="Linux i686"',
+            ],
+          },
         }],
         ['OS=="mac"', {
           'dependencies': [
@@ -981,34 +1004,56 @@
           'export_dependent_settings': [
             'webkit_system_interface',
           ],
-          'defines': [
-            # Match Safari and Mozilla on Mac x86.
-            'WEBCORE_NAVIGATOR_PLATFORM="MacIntel"',
+          'direct_dependent_settings': {
+            'defines': [
+              # Match Safari and Mozilla on Mac x86.
+              'WEBCORE_NAVIGATOR_PLATFORM="MacIntel"',
 
-            # Chromium's version of WebCore includes the following Objective-C
-            # classes. The system-provided WebCore framework may also provide
-            # these classes. Because of the nature of Objective-C binding
-            # (dynamically at runtime), it's possible for the Chromium-provided
-            # versions to interfere with the system-provided versions.  This may
-            # happen when a system framework attempts to use WebCore.framework,
-            # such as when converting an HTML-flavored string to an
-            # NSAttributedString.  The solution is to force Objective-C class
-            # names that would conflict to use alternate names.
-
-            # FIXME: This list will hopefully shrink but may also grow.
-            # Periodically run:
-            # nm libwebcore.a | grep -E '[atsATS] ([+-]\[|\.objc_class_name)'
-            # and make sure that everything listed there has the alternate
-            # ChromiumWebCoreObjC name, and that nothing extraneous is listed
-            # here. If all Objective-C can be eliminated from Chromium's WebCore
-            # library, these defines should be removed entirely.
-            'ScrollbarPrefsObserver=ChromiumWebCoreObjCScrollbarPrefsObserver',
-            'WebCoreRenderThemeNotificationObserver=ChromiumWebCoreObjCWebCoreRenderThemeNotificationObserver',
-            'WebFontCache=ChromiumWebCoreObjCWebFontCache',
-          ],
-          'include_dirs': [
-            '../../../WebKitLibraries',
-          ],
+              # Chromium's version of WebCore includes the following Objective-C
+              # classes. The system-provided WebCore framework may also provide
+              # these classes. Because of the nature of Objective-C binding
+              # (dynamically at runtime), it's possible for the
+              # Chromium-provided versions to interfere with the system-provided
+              # versions.  This may happen when a system framework attempts to
+              # use WebCore.framework, such as when converting an HTML-flavored
+              # string to an NSAttributedString.  The solution is to force
+              # Objective-C class names that would conflict to use alternate
+              # names.
+              #
+              # This list will hopefully shrink but may also grow.  Its
+              # performance is monitored by the "Check Objective-C Rename"
+              # postbuild step, and any suspicious-looking symbols not handled
+              # here or whitelisted in that step will cause a build failure.
+              #
+              # If this is unhandled, the console will receive log messages
+              # such as:
+              # com.google.Chrome[] objc[]: Class ScrollbarPrefsObserver is implemented in both .../Google Chrome.app/Contents/Versions/.../Google Chrome Helper.app/Contents/MacOS/../../../Google Chrome Framework.framework/Google Chrome Framework and /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebCore.framework/Versions/A/WebCore. One of the two will be used. Which one is undefined.
+              'ScrollbarPrefsObserver=ChromiumWebCoreObjCScrollbarPrefsObserver',
+              'WebCoreRenderThemeNotificationObserver=ChromiumWebCoreObjCWebCoreRenderThemeNotificationObserver',
+              'WebFontCache=ChromiumWebCoreObjCWebFontCache',
+            ],
+            'include_dirs': [
+              '../../../WebKitLibraries',
+            ],
+            'postbuilds': [
+              {
+                # This step ensures that any Objective-C names that aren't
+                # redefined to be "safe" above will cause a build failure.
+                'postbuild_name': 'Check Objective-C Rename',
+                'variables': {
+                  'class_whitelist_regex':
+                      'ChromiumWebCoreObjC|TCMVisibleView|RTCMFlippedView',
+                  'category_whitelist_regex':
+                      'TCMInterposing',
+                },
+                'action': [
+                  'mac/check_objc_rename.sh',
+                  '<(class_whitelist_regex)',
+                  '<(category_whitelist_regex)',
+                ],
+              },
+            ],
+          },
         }],
         ['OS=="win"', {
           'dependencies': [
@@ -1017,20 +1062,30 @@
           'export_dependent_settings': [
             '<(chromium_src_dir)/build/win/system.gyp:cygwin'
           ],
-          'defines': [
-            # Match Safari and Mozilla on Windows.
-            'WEBCORE_NAVIGATOR_PLATFORM="Win32"',
-            '__PRETTY_FUNCTION__=__FUNCTION__',
-          ],
-          # This is needed because Event.h in this directory is blocked
-          # by a system header on windows.
-          'include_dirs++': ['../dom'],
+          'direct_dependent_settings': {
+            'defines': [
+              # Match Safari and Mozilla on Windows.
+              'WEBCORE_NAVIGATOR_PLATFORM="Win32"',
+              '__PRETTY_FUNCTION__=__FUNCTION__',
+            ],
+            # This is needed because Event.h in this directory is blocked
+            # by a system header on windows.
+            'include_dirs++': ['../dom'],
+          },
         }],
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
           # This directory needs to be on the include path for multiple sub-targets of webcore.
           'direct_dependent_settings': {
             'include_dirs': [
               '<(chromium_src_dir)/third_party/mkl/include',
+            ],
+          },
+        }],
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
+          # This directory needs to be on the include path for multiple sub-targets of webcore.
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '<(chromium_src_dir)/third_party/fftw/api',
             ],
           },
         }],
@@ -1096,7 +1151,7 @@
         # Exclude things that don't apply to the Chromium platform on the basis
         # of their enclosing directories and tags at the ends of their
         # filenames.
-        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wx)/'],
+        ['exclude', '(android|cairo|cf|cg|curl|fftw|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
 
         # A few things can't be excluded by patterns.  List them individually.
@@ -1135,10 +1190,6 @@
           'dependencies': [
             '<(chromium_src_dir)/third_party/harfbuzz/harfbuzz.gyp:harfbuzz',
           ],
-        }],
-        ['OS=="linux" and target_arch=="arm"', {
-          # Due to a bug in gcc arm, we get warnings about uninitialized timesNewRoman.unstatic.3258
-          'cflags': ['-Wno-uninitialized'],
         }],
         ['OS=="mac"', {
           # Necessary for Mac .mm stuff.
@@ -1187,7 +1238,6 @@
             # Some of these are used instead of Chromium platform files, see
             # the specific exclusions in the "sources!" list below.
             ['include', 'rendering/RenderThemeMac\\.mm$'],
-            ['include', 'loader/archive/cf/LegacyWebArchive\\.cpp$'],
             ['include', 'platform/graphics/mac/ColorMac\\.mm$'],
             ['include', 'platform/graphics/mac/FloatPointMac\\.mm$'],
             ['include', 'platform/graphics/mac/FloatRectMac\\.mm$'],
@@ -1270,6 +1320,11 @@
             ['include', 'platform/audio/mkl/FFTFrameMKL\\.cpp$'],
           ],
         }],
+        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
+          'sources/': [
+            ['include', 'platform/audio/fftw/FFTFrameFFTW\\.cpp$'],
+          ],
+        }],
       ],
     },
     {
@@ -1327,6 +1382,12 @@
 
         # Don't build IDBKeyPathBackendImpl.  We have our own implementation.
         ['exclude', 'storage/IDBKeyPathBackendImpl\\.cpp$'],
+
+        # Don't build files needed for WebArchive support, since we disable
+        # this feature.
+        ['exclude', 'loader/archive/cf/LegacyWebArchive\\.cpp$'],
+        ['exclude', 'loader/archive/cf/LegacyWebArchiveMac\\.mm$'],
+        ['exclude', 'loader/archive/ArchiveFactory\\.cpp$'],
 
         # Use loader/icon/IconDatabaseNone.cpp instead.
         ['exclude', 'loader/icon/IconDatabase\\.cpp$'],
@@ -1418,6 +1479,11 @@
             ['exclude', '/(Windows|Uniscribe)[^/]*\\.cpp$']
           ],
         }],
+        ['javascript_engine=="v8"', {
+          'dependencies': [
+            '<(chromium_src_dir)/v8/src/extensions/experimental/experimental.gyp:i18n_api',
+          ],
+        }],
       ],
     },
     {
@@ -1498,6 +1564,23 @@
                   'mkl_core.lib',
                 ],
               },
+            },
+          },
+        }],
+        ['OS=="linux" and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
+          # FIXME: (kbr) figure out how to make these dependencies
+          # work in a cross-platform way. Attempts to use
+          # "link_settings" and "libraries" in conjunction with the
+          # msvs-specific settings didn't work so far.
+          'all_dependent_settings': {
+            'ldflags': [
+              # FIXME: (kbr) build the FFTW into PRODUCT_DIR using GYP.
+              '-Lthird_party/fftw/.libs',
+            ],
+            'link_settings': {
+              'libraries': [
+                '-lfftw3f'
+              ],
             },
           },
         }],

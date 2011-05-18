@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,9 +53,9 @@ class EventTarget;
 class FloatPoint;
 class FloatQuad;
 class Frame;
+class HTMLFrameSetElement;
 class HitTestRequest;
 class HitTestResult;
-class HTMLFrameSetElement;
 class KeyboardEvent;
 class MouseEventWithHitTestResults;
 class Node;
@@ -65,13 +65,17 @@ class PlatformWheelEvent;
 class RenderLayer;
 class RenderObject;
 class RenderWidget;
-class Scrollbar;
 class SVGElementInstance;
+class Scrollbar;
 class TextEvent;
 class TouchEvent;
 class WheelEvent;
 class Widget;
-    
+
+#if ENABLE(GESTURE_EVENTS)
+class PlatformGestureEvent;
+#endif
+
 #if ENABLE(DRAG_SUPPORT)
 extern const int LinkDragHysteresis;
 extern const int ImageDragHysteresis;
@@ -104,6 +108,7 @@ public:
     RenderObject* autoscrollRenderer() const;
     void updateAutoscrollRenderer();
 
+    void dispatchFakeMouseMoveEventSoon();
     void dispatchFakeMouseMoveEventSoonInQuad(const FloatQuad&);
 
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false,
@@ -160,6 +165,10 @@ public:
     bool handleMouseReleaseEvent(const PlatformMouseEvent&);
     bool handleWheelEvent(PlatformWheelEvent&);
     void defaultWheelEventHandler(Node*, WheelEvent*);
+
+#if ENABLE(GESTURE_EVENTS)
+    bool handleGestureEvent(const PlatformGestureEvent&);
+#endif
 
 #if ENABLE(CONTEXT_MENUS)
     bool sendContextMenuEvent(const PlatformMouseEvent&);

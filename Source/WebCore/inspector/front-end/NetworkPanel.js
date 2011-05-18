@@ -103,7 +103,7 @@ WebInspector.NetworkPanel.prototype = {
 
     elementsToRestoreScrollPositionsFor: function()
     {
-        return [this.containerElement];
+        return [this.containerElement, this._dataGrid.scrollContainer];
     },
 
     resize: function()
@@ -118,8 +118,6 @@ WebInspector.NetworkPanel.prototype = {
         if (!this._viewingResourceMode)
             return;
         WebInspector.Panel.prototype.updateSidebarWidth.call(this, width);
-        if (this._summaryBarElement.parentElement === this.element)
-            this._summaryBarElement.style.width = width + "px";
     },
 
     updateMainViewWidth: function(width)
@@ -147,7 +145,6 @@ WebInspector.NetworkPanel.prototype = {
                 delete this._summaryBarRowNode;
             }
             this._summaryBarElement.addStyleClass("network-summary-bar-bottom");
-            this._summaryBarElement.style.setProperty("width", this.sidebarElement.offsetWidth + "px");
             this.element.appendChild(this._summaryBarElement);
             this._dataGrid.element.style.bottom = "20px";
             return;
@@ -157,11 +154,11 @@ WebInspector.NetworkPanel.prototype = {
             // Glue status to table.
             this._summaryBarRowNode = new WebInspector.NetworkTotalGridNode(this._summaryBarElement);
             this._summaryBarElement.removeStyleClass("network-summary-bar-bottom");
-            this._summaryBarElement.style.removeProperty("width");
             this._dataGrid.appendChild(this._summaryBarRowNode);
             this._dataGrid.element.style.bottom = 0;
             this._sortItems();
         }
+        this._updateOffscreenRows();
     },
 
     _resetSummaryBar: function()
@@ -218,6 +215,7 @@ WebInspector.NetworkPanel.prototype = {
         this.containerElement.appendChild(this._dataGrid.element);
         this._dataGrid.addEventListener("sorting changed", this._sortItems, this);
         this._dataGrid.addEventListener("width changed", this._updateDividersIfNeeded, this);
+        this._dataGrid.scrollContainer.addEventListener("scroll", this._updateOffscreenRows.bind(this));
 
         this._patchTimelineHeader();
     },
@@ -316,6 +314,7 @@ WebInspector.NetworkPanel.prototype = {
 
         this._dataGrid.sortNodes(sortingFunction, this._dataGrid.sortOrder === "descending");
         this._timelineSortSelector.selectedIndex = 0;
+        this._updateOffscreenRows();
     },
 
     _sortByTimeline: function()
@@ -334,6 +333,7 @@ WebInspector.NetworkPanel.prototype = {
         else
             this._timelineGrid.showEventDividers();
         this._dataGrid.markColumnAsSortedBy("timeline", "ascending");
+        this._updateOffscreenRows();
     },
 
     _createFilterStatusBarItems: function()
@@ -492,6 +492,7 @@ WebInspector.NetworkPanel.prototype = {
             target.addStyleClass("selected");
             this._showCategory(target.category);
         }
+        this._updateOffscreenRows();
     },
 
     _scheduleRefresh: function()
@@ -933,7 +934,6 @@ WebInspector.NetworkPanel.prototype = {
             this._viewsContainerElement.addStyleClass("hidden");
             this.sidebarElement.style.right = 0;
             this.sidebarElement.style.removeProperty("width");
-            this._summaryBarElement.style.removeProperty("width");
             if (this._dataGrid.selectedNode)
                 this._dataGrid.selectedNode.selected = false;
         }
@@ -1023,13 +1023,55 @@ WebInspector.NetworkPanel.prototype = {
         var harArchive = {
             log: (new WebInspector.HARLog()).build()
         }
-        offerFileForDownload(JSON.stringify(harArchive));
+        InspectorFrontendHost.copyText(JSON.stringify(harArchive));
     },
 
     _exportResource: function(resource)
     {
         var har = (new WebInspector.HAREntry(resource)).build();
-        offerFileForDownload(JSON.stringify(har));
+        InspectorFrontendHost.copyText(JSON.stringify(har));
+    },
+
+    _updateOffscreenRows: function(e)
+    {
+        var dataTableBody = this._dataGrid.dataTableBody;
+        var rows = dataTableBody.children;
+        var recordsCount = rows.length;
+        if (recordsCount < 2)
+            return;  // Filler row only.
+
+        var visibleTop = this._dataGrid.scrollContainer.scrollTop;
+        var visibleBottom = visibleTop + this._dataGrid.scrollContainer.offsetHeight;
+
+        var rowHeight = 0;
+
+        // Filler is at recordsCount - 1.
+        var unfilteredRowIndex = 0;
+        for (var i = 0; i < recordsCount - 1; ++i) {
+            var row = rows[i];
+            // Don't touch summaty - quit instead.
+            if (this._summaryBarRowNode && row === this._summaryBarRowNode.element)
+                break;
+
+            var dataGridNode = this._dataGrid.dataGridNodeFromNode(row);
+            if (dataGridNode.isFilteredOut()) {
+                row.removeStyleClass("offscreen");
+                continue;
+            }
+
+            if (!rowHeight)
+                rowHeight = row.offsetHeight;
+
+            var rowIsVisible = unfilteredRowIndex * rowHeight < visibleBottom && (unfilteredRowIndex + 1) * rowHeight > visibleTop;
+            if (rowIsVisible !== row.rowIsVisible) {
+                if (rowIsVisible)
+                    row.removeStyleClass("offscreen");
+                else
+                    row.addStyleClass("offscreen");
+                row.rowIsVisible = rowIsVisible;
+            }
+            unfilteredRowIndex++;
+        }
     }
 }
 
@@ -1335,6 +1377,14 @@ WebInspector.NetworkDataGridNode.prototype = {
         this._timeCell = this._createDivInTD("time");
         this._createTimelineCell();
         this._nameCell.addEventListener("click", this.select.bind(this), false);
+        this._nameCell.addEventListener("dblclick", this._openInNewTab.bind(this), false);
+    },
+
+    isFilteredOut: function()
+    {
+        if (!this._panel._hiddenCategories.all)
+            return false;
+        return this._resource.category.name in this._panel._hiddenCategories;
     },
 
     select: function()
@@ -1343,15 +1393,16 @@ WebInspector.NetworkDataGridNode.prototype = {
         WebInspector.DataGridNode.prototype.select.apply(this, arguments);
     },
 
+    _openInNewTab: function()
+    {
+        InspectorBackend.openInInspectedWindow(this._resource.url);
+    },
+
     get selectable()
     {
         if (!this._panel._viewingResourceMode)
             return false;
-        if (!this._panel._hiddenCategories.all)
-            return true;
-        if (this._panel._hiddenCategories[this._resource.category.name])
-            return false;
-        return true;
+        return !this.isFilteredOut();
     },
 
     _createDivInTD: function(columnIdentifier)
@@ -1668,6 +1719,16 @@ WebInspector.NetworkTotalGridNode = function(element)
 }
 
 WebInspector.NetworkTotalGridNode.prototype = {
+    isFilteredOut: function()
+    {
+        return false;
+    },
+
+    get selectable()
+    {
+        return false;
+    },
+
     createCells: function()
     {
         var td = document.createElement("td");

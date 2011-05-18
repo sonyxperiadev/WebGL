@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebBackForwardList.h"
 
 #include "WebPageProxy.h"
@@ -30,7 +31,6 @@
 namespace WebKit {
 
 static const unsigned DefaultCapacity = 100;
-static const unsigned NoCurrentItemIndex = UINT_MAX;
 
 WebBackForwardList::WebBackForwardList(WebPageProxy* page)
     : m_page(page)
@@ -39,6 +39,7 @@ WebBackForwardList::WebBackForwardList(WebPageProxy* page)
     , m_closed(true)
     , m_enabled(true)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
 }
 
 WebBackForwardList::~WebBackForwardList()
@@ -58,15 +59,21 @@ void WebBackForwardList::pageClosed()
 
 void WebBackForwardList::addItem(WebBackForwardListItem* newItem)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     if (m_capacity == 0 || !m_enabled)
         return;
 
+    Vector<RefPtr<APIObject> > removedItems;
+    
     // Toss anything in the forward list    
     if (m_current != NoCurrentItemIndex) {
         unsigned targetSize = m_current + 1;
+        removedItems.reserveCapacity(m_entries.size() - targetSize);
         while (m_entries.size() > targetSize) {
             if (m_page)
                 m_page->backForwardRemovedItem(m_entries.last()->itemID());
+            removedItems.append(m_entries.last().release());
             m_entries.removeLast();
         }
     }
@@ -76,6 +83,7 @@ void WebBackForwardList::addItem(WebBackForwardListItem* newItem)
     if (m_entries.size() == m_capacity && (m_current != 0 || m_capacity == 1)) {
         if (m_page)
             m_page->backForwardRemovedItem(m_entries[0]->itemID());
+        removedItems.append(m_entries[0].release());
         m_entries.remove(0);
         m_current--;
     }
@@ -84,11 +92,15 @@ void WebBackForwardList::addItem(WebBackForwardListItem* newItem)
     m_current++;
 
     if (m_page)
-        m_page->didChangeBackForwardList();
+        m_page->didChangeBackForwardList(newItem, &removedItems);
+
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
 }
 
 void WebBackForwardList::goToItem(WebBackForwardListItem* item)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     if (!m_entries.size() || !item)
         return;
         
@@ -100,12 +112,14 @@ void WebBackForwardList::goToItem(WebBackForwardListItem* item)
     if (index < m_entries.size()) {
         m_current = index;
         if (m_page)
-            m_page->didChangeBackForwardList();
+            m_page->didChangeBackForwardList(0, 0);
     }
 }
 
 WebBackForwardListItem* WebBackForwardList::currentItem()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     if (m_current != NoCurrentItemIndex)
         return m_entries[m_current].get();
     return 0;
@@ -113,6 +127,8 @@ WebBackForwardListItem* WebBackForwardList::currentItem()
 
 WebBackForwardListItem* WebBackForwardList::backItem()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     if (m_current && m_current != NoCurrentItemIndex)
         return m_entries[m_current - 1].get();
     return 0;
@@ -120,6 +136,8 @@ WebBackForwardListItem* WebBackForwardList::backItem()
 
 WebBackForwardListItem* WebBackForwardList::forwardItem()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     if (m_entries.size() && m_current < m_entries.size() - 1)
         return m_entries[m_current + 1].get();
     return 0;
@@ -127,6 +145,8 @@ WebBackForwardListItem* WebBackForwardList::forwardItem()
 
 WebBackForwardListItem* WebBackForwardList::itemAtIndex(int index)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     // Do range checks without doing math on index to avoid overflow.
     if (index < -static_cast<int>(m_current))
         return 0;
@@ -139,16 +159,22 @@ WebBackForwardListItem* WebBackForwardList::itemAtIndex(int index)
 
 int WebBackForwardList::backListCount()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     return m_current == NoCurrentItemIndex ? 0 : m_current;
 }
 
 int WebBackForwardList::forwardListCount()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     return m_current == NoCurrentItemIndex ? 0 : static_cast<int>(m_entries.size()) - (m_current + 1);
 }
 
 PassRefPtr<ImmutableArray> WebBackForwardList::backListAsImmutableArrayWithLimit(unsigned limit)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     unsigned backListSize = static_cast<unsigned>(backListCount());
     unsigned size = std::min(backListSize, limit);
     if (!size)
@@ -166,6 +192,8 @@ PassRefPtr<ImmutableArray> WebBackForwardList::backListAsImmutableArrayWithLimit
 
 PassRefPtr<ImmutableArray> WebBackForwardList::forwardListAsImmutableArrayWithLimit(unsigned limit)
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     unsigned size = std::min(static_cast<unsigned>(forwardListCount()), limit);
     if (!size)
         return ImmutableArray::create();
@@ -183,6 +211,8 @@ PassRefPtr<ImmutableArray> WebBackForwardList::forwardListAsImmutableArrayWithLi
 
 void WebBackForwardList::clear()
 {
+    ASSERT(m_current == NoCurrentItemIndex || m_current < m_entries.size());
+
     size_t size = m_entries.size();
     if (size <= 1)
         return;
@@ -196,13 +226,20 @@ void WebBackForwardList::clear()
         }
     }
 
+    Vector<RefPtr<APIObject> > removedItems;
+    removedItems.reserveCapacity(m_entries.size() - 1);
+    for (size_t i = 0; i < m_entries.size(); ++i) {
+        if (i != m_current)
+            removedItems.append(m_entries[i].release());
+    }
+    
     m_entries.shrink(1);
     m_entries[0] = currentItem.release();
 
     m_current = 0;
 
     if (m_page)
-        m_page->didChangeBackForwardList();
+        m_page->didChangeBackForwardList(0, &removedItems);
 }
 
 } // namespace WebKit

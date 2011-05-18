@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "NetscapeBrowserFuncs.h"
 
 #include "NPRuntimeUtilities.h"
@@ -387,8 +388,12 @@ static NPError NPN_PostURLNotify(NPP npp, const char* url, const char* target, u
 }
 
 #if PLATFORM(MAC)
-/* TRUE if the browser supports hardware compositing of Core Animation plug-ins  */
+// true if the browser supports hardware compositing of Core Animation plug-ins.
 static const unsigned WKNVSupportsCompositingCoreAnimationPluginsBool = 74656;
+
+// The Core Animation render server port.
+static const unsigned WKNVCALayerRenderServerPort = 71879;
+
 #endif
 
 static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
@@ -432,6 +437,13 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             *(NPBool*)value = true;
             break;
 
+        case WKNVCALayerRenderServerPort: {
+            RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+            *(mach_port_t*)value = plugin->compositingRenderServerPort();
+            break;
+        }
+        
 #ifndef NP_NO_QUICKDRAW
         case NPNVsupportsQuickDrawBool:
             // We don't support the QuickDraw drawing model.

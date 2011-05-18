@@ -234,7 +234,7 @@ void CanvasRenderingContext2D::setAllAttributesToDefault()
     if (!context)
         return;
 
-    context->setShadow(FloatSize(), 0, Color::transparent, ColorSpaceDeviceRGB);
+    context->setLegacyShadow(FloatSize(), 0, Color::transparent, ColorSpaceDeviceRGB);
     context->setAlpha(1);
     context->setCompositeOperation(CompositeSourceOver);
 }
@@ -574,7 +574,7 @@ void CanvasRenderingContext2D::setStrokeColor(const String& color)
 {
     if (color == state().m_unparsedStrokeColor)
         return;
-    setStrokeStyle(CanvasStyle::createFromString(color));
+    setStrokeStyle(CanvasStyle::createFromString(color, canvas()->document()));
     state().m_unparsedStrokeColor = color;
 }
 
@@ -615,7 +615,7 @@ void CanvasRenderingContext2D::setFillColor(const String& color)
 {
     if (color == state().m_unparsedFillColor)
         return;
-    setFillStyle(CanvasStyle::createFromString(color));
+    setFillStyle(CanvasStyle::createFromString(color, canvas()->document()));
     state().m_unparsedFillColor = color;
 }
 
@@ -1000,7 +1000,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     if (!c)
         return;
 
-    c->setShadow(IntSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    c->setLegacyShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
 }
 
 void CanvasRenderingContext2D::setShadow(float width, float height, float blur, const String& color, float alpha)
@@ -1018,7 +1018,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     if (!c)
         return;
 
-    c->setShadow(IntSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    c->setLegacyShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
 }
 
 void CanvasRenderingContext2D::setShadow(float width, float height, float blur, float grayLevel, float alpha)
@@ -1031,7 +1031,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     if (!c)
         return;
 
-    c->setShadow(IntSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    c->setLegacyShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
 }
 
 void CanvasRenderingContext2D::setShadow(float width, float height, float blur, float r, float g, float b, float a)
@@ -1044,7 +1044,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     if (!c)
         return;
 
-    c->setShadow(IntSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    c->setLegacyShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
 }
 
 void CanvasRenderingContext2D::setShadow(float width, float height, float blur, float c, float m, float y, float k, float a)
@@ -1064,7 +1064,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     CGContextSetShadowWithColor(dc->platformContext(), adjustedShadowSize(width, -height), blur, shadowColor);
     CGColorRelease(shadowColor);
 #else
-    dc->setShadow(IntSize(width, -height), blur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    dc->setLegacyShadow(FloatSize(width, -height), blur, state().m_shadowColor, ColorSpaceDeviceRGB);
 #endif
 }
 
@@ -1084,7 +1084,7 @@ void CanvasRenderingContext2D::applyShadow()
 
     float width = state().m_shadowOffset.width();
     float height = state().m_shadowOffset.height();
-    c->setShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
+    c->setLegacyShadow(FloatSize(width, -height), state().m_shadowBlur, state().m_shadowColor, ColorSpaceDeviceRGB);
 }
 
 static IntSize size(HTMLImageElement* image)
@@ -1105,8 +1105,8 @@ static IntSize size(HTMLVideoElement* video)
 
 static inline FloatRect normalizeRect(const FloatRect& rect)
 {
-    return FloatRect(min(rect.x(), rect.right()),
-        min(rect.y(), rect.bottom()),
+    return FloatRect(min(rect.x(), rect.maxX()),
+        min(rect.y(), rect.maxY()),
         max(rect.width(), -rect.width()),
         max(rect.height(), -rect.height()));
 }
@@ -1760,7 +1760,8 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         return;
 
     const Font& font = accessFont();
-    
+    const FontMetrics& fontMetrics = font.fontMetrics();
+
     // FIXME: Handle maxWidth.
     // FIXME: Need to turn off font smoothing.
 
@@ -1770,21 +1771,21 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 
     unsigned length = text.length();
     const UChar* string = text.characters();
-    TextRun textRun(string, length, 0, 0, 0, rtl, override, false, false);
+    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, rtl, override, false, false);
 
     // Draw the item text at the correct point.
     FloatPoint location(x, y);
     switch (state().m_textBaseline) {
     case TopTextBaseline:
     case HangingTextBaseline:
-        location.setY(y + font.ascent());
+        location.setY(y + fontMetrics.ascent());
         break;
     case BottomTextBaseline:
     case IdeographicTextBaseline:
-        location.setY(y - font.descent());
+        location.setY(y - fontMetrics.descent());
         break;
     case MiddleTextBaseline:
-        location.setY(y - font.descent() + font.height() / 2);
+        location.setY(y - fontMetrics.descent() + fontMetrics.height() / 2);
         break;
     case AlphabeticTextBaseline:
     default:
@@ -1792,7 +1793,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         break;
     }
 
-    float width = font.width(TextRun(text, false, 0, 0, rtl, override));
+    float width = font.width(TextRun(text, false, 0, 0, TextRun::AllowTrailingExpansion, rtl, override));
 
     TextAlign align = state().m_textAlign;
     if (align == StartTextAlign)
@@ -1812,8 +1813,8 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     }
 
     // The slop built in to this mask rect matches the heuristic used in FontCGWin.cpp for GDI text.
-    FloatRect textRect = FloatRect(location.x() - font.height() / 2, location.y() - font.ascent() - font.lineGap(),
-                                   width + font.height(), font.lineSpacing());
+    FloatRect textRect = FloatRect(location.x() - fontMetrics.height() / 2, location.y() - fontMetrics.ascent() - fontMetrics.lineGap(),
+                                   width + fontMetrics.height(), fontMetrics.lineSpacing());
     if (!fill)
         textRect.inflate(c->strokeThickness() / 2);
 

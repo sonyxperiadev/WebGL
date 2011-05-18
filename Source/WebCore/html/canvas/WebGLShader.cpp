@@ -25,14 +25,14 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLShader.h"
 
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLShader> WebGLShader::create(WebGLRenderingContext* ctx, GC3Denum type)
 {
     return adoptRef(new WebGLShader(ctx, type));
@@ -41,6 +41,7 @@ PassRefPtr<WebGLShader> WebGLShader::create(WebGLRenderingContext* ctx, GC3Denum
 WebGLShader::WebGLShader(WebGLRenderingContext* ctx, GC3Denum type)
     : WebGLObject(ctx)
     , m_type(type)
+    , m_source("")
 {
     setObject(context()->graphicsContext3D()->createShader(type));
 }
@@ -52,4 +53,4 @@ void WebGLShader::deleteObjectImpl(Platform3DObject object)
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

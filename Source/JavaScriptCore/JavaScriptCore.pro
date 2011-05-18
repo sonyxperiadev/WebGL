@@ -1,6 +1,6 @@
 # JavaScriptCore - qmake build info
 CONFIG += building-libs
-include($$PWD/../../WebKit.pri)
+include($$PWD/../WebKit.pri)
 include(JavaScriptCore.pri)
 
 TEMPLATE = lib
@@ -65,7 +65,7 @@ wince* {
     SOURCES += $$QT_SOURCE_TREE/src/3rdparty/ce-compat/ce_time.c
 }
 
-include(pcre/pcre.pri)
+include(yarr/yarr.pri)
 include(wtf/wtf.pri)
 
 INSTALLDEPS += all
@@ -115,6 +115,7 @@ SOURCES += \
     parser/Nodes.cpp \
     parser/ParserArena.cpp \
     parser/Parser.cpp \
+    parser/SourceProviderCache.cpp \
     profiler/Profile.cpp \
     profiler/ProfileGenerator.cpp \
     profiler/ProfileNode.cpp \
@@ -127,6 +128,7 @@ SOURCES += \
     runtime/BooleanObject.cpp \
     runtime/BooleanPrototype.cpp \
     runtime/CallData.cpp \
+    runtime/MarkedBlock.cpp \
     runtime/MarkedSpace.cpp \
     runtime/Heap.cpp \
     runtime/CommonIdentifiers.cpp \
@@ -179,6 +181,7 @@ SOURCES += \
     runtime/MarkStackPosix.cpp \
     runtime/MarkStackSymbian.cpp \
     runtime/MarkStackWin.cpp \
+    runtime/ConservativeSet.cpp \
     runtime/MarkStack.cpp \
     runtime/MathObject.cpp \
     runtime/NativeErrorConstructor.cpp \
@@ -210,10 +213,7 @@ SOURCES += \
     runtime/Structure.cpp \
     runtime/TimeoutChecker.cpp \
     runtime/UString.cpp \
-    yarr/YarrPattern.cpp \
-    yarr/YarrInterpreter.cpp \
     yarr/YarrJIT.cpp \
-    yarr/YarrSyntaxChecker.cpp
 
 # Generated files, simply list them for JavaScriptCore
 
@@ -226,5 +226,7 @@ symbian: {
     }
     QMAKE_CXXFLAGS.ARMCC += -OTime -O3
 }
+
 # Disable C++0x mode in JSC for those who enabled it in their Qt's mkspec
 *-g++*:QMAKE_CXXFLAGS -= -std=c++0x -std=gnu++0x
+
