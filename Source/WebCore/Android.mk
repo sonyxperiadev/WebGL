@@ -740,12 +740,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/Base64.cpp \
 	platform/text/BidiContext.cpp \
-<<<<<<< HEAD
-	platform/text/LineEnding.cpp \
-=======
 	platform/text/Hyphenation.cpp \
+	platform/text/LineEnding.cpp \
 	platform/text/LocalizedNumberNone.cpp \
->>>>>>> webkit.org at r78450
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
@@ -983,7 +980,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBRequest.cpp \
 	storage/IDBSQLiteDatabase.cpp \
 	storage/IDBSuccessEvent.cpp \
-	storage/IDBTimeoutEvent.cpp \
 	storage/IDBTransaction.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \

@@ -36,13 +36,10 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
-<<<<<<< HEAD
 	wtf/OSAllocatorPosix.cpp \
+	wtf/OSRandomSource.cpp \
 	wtf/PageAllocationAligned.cpp \
 	wtf/PageBlock.cpp \
-=======
-	wtf/OSRandomSource.cpp \
->>>>>>> webkit.org at r78450
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/StackBounds.cpp \
@@ -67,24 +64,19 @@ LOCAL_SRC_FILES := \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	\
-<<<<<<< HEAD
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
 	wtf/url/src/URLCharacterTypes.cpp \
 	wtf/url/src/URLEscape.cpp \
-	wtf/url/src/URLSegments.cpp
+	wtf/url/src/URLSegments.cpp \
+	\
+	yarr/YarrInterpreter.cpp \
+	yarr/YarrPattern.cpp
 
-CHARTABLES := $(intermediates)/chartables.c
-$(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)
-$(CHARTABLES): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/pcre/dftables $@
-$(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
-$(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
+REGEXP_JIT_TABLES := $(intermediates)/RegExpJitTables.h
+$(REGEXP_JIT_TABLES): PRIVATE_PATH := $(LOCAL_PATH)
+$(REGEXP_JIT_TABLES): PRIVATE_CUSTOM_TOOL = python $(PRIVATE_PATH)/create_regex_tables > $@
+$(REGEXP_JIT_TABLES): $(LOCAL_PATH)/create_regex_tables
 	$(transform-generated-source)
 
-$(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
-
-# We do not add $(CHARTABLES) to LOCAL_GENERATED_SOURCES because the chartables.c file
-# is explicitly #included in pcre_tables.cpp.
-=======
-	wtf/unicode/icu/CollatorICU.cpp
->>>>>>> webkit.org at r78450
+LOCAL_GENERATED_SOURCES += $(REGEXP_JIT_TABLES)

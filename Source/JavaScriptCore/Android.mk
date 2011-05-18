@@ -64,6 +64,7 @@ LOCAL_SRC_FILES := \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
 	parser/ParserArena.cpp \
+	parser/SourceProviderCache.cpp \
 	\
 	profiler/Profile.cpp \
 	profiler/ProfileGenerator.cpp \
@@ -172,11 +173,8 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
-<<<<<<< HEAD
 	wtf/OSAllocatorPosix.cpp \
-=======
 	wtf/OSRandomSource.cpp \
->>>>>>> webkit.org at r78450
 	wtf/PageAllocationAligned.cpp\
 	wtf/PageBlock.cpp\
 	wtf/RandomNumber.cpp \
@@ -238,21 +236,10 @@ $(LEXER_HEADER): $(LOCAL_PATH)/create_hash_table
 $(LEXER_HEADER): $(intermediates)/%.lut.h : $(LOCAL_PATH)/parser/Keywords.table
 	$(transform-generated-source)
 
-<<<<<<< HEAD
-CHARTABLES := $(intermediates)/chartables.c
-$(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)
-$(CHARTABLES): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/pcre/dftables $@
-$(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
-$(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
-	$(transform-generated-source)
-
 REGEXP_JIT_TABLES := $(intermediates)/RegExpJitTables.h
 $(REGEXP_JIT_TABLES): PRIVATE_PATH := $(LOCAL_PATH)
 $(REGEXP_JIT_TABLES): PRIVATE_CUSTOM_TOOL = python $(PRIVATE_PATH)/create_regex_tables > $@
 $(REGEXP_JIT_TABLES): $(LOCAL_PATH)/create_regex_tables
 	$(transform-generated-source)
 
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES) $(REGEXP_JIT_TABLES)
-=======
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER)
->>>>>>> webkit.org at r78450
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(REGEXP_JIT_TABLES)
