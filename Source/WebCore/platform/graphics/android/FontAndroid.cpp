@@ -918,7 +918,7 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
     bool haveMultipleLayers = isCanvasMultiLayered(canvas);
     TextRunWalker walker(run, point.x(), this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
-    walker.setPadding(run.padding());
+    walker.setPadding(run.expansion());
 
     while (walker.nextScriptRun()) {
         if (fill) {
