@@ -30,12 +30,8 @@
 #include "DocumentLoader.h"
 
 #include "ApplicationCacheHost.h"
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "ArchiveFactory.h"
 #include "ArchiveResourceCollection.h"
-#else
-#include "SubstituteResource.h"
-#endif
 #include "CachedPage.h"
 #include "CachedResourceLoader.h"
 #include "DOMWindow.h"

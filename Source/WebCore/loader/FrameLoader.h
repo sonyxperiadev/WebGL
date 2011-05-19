@@ -46,9 +46,7 @@
 
 namespace WebCore {
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 class Archive;
-#endif
 class AuthenticationChallenge;
 class CachedFrameBase;
 class CachedPage;
