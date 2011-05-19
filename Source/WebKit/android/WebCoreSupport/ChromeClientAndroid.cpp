@@ -537,6 +537,11 @@ bool ChromeClientAndroid::selectItemWritingDirectionIsNatural()
     return false;
 }
 
+bool ChromeClientAndroid::selectItemAlignmentFollowsMenuWritingDirection()
+{
+    return false;
+}
+
 PassRefPtr<PopupMenu> ChromeClientAndroid::createPopupMenu(PopupMenuClient* client) const
 {
     return adoptRef(new PopupMenuAndroid(static_cast<ListPopupMenuClient*>(client)));
