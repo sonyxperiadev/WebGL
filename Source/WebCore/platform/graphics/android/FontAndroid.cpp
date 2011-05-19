@@ -161,6 +161,11 @@ bool Font::canReturnFallbackFontsForComplexText()
     return false;
 }
 
+bool Font::canExpandAroundIdeographsInComplexText()
+{
+    return false;
+}
+
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                       const GlyphBuffer& glyphBuffer,  int from, int numGlyphs,
                       const FloatPoint& point) const
