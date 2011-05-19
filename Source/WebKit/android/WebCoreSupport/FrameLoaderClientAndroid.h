@@ -135,7 +135,7 @@ namespace android {
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
 
         virtual void didDisplayInsecureContent();
-        virtual void didRunInsecureContent(SecurityOrigin*);
+        virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
 
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;

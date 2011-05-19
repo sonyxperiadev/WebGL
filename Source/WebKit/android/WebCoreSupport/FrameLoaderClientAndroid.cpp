@@ -706,7 +706,7 @@ void FrameLoaderClientAndroid::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
+void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*, const KURL&)
 {
     notImplemented();
 }
