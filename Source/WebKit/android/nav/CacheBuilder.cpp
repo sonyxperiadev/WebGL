@@ -2560,7 +2560,7 @@ IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area)
                     if (n == area) {
                         if (area->isDefault())
                             return image->absoluteBoundingBoxRect();
-                        return area->getRect(image);
+                        return area->computeRect(image);
                     }
                 }
             }
