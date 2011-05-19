@@ -115,7 +115,6 @@ struct ShadowRec {
 class GraphicsContextPlatformPrivate {
 public:
     struct State {
-        SkPath* path;
         SkPathEffect* pathEffect;
         float miterLimit;
         float alpha;
@@ -133,8 +132,7 @@ public:
         WTF::Vector<SkPath> antiAliasClipPaths;
 
         State()
-            : path(0) // Lazily allocated
-            , pathEffect(0)
+            : pathEffect(0)
             , miterLimit(4)
             , alpha(1)
             , strokeThickness(0) // Same as default in GraphicsContextPrivate.h
@@ -162,13 +160,11 @@ public:
             , strokeColor(other.strokeColor)
             , useAA(other.useAA)
         {
-            path = deepCopyPtr<SkPath>(other.path);
             SkSafeRef(pathEffect);
         }
 
         ~State()
         {
-            delete path;
             SkSafeUnref(pathEffect);
         }
 
@@ -271,26 +267,6 @@ public:
     void setStrokeThickness(float f)
     {
         m_state->strokeThickness = f;
-    }
-
-    void beginPath()
-    {
-        if (m_state->path)
-            m_state->path->reset();
-    }
-
-    void addPath(const SkPath& other)
-    {
-        if (!m_state->path)
-            m_state->path = new SkPath(other);
-        else
-            m_state->path->addPath(other);
-    }
-
-    // May return null
-    SkPath* getPath() const
-    {
-        return m_state->path;
     }
 
     void setupPaintCommon(SkPaint* paint) const
@@ -536,11 +512,6 @@ bool GraphicsContext::willFill() const
 bool GraphicsContext::willStroke() const
 {
     return m_data->getState()->strokeColor;
-}
-
-const SkPath* GraphicsContext::getCurrPath() const
-{
-    return m_data->getState()->path;
 }
 
 // Draws a filled rectangle with a stroked border.
@@ -909,12 +880,7 @@ void GraphicsContext::clipPath(const Path& pathToClip, WindRule clipRule)
     if (paintingDisabled())
         return;
 
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToClip);
-
-    const SkPath* oldPath = m_data->getPath();
-    SkPath path(*oldPath);
+    SkPath path = *pathToClip.platformPath();
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
     GC2CANVAS(this)->clipPath(path);
 }
@@ -1231,23 +1197,9 @@ AffineTransform GraphicsContext::getCTM() const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GraphicsContext::beginPath()
-{
-    m_data->beginPath();
-}
-
-void GraphicsContext::addPath(const Path& p)
-{
-    m_data->addPath(*p.platformPath());
-}
-
 void GraphicsContext::fillPath(const Path& pathToFill)
 {
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToFill);
-
-    SkPath* path = m_data->getPath();
+    SkPath* path = pathToFill.platformPath();
     if (paintingDisabled() || !path)
         return;
 
@@ -1272,11 +1224,7 @@ void GraphicsContext::fillPath(const Path& pathToFill)
 
 void GraphicsContext::strokePath(const Path& pathToStroke)
 {
-    // FIXME: Be smarter about this.
-    beginPath();
-    addPath(pathToStroke);
-
-    const SkPath* path = m_data->getPath();
+    const SkPath* path = pathToStroke.platformPath();
     if (paintingDisabled() || !path)
         return;
 
