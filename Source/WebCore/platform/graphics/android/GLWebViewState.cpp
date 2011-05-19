@@ -307,7 +307,7 @@ void GLWebViewState::paintExtras()
 {
     if (m_displayRings) {
         // TODO: handles correctly the multi-rings case
-        for (int i=0; i<m_rings.size(); i++) {
+        for (size_t i = 0; i < m_rings.size(); i++) {
             IntRect rect = m_rings.at(i);
             drawFocusRing(rect);
         }
