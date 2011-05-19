@@ -1035,13 +1035,12 @@ void WebViewCore::didFirstLayout()
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-    WebCore::FrameLoader* loader = m_mainFrame->loader();
-    const WebCore::KURL& url = loader->url();
+    const WebCore::KURL& url = m_mainFrame->document()->url();
     if (url.isEmpty())
         return;
     LOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
 
-    WebCore::FrameLoadType loadType = loader->loadType();
+    WebCore::FrameLoadType loadType = m_mainFrame->loader()->loadType();
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout,
