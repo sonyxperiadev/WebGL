@@ -87,13 +87,13 @@ typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
 #elif PLATFORM(SKIA) && PLATFORM(ANDROID)
 #ifdef ANDROID_ANIMATED_GIF
-class ImageDecoder;
+class GIFImageDecoder;
 #endif
 struct NativeImageSourcePtr {
     SkString m_url;
     PrivateAndroidImageSourceRec* m_image;
 #ifdef ANDROID_ANIMATED_GIF
-    ImageDecoder* m_gifDecoder;
+    GIFImageDecoder* m_gifDecoder;
 #endif
 };
 typedef const Vector<char>* NativeBytePtr;

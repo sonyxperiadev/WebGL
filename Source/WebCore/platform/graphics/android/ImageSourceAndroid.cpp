@@ -423,9 +423,6 @@ bool ImageSource::frameHasAlphaAtIndex(size_t index)
 {
 #ifdef ANDROID_ANIMATED_GIF
     if (m_decoder.m_gifDecoder) {
-        if (!m_decoder.m_gifDecoder->supportsAlpha())
-            return false;
-
         ImageFrame* buffer =
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
         if (!buffer || buffer->status() == ImageFrame::FrameEmpty)
