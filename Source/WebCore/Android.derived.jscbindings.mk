@@ -665,9 +665,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/
 #end
 
 # Inspector
-# These headers are required even when Inspector is disabled
+# These headers are required even when Inspector is disabled.
+# Note that Inspector.idl should not be processed using the JS generator.
 GEN := \
-    $(intermediates)/inspector/JSInspector.h \
     $(intermediates)/inspector/JSScriptProfile.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)

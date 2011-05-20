@@ -661,10 +661,10 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 #end
 
 # Inspector
-# These headers are required by the V8 bindings even when Inspector is disabled
+# These headers are required by the V8 bindings even when Inspector is disabled.
+# Note that Inspector.idl should not be processed using the V8 generator.
 GEN := \
     $(intermediates)/bindings/V8InjectedScriptHost.h \
-    $(intermediates)/bindings/V8Inspector.h \
     $(intermediates)/bindings/V8InspectorFrontendHost.h \
     $(intermediates)/bindings/V8ScriptProfile.h
 
