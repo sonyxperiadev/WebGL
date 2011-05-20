@@ -40,6 +40,8 @@ fast/regex/slow.html CRASH // Causes DumpRenderTree to hang with V8
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
 // TODO: Fix these failing tests and remove them from this list.
+fast/dom/HTMLLinkElement/link-and-subresource-test.html FAIL // Requires layoutTestController.dumpResourceResponseMIMETypes(), see http://b/issue?id=4470249
+fast/dom/HTMLLinkElement/prefetch.html FAIL // Requires layoutTestController.dumpResourceResponseMIMETypes(), see http://b/issue?id=4470249
 fast/encoding/char-decoding.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3047156
 fast/encoding/hanarei-blog32-fc2-com.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3046986
 fast/encoding/mailto-always-utf-8.html FAIL // Requires waitForPolicyDelegate(), see http://b/issue?id=3043468
@@ -92,6 +94,7 @@ dom/xhtml/level3/core/nodegetbaseuri17.xhtml FAIL
 dom/xhtml/level3/core/nodegetbaseuri18.xhtml FAIL
 dom/xhtml/level3/core/nodelookupnamespaceuri01.xhtml FAIL
 dom/xhtml/level3/core/nodelookupprefix19.xhtml FAIL
+fast/dom/HTMLLinkElement/pending-stylesheet-count.html FAIL
 
 // Expected failures for pixel tests
 fast/encoding/denormalised-voiced-japanese-chars.html FAIL
