@@ -248,4 +248,9 @@ void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookupTable)
     notImplemented();
 }
 
+size_t ImageBuffer::dataSize() const
+{
+    return m_size.width() * m_size.height() * 4;
+}
+
 }
