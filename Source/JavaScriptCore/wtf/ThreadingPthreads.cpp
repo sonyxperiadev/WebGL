@@ -165,7 +165,7 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
     }
 
     // The thread will take ownership of invocation.
-    invocation.leakPtr();
+    ThreadFunctionInvocation* unused = invocation.leakPtr();
 
     return establishIdentifierForPthreadHandle(threadHandle);
 }

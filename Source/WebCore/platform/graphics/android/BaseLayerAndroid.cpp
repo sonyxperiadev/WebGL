@@ -138,9 +138,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
     // If we have a different scale than the current one, we have to
     // decide what to do. The current behaviour is to delay an update,
     // so that we do not slow down zooming unnecessarily.
-    if (m_glWebViewState->currentScale() != scale
-        && (m_glWebViewState->scaleRequestState() == GLWebViewState::kNoScaleRequest
-            || m_glWebViewState->futureScale() != scale)
+    if ((m_glWebViewState->currentScale() != scale && (m_glWebViewState->scaleRequestState() == GLWebViewState::kNoScaleRequest || m_glWebViewState->futureScale() != scale))
         || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest) {
 
         // schedule the new request
@@ -152,9 +150,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
     }
 
     // If the viewport has changed since we scheduled the request, we also need to prepare.
-    if (((m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale)
-         || (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale))
-         && (m_glWebViewState->futureViewport() != viewportTileBounds))
+    if ((m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale || m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale)
+        && m_glWebViewState->futureViewport() != viewportTileBounds)
         prepareNextTiledPage = true;
 
     bool zooming = false;

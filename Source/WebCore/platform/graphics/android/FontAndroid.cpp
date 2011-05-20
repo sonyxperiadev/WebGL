@@ -49,6 +49,8 @@
 #include <unicode/uchar.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnArrayPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/unicode/Unicode.h>
 #endif
 
@@ -817,12 +819,12 @@ const TextRun& TextRunWalker::getNormalizedTextRun(const TextRun& originalRun,
         sourceText = normalizedString.getBuffer();
     }
 
-    normalizedBuffer.set(new UChar[normalizedBufferLength + 1]);
+    normalizedBuffer = adoptArrayPtr(new UChar[normalizedBufferLength + 1]);
 
     normalizeSpacesAndMirrorChars(sourceText, originalRun.rtl(), normalizedBuffer.get(),
                                   normalizedBufferLength);
 
-    normalizedRun.set(new TextRun(originalRun));
+    normalizedRun = adoptPtr(new TextRun(originalRun));
     normalizedRun->setText(normalizedBuffer.get(), normalizedBufferLength);
     return *normalizedRun;
 }
