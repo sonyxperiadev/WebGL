@@ -1315,6 +1315,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
 
     writeMatrix(file, indentLevel + 1, "drawMatrix", drawTransform());
     writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
+    writeRect(file, indentLevel + 1, "clippingRect", SkRect(m_clippingRect));
 
     if (m_isFixed) {
         writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
