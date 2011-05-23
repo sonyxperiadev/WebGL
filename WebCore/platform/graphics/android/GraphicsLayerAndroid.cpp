@@ -245,15 +245,14 @@ void GraphicsLayerAndroid::updateFixedPosition()
         marginRight = convertLength(view->style()->marginRight());
         marginBottom = convertLength(view->style()->marginBottom());
 
-        // The layer can be bigger than the element we want to draw;
-        // not only that, the layout rect of the element might also be
-        // different from the visible rect of that element (i.e. the element
-        // has a CSS shadow property -- the shadow is "outside" the element).
-        // We thus need to:
-        // 1/ get the size of the element (w,h), using the layoutOverflow rect
-        // 2/ pass the current offset of the painting relative to the layer
-        int w = view->rightLayoutOverflow() - view->leftLayoutOverflow();
-        int h = view->bottomLayoutOverflow() - view->topLayoutOverflow();
+        // In order to compute the fixed element's position, we need the width
+        // and height of the element when bottom or right is defined.
+        // And here we should use the non-overflowed value, that means, the
+        // overflowed content (e.g. outset shadow) will not be counted into the
+        // width and height.
+        int w = view->width();
+        int h = view->height();
+
         int paintingOffsetX = - offsetFromRenderer().width();
         int paintingOffsetY = - offsetFromRenderer().height();
 

@@ -547,21 +547,19 @@ void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* par
         float x = dx;
         float y = dy;
 
-        // It turns out that when it is 'auto', the webkit computation will
-        // take one more factor into account,  that is the original render
-        // layer's X,Y, such that it will align well with the parent's layer.
+        // It turns out that when it is 'auto', we should use the webkit value
+        // from the original render layer's X,Y, that will take care of alignment
+        // with the parent's layer and fix Margin etc.
         if (!(m_fixedLeft.defined() || m_fixedRight.defined()))
             x += m_renderLayerPos.x();
-
-        if (!(m_fixedTop.defined() || m_fixedBottom.defined()))
-            y += m_renderLayerPos.y();
-
-        if (m_fixedLeft.defined() || !m_fixedRight.defined())
+        else if (m_fixedLeft.defined() || !m_fixedRight.defined())
             x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - m_fixedRect.fLeft;
         else
             x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedRect.fRight;
 
-        if (m_fixedTop.defined() || !m_fixedBottom.defined())
+        if (!(m_fixedTop.defined() || m_fixedBottom.defined()))
+            y += m_renderLayerPos.y();
+        else if (m_fixedTop.defined() || !m_fixedBottom.defined())
             y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - m_fixedRect.fTop;
         else
             y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedRect.fBottom;
