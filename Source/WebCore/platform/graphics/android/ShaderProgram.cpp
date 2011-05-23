@@ -333,9 +333,6 @@ void ShaderProgram::clip(const FloatRect& clip)
     if (clip == m_clipRect)
         return;
 
-    if (clip.width() == 0 && clip.height() == 0)
-        return;
-
     // we should only call glScissor in this function, so that we can easily
     // track the current clipping rect.
 
