@@ -226,8 +226,11 @@ void GraphicsLayerAndroid::updateFixedPosition()
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
     RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
 
+    if (!view)
+        return;
+
     // We will need the Iframe flag in the LayerAndroid tree for fixed position
-    if (view && view->isRenderIFrame())
+    if (view->isRenderIFrame())
         m_contentLayer->setIsIframe(true);
     // If we are a fixed position layer, just set it
     if (view->isPositioned() && view->style()->position() == FixedPosition) {
