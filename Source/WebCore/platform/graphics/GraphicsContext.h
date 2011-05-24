@@ -74,8 +74,7 @@ class wxWindowDC;
 #else
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
-<<<<<<< HEAD
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 #if PLATFORM(ANDROID)
 namespace WebCore {
 class PlatformGraphicsContext;
@@ -83,9 +82,6 @@ class PlatformGraphicsContext;
 class SkPaint;
 struct SkPoint;
 #else
-=======
-#elif USE(SKIA)
->>>>>>> WebKit at r80534
 namespace WebCore {
 class PlatformContextSkia;
 }

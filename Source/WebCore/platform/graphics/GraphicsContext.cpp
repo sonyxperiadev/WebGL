@@ -656,11 +656,7 @@ CompositeOperator GraphicsContext::compositeOperation() const
     return m_state.compositeOperator;
 }
 
-<<<<<<< HEAD
-#if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
-=======
-#if !USE(SKIA)
->>>>>>> WebKit at r80534
+#if !(USE(SKIA) && !PLATFORM(ANDROID))
 void GraphicsContext::setPlatformFillGradient(Gradient*)
 {
 }
@@ -678,11 +674,7 @@ void GraphicsContext::setPlatformStrokePattern(Pattern*)
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(CG) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
-=======
-#if !PLATFORM(CG) && !USE(SKIA)
->>>>>>> WebKit at r80534
+#if !PLATFORM(CG) && !(USE(SKIA) && !PLATFORM(ANDROID))
 // Implement this if you want to go ahead and push the drawing mode into your native context
 // immediately.
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
@@ -690,11 +682,7 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
-=======
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !USE(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
->>>>>>> WebKit at r80534
+#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(USE(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle)
 {
 }

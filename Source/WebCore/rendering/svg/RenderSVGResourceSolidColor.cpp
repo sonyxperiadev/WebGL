@@ -26,11 +26,7 @@
 #include "RenderStyle.h"
 #include "SVGRenderSupport.h"
 
-<<<<<<< HEAD
-#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
-=======
-#if USE(SKIA)
->>>>>>> WebKit at r80534
+#if USE(SKIA) && !PLATFORM(ANDROID)
 #include "PlatformContextSkia.h"
 #endif
 

@@ -46,16 +46,12 @@ QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
-<<<<<<< HEAD
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 #if PLATFORM(ANDROID)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #else
-=======
-#elif USE(SKIA)
->>>>>>> WebKit at r80534
 namespace WebCore {
 class NativeImageSkia;
 }
@@ -89,7 +85,7 @@ typedef TiledImageOpenVG* NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(SKIA) && PLATFORM(ANDROID)
+#elif USE(SKIA) && PLATFORM(ANDROID)
 #ifdef ANDROID_ANIMATED_GIF
 class GIFImageDecoder;
 #endif
